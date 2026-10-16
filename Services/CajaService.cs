@@ -482,6 +482,47 @@ namespace TheBuryProject.Services
 
         #region Movimientos de Caja
 
+        /// <summary>
+        /// Ejecuta un alta de movimiento de caja bajo el lock compartido de la apertura (H-CAJA-1). Abre una
+        /// transacción si no hay una ambiental (y la confirma al terminar bien) o participa en la existente sin
+        /// confirmarla. Bajo el lock relee la apertura de la base y rechaza si no existe, está cerrada o vencida:
+        /// el cierre toma el mismo lock, así que un movimiento nunca se inserta en una apertura ya cerrada.
+        /// Con <paramref name="validarVigencia"/> en false sólo serializa contra el cierre (contramovimiento de
+        /// venta, H-CAJA-2: conserva su comportamiento actual sobre la apertura original).
+        /// </summary>
+        private async Task<T> BajoLockDeAperturaAsync<T>(int aperturaId, Func<Task<T>> operacion, bool validarVigencia = true)
+        {
+            var propia = _context.Database.CurrentTransaction == null;
+            await using var transaccion = propia ? await _context.Database.BeginTransactionAsync() : null;
+
+            await AperturaCajaConcurrencia.BloquearAsync(_context, aperturaId);
+
+            if (validarVigencia)
+            {
+                var apertura = await AperturaCajaConcurrencia.LeerAsync(_context, aperturaId)
+                    ?? throw new InvalidOperationException("Apertura de caja no encontrada");
+
+                if (apertura.Cerrada)
+                {
+                    throw new InvalidOperationException("No se pueden registrar movimientos en una caja cerrada");
+                }
+
+                if (EsAperturaVencida(apertura))
+                {
+                    throw new InvalidOperationException(MensajeCajaVencida);
+                }
+            }
+
+            var resultado = await operacion();
+
+            if (transaccion != null)
+            {
+                await transaccion.CommitAsync();
+            }
+
+            return resultado;
+        }
+
         public async Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario)
         {
             try
@@ -502,22 +543,26 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(MensajeCajaVencida);
                 }
 
-                var movimiento = new MovimientoCaja
+                var movimiento = await BajoLockDeAperturaAsync(model.AperturaCajaId, async () =>
                 {
-                    AperturaCajaId = model.AperturaCajaId,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = model.Tipo,
-                    Concepto = model.Concepto,
-                    Monto = model.Monto,
-                    Descripcion = model.Descripcion,
-                    Referencia = model.Referencia,
-                    Usuario = usuario,
-                    Observaciones = model.Observaciones,
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = model.AperturaCajaId,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = model.Tipo,
+                        Concepto = model.Concepto,
+                        Monto = model.Monto,
+                        Descripcion = model.Descripcion,
+                        Referencia = model.Referencia,
+                        Usuario = usuario,
+                        Observaciones = model.Observaciones,
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(movimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                });
 
                 _logger.LogInformation(
                     "Movimiento registrado: {Tipo} - ${Monto:N2} por {Usuario}",
@@ -783,30 +828,34 @@ namespace TheBuryProject.Services
                     _ => throw new NotSupportedException($"Tipo de pago no soportado para movimiento de caja: {tipoPago}")
                 };
 
-                var movimiento = new MovimientoCaja
+                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
-                    AperturaCajaId = apertura.Id,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = TipoMovimientoCaja.Ingreso,
-                    Concepto = concepto,
-                    EstadoAcreditacion = estadoAcreditacion,
-                    TipoPago = tipoPago,
-                    VentaId = ventaId,
-                    Monto = monto,
-                    Descripcion = $"Venta {ventaNumero}",
-                    Referencia = ventaNumero,
-                    ReferenciaId = ventaId,
-                    RecargoDebitoAplicado = recargoDebitoAplicado,
-                    MedioPagoDetalle = ResolverMedioPagoDetalle(tipoPago),
-                    Usuario = usuario,
-                    Observaciones = importeEnvioIncluido > 0m
-                        ? $"Pago: {tipoPago} · incluye envío {importeEnvioIncluido.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}"
-                        : $"Pago: {tipoPago}",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = apertura.Id,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = TipoMovimientoCaja.Ingreso,
+                        Concepto = concepto,
+                        EstadoAcreditacion = estadoAcreditacion,
+                        TipoPago = tipoPago,
+                        VentaId = ventaId,
+                        Monto = monto,
+                        Descripcion = $"Venta {ventaNumero}",
+                        Referencia = ventaNumero,
+                        ReferenciaId = ventaId,
+                        RecargoDebitoAplicado = recargoDebitoAplicado,
+                        MedioPagoDetalle = ResolverMedioPagoDetalle(tipoPago),
+                        Usuario = usuario,
+                        Observaciones = importeEnvioIncluido > 0m
+                            ? $"Pago: {tipoPago} · incluye envío {importeEnvioIncluido.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}"
+                            : $"Pago: {tipoPago}",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(movimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                });
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para venta {VentaNumero}: ${Monto:N2} ({TipoPago})",
@@ -863,28 +912,32 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
-                var movimiento = new MovimientoCaja
+                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
-                    AperturaCajaId = apertura.Id,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = TipoMovimientoCaja.Ingreso,
-                    Concepto = ConceptoMovimientoCaja.CobroCuota,
-                    Monto = montoBase + recargoMedioPago,
-                    ImporteBase = montoBase,
-                    RecargoMedioPago = recargoMedioPago > 0 ? recargoMedioPago : null,
-                    DescuentoMedioPago = recargoMedioPago < 0 ? -recargoMedioPago : null,
-                    TipoPago = tipoPago,
-                    MedioPagoDetalle = medioPago,
-                    Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
-                    Referencia = $"{creditoNumero}-C{numeroCuota}",
-                    ReferenciaId = cuotaId,
-                    Usuario = usuario,
-                    Observaciones = $"Medio de pago: {medioPago}",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = apertura.Id,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = TipoMovimientoCaja.Ingreso,
+                        Concepto = ConceptoMovimientoCaja.CobroCuota,
+                        Monto = montoBase + recargoMedioPago,
+                        ImporteBase = montoBase,
+                        RecargoMedioPago = recargoMedioPago > 0 ? recargoMedioPago : null,
+                        DescuentoMedioPago = recargoMedioPago < 0 ? -recargoMedioPago : null,
+                        TipoPago = tipoPago,
+                        MedioPagoDetalle = medioPago,
+                        Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
+                        Referencia = $"{creditoNumero}-C{numeroCuota}",
+                        ReferenciaId = cuotaId,
+                        Usuario = usuario,
+                        Observaciones = $"Medio de pago: {medioPago}",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(movimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                });
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para cuota #{NumeroCuota} de crédito {CreditoNumero}: ${Monto:N2} (base ${Base:N2}, ajuste medio ${Ajuste:N2})",
@@ -947,24 +1000,28 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                var movimiento = new MovimientoCaja
+                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
-                    AperturaCajaId = apertura.Id,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = TipoMovimientoCaja.Ingreso,
-                    Concepto = ConceptoMovimientoCaja.AnticipoCredito,
-                    Monto = montoAnticipo,
-                    Descripcion = $"Anticipo de crédito {creditoNumero}",
-                    Referencia = $"{creditoNumero}-ANT",
-                    ReferenciaId = creditoId, // se preserva: para anticipos el ReferenciaId histórico es el crédito
-                    VentaId = ventaId,
-                    Usuario = usuario,
-                    Observaciones = "Pago inicial que reduce el monto a financiar",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = apertura.Id,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = TipoMovimientoCaja.Ingreso,
+                        Concepto = ConceptoMovimientoCaja.AnticipoCredito,
+                        Monto = montoAnticipo,
+                        Descripcion = $"Anticipo de crédito {creditoNumero}",
+                        Referencia = $"{creditoNumero}-ANT",
+                        ReferenciaId = creditoId, // se preserva: para anticipos el ReferenciaId histórico es el crédito
+                        VentaId = ventaId,
+                        Usuario = usuario,
+                        Observaciones = "Pago inicial que reduce el monto a financiar",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(movimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                });
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para anticipo de crédito {CreditoNumero}: ${Monto:N2}",
@@ -1060,27 +1117,33 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
-                var contramovimiento = new MovimientoCaja
+                // H-CAJA-2 (fuera de alcance de H-CAJA-1): la reversión se sigue asentando en la apertura ORIGINAL aunque
+                // ya esté cerrada, como hasta ahora. Sólo se serializa contra el cierre, sin validar vigencia.
+                var contramovimiento = await BajoLockDeAperturaAsync(movimientoOriginal.AperturaCajaId, async () =>
                 {
-                    AperturaCajaId = movimientoOriginal.AperturaCajaId,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = TipoMovimientoCaja.Egreso,
-                    Concepto = ConceptoMovimientoCaja.ReversionVenta,
-                    EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Revertido,
-                    TipoPago = movimientoOriginal.TipoPago,
-                    VentaId = ventaId,
-                    Monto = movimientoOriginal.Monto,
-                    Descripcion = $"Reversión por cancelación de venta {ventaNumero}",
-                    Referencia = ventaNumero,
-                    ReferenciaId = ventaId,
-                    MedioPagoDetalle = movimientoOriginal.MedioPagoDetalle,
-                    Usuario = usuario,
-                    Observaciones = $"Contramovimiento del ingreso #{movimientoOriginal.Id}. Motivo: {motivo}",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = movimientoOriginal.AperturaCajaId,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = TipoMovimientoCaja.Egreso,
+                        Concepto = ConceptoMovimientoCaja.ReversionVenta,
+                        EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Revertido,
+                        TipoPago = movimientoOriginal.TipoPago,
+                        VentaId = ventaId,
+                        Monto = movimientoOriginal.Monto,
+                        Descripcion = $"Reversión por cancelación de venta {ventaNumero}",
+                        Referencia = ventaNumero,
+                        ReferenciaId = ventaId,
+                        MedioPagoDetalle = movimientoOriginal.MedioPagoDetalle,
+                        Usuario = usuario,
+                        Observaciones = $"Contramovimiento del ingreso #{movimientoOriginal.Id}. Motivo: {motivo}",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(contramovimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                }, validarVigencia: false);
 
                 _logger.LogInformation(
                     "Contramovimiento de caja creado para venta {VentaNumero}: Egreso ${Monto:N2}",
@@ -1117,25 +1180,29 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("No hay una caja abierta para registrar el reembolso.");
                 }
 
-                var movimiento = new MovimientoCaja
+                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
-                    AperturaCajaId = apertura.Id,
-                    FechaMovimiento = DateTime.UtcNow,
-                    Tipo = TipoMovimientoCaja.Egreso,
-                    Concepto = ConceptoMovimientoCaja.DevolucionCliente,
-                    // El reembolso sale como efectivo físico de la caja (no hay reversa por el medio original)
-                    TipoPago = TipoPago.Efectivo,
-                    Monto = monto,
-                    Descripcion = $"Reembolso devolución {devolucionNumero}",
-                    Referencia = devolucionNumero,
-                    ReferenciaId = devolucionId,
-                    Usuario = usuario,
-                    Observaciones = $"Venta origen: {ventaNumero} (ID {ventaId})",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    var nuevo = new MovimientoCaja
+                    {
+                        AperturaCajaId = apertura.Id,
+                        FechaMovimiento = DateTime.UtcNow,
+                        Tipo = TipoMovimientoCaja.Egreso,
+                        Concepto = ConceptoMovimientoCaja.DevolucionCliente,
+                        // El reembolso sale como efectivo físico de la caja (no hay reversa por el medio original)
+                        TipoPago = TipoPago.Efectivo,
+                        Monto = monto,
+                        Descripcion = $"Reembolso devolución {devolucionNumero}",
+                        Referencia = devolucionNumero,
+                        ReferenciaId = devolucionId,
+                        Usuario = usuario,
+                        Observaciones = $"Venta origen: {ventaNumero} (ID {ventaId})",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                _context.MovimientosCaja.Add(movimiento);
-                await _context.SaveChangesAsync();
+                    _context.MovimientosCaja.Add(nuevo);
+                    await _context.SaveChangesAsync();
+                    return nuevo;
+                });
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para devolución {DevolucionNumero}: ${Monto:N2}",
@@ -1158,11 +1225,23 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // H-CAJA-1: el cierre toma el MISMO lock de apertura que todo alta de movimiento y recién bajo él
+                // relee la apertura, lee los movimientos definitivos, calcula, crea el cierre y la marca cerrada,
+                // todo en una sola transacción. Un movimiento en vuelo se confirma antes (y entra en los totales) o
+                // espera, ve la apertura cerrada y se rechaza.
+                var propia = _context.Database.CurrentTransaction == null;
+                await using var transaccion = propia ? await _context.Database.BeginTransactionAsync() : null;
+
+                await AperturaCajaConcurrencia.BloquearAsync(_context, model.AperturaCajaId);
+
                 var apertura = await ObtenerAperturaPorIdAsync(model.AperturaCajaId);
                 if (apertura == null)
                 {
                     throw new InvalidOperationException("Apertura de caja no encontrada");
                 }
+
+                // Una entidad ya rastreada (transacción ambiental) puede estar obsoleta: se fuerza el estado de la base.
+                await _context.Entry(apertura).ReloadAsync();
 
                 if (apertura.Cerrada)
                 {
@@ -1213,6 +1292,11 @@ namespace TheBuryProject.Services
                 apertura.Caja.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
+
+                if (transaccion != null)
+                {
+                    await transaccion.CommitAsync();
+                }
 
                 _logger.LogInformation(
                     "Caja {Codigo} cerrada por {Usuario}. Diferencia: ${Diferencia:N2}",

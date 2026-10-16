@@ -329,22 +329,18 @@ public class FinAntSqlServerTests : IClassFixture<FinAntSqlHostFixture>
         Assert.Equal(9m, e.Stock);                          // descontado una sola vez
     }
 
-    // ------------------------------------------------------------------ dependencia H-CAJA-1
+    // ------------------------------------------------------------------ dependencia H-CAJA-1 (CORREGIDA en FIN-CAJA-P0)
 
-    // =========================== REGISTRO DEL DEFECTO (FIN-ANT-P0) ===========================
-    // ID: H-CAJA-1   Estado: ABIERTO   PR correctiva: PENDIENTE (fuera del alcance de FIN-ANT-P0)
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Lo que demuestra: ConfirmarVentaCreditoAsync es atómico y fail-closed respecto de la caja que NO existe, pero NO
-    // existe ningún lock compartido con CerrarCajaAsync. Si la caja se cierra entre la lectura de la apertura y el
-    // asiento del anticipo, el anticipo cae en una apertura ya CERRADA y queda fuera del snapshot de su cierre.
-    // Esta PR no declara resuelta esa carrera: pertenece a la PR de H-CAJA-1.
-    // Al corregir H-CAJA-1: invertir las aserciones (la confirmación debe fallar o asentar en la apertura vigente).
-    // =========================================================================================
-    [SqlServerConcFact(DisplayName = "FIN-ANT-P0 [ANT-05] DEFECTO CONOCIDO ABIERTO [H-CAJA-1]: anticipo asentado en una caja cerrada durante la confirmacion")]
-    [Trait("Categoria", "DefectoConocido")]
+    // H-CAJA-1: la confirmación asentaba el anticipo sin lock compartido con CerrarCajaAsync. Si la caja se cerraba entre
+    // la lectura de la apertura y el asiento, el anticipo caía en una apertura ya CERRADA y quedaba fuera del snapshot del
+    // cierre. Ahora el asiento y el cierre toman el mismo lock de apertura (FIN-CAJA-P0): ANT-05 exige el comportamiento
+    // correcto (el cierre espera, incluye el anticipo y el snapshot coincide con el libro). Las aserciones se INVIRTIERON;
+    // el escenario (compuerta en el INSERT del anticipo, cierre lanzado mientras la confirmación está en vuelo) no cambia.
+    [SqlServerConcFact(DisplayName = "FIN-ANT-P0 [ANT-05] REGRESION [H-CAJA-1]: cierre en vuelo con la confirmacion espera e incluye el anticipo")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-CAJA-1")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task ANT05_Hallazgo_HCaja1_ConfirmacionVsCierreDeCaja_AnticipoCaeEnCajaCerrada()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task ANT05_Regresion_HCaja1_ConfirmacionVsCierreDeCaja_CierreEsperaEIncluyeElAnticipo()
     {
         var v = await SembrarVentaConfirmableAsync();
         var plan = ConfirmacionAntesDelAnticipo();
@@ -353,30 +349,88 @@ public class FinAntSqlServerTests : IClassFixture<FinAntSqlHostFixture>
         Assert.True(await LlegoALaCompuertaAsync(plan, confirmar),
             "La confirmación no llegó a la compuerta: " + (confirmar.IsCompleted ? confirmar.Result : "?"));
 
-        // Con la confirmación detenida (ya leyó la apertura vigente), se cierra esa misma caja. No comparten ningún lock.
-        var cierre = await Task.Run(() => EjecutarAsync(null, async sp =>
+        // Confirmación detenida con el lock de la apertura tomado y el anticipo AÚN sin insertar: el cierre debe esperar.
+        var cierre = Task.Run(() => EjecutarAsync(null, async sp =>
         {
             var c = await sp.GetRequiredService<ICajaService>().CerrarCajaAsync(
-                new CerrarCajaViewModel { AperturaCajaId = v.AperturaId, EfectivoContado = 0m }, ConcCurrentUser.Usuario);
+                new CerrarCajaViewModel { AperturaCajaId = v.AperturaId, EfectivoContado = 0m, JustificacionDiferencia = "FIN-CAJA-P0" },
+                ConcCurrentUser.Usuario);
             return c.TotalIngresosSistema;
         }));
-        _out.WriteLine($"cierre de caja con la confirmación en vuelo: {cierre}");
-        Assert.StartsWith("OK(", cierre); // el cierre NO espera a la confirmación: no hay lock compartido
+        var bloqueado = await QuedaBloqueadaAsync(cierre);
+        _out.WriteLine($"cierre de caja bloqueado por el lock de la apertura con la confirmación en vuelo: {bloqueado}");
+        Assert.True(bloqueado, "El cierre NO debió avanzar mientras la confirmación retiene la apertura: " + (cierre.IsCompleted ? cierre.Result : "?"));
 
         plan.Release.TrySetResult();
         var resConfirmar = await confirmar;
-        _out.WriteLine($"confirmación: {resConfirmar}");
+        var resCierre = await cierre;
+        _out.WriteLine($"confirmación: {resConfirmar}\ncierre: {resCierre}");
 
-        // Defecto vigente: la confirmación se completa y su anticipo queda en la apertura ya cerrada.
         Assert.StartsWith("OK(True", resConfirmar);
+        Assert.StartsWith("OK(", resCierre);
+        Assert.DoesNotContain("DEADLOCK", resConfirmar + resCierre);
+
         using var scope = _fx.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var apertura = await ctx.AperturasCaja.AsNoTracking().FirstAsync(a => a.Id == v.AperturaId);
+        var apertura = await ctx.AperturasCaja.AsNoTracking().Include(a => a.Movimientos).FirstAsync(a => a.Id == v.AperturaId);
         var anticipo = await ctx.MovimientosCaja.AsNoTracking().SingleAsync(m =>
             m.Concepto == ConceptoMovimientoCaja.AnticipoCredito && m.VentaId == v.VentaId);
         var snapshotCierre = await ctx.CierresCaja.AsNoTracking().SingleAsync(c => c.AperturaCajaId == v.AperturaId);
         Assert.True(apertura.Cerrada);
         Assert.Equal(v.AperturaId, anticipo.AperturaCajaId);
-        Assert.Equal(0m, snapshotCierre.TotalIngresosSistema); // el cierre congelado no incluye el anticipo
+        Assert.Equal(Anticipo, anticipo.Monto);
+        // El cierre congelado coincide con el libro: lo que el cierre calculó es exactamente lo que quedó en la apertura.
+        var fisico = TheBuryProject.Services.CajaService.CalcularResumenFisico(apertura);
+        Assert.Equal(fisico.IngresosFisicos, snapshotCierre.TotalIngresosSistema);
+        Assert.Equal(fisico.EgresosFisicos, snapshotCierre.TotalEgresosSistema);
+        var e = await LeerEstadoAsync(v);
+        Assert.Equal(EstadoVenta.Confirmada, e.Venta);
+        Assert.Equal(EstadoCredito.Generado, e.Credito);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-ANT-P0 [ANT-05B] REGRESION [H-CAJA-1]: cierre completado antes del anticipo rechaza la confirmacion entera sin efectos")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task ANT05B_Regresion_HCaja1_CierreAntesDelAnticipo_RechazaLaConfirmacionYRevierteTodo()
+    {
+        var v = await SembrarVentaConfirmableAsync();
+        // Detenida justo antes de tomar el lock de la apertura: venta, stock, cuotas y crédito ya escritos y SIN commit.
+        var plan = Compuerta("confirmacion/antes-del-lock-de-apertura", "[AperturasCaja] WITH (UPDLOCK, HOLDLOCK, ROWLOCK)");
+        var confirmar = Confirmar(v.VentaId, plan);
+
+        Assert.True(await LlegoALaCompuertaAsync(plan, confirmar),
+            "La confirmación no llegó a la compuerta: " + (confirmar.IsCompleted ? confirmar.Result : "?"));
+
+        var cierre = await Task.Run(() => EjecutarAsync(null, async sp =>
+        {
+            var c = await sp.GetRequiredService<ICajaService>().CerrarCajaAsync(
+                new CerrarCajaViewModel { AperturaCajaId = v.AperturaId, EfectivoContado = 0m, JustificacionDiferencia = "FIN-CAJA-P0" },
+                ConcCurrentUser.Usuario);
+            return c.TotalIngresosSistema;
+        }));
+        _out.WriteLine($"cierre de caja con la confirmación detenida antes del lock: {cierre}");
+        Assert.StartsWith("OK(", cierre);
+
+        plan.Release.TrySetResult();
+        var resConfirmar = await confirmar;
+        _out.WriteLine($"confirmación: {resConfirmar}");
+
+        Assert.Contains("InvalidOperationException", resConfirmar);
+        Assert.Contains("cerrada", resConfirmar, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DEADLOCK", resConfirmar);
+
+        // Rollback completo de la confirmación: nada de lo que había escrito antes del anticipo sobrevive.
+        var e = await LeerEstadoAsync(v);
+        Assert.Equal(EstadoVenta.Presupuesto, e.Venta);
+        Assert.NotEqual(EstadoCredito.Generado, e.Credito);
+        Assert.Equal(0, e.Cuotas);
+        Assert.Equal(10m, e.Stock);
+        Assert.Empty(e.Anticipos);
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var cierreCaja = await ctx.CierresCaja.AsNoTracking().SingleAsync(c => c.AperturaCajaId == v.AperturaId);
+        Assert.Equal(0m, cierreCaja.TotalIngresosSistema);
+        Assert.Equal(0, await ctx.MovimientosCaja.AsNoTracking().CountAsync(m => m.AperturaCajaId == v.AperturaId && !m.IsDeleted));
     }
 }
