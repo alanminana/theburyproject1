@@ -487,30 +487,32 @@ namespace TheBuryProject.Services
         /// transacción si no hay una ambiental (y la confirma al terminar bien) o participa en la existente sin
         /// confirmarla. Bajo el lock relee la apertura de la base y rechaza si no existe, está cerrada o vencida:
         /// el cierre toma el mismo lock, así que un movimiento nunca se inserta en una apertura ya cerrada.
-        /// Con <paramref name="validarVigencia"/> en false sólo serializa contra el cierre (contramovimiento de
-        /// venta, H-CAJA-2: conserva su comportamiento actual sobre la apertura original).
+        /// Con <paramref name="validarVigencia"/> en false (contramovimiento de venta, H-CAJA-2) la apertura
+        /// vencida-pero-abierta sigue admitiéndose (regla comercial vigente), pero una apertura CERRADA se
+        /// rechaza siempre: el libro de una caja cerrada es inmutable.
         /// </summary>
-        private async Task<T> BajoLockDeAperturaAsync<T>(int aperturaId, Func<Task<T>> operacion, bool validarVigencia = true)
+        private async Task<T> BajoLockDeAperturaAsync<T>(
+            int aperturaId,
+            Func<Task<T>> operacion,
+            bool validarVigencia = true,
+            string mensajeCerrada = "No se pueden registrar movimientos en una caja cerrada")
         {
             var propia = _context.Database.CurrentTransaction == null;
             await using var transaccion = propia ? await _context.Database.BeginTransactionAsync() : null;
 
             await AperturaCajaConcurrencia.BloquearAsync(_context, aperturaId);
 
-            if (validarVigencia)
+            var apertura = await AperturaCajaConcurrencia.LeerAsync(_context, aperturaId)
+                ?? throw new InvalidOperationException("Apertura de caja no encontrada");
+
+            if (apertura.Cerrada)
             {
-                var apertura = await AperturaCajaConcurrencia.LeerAsync(_context, aperturaId)
-                    ?? throw new InvalidOperationException("Apertura de caja no encontrada");
+                throw new InvalidOperationException(mensajeCerrada);
+            }
 
-                if (apertura.Cerrada)
-                {
-                    throw new InvalidOperationException("No se pueden registrar movimientos en una caja cerrada");
-                }
-
-                if (EsAperturaVencida(apertura))
-                {
-                    throw new InvalidOperationException(MensajeCajaVencida);
-                }
+            if (validarVigencia && EsAperturaVencida(apertura))
+            {
+                throw new InvalidOperationException(MensajeCajaVencida);
             }
 
             var resultado = await operacion();
@@ -1038,6 +1040,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        private static string MensajeReversionCajaCerrada(string ventaNumero) =>
+            $"No se puede cancelar la venta {ventaNumero}: el ingreso original pertenece a una caja ya cerrada. " +
+            "Se requiere un procedimiento de reversión auditada.";
+
         private static readonly ConceptoMovimientoCaja[] ConceptosIngresoVenta =
         {
             ConceptoMovimientoCaja.VentaEfectivo,
@@ -1105,20 +1111,21 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
-                // Verificar que la apertura existe
-                var apertura = await _context.AperturasCaja
-                    .FirstOrDefaultAsync(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted);
+                // H-CAJA-2: la apertura original debe existir. Si falta o está eliminada, no se informa éxito dejando
+                // una cancelación con efectos monetarios incompletos: se rechaza (el llamador revierte su transacción).
+                // La decisión definitiva sobre cerrada/abierta se toma abajo, bajo el lock compartido de la apertura.
+                var aperturaExiste = await _context.AperturasCaja
+                    .AnyAsync(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted);
 
-                if (apertura == null)
+                if (!aperturaExiste)
                 {
-                    _logger.LogWarning(
-                        "Apertura {AperturaId} no encontrada para contramovimiento de venta {VentaNumero}. No se crea contramovimiento.",
-                        movimientoOriginal.AperturaCajaId, ventaNumero);
-                    return null;
+                    throw new InvalidOperationException(
+                        $"No se puede cancelar la venta {ventaNumero}: la caja del ingreso original (apertura " +
+                        $"{movimientoOriginal.AperturaCajaId}) no existe o fue eliminada. Se requiere un procedimiento de reversión auditada.");
                 }
 
-                // H-CAJA-2 (fuera de alcance de H-CAJA-1): la reversión se sigue asentando en la apertura ORIGINAL aunque
-                // ya esté cerrada, como hasta ahora. Sólo se serializa contra el cierre, sin validar vigencia.
+                // H-CAJA-2: la reversión se asienta en la apertura ORIGINAL y sólo si sigue ABIERTA; se relee bajo el
+                // lock compartido con el cierre, así que nunca se inserta un egreso en una caja ya cerrada.
                 var contramovimiento = await BajoLockDeAperturaAsync(movimientoOriginal.AperturaCajaId, async () =>
                 {
                     var nuevo = new MovimientoCaja
@@ -1143,7 +1150,7 @@ namespace TheBuryProject.Services
                     _context.MovimientosCaja.Add(nuevo);
                     await _context.SaveChangesAsync();
                     return nuevo;
-                }, validarVigencia: false);
+                }, validarVigencia: false, mensajeCerrada: MensajeReversionCajaCerrada(ventaNumero));
 
                 _logger.LogInformation(
                     "Contramovimiento de caja creado para venta {VentaNumero}: Egreso ${Monto:N2}",

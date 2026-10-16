@@ -140,45 +140,229 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
 
     // ================================================================== 1. Cierre de caja y movimientos posteriores
 
+    /// <summary>Instantánea de todo lo que una cancelación rechazada NO debe tocar.</summary>
+    private sealed record Instantanea(
+        EstadoVenta Estado, DateTime? FechaCancelacion, string? Motivo, decimal Stock, int MovStock, int UnidadMovs,
+        int Facturas, int NotasCredito, int Auditoria, int Movimientos, decimal Ingresos, decimal Egresos,
+        bool Cerrada, decimal? CierreIngresos, decimal? CierreEgresos, int Cierres);
+
+    private async Task<Instantanea> InstantaneaAsync(int ventaId, int productoId, int aperturaId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var v = await ctx.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var ap = await ctx.AperturasCaja.AsNoTracking().IgnoreQueryFilters().Include(a => a.Cierre).FirstAsync(a => a.Id == aperturaId);
+        var (ing, egr, movs) = await LibroAsync(aperturaId);
+        var (ms, um) = await ContarEfectosDeStockAsync();
+        return new Instantanea(
+            v.Estado, v.FechaCancelacion, v.MotivoCancelacion, await StockAsync(productoId), ms, um,
+            await ctx.Facturas.AsNoTracking().CountAsync(), await ctx.NotasCredito.AsNoTracking().CountAsync(),
+            await ctx.SeguridadEventosAuditoria.AsNoTracking().CountAsync(), movs, ing, egr,
+            ap.Cerrada, ap.Cierre?.TotalIngresosSistema, ap.Cierre?.TotalEgresosSistema,
+            await ctx.CierresCaja.AsNoTracking().CountAsync(c => c.AperturaCajaId == aperturaId));
+    }
+
+    private async Task<string> CancelarRechazadaAsync(int ventaId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(ventaId, "post-cierre"));
+        return ex.Message;
+    }
+
     /// <summary>
-    /// H-CAJA-2 (CONFIRMADO). Invariante deseado: una apertura CERRADA es inmutable (su libro coincide con el
-    /// snapshot de CierreCaja). Hoy el contramovimiento de una cancelación se asienta en la apertura del
-    /// ingreso original aunque ya esté cerrada: el libro de la caja cerrada pasa a divergir de su cierre.
+    /// H-CAJA-2 (CORREGIDO en FIN-CAJA-2-P0). Regla comercial: una venta no puede cancelarse si la cancelación exige
+    /// una reversión en la caja original y esa caja ya está CERRADA (una apertura cerrada es inmutable). Se rechaza
+    /// toda la cancelación (rollback completo) con un error de negocio; no se mueve dinero a otra caja.
+    /// Evidencia original (preservada en docs/qa-fin-residual-registro-defectos.md): el contramovimiento caía en la
+    /// apertura cerrada y su libro pasaba a divergir del cierre (egresos 100 vs 0).
     /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-CAJA-2   Causa raíz: CR-1   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): Caja: el libro de una apertura cerrada deja de coincidir con su CierreCaja (egresos 100 vs 0 congelado). Dinero: difícil de detectar.
-    // Comportamiento defectuoso que reproduce: CancelarVentaAsync asienta la reversión en la apertura del ingreso original aunque esté Cerrada.
-    // Comportamiento esperado que exigirá la futura regresión: Una apertura cerrada es inmutable: la reversión se asienta en la apertura activa de quien cancela (con referencia a la original) o la cancelación se rechaza. REGLA COMERCIAL A APROBAR.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-CAJA-2]: contramovimiento de cancelacion cae en una caja ya cerrada")]
-    [Trait("Categoria", "DefectoConocido")]
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: cancelar una venta cuyo ingreso esta en una caja cerrada se rechaza sin efectos")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-CAJA-2")]
     [Trait("CausaRaiz", "CR-1")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CancelarVenta_ContramovimientoCaeEnAperturaYaCerrada_Y_DivergeDelCierre()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_CancelarVenta_ConIngresoEnCajaCerrada_SeRechazaSinEfectos()
     {
         var v = await SembrarVentaContadoAsync();
         await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m); // arqueo exacto: sin diferencia
+        var antes = await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId);
+
+        var mensaje = await CancelarRechazadaAsync(v.VentaId);
+        Assert.Contains("caja ya cerrada", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("reversión auditada", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId);
+        Assert.Equal(antes, despues);                       // venta, stock, unidades, facturas, auditoría, libro y cierre idénticos
+        Assert.True(despues.Cerrada);
+        Assert.Equal(0m, despues.Egresos);                  // ningún egreso en la caja cerrada
+        Assert.Equal(despues.Egresos, despues.CierreEgresos);
+        Assert.Equal(despues.Ingresos, despues.CierreIngresos);
+        Assert.NotEqual(EstadoVenta.Cancelada, despues.Estado);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: cancelar con ingreso en caja abierta genera exactamente una reversion y no se duplica")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_CancelarVenta_ConCajaAbierta_UnaSolaReversion_Y_RepeticionNoDuplica()
+    {
+        var v = await SembrarVentaContadoAsync();
 
         using (var scope = _factory.Services.CreateScope())
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "post-cierre"));
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "ok"));
+
+        var tras = await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId);
+        Assert.Equal(EstadoVenta.Cancelada, tras.Estado);
+        Assert.Equal(100m, tras.Egresos);
+        Assert.Equal(12m, tras.Stock); // la siembra no descuenta stock; la cancelación devuelve las 2 unidades una sola vez
+
+        // Repetida: la venta ya está cancelada, se rechaza sin duplicar stock ni caja.
+        await CancelarRechazadaAsync(v.VentaId);
+        Assert.Equal(tras, await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId));
 
         using var check = _factory.Services.CreateScope();
         var ctx = check.ServiceProvider.GetRequiredService<AppDbContext>();
-        var apertura = await ctx.AperturasCaja.AsNoTracking().Include(a => a.Cierre).FirstAsync(a => a.Id == v.AperturaId);
-        var (ingresos, egresos, _) = await LibroAsync(v.AperturaId);
+        Assert.Equal(1, await ctx.MovimientosCaja.AsNoTracking()
+            .CountAsync(m => m.VentaId == v.VentaId && m.Concepto == ConceptoMovimientoCaja.ReversionVenta && !m.IsDeleted));
+    }
 
-        Assert.True(apertura.Cerrada);
-        // Defecto: el egreso de reversión (100) quedó DENTRO de la apertura ya cerrada...
-        Assert.Equal(100m, egresos);
-        // ...y el cierre congelado dice que no hubo egresos: libro ≠ cierre.
-        Assert.Equal(0m, apertura.Cierre!.TotalEgresosSistema);
-        Assert.Equal(100m, apertura.Cierre.TotalIngresosSistema);
-        Assert.NotEqual(apertura.Cierre.TotalEgresosSistema, egresos);
-        _ = ingresos;
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: venta sin ingreso de caja se cancela aunque su AperturaCajaId este cerrada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_CancelarVenta_SinIngresoDeCaja_NoSeBloqueaPorCajaCerrada()
+    {
+        int aperturaId;
+        EscenarioSembrado s;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            aperturaId = await ConcSeed.SembrarAperturaAsync(ctx, Usuario);
+            s = await ConcSeed.SembrarAsync(ctx, aperturaId, conIngresoDeVenta: false, usuarioMovimiento: Usuario);
+            // La venta apunta a la apertura (como una venta a crédito real), pero no hubo ingreso inmediato.
+            await ctx.Ventas.Where(x => x.Id == s.VentaId).ExecuteUpdateAsync(u => u.SetProperty(x => x.AperturaCajaId, aperturaId));
+        }
+        await CerrarAperturaAsync(aperturaId, efectivoContado: 0m);
+        var (_, egresosAntes, movsAntes) = await LibroAsync(aperturaId);
+
+        using (var scope = _factory.Services.CreateScope())
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(s.VentaId, "sin ingreso"));
+
+        var (_, egresos, movs) = await LibroAsync(aperturaId);
+        Assert.Equal(egresosAntes, egresos);   // sin reversión: no había nada que revertir
+        Assert.Equal(movsAntes, movs);
+        using var check = _factory.Services.CreateScope();
+        var venta = await check.ServiceProvider.GetRequiredService<AppDbContext>().Ventas.AsNoTracking().FirstAsync(x => x.Id == s.VentaId);
+        Assert.Equal(EstadoVenta.Cancelada, venta.Estado);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: ingreso historico sin VentaId se ubica por Referencia y concepto; caja cerrada rechaza")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_IngresoHistoricoSinVentaId_SeIdentificaYRechazaSiLaCajaEstaCerrada()
+    {
+        var v = await SembrarVentaContadoAsync();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await ctx.MovimientosCaja.Where(m => m.AperturaCajaId == v.AperturaId)
+                .ExecuteUpdateAsync(u => u.SetProperty(m => m.VentaId, (int?)null));
+        }
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+        var antes = await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId);
+
+        var mensaje = await CancelarRechazadaAsync(v.VentaId);
+        Assert.Contains("caja ya cerrada", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, await InstantaneaAsync(v.VentaId, v.ProductoId, v.AperturaId));
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: movimiento con ReferenciaId coincidente pero otro concepto no se confunde con el ingreso de la venta")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_ReferenciaIdCoincidenteConOtroConcepto_NoEsIngresoDeVenta()
+    {
+        int aperturaId;
+        EscenarioSembrado s;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            aperturaId = await ConcSeed.SembrarAperturaAsync(ctx, Usuario);
+            s = await ConcSeed.SembrarAsync(ctx, aperturaId, conIngresoDeVenta: false, usuarioMovimiento: Usuario);
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = aperturaId, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.AjusteCaja,
+                Monto = 70m, Descripcion = "Ajuste con ReferenciaId homonimo", Referencia = s.VentaNumero,
+                ReferenciaId = s.VentaId, Usuario = Usuario, FechaMovimiento = DateTime.UtcNow
+            });
+            await ctx.SaveChangesAsync();
+        }
+        await CerrarAperturaAsync(aperturaId, efectivoContado: 70m);
+        var (_, egresosAntes, movsAntes) = await LibroAsync(aperturaId);
+
+        using (var scope = _factory.Services.CreateScope())
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(s.VentaId, "homonimo"));
+
+        var (_, egresos, movs) = await LibroAsync(aperturaId);
+        Assert.Equal(egresosAntes, egresos);   // el ajuste NO es un cobro de venta: no se revierte ni bloquea
+        Assert.Equal(movsAntes, movs);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: reversion directa de CajaService sobre caja cerrada se rechaza sin egreso")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_ContramovimientoDirecto_SobreCajaCerrada_SeRechazaSinEgreso()
+    {
+        var v = await SembrarVentaContadoAsync();
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+        var antes = await LibroAsync(v.AperturaId);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                scope.ServiceProvider.GetRequiredService<ICajaService>()
+                    .RegistrarContramovimientoVentaAsync(v.VentaId, v.Numero, "directo", Usuario));
+            Assert.Contains("caja ya cerrada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal(antes, await LibroAsync(v.AperturaId));
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-2]: caja original eliminada impide la cancelacion (nunca exito con reversion incompleta)")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-2")]
+    [Trait("CausaRaiz", "CR-1")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_2_CajaOriginalEliminada_NoGeneraCancelacionIncompleta()
+    {
+        var v = await SembrarVentaContadoAsync();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await ctx.AperturasCaja.IgnoreQueryFilters().Where(a => a.Id == v.AperturaId)
+                .ExecuteUpdateAsync(u => u.SetProperty(a => a.IsDeleted, true));
+        }
+        var efectosAntes = await ContarEfectosDeStockAsync();
+        var productoAntes = await StockAsync(v.ProductoId);
+
+        var mensaje = await CancelarRechazadaAsync(v.VentaId);
+        Assert.Contains("no existe", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        using var check = _factory.Services.CreateScope();
+        var ctx2 = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        var venta = await ctx2.Ventas.AsNoTracking().FirstAsync(x => x.Id == v.VentaId);
+        Assert.NotEqual(EstadoVenta.Cancelada, venta.Estado);
+        Assert.Equal(efectosAntes, await ContarEfectosDeStockAsync());
+        Assert.Equal(productoAntes, await StockAsync(v.ProductoId));
+        Assert.Equal(0, await ctx2.MovimientosCaja.AsNoTracking().CountAsync(m => m.VentaId == v.VentaId && m.Concepto == ConceptoMovimientoCaja.ReversionVenta));
     }
 
     /// <summary>
