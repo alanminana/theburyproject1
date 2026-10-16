@@ -240,6 +240,9 @@ public class ConcSqlHostFixture : IAsyncLifetime
     public IServiceProvider Services => _factory!.Services;
     public int AperturaCajaId { get; private set; }
 
+    /// <summary>Punto de extensión para que un fixture derivado reemplace servicios (no cambia el comportamiento por defecto).</summary>
+    protected virtual void ConfigurarServicios(IServiceCollection services) { }
+
     /// <summary>Sufijo del catálogo propio. Cada clase de pruebas con su fixture usa uno distinto para poder correr en paralelo.</summary>
     protected virtual string SufijoCatalogo => "_svc";
 
@@ -294,6 +297,8 @@ public class ConcSqlHostFixture : IAsyncLifetime
 
                 services.RemoveAll<ICurrentUserService>();
                 services.AddScoped<ICurrentUserService, ConcCurrentUser>();
+
+                ConfigurarServicios(services);
 
                 services.AddAuthentication(o =>
                 {

@@ -134,12 +134,16 @@ namespace TheBuryProject.Services.Interfaces
         /// <param name="creditoNumero">Número del crédito (para referencia)</param>
         /// <param name="montoAnticipo">Monto del anticipo</param>
         /// <param name="usuario">Usuario que registra el anticipo</param>
-        /// <returns>MovimientoCaja creado, o null si no hay caja abierta o anticipo es 0</returns>
+        /// <param name="ventaId">Venta dueña del anticipo (vínculo directo; ReferenciaId sigue siendo el crédito).
+        /// Si ya existe un anticipo vigente para esa venta se devuelve sin duplicar.</param>
+        /// <returns>MovimientoCaja creado; null solo si el anticipo es 0.</returns>
+        /// <exception cref="InvalidOperationException">Anticipo mayor que 0 y el usuario no tiene caja abierta válida (FIN-ANT-P0).</exception>
         Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(
             int creditoId,
             string creditoNumero,
             decimal montoAnticipo,
-            string usuario);
+            string usuario,
+            int? ventaId = null);
 
         /// <summary>
         /// Registra un contramovimiento de egreso en caja para neutralizar el ingreso

@@ -6,6 +6,13 @@
 > [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md). R-06, R-07 y R-08 se ejecutan ahora en
 > un SQL Server efímero (`.github/workflows/fin-dev-sqlserver.yml`).
 
+> **Actualización FIN-ANT-P0 (2026-10-16):** H-ANT-1 y H-ANT-2 (causa raíz CR-4) fueron **CORREGIDOS**: una venta con
+> anticipo cobrado ya no se puede cancelar automáticamente (devolución auditada pendiente de diseño) y la confirmación
+> con anticipo falla y se revierte entera si el anticipo no queda asentado. Las filas de esta auditoría son la **evidencia
+> histórica** y no se modificaron. H-CAJA-1/2/3 y H-IDEM-1 siguen **ABIERTOS**; H-CAJA-1 afecta a la confirmación con
+> anticipo (anticipo asentado en una caja cerrada concurrentemente, probado como defecto conocido `ANT-05`). Estado
+> vigente: [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md).
+
 > **Nota de integración (2026-10-16).** Este documento es la auditoría original (rama `qa/fin-residual-20261014`, commit `24973bfe`). Desde entonces `main` incorporó FIN-P0 y CONC-P0. **Los defectos descritos aquí siguen ABIERTOS en `main`; esta integración solo suma evidencia y NO los corrige.** Estado vigente, cifras y plan de conversión a regresión: [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md).
 
 Rama `qa/fin-residual-20261014` (worktree `theburyproject1-qa-fin-residual`), base `5c40a67a` = QA-FIN-CONC-P0

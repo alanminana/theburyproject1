@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// QA-FIN-RESIDUAL — pruebas AISLADAS (SQLite, secuenciales, servicios reales vía DI) de las reglas
 /// financieras residuales que NO necesitan SQL Server: cierre de caja, devolución, anticipo, reintentos.
 ///
-/// FIN-DEV-P0: H-DEV-1/2/3 fueron CORREGIDOS; sus pruebas son ahora "Regresion_" (exigen el comportamiento correcto).
+/// FIN-DEV-P0: H-DEV-1/2/3 fueron CORREGIDOS; FIN-ANT-P0: H-ANT-1/2 fueron CORREGIDOS; sus pruebas son ahora "Regresion_" (exigen el comportamiento correcto).
 /// Son pruebas de CARACTERIZACIÓN: las marcadas "Hallazgo_" fijan el comportamiento ACTUAL, que es defectuoso
 /// respecto del invariante indicado en cada una. Pasan hoy (= el defecto está CONFIRMADO por ejecución) y
 /// DEBEN fallar cuando se corrija el servicio; en ese momento se invierte la aserción (cada una trae el
@@ -128,6 +128,14 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
         using var scope = _factory.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         return await ctx.Productos.AsNoTracking().Where(p => p.Id == productoId).Select(p => p.StockActual).FirstAsync();
+    }
+
+    private async Task<(int movimientosStock, int unidadMovs)> ContarEfectosDeStockAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return (await ctx.MovimientosStock.AsNoTracking().CountAsync(),
+                await ctx.ProductoUnidadMovimientos.AsNoTracking().CountAsync());
     }
 
     // ================================================================== 1. Cierre de caja y movimientos posteriores
@@ -906,26 +914,17 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
     // ================================================================== 3. Anticipos
 
     /// <summary>
-    /// H-ANT-1 (CONFIRMADO). Invariante deseado: al cancelar una venta a crédito, su anticipo cobrado en caja se
-    /// revierte (o la cancelación se rechaza igual que con cuotas cobradas). El anticipo se asienta como
-    /// AnticipoCredito con ReferenciaId = CreditoId y SIN VentaId; RegistrarContramovimientoVentaAsync solo revierte
-    /// los conceptos Venta* y AsegurarSinPagosAplicadosParaCancelarAsync solo mira CobroCuota: el anticipo queda
-    /// cobrado en una venta cancelada, sin ninguna señal.
+    /// FIN-ANT-P0 (H-ANT-1, CORREGIDO). Regla comercial aprobada: una venta con un anticipo efectivamente cobrado NO se
+    /// cancela automáticamente (la devolución del anticipo requiere un procedimiento separado y auditado). El anticipo
+    /// nuevo queda vinculado a la venta (VentaId) conservando ReferenciaId = CreditoId; la cancelación se rechaza antes
+    /// de escribir nada y deja la venta y todos sus movimientos intactos.
     /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-ANT-1   Causa raíz: CR-4   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): DINERO/CAJA: el anticipo sigue en caja sin contramovimiento ni devolución al cliente, sin ninguna señal.
-    // Comportamiento defectuoso que reproduce: El anticipo se asienta como AnticipoCredito con ReferenciaId = CreditoId y sin VentaId; la cancelación solo revierte conceptos Venta* y solo mira CobroCuota.
-    // Comportamiento esperado que exigirá la futura regresión: El anticipo se asienta con VentaId y la cancelación lo trata como pago aplicado (rechazo por defecto) o lo revierte. REGLA COMERCIAL A APROBAR.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-ANT-1]: anticipo cobrado queda en una venta cancelada")]
-    [Trait("Categoria", "DefectoConocido")]
+    [Fact(DisplayName = "REGRESION [H-ANT-1]: una venta con anticipo cobrado no se puede cancelar")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-ANT-1")]
     [Trait("CausaRaiz", "CR-4")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CancelarVentaACredito_NoRevierteNiBloqueaPorElAnticipoCobrado()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_ANT_1_CancelarVentaACredito_ConAnticipoCobrado_SeRechazaSinTocarNada()
     {
         EscenarioSembrado s;
         int aperturaId;
@@ -939,46 +938,53 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
         MovimientoCaja? anticipo;
         using (var scope = _factory.Services.CreateScope())
             anticipo = await scope.ServiceProvider.GetRequiredService<ICajaService>()
-                .RegistrarMovimientoAnticipoAsync(s.CreditoId, "CR-ANT", 150m, Usuario);
+                .RegistrarMovimientoAnticipoAsync(s.CreditoId, "CR-ANT", 150m, Usuario, s.VentaId);
         Assert.NotNull(anticipo);
-        Assert.Null(anticipo!.VentaId); // sin vínculo directo con la venta
+        Assert.Equal(s.VentaId, anticipo!.VentaId);      // vínculo directo con la venta
+        Assert.Equal(s.CreditoId, anticipo.ReferenciaId); // el vínculo histórico con el crédito se preserva
+
+        var antes = await LibroAsync(aperturaId);
+        var stockAntes = await ContarEfectosDeStockAsync();
 
         using (var scope = _factory.Services.CreateScope())
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(s.VentaId, "con anticipo"));
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(s.VentaId, "con anticipo"));
+            Assert.Contains("anticipo", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("devolución auditada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
 
         var libro = await LibroAsync(aperturaId);
-        Assert.Equal(150m, libro.ingresos); // el anticipo sigue en caja
-        Assert.Equal(0m, libro.egresos);    // sin contramovimiento ni devolución al cliente
+        Assert.Equal(antes, libro);          // ni contramovimiento ni cambios en caja
+        Assert.Equal(150m, libro.ingresos);  // el anticipo sigue asentado
+        Assert.Equal(0m, libro.egresos);
+        Assert.Equal(stockAntes, await ContarEfectosDeStockAsync());
         using var check = _factory.Services.CreateScope();
         var ctx2 = check.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(EstadoVenta.Cancelada, (await ctx2.Ventas.AsNoTracking().FirstAsync(v => v.Id == s.VentaId)).Estado);
+        var venta = await ctx2.Ventas.AsNoTracking().FirstAsync(v => v.Id == s.VentaId);
+        Assert.NotEqual(EstadoVenta.Cancelada, venta.Estado);
+        Assert.Null(venta.FechaCancelacion);
+        Assert.Equal(1, await ctx2.MovimientosCaja.AsNoTracking()
+            .CountAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito && m.ReferenciaId == s.CreditoId && !m.IsDeleted));
     }
 
     /// <summary>
-    /// H-ANT-2 (CONFIRMADO). Invariante deseado: un anticipo > 0 que no pudo asentarse hace fallar la confirmación
-    /// (como RegistrarMovimientoCuotaAsync, cuyo llamador convierte el null en excepción). Hoy el servicio devuelve
-    /// null en silencio y ConfirmarVentaCreditoAsync ignora el resultado: la venta se confirma sin ingreso del anticipo.
-    /// Aquí se prueba el servicio (usuario sin caja abierta); la ruta de carrera está en el harness SQL Server.
+    /// FIN-ANT-P0 (H-ANT-2, CORREGIDO). Un anticipo mayor que cero que no puede asentarse (sin caja abierta) hace fallar
+    /// el servicio con un error de negocio claro: nunca un null silencioso (como RegistrarMovimientoCuotaAsync, cuyo
+    /// llamador convierte el null en excepción). ConfirmarVentaCreditoAsync, además, verifica el resultado y revierte
+    /// toda su transacción (ver VentaServiceConfirmarCreditoTests, Regresion_H_ANT_2_*).
     /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-ANT-2   Causa raíz: CR-4   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): DINERO/CAJA: la venta a crédito se confirma sin ingreso del anticipo.
-    // Comportamiento defectuoso que reproduce: RegistrarMovimientoAnticipoAsync devuelve null sin lanzar y ConfirmarVentaCreditoAsync ignora el resultado.
-    // Comportamiento esperado que exigirá la futura regresión: Con anticipo > 0 y sin caja el servicio falla (fail-closed), igual que el cobro de cuota.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-ANT-2]: anticipo sin caja abierta devuelve null en silencio")]
-    [Trait("Categoria", "DefectoConocido")]
+    [Fact(DisplayName = "REGRESION [H-ANT-2]: anticipo sin caja abierta falla con error claro")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-ANT-2")]
     [Trait("CausaRaiz", "CR-4")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_RegistrarMovimientoAnticipo_SinCajaAbierta_DevuelveNullSinFallar()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_ANT_2_RegistrarMovimientoAnticipo_SinCajaAbierta_LanzaErrorDeNegocio()
     {
         using var scope = _factory.Services.CreateScope();
-        var r = await scope.ServiceProvider.GetRequiredService<ICajaService>()
-            .RegistrarMovimientoAnticipoAsync(creditoId: 1, "CR-X", 100m, "usuario-sin-caja-" + Guid.NewGuid().ToString("N")[..6]);
-        Assert.Null(r);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<ICajaService>()
+            .RegistrarMovimientoAnticipoAsync(creditoId: 1, "CR-X", 100m, "usuario-sin-caja-" + Guid.NewGuid().ToString("N")[..6]));
+        Assert.Contains("caja abierta", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ================================================================== 4. Reintentos / idempotencia

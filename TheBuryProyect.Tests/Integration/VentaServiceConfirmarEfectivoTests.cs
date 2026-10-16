@@ -29,8 +29,8 @@ sealed class StubCajaServiceEfectivo : ICajaService
         => Task.FromResult<AperturaCaja?>(_apertura);
 
     public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(
-        int creditoId, string creditoNumero, decimal montoAnticipo, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+        int creditoId, string creditoNumero, decimal montoAnticipo, string usuario, int? ventaId = null)
+        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja { Id = 1, VentaId = ventaId });
 
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
     public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();

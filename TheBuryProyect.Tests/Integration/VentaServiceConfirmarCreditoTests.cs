@@ -14,6 +14,9 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
+/// <summary>FIN-ANT-P0: cómo falla el stub de caja al asentar el anticipo.</summary>
+public enum ModoAnticipoStub { Ok, DevuelveNull, Lanza }
+
 // ---------------------------------------------------------------------------
 // Stubs mínimos para ConfirmarVentaCreditoAsync
 // ---------------------------------------------------------------------------
@@ -23,14 +26,26 @@ file sealed class StubCajaServiceConfirmar : ICajaService
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
 
+    /// <summary>FIN-ANT-P0: simula un fallo al asentar el anticipo (null silencioso o excepción).</summary>
+    public ModoAnticipoStub Anticipo { get; set; } = ModoAnticipoStub.Ok;
+    public int LlamadasAnticipo { get; private set; }
+
     public StubCajaServiceConfirmar(AperturaCaja apertura) => _apertura = apertura;
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario)
         => Task.FromResult<AperturaCaja?>(_apertura);
 
     public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(
-        int creditoId, string creditoNumero, decimal montoAnticipo, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+        int creditoId, string creditoNumero, decimal montoAnticipo, string usuario, int? ventaId = null)
+    {
+        LlamadasAnticipo++;
+        return Anticipo switch
+        {
+            ModoAnticipoStub.DevuelveNull => Task.FromResult<MovimientoCaja?>(null),
+            ModoAnticipoStub.Lanza => throw new InvalidOperationException("fallo simulado al asentar el anticipo"),
+            _ => Task.FromResult<MovimientoCaja?>(new MovimientoCaja { Id = 1, VentaId = ventaId })
+        };
+    }
 
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
     public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
@@ -87,7 +102,7 @@ file sealed class StubMovimientoStockService : IMovimientoStockService
     public Task<(IEnumerable<MovimientoStock> Items, int Total, decimal TotalEntradas, decimal TotalSalidas, int TotalAjustes)> SearchPaginadoAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc", int pageNumber = 1, int pageSize = 20) => throw new NotImplementedException();
     public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
     public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null, Guid? requestId = null) => throw new NotImplementedException();
-    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null, IReadOnlyList<MovimientoStockCostoLinea>? costos = null) => throw new NotImplementedException();
+    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null, IReadOnlyList<MovimientoStockCostoLinea>? costos = null) => Task.FromResult(new List<MovimientoStock>());
     public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }
@@ -223,7 +238,8 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
     private VentaService CreateService(
         bool existeContratoGenerado,
         ICreditoDisponibleService? creditoDisponibleService = null,
-        IConfiguracionPagoService? configuracionPagoService = null)
+        IConfiguracionPagoService? configuracionPagoService = null,
+        ICajaService? cajaService = null)
     {
         var mapper = new MapperConfiguration(
                 cfg => { cfg.AddProfile<MappingProfile>(); },
@@ -242,7 +258,7 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             new PrecioVigenteResolver(_context),
             new StubCurrentUserServiceConfirmar(),
             new StubValidacionVentaServiceConfirmar(),
-            new StubCajaServiceConfirmar(_apertura),
+            cajaService ?? new StubCajaServiceConfirmar(_apertura),
             creditoDisponibleService ?? new StubCreditoDisponibleServiceConfirmar(),
             new StubContratoVentaCreditoService(existeContratoGenerado),
             configuracionPagoService ?? new StubConfiguracionPagoServiceVenta());
@@ -1032,5 +1048,231 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         var result = await servicioConCupoReal.ConfirmarVentaCreditoAsync(venta.Id);
 
         Assert.True(result);
+    }
+
+    // =========================================================================
+    // FIN-ANT-P0 — anticipos: H-ANT-1 (cancelación) y H-ANT-2 (confirmación fail-closed)
+    // Estos tests usan el CajaService REAL (mismo DbContext/transacción) salvo los de fallo simulado.
+    // =========================================================================
+
+    private sealed record EstadoVentaCredito(
+        EstadoVenta Venta, EstadoCredito Credito, int Cuotas, decimal Stock, int MovsCaja, int MovsStock,
+        int Documentos, int Unidades, int MovsUnidad, DateTime? FechaCancelacion);
+
+    private async Task<EstadoVentaCredito> TomarEstadoAsync(Venta venta, Credito credito)
+    {
+        _context.ChangeTracker.Clear();
+        var productoIds = await _context.VentaDetalles.AsNoTracking()
+            .Where(d => d.VentaId == venta.Id).Select(d => d.ProductoId).ToListAsync();
+        return new EstadoVentaCredito(
+            (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).Estado,
+            (await _context.Creditos.AsNoTracking().FirstAsync(c => c.Id == credito.Id)).Estado,
+            await _context.Cuotas.AsNoTracking().CountAsync(c => c.CreditoId == credito.Id),
+            await _context.Productos.AsNoTracking().Where(p => productoIds.Contains(p.Id)).SumAsync(p => p.StockActual),
+            await _context.MovimientosCaja.AsNoTracking().CountAsync(),
+            await _context.MovimientosStock.AsNoTracking().CountAsync(),
+            await _context.DocumentosGenerados.AsNoTracking().CountAsync(),
+            await _context.ProductoUnidades.AsNoTracking().CountAsync(),
+            await _context.ProductoUnidadMovimientos.AsNoTracking().CountAsync(),
+            (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).FechaCancelacion);
+    }
+
+    private VentaService CrearServiceConCajaReal()
+    {
+        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
+        // El camino de anticipo no usa notificaciones (solo CerrarCajaAsync).
+        var cajaReal = new CajaService(_context, mapper, NullLogger<CajaService>.Instance, null!);
+        return CreateService(existeContratoGenerado: true, cajaService: cajaReal);
+    }
+
+    private Task<List<MovimientoCaja>> AnticiposAsync(int creditoId)
+        => _context.MovimientosCaja.AsNoTracking()
+            .Where(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito && m.ReferenciaId == creditoId)
+            .ToListAsync();
+
+    [Fact]
+    public async Task Regresion_H_ANT_2_ConfirmarConAnticipo_RegistraUnSoloMovimientoVinculadoALaVenta()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        var anticipos = await AnticiposAsync(credito.Id);
+        var unico = Assert.Single(anticipos);
+        Assert.Equal(venta.Id, unico.VentaId);
+        Assert.Equal(credito.Id, unico.ReferenciaId);
+        Assert.Equal(2_000m, unico.Monto);
+        Assert.Equal(TipoMovimientoCaja.Ingreso, unico.Tipo);
+        Assert.Equal(_apertura.Id, unico.AperturaCajaId);
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_2_ConfirmarSinAnticipo_NoExigeMovimiento()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 10_000m);
+
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Empty(await AnticiposAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_2_ConfirmarConAnticipoSinCajaAbierta_FallaYNoAlteraNada()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        var apertura = await _context.AperturasCaja.FirstAsync(a => a.Id == _apertura.Id);
+        apertura.Cerrada = true;
+        await _context.SaveChangesAsync();
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Contains("caja abierta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, await TomarEstadoAsync(venta, credito));
+        Assert.Empty(await AnticiposAsync(credito.Id));
+    }
+
+    [Theory]
+    [InlineData(ModoAnticipoStub.DevuelveNull)]
+    [InlineData(ModoAnticipoStub.Lanza)]
+    public async Task Regresion_H_ANT_2_ConfirmarConFalloAlRegistrarAnticipo_RevierteTodaLaOperacion(
+        ModoAnticipoStub modo)
+    {
+        var caja = new StubCajaServiceConfirmar(_apertura) { Anticipo = modo };
+        var servicio = CreateService(existeContratoGenerado: true, cajaService: caja);
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Equal(1, caja.LlamadasAnticipo);
+        var despues = await TomarEstadoAsync(venta, credito);
+        Assert.Equal(antes, despues);                       // venta, crédito, cuotas, stock, caja, documentos, unidades
+        Assert.Equal(EstadoVenta.Presupuesto, despues.Venta);
+        Assert.Equal(EstadoCredito.Configurado, despues.Credito);
+        Assert.Equal(0, despues.Cuotas);
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_2_ReintentoDeConfirmacion_NoDuplicaAnticipoNiStockNiCuotas()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        var tras1 = await TomarEstadoAsync(venta, credito);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Equal(tras1, await TomarEstadoAsync(venta, credito));
+        Assert.Single(await AnticiposAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_CancelarVentaConAnticipoNuevo_SeRechazaSinTocarNada()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.CancelarVentaAsync(venta.Id, "test"));
+
+        Assert.Contains("anticipo", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("devolución auditada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        var despues = await TomarEstadoAsync(venta, credito);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoVenta.Confirmada, despues.Venta);
+        Assert.Equal(EstadoCredito.Generado, despues.Credito);
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_CancelarVentaConAnticipoHistoricoSinVentaId_SeRechaza()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        // Anticipo histórico: asentado antes de FIN-ANT-P0, sin VentaId y con ReferenciaId = crédito.
+        var mov = await _context.MovimientosCaja.FirstAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito);
+        mov.VentaId = null;
+        await _context.SaveChangesAsync();
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.CancelarVentaAsync(venta.Id, "test"));
+
+        Assert.Contains("anticipo", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("atribuirse", ex.Message);
+        Assert.Equal(antes, await TomarEstadoAsync(venta, credito));
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_AnticipoHistoricoAmbiguo_CreditoCompartidoPorDosVentas_SeRechazaSinAsociarAlAzar()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        var mov = await _context.MovimientosCaja.FirstAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito);
+        mov.VentaId = null;
+        // Segunda venta viva sobre el mismo crédito: a cuál pertenece el anticipo histórico es indeterminable.
+        var hermana = new Venta
+        {
+            ClienteId = venta.ClienteId, CreditoId = credito.Id, Numero = venta.Numero + "-B",
+            Estado = EstadoVenta.Presupuesto, TipoPago = TipoPago.CreditoPersonal, Total = 1m
+        };
+        _context.Ventas.Add(hermana);
+        await _context.SaveChangesAsync();
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.CancelarVentaAsync(venta.Id, "test"));
+
+        Assert.Contains("atribuirse con certeza", ex.Message);
+        Assert.Equal(antes, await TomarEstadoAsync(venta, credito));
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_CancelarVentaSinAnticipoNiPagos_SigueSiendoValida()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 10_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.True(await servicio.CancelarVentaAsync(venta.Id, "sin anticipo"));
+
+        var despues = await TomarEstadoAsync(venta, credito);
+        Assert.Equal(EstadoVenta.Cancelada, despues.Venta);
+        Assert.NotNull(despues.FechaCancelacion);
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_CancelarVentaConCuotasPagadas_SigueRechazandoPorPagosAplicados()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 10_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        var cuota = await _context.Cuotas.OrderBy(c => c.NumeroCuota).FirstAsync(c => c.CreditoId == credito.Id);
+        cuota.MontoPagado = 100m;
+        cuota.Estado = EstadoCuota.Parcial;
+        await _context.SaveChangesAsync();
+        var antes = await TomarEstadoAsync(venta, credito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.CancelarVentaAsync(venta.Id, "test"));
+
+        Assert.Contains("pagos aplicados", ex.Message);
+        Assert.Equal(antes, await TomarEstadoAsync(venta, credito));
+    }
+
+    [Fact]
+    public async Task Regresion_H_ANT_1_AnticipoRechazadoOAnulado_NoCuentaComoCobrado()
+    {
+        var servicio = CrearServiceConCajaReal();
+        var (venta, credito) = await SeedVentaConfirmable(total: 10_000m, montoAprobado: 8_000m);
+        Assert.True(await servicio.ConfirmarVentaCreditoAsync(venta.Id));
+        var mov = await _context.MovimientosCaja.FirstAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito);
+        mov.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+        await _context.SaveChangesAsync();
+
+        Assert.True(await servicio.CancelarVentaAsync(venta.Id, "anticipo anulado"));
     }
 }
