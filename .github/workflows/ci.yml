@@ -93,21 +93,26 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           # QA-FIN-RESIDUAL: que "verde" no se lea como "corregido". Cuenta por nombre visible en el TRX.
-          # Informativo: no cambia el gate ni el exit code.
-          DEF=$(grep -o 'testName="DEFECTO CONOCIDO ABIERTO[^"]*"' "$TRX" | wc -l)
-          CON=$(grep -o 'testName="CONTRATO VALIDO[^"]*"' "$TRX" | wc -l)
-          SQL=$(grep -o 'testName="NO EJECUTADO / BLOQUEADO[^"]*"' "$TRX" | wc -l)
+          # Informativo: no cambia el gate ni el exit code. `cuenta` tolera CERO coincidencias: grep sale con 1
+          # si no hay match y, con `-e`/`pipefail`, eso tumbaba el paso aunque 0 sea un valor legitimo
+          # (p. ej. cuando ya no queda ningun defecto abierto).
+          cuenta() { { grep -o "testName=\"$1[^\"]*\"" "$TRX" || true; } | wc -l | tr -d ' '; }
+          DEF=$(cuenta 'DEFECTO CONOCIDO ABIERTO')
+          REG=$(cuenta 'REGRESION')
+          CON=$(cuenta 'CONTRATO VALIDO')
+          SQL=$(cuenta 'NO EJECUTADO / BLOQUEADO')
           {
             echo ""
-            echo "### Evidencia financiera conocida (QA-FIN-RESIDUAL)"
+            echo "### Evidencia financiera conocida (QA-FIN-RESIDUAL / FIN-DEV-P0)"
             echo ""
             echo "> **Los tests DEFECTO CONOCIDO ABIERTO PASAN porque reproducen defectos vigentes. Verde NO significa corregido.**"
             echo ""
             echo "| Categoria | Tests | Significado |"
             echo "|-----------|-------|-------------|"
             echo "| DEFECTO CONOCIDO ABIERTO | $DEF | Defectos financieros vigentes (PR correctiva pendiente) |"
+            echo "| REGRESION | $REG | Defectos corregidos: la prueba exige el comportamiento correcto |"
             echo "| CONTRATO VALIDO | $CON | Comportamiento correcto a preservar |"
-            echo "| NO EJECUTADO / BLOQUEADO (SQL Server) | $SQL | NO se ejecutaron: omitidos no equivale a PASS |"
+            echo "| NO EJECUTADO / BLOQUEADO (SQL Server) | $SQL | NO se ejecutaron en este job: omitidos no equivale a PASS (R-06/R-07/R-08/R-11/R-12 se ejecutan en fin-dev-sqlserver.yml) |"
             echo ""
             echo "Detalle: docs/qa-fin-residual-registro-defectos.md"
           } >> "$GITHUB_STEP_SUMMARY"

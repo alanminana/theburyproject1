@@ -280,6 +280,20 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
                 movs.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto));
     }
 
+    private async Task<EstadoVenta> EstadoVentaAsync(int ventaId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Ventas.AsNoTracking()
+            .Where(x => x.Id == ventaId).Select(x => x.Estado).FirstAsync();
+    }
+
+    private async Task<int> DevolucionesAsync(int ventaId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Devoluciones.AsNoTracking()
+            .CountAsync(d => d.VentaId == ventaId && !d.IsDeleted);
+    }
+
     private async Task<decimal> StockAsync(int productoId)
     {
         using var scope = _fx.Services.CreateScope();
@@ -473,10 +487,11 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     }
 
     /// <summary>
-    /// R-07 [esperado: FAIL]. Devolución completa (reembolso en caja) y cancelación de la misma venta con la
-    /// cancelación en vuelo (venta y stock ya bloqueados, contramovimiento sin insertar). Se observa si Completar
-    /// espera (fila de Producto/Venta) y, al terminar ambas, se exige que lo que sale de caja no supere lo ingresado
-    /// y que el stock no supere lo existente más lo vendido. Variante determinista de H-DEV-2/H-DEV-3.
+    /// R-07 (FIN-DEV-P0). Completar devolución (reembolso en caja) en vuelo —estado Completada, stock ya
+    /// reintegrado, egreso de caja sin insertar— y cancelación de la MISMA venta lanzada en ese momento.
+    /// La cancelación debe quedar bloqueada por el lock de la venta que ya tomó Completar; al liberarla ve la
+    /// devolución Completada y se rechaza. Lo que sale de caja no supera lo ingresado y el stock no supera
+    /// lo existente más lo vendido (variante determinista de H-DEV-2/H-DEV-3).
     /// </summary>
     [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-07]: CompletarDevolucionYCancelarLaMismaVenta_NoSacaMasDineroNiMasStockQueLoVendido")]
     [Trait("Categoria", "SqlServerNoEjecutado")]
@@ -487,22 +502,97 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
         var v = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
         var (devId, rv) = await DevolucionAprobadaConReembolsoAsync(v, cantidad: 2);
 
+        var plan = Compuerta("completar/antes-del-reembolso", "INSERT INTO [MovimientosCaja]");
+        var completar = CompletarDevolucionAsync(devId, rv, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, completar));
+
+        var cancel = CancelarVentaAsync(v.VentaId);
+        var bloqueada = await QuedaBloqueadaAsync(cancel);
+        Informe("R-07", $"cancelación bloqueada por el completar en vuelo = {bloqueada}");
+        plan.Release.TrySetResult();
+        var resCompletar = await completar;
+        var resCancel = await cancel;
+
+        var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
+        var stock = await StockAsync(v.ProductoId);
+        Informe("R-07", $"completar={resCompletar}", $"cancelación={resCancel}", $"caja: ingresos={ing} egresos={egr}", $"stock={stock} (inicial 10 + vendido 2 = tope 12)");
+        Assert.True(bloqueada, "La cancelación no esperó el lock de la venta tomado por Completar.");
+        Assert.StartsWith("OK(", resCompletar);
+        Assert.Contains("devoluciones", resCancel, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EstadoVenta.Confirmada, await EstadoVentaAsync(v.VentaId));
+        Assert.Equal(100m, egr);
+        Assert.True(egr <= ing, $"Egresos {egr} > ingresos {ing} para la venta.");
+        Assert.Equal(12m, stock);
+    }
+
+    /// <summary>
+    /// R-11 (FIN-DEV-P0, H-DEV-1). Cancelación en vuelo (venta bloqueada, stock devuelto, contramovimiento sin
+    /// insertar) y alta de devolución sobre la misma venta: el alta espera el lock; al commitear la cancelación
+    /// se rechaza por venta cancelada y no queda ninguna devolución. Dinero y stock no se duplican.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-11]: CancelarEnVueloYCrearDevolucion_NoDejaDevolucionSobreVentaCancelada")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R11_CancelarEnVueloYCrearDevolucion_NoDejaDevolucionSobreVentaCancelada()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+
         var plan = Compuerta("cancelacion/antes-del-contramovimiento", "INSERT INTO [MovimientosCaja]");
         var cancel = CancelarVentaAsync(v.VentaId, plan);
         Assert.True(await LlegoALaCompuertaAsync(plan, cancel));
 
-        var completar = CompletarDevolucionAsync(devId, rv);
-        var bloqueada = await QuedaBloqueadaAsync(completar);
-        Informe("R-07", $"completar bloqueada por la cancelación en vuelo = {bloqueada}");
+        var crear = CrearDevolucionAsync(v, cantidad: 1);
+        var bloqueada = await QuedaBloqueadaAsync(crear);
         plan.Release.TrySetResult();
         var resCancel = await cancel;
-        var resCompletar = await completar;
+        var resCrear = await crear;
 
         var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
         var stock = await StockAsync(v.ProductoId);
-        Informe("R-07", $"cancelación={resCancel}", $"completar={resCompletar}", $"caja: ingresos={ing} egresos={egr}", $"stock={stock} (inicial 10 + vendido 2 = tope 12)");
-        Assert.True(egr <= ing, $"Egresos {egr} > ingresos {ing} para la venta.");
-        Assert.True(stock <= 12m, $"Stock {stock} > 12.");
+        Informe("R-11", $"alta bloqueada por la cancelación en vuelo = {bloqueada}", $"cancelación={resCancel}", $"crear={resCrear}",
+            $"caja: ingresos={ing} egresos={egr}", $"stock={stock}");
+        Assert.True(bloqueada, "El alta de devolución no esperó el lock de la venta tomado por la cancelación.");
+        Assert.StartsWith("OK(", resCancel);
+        Assert.Contains("venta cancelada", resCrear, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EstadoVenta.Cancelada, await EstadoVentaAsync(v.VentaId));
+        Assert.Equal(0, await DevolucionesAsync(v.VentaId));
+        Assert.Equal(100m, egr);
+        Assert.Equal(12m, stock);
+    }
+
+    /// <summary>
+    /// R-12 (FIN-DEV-P0, H-DEV-2). Alta de devolución en vuelo (venta bloqueada, cabecera sin insertar) y
+    /// cancelación de la misma venta: la cancelación espera; al commitear el alta ve la devolución Pendiente y
+    /// se rechaza. La venta sigue Confirmada, sin contramovimiento ni stock devuelto.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-12]: CrearDevolucionEnVueloYCancelar_RechazaLaCancelacion")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R12_CrearDevolucionEnVueloYCancelar_RechazaLaCancelacion()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+
+        var plan = Compuerta("devolucion/antes-de-insertar", "INSERT INTO [Devoluciones]");
+        var crear = CrearDevolucionAsync(v, cantidad: 1, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, crear));
+
+        var cancel = CancelarVentaAsync(v.VentaId);
+        var bloqueada = await QuedaBloqueadaAsync(cancel);
+        plan.Release.TrySetResult();
+        var resCrear = await crear;
+        var resCancel = await cancel;
+
+        var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
+        var stock = await StockAsync(v.ProductoId);
+        Informe("R-12", $"cancelación bloqueada por el alta en vuelo = {bloqueada}", $"crear={resCrear}", $"cancelación={resCancel}",
+            $"caja: ingresos={ing} egresos={egr}", $"stock={stock}");
+        Assert.True(bloqueada, "La cancelación no esperó el lock de la venta tomado por el alta de devolución.");
+        Assert.StartsWith("OK(", resCrear);
+        Assert.Contains("devoluciones", resCancel, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EstadoVenta.Confirmada, await EstadoVentaAsync(v.VentaId));
+        Assert.Equal(1, await DevolucionesAsync(v.VentaId));
+        Assert.Equal(0m, egr);
+        Assert.Equal(10m, stock);
     }
 
     /// <summary>

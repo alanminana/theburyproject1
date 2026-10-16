@@ -1237,6 +1237,11 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(
                         "El crédito de la venta cambió mientras se cancelaba. Reintentá la cancelación.");
 
+                // FIN-DEV-P0 (H-DEV-2): con la fila de la venta ya bloqueada (UPDATE de arriba) ninguna devolución
+                // puede crearse ni completarse en paralelo (comparten ese lock), así que esta lectura es exacta.
+                // Se rechaza ANTES de devolver stock, anular facturas o asentar contramovimientos.
+                await AsegurarSinDevolucionesVivasParaCancelarAsync(venta);
+
                 // Con el crédito bloqueado esta guardia es exacta (ya no es TOCTOU).
                 await AsegurarSinPagosAplicadosParaCancelarAsync(venta);
 
@@ -1319,6 +1324,35 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al cancelar venta {Id}", id);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Regla comercial FIN-DEV-P0: una venta con devoluciones Pendiente, EnRevision, Aprobada o Completada no
+        /// puede cancelarse (la devolución ya movió, o va a mover, stock y dinero; cancelar los duplicaría).
+        /// Las Rechazadas y Canceladas son históricas: nunca generan efectos de stock ni de caja (Completar exige
+        /// Aprobada; Rechazar anula su nota de crédito). Consulta explícita sin soft-deleted y sin tracking.
+        /// </summary>
+        private async Task AsegurarSinDevolucionesVivasParaCancelarAsync(Venta venta)
+        {
+            var vivas = await _context.Devoluciones
+                .AsNoTracking()
+                .Where(d => d.VentaId == venta.Id && !d.IsDeleted
+                            && (d.Estado == EstadoDevolucion.Pendiente
+                                || d.Estado == EstadoDevolucion.EnRevision
+                                || d.Estado == EstadoDevolucion.Aprobada
+                                || d.Estado == EstadoDevolucion.Completada))
+                .OrderBy(d => d.Id)
+                .Select(d => new { d.NumeroDevolucion, d.Estado })
+                .ToListAsync();
+
+            if (vivas.Count == 0)
+                return;
+
+            var detalle = string.Join(", ", vivas.Select(d => $"{d.NumeroDevolucion} ({d.Estado})"));
+            throw new InvalidOperationException(
+                $"No se puede cancelar la venta {venta.Numero}: tiene devoluciones registradas ({detalle}). " +
+                "Una venta con devoluciones pendientes, aprobadas o completadas no puede cancelarse; " +
+                "rechazá o cancelá las devoluciones que aún no se completaron.");
         }
 
         /// <summary>

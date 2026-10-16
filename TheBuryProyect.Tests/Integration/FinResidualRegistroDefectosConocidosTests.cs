@@ -9,8 +9,10 @@ namespace TheBuryProject.Tests.Integration;
 /// solo lee por reflexión los metadatos de los tests de evidencia para que nadie pueda interpretar
 /// "9 Hallazgo_ PASS" como "9 bugs corregidos" ni borrar un hallazgo abierto sin que CI lo note.
 ///
-/// Los 9 tests <c>Hallazgo_</c> PASAN porque REPRODUCEN defectos financieros VIGENTES (estado ABIERTO, PR correctiva
-/// PENDIENTE). Los 6 <c>Contrato_</c> fijan comportamiento correcto. Los 10 escenarios R-xx de SQL Server están
+/// Los 6 tests <c>Hallazgo_</c> PASAN porque REPRODUCEN defectos financieros VIGENTES (estado ABIERTO, PR correctiva
+/// PENDIENTE). Los 3 hallazgos H-DEV-1/2/3 (CR-3) fueron CORREGIDOS en FIN-DEV-P0 y sus pruebas son <c>Regresion_</c>
+/// (exigen el comportamiento correcto; no se eliminó la evidencia histórica, ver docs/qa-fin-residual-registro-defectos.md).
+/// Los 6 <c>Contrato_</c> fijan comportamiento correcto. Los 10 escenarios R-xx de SQL Server están
 /// NO EJECUTADOS / BLOQUEADOS: omitirlos no equivale a PASS. Ver docs/qa-fin-residual-registro-defectos.md.
 ///
 /// Al corregir un defecto, la PR correctiva debe: invertir la aserción del Hallazgo_, quitar su trait
@@ -18,8 +20,9 @@ namespace TheBuryProject.Tests.Integration;
 /// </summary>
 public sealed class FinResidualRegistroDefectosConocidosTests
 {
-    private const int HallazgosAbiertos = 9;
-    private const int CausasRaiz = 5;
+    private const int HallazgosAbiertos = 6;
+    private const int HallazgosCorregidos = 3;
+    private const int CausasRaiz = 4;
     private const int Contratos = 6;
     private const int EscenariosSqlNoEjecutados = 10;
 
@@ -41,8 +44,8 @@ public sealed class FinResidualRegistroDefectosConocidosTests
         }
     }
 
-    [Fact(DisplayName = "REGISTRO: 9 hallazgos ABIERTOS en 5 causas raiz (pasar NO significa corregido)")]
-    public void Registro_NueveHallazgosAbiertos_EnCincoCausasRaiz()
+    [Fact(DisplayName = "REGISTRO: 6 hallazgos ABIERTOS en 4 causas raiz (pasar NO significa corregido)")]
+    public void Registro_SeisHallazgosAbiertos_EnCuatroCausasRaiz()
     {
         var hallazgos = Metodos(typeof(FinResidualCajaDevolucionAnticipoTests))
             .Where(x => x.Metodo.Name.StartsWith("Hallazgo_", StringComparison.Ordinal))
@@ -58,6 +61,12 @@ public sealed class FinResidualRegistroDefectosConocidosTests
             Assert.StartsWith("DEFECTO CONOCIDO ABIERTO", h.DisplayName);
         }
 
+        // Ningún hallazgo CORREGIDO puede seguir figurando como abierto, ni al revés.
+        var abiertos = hallazgos.Select(h => h.Traits["Hallazgo"]).ToHashSet();
+        Assert.DoesNotContain("H-DEV-1", abiertos);
+        Assert.DoesNotContain("H-DEV-2", abiertos);
+        Assert.DoesNotContain("H-DEV-3", abiertos);
+
         Assert.Equal(HallazgosAbiertos, hallazgos.Select(h => h.Traits["Hallazgo"]).Distinct().Count());
         Assert.Equal(CausasRaiz, hallazgos.Select(h => h.Traits["CausaRaiz"]).Distinct().Count());
 
@@ -65,6 +74,31 @@ public sealed class FinResidualRegistroDefectosConocidosTests
                        "Que pasen NO significa que esten corregidos.");
         foreach (var h in hallazgos.OrderBy(h => h.Traits["Hallazgo"]))
             _out.WriteLine($"  {h.Traits["Hallazgo"],-9} {h.Traits["CausaRaiz"]}  ABIERTO  {h.Metodo.Name}");
+    }
+
+    [Fact(DisplayName = "REGISTRO: 3 hallazgos CORREGIDOS (H-DEV-1/2/3) con pruebas de regresion")]
+    public void Registro_TresHallazgosCorregidos_ConRegresion()
+    {
+        var corregidos = Metodos(typeof(FinResidualCajaDevolucionAnticipoTests))
+            .Where(x => x.Metodo.Name.StartsWith("Regresion_H_DEV_", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(HallazgosCorregidos, corregidos.Count);
+        foreach (var c in corregidos)
+        {
+            Assert.Equal("Regresion", c.Traits.GetValueOrDefault("Categoria"));
+            Assert.Equal("CORREGIDO", c.Traits.GetValueOrDefault("Estado"));
+            Assert.Equal("CR-3", c.Traits.GetValueOrDefault("CausaRaiz"));
+            Assert.StartsWith("REGRESION", c.DisplayName);
+        }
+        Assert.Equal(new[] { "H-DEV-1", "H-DEV-2", "H-DEV-3" }, corregidos.Select(c => c.Traits["Hallazgo"]).OrderBy(x => x).ToArray());
+
+        // Los traits de "defecto abierto" no pueden sobrevivir en ningún test de la clase que ya no los reproduce.
+        var todos = Metodos(typeof(FinResidualCajaDevolucionAnticipoTests)).ToList();
+        Assert.DoesNotContain(todos, t => t.Metodo.Name.StartsWith("Regresion", StringComparison.Ordinal)
+                                          && t.Traits.GetValueOrDefault("Categoria") == "DefectoConocido");
+
+        _out.WriteLine("H-DEV-1, H-DEV-2 y H-DEV-3 (CR-3) CORREGIDOS en FIN-DEV-P0; el resto de hallazgos sigue ABIERTO.");
     }
 
     [Fact(DisplayName = "REGISTRO: 6 contratos validos (comportamiento correcto, no son bugs)")]
