@@ -341,6 +341,18 @@ public class DevolucionService : IDevolucionService
 
         try
         {
+            // FIN-DEV-P0: lock de la venta (el mismo de la cancelación y de crear/completar devolución) y
+            // revalidación de su estado DENTRO de la transacción y ANTES de cambiar el estado de la devolución o
+            // generar la nota de crédito. Cubre devoluciones pendientes históricas sobre ventas ya canceladas.
+            var estadoVenta = await VentaConcurrencia.BloquearYObtenerEstadoAsync(_context, devolucion.VentaId);
+            if (estadoVenta == null)
+                throw new InvalidOperationException(
+                    "No se puede aprobar la devolución: la venta asociada no existe o fue eliminada.");
+
+            if (estadoVenta == EstadoVenta.Cancelada)
+                throw new InvalidOperationException(
+                    "No se puede aprobar la devolución: la venta asociada está cancelada.");
+
             devolucion.Estado = EstadoDevolucion.Aprobada;
             devolucion.AprobadoPor = aprobadoPor;
             devolucion.FechaAprobacion = DateTime.UtcNow;
@@ -523,6 +535,10 @@ public class DevolucionService : IDevolucionService
             // ni el reintegro de stock, ni el cambio de unidades, ni el egreso de caja. Cubre también
             // devoluciones aprobadas históricas sobre ventas que ya se cancelaron.
             var estadoVenta = await VentaConcurrencia.BloquearYObtenerEstadoAsync(_context, devolucion.VentaId);
+            if (estadoVenta == null)
+                throw new InvalidOperationException(
+                    "No se puede completar la devolución: la venta asociada no existe o fue eliminada.");
+
             if (estadoVenta == EstadoVenta.Cancelada)
                 throw new InvalidOperationException(
                     "No se puede completar la devolución: la venta asociada está cancelada.");

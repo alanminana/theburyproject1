@@ -81,7 +81,7 @@ jobs:
           dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
           dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
 
-      - name: Concurrencia devolucion/cancelacion (R-06, R-07, R-08, R-11, R-12)
+      - name: Concurrencia devolucion/cancelacion (R-06, R-07, R-08, R-11, R-12, R-13, R-14)
         env:
           QA_RELEASE_TURNO: '1'
           QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
           dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
-            --filter "FullyQualifiedName~FinResidualSqlServerTests.R06_|FullyQualifiedName~FinResidualSqlServerTests.R07_|FullyQualifiedName~FinResidualSqlServerTests.R08_|FullyQualifiedName~FinResidualSqlServerTests.R11_|FullyQualifiedName~FinResidualSqlServerTests.R12_" \
+            --filter "FullyQualifiedName~FinResidualSqlServerTests.R06_|FullyQualifiedName~FinResidualSqlServerTests.R07_|FullyQualifiedName~FinResidualSqlServerTests.R08_|FullyQualifiedName~FinResidualSqlServerTests.R11_|FullyQualifiedName~FinResidualSqlServerTests.R12_|FullyQualifiedName~FinResidualSqlServerTests.R13_|FullyQualifiedName~FinResidualSqlServerTests.R14_" \
             --logger "trx;LogFileName=fin-dev-sql-rcsi${{ matrix.rcsi }}.trx" \
             --logger "console;verbosity=detailed" \
             --results-directory ./TestResults
@@ -121,7 +121,7 @@ jobs:
             echo "| Escenario | Resultado |"
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for R in R-06 R-07 R-08 R-11 R-12; do
+          for R in R-06 R-07 R-08 R-11 R-12 R-13 R-14; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"

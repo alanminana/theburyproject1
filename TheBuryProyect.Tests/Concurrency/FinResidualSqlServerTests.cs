@@ -595,6 +595,139 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
         Assert.Equal(10m, stock);
     }
 
+    // ------------------------------------------------------------------ FIN-DEV-P0: aprobación de devoluciones
+
+    private async Task<(int id, byte[] rv)> DevolucionPendienteAsync(VentaContado v, TipoResolucionDevolucion tipo)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var d = await scope.ServiceProvider.GetRequiredService<IDevolucionService>().CrearDevolucionAsync(
+            new Devolucion
+            {
+                VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "QA",
+                TipoResolucion = tipo, RegistrarEgresoCaja = tipo == TipoResolucionDevolucion.ReembolsoDinero
+            },
+            new List<DevolucionDetalle> { new() { ProductoId = v.ProductoId, Cantidad = 1, AccionRecomendada = AccionProducto.ReintegrarStock } });
+        return (d.Id, d.RowVersion);
+    }
+
+    private Task<string> AprobarDevolucionAsync(int id, byte[] rv, GatePlan? plan = null) =>
+        Lanzar(plan, async sp => (await sp.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(id, "qa", rv)).Estado);
+
+    /// <summary>Simula el registro histórico inconsistente (anterior a FIN-DEV-P0) escribiendo directo sobre la fila de la venta.</summary>
+    private async Task ForzarVentaAsync(int ventaId, EstadoVenta? estado = null, bool eliminada = false)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var q = ctx.Ventas.IgnoreQueryFilters().Where(x => x.Id == ventaId);
+        var n = estado.HasValue
+            ? await q.ExecuteUpdateAsync(s => s.SetProperty(x => x.Estado, estado.Value))
+            : await q.ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, eliminada));
+        Assert.Equal(1, n);
+    }
+
+    private async Task<(EstadoDevolucion estado, int notasCredito, decimal ingresos, decimal egresos)> FotoDevolucionAsync(int devId, int ventaId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var estado = await ctx.Devoluciones.IgnoreQueryFilters().AsNoTracking().Where(d => d.Id == devId).Select(d => d.Estado).FirstAsync();
+        var nc = await ctx.NotasCredito.IgnoreQueryFilters().AsNoTracking().CountAsync(n => n.DevolucionId == devId);
+        var movs = await ctx.MovimientosCaja.AsNoTracking().Where(m => !m.IsDeleted && m.VentaId == ventaId).ToListAsync();
+        return (estado, nc, movs.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).Sum(m => m.Monto),
+                movs.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto));
+    }
+
+    /// <summary>
+    /// R-13 (FIN-DEV-P0). Aprobación de una devolución con nota de crédito en vuelo (venta bloqueada, nota sin insertar)
+    /// y cancelación de la MISMA venta: la cancelación debe esperar el lock que tomó la aprobación y, al liberarla, ver la
+    /// devolución Aprobada y rechazarse. Queda una sola nota vigente, la venta Confirmada, sin contramovimiento ni stock devuelto.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-13]: AprobarDevolucionEnVueloYCancelar_RechazaLaCancelacion")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R13_AprobarDevolucionEnVueloYCancelar_RechazaLaCancelacion()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+        var (devId, rv) = await DevolucionPendienteAsync(v, TipoResolucionDevolucion.NotaCredito);
+
+        var plan = Compuerta("aprobar/antes-de-insertar-nota-de-credito", "INSERT INTO [NotasCredito]");
+        var aprobar = AprobarDevolucionAsync(devId, rv, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, aprobar));
+
+        var cancel = CancelarVentaAsync(v.VentaId);
+        var bloqueada = await QuedaBloqueadaAsync(cancel);
+        plan.Release.TrySetResult();
+        var resAprobar = await aprobar;
+        var resCancel = await cancel;
+
+        var foto = await FotoDevolucionAsync(devId, v.VentaId);
+        var stock = await StockAsync(v.ProductoId);
+        Informe("R-13", $"cancelación bloqueada por la aprobación en vuelo = {bloqueada}", $"aprobar={resAprobar}", $"cancelación={resCancel}",
+            $"devolución={foto.estado} notas={foto.notasCredito} caja: ingresos={foto.ingresos} egresos={foto.egresos}", $"stock={stock}");
+        Assert.True(bloqueada, "La cancelación no esperó el lock de la venta tomado por la aprobación de la devolución.");
+        Assert.StartsWith("OK(", resAprobar);
+        Assert.Contains("devoluciones", resCancel, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EstadoVenta.Confirmada, await EstadoVentaAsync(v.VentaId));
+        Assert.Equal(EstadoDevolucion.Aprobada, foto.estado);
+        Assert.Equal(1, foto.notasCredito);
+        Assert.Equal(0m, foto.egresos);
+        Assert.Equal(10m, stock);
+    }
+
+    /// <summary>
+    /// R-14 (FIN-DEV-P0). Registros históricos inconsistentes sobre SQL Server real (camino UPDLOCK/HOLDLOCK sobre
+    /// [Ventas]): aprobar sobre venta Cancelada, aprobar sobre venta eliminada y completar sobre venta eliminada se rechazan
+    /// sin cambiar estados ni emitir notas de crédito ni mover caja/stock. Los reintentos rechazan igual.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-14]: AprobarYCompletarSobreVentaCanceladaOEliminada_SeRechazanSinEfectos")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R14_AprobarYCompletarSobreVentaCanceladaOEliminada_SeRechazanSinEfectos()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+
+        // a) Aprobar sobre venta Cancelada (histórico).
+        var a = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+        var (devA, rvA) = await DevolucionPendienteAsync(a, TipoResolucionDevolucion.NotaCredito);
+        await ForzarVentaAsync(a.VentaId, estado: EstadoVenta.Cancelada);
+        var antesA = await FotoDevolucionAsync(devA, a.VentaId);
+        var resA = await AprobarDevolucionAsync(devA, rvA);
+        var resA2 = await AprobarDevolucionAsync(devA, rvA);
+
+        // b) Aprobar sobre venta eliminada (histórico).
+        var b = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+        var (devB, rvB) = await DevolucionPendienteAsync(b, TipoResolucionDevolucion.NotaCredito);
+        await ForzarVentaAsync(b.VentaId, eliminada: true);
+        var antesB = await FotoDevolucionAsync(devB, b.VentaId);
+        var resB = await AprobarDevolucionAsync(devB, rvB);
+
+        // c) Completar una devolución aprobada sobre venta eliminada (histórico).
+        var c = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
+        var (devC, rvC) = await DevolucionAprobadaConReembolsoAsync(c, cantidad: 1);
+        await ForzarVentaAsync(c.VentaId, eliminada: true);
+        var antesC = await FotoDevolucionAsync(devC, c.VentaId);
+        var resC = await CompletarDevolucionAsync(devC, rvC);
+        var resC2 = await CompletarDevolucionAsync(devC, rvC);
+
+        Informe("R-14", $"a={resA}", $"a(reintento)={resA2}", $"b={resB}", $"c={resC}", $"c(reintento)={resC2}");
+        Assert.Contains("cancelada", resA, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cancelada", resA2, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("eliminada", resB, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("eliminada", resC, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("eliminada", resC2, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(antesA, await FotoDevolucionAsync(devA, a.VentaId));
+        Assert.Equal(EstadoDevolucion.Pendiente, antesA.estado);
+        Assert.Equal(0, antesA.notasCredito);
+        Assert.Equal(antesB, await FotoDevolucionAsync(devB, b.VentaId));
+        Assert.Equal(EstadoDevolucion.Pendiente, antesB.estado);
+        Assert.Equal(0, antesB.notasCredito);
+        Assert.Equal(antesC, await FotoDevolucionAsync(devC, c.VentaId));
+        Assert.Equal(EstadoDevolucion.Aprobada, antesC.estado);
+        Assert.Equal(0m, antesC.egresos);
+        Assert.Equal(10m, await StockAsync(a.ProductoId));
+        Assert.Equal(10m, await StockAsync(b.ProductoId));
+        Assert.Equal(10m, await StockAsync(c.ProductoId));
+    }
+
     /// <summary>
     /// R-08 [esperado: PASS]. Dos completar simultáneos de la MISMA devolución (doble clic): estado + RowVersion
     /// deben dejar un único reembolso y un único reintegro de stock.

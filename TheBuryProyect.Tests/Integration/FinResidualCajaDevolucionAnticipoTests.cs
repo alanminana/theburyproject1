@@ -327,14 +327,15 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
     /// <summary>Foto de TODO lo que una operación rechazada no debe tocar.</summary>
     private sealed record FotoDevolucion(
         EstadoVenta EstadoVenta, string EstadosDevolucion, int MovimientosCaja, decimal Ingresos, decimal Egresos,
-        decimal Stock, int MovimientosStock, string EstadosUnidades, int HistorialUnidades, int NotasCredito, int Devoluciones);
+        decimal Stock, int MovimientosStock, string EstadosUnidades, int HistorialUnidades, int NotasCredito, int Devoluciones,
+        string EstadosNotasCredito);
 
     private async Task<FotoDevolucion> FotoAsync(VentaContado v)
     {
         var (ing, egr, movs) = await LibroAsync(v.AperturaId);
         using var scope = _factory.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var estadoVenta = await ctx.Ventas.AsNoTracking().Where(x => x.Id == v.VentaId).Select(x => x.Estado).FirstAsync();
+        var estadoVenta = await ctx.Ventas.IgnoreQueryFilters().AsNoTracking().Where(x => x.Id == v.VentaId).Select(x => x.Estado).FirstAsync();
         var devs = await ctx.Devoluciones.AsNoTracking().Where(d => d.VentaId == v.VentaId && !d.IsDeleted)
             .OrderBy(d => d.Id).Select(d => d.Estado).ToListAsync();
         var unidades = await ctx.ProductoUnidades.AsNoTracking().Where(u => u.ProductoId == v.ProductoId)
@@ -349,7 +350,9 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
             string.Join(",", unidades.Select(u => u.Estado)),
             await ctx.Set<ProductoUnidadMovimiento>().AsNoTracking().CountAsync(m => unidadIds.Contains(m.ProductoUnidadId)),
             await ctx.NotasCredito.AsNoTracking().CountAsync(n => n.Devolucion.VentaId == v.VentaId),
-            devs.Count);
+            devs.Count,
+            string.Join(",", await ctx.NotasCredito.AsNoTracking().Where(n => n.Devolucion.VentaId == v.VentaId)
+                .OrderBy(n => n.Id).Select(n => n.Estado + ":" + n.MontoTotal).ToListAsync()));
     }
 
     private async Task<string> RechazadaConAsync(Func<IServiceProvider, Task> operacion)
@@ -362,12 +365,13 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
     private Task CancelarAsync(IServiceProvider sp, VentaContado v, string motivo = "QA FIN-DEV-P0") =>
         sp.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, motivo);
 
-    private Task<Devolucion> CrearDevolucionPendienteAsync(IServiceProvider sp, VentaContado v, int cantidad, int? unidadId = null) =>
+    private Task<Devolucion> CrearDevolucionPendienteAsync(IServiceProvider sp, VentaContado v, int cantidad, int? unidadId = null,
+        TipoResolucionDevolucion tipo = TipoResolucionDevolucion.ReembolsoDinero) =>
         sp.GetRequiredService<IDevolucionService>().CrearDevolucionAsync(
             new Devolucion
             {
                 VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "QA",
-                TipoResolucion = TipoResolucionDevolucion.ReembolsoDinero, RegistrarEgresoCaja = true
+                TipoResolucion = tipo, RegistrarEgresoCaja = tipo == TipoResolucionDevolucion.ReembolsoDinero
             },
             new List<DevolucionDetalle>
             {
@@ -553,6 +557,191 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
         // Reintento: mismo rechazo, mismos datos.
         await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
         Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>Simula un registro histórico inconsistente: la venta fue eliminada lógicamente con una devolución viva.</summary>
+    private async Task ForzarVentaEliminadaHistoricaAsync(VentaContado v)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var n = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Ventas
+            .Where(x => x.Id == v.VentaId).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true));
+        Assert.Equal(1, n);
+    }
+
+    private async Task<(int id, byte[] rv)> DevolucionPendienteAsync(VentaContado v, TipoResolucionDevolucion tipo, int? unidadId = null)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dev = await CrearDevolucionPendienteAsync(scope.ServiceProvider, v, cantidad: 1, unidadId, tipo);
+        return (dev.Id, dev.RowVersion);
+    }
+
+    /// <summary>
+    /// FIN-DEV-P0 (aprobación). Aprobar una devolución Pendiente histórica sobre una venta Cancelada se rechaza
+    /// antes de cambiar el estado o emitir la nota de crédito. Sin escrituras parciales; el reintento rechaza igual.
+    /// </summary>
+    [Theory(DisplayName = "REGRESION [FIN-DEV-P0]: no se puede aprobar una devolucion historica sobre una venta cancelada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    [InlineData(TipoResolucionDevolucion.NotaCredito)]
+    [InlineData(TipoResolucionDevolucion.ReembolsoDinero)]
+    public async Task Regresion_AprobarDevolucionPendiente_SobreVentaCancelada_SeRechazaSinEfectos(TipoResolucionDevolucion tipo)
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var unidadId = await SembrarUnidadVendidaAsync(v);
+        var (devId, rv) = await DevolucionPendienteAsync(v, tipo, unidadId);
+
+        await ForzarVentaCanceladaHistoricaAsync(v);
+        var antes = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Cancelada, antes.EstadoVenta);
+        Assert.Equal(EstadoDevolucion.Pendiente.ToString(), antes.EstadosDevolucion);
+        Assert.Equal(0, antes.NotasCredito);
+
+        var mensaje = await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv));
+        Assert.Contains("cancelada", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);                    // estado, NC, caja, stock, unidades y auditoría intactos
+        Assert.Equal(0, despues.NotasCredito);           // ninguna nota de crédito vigente
+        Assert.Equal(EstadoUnidad.Vendida.ToString(), despues.EstadosUnidades);
+
+        using var check = _factory.Services.CreateScope();
+        var ctx = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        var dev = await ctx.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == devId);
+        Assert.Null(dev.AprobadoPor);
+        Assert.Null(dev.FechaAprobacion);
+        Assert.False(dev.NotaCreditoGenerada);
+        Assert.Null(dev.NotaCreditoId);
+        Assert.Equal(0, await ctx.NotasCredito.IgnoreQueryFilters().CountAsync(n => n.DevolucionId == devId));
+
+        // Reintento: mismo rechazo, mismos datos.
+        await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv));
+        Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>Aprobar sobre una venta eliminada lógicamente se rechaza sin efectos.</summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: no se puede aprobar una devolucion sobre una venta eliminada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    public async Task Regresion_AprobarDevolucionPendiente_SobreVentaEliminada_SeRechazaSinEfectos()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var (devId, rv) = await DevolucionPendienteAsync(v, TipoResolucionDevolucion.NotaCredito);
+
+        await ForzarVentaEliminadaHistoricaAsync(v);
+        var antes = await FotoAsync(v);
+
+        var mensaje = await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv));
+        Assert.Contains("eliminada", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoDevolucion.Pendiente.ToString(), despues.EstadosDevolucion);
+        Assert.Equal(0, despues.NotasCredito);
+        using var check = _factory.Services.CreateScope();
+        Assert.Equal(0, await check.ServiceProvider.GetRequiredService<AppDbContext>().NotasCredito
+            .IgnoreQueryFilters().CountAsync(n => n.DevolucionId == devId));
+    }
+
+    /// <summary>Completar una devolución aprobada sobre una venta eliminada lógicamente se rechaza sin efectos.</summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: no se puede completar una devolucion aprobada sobre una venta eliminada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    public async Task Regresion_CompletarDevolucionAprobada_SobreVentaEliminada_SeRechazaSinEfectos()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var unidadId = await SembrarUnidadVendidaAsync(v);
+        var (pendId, pendRv) = await DevolucionPendienteAsync(v, TipoResolucionDevolucion.ReembolsoDinero, unidadId);
+        int devId;
+        byte[] rv;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var aprobada = await scope.ServiceProvider.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(pendId, "qa", pendRv);
+            devId = aprobada.Id;
+            rv = aprobada.RowVersion;
+        }
+
+        await ForzarVentaEliminadaHistoricaAsync(v);
+        var antes = await FotoAsync(v);
+        Assert.Equal(EstadoDevolucion.Aprobada.ToString(), antes.EstadosDevolucion);
+
+        var mensaje = await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
+        Assert.Contains("eliminada", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoDevolucion.Aprobada.ToString(), despues.EstadosDevolucion);
+        Assert.Equal(0m, despues.Egresos);
+        Assert.Equal(10m, despues.Stock);
+        Assert.Equal(EstadoUnidad.Vendida.ToString(), despues.EstadosUnidades);
+
+        await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
+        Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>Aprobación válida emite UNA nota de crédito vigente; su reintento se rechaza y NO la duplica.</summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: reintento de aprobacion no duplica la nota de credito")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    public async Task Regresion_AprobarDevolucion_Valida_Y_Reintento_NoDuplicaNotaCredito()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var (devId, rv) = await DevolucionPendienteAsync(v, TipoResolucionDevolucion.NotaCredito);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var aprobada = await scope.ServiceProvider.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv);
+            Assert.Equal(EstadoDevolucion.Aprobada, aprobada.Estado);
+            Assert.True(aprobada.NotaCreditoGenerada);
+        }
+        var antes = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Confirmada, antes.EstadoVenta);
+        Assert.Equal(1, antes.NotasCredito);
+        using (var check = _factory.Services.CreateScope())
+            Assert.Equal(EstadoNotaCredito.Vigente, await check.ServiceProvider.GetRequiredService<AppDbContext>().NotasCredito
+                .AsNoTracking().Where(n => n.DevolucionId == devId).Select(n => n.Estado).SingleAsync());
+
+        await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv));
+
+        Assert.Equal(antes, await FotoAsync(v));
+        Assert.Equal(1, (await FotoAsync(v)).NotasCredito);
+    }
+
+    /// <summary>
+    /// Rollback de la aprobación: una nota de crédito histórica soft-deleted con la misma DevolucionId choca contra el
+    /// índice único de la relación 1:1 al insertar la nueva. Ya con el lock tomado y el estado modificado en memoria, el
+    /// error debe dejar la devolución Pendiente, sin segunda nota y sin tocar caja/stock.
+    /// </summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: error durante la aprobacion revierte todo")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    public async Task Regresion_AprobarDevolucion_ErrorDeInsercion_RevierteTodo()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var (devId, rv) = await DevolucionPendienteAsync(v, TipoResolucionDevolucion.NotaCredito);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            ctx.NotasCredito.Add(new NotaCredito
+            {
+                DevolucionId = devId, ClienteId = v.ClienteId, NumeroNotaCredito = "NC-HIST-" + devId,
+                FechaEmision = DateTime.UtcNow, MontoTotal = 1m, Estado = EstadoNotaCredito.Cancelada, IsDeleted = true
+            });
+            await ctx.SaveChangesAsync();
+        }
+        var antes = await FotoAsync(v);
+
+        using (var scope = _factory.Services.CreateScope())
+            await Assert.ThrowsAnyAsync<Exception>(() =>
+                scope.ServiceProvider.GetRequiredService<IDevolucionService>().AprobarDevolucionAsync(devId, "qa", rv));
+
+        Assert.Equal(antes, await FotoAsync(v));
+        using var check = _factory.Services.CreateScope();
+        var ctx2 = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        var dev = await ctx2.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == devId);
+        Assert.Equal(EstadoDevolucion.Pendiente, dev.Estado);
+        Assert.Null(dev.AprobadoPor);
+        Assert.False(dev.NotaCreditoGenerada);
+        Assert.Equal(1, await ctx2.NotasCredito.IgnoreQueryFilters().CountAsync(n => n.DevolucionId == devId)); // solo la histórica
     }
 
     /// <summary>Matriz: cualquier devolución viva (Pendiente, EnRevision, Aprobada, Completada) impide cancelar la venta.</summary>
