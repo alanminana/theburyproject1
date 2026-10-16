@@ -179,3 +179,11 @@
 .mc-pending-action > span:first-child { display: inline-flex; align-items: center; gap: 0.5rem; }
 
 .mc-credit-table { min-width: 40rem; }
+
+/* En telefono las tablas pasan a tarjetas (erp-table-cards.css). Estos <thead> no tienen controles
+   (sin orden ni checkbox), asi que se ocultan enteros: el componente compartido deja una franja vacia
+   con el border-b del thead sobre la primera tarjeta. */
+@media (max-width: 639.98px) {
+    .mc-table[data-erp-cards] > thead,
+    .mc-credit-table[data-erp-cards] > thead { display: none; }
+}
