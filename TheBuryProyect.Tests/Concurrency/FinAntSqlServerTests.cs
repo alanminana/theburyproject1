@@ -163,6 +163,12 @@ public class FinAntSqlServerTests : IClassFixture<FinAntSqlHostFixture>
             PrecioCompra = 10m, PrecioVenta = Total, PorcentajeIVA = 21m, StockActual = 10m, Activo = true
         };
         ctx.Productos.Add(producto);
+        // La confirmación real exige un plan global activo para la cantidad de cuotas (un catálogo recién migrado no trae ninguno).
+        if (!await ctx.ConfiguracionCreditoPersonalCuotas.AnyAsync(c => c.CantidadCuotas == Cuotas && c.Activo))
+            ctx.ConfiguracionCreditoPersonalCuotas.Add(new ConfiguracionCreditoPersonalCuota
+            {
+                CantidadCuotas = Cuotas, TasaMensual = 3m, Activo = true, Orden = Cuotas
+            });
         var credito = new Credito
         {
             ClienteId = cliente.Id, Numero = "CRANT" + sufijo, Estado = EstadoCredito.Configurado,
