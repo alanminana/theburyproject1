@@ -4,7 +4,7 @@
 > regresión, y 6 hallazgos todavía ABIERTOS.**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
 > De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07 y R-08 se ejecutan ahora contra un SQL Server efímero**
-> en `.github/workflows/fin-dev-sqlserver.yml` (más R-11 y R-12, nuevos); los otros 7 siguen **NO EJECUTADOS /
+> en `.github/workflows/fin-dev-sqlserver.yml` (más R-11, R-12, R-13 y R-14, nuevos); los otros 7 siguen **NO EJECUTADOS /
 > BLOQUEADOS**: omitirlos no equivale a PASS.
 
 Origen: commit `24973bfe` de la rama `qa/fin-residual-20261014` (auditoría completa en
@@ -21,7 +21,7 @@ sobre `main` `c04f1b86`) corrigió H-DEV-1/2/3; la evidencia original de los tre
 | `Regresion` (`Regresion_*`; los 3 `Regresion_H_DEV_*` más la matriz FIN-DEV-P0) | **3** hallazgos + matriz | El defecto está **CORREGIDO**: la prueba exige el comportamiento correcto y falla contra el código anterior. |
 | `ContratoValido` (`Contrato_*`) | **6** | Comportamiento correcto que debe preservarse. No son bugs. |
 | `SqlServerNoEjecutado` (`R01`..`R10`) | **10** | Omitidos (BLOCKED) en el CI general, que no tiene SQL Server. **R-06/R-07/R-08 sí se ejecutan** en `fin-dev-sqlserver.yml`; los otros 7 **no se ejecutaron nunca**. |
-| `SqlServerRegresion` (`R11`, `R12`) | **2** | Nuevos de FIN-DEV-P0: se ejecutan solo en `fin-dev-sqlserver.yml` (SQL Server efímero, con y sin RCSI). |
+| `SqlServerRegresion` (`R11`..`R14`) | **4** | Nuevos de FIN-DEV-P0: se ejecutan solo en `fin-dev-sqlserver.yml` (SQL Server efímero, con y sin RCSI). |
 
 Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`, `CONTRATO VALIDO …` o
 `NO EJECUTADO / BLOQUEADO [R-…]`. El test `FinResidualRegistroDefectosConocidosTests` falla si alguien quita un
@@ -49,6 +49,24 @@ Evidencia histórica original (se conserva) y su corrección. Regla comercial ap
 | H-DEV-1 | `Hallazgo_CrearDevolucion_SobreVentaYaCancelada_SeAcepta`: `CrearDevolucionAsync` no miraba `Venta.Estado`; habilitaba H-DEV-3 | `CrearDevolucionAsync` abre la transacción y toma el lock de la venta **antes** de leer nada; rechaza si la venta está `Cancelada` (o no existe) sin insertar cabecera ni detalles | `Regresion_H_DEV_1_CrearDevolucion_SobreVentaCancelada_SeRechazaSinEfectos`; SQL Server: R-11 |
 | H-DEV-2 | `Hallazgo_CancelarVenta_TrasDevolucionReembolsada_DuplicaEgresoDeCajaYStock`: egreso 150 sobre 100 ingresados; stock 13 contra 12 | `CancelarVentaAsync`, con la fila de la venta ya bloqueada y **antes** de devolver stock/anular facturas/contra-asentar, rechaza si hay devoluciones `Pendiente`, `EnRevision`, `Aprobada` o `Completada`. `Rechazada`/`Cancelada` son históricas y no bloquean (nunca produjeron stock ni caja) | `Regresion_H_DEV_2_CancelarVenta_TrasDevolucionReembolsada_SeRechazaSinDuplicarCajaNiStock`; matriz `Regresion_CancelarVenta_ConDevolucionViva_*` / `…HistoricaSinEfectos_EsPermitida`; SQL Server: R-07, R-12 |
 | H-DEV-3 | `Hallazgo_CompletarDevolucionAprobada_SobreVentaCancelada_ReembolsaDeNuevo`: egreso 200 sobre 100; stock 14 contra 12 | `CompletarDevolucionAsync` toma el lock de la venta y revalida su estado **dentro** de la transacción, antes de cualquier escritura (estado de la devolución, stock, unidades, caja). Cubre también devoluciones aprobadas históricas sobre ventas ya canceladas | `Regresion_H_DEV_3_CompletarDevolucionAprobada_SobreVentaCancelada_SeRechazaSinEfectos`; `Regresion_CompletarDevolucion_ErrorDeCaja_RevierteTodo` |
+
+### Cierre de dos casos límite de H-DEV-3 (FIN-DEV-P0, hotfix de aprobación)
+
+La PR #77 dejó dos huecos que este hotfix cierra; no cambia ninguna otra regla:
+
+* `AprobarDevolucionAsync` no tomaba el lock de la venta ni revalidaba su estado: una devolución `Pendiente`/`EnRevision`
+  histórica sobre una venta ya `Cancelada` podía aprobarse y emitir una nota de crédito vigente. Ahora, dentro de la
+  transacción y **antes** de cambiar el estado de la devolución o crear la nota, toma el lock de la venta y rechaza si
+  no existe, está eliminada o está `Cancelada`.
+* `CompletarDevolucionAsync` rechazaba `Cancelada` pero no el `null` de `BloquearYObtenerEstadoAsync` (venta inexistente
+  o eliminada). Ahora también lo rechaza, antes de cualquier escritura.
+
+Regresión: `Regresion_AprobarDevolucionPendiente_SobreVentaCancelada_SeRechazaSinEfectos` (NC y reembolso),
+`…SobreVentaEliminada_…`, `Regresion_CompletarDevolucionAprobada_SobreVentaEliminada_…`,
+`Regresion_AprobarDevolucion_Valida_Y_Reintento_NoDuplicaNotaCredito`, `Regresion_AprobarDevolucion_ErrorDeInsercion_RevierteTodo`.
+SQL Server efímero (con y sin RCSI): R-13 (aprobación en vuelo vs. cancelación) y R-14 (camino `UPDLOCK` real con venta
+cancelada/eliminada). El escenario histórico no es alcanzable por servicios (la cancelación ya rechaza devoluciones
+vivas), por eso R-14 lo fuerza escribiendo sobre la fila de la venta.
 
 ### Estrategia de bloqueo (`Services/VentaConcurrencia.cs`)
 
