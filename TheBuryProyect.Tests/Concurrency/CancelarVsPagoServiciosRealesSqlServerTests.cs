@@ -226,7 +226,7 @@ internal static class ConcSeed
     }
 }
 
-public sealed class ConcSqlHostFixture : IAsyncLifetime
+public class ConcSqlHostFixture : IAsyncLifetime
 {
     private static readonly Type[] BackgroundServicesToRemove =
     [
@@ -239,6 +239,9 @@ public sealed class ConcSqlHostFixture : IAsyncLifetime
     private WebApplicationFactory<Program>? _factory;
     public IServiceProvider Services => _factory!.Services;
     public int AperturaCajaId { get; private set; }
+
+    /// <summary>Sufijo del catálogo propio. Cada clase de pruebas con su fixture usa uno distinto para poder correr en paralelo.</summary>
+    protected virtual string SufijoCatalogo => "_svc";
 
     /// <summary>
     /// Catálogo PROPIO de esta clase ("&lt;catálogo base&gt;_svc"): EnsureCreated no crea nada si la BD ya tiene
@@ -254,7 +257,7 @@ public sealed class ConcSqlHostFixture : IAsyncLifetime
         if (ConcEnv.SkipReason() != null) return;
 
         var baseCs = new SqlConnectionStringBuilder(ConcEnv.ConnectionString!);
-        _catalogoSvc = baseCs.InitialCatalog + "_svc";
+        _catalogoSvc = baseCs.InitialCatalog + SufijoCatalogo;
         if (!_catalogoSvc.StartsWith("qa_fin_conc", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Catálogo fuera de la zona autorizada: " + _catalogoSvc);
         baseCs.InitialCatalog = _catalogoSvc;

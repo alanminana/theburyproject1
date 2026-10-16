@@ -92,6 +92,26 @@ jobs:
             echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # QA-FIN-RESIDUAL: que "verde" no se lea como "corregido". Cuenta por nombre visible en el TRX.
+          # Informativo: no cambia el gate ni el exit code.
+          DEF=$(grep -o 'testName="DEFECTO CONOCIDO ABIERTO[^"]*"' "$TRX" | wc -l)
+          CON=$(grep -o 'testName="CONTRATO VALIDO[^"]*"' "$TRX" | wc -l)
+          SQL=$(grep -o 'testName="NO EJECUTADO / BLOQUEADO[^"]*"' "$TRX" | wc -l)
+          {
+            echo ""
+            echo "### Evidencia financiera conocida (QA-FIN-RESIDUAL)"
+            echo ""
+            echo "> **Los tests DEFECTO CONOCIDO ABIERTO PASAN porque reproducen defectos vigentes. Verde NO significa corregido.**"
+            echo ""
+            echo "| Categoria | Tests | Significado |"
+            echo "|-----------|-------|-------------|"
+            echo "| DEFECTO CONOCIDO ABIERTO | $DEF | Defectos financieros vigentes (PR correctiva pendiente) |"
+            echo "| CONTRATO VALIDO | $CON | Comportamiento correcto a preservar |"
+            echo "| NO EJECUTADO / BLOQUEADO (SQL Server) | $SQL | NO se ejecutaron: omitidos no equivale a PASS |"
+            echo ""
+            echo "Detalle: docs/qa-fin-residual-registro-defectos.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # El gate real es el exit code de `dotnet test` (falla si Failed > 0). Este resumen es solo informativo.
       - name: Upload test results (TRX)
         if: always()
