@@ -988,11 +988,39 @@ namespace TheBuryProject.Services
                 var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                     "No se puede confirmar la venta sin una caja abierta para el usuario actual.");
                 _logger.LogInformation("ConfirmarVentaCreditoAsync inicio venta {Id}", id);
+
+                // FIN-ANT-P0: mismo orden de locks que CancelarVentaAsync (Crédito -> Venta). Confirmar y cancelar la
+                // misma venta se serializan: la cancelación que espera el lock del crédito lee, al despertar, la
+                // venta ya confirmada Y su anticipo asentado (el commit es atómico), nunca un estado previo al asiento.
+                var creditoIdBloqueado = await _context.Ventas
+                    .AsNoTracking()
+                    .Where(v => v.Id == id && !v.IsDeleted)
+                    .Select(v => v.CreditoId)
+                    .FirstOrDefaultAsync();
+                if (creditoIdBloqueado.HasValue)
+                    await CreditoConcurrencia.BloquearAsync(_context, creditoIdBloqueado.Value);
+                await _context.Ventas
+                    .Where(v => v.Id == id && !v.IsDeleted)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
+
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
                 {
                     _logger.LogWarning("ConfirmarVentaCreditoAsync venta {Id} no encontrada", id);
                     return false;
+                }
+
+                if (venta.CreditoId != creditoIdBloqueado)
+                    throw new InvalidOperationException(
+                        "El crédito de la venta cambió mientras se confirmaba. Reintentá la confirmación.");
+
+                // FIN-ANT-P0: una venta ya confirmada/cerrada no se vuelve a confirmar (un reintento o un doble clic
+                // no puede descontar stock, regenerar cuotas ni asentar un segundo anticipo).
+                if (venta.Estado is EstadoVenta.Confirmada or EstadoVenta.Facturada
+                    or EstadoVenta.Entregada or EstadoVenta.Cancelada)
+                {
+                    throw new InvalidOperationException(
+                        $"No se puede confirmar la venta con crédito: ya está en estado {venta.Estado}.");
                 }
 
                 _logger.LogInformation(
@@ -1085,11 +1113,17 @@ namespace TheBuryProject.Services
                 if (anticipo > 0)
                 {
                     var usuario = _currentUserService.GetUsername();
-                    await _cajaService.RegistrarMovimientoAnticipoAsync(
+                    // FIN-ANT-P0 (H-ANT-2): el anticipo es obligatorio. El servicio lanza si no hay caja abierta;
+                    // además se verifica el resultado, de modo que una confirmación nunca termine sin su ingreso.
+                    var movimientoAnticipo = await _cajaService.RegistrarMovimientoAnticipoAsync(
                         credito.Id,
                         credito.Numero,
                         anticipo,
-                        usuario);
+                        usuario,
+                        venta.Id);
+                    if (movimientoAnticipo == null || movimientoAnticipo.Id <= 0)
+                        throw new InvalidOperationException(
+                            $"No se pudo registrar el anticipo de ${anticipo:N2} en caja; la venta no se confirmó.");
                 }
 
                 await EmitirDocumentosVentaConfirmadaAsync(venta);
@@ -1242,6 +1276,9 @@ namespace TheBuryProject.Services
                 // Se rechaza ANTES de devolver stock, anular facturas o asentar contramovimientos.
                 await AsegurarSinDevolucionesVivasParaCancelarAsync(venta);
 
+                // FIN-ANT-P0 (H-ANT-1): un anticipo cobrado no se revierte solo; se rechaza antes de tocar nada.
+                await AsegurarSinAnticipoCobradoParaCancelarAsync(venta);
+
                 // Con el crédito bloqueado esta guardia es exacta (ya no es TOCTOU).
                 await AsegurarSinPagosAplicadosParaCancelarAsync(venta);
 
@@ -1288,6 +1325,7 @@ namespace TheBuryProject.Services
                 // sin tracking: ve la base, no el change tracker). Con el lock del crédito no debería
                 // cambiar nada; si algún escritor ajeno al lock introdujo un pago, no se cancela.
                 await AsegurarSinPagosAplicadosParaCancelarAsync(venta);
+                await AsegurarSinAnticipoCobradoParaCancelarAsync(venta);
 
                 // Una venta cancelada no se entrega: el envío asociado deja de figurar como pendiente.
                 var envioAsociado = await _context.VentaEnvios
@@ -1353,6 +1391,67 @@ namespace TheBuryProject.Services
                 $"No se puede cancelar la venta {venta.Numero}: tiene devoluciones registradas ({detalle}). " +
                 "Una venta con devoluciones pendientes, aprobadas o completadas no puede cancelarse; " +
                 "rechazá o cancelá las devoluciones que aún no se completaron.");
+        }
+
+        /// <summary>
+        /// Regla comercial FIN-ANT-P0 (H-ANT-1): una venta con un anticipo efectivamente cobrado NO se cancela
+        /// automáticamente; requiere un procedimiento separado de devolución auditada (no implementado).
+        /// Vínculos que se reconocen, siempre sobre ingresos vigentes de concepto AnticipoCredito:
+        ///  - anticipos nuevos: <c>MovimientoCaja.VentaId == venta.Id</c>;
+        ///  - anticipos históricos (<c>VentaId == null</c>): <c>ReferenciaId</c> es el CRÉDITO (campo polimórfico).
+        ///    Como <c>Venta.CreditoId</c> no es único, si otra venta no cancelada comparte el crédito la asociación
+        ///    es ambigua: no se atribuye al azar, se rechaza (fail-closed) con un mensaje que lo indica.
+        /// Acreditaciones Rechazado/Anulado/Revertido no cuentan como cobradas. Consultas sin tracking.
+        /// </summary>
+        private async Task AsegurarSinAnticipoCobradoParaCancelarAsync(Venta venta)
+        {
+            var anticipos = _context.MovimientosCaja
+                .AsNoTracking()
+                .Where(m => !m.IsDeleted
+                            && m.Tipo == TipoMovimientoCaja.Ingreso
+                            && m.Concepto == ConceptoMovimientoCaja.AnticipoCredito
+                            && m.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Rechazado
+                            && m.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Anulado
+                            && m.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Revertido);
+
+            var montoDirecto = (await anticipos
+                .Where(m => m.VentaId == venta.Id)
+                .Select(m => (decimal?)m.Monto)
+                .ToListAsync()).Sum() ?? 0m;
+
+            var montoHistorico = 0m;
+            var ambiguo = false;
+            if (venta.CreditoId.HasValue)
+            {
+                var creditoId = venta.CreditoId.Value;
+                montoHistorico = (await anticipos
+                    .Where(m => m.VentaId == null && m.ReferenciaId == creditoId)
+                    .Select(m => (decimal?)m.Monto)
+                    .ToListAsync()).Sum() ?? 0m;
+
+                if (montoHistorico > 0m)
+                {
+                    ambiguo = await _context.Ventas
+                        .AsNoTracking()
+                        .AnyAsync(v => v.CreditoId == creditoId && v.Id != venta.Id && !v.IsDeleted
+                                       && v.Estado != EstadoVenta.Cancelada);
+                }
+            }
+
+            if (montoDirecto <= 0m && montoHistorico <= 0m)
+                return;
+
+            _logger.LogWarning(
+                "Cancelación de venta {VentaId} rechazada: tiene un anticipo cobrado (directo ${Directo:N2}, histórico ${Historico:N2}, ambiguo {Ambiguo}); requiere devolución auditada.",
+                venta.Id, montoDirecto, montoHistorico, ambiguo);
+
+            var total = montoDirecto + montoHistorico;
+            throw new InvalidOperationException(
+                ambiguo
+                    ? $"No se puede cancelar la venta {venta.Numero}: el crédito asociado tiene un anticipo cobrado de ${total:N2} " +
+                      "que no puede atribuirse con certeza a una sola venta. Requiere un procedimiento separado de devolución auditada (no disponible todavía)."
+                    : $"No se puede cancelar la venta {venta.Numero}: tiene un anticipo cobrado de ${total:N2}. " +
+                      "Requiere un procedimiento separado de devolución auditada del anticipo (no disponible todavía).");
         }
 
         /// <summary>

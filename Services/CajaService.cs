@@ -906,7 +906,8 @@ namespace TheBuryProject.Services
             int creditoId,
             string creditoNumero,
             decimal montoAnticipo,
-            string usuario)
+            string usuario,
+            int? ventaId = null)
         {
             try
             {
@@ -916,14 +917,34 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
-                // Obtener apertura de caja activa
+                // FIN-ANT-P0 (H-ANT-2): fail-closed. Un anticipo > 0 que no puede asentarse es un error de negocio,
+                // nunca un null silencioso (el llamador revierte toda su transacción).
                 var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
                 if (apertura == null)
                 {
                     _logger.LogWarning(
                         "No hay caja abierta para registrar anticipo del crédito {CreditoNumero}",
                         creditoNumero);
-                    return null;
+                    throw new InvalidOperationException(
+                        $"No se puede registrar el anticipo del crédito {creditoNumero}: el usuario no tiene una caja abierta.");
+                }
+
+                // Idempotencia: un reintento para la misma venta no asienta un segundo anticipo.
+                if (ventaId.HasValue)
+                {
+                    var existente = await _context.MovimientosCaja
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(m => !m.IsDeleted
+                            && m.Tipo == TipoMovimientoCaja.Ingreso
+                            && m.Concepto == ConceptoMovimientoCaja.AnticipoCredito
+                            && m.VentaId == ventaId.Value);
+                    if (existente != null)
+                    {
+                        _logger.LogWarning(
+                            "Anticipo de la venta {VentaId} ya registrado (movimiento {MovimientoId}); no se duplica",
+                            ventaId.Value, existente.Id);
+                        return existente;
+                    }
                 }
 
                 var movimiento = new MovimientoCaja
@@ -935,7 +956,8 @@ namespace TheBuryProject.Services
                     Monto = montoAnticipo,
                     Descripcion = $"Anticipo de crédito {creditoNumero}",
                     Referencia = $"{creditoNumero}-ANT",
-                    ReferenciaId = creditoId,
+                    ReferenciaId = creditoId, // se preserva: para anticipos el ReferenciaId histórico es el crédito
+                    VentaId = ventaId,
                     Usuario = usuario,
                     Observaciones = "Pago inicial que reduce el monto a financiar",
                     CreatedAt = DateTime.UtcNow

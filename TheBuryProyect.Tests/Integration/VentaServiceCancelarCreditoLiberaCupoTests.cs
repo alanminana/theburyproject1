@@ -28,7 +28,7 @@ file sealed class StubCajaServiceCancelaCredito : ICajaService
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => Task.FromResult<AperturaCaja?>(_apertura);
     public Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(int ventaId, string ventaNumero, string motivo, string usuario)
         => Task.FromResult<MovimientoCaja?>(null);
-    public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario)
+    public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario, int? ventaId = null)
         => Task.FromResult<MovimientoCaja?>(null);
 
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();

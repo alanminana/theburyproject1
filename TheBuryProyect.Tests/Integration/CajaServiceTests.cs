@@ -1077,14 +1077,16 @@ public class CajaServiceTests : IDisposable
         Assert.Null(resultado);
     }
 
+    // FIN-ANT-P0 (H-ANT-2): antes devolvía null en silencio; ahora un anticipo > 0 sin caja abierta es un error de negocio.
     [Fact]
-    public async Task RegistrarAnticipo_SinCajaAbierta_RetornaNull()
+    public async Task RegistrarAnticipo_SinCajaAbierta_LanzaErrorDeNegocioYNoAsientaNada()
     {
-        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoAnticipoAsync(
             creditoId: 1, creditoNumero: "CRED-ANT-003",
-            montoAnticipo: 500m, usuario: "cajero1");
+            montoAnticipo: 500m, usuario: "cajero1"));
 
-        Assert.Null(resultado);
+        Assert.Contains("caja abierta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(await _context.MovimientosCaja.AnyAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito));
     }
 
     [Fact]
@@ -1103,6 +1105,38 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(7, resultado.ReferenciaId);
         Assert.Equal(TipoMovimientoCaja.Ingreso, resultado.Tipo);
         Assert.Contains("CRED-ANT-004", resultado.Descripcion);
+    }
+
+    [Fact]
+    public async Task RegistrarAnticipo_ConVentaId_VinculaLaVentaYPreservaElCredito()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.CreditoPersonal);
+
+        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 7, creditoNumero: "CRED-ANT-005", montoAnticipo: 300m, usuario: "testuser", ventaId: venta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(venta.Id, resultado!.VentaId);
+        Assert.Equal(7, resultado.ReferenciaId); // ReferenciaId sigue siendo el crédito
+        Assert.Equal(ConceptoMovimientoCaja.AnticipoCredito, resultado.Concepto);
+    }
+
+    [Fact]
+    public async Task RegistrarAnticipo_ReintentoParaLaMismaVenta_NoDuplicaElMovimiento()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.CreditoPersonal);
+
+        var primero = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 7, creditoNumero: "CRED-ANT-006", montoAnticipo: 300m, usuario: "testuser", ventaId: venta.Id);
+        var segundo = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 7, creditoNumero: "CRED-ANT-006", montoAnticipo: 300m, usuario: "testuser", ventaId: venta.Id);
+
+        Assert.Equal(primero!.Id, segundo!.Id);
+        Assert.Equal(1, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.AnticipoCredito));
     }
 
     // -------------------------------------------------------------------------

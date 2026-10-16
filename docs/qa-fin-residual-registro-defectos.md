@@ -1,7 +1,8 @@
 # QA-FIN-RESIDUAL — Registro de defectos financieros conocidos
 
-> **Estado tras FIN-DEV-P0: 3 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3, causa raíz CR-3) con pruebas de
-> regresión, y 6 hallazgos todavía ABIERTOS.**
+> **Estado tras FIN-ANT-P0: 5 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 — y
+> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0) con pruebas de regresión, y 4 hallazgos todavía ABIERTOS
+> (H-CAJA-1, H-CAJA-2, H-CAJA-3, H-IDEM-1).**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
 > De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07 y R-08 se ejecutan ahora contra un SQL Server efímero**
 > en `.github/workflows/fin-dev-sqlserver.yml` (más R-11, R-12, R-13 y R-14, nuevos); los otros 7 siguen **NO EJECUTADOS /
@@ -11,14 +12,14 @@ Origen: commit `24973bfe` de la rama `qa/fin-residual-20261014` (auditoría comp
 [qa-fin-residual-auditoria.md](qa-fin-residual-auditoria.md)). Verificado contra `main` `f9e1440b`: los servicios
 financieros (`CajaService`, `DevolucionService`, `VentaService`, `CreditoService`) no cambiaron respecto de la base de
 esa auditoría y los 9 hallazgos seguían vigentes. **FIN-DEV-P0** (rama `fix/fin-dev-p0-devolucion-cancelacion-20261016`,
-sobre `main` `c04f1b86`) corrigió H-DEV-1/2/3; la evidencia original de los tres se conserva abajo.
+sobre `main` `c04f1b86`) corrigió H-DEV-1/2/3; **FIN-ANT-P0** (rama `fix/fin-ant-p0-anticipos-20261016`, sobre `main` `1f5c746e`) corrigió H-ANT-1/2. La evidencia original se conserva abajo.
 
 ## Cómo leer los resultados de CI
 
 | Categoría (trait `Categoria`) | Cantidad | Qué significa "verde" |
 |---|---|---|
-| `DefectoConocido` (`Hallazgo_*`) | **6** | El defecto **sigue ABIERTO**. Pasa porque fija el comportamiento defectuoso actual. |
-| `Regresion` (`Regresion_*`; los 3 `Regresion_H_DEV_*` más la matriz FIN-DEV-P0) | **3** hallazgos + matriz | El defecto está **CORREGIDO**: la prueba exige el comportamiento correcto y falla contra el código anterior. |
+| `DefectoConocido` (`Hallazgo_*`) | **4** | El defecto **sigue ABIERTO**. Pasa porque fija el comportamiento defectuoso actual. |
+| `Regresion` (`Regresion_*`; los 3 `Regresion_H_DEV_*`, los 2 `Regresion_H_ANT_*` más las matrices FIN-DEV-P0 y FIN-ANT-P0) | **5** hallazgos + matrices | El defecto está **CORREGIDO**: la prueba exige el comportamiento correcto y falla contra el código anterior. |
 | `ContratoValido` (`Contrato_*`) | **6** | Comportamiento correcto que debe preservarse. No son bugs. |
 | `SqlServerNoEjecutado` (`R01`..`R10`) | **10** | Omitidos (BLOCKED) en el CI general, que no tiene SQL Server. **R-06/R-07/R-08 sí se ejecutan** en `fin-dev-sqlserver.yml`; los otros 7 **no se ejecutaron nunca**. |
 | `SqlServerRegresion` (`R11`..`R14`) | **4** | Nuevos de FIN-DEV-P0: se ejecutan solo en `fin-dev-sqlserver.yml` (SQL Server efímero, con y sin RCSI). |
@@ -28,15 +29,13 @@ Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`,
 hallazgo o sus metadatos sin actualizar este registro. Filtros útiles:
 `dotnet test --filter "Categoria=DefectoConocido"`, `--filter "Categoria=ContratoValido"`.
 
-## Los 6 hallazgos ABIERTOS (PR correctiva: PENDIENTE)
+## Los 4 hallazgos ABIERTOS (PR correctiva: PENDIENTE)
 
 | ID | Causa raíz | Test (`FinResidualCajaDevolucionAnticipoTests`) | Impacto (dinero / caja / stock) | Comportamiento defectuoso que reproduce | Comportamiento esperado de la futura regresión |
 |---|---|---|---|---|---|
 | H-CAJA-1 | CR-1 | `Hallazgo_RegistrarMovimientoVenta_AsientaIngresoEnAperturaCerrada` | Ingreso posterior al cierre; el arqueo no refleja el libro | `RegistrarMovimientoVentaAsync` no valida `Cerrada` | Todo asiento exige apertura abierta y vigente bajo el mismo lock que el cierre |
 | H-CAJA-2 | CR-1 | `Hallazgo_CancelarVenta_ContramovimientoCaeEnAperturaYaCerrada_Y_DivergeDelCierre` | Libro de caja cerrada ≠ `CierreCaja` (egresos 100 vs 0) | La reversión se asienta en la apertura original aunque esté cerrada | Reversión en la apertura activa de quien cancela, o se rechaza. **Regla a aprobar** |
 | H-CAJA-3 | CR-2 | `Hallazgo_CierreConMovimientoPendienteDeAcreditar_YAcreditacionPosteriorCambiaElSaldoRealDeLaApertura` | Saldo real de una apertura cerrada cambia tras el arqueo (+70) | El cierre ignora pendientes y se pueden acreditar después | **A definir por negocio**: advertir/bloquear o permitir auditado |
-| H-ANT-1 | CR-4 | `Hallazgo_CancelarVentaACredito_NoRevierteNiBloqueaPorElAnticipoCobrado` | **Dinero/caja**: anticipo queda en caja sin devolución | Anticipo sin `VentaId`; la cancelación no lo ve | Anticipo con `VentaId`; rechazo o reversión. **Regla a aprobar** |
-| H-ANT-2 | CR-4 | `Hallazgo_RegistrarMovimientoAnticipo_SinCajaAbierta_DevuelveNullSinFallar` | Venta a crédito confirmada sin ingreso del anticipo | Devuelve `null` en silencio | Falla (fail-closed) con anticipo > 0 y sin caja |
 | H-IDEM-1 | CR-5 | `Hallazgo_RegistrarMovimientoManual_ReintentoIdenticoDuplicaElAsiento` | Asiento duplicado (egreso 50 en vez de 25) | `MovimientoCaja` sin clave de idempotencia | Mismo token ⇒ un solo asiento |
 
 ## Los 3 hallazgos CORREGIDOS en FIN-DEV-P0 (causa raíz CR-3)
@@ -88,12 +87,39 @@ vivas), por eso R-14 lo fuerza escribiendo sobre la fila de la venta.
 * Una venta con devolución viva ya no puede cancelarse: para cancelarla hay que rechazar/cancelar la devolución
   (solo posible si no está `Completada`). No existe aún una reversión auditada de devoluciones completadas.
 
+## Los 2 hallazgos CORREGIDOS en FIN-ANT-P0 (causa raíz CR-4)
+
+Regla comercial aprobada por el dueño (solución **conservadora**, sin devoluciones automáticas de dinero): una venta con
+un anticipo efectivamente cobrado **no se cancela automáticamente**; la devolución del anticipo requiere un procedimiento
+separado y auditado, **que NO existe todavía y no forma parte de esta PR**. Si se confirma una venta a crédito con anticipo
+mayor que cero, el asiento de caja es obligatorio y atómico con la confirmación.
+
+| ID | Evidencia original (QA-FIN-RESIDUAL) | Corrección | Regresión |
+|---|---|---|---|
+| H-ANT-1 | `Hallazgo_CancelarVentaACredito_NoRevierteNiBloqueaPorElAnticipoCobrado`: anticipo `AnticipoCredito` con `ReferenciaId = CreditoId` y sin `VentaId`; la cancelación solo revertía `Venta*` y solo miraba `CobroCuota`: el anticipo quedaba cobrado en una venta cancelada | (1) Los anticipos **nuevos** se asientan con `VentaId` (sin migración: la columna ya existía) conservando `ReferenciaId = CreditoId`. (2) `CancelarVentaAsync`, con el crédito y la venta ya bloqueados (Crédito → Venta) y **antes** de devolver stock/anular facturas/contra-asentar, rechaza si hay un ingreso vigente de concepto `AnticipoCredito` por `VentaId == venta` **o** histórico (`VentaId == null` y `ReferenciaId == CreditoId`). Acreditaciones `Rechazado`/`Anulado`/`Revertido` no cuentan como cobradas. (3) Si el crédito lo comparten **dos o más ventas vivas**, el anticipo histórico es ambiguo: no se atribuye al azar y la cancelación también se rechaza (fail-closed, con mensaje que lo indica). La guardia se repite justo antes de persistir (defensa en profundidad) | `Regresion_H_ANT_1_CancelarVentaACredito_ConAnticipoCobrado_SeRechazaSinTocarNada` y la matriz `Regresion_H_ANT_1_*` (`VentaServiceConfirmarCreditoTests`: anticipo nuevo, histórico, ambiguo, sin anticipo, cuotas pagadas, anticipo anulado); SQL Server: ANT-02, ANT-03 |
+| H-ANT-2 | `Hallazgo_RegistrarMovimientoAnticipo_SinCajaAbierta_DevuelveNullSinFallar`: `RegistrarMovimientoAnticipoAsync` devolvía `null` en silencio y `ConfirmarVentaCreditoAsync` ignoraba el resultado | `RegistrarMovimientoAnticipoAsync` lanza `InvalidOperationException` con anticipo > 0 y sin caja abierta válida (anticipo 0 sigue devolviendo `null`), y es idempotente por `VentaId` (un reintento devuelve el movimiento existente). `ConfirmarVentaCreditoAsync` pasa `venta.Id`, **verifica** el resultado y, si no quedó persistido, lanza y revierte **toda** la transacción. Además toma el lock del crédito y reclama la venta (mismo orden Crédito → Venta que la cancelación) y rechaza confirmar una venta ya `Confirmada`/`Facturada`/`Entregada`/`Cancelada` (reintento o doble clic) | `Regresion_H_ANT_2_RegistrarMovimientoAnticipo_SinCajaAbierta_LanzaErrorDeNegocio` y la matriz `Regresion_H_ANT_2_*` (`VentaServiceConfirmarCreditoTests`: un solo movimiento vinculado, anticipo 0, sin caja, fallo simulado null/excepción con rollback completo, reintento); SQL Server: ANT-01, ANT-04 |
+
+### Compatibilidad con movimientos históricos y límites de FIN-ANT-P0
+
+* **Sin migración.** `MovimientoCaja.VentaId` ya existía (nullable, con FK e índice). Los anticipos anteriores a esta PR
+  conservan `VentaId = null`; no se reescribieron datos.
+* `ReferenciaId` es un campo **polimórfico**: para `AnticipoCredito` identifica al **crédito**, nunca a la venta. No se cambió
+  su significado ni los reportes que lo usan (`CajaConciliacionBuilder`).
+* **No hay devolución de anticipos.** Cancelar una venta con anticipo cobrado queda **rechazado**; revertirlo requiere el
+  procedimiento de devolución auditada que habrá que diseñar en una PR aparte.
+* **H-CAJA-1 sigue ABIERTO y afecta a esta PR.** `CerrarCajaAsync` no toma ningún lock compartido con la confirmación: si
+  la caja se cierra entre que la confirmación lee la apertura y asienta el anticipo, el anticipo cae en una apertura ya
+  **cerrada** y queda fuera del snapshot de su cierre. Se probó contra SQL Server real como defecto conocido
+  (`ANT-05`, traits `DefectoConocido`/`H-CAJA-1`/`ABIERTO`). La confirmación es atómica y fail-closed respecto de una caja
+  que **no existe o ya estaba cerrada** antes de leerla, pero **no** respecto de un cierre concurrente. Su corrección
+  pertenece a la PR de H-CAJA-1.
+
 ### Causas raíz independientes
 
 * **CR-1** — Falta de guardia de «apertura abierta» al asentar (H-CAJA-1, H-CAJA-2).
 * **CR-2** — Acreditación posterior al cierre (H-CAJA-3). Decisión de negocio.
 * ~~**CR-3** — Devolución y venta sin control cruzado (H-DEV-1, H-DEV-2, H-DEV-3).~~ **CORREGIDA en FIN-DEV-P0** (ver abajo).
-* **CR-4** — Anticipo (H-ANT-1, H-ANT-2).
+* ~~**CR-4** — Anticipo (H-ANT-1, H-ANT-2).~~ **CORREGIDA en FIN-ANT-P0** (ver arriba). Queda abierta la interacción con H-CAJA-1.
 * **CR-5** — Idempotencia del movimiento manual (H-IDEM-1).
 
 ## Los 6 contratos válidos (no son bugs)
@@ -126,7 +152,7 @@ lectura del código**, no un resultado medido.
 
 Cada PR correctiva, una por causa raíz y en este orden (de mayor a menor riesgo en dinero):
 
-1. ~~**CR-3**~~ (devolución↔venta): **hecho en FIN-DEV-P0**. Queda **CR-4** (anticipo): H-ANT-1/2.
+1. ~~**CR-3**~~ (devolución↔venta): **hecho en FIN-DEV-P0**. ~~**CR-4**~~ (anticipo): **hecho en FIN-ANT-P0**.
 2. **CR-1** (guardia y lock de apertura al final del orden Crédito → Venta → Apertura): H-CAJA-1/2.
 3. **CR-5** (idempotencia manual) y R-10 (Facturar).
 4. **CR-2** solo tras decisión de negocio.
@@ -139,10 +165,10 @@ SQL Server efímero (con y sin RCSI) exigiendo cero deadlocks.
 
 1. **H-CAJA-2**: al cancelar una venta de una caja ya cerrada, ¿la reversión va en la caja activa de quien cancela, o se rechaza?
 2. ~~**H-DEV-2**~~ — **RESUELTA por el dueño: se rechaza cancelar con devoluciones vivas** (implementado en FIN-DEV-P0).
-3. **H-ANT-1**: ¿se rechaza cancelar con anticipo cobrado, o se revierte el anticipo automáticamente?
+3. ~~**H-ANT-1**~~ — **RESUELTA por el dueño: se rechaza cancelar con anticipo cobrado** (implementado en FIN-ANT-P0). Pendiente: diseñar el procedimiento de devolución auditada del anticipo.
 4. **H-CAJA-3**: ¿se puede acreditar una transferencia/tarjeta después del cierre, o el cierre debe advertir o bloquear?
 
 ## Limitaciones
 
-* Los `Hallazgo_` prueban la **falta de guardia o regla**, no la carrera. La probabilidad real de H-CAJA-1 y H-ANT-2 depende de la ventana de concurrencia.
+* Los `Hallazgo_` prueban la **falta de guardia o regla**, no la carrera. La probabilidad real de H-CAJA-1 depende de la ventana de concurrencia (ver `ANT-05` para la interacción con anticipos).
 * Los E2E de concurrencia sin integrar (`e2e-tx/financiero/financiero-concurrencia.spec.js`) están acoplados a un stack local persistente y cubren invariantes de CONC-P0, no estos hallazgos; quedan fuera de esta evidencia.
