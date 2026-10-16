@@ -451,9 +451,9 @@ public class FinCajaSqlServerTests : IClassFixture<FinCajaSqlHostFixture>
         Assert.Equal(Base, l.Cierre!.TotalIngresosSistema);
     }
 
-    // --- CAJA-06: contramovimiento (H-CAJA-2 fuera de alcance): se serializa con el cierre sin cambiar su regla.
+    // --- CAJA-06 (escenario A de H-CAJA-2): reversión en vuelo y cierre; el cierre espera e incluye el egreso.
 
-    [SqlServerConcFact(DisplayName = "FIN-CAJA-P0 [CAJA-06] contramovimiento de venta en vuelo: el cierre espera y lo incluye (regla de H-CAJA-2 intacta)")]
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-P0 [CAJA-06] contramovimiento de venta en vuelo: el cierre espera y lo incluye (H-CAJA-2, escenario A)")]
     public async Task CAJA06_ContramovimientoEnVuelo_SeSerializaConElCierre()
     {
         var e = await SembrarAsync();
@@ -489,5 +489,114 @@ public class FinCajaSqlServerTests : IClassFixture<FinCajaSqlHostFixture>
         var l = await LeerAsync(e.AperturaId);
         AssertCierreCoincideConLibro(l);
         Assert.Contains(l.Movimientos, m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta);
+    }
+
+    // --- CAJA-07 (escenario B de H-CAJA-2): el cierre se completa ANTES de que la cancelación tome el lock de apertura.
+
+    private async Task<(Escenario Caja, int VentaId, string VentaNumero, int CreditoId)> SembrarVentaConIngresoAsync()
+    {
+        var e = await SembrarAsync();
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var esc = await ConcSeed.SembrarAsync(ctx, e.AperturaId, conIngresoDeVenta: true, usuarioMovimiento: e.Usuario);
+        return (e, esc.VentaId, esc.VentaNumero, esc.CreditoId);
+    }
+
+    private Task<string> CancelarVenta(int ventaId, GatePlan? plan = null) =>
+        Task.Run(() => EjecutarAsync(plan, async sp =>
+            await sp.GetRequiredService<IVentaService>().CancelarVentaAsync(ventaId, "FIN-CAJA-2-P0")));
+
+    private sealed record EstadoVentaCredito(EstadoVenta Venta, DateTime? FechaCancelacion, EstadoCredito Credito, int Cuotas);
+
+    private async Task<EstadoVentaCredito> LeerVentaAsync(int ventaId, int creditoId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var v = await ctx.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var c = await ctx.Creditos.AsNoTracking().FirstAsync(x => x.Id == creditoId);
+        var cuotas = await ctx.Cuotas.AsNoTracking().CountAsync(x => x.CreditoId == creditoId && !x.IsDeleted && x.Estado == EstadoCuota.Pendiente);
+        return new EstadoVentaCredito(v.Estado, v.FechaCancelacion, c.Estado, cuotas);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-2-P0 [CAJA-07] cierre completado antes de la reversion: la cancelacion se rechaza y revierte toda su transaccion (H-CAJA-2, escenario B)")]
+    public async Task CAJA07_CierreAntesDeLaReversion_LaCancelacionSeRechazaConRollbackCompleto()
+    {
+        var s = await SembrarVentaConIngresoAsync();
+        var estadoAntes = await LeerVentaAsync(s.VentaId, s.CreditoId);
+
+        // La cancelación avanza (venta/crédito ya modificados en su transacción) y se detiene justo antes de tomar el lock de apertura.
+        var plan = AntesDelLock();
+        var cancelar = CancelarVenta(s.VentaId, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, cancelar),
+            "La cancelación no llegó a la compuerta: " + (cancelar.IsCompleted ? cancelar.Result : "?"));
+
+        // El cierre toma el lock libre, termina y congela el arqueo.
+        Assert.StartsWith("OK(", await Cerrar(s.Caja));
+        var cerrado = await LeerAsync(s.Caja.AperturaId);
+        AssertCierreCoincideConLibro(cerrado);
+        var movimientosAlCierre = cerrado.Movimientos.Count;
+
+        plan.Release.TrySetResult();
+        var res = await cancelar;
+        _out.WriteLine($"cancelación tras el cierre: {res}");
+
+        Assert.Contains("InvalidOperationException", res);
+        Assert.Contains("caja ya cerrada", res, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DEADLOCK", res);
+
+        var l = await LeerAsync(s.Caja.AperturaId);
+        AssertCierreCoincideConLibro(l);
+        Assert.Equal(movimientosAlCierre, l.Movimientos.Count);
+        Assert.DoesNotContain(l.Movimientos, m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta);
+        Assert.Equal(cerrado.Cierre!.TotalEgresosSistema, l.Cierre!.TotalEgresosSistema);
+
+        Assert.Equal(estadoAntes, await LeerVentaAsync(s.VentaId, s.CreditoId)); // venta, crédito y cuotas intactos (rollback completo)
+    }
+
+    // --- CAJA-08 (escenario C de H-CAJA-2): llamada directa a CajaService sobre una apertura ya cerrada.
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-2-P0 [CAJA-08] reversion directa sobre apertura cerrada: no inserta el egreso ni altera el cierre (H-CAJA-2, escenario C)")]
+    public async Task CAJA08_ReversionDirectaSobreAperturaCerrada_SeRechazaSinEgreso()
+    {
+        var s = await SembrarVentaConIngresoAsync();
+        Assert.StartsWith("OK(", await Cerrar(s.Caja));
+        var antes = await LeerAsync(s.Caja.AperturaId);
+
+        var res = await Task.Run(() => EjecutarAsync(null, async sp =>
+            (await sp.GetRequiredService<ICajaService>()
+                .RegistrarContramovimientoVentaAsync(s.VentaId, s.VentaNumero, "FIN-CAJA-2-P0", s.Caja.Usuario))?.Id));
+        _out.WriteLine($"reversión directa: {res}");
+
+        Assert.Contains("InvalidOperationException", res);
+        Assert.Contains("caja ya cerrada", res, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await LeerAsync(s.Caja.AperturaId);
+        AssertCierreCoincideConLibro(despues);
+        Assert.Equal(antes.Movimientos.Count, despues.Movimientos.Count);
+        Assert.DoesNotContain(despues.Movimientos, m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta);
+        Assert.Equal(antes.Cierre!.TotalEgresosSistema, despues.Cierre!.TotalEgresosSistema);
+    }
+
+    // --- CAJA-09 (escenario D): cancelación completa en apertura abierta sin deadlock (orden Crédito -> Venta -> Apertura).
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-2-P0 [CAJA-09] cancelacion con caja abierta: una sola reversion, cierre posterior coincide, sin deadlock (H-CAJA-2, escenario D)")]
+    public async Task CAJA09_CancelacionConCajaAbierta_UnaReversion_SinDeadlock()
+    {
+        var s = await SembrarVentaConIngresoAsync();
+
+        var res = await CancelarVenta(s.VentaId);
+        _out.WriteLine($"cancelación: {res}");
+        Assert.StartsWith("OK(True", res);
+        Assert.DoesNotContain("DEADLOCK", res);
+
+        // Segunda cancelación: ya cancelada, no duplica efectos.
+        var repetida = await CancelarVenta(s.VentaId);
+        Assert.Contains("InvalidOperationException", repetida);
+
+        Assert.StartsWith("OK(", await Cerrar(s.Caja));
+        var l = await LeerAsync(s.Caja.AperturaId);
+        AssertCierreCoincideConLibro(l);
+        Assert.Equal(1, l.Movimientos.Count(m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta));
+        Assert.Equal(EstadoVenta.Cancelada, (await LeerVentaAsync(s.VentaId, s.CreditoId)).Venta);
     }
 }
