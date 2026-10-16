@@ -107,104 +107,9 @@ public class DevolucionService : IDevolucionService
         if (detalles == null || detalles.Count == 0)
             throw new InvalidOperationException("Debe incluir al menos un detalle para la devolución");
 
-        // Validar que la venta existe
-        var venta = await _context.Ventas
-            .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.Id == devolucion.VentaId && !v.IsDeleted);
-
-        if (venta == null)
-            throw new InvalidOperationException("La venta no existe");
-
-        // Devolucion.ClienteId es obligatorio: una venta sin cliente (ClienteId null) no puede
-        // devolverse; sin esta guarda el insert falla con FK_Devoluciones_Clientes_ClienteId.
-        if (venta.ClienteId is null || devolucion.ClienteId != venta.ClienteId)
-            throw new InvalidOperationException("La venta no tiene un cliente asociado válido para registrar la devolución");
-
-        // Validaciones básicas de detalles
-        if (detalles.Any(d => d.Cantidad <= 0))
-            throw new InvalidOperationException("La cantidad a devolver debe ser mayor a 0");
-
-        var duplicatedProduct = detalles
-            .GroupBy(d => d.ProductoId)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .FirstOrDefault();
-
-        if (duplicatedProduct != 0)
-            throw new InvalidOperationException("No se permiten productos duplicados en la devolución");
-
-        // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
-        var ventaDetallesRaw = await _context.VentaDetalles
-            .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-            .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.ProductoUnidadId })
-            .ToListAsync();
-
-        var vendidoPorProducto = ventaDetallesRaw
-            .GroupBy(vd => vd.ProductoId)
-            .ToDictionary(
-                g => g.Key,
-                g => (CantidadVendida: g.Sum(x => x.Cantidad),
-                      TotalVendido: g.Sum(x => x.Cantidad * x.PrecioUnitario)));
-
-        if (vendidoPorProducto.Count == 0)
-            throw new InvalidOperationException("La venta no tiene detalles para devolver");
-
-        // Auto-inferencia: ProductoId con exactamente una VentaDetalle que tiene unidad trazada
-        var unidadPorProducto = ventaDetallesRaw
-            .Where(vd => vd.ProductoUnidadId.HasValue)
-            .GroupBy(vd => vd.ProductoId)
-            .Where(g => g.Count() == 1)
-            .ToDictionary(g => g.Key, g => g.First().ProductoUnidadId!.Value);
-
-        // Devoluciones previas (incluye pendientes/en revisión/aprobadas/completadas; excluye rechazadas)
-        var devueltoPorProducto = await _context.DevolucionDetalles
-            .Where(dd => !dd.IsDeleted)
-            .Join(
-                _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId && d.Estado != EstadoDevolucion.Rechazada),
-                dd => dd.DevolucionId,
-                d => d.Id,
-                (dd, d) => new { dd.ProductoId, dd.Cantidad })
-            .GroupBy(x => x.ProductoId)
-            .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
-            .ToDictionaryAsync(x => x.ProductoId, x => x.Cantidad);
-
-        // Resolver ProductoUnidadId efectivo para cada detalle (explícito o auto-inferido)
-        var unidadIdPorDetalle = detalles.ToDictionary(
-            d => d,
-            d => d.ProductoUnidadId
-                ?? (unidadPorProducto.TryGetValue(d.ProductoId, out var inferida) ? inferida : (int?)null));
-
-        // Validar unidades físicas referenciadas
-        var unidadIdsAValidar = unidadIdPorDetalle.Values
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-
-        if (unidadIdsAValidar.Count > 0)
-        {
-            var unidadesValidacion = await _context.ProductoUnidades
-                .Where(u => unidadIdsAValidar.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => new { u.Id, u.ProductoId, u.Estado })
-                .ToListAsync();
-
-            foreach (var detalle in detalles.Where(d => unidadIdPorDetalle[d].HasValue))
-            {
-                var unidadId = unidadIdPorDetalle[detalle]!.Value;
-                var unidad = unidadesValidacion.FirstOrDefault(u => u.Id == unidadId);
-
-                if (unidad == null)
-                    throw new InvalidOperationException($"La unidad física {unidadId} no existe o fue eliminada");
-
-                if (unidad.ProductoId != detalle.ProductoId)
-                    throw new InvalidOperationException($"La unidad física {unidadId} no corresponde al producto {detalle.ProductoId}");
-
-                if (unidad.Estado is EstadoUnidad.Baja or EstadoUnidad.Faltante or EstadoUnidad.Anulada or EstadoUnidad.EnReparacion)
-                    throw new InvalidOperationException(
-                        $"La unidad física {unidadId} tiene un estado incompatible con la devolución ({unidad.Estado})");
-            }
-        }
-
+        // FIN-DEV-P0 (H-DEV-1): la transacción y el lock de la venta se toman ANTES de leer nada que se vaya a
+        // validar (estado de la venta, cantidades ya devueltas, unidades). Es el mismo lock que toma la
+        // cancelación, de modo que una venta no puede cancelarse entre esta validación y el insert.
         var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
         await using var transaction = hasAmbientTransaction
             ? null
@@ -212,6 +117,112 @@ public class DevolucionService : IDevolucionService
 
         try
         {
+            var estadoVenta = await VentaConcurrencia.BloquearYObtenerEstadoAsync(_context, devolucion.VentaId);
+            if (estadoVenta == null)
+                throw new InvalidOperationException("La venta no existe");
+
+            if (estadoVenta == EstadoVenta.Cancelada)
+                throw new InvalidOperationException(
+                    "No se puede registrar una devolución sobre una venta cancelada.");
+
+            // Validar que la venta existe
+            var venta = await _context.Ventas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == devolucion.VentaId && !v.IsDeleted);
+
+            if (venta == null)
+                throw new InvalidOperationException("La venta no existe");
+
+            // Devolucion.ClienteId es obligatorio: una venta sin cliente (ClienteId null) no puede
+            // devolverse; sin esta guarda el insert falla con FK_Devoluciones_Clientes_ClienteId.
+            if (venta.ClienteId is null || devolucion.ClienteId != venta.ClienteId)
+                throw new InvalidOperationException("La venta no tiene un cliente asociado válido para registrar la devolución");
+
+            // Validaciones básicas de detalles
+            if (detalles.Any(d => d.Cantidad <= 0))
+                throw new InvalidOperationException("La cantidad a devolver debe ser mayor a 0");
+
+            var duplicatedProduct = detalles
+                .GroupBy(d => d.ProductoId)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .FirstOrDefault();
+
+            if (duplicatedProduct != 0)
+                throw new InvalidOperationException("No se permiten productos duplicados en la devolución");
+
+            // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
+            var ventaDetallesRaw = await _context.VentaDetalles
+                .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
+                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.ProductoUnidadId })
+                .ToListAsync();
+
+            var vendidoPorProducto = ventaDetallesRaw
+                .GroupBy(vd => vd.ProductoId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (CantidadVendida: g.Sum(x => x.Cantidad),
+                          TotalVendido: g.Sum(x => x.Cantidad * x.PrecioUnitario)));
+
+            if (vendidoPorProducto.Count == 0)
+                throw new InvalidOperationException("La venta no tiene detalles para devolver");
+
+            // Auto-inferencia: ProductoId con exactamente una VentaDetalle que tiene unidad trazada
+            var unidadPorProducto = ventaDetallesRaw
+                .Where(vd => vd.ProductoUnidadId.HasValue)
+                .GroupBy(vd => vd.ProductoId)
+                .Where(g => g.Count() == 1)
+                .ToDictionary(g => g.Key, g => g.First().ProductoUnidadId!.Value);
+
+            // Devoluciones previas (incluye pendientes/en revisión/aprobadas/completadas; excluye rechazadas)
+            var devueltoPorProducto = await _context.DevolucionDetalles
+                .Where(dd => !dd.IsDeleted)
+                .Join(
+                    _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId && d.Estado != EstadoDevolucion.Rechazada),
+                    dd => dd.DevolucionId,
+                    d => d.Id,
+                    (dd, d) => new { dd.ProductoId, dd.Cantidad })
+                .GroupBy(x => x.ProductoId)
+                .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
+                .ToDictionaryAsync(x => x.ProductoId, x => x.Cantidad);
+
+            // Resolver ProductoUnidadId efectivo para cada detalle (explícito o auto-inferido)
+            var unidadIdPorDetalle = detalles.ToDictionary(
+                d => d,
+                d => d.ProductoUnidadId
+                    ?? (unidadPorProducto.TryGetValue(d.ProductoId, out var inferida) ? inferida : (int?)null));
+
+            // Validar unidades físicas referenciadas
+            var unidadIdsAValidar = unidadIdPorDetalle.Values
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            if (unidadIdsAValidar.Count > 0)
+            {
+                var unidadesValidacion = await _context.ProductoUnidades
+                    .Where(u => unidadIdsAValidar.Contains(u.Id) && !u.IsDeleted)
+                    .Select(u => new { u.Id, u.ProductoId, u.Estado })
+                    .ToListAsync();
+
+                foreach (var detalle in detalles.Where(d => unidadIdPorDetalle[d].HasValue))
+                {
+                    var unidadId = unidadIdPorDetalle[detalle]!.Value;
+                    var unidad = unidadesValidacion.FirstOrDefault(u => u.Id == unidadId);
+
+                    if (unidad == null)
+                        throw new InvalidOperationException($"La unidad física {unidadId} no existe o fue eliminada");
+
+                    if (unidad.ProductoId != detalle.ProductoId)
+                        throw new InvalidOperationException($"La unidad física {unidadId} no corresponde al producto {detalle.ProductoId}");
+
+                    if (unidad.Estado is EstadoUnidad.Baja or EstadoUnidad.Faltante or EstadoUnidad.Anulada or EstadoUnidad.EnReparacion)
+                        throw new InvalidOperationException(
+                            $"La unidad física {unidadId} tiene un estado incompatible con la devolución ({unidad.Estado})");
+                }
+            }
+
             // Generar número + estado
             devolucion.NumeroDevolucion = await GenerarNumeroDevolucionAsync();
             devolucion.Estado = EstadoDevolucion.Pendiente;
@@ -507,6 +518,15 @@ public class DevolucionService : IDevolucionService
 
         try
         {
+            // FIN-DEV-P0 (H-DEV-3): lock de la venta (el mismo de la cancelación) y revalidación de su estado
+            // DENTRO de la transacción y antes de cualquier escritura: ni el cambio de estado de la devolución,
+            // ni el reintegro de stock, ni el cambio de unidades, ni el egreso de caja. Cubre también
+            // devoluciones aprobadas históricas sobre ventas que ya se cancelaron.
+            var estadoVenta = await VentaConcurrencia.BloquearYObtenerEstadoAsync(_context, devolucion.VentaId);
+            if (estadoVenta == EstadoVenta.Cancelada)
+                throw new InvalidOperationException(
+                    "No se puede completar la devolución: la venta asociada está cancelada.");
+
             // Marcar como completada primero (misma transacción) para evitar doble procesamiento
             devolucion.Estado = EstadoDevolucion.Completada;
             devolucion.UpdatedAt = DateTime.UtcNow;

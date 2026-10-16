@@ -15,6 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// QA-FIN-RESIDUAL — pruebas AISLADAS (SQLite, secuenciales, servicios reales vía DI) de las reglas
 /// financieras residuales que NO necesitan SQL Server: cierre de caja, devolución, anticipo, reintentos.
 ///
+/// FIN-DEV-P0: H-DEV-1/2/3 fueron CORREGIDOS; sus pruebas son ahora "Regresion_" (exigen el comportamiento correcto).
 /// Son pruebas de CARACTERIZACIÓN: las marcadas "Hallazgo_" fijan el comportamiento ACTUAL, que es defectuoso
 /// respecto del invariante indicado en cada una. Pasan hoy (= el defecto está CONFIRMADO por ejecución) y
 /// DEBEN fallar cuando se corrija el servicio; en ese momento se invierte la aserción (cada una trae el
@@ -314,117 +315,364 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
         return (aprobada.Id, aprobada.RowVersion);
     }
 
-    /// <summary>
-    /// H-DEV-1 (CONFIRMADO). Invariante deseado: no se puede devolver una venta Cancelada (ya devolvió stock y
-    /// revirtió el ingreso). CrearDevolucionAsync solo verifica que la venta exista y no esté borrada.
-    /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-DEV-1   Causa raíz: CR-3   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): Stock/caja: abre la puerta a H-DEV-3 (reembolso de una venta ya revertida).
-    // Comportamiento defectuoso que reproduce: CrearDevolucionAsync solo verifica que la venta exista y no esté borrada; no mira Venta.Estado.
-    // Comportamiento esperado que exigirá la futura regresión: No se crea ni se completa una devolución sobre una venta Cancelada (invariante I-D2).
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-DEV-1]: devolucion creada sobre una venta cancelada")]
-    [Trait("Categoria", "DefectoConocido")]
-    [Trait("Hallazgo", "H-DEV-1")]
-    [Trait("CausaRaiz", "CR-3")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CrearDevolucion_SobreVentaYaCancelada_SeAcepta()
+    // ============ FIN-DEV-P0: devolución vs. cancelación (H-DEV-1, H-DEV-2, H-DEV-3 CORREGIDOS) ============
+    // Regla comercial aprobada por el dueño (solución CONSERVADORA, sin reembolsos parciales):
+    //   1. Una venta con devoluciones Pendiente / EnRevision / Aprobada / Completada NO puede cancelarse.
+    //   2. Una venta Cancelada NO admite devoluciones nuevas.
+    //   3. Una devolución Aprobada NO puede completarse si su venta está Cancelada (incluye registros históricos).
+    //   4. Toda operación rechazada deja la base intacta (estado, stock, unidades, caja, auditoría).
+    // La concurrencia real (lock de la fila de Ventas compartido) se prueba contra SQL Server en
+    // Concurrency/FinResidualSqlServerTests (R-06/R-07/R-08/R-11/R-12), no con SQLite.
+
+    /// <summary>Foto de TODO lo que una operación rechazada no debe tocar.</summary>
+    private sealed record FotoDevolucion(
+        EstadoVenta EstadoVenta, string EstadosDevolucion, int MovimientosCaja, decimal Ingresos, decimal Egresos,
+        decimal Stock, int MovimientosStock, string EstadosUnidades, int HistorialUnidades, int NotasCredito, int Devoluciones);
+
+    private async Task<FotoDevolucion> FotoAsync(VentaContado v)
     {
-        var v = await SembrarVentaContadoAsync();
-        using (var scope = _factory.Services.CreateScope())
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "cancelada"));
-
-        using var scope2 = _factory.Services.CreateScope();
-        var dev = await scope2.ServiceProvider.GetRequiredService<IDevolucionService>().CrearDevolucionAsync(
-            new Devolucion { VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "QA" },
-            new List<DevolucionDetalle> { new() { ProductoId = v.ProductoId, Cantidad = 1 } });
-
-        Assert.Equal(EstadoDevolucion.Pendiente, dev.Estado);
+        var (ing, egr, movs) = await LibroAsync(v.AperturaId);
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var estadoVenta = await ctx.Ventas.AsNoTracking().Where(x => x.Id == v.VentaId).Select(x => x.Estado).FirstAsync();
+        var devs = await ctx.Devoluciones.AsNoTracking().Where(d => d.VentaId == v.VentaId && !d.IsDeleted)
+            .OrderBy(d => d.Id).Select(d => d.Estado).ToListAsync();
+        var unidades = await ctx.ProductoUnidades.AsNoTracking().Where(u => u.ProductoId == v.ProductoId)
+            .OrderBy(u => u.Id).Select(u => new { u.Id, u.Estado }).ToListAsync();
+        var unidadIds = unidades.Select(u => u.Id).ToList();
+        return new FotoDevolucion(
+            estadoVenta,
+            string.Join(",", devs),
+            movs, ing, egr,
+            await ctx.Productos.AsNoTracking().Where(p => p.Id == v.ProductoId).Select(p => p.StockActual).FirstAsync(),
+            await ctx.MovimientosStock.AsNoTracking().CountAsync(m => m.ProductoId == v.ProductoId),
+            string.Join(",", unidades.Select(u => u.Estado)),
+            await ctx.Set<ProductoUnidadMovimiento>().AsNoTracking().CountAsync(m => unidadIds.Contains(m.ProductoUnidadId)),
+            await ctx.NotasCredito.AsNoTracking().CountAsync(n => n.Devolucion.VentaId == v.VentaId),
+            devs.Count);
     }
 
-    /// <summary>
-    /// H-DEV-2 (CONFIRMADO, orden Devolución → Cancelación). Invariante deseado: el dinero que sale de caja por
-    /// una venta nunca supera lo que ingresó por ella (Σ egresos(venta) ≤ Σ ingresos(venta)) y el stock devuelto
-    /// nunca supera lo vendido. Hoy CancelarVentaAsync no consulta devoluciones: contra-asienta el 100 % del
-    /// ingreso encima del reembolso ya pagado (doble egreso) y vuelve a reintegrar las 2 unidades (doble stock).
-    /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-DEV-2   Causa raíz: CR-3   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): DINERO Y STOCK: egreso 150 sobre 100 ingresados; stock 13 contra 12 (se inventa 1 unidad).
-    // Comportamiento defectuoso que reproduce: CancelarVentaAsync no consulta devoluciones: contra-asienta el 100% del ingreso y reintegra todo el stock otra vez.
-    // Comportamiento esperado que exigirá la futura regresión: Se rechaza cancelar con devoluciones vivas, o la reversión descuenta lo ya reembolsado. REGLA COMERCIAL A APROBAR.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-DEV-2]: cancelar tras una devolucion reembolsada duplica caja y stock")]
-    [Trait("Categoria", "DefectoConocido")]
-    [Trait("Hallazgo", "H-DEV-2")]
-    [Trait("CausaRaiz", "CR-3")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CancelarVenta_TrasDevolucionReembolsada_DuplicaEgresoDeCajaYStock()
+    private async Task<string> RechazadaConAsync(Func<IServiceProvider, Task> operacion)
     {
-        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
-
-        // El reembolso necesita caja abierta del usuario actual: es la misma apertura sembrada.
-        var (devId, rv) = await CrearYAprobarDevolucionAsync(v, cantidad: 1, reembolsoEnCaja: true);
-        using (var scope = _factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv);
-
-        var tras = await LibroAsync(v.AperturaId);
-        Assert.Equal(50m, tras.egresos);                       // reembolso de 1 unidad
-        Assert.Equal(11m, await StockAsync(v.ProductoId));     // 10 + 1 devuelta
-
-        using (var scope = _factory.Services.CreateScope())
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "tras devolución"));
-
-        var fin = await LibroAsync(v.AperturaId);
-        // Defecto: egresos = 50 (reembolso) + 100 (reversión total) = 150 > 100 ingresados por la venta.
-        Assert.Equal(150m, fin.egresos);
-        Assert.True(fin.egresos > fin.ingresos, "El egreso total superó al ingreso de la venta: caja neta negativa.");
-        // Defecto: stock = 10 + 1 (devolución) + 2 (cancelación) = 13 > 12 (10 + 2 vendidas): se inventaron 1 unidad.
-        Assert.Equal(13m, await StockAsync(v.ProductoId));
+        using var scope = _factory.Services.CreateScope();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => operacion(scope.ServiceProvider));
+        return ex.Message;
     }
 
-    /// <summary>
-    /// H-DEV-3 (CONFIRMADO, orden Cancelación → Completar devolución previa). Una devolución aprobada ANTES de la
-    /// cancelación se puede completar DESPUÉS: reembolsa en efectivo una venta cuyo ingreso ya fue revertido.
-    /// Invariante deseado: CompletarDevolucionAsync rechaza si la venta está Cancelada.
-    /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-DEV-3   Causa raíz: CR-3   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): DINERO Y STOCK: egreso 200 sobre 100 ingresados; stock 14 contra 12.
-    // Comportamiento defectuoso que reproduce: CompletarDevolucionAsync solo exige Estado = Aprobada; no mira Venta.Estado.
-    // Comportamiento esperado que exigirá la futura regresión: CompletarDevolucionAsync rechaza si la venta está Cancelada (invariante I-D2).
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-DEV-3]: completar una devolucion aprobada sobre una venta cancelada")]
-    [Trait("Categoria", "DefectoConocido")]
-    [Trait("Hallazgo", "H-DEV-3")]
-    [Trait("CausaRaiz", "CR-3")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CompletarDevolucionAprobada_SobreVentaCancelada_ReembolsaDeNuevo()
+    private Task CancelarAsync(IServiceProvider sp, VentaContado v, string motivo = "QA FIN-DEV-P0") =>
+        sp.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, motivo);
+
+    private Task<Devolucion> CrearDevolucionPendienteAsync(IServiceProvider sp, VentaContado v, int cantidad, int? unidadId = null) =>
+        sp.GetRequiredService<IDevolucionService>().CrearDevolucionAsync(
+            new Devolucion
+            {
+                VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "QA",
+                TipoResolucion = TipoResolucionDevolucion.ReembolsoDinero, RegistrarEgresoCaja = true
+            },
+            new List<DevolucionDetalle>
+            {
+                new() { ProductoId = v.ProductoId, Cantidad = cantidad, AccionRecomendada = AccionProducto.ReintegrarStock, ProductoUnidadId = unidadId }
+            });
+
+    /// <summary>Lleva una devolución nueva (1 unidad, reembolso en caja) al estado pedido por los medios reales del servicio.</summary>
+    private async Task<int> DevolucionEnEstadoAsync(VentaContado v, EstadoDevolucion estado)
     {
-        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
-        var (devId, rv) = await CrearYAprobarDevolucionAsync(v, cantidad: 2, reembolsoEnCaja: true);
-
-        using (var scope = _factory.Services.CreateScope())
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "antes de completar"));
-        var trasCancelar = await LibroAsync(v.AperturaId);
-        Assert.Equal(100m, trasCancelar.egresos); // reversión de la venta
-
+        int id;
+        byte[] rv;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dev = await scope.ServiceProvider.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv);
-            Assert.Equal(EstadoDevolucion.Completada, dev.Estado); // aceptado
+            var dev = await CrearDevolucionPendienteAsync(scope.ServiceProvider, v, cantidad: 1);
+            id = dev.Id;
+            rv = dev.RowVersion;
         }
 
-        var fin = await LibroAsync(v.AperturaId);
-        Assert.Equal(200m, fin.egresos); // reversión 100 + reembolso 100 sobre 100 ingresados
-        Assert.Equal(14m, await StockAsync(v.ProductoId)); // 10 + 2 (cancelación) + 2 (devolución)
+        switch (estado)
+        {
+            case EstadoDevolucion.Pendiente:
+                break;
+            case EstadoDevolucion.EnRevision:
+                // No hay operación de servicio que lleve a EnRevision: se fija el estado como lo dejaría el flujo manual.
+                using (var scope = _factory.Services.CreateScope())
+                    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Devoluciones
+                        .Where(d => d.Id == id).ExecuteUpdateAsync(s => s.SetProperty(d => d.Estado, EstadoDevolucion.EnRevision));
+                break;
+            case EstadoDevolucion.Aprobada:
+            case EstadoDevolucion.Completada:
+                using (var scope = _factory.Services.CreateScope())
+                {
+                    var svc = scope.ServiceProvider.GetRequiredService<IDevolucionService>();
+                    var aprobada = await svc.AprobarDevolucionAsync(id, "qa", rv);
+                    if (estado == EstadoDevolucion.Completada)
+                        await svc.CompletarDevolucionAsync(id, aprobada.RowVersion);
+                }
+                break;
+            case EstadoDevolucion.Rechazada:
+                using (var scope = _factory.Services.CreateScope())
+                    await scope.ServiceProvider.GetRequiredService<IDevolucionService>().RechazarDevolucionAsync(id, "qa", rv);
+                break;
+            case EstadoDevolucion.Cancelada:
+                using (var scope = _factory.Services.CreateScope())
+                    await scope.ServiceProvider.GetRequiredService<IDevolucionService>().CancelarDevolucionAsync(id, "qa", rv);
+                break;
+        }
+        return id;
+    }
+
+    /// <summary>Simula un registro histórico inconsistente: la venta quedó Cancelada con una devolución ya aprobada (antes de FIN-DEV-P0 se podía).</summary>
+    private async Task ForzarVentaCanceladaHistoricaAsync(VentaContado v)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var n = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Ventas
+            .Where(x => x.Id == v.VentaId).ExecuteUpdateAsync(s => s.SetProperty(x => x.Estado, EstadoVenta.Cancelada));
+        Assert.Equal(1, n);
+    }
+
+    /// <summary>Una unidad física Vendida vinculada a la línea de la venta (para medir su estado ante rechazos).</summary>
+    private async Task<int> SembrarUnidadVendidaAsync(VentaContado v)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var detalle = await ctx.VentaDetalles.FirstAsync(d => d.VentaId == v.VentaId);
+        var unidad = new ProductoUnidad
+        {
+            ProductoId = v.ProductoId, CodigoInternoUnidad = "U-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant(),
+            Estado = EstadoUnidad.Vendida, VentaDetalleId = detalle.Id, ClienteId = v.ClienteId, FechaVenta = DateTime.UtcNow
+        };
+        ctx.ProductoUnidades.Add(unidad);
+        await ctx.SaveChangesAsync();
+        return unidad.Id;
+    }
+
+    /// <summary>
+    /// H-DEV-1 (CORREGIDO, FIN-DEV-P0). Una venta Cancelada no admite devoluciones: se rechaza sin insertar
+    /// cabecera ni detalles y sin tocar caja, stock, unidades ni auditoría.
+    /// </summary>
+    [Fact(DisplayName = "REGRESION [H-DEV-1]: no se puede crear una devolucion sobre una venta cancelada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-1")]
+    [Trait("CausaRaiz", "CR-3")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_DEV_1_CrearDevolucion_SobreVentaCancelada_SeRechazaSinEfectos()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        using (var scope = _factory.Services.CreateScope())
+            await CancelarAsync(scope.ServiceProvider, v, "cancelada");
+        var antes = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Cancelada, antes.EstadoVenta);
+        Assert.Equal(12m, antes.Stock);         // 10 + 2 reintegradas por la cancelación
+        Assert.Equal(100m, antes.Egresos);      // reversión del ingreso
+
+        var mensaje = await RechazadaConAsync(sp => CrearDevolucionPendienteAsync(sp, v, cantidad: 1));
+
+        Assert.Contains("venta cancelada", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, await FotoAsync(v));
+        Assert.Equal(0, (await FotoAsync(v)).Devoluciones);
+        // Sin escrituras parciales: ninguna cabecera ni detalle de devolución para la venta (ni siquiera soft-deleted).
+        using var check = _factory.Services.CreateScope();
+        var ctx = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(0, await ctx.Devoluciones.IgnoreQueryFilters().CountAsync(d => d.VentaId == v.VentaId));
+        Assert.Equal(0, await ctx.DevolucionDetalles.IgnoreQueryFilters().CountAsync(d => d.Devolucion.VentaId == v.VentaId));
+    }
+
+    /// <summary>
+    /// H-DEV-2 (CORREGIDO, FIN-DEV-P0). Cancelar una venta con una devolución ya reembolsada se rechaza: no se
+    /// duplican el egreso de caja ni el stock y la venta sigue Confirmada.
+    /// </summary>
+    [Fact(DisplayName = "REGRESION [H-DEV-2]: no se puede cancelar una venta con una devolucion reembolsada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-2")]
+    [Trait("CausaRaiz", "CR-3")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_DEV_2_CancelarVenta_TrasDevolucionReembolsada_SeRechazaSinDuplicarCajaNiStock()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        await DevolucionEnEstadoAsync(v, EstadoDevolucion.Completada);
+
+        var antes = await FotoAsync(v);
+        Assert.Equal(50m, antes.Egresos);   // reembolso de 1 unidad
+        Assert.Equal(11m, antes.Stock);     // 10 + 1 devuelta
+        Assert.Equal(EstadoVenta.Confirmada, antes.EstadoVenta);
+
+        var mensaje = await RechazadaConAsync(sp => CancelarAsync(sp, v, "tras devolución"));
+        Assert.Contains("devoluciones", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);
+        Assert.Equal(50m, despues.Egresos);                  // sin el segundo egreso de 100
+        Assert.True(despues.Egresos <= despues.Ingresos);
+        Assert.Equal(11m, despues.Stock);                    // sin las 2 unidades reintegradas otra vez
+        Assert.Equal(EstadoVenta.Confirmada, despues.EstadoVenta);
+        Assert.Equal(EstadoDevolucion.Completada.ToString(), despues.EstadosDevolucion);
+
+        // Reintento de la cancelación: mismo rechazo, mismos datos.
+        await RechazadaConAsync(sp => CancelarAsync(sp, v, "reintento"));
+        Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>
+    /// H-DEV-3 (CORREGIDO, FIN-DEV-P0). Completar una devolución aprobada sobre una venta Cancelada (registro
+    /// histórico inconsistente: ya no se puede llegar a él por servicios) se rechaza antes de generar
+    /// reintegro de stock, cambio de unidad o egreso de caja.
+    /// </summary>
+    [Fact(DisplayName = "REGRESION [H-DEV-3]: no se puede completar una devolucion aprobada sobre una venta cancelada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    [Trait("CausaRaiz", "CR-3")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_DEV_3_CompletarDevolucionAprobada_SobreVentaCancelada_SeRechazaSinEfectos()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var unidadId = await SembrarUnidadVendidaAsync(v);
+        int devId;
+        byte[] rv;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var svc = scope.ServiceProvider.GetRequiredService<IDevolucionService>();
+            var dev = await CrearDevolucionPendienteAsync(scope.ServiceProvider, v, cantidad: 1, unidadId);
+            var aprobada = await svc.AprobarDevolucionAsync(dev.Id, "qa", dev.RowVersion);
+            devId = aprobada.Id;
+            rv = aprobada.RowVersion;
+        }
+
+        await ForzarVentaCanceladaHistoricaAsync(v);
+        var antes = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Cancelada, antes.EstadoVenta);
+        Assert.Equal(EstadoDevolucion.Aprobada.ToString(), antes.EstadosDevolucion);
+        Assert.Equal(EstadoUnidad.Vendida.ToString(), antes.EstadosUnidades);
+
+        var mensaje = await RechazadaConAsync(sp =>
+            sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
+        Assert.Contains("cancelada", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoDevolucion.Aprobada.ToString(), despues.EstadosDevolucion); // no quedó Completada a medias
+        Assert.Equal(0m, despues.Egresos);
+        Assert.Equal(10m, despues.Stock);
+
+        // Reintento: mismo rechazo, mismos datos.
+        await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
+        Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>Matriz: cualquier devolución viva (Pendiente, EnRevision, Aprobada, Completada) impide cancelar la venta.</summary>
+    [Theory(DisplayName = "REGRESION [FIN-DEV-P0]: cancelar una venta con una devolucion viva se rechaza sin efectos")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-2")]
+    [InlineData(EstadoDevolucion.Pendiente)]
+    [InlineData(EstadoDevolucion.EnRevision)]
+    [InlineData(EstadoDevolucion.Aprobada)]
+    [InlineData(EstadoDevolucion.Completada)]
+    public async Task Regresion_CancelarVenta_ConDevolucionViva_SeRechazaSinEfectos(EstadoDevolucion estado)
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        await DevolucionEnEstadoAsync(v, estado);
+        var antes = await FotoAsync(v);
+
+        var mensaje = await RechazadaConAsync(sp => CancelarAsync(sp, v));
+
+        Assert.Contains("devoluciones", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, await FotoAsync(v));
+        Assert.Equal(EstadoVenta.Confirmada, (await FotoAsync(v)).EstadoVenta);
+    }
+
+    /// <summary>Las devoluciones Rechazadas / Canceladas son históricas y no bloquean: no tuvieron efectos de stock ni caja.</summary>
+    [Theory(DisplayName = "REGRESION [FIN-DEV-P0]: una devolucion rechazada o cancelada sin efectos no impide cancelar la venta")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-2")]
+    [InlineData(EstadoDevolucion.Rechazada)]
+    [InlineData(EstadoDevolucion.Cancelada)]
+    public async Task Regresion_CancelarVenta_ConDevolucionHistoricaSinEfectos_EsPermitida(EstadoDevolucion estado)
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        await DevolucionEnEstadoAsync(v, estado);
+        var antes = await FotoAsync(v);
+        // Premisa de la regla: la devolución histórica no movió stock ni caja.
+        Assert.Equal(10m, antes.Stock);
+        Assert.Equal(0m, antes.Egresos);
+
+        using (var scope = _factory.Services.CreateScope())
+            await CancelarAsync(scope.ServiceProvider, v);
+
+        var despues = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Cancelada, despues.EstadoVenta);
+        Assert.Equal(100m, despues.Egresos);    // reversión íntegra: nunca hubo reembolso
+        Assert.Equal(12m, despues.Stock);       // 10 + 2 vendidas
+        Assert.Equal(estado.ToString(), despues.EstadosDevolucion);
+    }
+
+    /// <summary>Camino feliz intacto: devolución válida sobre venta activa se crea, aprueba y completa normalmente.</summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: devolucion valida sobre venta activa se crea, aprueba y completa")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-1")]
+    public async Task Regresion_DevolucionValidaSobreVentaActiva_SeCreaApruebaYCompleta()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        await DevolucionEnEstadoAsync(v, EstadoDevolucion.Completada);
+
+        var fin = await FotoAsync(v);
+        Assert.Equal(EstadoVenta.Confirmada, fin.EstadoVenta);
+        Assert.Equal(EstadoDevolucion.Completada.ToString(), fin.EstadosDevolucion);
+        Assert.Equal(50m, fin.Egresos);
+        Assert.Equal(11m, fin.Stock);
+    }
+
+    /// <summary>Reintento de cancelar una venta ya cancelada: se rechaza y no duplica contramovimiento ni stock.</summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: reintento de cancelacion sobre venta ya cancelada no duplica caja ni stock")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-2")]
+    public async Task Regresion_ReintentoDeCancelacion_NoDuplicaCajaNiStock()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        using (var scope = _factory.Services.CreateScope())
+            await CancelarAsync(scope.ServiceProvider, v);
+        var antes = await FotoAsync(v);
+
+        await RechazadaConAsync(sp => CancelarAsync(sp, v, "reintento"));
+
+        Assert.Equal(antes, await FotoAsync(v));
+    }
+
+    /// <summary>
+    /// Rollback ante error de caja: completar con un reembolso inválido falla DESPUÉS del reintegro de stock y de
+    /// marcar la devolución Completada; todo debe deshacerse (la devolución sigue Aprobada y reintentable).
+    /// </summary>
+    [Fact(DisplayName = "REGRESION [FIN-DEV-P0]: error al registrar el reembolso revierte stock, unidades y estado de la devolucion")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-DEV-3")]
+    public async Task Regresion_CompletarDevolucion_ErrorDeCaja_RevierteTodo()
+    {
+        var v = await SembrarVentaContadoAsync(stockInicial: 10m);
+        var unidadId = await SembrarUnidadVendidaAsync(v);
+        int devId;
+        byte[] rv;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dev = await CrearDevolucionPendienteAsync(scope.ServiceProvider, v, cantidad: 1, unidadId);
+            var aprobada = await scope.ServiceProvider.GetRequiredService<IDevolucionService>()
+                .AprobarDevolucionAsync(dev.Id, "qa", dev.RowVersion);
+            devId = aprobada.Id;
+            rv = aprobada.RowVersion;
+        }
+
+        // Fuerza un error en el ÚLTIMO paso (el reembolso rechaza montos <= 0), cuando el reintegro de stock, el
+        // cambio de unidad y el estado Completada ya se escribieron dentro de la transacción.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await ctx.Devoluciones.Where(d => d.Id == devId).ExecuteUpdateAsync(s => s.SetProperty(d => d.TotalDevolucion, 0m));
+            rv = await ctx.Devoluciones.AsNoTracking().Where(d => d.Id == devId).Select(d => d.RowVersion).FirstAsync();
+        }
+        var antes = await FotoAsync(v);
+
+        var mensaje = await RechazadaConAsync(sp => sp.GetRequiredService<IDevolucionService>().CompletarDevolucionAsync(devId, rv));
+
+        Assert.Contains("reembolso", mensaje, StringComparison.OrdinalIgnoreCase);
+        var despues = await FotoAsync(v);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoDevolucion.Aprobada.ToString(), despues.EstadosDevolucion);
+        Assert.Equal(10m, despues.Stock);
+        Assert.Equal(EstadoUnidad.Vendida.ToString(), despues.EstadosUnidades);
     }
 
     /// <summary>

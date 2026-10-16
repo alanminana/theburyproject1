@@ -1,5 +1,11 @@
 # QA-FIN-RESIDUAL — Auditoría de cierre de caja, devoluciones, anticipos e idempotencia
 
+> **Actualización FIN-DEV-P0 (2026-10-16):** H-DEV-1, H-DEV-2 y H-DEV-3 (causa raíz CR-3) fueron **CORREGIDOS** con la
+> regla conservadora aprobada (no se cancela con devoluciones vivas; no se devuelve ni se completa sobre una venta
+> cancelada). Las filas de esta auditoría son la **evidencia histórica** y no se modificaron; el estado vigente está en
+> [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md). R-06, R-07 y R-08 se ejecutan ahora en
+> un SQL Server efímero (`.github/workflows/fin-dev-sqlserver.yml`).
+
 > **Nota de integración (2026-10-16).** Este documento es la auditoría original (rama `qa/fin-residual-20261014`, commit `24973bfe`). Desde entonces `main` incorporó FIN-P0 y CONC-P0. **Los defectos descritos aquí siguen ABIERTOS en `main`; esta integración solo suma evidencia y NO los corrige.** Estado vigente, cifras y plan de conversión a regresión: [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md).
 
 Rama `qa/fin-residual-20261014` (worktree `theburyproject1-qa-fin-residual`), base `5c40a67a` = QA-FIN-CONC-P0

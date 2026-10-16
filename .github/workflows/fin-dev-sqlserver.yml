@@ -1,0 +1,147 @@
+name: FIN SQL Server (concurrencia devolucion/cancelacion)
+
+# FIN-DEV-P0: ejecuta CONTRA UN SQL SERVER REAL EFIMERO los escenarios de concurrencia que SQLite no puede
+# representar (un unico escritor serializa todo): cancelacion de venta vs. alta/completar devolucion, y dos
+# operaciones de devolucion sobre la misma venta. Es el unico lugar donde esos tests dejan de ser "omitidos".
+#
+# Aislamiento (ver docs/qa-fin-residual-registro-defectos.md):
+#   - el contenedor SQL Server se crea y se destruye DENTRO del job (con sus volumenes);
+#   - credenciales sinteticas generadas en el job, enmascaradas, nunca commiteadas ni subidas como artifact;
+#   - el puerto solo escucha en 127.0.0.1 del runner: sin conectividad con ninguna base de desarrollo;
+#   - los tests exigen un catalogo "qa_fin_conc*" (ConcEnv) y crean/borran sus propios catalogos descartables;
+#   - todos los datos los crean los propios tests.
+# Un test omitido NO cuenta como aprobado: el paso "Verificar que se ejecutaron" falla si alguno de los
+# escenarios requeridos no figura como Passed en el TRX.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-dev-sqlserver-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MSSQL_HOST_PORT_CI: 14340
+  MSSQL_CONTAINER: bury-fin-dev-sql-ci
+
+jobs:
+  sqlserver-concurrencia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 0 = READ COMMITTED con locks (default de SQL Server); 1 = READ_COMMITTED_SNAPSHOT (default de Azure SQL).
+        # UPDLOCK fuerza lectura con locks en ambos: la exclusion mutua debe valer en los dos modos.
+        rcsi: [ '0', '1' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (segun global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Levantar SQL Server efimero (credenciales sinteticas)
+        run: |
+          set -euo pipefail
+          SA_PW="Ee1!$(openssl rand -hex 12)"
+          echo "::add-mask::$SA_PW"
+          echo "SA_PW=$SA_PW" >> "$GITHUB_ENV"
+          docker run -d --name "$MSSQL_CONTAINER" \
+            -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e "MSSQL_SA_PASSWORD=$SA_PW" \
+            -p "127.0.0.1:${MSSQL_HOST_PORT_CI}:1433" \
+            mcr.microsoft.com/mssql/server:2022-latest
+          for i in $(seq 1 60); do
+            if docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PW" -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server listo tras ${i} intentos"; exit 0
+            fi
+            sleep 3
+          done
+          docker logs "$MSSQL_CONTAINER" | tail -50
+          echo "SQL Server no arranco"; exit 1
+
+      - name: Restore + Build (Release)
+        run: |
+          dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+          dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      - name: Concurrencia devolucion/cancelacion (R-06, R-07, R-08, R-11, R-12)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~FinResidualSqlServerTests.R06_|FullyQualifiedName~FinResidualSqlServerTests.R07_|FullyQualifiedName~FinResidualSqlServerTests.R08_|FullyQualifiedName~FinResidualSqlServerTests.R11_|FullyQualifiedName~FinResidualSqlServerTests.R12_" \
+            --logger "trx;LogFileName=fin-dev-sql-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=detailed" \
+            --results-directory ./TestResults
+
+      - name: Locks de credito CONC-P0 (orden Credito -> Venta intacto)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~CancelarVsPagoServiciosRealesSqlServerTests" \
+            --logger "trx;LogFileName=conc-p0-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./TestResults
+
+      # Un omitido no es un aprobado: cada escenario requerido debe figurar con outcome="Passed".
+      - name: Verificar que se ejecutaron (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          TRX=./TestResults/fin-dev-sql-rcsi${{ matrix.rcsi }}.trx
+          if [ ! -f "$TRX" ]; then echo "No hay TRX: los escenarios no se ejecutaron"; exit 1; fi
+          RC=0
+          {
+            echo "### Concurrencia SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for R in R-06 R-07 R-08 R-11 R-12; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          exit $RC
+
+      - name: Subir TRX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fin-dev-sql-trx-rcsi${{ matrix.rcsi }}
+          path: TestResults/**/*.trx
+          retention-days: 14
+          if-no-files-found: warn
+
+      # El contenedor y sus volumenes anonimos se eliminan siempre, falle o no el job.
+      - name: Destruir SQL Server efimero
+        if: always()
+        run: |
+          docker rm -f -v "$MSSQL_CONTAINER" >/dev/null 2>&1 || true
+          docker ps -a --filter "name=$MSSQL_CONTAINER" --format '{{.Names}}' | wc -l
