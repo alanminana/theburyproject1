@@ -182,38 +182,32 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
     }
 
     /// <summary>
-    /// H-CAJA-1 (CONFIRMADO, parte secuencial). RegistrarMovimientoVentaAsync resuelve la apertura por
-    /// Venta.AperturaCajaId y NO verifica Cerrada/vencida: asienta un ingreso en una apertura cerrada.
-    /// Es la misma consecuencia que "cobro que entra mientras se cierra la caja", sin necesitar carrera.
-    /// Invariante deseado: rechazar (o redirigir a la apertura activa) si la apertura está cerrada.
+    /// H-CAJA-1 (CORREGIDO en FIN-CAJA-P0, parte secuencial). RegistrarMovimientoVentaAsync resolvía la apertura por
+    /// Venta.AperturaCajaId y no verificaba Cerrada/vencida: asentaba un ingreso en una apertura cerrada. Ahora toma el
+    /// lock compartido de la apertura (el mismo que el cierre) y rechaza si está cerrada, sin efectos sobre el libro.
     /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-CAJA-1   Causa raíz: CR-1   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): Caja: ingreso posterior al cierre; el arqueo ya no refleja el libro. La carrera real con el cierre (R-01) sigue SIN ejecutar.
-    // Comportamiento defectuoso que reproduce: RegistrarMovimientoVentaAsync resuelve la apertura por Venta.AperturaCajaId y no valida Cerrada ni vencida.
-    // Comportamiento esperado que exigirá la futura regresión: Todo asiento exige apertura abierta y vigente, verificada bajo el mismo lock que el cierre; si está cerrada se rechaza o se redirige.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-CAJA-1]: ingreso de venta asentado en una caja cerrada")]
-    [Trait("Categoria", "DefectoConocido")]
+    [Fact(DisplayName = "REGRESION [H-CAJA-1]: no se asienta un ingreso de venta en una caja cerrada")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-CAJA-1")]
     [Trait("CausaRaiz", "CR-1")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_RegistrarMovimientoVenta_AsientaIngresoEnAperturaCerrada()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_1_RegistrarMovimientoVenta_RechazaAperturaCerrada_SinEfectos()
     {
         var v = await SembrarVentaContadoAsync();
         await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
         var antes = await LibroAsync(v.AperturaId);
 
-        MovimientoCaja? mov;
         using (var scope = _factory.Services.CreateScope())
-            mov = await scope.ServiceProvider.GetRequiredService<ICajaService>()
-                .RegistrarMovimientoVentaAsync(v.VentaId, v.Numero, 40m, TipoPago.Efectivo, Usuario);
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                scope.ServiceProvider.GetRequiredService<ICajaService>()
+                    .RegistrarMovimientoVentaAsync(v.VentaId, v.Numero, 40m, TipoPago.Efectivo, Usuario));
+            Assert.Contains("cerrada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
 
-        Assert.NotNull(mov); // aceptado: no hay guardia de apertura cerrada
         var despues = await LibroAsync(v.AperturaId);
-        Assert.Equal(antes.ingresos + 40m, despues.ingresos);
+        Assert.Equal(antes.ingresos, despues.ingresos);
+        Assert.Equal(antes.egresos, despues.egresos);
     }
 
     /// <summary>

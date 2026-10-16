@@ -1,8 +1,8 @@
 # QA-FIN-RESIDUAL — Registro de defectos financieros conocidos
 
-> **Estado tras FIN-ANT-P0: 5 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 — y
-> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0) con pruebas de regresión, y 4 hallazgos todavía ABIERTOS
-> (H-CAJA-1, H-CAJA-2, H-CAJA-3, H-IDEM-1).**
+> **Estado tras FIN-CAJA-P0: 6 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
+> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 — y H-CAJA-1 — causa raíz CR-1, FIN-CAJA-P0) con pruebas de regresión,
+> y 3 hallazgos todavía ABIERTOS (H-CAJA-2, H-CAJA-3, H-IDEM-1).**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
 > De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07 y R-08 se ejecutan ahora contra un SQL Server efímero**
 > en `.github/workflows/fin-dev-sqlserver.yml` (más R-11, R-12, R-13 y R-14, nuevos); los otros 7 siguen **NO EJECUTADOS /
@@ -29,11 +29,10 @@ Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`,
 hallazgo o sus metadatos sin actualizar este registro. Filtros útiles:
 `dotnet test --filter "Categoria=DefectoConocido"`, `--filter "Categoria=ContratoValido"`.
 
-## Los 4 hallazgos ABIERTOS (PR correctiva: PENDIENTE)
+## Los 3 hallazgos ABIERTOS (PR correctiva: PENDIENTE)
 
 | ID | Causa raíz | Test (`FinResidualCajaDevolucionAnticipoTests`) | Impacto (dinero / caja / stock) | Comportamiento defectuoso que reproduce | Comportamiento esperado de la futura regresión |
 |---|---|---|---|---|---|
-| H-CAJA-1 | CR-1 | `Hallazgo_RegistrarMovimientoVenta_AsientaIngresoEnAperturaCerrada` | Ingreso posterior al cierre; el arqueo no refleja el libro | `RegistrarMovimientoVentaAsync` no valida `Cerrada` | Todo asiento exige apertura abierta y vigente bajo el mismo lock que el cierre |
 | H-CAJA-2 | CR-1 | `Hallazgo_CancelarVenta_ContramovimientoCaeEnAperturaYaCerrada_Y_DivergeDelCierre` | Libro de caja cerrada ≠ `CierreCaja` (egresos 100 vs 0) | La reversión se asienta en la apertura original aunque esté cerrada | Reversión en la apertura activa de quien cancela, o se rechaza. **Regla a aprobar** |
 | H-CAJA-3 | CR-2 | `Hallazgo_CierreConMovimientoPendienteDeAcreditar_YAcreditacionPosteriorCambiaElSaldoRealDeLaApertura` | Saldo real de una apertura cerrada cambia tras el arqueo (+70) | El cierre ignora pendientes y se pueden acreditar después | **A definir por negocio**: advertir/bloquear o permitir auditado |
 | H-IDEM-1 | CR-5 | `Hallazgo_RegistrarMovimientoManual_ReintentoIdenticoDuplicaElAsiento` | Asiento duplicado (egreso 50 en vez de 25) | `MovimientoCaja` sin clave de idempotencia | Mismo token ⇒ un solo asiento |
@@ -107,16 +106,50 @@ mayor que cero, el asiento de caja es obligatorio y atómico con la confirmació
   su significado ni los reportes que lo usan (`CajaConciliacionBuilder`).
 * **No hay devolución de anticipos.** Cancelar una venta con anticipo cobrado queda **rechazado**; revertirlo requiere el
   procedimiento de devolución auditada que habrá que diseñar en una PR aparte.
-* **H-CAJA-1 sigue ABIERTO y afecta a esta PR.** `CerrarCajaAsync` no toma ningún lock compartido con la confirmación: si
-  la caja se cierra entre que la confirmación lee la apertura y asienta el anticipo, el anticipo cae en una apertura ya
-  **cerrada** y queda fuera del snapshot de su cierre. Se probó contra SQL Server real como defecto conocido
-  (`ANT-05`, traits `DefectoConocido`/`H-CAJA-1`/`ABIERTO`). La confirmación es atómica y fail-closed respecto de una caja
-  que **no existe o ya estaba cerrada** antes de leerla, pero **no** respecto de un cierre concurrente. Su corrección
-  pertenece a la PR de H-CAJA-1.
+* ~~**H-CAJA-1 sigue ABIERTO y afecta a esta PR.**~~ **CORREGIDO en FIN-CAJA-P0** (ver abajo). `ANT-05` se invirtió a
+  regresión (el cierre espera la confirmación en vuelo e incluye el anticipo) y se agregó `ANT-05B` (cierre completado antes
+  del anticipo: la confirmación entera se rechaza y revierte).
+
+### FIN-CAJA-P0 — H-CAJA-1 CORREGIDO (lock de apertura compartido con el cierre)
+
+**Invariante:** ningún movimiento nuevo de caja se inserta en una apertura que ya fue cerrada; el cierre calcula sus totales
+con los movimientos confirmados hasta ese momento.
+
+**Mecanismo.** `AperturaCajaConcurrencia.BloquearAsync` toma `UPDLOCK, HOLDLOCK, ROWLOCK` sobre la fila de `AperturasCaja`
+(mismo estilo que `CreditoConcurrencia`). UPDLOCK fuerza lectura con lock también bajo READ_COMMITTED_SNAPSHOT y dos locks
+de actualización sobre la misma fila son incompatibles: exclusión mutua con RCSI 0 y 1 (probado, ver abajo). Se retiene hasta
+el commit/rollback.
+
+* **Escritores de movimientos** (`RegistrarMovimientoAsync`, `…VentaAsync`, `…CuotaAsync`, `…AnticipoAsync`,
+  `…DevolucionAsync`): `BajoLockDeAperturaAsync` abre una transacción si no hay ambiental (y confirma al final) o participa
+  en la existente **sin** confirmarla; toma el lock; **relee** la apertura de la base (no del change tracker) y rechaza si no
+  existe, está cerrada o vencida; recién entonces inserta.
+* **`CerrarCajaAsync`:** toma el mismo lock; relee la apertura (`ReloadAsync` si ya estaba rastreada); lee los movimientos;
+  calcula; crea el `CierreCaja` y marca la apertura/caja cerradas; confirma una sola vez. Dos cierres simultáneos: el segundo
+  espera y ve «La caja ya está cerrada» (además de la clave única 1:1 `CierreCaja.AperturaCajaId`).
+* **Orden de locks:** Crédito → Venta → **Apertura**. La apertura es el último eslabón y ningún flujo la retiene mientras
+  espera Crédito o Venta; el cierre no toma Crédito ni Venta. No cierra ciclos con CONC-P0.
+* **Cambio de comportamiento:** `RegistrarMovimientoVentaAsync` ahora rechaza una apertura cerrada o vencida (antes no
+  validaba nada). Una carrera con el cierre que antes terminaba con el movimiento «perdido» en una caja cerrada ahora termina
+  con una excepción de negocio y rollback de la operación del llamador.
+
+**Pruebas** (`FinCajaSqlServerTests`, `FinAntSqlServerTests` ANT-05/ANT-05B, SQL Server efímero con RCSI 0 y 1, compuertas
+deterministas): movimiento nuevo sobre apertura cerrada (CAJA-01), cierre completado antes del movimiento en las 5 rutas
+(CAJA-02-*), movimiento en vuelo y cierre que espera e incluye (CAJA-03-*), dos cierres (CAJA-04), transacción ambiental y
+rollback total (CAJA-05), contramovimiento en vuelo (CAJA-06), modo RCSI efectivo (CAJA-00).
+
+**Límites (NO resueltos aquí):**
+
+* **H-CAJA-2** sigue ABIERTO. `RegistrarContramovimientoVentaAsync` toma el lock (se serializa con el cierre) pero **no
+  valida vigencia**: la reversión de una venta cuya apertura original ya está cerrada se sigue asentando en esa apertura,
+  igual que antes. No se redirige a otra caja ni se rechaza: es una regla comercial a decidir. Por eso la invariante
+  «ningún movimiento nuevo en una apertura cerrada» vale para los cinco escritores de alta, **no** para la reversión.
+* **H-CAJA-3** sigue ABIERTO. Es un caso distinto: **no inserta** un movimiento, **cambia la acreditación** de uno ya
+  existente (Pendiente → Acreditado) después del cierre. El lock de apertura no la cubre y requiere decisión de negocio.
 
 ### Causas raíz independientes
 
-* **CR-1** — Falta de guardia de «apertura abierta» al asentar (H-CAJA-1, H-CAJA-2).
+* ~~**CR-1** — Falta de guardia de «apertura abierta» al asentar (H-CAJA-1, H-CAJA-2).~~ **H-CAJA-1 CORREGIDO en FIN-CAJA-P0**; queda H-CAJA-2.
 * **CR-2** — Acreditación posterior al cierre (H-CAJA-3). Decisión de negocio.
 * ~~**CR-3** — Devolución y venta sin control cruzado (H-DEV-1, H-DEV-2, H-DEV-3).~~ **CORREGIDA en FIN-DEV-P0** (ver abajo).
 * ~~**CR-4** — Anticipo (H-ANT-1, H-ANT-2).~~ **CORREGIDA en FIN-ANT-P0** (ver arriba). Queda abierta la interacción con H-CAJA-1.
@@ -153,7 +186,7 @@ lectura del código**, no un resultado medido.
 Cada PR correctiva, una por causa raíz y en este orden (de mayor a menor riesgo en dinero):
 
 1. ~~**CR-3**~~ (devolución↔venta): **hecho en FIN-DEV-P0**. ~~**CR-4**~~ (anticipo): **hecho en FIN-ANT-P0**.
-2. **CR-1** (guardia y lock de apertura al final del orden Crédito → Venta → Apertura): H-CAJA-1/2.
+2. **CR-1** (guardia y lock de apertura al final del orden Crédito → Venta → Apertura): ~~H-CAJA-1~~ **hecho en FIN-CAJA-P0**; H-CAJA-2 pendiente de decisión comercial.
 3. **CR-5** (idempotencia manual) y R-10 (Facturar).
 4. **CR-2** solo tras decisión de negocio.
 
