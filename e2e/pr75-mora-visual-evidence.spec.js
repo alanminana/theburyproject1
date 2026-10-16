@@ -35,12 +35,41 @@ for (const v of VIEWPORTS) {
         const manifest = [];
         let errores = 0;
 
+        // El ERP scrollea dentro de un contenedor interno (el documento no scrollea), asi que fullPage solo
+        // captura el viewport. Para "pagina completa" se agranda el viewport hasta el alto real del contenido.
+        const alturaExtra = () => page.evaluate(() => {
+            let mejor = null;
+            for (const el of document.querySelectorAll('*')) {
+                const oy = getComputedStyle(el).overflowY;
+                if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight - el.clientHeight > 40
+                    && (!mejor || el.scrollHeight > mejor.scrollHeight)) mejor = el;
+            }
+            return mejor ? mejor.scrollHeight - mejor.clientHeight : 0;
+        });
+        // Desborde horizontal real: documento + contenedor scrolleable + cualquier elemento visible cuyo borde
+        // derecho exceda el viewport sin estar dentro de un contenedor con overflow-x propio (tablas con scroll).
+        const medirOverflow = () => page.evaluate(() => {
+            const vw = document.documentElement.clientWidth;
+            let max = document.documentElement.scrollWidth - vw;
+            for (const el of document.querySelectorAll('*')) {
+                const cs = getComputedStyle(el);
+                if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollWidth - el.clientWidth > max) max = el.scrollWidth - el.clientWidth;
+            }
+            return max;
+        });
         const snap = async (id, pantalla, estado, descripcion, opts = {}) => {
             const archivo = `${pantalla}__${estado}__${v.name}.png`;
             const destino = path.join(OUT, archivo);
             if (opts.locator) await opts.locator.screenshot({ path: destino });
-            else await page.screenshot({ path: destino, fullPage: !!opts.fullPage });
-            const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            else if (opts.fullPage) {
+                const extra = Math.min(await alturaExtra(), 14000);
+                await page.setViewportSize({ width: v.width, height: v.height + extra });
+                await page.waitForTimeout(400);
+                await page.screenshot({ path: destino });
+                await page.setViewportSize({ width: v.width, height: v.height });
+                await page.waitForTimeout(200);
+            } else await page.screenshot({ path: destino });
+            const overflowX = await medirOverflow();
             manifest.push({ id, pantalla, estado, viewport: v.name, archivo, descripcion, overflowXpx: overflowX, resultado: 'capturada' });
             if (overflowX > 1) throw new Error(`Desborde horizontal de ${overflowX}px en ${archivo}`);
         };
