@@ -446,6 +446,17 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "movements")]
         public async Task<IActionResult> RegistrarMovimiento(MovimientoCajaViewModel model)
         {
+            // FIN-IDEM-HARDENING-P0: el token lo emite el GET y es obligatorio. Ausente, vacío o ilegible se rechaza sin
+            // asiento; el POST nunca fabrica uno (eso anularía la protección contra reintentos). Se vuelve al
+            // formulario, que emite un token nuevo.
+            if (model.IdempotencyKey is null || model.IdempotencyKey == Guid.Empty)
+            {
+                TempData["Error"] = "El formulario perdió su clave de seguridad. Complete el movimiento nuevamente.";
+                return model.AperturaCajaId > 0
+                    ? RedirectToAction(nameof(RegistrarMovimiento), new { aperturaId = model.AperturaCajaId })
+                    : RedirectToAction(nameof(Index));
+            }
+
             if (!ModelState.IsValid)
             {
                 await TryPopulateMovimientoContextAsync(model);

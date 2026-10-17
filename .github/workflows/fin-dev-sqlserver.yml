@@ -223,7 +223,7 @@ jobs:
             echo "| Escenario | Resultado |"
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for R in IDEM-00 IDEM-01 IDEM-02 IDEM-03 IDEM-04 IDEM-05 IDEM-06 IDEM-07; do
+          for R in IDEM-00 IDEM-01 IDEM-02 IDEM-03 IDEM-04 IDEM-05 IDEM-06 IDEM-07 IDEM-08 IDEM-09 IDEM-10 IDEM-11 IDEM-12 IDEM-13; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
