@@ -201,6 +201,30 @@ jobs:
           done
           exit $RC
 
+      # FIN-CAJA-3-P0 (H-CAJA-3): acreditacion vs. cierre sobre el mismo lock de apertura. Se ejecutan dentro de
+      # FinCajaSqlServerTests (mismo TRX); aca se exige que cada escenario figure como Passed (omitido/no encontrado = falla).
+      - name: Verificar acreditacion vs cierre FIN-CAJA-3-P0 (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          TRX=./TestResults/fin-caja-sql-rcsi${{ matrix.rcsi }}.trx
+          if [ ! -f "$TRX" ]; then echo "No hay TRX de cierre de caja: los escenarios no se ejecutaron"; exit 1; fi
+          RC=0
+          {
+            echo "### Acreditacion vs cierre FIN-CAJA-3-P0 en SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for R in CAJA-3-01 CAJA-3-02 CAJA-3-03 CAJA-3-04 CAJA-3-04B CAJA-3-05 CAJA-3-06 CAJA-3-07; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          exit $RC
+
       - name: Subir TRX
         if: always()
         uses: actions/upload-artifact@v4

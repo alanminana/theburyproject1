@@ -430,55 +430,279 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
         Assert.Contains("ya está cerrada", ex.Message);
     }
 
-    /// <summary>
-    /// H-CAJA-3 (CONFIRMADO, decisión de negocio). El cierre no mira movimientos con acreditación Pendiente
-    /// (transferencia/tarjeta/MP): se pueden acreditar DESPUÉS del cierre y el saldo real de la apertura
-    /// cerrada cambia. Invariante a decidir: ¿cierre bloqueado/advertido con pendientes, o acreditar a posteriori es legítimo?
-    /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-CAJA-3   Causa raíz: CR-2   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): Caja: el saldo real de una apertura cerrada cambia tras el arqueo (+70).
-    // Comportamiento defectuoso que reproduce: CerrarCajaAsync ignora movimientos con acreditación Pendiente y AcreditarMovimientoAsync los acepta con la apertura cerrada.
-    // Comportamiento esperado que exigirá la futura regresión: A DEFINIR POR NEGOCIO: o el cierre advierte/bloquea con pendientes, o acreditar a posteriori es legítimo y debe quedar auditado.
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-CAJA-3]: acreditacion de un pendiente despues del cierre")]
-    [Trait("Categoria", "DefectoConocido")]
+    // ============ FIN-CAJA-3-P0: acreditación vs. caja cerrada (H-CAJA-3 CORREGIDO) ============
+    // Regla comercial aprobada por el dueño: la caja PUEDE cerrarse con ingresos pendientes de acreditar, pero una
+    // vez cerrada la acreditación directa se rechaza (cambiaría el saldo histórico). La conciliación auditada
+    // posterior es una funcionalidad separada y NO está implementada. Una apertura vencida pero todavía abierta
+    // sigue admitiendo la acreditación (regla previa, sin cambios). Concurrencia real: Concurrency/FinCajaSqlServerTests (CAJA-3-xx).
+
+    private async Task<int> SembrarPendienteAsync(int aperturaId, TipoMovimientoCaja tipo = TipoMovimientoCaja.Ingreso,
+        EstadoAcreditacionMovimientoCaja? estado = EstadoAcreditacionMovimientoCaja.Pendiente, decimal monto = 70m)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var m = new MovimientoCaja
+        {
+            AperturaCajaId = aperturaId, Tipo = tipo,
+            Concepto = tipo == TipoMovimientoCaja.Ingreso ? ConceptoMovimientoCaja.VentaTransferencia : ConceptoMovimientoCaja.GastoOperativo,
+            EstadoAcreditacion = estado, TipoPago = TipoPago.Transferencia,
+            Monto = monto, Descripcion = "Pendiente QA", Usuario = Usuario, FechaMovimiento = DateTime.UtcNow
+        };
+        ctx.MovimientosCaja.Add(m);
+        await ctx.SaveChangesAsync();
+        return m.Id;
+    }
+
+    /// <summary>Foto de todo lo que un rechazo no debe tocar: movimiento (con auditoría), cierre, apertura, libro y saldo.</summary>
+    private sealed record FotoAcreditacion(
+        EstadoAcreditacionMovimientoCaja? Estado, DateTime? UpdatedAt, string? UpdatedBy, bool AperturaCerrada, int Cierres,
+        decimal? CierreIngresos, decimal? CierreEgresos, int Movimientos, decimal Ingresos, decimal SaldoReal);
+
+    private async Task<FotoAcreditacion> FotoAcreditacionAsync(int movimientoId, int aperturaId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var mov = await ctx.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == movimientoId);
+        var ap = await ctx.AperturasCaja.AsNoTracking().FirstAsync(a => a.Id == aperturaId);
+        var cierres = await ctx.CierresCaja.AsNoTracking().Where(c => c.AperturaCajaId == aperturaId).ToListAsync();
+        var libro = await LibroAsync(aperturaId);
+        var saldo = await scope.ServiceProvider.GetRequiredService<ICajaService>().CalcularSaldoRealAsync(aperturaId);
+        var cierre = cierres.FirstOrDefault();
+        return new FotoAcreditacion(mov.EstadoAcreditacion, mov.UpdatedAt, mov.UpdatedBy, ap.Cerrada, cierres.Count,
+            cierre?.TotalIngresosSistema, cierre?.TotalEgresosSistema, libro.movimientos, libro.ingresos, saldo);
+    }
+
+    private Task<MovimientoCaja> AcreditarAsync(int movimientoId)
+    {
+        var scope = _factory.Services.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<ICajaService>().AcreditarMovimientoAsync(movimientoId, Usuario);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: con la caja abierta, un ingreso pendiente se acredita y suma al saldo real")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-CAJA-3")]
     [Trait("CausaRaiz", "CR-2")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_CierreConMovimientoPendienteDeAcreditar_YAcreditacionPosteriorCambiaElSaldoRealDeLaApertura()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_CajaAbierta_AcreditaElPendiente()
     {
         var v = await SembrarVentaContadoAsync();
-        int pendienteId;
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+        var antes = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+
+        var resultado = await AcreditarAsync(pendienteId);
+
+        var despues = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, resultado.EstadoAcreditacion);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, despues.Estado);
+        Assert.Equal(antes.SaldoReal + 70m, despues.SaldoReal);
+        Assert.False(despues.AperturaCerrada);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: con la caja cerrada la acreditacion se rechaza y no cambia movimiento, cierre, libro ni saldo")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_CajaCerrada_RechazaLaAcreditacionSinEfectos()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m); // el cierre con pendientes SIGUE permitido
+        var antes = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+        Assert.True(antes.AperturaCerrada);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, antes.Estado);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(pendienteId));
+
+        Assert.Equal("No se puede acreditar el movimiento: pertenece a una caja ya cerrada. Se requiere una conciliación auditada.", ex.Message);
+        var despues = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+        Assert.Equal(antes, despues);                                   // movimiento, auditoría, cierre, libro y saldo idénticos
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, despues.Estado);
+        Assert.Equal(1, despues.Cierres);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: el cierre con ingresos pendientes sigue permitido, los conserva Pendientes y no los suma a lo contado")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_CierreConPendientes_SigueSiendoPermitido()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+
+        var f = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+        Assert.True(f.AperturaCerrada);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, f.Estado);   // sigue visible y pendiente
+        Assert.Equal(100m, f.CierreIngresos);                                 // la transferencia pendiente no se agrega a lo físico
+        Assert.Equal(170m, f.Ingresos);                                       // pero el libro la conserva
+        Assert.Equal(100m, f.SaldoReal);                                      // y el saldo real no la cuenta mientras esté pendiente
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: movimientos historicos pendientes en caja cerrada siguen legibles y no se modifican solos")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_PendientesHistoricos_PermanecenLegiblesYSinCambios()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+        var antes = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var movs = await scope.ServiceProvider.GetRequiredService<ICajaService>().ObtenerMovimientosDeAperturaAsync(v.AperturaId);
+            var m = Assert.Single(movs, x => x.Id == pendienteId);
+            Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, m.EstadoAcreditacion);
+            Assert.Equal(70m, m.Monto);
+        }
+
+        Assert.Equal(antes, await FotoAcreditacionAsync(pendienteId, v.AperturaId));
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: un ingreso ya acreditado o una acreditacion repetida conservan la validacion de estado")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_YaAcreditado_ConservaValidacionesYLaRepeticionNoCambiaNada()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var acreditadoId = await SembrarPendienteAsync(v.AperturaId, estado: EstadoAcreditacionMovimientoCaja.Acreditado);
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+
+        var exYa = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(acreditadoId));
+        Assert.Contains("Solo se puede acreditar un movimiento en estado Pendiente", exYa.Message);
+
+        await AcreditarAsync(pendienteId);
+        var tras = await FotoAcreditacionAsync(pendienteId, v.AperturaId);
+        var exRepetida = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(pendienteId));
+        Assert.Contains("Estado actual: Acreditado", exRepetida.Message);
+        Assert.Equal(tras, await FotoAcreditacionAsync(pendienteId, v.AperturaId));
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: un egreso nunca se acredita, con la caja abierta ni cerrada")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_Egreso_SeRechazaSiempre()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var egresoId = await SembrarPendienteAsync(v.AperturaId, TipoMovimientoCaja.Egreso, estado: null, monto: 10m);
+
+        var abierta = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(egresoId));
+        Assert.Contains("Solo se pueden acreditar movimientos de ingreso", abierta.Message);
+
+        using (var cierre = _factory.Services.CreateScope())
+            await cierre.ServiceProvider.GetRequiredService<ICajaService>().CerrarCajaAsync(
+                new CerrarCajaViewModel { AperturaCajaId = v.AperturaId, EfectivoContado = 100m, JustificacionDiferencia = "QA H-CAJA-3" }, Usuario);
+        var antes = await FotoAcreditacionAsync(egresoId, v.AperturaId);
+        var cerrada = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(egresoId));
+        Assert.Contains("Solo se pueden acreditar movimientos de ingreso", cerrada.Message);
+        Assert.Equal(antes, await FotoAcreditacionAsync(egresoId, v.AperturaId));
+        Assert.Null(antes.Estado);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: un movimiento inexistente se rechaza")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_MovimientoInexistente_SeRechaza()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => AcreditarAsync(int.MaxValue - 7));
+        Assert.Equal("Movimiento no encontrado.", ex.Message);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: apertura vencida pero todavia abierta conserva el contrato previo y permite acreditar")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_AperturaVencidaPeroAbierta_SigueAcreditando()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
         using (var scope = _factory.Services.CreateScope())
         {
             var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var m = new MovimientoCaja
-            {
-                AperturaCajaId = v.AperturaId, Tipo = TipoMovimientoCaja.Ingreso,
-                Concepto = ConceptoMovimientoCaja.VentaTransferencia,
-                EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, TipoPago = TipoPago.Transferencia,
-                Monto = 70m, Descripcion = "Transferencia pendiente", Usuario = Usuario, FechaMovimiento = DateTime.UtcNow
-            };
-            ctx.MovimientosCaja.Add(m);
+            var ap = await ctx.AperturasCaja.FirstAsync(a => a.Id == v.AperturaId);
+            ap.FechaApertura = DateTime.UtcNow.AddDays(-3);   // día comercial anterior: vencida, NO cerrada
             await ctx.SaveChangesAsync();
-            pendienteId = m.Id;
         }
 
-        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m); // la transferencia no es efectivo: el cierre no la considera
+        var r = await AcreditarAsync(pendienteId);
 
-        decimal antes, despues;
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, r.EstadoAcreditacion);
+        Assert.False((await FotoAcreditacionAsync(pendienteId, v.AperturaId)).AperturaCerrada);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: invocacion directa con entidad rastreada obsoleta no elude la proteccion")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_EntidadRastreadaObsoleta_NoEludeLaProteccion()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Este contexto ya rastrea el movimiento y la apertura como "abierta/pendiente"...
+        var rastreado = await ctx.MovimientosCaja.FirstAsync(m => m.Id == pendienteId);
+        var aperturaRastreada = await ctx.AperturasCaja.FirstAsync(a => a.Id == v.AperturaId);
+        Assert.False(aperturaRastreada.Cerrada);
+
+        // ...y otra sesión cierra la caja.
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+        Assert.False(aperturaRastreada.Cerrada);   // la copia rastreada sigue obsoleta
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<ICajaService>().AcreditarMovimientoAsync(pendienteId, Usuario));
+        Assert.Contains("caja ya cerrada", ex.Message);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, rastreado.EstadoAcreditacion);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, (await FotoAcreditacionAsync(pendienteId, v.AperturaId)).Estado);
+    }
+
+    [Fact(DisplayName = "REGRESION [H-CAJA-3]: en transaccion ambiental el servicio no confirma por su cuenta y el rollback del llamador lo deshace")]
+    [Trait("Categoria", "Regresion")]
+    [Trait("Hallazgo", "H-CAJA-3")]
+    [Trait("CausaRaiz", "CR-2")]
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_CAJA_3_TransaccionAmbiental_NoConfirmaPorSuCuenta()
+    {
+        var v = await SembrarVentaContadoAsync();
+        var pendienteId = await SembrarPendienteAsync(v.AperturaId);
+
         using (var scope = _factory.Services.CreateScope())
         {
-            var caja = scope.ServiceProvider.GetRequiredService<ICajaService>();
-            antes = await caja.CalcularSaldoRealAsync(v.AperturaId);
-            await caja.AcreditarMovimientoAsync(pendienteId, Usuario); // aceptado con la apertura ya cerrada
-            despues = await caja.CalcularSaldoRealAsync(v.AperturaId);
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await using var tx = await ctx.Database.BeginTransactionAsync();
+            await scope.ServiceProvider.GetRequiredService<ICajaService>().AcreditarMovimientoAsync(pendienteId, Usuario);
+            Assert.NotNull(ctx.Database.CurrentTransaction);   // el servicio no cerró ni reemplazó la transacción del llamador
+            await tx.RollbackAsync();
         }
 
-        Assert.Equal(antes + 70m, despues);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, (await FotoAcreditacionAsync(pendienteId, v.AperturaId)).Estado);
+
+        // Con la caja cerrada dentro de una transacción ambiental también se rechaza y la transacción del llamador sigue viva.
+        await CerrarAperturaAsync(v.AperturaId, efectivoContado: 100m);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await using var tx = await ctx.Database.BeginTransactionAsync();
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                scope.ServiceProvider.GetRequiredService<ICajaService>().AcreditarMovimientoAsync(pendienteId, Usuario));
+            Assert.NotNull(ctx.Database.CurrentTransaction);
+            await tx.RollbackAsync();
+        }
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, (await FotoAcreditacionAsync(pendienteId, v.AperturaId)).Estado);
     }
 
     // ================================================================== 2. Devolución vs cancelación

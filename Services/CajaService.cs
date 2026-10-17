@@ -30,6 +30,9 @@ namespace TheBuryProject.Services
         private const string MensajeCajaVencida =
             "La caja quedó abierta desde el día anterior. Debés cerrarla (arqueo y justificación) antes de poder operar.";
 
+        internal const string MensajeAcreditacionCajaCerrada =
+            "No se puede acreditar el movimiento: pertenece a una caja ya cerrada. Se requiere una conciliación auditada.";
+
         public CajaService(
             AppDbContext context,
             IMapper mapper,
@@ -778,39 +781,74 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <summary>
+        /// H-CAJA-3. Acredita un ingreso Pendiente bajo el MISMO lock de apertura que el cierre y los altas de
+        /// movimientos (H-CAJA-1). Decisión comercial: la caja puede cerrarse con ingresos pendientes, pero una vez
+        /// cerrada la acreditación directa se rechaza (cambiaría el saldo histórico de la apertura); su confirmación
+        /// posterior requiere una conciliación auditada que NO está implementada. La apertura vencida pero todavía
+        /// abierta sigue admitiendo la acreditación (comportamiento previo, sin regla nueva).
+        /// </summary>
         /// <inheritdoc/>
         public async Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario)
         {
             try
             {
-                var movimiento = await _context.MovimientosCaja
-                    .FirstOrDefaultAsync(m => m.Id == movimientoId && !m.IsDeleted);
+                // Lectura previa sin tracking: sólo para conocer la apertura y rechazar temprano lo que no cambia con el lock.
+                var previo = await _context.MovimientosCaja
+                    .AsNoTracking()
+                    .Where(m => m.Id == movimientoId && !m.IsDeleted)
+                    .Select(m => new { m.AperturaCajaId, m.Tipo })
+                    .FirstOrDefaultAsync();
 
-                if (movimiento == null)
+                if (previo == null)
                 {
                     throw new InvalidOperationException("Movimiento no encontrado.");
                 }
 
-                if (movimiento.Tipo != TipoMovimientoCaja.Ingreso)
+                if (previo.Tipo != TipoMovimientoCaja.Ingreso)
                 {
                     throw new InvalidOperationException("Solo se pueden acreditar movimientos de ingreso.");
                 }
 
-                if (movimiento.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Pendiente)
-                {
-                    throw new InvalidOperationException(
-                        $"Solo se puede acreditar un movimiento en estado Pendiente. Estado actual: {movimiento.EstadoAcreditacion}.");
-                }
+                var acreditado = await BajoLockDeAperturaAsync(
+                    previo.AperturaCajaId,
+                    async () =>
+                    {
+                        var movimiento = await _context.MovimientosCaja
+                            .FirstOrDefaultAsync(m => m.Id == movimientoId && !m.IsDeleted)
+                            ?? throw new InvalidOperationException("Movimiento no encontrado.");
 
-                movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+                        // Con el lock tomado, el estado definitivo sale de la base: la entidad pudo estar rastreada y obsoleta.
+                        await _context.Entry(movimiento).ReloadAsync();
 
-                await _context.SaveChangesAsync();
+                        if (movimiento.IsDeleted)
+                        {
+                            throw new InvalidOperationException("Movimiento no encontrado.");
+                        }
+
+                        if (movimiento.Tipo != TipoMovimientoCaja.Ingreso)
+                        {
+                            throw new InvalidOperationException("Solo se pueden acreditar movimientos de ingreso.");
+                        }
+
+                        if (movimiento.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Pendiente)
+                        {
+                            throw new InvalidOperationException(
+                                $"Solo se puede acreditar un movimiento en estado Pendiente. Estado actual: {movimiento.EstadoAcreditacion}.");
+                        }
+
+                        movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+                        await _context.SaveChangesAsync();
+                        return movimiento;
+                    },
+                    validarVigencia: false,
+                    mensajeCerrada: MensajeAcreditacionCajaCerrada);
 
                 _logger.LogInformation(
                     "Movimiento {MovimientoId} acreditado manualmente por {Usuario}",
                     movimientoId, usuario);
 
-                return movimiento;
+                return acreditado;
             }
             catch (Exception ex)
             {
