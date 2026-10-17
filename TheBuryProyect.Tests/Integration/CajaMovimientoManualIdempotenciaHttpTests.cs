@@ -60,6 +60,85 @@ public class CajaMovimientoManualIdempotenciaHttpTests : IClassFixture<CustomWeb
         Assert.Equal(2, await ContarAsync(aperturaId, descripcion));
     }
 
+    [Theory]
+    [InlineData("ausente")]
+    [InlineData("vacio")]
+    [InlineData("guid-vacio")]
+    [InlineData("invalido")]
+    public async Task PostSinTokenValido_SeRechazaSinAsiento_YElFormularioEmiteUnoNuevo(string variante)
+    {
+        await _factory.SeedTestUserAsync();
+        int aperturaId;
+        using (var scope = _factory.Services.CreateScope())
+            aperturaId = await ConcSeed.SembrarAperturaAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), "testuser");
+
+        var client = _factory.CreateAuthenticatedClient();
+        var (token, _) = await AbrirFormularioAsync(client, aperturaId);
+
+        string descripcion = "IDEM-HARD " + variante + " " + Guid.NewGuid().ToString("N")[..8];
+        var campos = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["AperturaCajaId"] = aperturaId.ToString(),
+            ["Tipo"] = ((int)TipoMovimientoCaja.Egreso).ToString(),
+            ["Concepto"] = ((int)ConceptoMovimientoCaja.GastoOperativo).ToString(),
+            ["Monto"] = "25",
+            ["Descripcion"] = descripcion
+        };
+        switch (variante)
+        {
+            case "vacio": campos["IdempotencyKey"] = ""; break;
+            case "guid-vacio": campos["IdempotencyKey"] = Guid.Empty.ToString(); break;
+            case "invalido": campos["IdempotencyKey"] = "no-es-un-guid"; break;
+        }
+
+        var respuesta = await client.PostAsync("/Caja/RegistrarMovimiento", new FormUrlEncodedContent(campos));
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Contains("/Caja/RegistrarMovimiento", respuesta.Headers.Location!.ToString());
+        Assert.Equal(0, await ContarAsync(aperturaId, descripcion));
+
+        // El POST no fabricó clave: el formulario al que se vuelve emite una distinta de vacío.
+        var (_, nueva) = await AbrirFormularioAsync(client, aperturaId);
+        Assert.NotEqual(Guid.Empty, nueva);
+    }
+
+    [Fact]
+    public async Task ErrorDeValidacion_ConservaLaMismaClave_YElReintentoValidoRegistraUnSoloAsiento()
+    {
+        await _factory.SeedTestUserAsync();
+        int aperturaId;
+        using (var scope = _factory.Services.CreateScope())
+            aperturaId = await ConcSeed.SembrarAperturaAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), "testuser");
+
+        var client = _factory.CreateAuthenticatedClient();
+        var (token, clave) = await AbrirFormularioAsync(client, aperturaId);
+
+        Dictionary<string, string> Campos(string descripcion) => new()
+        {
+            ["__RequestVerificationToken"] = token,
+            ["AperturaCajaId"] = aperturaId.ToString(),
+            ["IdempotencyKey"] = clave.ToString(),
+            ["Tipo"] = ((int)TipoMovimientoCaja.Egreso).ToString(),
+            ["Concepto"] = ((int)ConceptoMovimientoCaja.GastoOperativo).ToString(),
+            ["Monto"] = "25",
+            ["Descripcion"] = descripcion
+        };
+
+        // Descripción obligatoria vacía: la validación falla, se re-renderiza el formulario con la MISMA clave.
+        var invalido = await client.PostAsync("/Caja/RegistrarMovimiento", new FormUrlEncodedContent(Campos("")));
+        Assert.Equal(HttpStatusCode.OK, invalido.StatusCode);
+        var html = await invalido.Content.ReadAsStringAsync();
+        Assert.Contains(clave.ToString(), html, StringComparison.OrdinalIgnoreCase);
+
+        string descripcionOk = "IDEM-HARD ok " + Guid.NewGuid().ToString("N")[..8];
+        var r1 = await client.PostAsync("/Caja/RegistrarMovimiento", new FormUrlEncodedContent(Campos(descripcionOk)));
+        var r2 = await client.PostAsync("/Caja/RegistrarMovimiento", new FormUrlEncodedContent(Campos(descripcionOk)));
+        Assert.Equal(HttpStatusCode.Redirect, r1.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, r2.StatusCode);
+        Assert.Equal(1, await ContarAsync(aperturaId, descripcionOk));
+    }
+
     private async Task<int> ContarAsync(int aperturaId, string descripcion)
     {
         using var scope = _factory.Services.CreateScope();

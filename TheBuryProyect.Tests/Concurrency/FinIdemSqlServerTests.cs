@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -257,5 +258,186 @@ public class FinIdemSqlServerTests : IClassFixture<FinIdemSqlHostFixture>
         dup.Parameters.AddWithValue("@k", clave);
         var ex = await Assert.ThrowsAsync<SqlException>(() => dup.ExecuteNonQueryAsync());
         Assert.Contains(ex.Errors.Cast<SqlError>(), x => x.Number is 2601 or 2627);
+    }
+
+    // ============================================== FIN-IDEM-HARDENING-P0
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-08] colision concurrente del token entre aperturas distintas: gana una, la otra se rechaza")]
+    public async Task IDEM08_ColisionDeTokenEntreAperturasDistintas_UnaGana_LaOtraSeRechaza()
+    {
+        var e1 = await SembrarAsync();
+        var e2 = await SembrarAsync();
+        var clave = Guid.NewGuid();
+
+        // A (apertura 1) queda detenida antes del INSERT; B (apertura 2, otro lock) confirma primero con la misma clave.
+        var plan = Compuerta("A/antes-del-insert", "INSERT INTO [MovimientosCaja]");
+        var a = Registrar(e1, Modelo(e1, clave), plan);
+        Assert.True(await LlegoAsync(plan, a), "A no llegó a la compuerta");
+
+        var (rb, idb) = await Registrar(e2, Modelo(e2, clave));
+        Assert.NotNull(idb);
+
+        plan.Release.TrySetResult();
+        var (ra, ida) = await a;
+        _out.WriteLine($"A={ra} B={rb}");
+
+        // A choca con el índice único: es el mismo token con otra apertura/usuario => rechazo, nunca "éxito" ajeno.
+        Assert.Null(ida);
+        Assert.Contains("InvalidOperationException", ra);
+        Assert.Equal(0, (await LibroAsync(e1.AperturaId)).movimientos);
+        Assert.Equal(1, (await LibroAsync(e2.AperturaId)).movimientos);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-09] error SQL ajeno al indice (truncamiento): se propaga y no se toma por duplicado")]
+    public async Task IDEM09_ErrorSqlAjenoAlIndice_SePropaga()
+    {
+        var e = await SembrarAsync();
+        var clave = Guid.NewGuid();
+
+        var (r, id) = await Registrar(e, Modelo(e, clave, descripcion: "FIN-IDEM-P0 " + new string('x', 600)));
+        _out.WriteLine(r[..Math.Min(r.Length, 160)]);
+
+        Assert.Null(id);
+        Assert.StartsWith("DbUpdateException", r);
+        Assert.Equal(0, (await LibroAsync(e.AperturaId)).movimientos);
+
+        // La clave no quedó consumida: el mismo token con datos válidos registra normalmente.
+        var (_, id2) = await Registrar(e, Modelo(e, clave));
+        Assert.NotNull(id2);
+        Assert.Equal(1, (await LibroAsync(e.AperturaId)).movimientos);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-10] transaccion ambiental: la violacion de unicidad no limpia el tracker ni cierra la transaccion del llamador")]
+    public async Task IDEM10_TransaccionAmbiental_NoSeAlteraElEstadoDelLlamador()
+    {
+        var e1 = await SembrarAsync();
+        var e2 = await SembrarAsync();
+        var clave = Guid.NewGuid();
+
+        var plan = Compuerta("A-ambiental/antes-del-insert", "INSERT INTO [MovimientosCaja]");
+        var a = Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await using var tx = await ctx.Database.BeginTransactionAsync();
+
+                // Estado propio del llamador, rastreado por el contexto.
+                var propia = await ctx.AperturasCaja.FirstAsync(x => x.Id == e1.AperturaId);
+                var rastreadas = ctx.ChangeTracker.Entries().Count();
+
+                string resultado;
+                try
+                {
+                    await scope.ServiceProvider.GetRequiredService<ICajaService>().RegistrarMovimientoAsync(Modelo(e1, clave), e1.Usuario);
+                    resultado = "OK";
+                }
+                catch (Exception ex)
+                {
+                    resultado = ex.GetType().Name;
+                }
+
+                var intacta = ctx.Database.CurrentTransaction != null
+                    && ctx.Entry(propia).State != EntityState.Detached
+                    && ctx.ChangeTracker.Entries().Count(x => x.Entity is not MovimientoCaja) >= rastreadas
+                    && !ctx.ChangeTracker.Entries().Any(x => x.Entity is MovimientoCaja && x.State == EntityState.Added);
+
+                // La transacción sigue siendo del llamador: la deshace él.
+                await tx.RollbackAsync();
+                return (resultado, intacta);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+        });
+
+        Assert.True(await LlegoAsync(plan, a), "A no llegó a la compuerta");
+        var (_, idb) = await Registrar(e2, Modelo(e2, clave));
+        Assert.NotNull(idb);
+        plan.Release.TrySetResult();
+
+        var (resultadoA, intacta) = await a;
+        _out.WriteLine($"A={resultadoA} intacta={intacta}");
+        Assert.Equal("InvalidOperationException", resultadoA);
+        Assert.True(intacta, "El servicio alteró el tracker o la transacción ambiental del llamador");
+        Assert.Equal(0, (await LibroAsync(e1.AperturaId)).movimientos);
+        Assert.Equal(1, (await LibroAsync(e2.AperturaId)).movimientos);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-11] misma clave con importe, concepto, descripcion o tipo distintos: rechazo sin escribir")]
+    public async Task IDEM11_MismaClave_CadaCampoDeLaIntencion_Rechaza()
+    {
+        var e = await SembrarAsync();
+        var clave = Guid.NewGuid();
+        var (_, id1) = await Registrar(e, Modelo(e, clave));
+        Assert.NotNull(id1);
+
+        static MovimientoCajaViewModel Con(MovimientoCajaViewModel m, Action<MovimientoCajaViewModel> cambio) { cambio(m); return m; }
+        var variantes = new[]
+        {
+            Modelo(e, clave, monto: 26m),
+            Modelo(e, clave, descripcion: "FIN-IDEM-P0 distinta"),
+            Con(Modelo(e, clave), m => m.Concepto = ConceptoMovimientoCaja.Otro),
+            Con(Modelo(e, clave), m => m.Tipo = TipoMovimientoCaja.Ingreso)
+        };
+        foreach (var v in variantes)
+        {
+            var (r, id) = await Registrar(e, v);
+            Assert.Null(id);
+            Assert.Contains("InvalidOperationException", r);
+        }
+
+        // Otro usuario con la misma clave y datos: tampoco es un reintento legítimo.
+        var otro = e with { Usuario = e.Usuario + "X" };
+        var (ru, idu) = await Registrar(otro, Modelo(e, clave));
+        Assert.Null(idu);
+        Assert.Contains("InvalidOperationException", ru);
+
+        Assert.Equal(1, (await LibroAsync(e.AperturaId)).movimientos);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-12] GUID vacio en el servicio: se rechaza sin escribir")]
+    public async Task IDEM12_GuidVacio_SeRechaza()
+    {
+        var e = await SembrarAsync();
+        var (r, id) = await Registrar(e, Modelo(e, Guid.Empty));
+        Assert.Null(id);
+        Assert.Contains("InvalidOperationException", r);
+        Assert.Equal(0, (await LibroAsync(e.AperturaId)).movimientos);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-IDEM-HARD [IDEM-13] reintento tras el cierre: no duplica ni modifica el cierre")]
+    public async Task IDEM13_ReintentoTrasCierre_NoModificaElCierre()
+    {
+        var e = await SembrarAsync();
+        var clave = Guid.NewGuid();
+        var (_, id1) = await Registrar(e, Modelo(e, clave));
+        Assert.NotNull(id1);
+        await CerrarAsync(e);
+
+        async Task<(int cierres, bool cerrada, DateTime? fecha, decimal? esperado, decimal? egresos)> Estado()
+        {
+            using var scope = _fx.Services.CreateScope();
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var ap = await ctx.AperturasCaja.AsNoTracking().FirstAsync(x => x.Id == e.AperturaId);
+            var cierre = await ctx.CierresCaja.AsNoTracking().Where(c => c.AperturaCajaId == e.AperturaId).ToListAsync();
+            return (cierre.Count, ap.Cerrada, cierre.Select(c => (DateTime?)c.FechaCierre).FirstOrDefault(),
+                cierre.Select(c => (decimal?)c.MontoEsperadoSistema).FirstOrDefault(),
+                cierre.Select(c => (decimal?)c.TotalEgresosSistema).FirstOrDefault());
+        }
+
+        var antes = await Estado();
+        var (r2, id2) = await Registrar(e, Modelo(e, clave));
+        _out.WriteLine(r2);
+        var despues = await Estado();
+
+        Assert.Equal(id1, id2);
+        Assert.Equal(antes, despues);
+        Assert.Equal(1, despues.cierres);
+        Assert.True(despues.cerrada);
+        Assert.Equal(1, (await LibroAsync(e.AperturaId)).movimientos);
     }
 }

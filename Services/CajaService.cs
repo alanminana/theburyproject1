@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using System.Globalization;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
@@ -558,10 +559,43 @@ namespace TheBuryProject.Services
             return existente;
         }
 
+        internal const string IndiceIdempotenciaMovimiento = "IX_MovimientosCaja_IdempotencyKey";
+
+        /// <summary>
+        /// FIN-IDEM-HARDENING-P0. True solo si la excepción es una violación REAL de unicidad (SQL Server 2601/2627)
+        /// del índice <see cref="IndiceIdempotenciaMovimiento"/>. Cualquier otro error de persistencia (truncamiento,
+        /// FK, timeout, deadlock, otra unicidad) NO es un duplicado y debe propagarse.
+        /// </summary>
+        internal static bool EsViolacionIndiceIdempotencia(DbUpdateException ex)
+        {
+            for (Exception? actual = ex; actual != null; actual = actual.InnerException)
+            {
+                if (actual is SqlException sql)
+                {
+                    return sql.Errors.Cast<SqlError>().Any(e =>
+                        e.Number is 2601 or 2627
+                        && e.Message.Contains(IndiceIdempotenciaMovimiento, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Registra un movimiento de caja. <see cref="MovimientoCajaViewModel.IdempotencyKey"/> es opcional a nivel de
+        /// servicio SOLO para llamadores automáticos justificados (p. ej. liquidación de Mercado Libre, que ya tiene su
+        /// propia guarda de unicidad por orden); el POST HTTP manual la exige en el controller. Una clave
+        /// <see cref="Guid.Empty"/> se rechaza siempre: colisionaría entre operaciones no relacionadas.
+        /// </summary>
         public async Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario)
         {
             try
             {
+                if (model.IdempotencyKey == Guid.Empty)
+                {
+                    throw new InvalidOperationException("La clave de la operación no es válida. Recargue el formulario.");
+                }
+
                 if (model.IdempotencyKey.HasValue)
                 {
                     var previo = await BuscarMovimientoIdempotenteAsync(model, usuario);
@@ -588,6 +622,7 @@ namespace TheBuryProject.Services
                 }
 
                 var esReintento = false;
+                MovimientoCaja? nuevo = null;
                 MovimientoCaja movimiento;
                 try
                 {
@@ -604,7 +639,7 @@ namespace TheBuryProject.Services
                             }
                         }
 
-                        var nuevo = new MovimientoCaja
+                        nuevo = new MovimientoCaja
                         {
                             AperturaCajaId = model.AperturaCajaId,
                             FechaMovimiento = DateTime.UtcNow,
@@ -624,10 +659,13 @@ namespace TheBuryProject.Services
                         return nuevo;
                     });
                 }
-                catch (DbUpdateException) when (model.IdempotencyKey.HasValue)
+                catch (DbUpdateException ex) when (model.IdempotencyKey.HasValue && nuevo != null && EsViolacionIndiceIdempotencia(ex))
                 {
                     // Misma clave desde otra apertura/conexión: el índice único gana y se resuelve como reintento.
-                    _context.ChangeTracker.Clear();
+                    // Solo se suelta la entidad propia (sin ChangeTracker.Clear: puede haber estado del llamador). Una
+                    // transacción propia ya fue deshecha al salir de BajoLockDeAperturaAsync; una ambiental no se toca
+                    // (la violación de unicidad es de sentencia y no la invalida).
+                    _context.Entry(nuevo).State = EntityState.Detached;
                     var ganador = await BuscarMovimientoIdempotenteAsync(model, usuario);
                     if (ganador == null)
                     {
