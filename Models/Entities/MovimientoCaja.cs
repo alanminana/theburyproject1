@@ -73,6 +73,12 @@ namespace TheBuryProject.Models.Entities
         [StringLength(500)]
         public string? Observaciones { get; set; }
 
+        /// <summary>
+        /// Clave de idempotencia del movimiento manual (token generado al abrir el formulario). Un reintento
+        /// con la misma clave devuelve este movimiento sin duplicar dinero. Nulo en movimientos automáticos.
+        /// </summary>
+        public Guid? IdempotencyKey { get; set; }
+
         // Navegaci�n
         public virtual AperturaCaja AperturaCaja { get; set; } = null!;
         public virtual Venta? Venta { get; set; }

@@ -434,7 +434,8 @@ namespace TheBuryProject.Controllers
             {
                 AperturaCajaId = aperturaId,
                 CajaNombre = apertura.Caja.Nombre,
-                SaldoActual = saldo
+                SaldoActual = saldo,
+                IdempotencyKey = Guid.NewGuid()
             };
 
             return View("RegistrarMovimiento_tw", model);

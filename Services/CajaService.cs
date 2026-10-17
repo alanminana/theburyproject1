@@ -525,10 +525,52 @@ namespace TheBuryProject.Services
             return resultado;
         }
 
+        /// <summary>
+        /// H-IDEM-1. Resuelve un reintento: si ya existe un movimiento con la clave, devuelve ese mismo movimiento
+        /// cuando la intención coincide (aun con la caja cerrada: no se escribe nada), y rechaza si difiere.
+        /// </summary>
+        private async Task<MovimientoCaja?> BuscarMovimientoIdempotenteAsync(MovimientoCajaViewModel model, string usuario)
+        {
+            var existente = await _context.MovimientosCaja
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.IdempotencyKey == model.IdempotencyKey);
+
+            if (existente == null)
+            {
+                return null;
+            }
+
+            var mismaIntencion = existente.AperturaCajaId == model.AperturaCajaId
+                && existente.Tipo == model.Tipo
+                && existente.Concepto == model.Concepto
+                && existente.Monto == model.Monto
+                && existente.Descripcion == model.Descripcion
+                && existente.Referencia == model.Referencia
+                && existente.Observaciones == model.Observaciones
+                && existente.Usuario == usuario;
+
+            if (!mismaIntencion)
+            {
+                throw new InvalidOperationException(
+                    "La clave de la operación ya fue usada con datos distintos. Recargue el formulario para registrar un movimiento nuevo.");
+            }
+
+            return existente;
+        }
+
         public async Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario)
         {
             try
             {
+                if (model.IdempotencyKey.HasValue)
+                {
+                    var previo = await BuscarMovimientoIdempotenteAsync(model, usuario);
+                    if (previo != null)
+                    {
+                        return previo;
+                    }
+                }
+
                 var apertura = await ObtenerAperturaPorIdAsync(model.AperturaCajaId);
                 if (apertura == null)
                 {
@@ -545,26 +587,60 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(MensajeCajaVencida);
                 }
 
-                var movimiento = await BajoLockDeAperturaAsync(model.AperturaCajaId, async () =>
+                var esReintento = false;
+                MovimientoCaja movimiento;
+                try
                 {
-                    var nuevo = new MovimientoCaja
+                    movimiento = await BajoLockDeAperturaAsync(model.AperturaCajaId, async () =>
                     {
-                        AperturaCajaId = model.AperturaCajaId,
-                        FechaMovimiento = DateTime.UtcNow,
-                        Tipo = model.Tipo,
-                        Concepto = model.Concepto,
-                        Monto = model.Monto,
-                        Descripcion = model.Descripcion,
-                        Referencia = model.Referencia,
-                        Usuario = usuario,
-                        Observaciones = model.Observaciones,
-                        CreatedAt = DateTime.UtcNow
-                    };
+                        // Con el lock de apertura tomado, un reintento concurrente ya confirmado se ve acá.
+                        if (model.IdempotencyKey.HasValue)
+                        {
+                            var previo = await BuscarMovimientoIdempotenteAsync(model, usuario);
+                            if (previo != null)
+                            {
+                                esReintento = true;
+                                return previo;
+                            }
+                        }
 
-                    _context.MovimientosCaja.Add(nuevo);
-                    await _context.SaveChangesAsync();
-                    return nuevo;
-                });
+                        var nuevo = new MovimientoCaja
+                        {
+                            AperturaCajaId = model.AperturaCajaId,
+                            FechaMovimiento = DateTime.UtcNow,
+                            Tipo = model.Tipo,
+                            Concepto = model.Concepto,
+                            Monto = model.Monto,
+                            Descripcion = model.Descripcion,
+                            Referencia = model.Referencia,
+                            Usuario = usuario,
+                            Observaciones = model.Observaciones,
+                            IdempotencyKey = model.IdempotencyKey,
+                            CreatedAt = DateTime.UtcNow
+                        };
+
+                        _context.MovimientosCaja.Add(nuevo);
+                        await _context.SaveChangesAsync();
+                        return nuevo;
+                    });
+                }
+                catch (DbUpdateException) when (model.IdempotencyKey.HasValue)
+                {
+                    // Misma clave desde otra apertura/conexión: el índice único gana y se resuelve como reintento.
+                    _context.ChangeTracker.Clear();
+                    var ganador = await BuscarMovimientoIdempotenteAsync(model, usuario);
+                    if (ganador == null)
+                    {
+                        throw;
+                    }
+
+                    return ganador;
+                }
+
+                if (esReintento)
+                {
+                    return movimiento;
+                }
 
                 _logger.LogInformation(
                     "Movimiento registrado: {Tipo} - ${Monto:N2} por {Usuario}",

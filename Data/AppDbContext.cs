@@ -2314,6 +2314,11 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.AperturaCajaId);
                 entity.HasIndex(e => e.VentaId);
                 entity.HasIndex(e => new { e.AperturaCajaId, e.TipoPago });
+
+                // H-IDEM-1: garantía persistente contra duplicar un movimiento manual por reintento/doble clic.
+                entity.HasIndex(e => e.IdempotencyKey)
+                    .IsUnique()
+                    .HasFilter("[IdempotencyKey] IS NOT NULL");
             });
 
             // =======================

@@ -1,8 +1,8 @@
 # QA-FIN-RESIDUAL — Registro de defectos financieros conocidos
 
-> **Estado tras FIN-CAJA-2-P0: 7 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
-> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 — y H-CAJA-1, H-CAJA-2 — causa raíz CR-1, FIN-CAJA-P0 y FIN-CAJA-2-P0)
-> con pruebas de regresión, y 2 hallazgos todavía ABIERTOS (H-CAJA-3, H-IDEM-1).**
+> **Estado tras FIN-IDEM-P0: 8 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
+> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 —, H-CAJA-1, H-CAJA-2 — causa raíz CR-1, FIN-CAJA-P0 y FIN-CAJA-2-P0 — y
+> H-IDEM-1 — causa raíz CR-5, FIN-IDEM-P0) con pruebas de regresión, y 1 hallazgo todavía ABIERTO (H-CAJA-3).**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
 > De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07 y R-08 se ejecutan ahora contra un SQL Server efímero**
 > en `.github/workflows/fin-dev-sqlserver.yml` (más R-11, R-12, R-13 y R-14, nuevos); los otros 7 siguen **NO EJECUTADOS /
@@ -29,12 +29,29 @@ Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`,
 hallazgo o sus metadatos sin actualizar este registro. Filtros útiles:
 `dotnet test --filter "Categoria=DefectoConocido"`, `--filter "Categoria=ContratoValido"`.
 
-## Los 2 hallazgos ABIERTOS (PR correctiva: PENDIENTE)
+## El hallazgo ABIERTO (PR correctiva: PENDIENTE)
 
 | ID | Causa raíz | Test (`FinResidualCajaDevolucionAnticipoTests`) | Impacto (dinero / caja / stock) | Comportamiento defectuoso que reproduce | Comportamiento esperado de la futura regresión |
 |---|---|---|---|---|---|
 | H-CAJA-3 | CR-2 | `Hallazgo_CierreConMovimientoPendienteDeAcreditar_YAcreditacionPosteriorCambiaElSaldoRealDeLaApertura` | Saldo real de una apertura cerrada cambia tras el arqueo (+70) | El cierre ignora pendientes y se pueden acreditar después | **A definir por negocio**: advertir/bloquear o permitir auditado |
-| H-IDEM-1 | CR-5 | `Hallazgo_RegistrarMovimientoManual_ReintentoIdenticoDuplicaElAsiento` | Asiento duplicado (egreso 50 en vez de 25) | `MovimientoCaja` sin clave de idempotencia | Mismo token ⇒ un solo asiento |
+
+## H-IDEM-1 — CORREGIDO en FIN-IDEM-P0 (causa raíz CR-5)
+
+`MovimientoCaja.IdempotencyKey` (`Guid?`, migración aditiva `FinIdemP0MovimientoCajaIdempotencyKey`, índice único filtrado
+`[IdempotencyKey] IS NOT NULL`). El formulario `Caja/RegistrarMovimiento` emite un token nuevo en cada apertura y lo reenvía
+tal cual en el POST. `CajaService.RegistrarMovimientoAsync`:
+
+* **mismo token + mismos datos** (apertura, tipo, concepto, monto, descripción, referencia, observaciones, usuario) ⇒ devuelve
+  el **mismo** movimiento, sin escribir. Vale también tras el cierre de la caja (no reabre ni agrega nada);
+* **mismo token + datos distintos** ⇒ `InvalidOperationException`, sin efectos;
+* **tokens distintos** ⇒ movimientos legítimos distintos;
+* la comprobación se repite **dentro del lock de apertura** de H-CAJA-1 (reintento simultáneo ya confirmado) y un choque con el
+  índice único se resuelve como reintento; las guardias de caja cerrada/vencida de H-CAJA-1/2 no cambian.
+* sin token (llamadores automáticos, p. ej. liquidación de Mercado Libre) el comportamiento es el anterior.
+
+Pruebas: `Regresion_H_IDEM_1_…` (SQLite), `CajaMovimientoManualIdempotenciaHttpTests` (formulario → POST doble) y
+`FinIdemSqlServerTests` IDEM-00…IDEM-07 (SQL Server efímero, RCSI 0/1; paso propio en `fin-dev-sqlserver.yml`).
+Alcance: no toca H-CAJA-3 (sigue ABIERTO, decisión de negocio). El alta de devolución (R-I4) no se incluyó en esta PR.
 
 ## H-CAJA-2 — CORREGIDO en FIN-CAJA-2-P0 (causa raíz CR-1)
 
@@ -177,7 +194,7 @@ rollback total (CAJA-05), contramovimiento en vuelo (CAJA-06), modo RCSI efectiv
 * **CR-2** — Acreditación posterior al cierre (H-CAJA-3). Decisión de negocio.
 * ~~**CR-3** — Devolución y venta sin control cruzado (H-DEV-1, H-DEV-2, H-DEV-3).~~ **CORREGIDA en FIN-DEV-P0** (ver abajo).
 * ~~**CR-4** — Anticipo (H-ANT-1, H-ANT-2).~~ **CORREGIDA en FIN-ANT-P0** (ver arriba). Queda abierta la interacción con H-CAJA-1.
-* **CR-5** — Idempotencia del movimiento manual (H-IDEM-1).
+* ~~**CR-5** — Idempotencia del movimiento manual (H-IDEM-1).~~ **CORREGIDA en FIN-IDEM-P0** (ver sección «H-IDEM-1»).
 
 ## Los 6 contratos válidos (no son bugs)
 
