@@ -6759,6 +6759,9 @@ namespace TheBuryProject.Migrations
                     b.Property<DateTime>("FechaMovimiento")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("ImporteBase")
                         .HasColumnType("decimal(18,2)");
 
@@ -6822,6 +6825,10 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("Concepto");
 
                     b.HasIndex("FechaMovimiento");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.HasIndex("Tipo");
 

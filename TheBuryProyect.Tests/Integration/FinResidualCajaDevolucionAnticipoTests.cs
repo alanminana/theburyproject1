@@ -1168,40 +1168,50 @@ public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<Custo
     // ================================================================== 4. Reintentos / idempotencia
 
     /// <summary>
-    /// H-IDEM-1 (CONFIRMADO). Los movimientos manuales no tienen clave de idempotencia: un doble POST
-    /// (reintento HTTP, doble clic) asienta el movimiento dos veces. Invariante deseado: mismo token ⇒ un solo asiento.
+    /// H-IDEM-1 (CORREGIDO en FIN-IDEM-P0). El movimiento manual lleva una clave de idempotencia persistente (índice único
+    /// filtrado): mismo token y mismos datos ⇒ el mismo movimiento, un solo asiento; mismo token con datos distintos ⇒ rechazo;
+    /// tokens distintos ⇒ movimientos legítimos distintos. La concurrencia real se prueba en FinIdemSqlServerTests.
     /// </summary>
-    // =========================== REGISTRO DEL DEFECTO (QA-FIN-RESIDUAL) ===========================
-    // ID: H-IDEM-1   Causa raíz: CR-5   Estado: ABIERTO   PR correctiva: PENDIENTE
-    // ESTE TEST PASA PORQUE REPRODUCE UN DEFECTO VIGENTE. Verde NO significa corregido.
-    // Impacto (dinero/caja/stock): CAJA: un doble clic o reintento HTTP asienta dos veces (egreso 50 en vez de 25).
-    // Comportamiento defectuoso que reproduce: MovimientoCaja no tiene clave de idempotencia.
-    // Comportamiento esperado que exigirá la futura regresión: Mismo token de idempotencia produce un solo asiento (IdempotencyKey con índice único filtrado).
-    // Al corregir: invertir las aserciones, quitar el trait DefectoConocido y renombrar a Regresion_*.
-    // ===============================================================================================
-    [Fact(DisplayName = "DEFECTO CONOCIDO ABIERTO [H-IDEM-1]: reintento de movimiento manual duplica el asiento")]
-    [Trait("Categoria", "DefectoConocido")]
+    [Fact(DisplayName = "REGRESION [H-IDEM-1]: el reintento de un movimiento manual con el mismo token no duplica el asiento")]
+    [Trait("Categoria", "Regresion")]
     [Trait("Hallazgo", "H-IDEM-1")]
     [Trait("CausaRaiz", "CR-5")]
-    [Trait("Estado", "ABIERTO")]
-    public async Task Hallazgo_RegistrarMovimientoManual_ReintentoIdenticoDuplicaElAsiento()
+    [Trait("Estado", "CORREGIDO")]
+    public async Task Regresion_H_IDEM_1_RegistrarMovimientoManual_ReintentoConElMismoToken_NoDuplicaElAsiento()
     {
         int aperturaId;
         using (var scope = _factory.Services.CreateScope())
             aperturaId = await ConcSeed.SembrarAperturaAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), Usuario);
 
-        var modelo = new MovimientoCajaViewModel
+        MovimientoCajaViewModel Modelo(Guid? clave, decimal monto = 25m) => new()
         {
             AperturaCajaId = aperturaId, Tipo = TipoMovimientoCaja.Egreso, Concepto = ConceptoMovimientoCaja.GastoOperativo,
-            Descripcion = "Reintento", Monto = 25m
+            Descripcion = "Reintento", Monto = monto, IdempotencyKey = clave
         };
-        for (var i = 0; i < 2; i++)
+
+        async Task<MovimientoCaja> Registrar(MovimientoCajaViewModel m)
         {
             using var scope = _factory.Services.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<ICajaService>().RegistrarMovimientoAsync(modelo, Usuario);
+            return await scope.ServiceProvider.GetRequiredService<ICajaService>().RegistrarMovimientoAsync(m, Usuario);
         }
 
+        var clave = Guid.NewGuid();
+        var primero = await Registrar(Modelo(clave));
+        var reintento = await Registrar(Modelo(clave));
+
+        Assert.Equal(primero.Id, reintento.Id);
         var libro = await LibroAsync(aperturaId);
+        Assert.Equal(1, libro.movimientos);
+        Assert.Equal(25m, libro.egresos);
+
+        // Mismo token con otros datos: rechazo, sin efectos.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Registrar(Modelo(clave, monto: 99m)));
+        Assert.Equal(1, (await LibroAsync(aperturaId)).movimientos);
+
+        // Token distinto con los mismos datos: movimiento legítimo distinto.
+        var otro = await Registrar(Modelo(Guid.NewGuid()));
+        Assert.NotEqual(primero.Id, otro.Id);
+        libro = await LibroAsync(aperturaId);
         Assert.Equal(2, libro.movimientos);
         Assert.Equal(50m, libro.egresos);
     }

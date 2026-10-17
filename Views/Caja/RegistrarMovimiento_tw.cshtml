@@ -32,6 +32,7 @@
         <form asp-action="RegistrarMovimiento" method="post" class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="AperturaCajaId" />
+            <input type="hidden" asp-for="IdempotencyKey" />
             <input type="hidden" asp-for="Tipo" id="input-tipo" />
             <input type="hidden" asp-for="Observaciones" />
 

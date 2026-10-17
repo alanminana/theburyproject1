@@ -132,6 +132,11 @@ public class MovimientoCajaViewModel
     [Display(Name = "Observaciones")]
     public string? Observaciones { get; set; }
 
+    /// <summary>
+    /// Token de idempotencia generado al abrir el formulario y reenviado tal cual en cada POST.
+    /// </summary>
+    public Guid? IdempotencyKey { get; set; }
+
     // Info de la apertura (solo lectura)
     public string? CajaNombre { get; set; }
     public decimal? SaldoActual { get; set; }
