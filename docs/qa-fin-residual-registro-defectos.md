@@ -1,8 +1,10 @@
 # QA-FIN-RESIDUAL — Registro de defectos financieros conocidos
 
-> **Estado tras FIN-IDEM-P0: 8 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
-> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 —, H-CAJA-1, H-CAJA-2 — causa raíz CR-1, FIN-CAJA-P0 y FIN-CAJA-2-P0 — y
-> H-IDEM-1 — causa raíz CR-5, FIN-IDEM-P0) con pruebas de regresión, y 1 hallazgo todavía ABIERTO (H-CAJA-3).**
+> **Estado tras FIN-CAJA-3-P0: 9 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
+> H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 —, H-CAJA-1, H-CAJA-2 — causa raíz CR-1, FIN-CAJA-P0 y FIN-CAJA-2-P0 —,
+> H-IDEM-1 — causa raíz CR-5, FIN-IDEM-P0 — y H-CAJA-3 — causa raíz CR-2, FIN-CAJA-3-P0) con pruebas de regresión; no
+> quedan hallazgos ABIERTOS. La conciliación auditada de pagos posteriores al cierre sigue PENDIENTE (funcionalidad separada,
+> NO implementada).**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
 > De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07 y R-08 se ejecutan ahora contra un SQL Server efímero**
 > en `.github/workflows/fin-dev-sqlserver.yml` (más R-11, R-12, R-13 y R-14, nuevos); los otros 7 siguen **NO EJECUTADOS /
@@ -18,7 +20,7 @@ sobre `main` `c04f1b86`) corrigió H-DEV-1/2/3; **FIN-ANT-P0** (rama `fix/fin-an
 
 | Categoría (trait `Categoria`) | Cantidad | Qué significa "verde" |
 |---|---|---|
-| `DefectoConocido` (`Hallazgo_*`) | **4** | El defecto **sigue ABIERTO**. Pasa porque fija el comportamiento defectuoso actual. |
+| `DefectoConocido` (`Hallazgo_*`) | **0** | Ninguno abierto. Si reaparece uno, pasa porque fija el comportamiento defectuoso actual. |
 | `Regresion` (`Regresion_*`; los 3 `Regresion_H_DEV_*`, los 2 `Regresion_H_ANT_*` más las matrices FIN-DEV-P0 y FIN-ANT-P0) | **5** hallazgos + matrices | El defecto está **CORREGIDO**: la prueba exige el comportamiento correcto y falla contra el código anterior. |
 | `ContratoValido` (`Contrato_*`) | **6** | Comportamiento correcto que debe preservarse. No son bugs. |
 | `SqlServerNoEjecutado` (`R01`..`R10`) | **10** | Omitidos (BLOCKED) en el CI general, que no tiene SQL Server. **R-06/R-07/R-08 sí se ejecutan** en `fin-dev-sqlserver.yml`; los otros 7 **no se ejecutaron nunca**. |
@@ -29,11 +31,45 @@ Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`,
 hallazgo o sus metadatos sin actualizar este registro. Filtros útiles:
 `dotnet test --filter "Categoria=DefectoConocido"`, `--filter "Categoria=ContratoValido"`.
 
-## El hallazgo ABIERTO (PR correctiva: PENDIENTE)
+## Hallazgos ABIERTOS: ninguno
 
-| ID | Causa raíz | Test (`FinResidualCajaDevolucionAnticipoTests`) | Impacto (dinero / caja / stock) | Comportamiento defectuoso que reproduce | Comportamiento esperado de la futura regresión |
-|---|---|---|---|---|---|
-| H-CAJA-3 | CR-2 | `Hallazgo_CierreConMovimientoPendienteDeAcreditar_YAcreditacionPosteriorCambiaElSaldoRealDeLaApertura` | Saldo real de una apertura cerrada cambia tras el arqueo (+70) | El cierre ignora pendientes y se pueden acreditar después | **A definir por negocio**: advertir/bloquear o permitir auditado |
+Los 9 hallazgos del registro están corregidos. Lo único pendiente es una **funcionalidad**, no un defecto: la conciliación
+auditada de ingresos que quedaron `Pendiente` al cerrar la caja (ver «H-CAJA-3»).
+
+## H-CAJA-3 — CORREGIDO en FIN-CAJA-3-P0 (causa raíz CR-2)
+
+**Regla aprobada por el dueño:** la caja **puede cerrarse con ingresos pendientes de acreditar** (transferencia, tarjeta,
+Mercado Pago, etc.); esos movimientos se conservan `Pendiente` y visibles. **Después del cierre queda prohibido cambiar
+directamente su estado de acreditación**, porque alteraría el saldo histórico de la apertura. No se reabre la caja, no se
+modifica el cierre, no se transfiere el movimiento a otra apertura ni se registra un ajuste compensatorio.
+
+**Corrección** (`CajaService.AcreditarMovimientoAsync`): la acreditación corre en una transacción (propia, o la ambiental del
+llamador, que no confirma ni revierte) y toma el **mismo lock de apertura** que el cierre y todo alta de movimiento
+(`AperturaCajaConcurrencia`, H-CAJA-1: `UPDLOCK, HOLDLOCK, ROWLOCK` sobre la fila de `AperturasCaja`, exclusión mutua con
+RCSI 0 y 1). Bajo el lock relee la apertura de la base y rechaza si está cerrada; relee también el movimiento
+(`ReloadAsync`, nunca confía en una entidad rastreada obsoleta) y conserva las validaciones previas (solo ingresos, solo
+`Pendiente`). Mensaje: «No se puede acreditar el movimiento: pertenece a una caja ya cerrada. Se requiere una conciliación
+auditada.» La regla vale al invocar el servicio directamente, sin pasar por MVC. Es el último lock de la cadena
+Crédito → Venta → Apertura: no cierra ciclos. **Invariante:** si gana la acreditación, se confirma antes del cálculo del
+cierre; si gana el cierre, la acreditación se rechaza sin efectos. Nunca se confirma una acreditación sobre una apertura
+cerrada.
+
+**No cambia:** el cierre con pendientes (no suma lo pendiente a lo contado), la apertura **vencida pero todavía abierta**
+sigue admitiendo la acreditación (no existe regla comercial nueva), y sin migraciones ni datos históricos modificados.
+
+**Otras rutas que escriben `EstadoAcreditacion`:** (1) alta de movimientos de venta (`RegistrarMovimientoVentaAsync`) y
+(2) contramovimiento de venta (`Revertido`): ambos son altas bajo el lock de apertura (H-CAJA-1/2). (3)
+`MercadoLibreOrderService.RegistrarLiquidacionAsync` fija `Acreditado` sobre un movimiento que acaba de crear con
+`RegistrarMovimientoAsync` (estado inicial `null`); el saldo real ya cuenta `null` como acreditado, así que `null →
+Acreditado` **no modifica el saldo** de una apertura cerrada. No se tocó (fuera de alcance, sin efecto financiero).
+
+**Pruebas:** `Regresion_H_CAJA_3_*` (10, SQLite; fallan 3 sin el fix: caja cerrada, entidad rastreada obsoleta y
+transacción ambiental) y `FinCajaSqlServerTests` CAJA-3-01…07 + CAJA-3-04B (SQL Server efímero, RCSI 0/1, compuertas
+deterministas; 6 de los 8 fallan sin el fix; paso de verificación propio en `fin-dev-sqlserver.yml`).
+
+**PENDIENTE (funcionalidad separada, NO implementada):** procedimiento de **conciliación auditada** para confirmar
+bancariamente un ingreso que quedó `Pendiente` tras el cierre. Hoy esos movimientos permanecen `Pendiente` y el sistema
+**no** permite conciliarlos después del cierre.
 
 ## H-IDEM-1 — CORREGIDO en FIN-IDEM-P0 (causa raíz CR-5)
 
@@ -51,7 +87,7 @@ tal cual en el POST. `CajaService.RegistrarMovimientoAsync`:
 
 Pruebas: `Regresion_H_IDEM_1_…` (SQLite), `CajaMovimientoManualIdempotenciaHttpTests` (formulario → POST doble) y
 `FinIdemSqlServerTests` IDEM-00…IDEM-07 (SQL Server efímero, RCSI 0/1; paso propio en `fin-dev-sqlserver.yml`).
-Alcance: no toca H-CAJA-3 (sigue ABIERTO, decisión de negocio). El alta de devolución (R-I4) no se incluyó en esta PR.
+Alcance: no tocaba H-CAJA-3 (corregido después en FIN-CAJA-3-P0). El alta de devolución (R-I4) no se incluyó en esta PR.
 
 ## H-CAJA-2 — CORREGIDO en FIN-CAJA-2-P0 (causa raíz CR-1)
 
@@ -185,13 +221,13 @@ rollback total (CAJA-05), contramovimiento en vuelo (CAJA-06), modo RCSI efectiv
 
 * ~~**H-CAJA-2** sigue ABIERTO.~~ **CORREGIDO en FIN-CAJA-2-P0**: la reversión por cancelación también rechaza una apertura
   cerrada (ver sección «H-CAJA-2»). Sigue sin validar *vigencia* (apertura abierta pero vencida): regla comercial no decidida.
-* **H-CAJA-3** sigue ABIERTO. Es un caso distinto: **no inserta** un movimiento, **cambia la acreditación** de uno ya
-  existente (Pendiente → Acreditado) después del cierre. El lock de apertura no la cubre y requiere decisión de negocio.
+* ~~**H-CAJA-3** sigue ABIERTO.~~ **CORREGIDO en FIN-CAJA-3-P0**: la acreditación toma el mismo lock de apertura y se
+  rechaza si la caja está cerrada (ver sección «H-CAJA-3»).
 
 ### Causas raíz independientes
 
 * ~~**CR-1** — Falta de guardia de «apertura abierta» al asentar (H-CAJA-1, H-CAJA-2).~~ **H-CAJA-1 CORREGIDO en FIN-CAJA-P0**; **H-CAJA-2 CORREGIDO en FIN-CAJA-2-P0**.
-* **CR-2** — Acreditación posterior al cierre (H-CAJA-3). Decisión de negocio.
+* ~~**CR-2** — Acreditación posterior al cierre (H-CAJA-3).~~ **CORREGIDA en FIN-CAJA-3-P0** (ver sección «H-CAJA-3»).
 * ~~**CR-3** — Devolución y venta sin control cruzado (H-DEV-1, H-DEV-2, H-DEV-3).~~ **CORREGIDA en FIN-DEV-P0** (ver abajo).
 * ~~**CR-4** — Anticipo (H-ANT-1, H-ANT-2).~~ **CORREGIDA en FIN-ANT-P0** (ver arriba). Queda abierta la interacción con H-CAJA-1.
 * ~~**CR-5** — Idempotencia del movimiento manual (H-IDEM-1).~~ **CORREGIDA en FIN-IDEM-P0** (ver sección «H-IDEM-1»).
@@ -229,7 +265,7 @@ Cada PR correctiva, una por causa raíz y en este orden (de mayor a menor riesgo
 1. ~~**CR-3**~~ (devolución↔venta): **hecho en FIN-DEV-P0**. ~~**CR-4**~~ (anticipo): **hecho en FIN-ANT-P0**.
 2. **CR-1** (guardia y lock de apertura al final del orden Crédito → Venta → Apertura): ~~H-CAJA-1~~ **hecho en FIN-CAJA-P0**; ~~H-CAJA-2~~ **hecho en FIN-CAJA-2-P0**.
 3. **CR-5** (idempotencia manual) y R-10 (Facturar).
-4. **CR-2** solo tras decisión de negocio.
+4. ~~**CR-2**~~ tras la decisión de negocio: **hecho en FIN-CAJA-3-P0**.
 
 En cada una: invertir las aserciones del `Hallazgo_`, quitar el trait `DefectoConocido`, renombrarlo a `Regresion_*`,
 actualizar las constantes de `FinResidualRegistroDefectosConocidosTests`, y ejecutar los R-xx correspondientes en un
@@ -240,7 +276,7 @@ SQL Server efímero (con y sin RCSI) exigiendo cero deadlocks.
 1. ~~**H-CAJA-2**~~ — **RESUELTA por el dueño: se rechaza cancelar cuando la reversión cae en una caja cerrada** (implementado en FIN-CAJA-2-P0). Pendiente: diseñar el procedimiento de reversión auditada; y decidir si una apertura abierta pero vencida admite reversión.
 2. ~~**H-DEV-2**~~ — **RESUELTA por el dueño: se rechaza cancelar con devoluciones vivas** (implementado en FIN-DEV-P0).
 3. ~~**H-ANT-1**~~ — **RESUELTA por el dueño: se rechaza cancelar con anticipo cobrado** (implementado en FIN-ANT-P0). Pendiente: diseñar el procedimiento de devolución auditada del anticipo.
-4. **H-CAJA-3**: ¿se puede acreditar una transferencia/tarjeta después del cierre, o el cierre debe advertir o bloquear?
+4. ~~**H-CAJA-3**~~ — **RESUELTA por el dueño: el cierre se permite con pendientes; la acreditación directa posterior al cierre se rechaza** (implementado en FIN-CAJA-3-P0). Pendiente: diseñar el procedimiento de conciliación auditada.
 
 ## Limitaciones
 

@@ -599,4 +599,262 @@ public class FinCajaSqlServerTests : IClassFixture<FinCajaSqlHostFixture>
         Assert.Equal(1, l.Movimientos.Count(m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta));
         Assert.Equal(EstadoVenta.Cancelada, (await LeerVentaAsync(s.VentaId, s.CreditoId)).Venta);
     }
+
+    // ================================================================== FIN-CAJA-3-P0 (H-CAJA-3)
+    // La caja puede cerrarse con ingresos pendientes de acreditar; cerrada, la acreditación directa se rechaza. Cierre y
+    // acreditación compiten por el MISMO lock de la apertura: gana uno y el otro ve el estado definitivo.
+
+    private const string MensajeCajaCerradaAcreditacion = "pertenece a una caja ya cerrada";
+
+    /// <summary>Con el lock de la apertura tomado y el estado releído, justo ANTES de persistir la acreditación.</summary>
+    private static GatePlan ConLockAntesDelUpdateDeMovimiento() => Compuerta("acreditacion/con-lock/antes-del-update", "UPDATE [MovimientosCaja]");
+
+    private const decimal MontoPendiente = 70m;
+
+    /// <summary>Ingreso por transferencia Pendiente de acreditar en la apertura (no es efectivo: el arqueo no lo cuenta).</summary>
+    private async Task<int> SembrarPendienteAsync(Escenario e)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var m = new MovimientoCaja
+        {
+            AperturaCajaId = e.AperturaId, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaTransferencia,
+            TipoPago = TipoPago.Transferencia, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, Monto = MontoPendiente,
+            Descripcion = "Pendiente FIN-CAJA-3-P0", Usuario = e.Usuario, FechaMovimiento = DateTime.UtcNow
+        };
+        ctx.MovimientosCaja.Add(m);
+        await ctx.SaveChangesAsync();
+        return m.Id;
+    }
+
+    private Task<string> Acreditar(Escenario e, int movimientoId, GatePlan? plan = null) =>
+        Task.Run(() => EjecutarAsync(plan, async sp =>
+            (await sp.GetRequiredService<ICajaService>().AcreditarMovimientoAsync(movimientoId, e.Usuario)).EstadoAcreditacion));
+
+    /// <summary>Todo lo que un rechazo no debe tocar: movimiento (con auditoría), cierre, totales y saldo real.</summary>
+    private sealed record FotoCaja3(
+        EstadoAcreditacionMovimientoCaja? Estado, DateTime? UpdatedAt, string? UpdatedBy, bool Cerrada, int Cierres,
+        decimal? CierreIngresos, decimal? CierreEgresos, int Movimientos, decimal SaldoReal);
+
+    private async Task<FotoCaja3> FotoAsync(Escenario e, int movimientoId)
+    {
+        var l = await LeerAsync(e.AperturaId);
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var mov = await ctx.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == movimientoId);
+        var saldo = await scope.ServiceProvider.GetRequiredService<ICajaService>().CalcularSaldoRealAsync(e.AperturaId);
+        return new FotoCaja3(mov.EstadoAcreditacion, mov.UpdatedAt, mov.UpdatedBy, l.Cerrada, l.Cierres,
+            l.Cierre?.TotalIngresosSistema, l.Cierre?.TotalEgresosSistema, l.Movimientos.Count, saldo);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-01] acreditacion valida con la apertura abierta: pasa a Acreditado y suma al saldo real")]
+    public async Task CAJA3_01_AcreditacionConAperturaAbierta_Acredita()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        var antes = await FotoAsync(e, id);
+
+        var res = await Acreditar(e, id);
+        _out.WriteLine($"acreditación: {res}");
+
+        Assert.StartsWith("OK(", res);
+        var despues = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, despues.Estado);
+        Assert.Equal(antes.SaldoReal + MontoPendiente, despues.SaldoReal);
+        Assert.False(despues.Cerrada);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-02] cierre con ingreso pendiente permitido; acreditacion posterior rechazada")]
+    public async Task CAJA3_02_CierreConPendiente_AcreditacionPosteriorSeRechaza()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+
+        Assert.StartsWith("OK(", await Cerrar(e));            // el cierre con pendientes SIGUE permitido
+        var antes = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, antes.Estado);
+
+        var res = await Acreditar(e, id);
+        _out.WriteLine($"acreditación sobre caja cerrada: {res}");
+
+        Assert.Contains("InvalidOperationException", res);
+        Assert.Contains(MensajeCajaCerradaAcreditacion, res);
+        Assert.Contains("conciliación auditada", res);
+        Assert.DoesNotContain("DEADLOCK", res);
+        Assert.Equal(antes, await FotoAsync(e, id));
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-03] acreditacion gana el lock: el cierre espera y procesa el estado definitivo")]
+    public async Task CAJA3_03_AcreditacionGanaElLock_ElCierreEsperaYVeElEstadoDefinitivo()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        var plan = ConLockAntesDelUpdateDeMovimiento();
+        var acreditar = Acreditar(e, id, plan);
+
+        Assert.True(await LlegoALaCompuertaAsync(plan, acreditar),
+            "La acreditación no llegó a la compuerta: " + (acreditar.IsCompleted ? acreditar.Result : "?"));
+
+        // Acreditación con el lock tomado y SIN commit: el cierre debe esperar, no calcular sobre un estado provisorio.
+        var cierre = Cerrar(e);
+        Assert.True(await QuedaBloqueadaAsync(cierre),
+            "El cierre NO debió avanzar mientras la acreditación retiene la apertura: " + (cierre.IsCompleted ? cierre.Result : "?"));
+
+        plan.Release.TrySetResult();
+        var resAcreditar = await acreditar;
+        var resCierre = await cierre;
+        Volcar("acreditación", plan);
+        _out.WriteLine($"acreditación: {resAcreditar}\ncierre: {resCierre}");
+
+        Assert.StartsWith("OK(", resAcreditar);
+        Assert.StartsWith("OK(", resCierre);
+        Assert.DoesNotContain("DEADLOCK", resAcreditar + resCierre);
+
+        var f = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, f.Estado);   // confirmada ANTES del cierre
+        Assert.True(f.Cerrada);
+        AssertCierreCoincideConLibro(await LeerAsync(e.AperturaId));
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-04] cierre gana el lock: la acreditacion espera y se rechaza sin efectos")]
+    public async Task CAJA3_04_CierreGanaElLock_LaAcreditacionEsperaYSeRechaza()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        var plan = CierreConLockAntesDeLeerMovimientos();
+        var cierre = Cerrar(e, plan);
+
+        Assert.True(await LlegoALaCompuertaAsync(plan, cierre),
+            "El cierre no llegó a la compuerta: " + (cierre.IsCompleted ? cierre.Result : "?"));
+
+        var acreditar = Acreditar(e, id);
+        Assert.True(await QuedaBloqueadaAsync(acreditar),
+            "La acreditación debía esperar el lock de la apertura retenido por el cierre: " + (acreditar.IsCompleted ? acreditar.Result : "?"));
+
+        plan.Release.TrySetResult();
+        var resCierre = await cierre;
+        var resAcreditar = await acreditar;
+        Volcar("cierre", plan);
+        _out.WriteLine($"cierre: {resCierre}\nacreditación: {resAcreditar}");
+
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Contains("InvalidOperationException", resAcreditar);
+        Assert.Contains(MensajeCajaCerradaAcreditacion, resAcreditar);
+        Assert.DoesNotContain("DEADLOCK", resCierre + resAcreditar);
+
+        var f = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, f.Estado);
+        Assert.True(f.Cerrada);
+        AssertCierreCoincideConLibro(await LeerAsync(e.AperturaId));
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-04B] cierre completado antes de que la acreditacion tome el lock: rechazada sin efectos")]
+    public async Task CAJA3_04B_CierreCompletadoAntesDeLaAcreditacion_SeRechazaSinEfectos()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        var plan = AntesDelLock();
+        var acreditar = Acreditar(e, id, plan);
+
+        Assert.True(await LlegoALaCompuertaAsync(plan, acreditar),
+            "La acreditación no llegó a la compuerta: " + (acreditar.IsCompleted ? acreditar.Result : "?"));
+
+        // La acreditación leyó la apertura como abierta y se detuvo ANTES del lock: el cierre se completa.
+        Assert.StartsWith("OK(", await Cerrar(e));
+        var cerrado = await FotoAsync(e, id);
+
+        plan.Release.TrySetResult();
+        var res = await acreditar;
+        Volcar("acreditación", plan);
+        _out.WriteLine($"acreditación tras el cierre: {res}");
+
+        Assert.Contains("InvalidOperationException", res);
+        Assert.Contains(MensajeCajaCerradaAcreditacion, res);
+        Assert.DoesNotContain("DEADLOCK", res);
+        Assert.Equal(cerrado, await FotoAsync(e, id));
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, cerrado.Estado);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-05] dos acreditaciones simultaneas del mismo pendiente: una sola realiza la transicion")]
+    public async Task CAJA3_05_DosAcreditacionesSimultaneas_UnaSolaTransicion()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        var plan = ConLockAntesDelUpdateDeMovimiento();
+        var primera = Acreditar(e, id, plan);
+
+        Assert.True(await LlegoALaCompuertaAsync(plan, primera),
+            "La primera acreditación no llegó a la compuerta: " + (primera.IsCompleted ? primera.Result : "?"));
+
+        var segunda = Acreditar(e, id);
+        Assert.True(await QuedaBloqueadaAsync(segunda), "La segunda acreditación debía esperar el lock de la apertura.");
+
+        plan.Release.TrySetResult();
+        var res1 = await primera;
+        var res2 = await segunda;
+        Volcar("primera acreditación", plan);
+        _out.WriteLine($"primera: {res1}\nsegunda: {res2}");
+
+        Assert.Equal(1, new[] { res1, res2 }.Count(r => r.StartsWith("OK(", StringComparison.Ordinal)));
+        Assert.StartsWith("OK(", res1);
+        Assert.Contains("InvalidOperationException", res2);
+        Assert.Contains("Estado actual: Acreditado", res2);
+        Assert.DoesNotContain("DEADLOCK", res1 + res2);
+
+        var f = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, f.Estado);
+        Assert.False(f.Cerrada);
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-06] acreditacion rechazada: movimiento, cierre, totales y saldo real intactos")]
+    public async Task CAJA3_06_AcreditacionRechazada_NoModificaNada()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        Assert.StartsWith("OK(", await Cerrar(e));
+        var antes = await FotoAsync(e, id);
+
+        for (var i = 0; i < 2; i++)                                  // también al reintentar
+        {
+            var res = await Acreditar(e, id);
+            Assert.Contains(MensajeCajaCerradaAcreditacion, res);
+            Assert.Equal(antes, await FotoAsync(e, id));
+        }
+
+        Assert.Equal(1, (await LeerAsync(e.AperturaId)).Cierres);
+        AssertCierreCoincideConLibro(await LeerAsync(e.AperturaId));
+    }
+
+    [SqlServerConcFact(DisplayName = "FIN-CAJA-3-P0 [CAJA-3-07] acreditacion en transaccion ambiental: retiene el lock, no confirma sola y el rollback la deshace")]
+    public async Task CAJA3_07_TransaccionAmbiental_RetieneElLockYElRollbackLaDeshace()
+    {
+        var e = await SembrarAsync();
+        var id = await SembrarPendienteAsync(e);
+        Task<string>? cierre = null;
+
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var caja = scope.ServiceProvider.GetRequiredService<ICajaService>();
+            await using var tx = await ctx.Database.BeginTransactionAsync();
+
+            var mov = await caja.AcreditarMovimientoAsync(id, e.Usuario);
+            Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, mov.EstadoAcreditacion);
+            Assert.NotNull(ctx.Database.CurrentTransaction);        // el servicio no cerró ni reemplazó la transacción del llamador
+
+            // Sin commit del llamador la apertura sigue bloqueada: el cierre debe esperar.
+            cierre = Cerrar(e);
+            Assert.True(await QuedaBloqueadaAsync(cierre), "El cierre debía esperar a la transacción ambiental que retiene la apertura.");
+
+            await tx.RollbackAsync();
+        }
+
+        var res = await cierre!;
+        _out.WriteLine($"cierre tras el rollback del llamador: {res}");
+        Assert.StartsWith("OK(", res);
+
+        var f = await FotoAsync(e, id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, f.Estado);   // el rollback deshizo la acreditación
+        AssertCierreCoincideConLibro(await LeerAsync(e.AperturaId));
+    }
 }
