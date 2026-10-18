@@ -24,7 +24,7 @@ public sealed class FinResidualRegistroDefectosConocidosTests
     private const int HallazgosCorregidos = 24;
     private const int CausasRaiz = 0;
     private const int Contratos = 6;
-    private const int EscenariosSqlNoEjecutados = 10;
+    private const int EscenariosSqlNoEjecutados = 8;
 
     private readonly ITestOutputHelper _out;
 
@@ -129,8 +129,8 @@ public sealed class FinResidualRegistroDefectosConocidosTests
         }
     }
 
-    [Fact(DisplayName = "REGISTRO: 10 escenarios SQL Server R-01..R-10 NO EJECUTADOS / BLOQUEADOS (omitidos != PASS)")]
-    public void Registro_DiezEscenariosSqlServer_NoEjecutados()
+    [Fact(DisplayName = "REGISTRO: 8 escenarios SQL Server R-01..R-08 NO EJECUTADOS / BLOQUEADOS (omitidos != PASS)")]
+    public void Registro_OchoEscenariosSqlServer_NoEjecutados()
     {
         var escenarios = Metodos(typeof(FinResidualSqlServerTests))
             .Where(x => x.Traits.GetValueOrDefault("Categoria") == "SqlServerNoEjecutado")
@@ -143,7 +143,7 @@ public sealed class FinResidualRegistroDefectosConocidosTests
             Assert.False(string.IsNullOrWhiteSpace(e.Traits.GetValueOrDefault("ResultadoEsperadoInferido")), e.Metodo.Name);
         }
 
-        _out.WriteLine($"{EscenariosSqlNoEjecutados} escenarios SQL Server (R-01..R-10): NO EJECUTADOS / BLOQUEADOS. " +
+        _out.WriteLine($"{EscenariosSqlNoEjecutados} escenarios SQL Server (R-01..R-08): NO EJECUTADOS / BLOQUEADOS. " +
                        "Requieren un turno exclusivo con SQL Server efimero; omitirlos NO equivale a PASS.");
     }
 }
