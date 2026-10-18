@@ -307,6 +307,108 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
         Assert.Equal((EstadoVenta.Confirmada, 0, 0), Resumen(await EstadoAsync(id)));
     }
 
+    // ------------------------------------------------------------------ FIN-FACT-HARDENING-P0 / riesgo 1
+
+    [Fact]
+    public async Task Facturar_VentaYaRastreadaYFalla_TrackerCoherenteConLaBaseYSinReaparicion()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+
+        // El llamador ya tenía la venta (con sus colecciones) rastreada antes de facturar.
+        var venta = await _context.Ventas.Include(v => v.Facturas).Include(v => v.Detalles).FirstAsync(v => v.Id == id);
+        Assert.Equal(EstadoVenta.Confirmada, venta.Estado);
+        _falla.Armado = true;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));
+        _falla.Armado = false;
+
+        // Misma instancia rastreada: coherente con la base (no quedó "Facturada" en memoria ni con una factura fantasma).
+        Assert.Equal(EstadoVenta.Confirmada, venta.Estado);
+        Assert.Null(venta.FechaFacturacion);
+        Assert.Empty(venta.Facturas);
+        Assert.Empty(_context.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged));
+        Assert.Empty(_context.ChangeTracker.Entries<Factura>());
+
+        // Un SaveChanges posterior (y un cambio ajeno posterior) no hace reaparecer nada de lo revertido.
+        venta.Observaciones = "tocada despues";
+        await _context.SaveChangesAsync();
+        var final = await EstadoAsync(id);
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0), Resumen(final));
+        Assert.Equal("tocada despues", await _context.Ventas.AsNoTracking().Where(v => v.Id == id).Select(v => v.Observaciones).FirstAsync());
+
+        // Y facturar de nuevo sobre la misma instancia rastreada funciona una sola vez.
+        Assert.True(await FacturarAsync(id));
+        Assert.Equal((EstadoVenta.Facturada, 1, 1), Resumen(await EstadoAsync(id)));
+    }
+
+    [Fact]
+    public async Task Facturar_VentaRastreadaConCambioPendienteDelLlamadorYFalla_ConservaSoloElCambioDelLlamador()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var venta = await _context.Ventas.Include(v => v.Facturas).FirstAsync(v => v.Id == id);
+        venta.Observaciones = "pendiente del llamador";   // Modified, sin guardar
+        _falla.Armado = true;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));
+        _falla.Armado = false;
+
+        Assert.Equal(EstadoVenta.Confirmada, venta.Estado);
+        Assert.Equal("pendiente del llamador", venta.Observaciones);
+        Assert.Equal(EntityState.Modified, _context.Entry(venta).State);
+        var modificadas = _context.Entry(venta).Properties.Where(p => p.IsModified).Select(p => p.Metadata.Name).ToList();
+        Assert.Equal(new[] { nameof(Venta.Observaciones) }, modificadas);   // solo lo del llamador, no se ensancha el UPDATE
+
+        await _context.SaveChangesAsync();
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0), Resumen(await EstadoAsync(id)));
+        Assert.Equal("pendiente del llamador", await _context.Ventas.AsNoTracking().Where(v => v.Id == id).Select(v => v.Observaciones).FirstAsync());
+    }
+
+    // ------------------------------------------------------------------ FIN-FACT-HARDENING-P0 / riesgo 2
+
+    [Fact]
+    public async Task Facturar_TransaccionAmbientalFallaElLlamadorContinuaYConfirma_NoQuedaFacturaSinAsiento()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var otraId = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: true);
+
+        await using var ambiental = await _context.Database.BeginTransactionAsync();
+
+        // Trabajo previo del llamador en SU transacción: debe sobrevivir.
+        var otra = await _context.Ventas.FirstAsync(v => v.Id == otraId);
+        otra.Observaciones = "previo del llamador";
+        await _context.SaveChangesAsync();
+
+        _falla.Armado = true;
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));   // el llamador captura…
+        _falla.Armado = false;
+
+        // …la transacción sigue siendo la suya y está usable: nada de la facturación quedó adentro.
+        Assert.NotNull(_context.Database.CurrentTransaction);
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0), Resumen(await EstadoAsync(id)));
+
+        await ambiental.CommitAsync();   // …y confirma
+
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0), Resumen(await EstadoAsync(id)));
+        Assert.Equal("previo del llamador", await _context.Ventas.AsNoTracking().Where(v => v.Id == otraId).Select(v => v.Observaciones).FirstAsync());
+    }
+
+    [Fact]
+    public async Task Facturar_TransaccionAmbientalReintentaTrasLaFalla_FacturaUnaSolaVezConSuIngreso()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+
+        await using var ambiental = await _context.Database.BeginTransactionAsync();
+        _falla.Armado = true;
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));
+        _falla.Armado = false;
+
+        Assert.True(await FacturarAsync(id));
+        await ambiental.CommitAsync();
+
+        var (estado, facturas, ingresos, monto) = await EstadoAsync(id);
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), (estado, facturas, ingresos, monto));
+    }
+
     private static (EstadoVenta, int, int) Resumen((EstadoVenta estado, int facturas, int ingresos, decimal monto) r) =>
         (r.estado, r.facturas, r.ingresos);
 

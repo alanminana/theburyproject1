@@ -49,6 +49,8 @@ internal sealed class GatePlan
     public string Nombre { get; }
     public Func<string, bool> Trigger { get; }
     public bool Fired { get; set; }
+    /// <summary>FIN-FACT-HARDENING-P0: en vez de esperar la liberación, la operación falla al llegar a la compuerta.</summary>
+    public bool FallarAlDisparar { get; set; }
     public int Spid { get; set; }
     public ConcurrentQueue<string> Trace { get; } = new();
     public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -89,6 +91,8 @@ internal sealed class ConcGateInterceptor : DbCommandInterceptor
         plan.Spid = (command.Connection as SqlConnection)?.ServerProcessId ?? 0;
         plan.Trace.Enqueue("  >>> COMPUERTA: operación detenida ANTES de ejecutar el comando anterior <<<");
         plan.Reached.TrySetResult();
+        if (plan.FallarAlDisparar)
+            throw new InvalidOperationException("Falla inyectada por el harness en la compuerta " + plan.Nombre);
         // Tope duro de seguridad: si el test se cuelga, la operación no queda detenida para siempre.
         await plan.Release.Task.WaitAsync(TimeSpan.FromSeconds(90));
     }
