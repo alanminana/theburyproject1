@@ -1507,15 +1507,34 @@ namespace TheBuryProject.Services
         /// unidad atómica, bajo los locks de la venta y de la apertura. Antes, el <c>SaveChanges</c> de la factura
         /// commiteaba sin transacción ni lock y el ingreso de respaldo se asentaba después: una cancelación en esa
         /// ventana no encontraba ingreso que contra-asentar y el ingreso posterior quedaba huérfano sobre una venta
-        /// Cancelada. Orden de locks (el mismo que la cancelación): Crédito → Venta → Apertura. Con una transacción
-        /// ambiental participa en ella (no la confirma ni la revierte); si no hay, abre y confirma la propia.
+        /// Cancelada. Orden de locks (el mismo que la cancelación): Crédito → Venta → Apertura.
+        ///
+        /// FIN-FACT-HARDENING-P0. La operación es atómica también frente a un llamador que captura la excepción y sigue:
+        ///  - sin transacción ambiental abre y confirma la propia (y la revierte si falla);
+        ///  - con transacción ambiental NO la confirma ni la revierte: abre un SAVEPOINT propio y, si falla, revierte
+        ///    SOLO hasta él (factura, estado e ingreso parcial desaparecen; lo que el llamador hizo antes sigue en su
+        ///    transacción). Así el llamador no puede confirmar una factura sin su asiento financiero. Si el proveedor no
+        ///    soporta savepoints no hay forma segura de deshacer parcialmente: se propaga la excepción y el llamador
+        ///    debe abortar su transacción completa.
+        /// En ambos casos el change tracker se devuelve al estado coherente con la base (ver <see cref="RastreoRevertible"/>).
         /// </summary>
         public async Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel)
         {
-            var propia = _context.Database.CurrentTransaction == null;
+            var ambiental = _context.Database.CurrentTransaction;
+            var propia = ambiental == null;
             await using var transaction = propia ? await _context.Database.BeginTransactionAsync() : null;
 
-            var rastreadasPrevias = propia ? CapturarEntidadesRastreadas() : null;
+            Func<Task>? revertirAlPuntoPrevio = null;
+            if (!propia)
+            {
+                revertirAlPuntoPrevio = await CrearPuntoDeReversionAsync(ambiental!);
+                if (revertirAlPuntoPrevio == null)
+                    throw new InvalidOperationException(
+                        "No se puede facturar dentro de una transacción externa que no admite savepoints: " +
+                        "un fallo parcial dejaría una factura sin su asiento financiero.");
+            }
+
+            using var rastreo = new RastreoRevertible(_context);
             try
             {
                 var resultado = await FacturarVentaBajoLocksAsync(id, facturaViewModel);
@@ -1523,18 +1542,61 @@ namespace TheBuryProject.Services
                     await transaction.CommitAsync();
                 return resultado;
             }
-            catch
+            catch (Exception original)
             {
-                // Transacción propia: se revierte de forma explícita y se descarta lo que la operación dejó en el
-                // change tracker. Sin esto, un SaveChanges posterior del mismo contexto (p. ej. el flujo de
-                // conversión de cotización) persistiría una factura/estado que la base ya revirtió.
-                if (transaction != null)
+                bool baseRevertida = false;
+                try
                 {
-                    await transaction.RollbackAsync();
-                    DescartarEntidadesRastreadasDesde(rastreadasPrevias!);
+                    if (transaction != null)
+                    {
+                        await transaction.RollbackAsync();
+                        baseRevertida = true;
+                    }
+                    else if (revertirAlPuntoPrevio != null)
+                    {
+                        await revertirAlPuntoPrevio();
+                        baseRevertida = true;
+                    }
                 }
+                catch (Exception rollbackEx)
+                {
+                    // La transacción ya está inutilizada (p. ej. víctima de deadlock): manda la excepción original.
+                    _logger.LogError(rollbackEx, "No se pudo revertir la facturación de la venta {Id} tras {Error}", id, original.Message);
+                }
+
+                // Solo si la base volvió al estado previo se alinea el tracker (la recarga lee ese estado).
+                if (baseRevertida)
+                    await rastreo.RestaurarAsync();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Crea un savepoint en la transacción ambiental y devuelve la acción que revierte hasta él (sin cerrar la
+        /// transacción). EF Core desactiva <c>SupportsSavepoints</c> en SQL Server cuando la conexión usa
+        /// MultipleActiveResultSets (el caso de esta aplicación), así que en ese caso se usa T-SQL directo
+        /// (<c>SAVE TRANSACTION</c> / <c>ROLLBACK TRANSACTION nombre</c>); el nombre es un GUID hexadecimal generado acá
+        /// (no hay entrada externa). <c>null</c> si el proveedor no ofrece ningún mecanismo.
+        /// </summary>
+        private async Task<Func<Task>?> CrearPuntoDeReversionAsync(IDbContextTransaction ambiental)
+        {
+            var nombre = "fact_" + Guid.NewGuid().ToString("N")[..12];
+
+            if (ambiental.SupportsSavepoints)
+            {
+                await ambiental.CreateSavepointAsync(nombre);
+                return () => ambiental.RollbackToSavepointAsync(nombre);
+            }
+
+            if (_context.Database.IsSqlServer())
+            {
+#pragma warning disable EF1002 // identificador generado localmente (hex), no parametrizable
+                await _context.Database.ExecuteSqlRawAsync("SAVE TRANSACTION " + nombre);
+                return async () => await _context.Database.ExecuteSqlRawAsync("ROLLBACK TRANSACTION " + nombre);
+#pragma warning restore EF1002
+            }
+
+            return null;
         }
 
         private async Task<bool> FacturarVentaBajoLocksAsync(int id, FacturaViewModel facturaViewModel)
@@ -1635,24 +1697,6 @@ namespace TheBuryProject.Services
 
             _logger.LogInformation("Venta {Id} facturada con factura {NumeroFactura}", id, factura.Numero);
             return true;
-        }
-
-        private HashSet<object> CapturarEntidadesRastreadas() =>
-            _context.ChangeTracker.Entries()
-                .Select(e => e.Entity)
-                .ToHashSet(ReferenceEqualityComparer.Instance);
-
-        /// <summary>
-        /// Saca del change tracker lo que una operación revertida rastreó (factura nueva, venta con estado
-        /// Facturada, movimientos): ya no coincide con la base. Lo rastreado antes de la operación no se toca.
-        /// </summary>
-        private void DescartarEntidadesRastreadasDesde(HashSet<object> previas)
-        {
-            foreach (var entry in _context.ChangeTracker.Entries().ToList())
-            {
-                if (!previas.Contains(entry.Entity))
-                    entry.State = EntityState.Detached;
-            }
         }
 
         private async Task<AperturaCaja> AsegurarCajaAbiertaParaUsuarioActualAsync(string mensajeError)

@@ -228,7 +228,7 @@ jobs:
       # FIN-FACT-P0 (H-FACT-1): facturar vs. cancelar / cerrar caja, bajo los locks Credito -> Venta -> Apertura.
       # R-10 (ingreso huerfano de ventas legadas) es el escenario que motivo la correccion: debe figurar Passed en
       # ambos modos RCSI; un omitido, un timeout o un "no encontrado" hacen fallar el job.
-      - name: Facturacion FIN-FACT-P0 (R-09, R-09B, R-10, R-10B, R-10C)
+      - name: Facturacion FIN-FACT-P0 + HARDENING (R-09, R-09B, R-10, R-10B, R-10C, R-10D, R-10E)
         env:
           QA_RELEASE_TURNO: '1'
           QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
@@ -236,7 +236,7 @@ jobs:
           set -euo pipefail
           export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
           dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
-            --filter "FullyQualifiedName~FinResidualSqlServerTests.R09_|FullyQualifiedName~FinResidualSqlServerTests.R09B_|FullyQualifiedName~FinResidualSqlServerTests.R10_|FullyQualifiedName~FinResidualSqlServerTests.R10B_|FullyQualifiedName~FinResidualSqlServerTests.R10C_" \
+            --filter "FullyQualifiedName~FinResidualSqlServerTests.R09_|FullyQualifiedName~FinResidualSqlServerTests.R09B_|FullyQualifiedName~FinResidualSqlServerTests.R10_|FullyQualifiedName~FinResidualSqlServerTests.R10B_|FullyQualifiedName~FinResidualSqlServerTests.R10C_|FullyQualifiedName~FinResidualSqlServerTests.R10D_|FullyQualifiedName~FinResidualSqlServerTests.R10E_" \
             --logger "trx;LogFileName=fin-fact-sql-rcsi${{ matrix.rcsi }}.trx" \
             --logger "console;verbosity=detailed" \
             --results-directory ./TestResults
@@ -254,7 +254,7 @@ jobs:
             echo "| Escenario | Resultado |"
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for R in R-09 R-09B R-10 R-10B R-10C; do
+          for R in R-09 R-09B R-10 R-10B R-10C R-10D R-10E; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"

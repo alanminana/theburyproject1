@@ -1037,4 +1037,118 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
         Assert.Equal(antes, despues);                      // venta Confirmada, sin factura, sin ingreso, mismo stock
         Assert.Empty(viol);
     }
+
+    /// <summary>
+    /// R-10D (FIN-FACT-HARDENING-P0). El llamador abre SU transacción; Facturar guarda factura y estado y el registro
+    /// del ingreso de respaldo FALLA; el llamador captura la excepción, sigue usando su transacción y la confirma.
+    /// Con MultipleActiveResultSets=true (la cadena de estos tests). Facturar revierte hasta su savepoint: no queda
+    /// factura ni estado sin asiento, el trabajo previo del llamador sobrevive, y reintentar factura una sola vez.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-10D]: FacturarEnTransaccionAmbientalQueFallaYSeConfirma_NoDejaFacturaSinAsiento")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-1")]
+    public async Task R10D_FacturarEnTransaccionAmbientalQueFallaYSeConfirma_NoDejaFacturaSinAsiento()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var otra = await NuevaVentaContadoAsync(aperturaId, conIngreso: true);
+
+        string resFalla;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var ventas = scope.ServiceProvider.GetRequiredService<IVentaService>();
+            var vm = new FacturaViewModel { VentaId = v.VentaId, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+            await using var ambiental = await ctx.Database.BeginTransactionAsync();
+            // Con MultipleActiveResultSets=true EF desactiva SupportsSavepoints en SQL Server: Facturar usa SAVE TRANSACTION directo.
+
+            // Trabajo previo del llamador dentro de SU transacción.
+            var entidadOtra = await ctx.Ventas.FirstAsync(x => x.Id == otra.VentaId);
+            entidadOtra.Observaciones = "previo del llamador";
+            await ctx.SaveChangesAsync();
+
+            var plan = Compuerta("facturar/falla-en-el-ingreso", "INSERT INTO [MovimientosCaja]");
+            plan.FallarAlDisparar = true;
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                await ventas.FacturarVentaAsync(v.VentaId, vm);
+                resFalla = "OK(sin falla: la falla inyectada no se disparó)";
+            }
+            catch (Exception ex)
+            {
+                resFalla = Clasificar(ex);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+
+            Assert.True(plan.Fired, "La compuerta de falla no se alcanzó.");
+            Assert.StartsWith("DbUpdateException", resFalla);   // la falla inyectada llega envuelta por EF
+            Assert.NotNull(ctx.Database.CurrentTransaction);   // la transacción es del llamador y sigue viva
+
+            // El llamador "se recupera": dentro de su transacción NO hay factura ni estado, y el tracker coincide.
+            var enMemoria = ctx.ChangeTracker.Entries<Venta>().FirstOrDefault(e => e.Entity.Id == v.VentaId);
+            Assert.True(enMemoria == null || enMemoria.Entity.Estado == EstadoVenta.Confirmada);
+            Assert.Equal(0, await ctx.Facturas.CountAsync(f => f.VentaId == v.VentaId));
+
+            // Reintento dentro de la misma transacción ambiental y confirmación del llamador.
+            Assert.True(await ventas.FacturarVentaAsync(v.VentaId, vm));
+            await ambiental.CommitAsync();
+        }
+
+        var foto = await FotoFacturacionAsync(v);
+        Informe("R-10D", $"falla={resFalla}", $"{foto}");
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal(1, foto.FacturasTotales);
+        Assert.Equal(100m, foto.Ingresos);                 // el ingreso del reintento, exactamente uno
+        Assert.Equal(0m, foto.Egresos);
+
+        using var scope2 = _fx.Services.CreateScope();
+        Assert.Equal("previo del llamador", await scope2.ServiceProvider.GetRequiredService<AppDbContext>().Ventas.AsNoTracking()
+            .Where(x => x.Id == otra.VentaId).Select(x => x.Observaciones).FirstAsync());
+    }
+
+    /// <summary>
+    /// R-10E (FIN-FACT-HARDENING-P0). Igual que R-10D pero el llamador confirma SIN reintentar: la factura y el estado de
+    /// la facturación fallida no pueden quedar confirmados sin su ingreso (venta Confirmada, sin factura, sin ingreso).
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-10E]: FacturarEnTransaccionAmbientalQueFallaYSigueSinReintentar_NoPersisteNada")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-1")]
+    public async Task R10E_FacturarEnTransaccionAmbientalQueFallaYSigueSinReintentar_NoPersisteNada()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var antes = await FotoFacturacionAsync(v);
+
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var ventas = scope.ServiceProvider.GetRequiredService<IVentaService>();
+            await using var ambiental = await ctx.Database.BeginTransactionAsync();
+
+            var plan = Compuerta("facturar/falla-en-el-ingreso", "INSERT INTO [MovimientosCaja]");
+            plan.FallarAlDisparar = true;
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                await Assert.ThrowsAnyAsync<Exception>(() =>
+                    ventas.FacturarVentaAsync(v.VentaId, new FacturaViewModel { VentaId = v.VentaId, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow }));
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+
+            await ctx.SaveChangesAsync();   // el llamador sigue y guarda: no puede reaparecer nada
+            await ambiental.CommitAsync();
+        }
+
+        var despues = await FotoFacturacionAsync(v);
+        Informe("R-10E", $"{antes} -> {despues}");
+        Assert.Equal(antes, despues);
+    }
 }
