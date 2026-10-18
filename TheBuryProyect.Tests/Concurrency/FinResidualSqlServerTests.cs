@@ -46,6 +46,8 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     {
         _fx = fx;
         _out = output;
+        if (ConcEnv.SkipReason() == null)
+            _out.WriteLine($"[modo SQL] READ_COMMITTED_SNAPSHOT={(_fx.RcsiActivo ? "ON" : "OFF")} (verificado en sys.databases)");
     }
 
     // ------------------------------------------------------------------ compuertas (qué comando detener)
@@ -88,6 +90,10 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
                 return $"DEADLOCK_VICTIMA({ex.GetType().Name})";
             if (e is SqlException dup && dup.Errors.Cast<SqlError>().Any(x => x.Number is 2601 or 2627))
                 return $"UNIQUE_VIOLADO({ex.GetType().Name})";
+            // -2 = timeout del comando (CommandTimeout): una operación que esperó un lock más de lo que el test
+            // permite NO es un rechazo de negocio ni un PASS: es una espera que el test debió liberar.
+            if (e is SqlException to && to.Errors.Cast<SqlError>().Any(x => x.Number == -2))
+                return $"TIMEOUT_SQL({ex.GetType().Name})";
         }
         return $"{ex.GetType().Name}: {ex.Message}";
     }
@@ -105,6 +111,29 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     /// <summary>true si la operación NO terminó dentro de la ventana de observación (= quedó bloqueada por un lock).</summary>
     private static async Task<bool> QuedaBloqueadaAsync(Task<string> operacion) =>
         await Task.WhenAny(operacion, Task.Delay(EsperaObservacion)) != operacion;
+
+    private static readonly TimeSpan EsperaResultado = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Espera el resultado de una operación con tope. Si no termina se libera la compuerta (para no dejar
+    /// conexiones detenidas) y el test falla: una operación colgada nunca es un PASS.
+    /// </summary>
+    private async Task<string> ResultadoAsync(string nombre, Task<string> operacion, GatePlan? plan = null)
+    {
+        if (await Task.WhenAny(operacion, Task.Delay(EsperaResultado)) != operacion)
+        {
+            plan?.Release.TrySetResult();
+            Assert.Fail($"{nombre}: la operación no terminó dentro de {EsperaResultado.TotalSeconds:0}s tras liberar la compuerta (colgada).");
+        }
+        return await operacion;
+    }
+
+    /// <summary>Deadlock SQL o timeout del comando: fallos de infraestructura/coordinación, nunca rechazos de negocio válidos.</summary>
+    private static void NoEsFalloDeInfraestructura(string nombre, string resultado)
+    {
+        Assert.False(resultado.StartsWith("DEADLOCK_VICTIMA", StringComparison.Ordinal), $"{nombre}: deadlock SQL real ({resultado}).");
+        Assert.False(resultado.StartsWith("TIMEOUT_SQL", StringComparison.Ordinal), $"{nombre}: timeout del comando, no un rechazo de negocio ({resultado}).");
+    }
 
     private void Volcar(string titulo, GatePlan plan)
     {
@@ -764,58 +793,248 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
         Lanzar(plan, async sp => await sp.GetRequiredService<IVentaService>().FacturarVentaAsync(
             ventaId, new FacturaViewModel { VentaId = ventaId, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow }));
 
-    /// <summary>
-    /// R-09 [esperado: PASS por RowVersion de Venta]. Facturar (sin transacción) cargó la venta Confirmada y se
-    /// detiene antes de insertar la factura; la cancelación completa; al liberar, el UPDATE de Venta debe fallar por
-    /// RowVersion. Invariante: venta Cancelada ⇒ ninguna factura vigente.
-    /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-09]: CancelarMientrasSeFactura_NoDejaVentaCanceladaConFacturaVigente")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "PASS")]
-    public async Task R09_CancelarMientrasSeFactura_NoDejaVentaCanceladaConFacturaVigente()
+
+    private sealed record FotoFacturacion(
+        EstadoVenta Estado, int FacturasTotales, int FacturasVigentes, decimal Ingresos, decimal Egresos, decimal Stock);
+
+    private async Task<FotoFacturacion> FotoFacturacionAsync(VentaContado v)
     {
-        var aperturaId = await NuevaAperturaAsync();
-        var v = await NuevaVentaContadoAsync(aperturaId);
-        var plan = Compuerta("facturar/antes-de-insertar-factura", "INSERT INTO [Facturas]");
-
-        var facturar = FacturarAsync(v.VentaId, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, facturar));
-        var cancel = await CancelarVentaAsync(v.VentaId);
-        plan.Release.TrySetResult();
-        var resFacturar = await facturar;
-
-        Informe("R-09", $"cancelación={cancel}", $"facturar={resFacturar}");
-        using var scope = _fx.Services.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var estado = await ctx.Ventas.AsNoTracking().Where(x => x.Id == v.VentaId).Select(x => x.Estado).FirstAsync();
-        var vigentes = await ctx.Facturas.CountAsync(f => f.VentaId == v.VentaId && !f.IsDeleted && !f.Anulada);
-        Assert.False(estado == EstadoVenta.Cancelada && vigentes > 0, $"Venta {estado} con {vigentes} factura(s) vigente(s).");
+        EstadoVenta estado;
+        int totales, vigentes;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            estado = await ctx.Ventas.AsNoTracking().Where(x => x.Id == v.VentaId).Select(x => x.Estado).FirstAsync();
+            totales = await ctx.Facturas.IgnoreQueryFilters().CountAsync(f => f.VentaId == v.VentaId);
+            vigentes = await ctx.Facturas.CountAsync(f => f.VentaId == v.VentaId && !f.IsDeleted && !f.Anulada);
+        }
+        var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
+        return new FotoFacturacion(estado, totales, vigentes, ing, egr, await StockAsync(v.ProductoId));
     }
 
     /// <summary>
-    /// R-10 [esperado: FAIL, solo ventas legadas sin ingreso asentado]. Facturar commitea la venta como Facturada
-    /// y, sin transacción, recién después asienta el ingreso "de respaldo". Detenido justo antes de ese insert, la
-    /// cancelación completa (no encuentra ingreso que revertir) y al liberar Facturar asienta un ingreso para una
-    /// venta Cancelada. Invariante: venta Cancelada ⇒ Σ egresos = Σ ingresos.
+    /// R-09 (FIN-FACT-P0). GANA FACTURAR: la facturación se detiene justo antes de insertar la factura, ya con el lock de
+    /// la venta (Crédito → Venta → Apertura). La cancelación arranca y debe QUEDAR BLOQUEADA en el lock de la venta; al
+    /// liberar, factura+estado+ingreso confirman juntos y la cancelación, ya sobre la venta Facturada, anula esa factura,
+    /// devuelve el stock y contra-asienta el ingreso. Sin deadlock ni timeout.
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-10]: CancelarEntreElCommitDeFacturarYSuIngresoDeRespaldo_NoDejaIngresoHuerfano")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "FAIL-LEGADO")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-09]: CancelarMientrasSeFactura_EsperaYAnulaLaFacturaSinDejarIngresoHuerfano")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R09_CancelarMientrasSeFactura_EsperaYAnulaLaFacturaSinDejarIngresoHuerfano()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId);
+        var antes = await FotoFacturacionAsync(v);
+        var plan = Compuerta("facturar/antes-de-insertar-factura", "INSERT INTO [Facturas]");
+
+        Task<string>? facturar = null, cancel = null;
+        bool bloqueada;
+        try
+        {
+            facturar = FacturarAsync(v.VentaId, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, facturar), "Facturar no llegó a la compuerta.");
+            cancel = CancelarVentaAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(cancel);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var resCancel = await ResultadoAsync("cancelación", cancel!, plan);
+        var despues = await FotoFacturacionAsync(v);
+
+        Informe("R-09", $"cancelación bloqueada por el lock de la venta = {bloqueada}", $"facturar={resFacturar}", $"cancelación={resCancel}", $"{antes} -> {despues}");
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        NoEsFalloDeInfraestructura("cancelación", resCancel);
+        Assert.True(bloqueada, "La cancelación no esperó el lock de la venta tomado por la facturación en curso.");
+        Assert.StartsWith("OK(", resFacturar);
+        Assert.StartsWith("OK(", resCancel);
+        Assert.Equal(EstadoVenta.Cancelada, despues.Estado);
+        Assert.Equal(1, despues.FacturasTotales);          // la factura se emitió (ganó la facturación) …
+        Assert.Equal(0, despues.FacturasVigentes);         // … y la cancelación la anuló: ninguna vigente sobre venta cancelada
+        Assert.Equal(100m, despues.Ingresos);
+        Assert.Equal(100m, despues.Egresos);
+        Assert.Equal(antes.Stock + 2m, despues.Stock);     // la cancelación devolvió las 2 unidades
+    }
+
+    /// <summary>
+    /// R-09B (FIN-FACT-P0). GANA CANCELAR: la cancelación toma el lock de la venta y se detiene antes de contra-asentar el
+    /// ingreso. La facturación arranca y debe QUEDAR BLOQUEADA; al liberar, la cancelación confirma y la facturación, al
+    /// despertar, ve la venta Cancelada y se rechaza SIN crear factura ni ingreso.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-09B]: FacturarMientrasSeCancela_EsperaYSeRechazaSinFacturaNiIngreso")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R09B_FacturarMientrasSeCancela_EsperaYSeRechazaSinFacturaNiIngreso()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId);
+        var plan = Compuerta("cancelar/antes-del-contramovimiento", "INSERT INTO [MovimientosCaja]");
+
+        Task<string>? cancel = null, facturar = null;
+        bool bloqueada;
+        try
+        {
+            cancel = Lanzar(plan, async sp => await sp.GetRequiredService<IVentaService>().CancelarVentaAsync(v.VentaId, "QA residual"));
+            Assert.True(await LlegoALaCompuertaAsync(plan, cancel), "La cancelación no llegó a la compuerta.");
+            facturar = FacturarAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(facturar);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resCancel = await ResultadoAsync("cancelación", cancel!, plan);
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var despues = await FotoFacturacionAsync(v);
+
+        Informe("R-09B", $"facturar bloqueada por el lock de la venta = {bloqueada}", $"cancelación={resCancel}", $"facturar={resFacturar}", $"{despues}");
+        NoEsFalloDeInfraestructura("cancelación", resCancel);
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        Assert.True(bloqueada, "La facturación no esperó el lock de la venta tomado por la cancelación en curso.");
+        Assert.StartsWith("OK(", resCancel);
+        Assert.Contains("Solo se pueden facturar ventas confirmadas", resFacturar);
+        Assert.Contains("Cancelada", resFacturar);
+        Assert.Equal(EstadoVenta.Cancelada, despues.Estado);
+        Assert.Equal(0, despues.FacturasTotales);          // la facturación rechazada no dejó ni una factura anulada
+        Assert.Equal(0, despues.FacturasVigentes);
+        Assert.Equal(100m, despues.Ingresos);              // el único ingreso es el original, contra-asentado una vez
+        Assert.Equal(100m, despues.Egresos);
+    }
+
+    /// <summary>
+    /// R-10 (FIN-FACT-P0, H-FACT-1 — ventas LEGADAS Confirmadas sin ingreso asentado). La facturación se detiene justo
+    /// antes del insert del ingreso de respaldo, con la factura y el estado todavía SIN confirmar. Antes: ya estaban
+    /// commiteados y una cancelación intermedia no encontraba ingreso que contra-asentar, dejando el ingreso huérfano
+    /// (ingresos=100, egresos=0). Ahora: la cancelación espera el lock de la venta; al liberar, factura+estado+ingreso
+    /// confirman juntos y la cancelación los ve y contra-asienta: venta Cancelada ⇒ Σ egresos = Σ ingresos.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-10]: CancelarEntreElCommitDeFacturarYSuIngresoDeRespaldo_NoDejaIngresoHuerfano")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-1")]
     public async Task R10_CancelarEntreElCommitDeFacturarYSuIngresoDeRespaldo_NoDejaIngresoHuerfano()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var antes = await FotoFacturacionAsync(v);
+        var plan = Compuerta("facturar/antes-del-ingreso-de-respaldo", "INSERT INTO [MovimientosCaja]");
+
+        Task<string>? facturar = null, cancel = null;
+        bool bloqueada;
+        try
+        {
+            facturar = FacturarAsync(v.VentaId, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, facturar), "Facturar no llegó a la compuerta del ingreso de respaldo.");
+            cancel = CancelarVentaAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(cancel);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var resCancel = await ResultadoAsync("cancelación", cancel!, plan);
+        var despues = await FotoFacturacionAsync(v);
+
+        Informe("R-10", $"cancelación bloqueada por el lock de la venta = {bloqueada}", $"facturar={resFacturar}", $"cancelación={resCancel}",
+            $"{antes} -> {despues}");
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        NoEsFalloDeInfraestructura("cancelación", resCancel);
+        Assert.True(bloqueada, "La cancelación no esperó la facturación en curso (hubiera podido colarse entre la factura y su ingreso).");
+        Assert.StartsWith("OK(", resFacturar);
+        Assert.StartsWith("OK(", resCancel);
+        Assert.Equal(EstadoVenta.Cancelada, despues.Estado);
+        Assert.Equal(despues.Ingresos, despues.Egresos);   // el invariante de H-FACT-1
+        Assert.Equal(100m, despues.Ingresos);              // exactamente UN ingreso (el de respaldo), no cero ni dos
+        Assert.Equal(1, despues.FacturasTotales);
+        Assert.Equal(0, despues.FacturasVigentes);
+        Assert.Equal(antes.Stock + 2m, despues.Stock);
+    }
+
+    /// <summary>
+    /// R-10B (FIN-FACT-P0). Dos facturaciones simultáneas de la misma venta legada: la segunda espera el lock, y al
+    /// despertar ve la venta ya Facturada y se rechaza. Una sola factura y un solo ingreso, sin deadlock ni timeout.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-10B]: DosFacturacionesSimultaneas_UnaFacturaYUnIngreso")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-1")]
+    public async Task R10B_DosFacturacionesSimultaneas_UnaFacturaYUnIngreso()
     {
         var aperturaId = await NuevaAperturaAsync();
         var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
         var plan = Compuerta("facturar/antes-del-ingreso-de-respaldo", "INSERT INTO [MovimientosCaja]");
 
-        var facturar = FacturarAsync(v.VentaId, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, facturar));
-        var cancel = await CancelarVentaAsync(v.VentaId);
-        plan.Release.TrySetResult();
-        var resFacturar = await facturar;
+        Task<string>? primera = null, segunda = null;
+        bool bloqueada;
+        try
+        {
+            primera = FacturarAsync(v.VentaId, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, primera), "La primera facturación no llegó a la compuerta.");
+            segunda = FacturarAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(segunda);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var res1 = await ResultadoAsync("primera", primera!, plan);
+        var res2 = await ResultadoAsync("segunda", segunda!, plan);
+        var despues = await FotoFacturacionAsync(v);
 
-        Informe("R-10", $"cancelación={cancel}", $"facturar={resFacturar}");
-        var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
-        Informe("R-10", $"caja: ingresos={ing} egresos={egr}");
-        Assert.Equal(ing, egr);
+        Informe("R-10B", $"segunda bloqueada = {bloqueada}", $"primera={res1}", $"segunda={res2}", $"{despues}");
+        NoEsFalloDeInfraestructura("primera", res1);
+        NoEsFalloDeInfraestructura("segunda", res2);
+        Assert.True(bloqueada, "La segunda facturación no esperó el lock de la venta.");
+        Assert.StartsWith("OK(", res1);
+        Assert.Contains("Solo se pueden facturar ventas confirmadas", res2);
+        Assert.Equal(EstadoVenta.Facturada, despues.Estado);
+        Assert.Equal(1, despues.FacturasTotales);
+        Assert.Equal(1, despues.FacturasVigentes);
+        Assert.Equal(100m, despues.Ingresos);
+        Assert.Equal(0m, despues.Egresos);
+    }
+
+    /// <summary>
+    /// R-10C (FIN-FACT-P0). El cierre de caja tiene el lock de la apertura (detenido antes de insertar CierreCaja); una
+    /// facturación de una venta legada de esa apertura arranca: debe quedar bloqueada y, al cerrarse la caja, rechazarse
+    /// SIN dejar factura, estado ni ingreso (ni un ingreso dentro de una caja cerrada).
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-10C]: FacturarMientrasSeCierraLaCaja_EsperaYSeRechazaSinEfectosParciales")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-1")]
+    public async Task R10C_FacturarMientrasSeCierraLaCaja_EsperaYSeRechazaSinEfectosParciales()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var antes = await FotoFacturacionAsync(v);
+        var plan = CierreAntesDeInsertar();
+
+        Task<string>? cierre = null, facturar = null;
+        bool bloqueada;
+        try
+        {
+            cierre = CerrarAsync(aperturaId, efectivo: 0m, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, cierre), "El cierre no llegó a la compuerta.");
+            facturar = FacturarAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(facturar);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resCierre = await ResultadoAsync("cierre", cierre!, plan);
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var despues = await FotoFacturacionAsync(v);
+        var viol = await ViolacionesCierreAsync(aperturaId);
+
+        Informe("R-10C", $"facturar bloqueada por el lock de la apertura = {bloqueada}", $"cierre={resCierre}", $"facturar={resFacturar}",
+            $"{antes} -> {despues}", "invariante I-CAJA: " + (viol.Count == 0 ? "OK" : string.Join(" | ", viol)));
+        NoEsFalloDeInfraestructura("cierre", resCierre);
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        Assert.True(bloqueada, "La facturación no esperó el lock de la apertura tomado por el cierre.");
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Contains("cerrada", resFacturar, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, despues);                      // venta Confirmada, sin factura, sin ingreso, mismo stock
+        Assert.Empty(viol);
     }
 }

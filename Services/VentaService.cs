@@ -1502,10 +1502,60 @@ namespace TheBuryProject.Services
                 "Requiere una reversión auditada de los pagos (no disponible todavía).");
         }
 
+        /// <summary>
+        /// FIN-FACT-P0 (H-FACT-1). Factura, cambio de estado de la venta e ingreso de caja de respaldo son UNA sola
+        /// unidad atómica, bajo los locks de la venta y de la apertura. Antes, el <c>SaveChanges</c> de la factura
+        /// commiteaba sin transacción ni lock y el ingreso de respaldo se asentaba después: una cancelación en esa
+        /// ventana no encontraba ingreso que contra-asentar y el ingreso posterior quedaba huérfano sobre una venta
+        /// Cancelada. Orden de locks (el mismo que la cancelación): Crédito → Venta → Apertura. Con una transacción
+        /// ambiental participa en ella (no la confirma ni la revierte); si no hay, abre y confirma la propia.
+        /// </summary>
         public async Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel)
+        {
+            var propia = _context.Database.CurrentTransaction == null;
+            await using var transaction = propia ? await _context.Database.BeginTransactionAsync() : null;
+
+            var rastreadasPrevias = propia ? CapturarEntidadesRastreadas() : null;
+            try
+            {
+                var resultado = await FacturarVentaBajoLocksAsync(id, facturaViewModel);
+                if (transaction != null)
+                    await transaction.CommitAsync();
+                return resultado;
+            }
+            catch
+            {
+                // Transacción propia: se revierte de forma explícita y se descarta lo que la operación dejó en el
+                // change tracker. Sin esto, un SaveChanges posterior del mismo contexto (p. ej. el flujo de
+                // conversión de cotización) persistiría una factura/estado que la base ya revirtió.
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                    DescartarEntidadesRastreadasDesde(rastreadasPrevias!);
+                }
+                throw;
+            }
+        }
+
+        private async Task<bool> FacturarVentaBajoLocksAsync(int id, FacturaViewModel facturaViewModel)
         {
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                 "No se puede facturar la venta sin una caja abierta para el usuario actual.");
+
+            // 1) Crédito (solo si la venta lo tiene): mismo primer lock que la cancelación.
+            var creditoIdBloqueado = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.Id == id && !v.IsDeleted)
+                .Select(v => v.CreditoId)
+                .FirstOrDefaultAsync();
+            if (creditoIdBloqueado.HasValue)
+                await CreditoConcurrencia.BloquearAsync(_context, creditoIdBloqueado.Value);
+
+            // 2) Venta: serializa contra cancelación, devolución y otra facturación de la misma venta. La entidad
+            //    se carga DESPUÉS de tomar el lock, así que ve el estado definitivo.
+            if (await VentaConcurrencia.BloquearYObtenerEstadoAsync(_context, id) == null)
+                return false;
+
             var venta = await _context.Ventas
                 .Include(v => v.Facturas)
                 .Include(v => v.Envio)
@@ -1515,10 +1565,24 @@ namespace TheBuryProject.Services
             if (venta == null)
                 return false;
 
+            if (venta.CreditoId != creditoIdBloqueado)
+                throw new InvalidOperationException(
+                    "El crédito de la venta cambió mientras se facturaba. Reintentá la facturación.");
+
             VentaContactoLibre.ValidarVenta(venta);
+            // Una venta Cancelada/Facturada (p. ej. la perdedora de una carrera) se rechaza sin factura ni ingreso.
             _validator.ValidarEstadoParaFacturacion(venta);
             _validator.ValidarAutorizacion(venta);
             await ValidarContratoCreditoPersonalGeneradoAsync(venta);
+
+            // 3) Apertura (último lock de la cadena): el cierre de caja toma el mismo. Se relee de la base y se
+            //    rechaza si se cerró mientras tanto, de modo que la factura nunca quede atribuida a una caja cerrada.
+            await AperturaCajaConcurrencia.BloquearAsync(_context, aperturaActiva.Id);
+            var aperturaVigente = await AperturaCajaConcurrencia.LeerAsync(_context, aperturaActiva.Id);
+            if (aperturaVigente == null || aperturaVigente.Cerrada)
+                throw new InvalidOperationException(
+                    "No se puede facturar la venta: la caja del usuario ya fue cerrada.");
+
             venta.AperturaCajaId = aperturaActiva.Id;
 
             var factura = _mapper.Map<Factura>(facturaViewModel);
@@ -1571,6 +1635,24 @@ namespace TheBuryProject.Services
 
             _logger.LogInformation("Venta {Id} facturada con factura {NumeroFactura}", id, factura.Numero);
             return true;
+        }
+
+        private HashSet<object> CapturarEntidadesRastreadas() =>
+            _context.ChangeTracker.Entries()
+                .Select(e => e.Entity)
+                .ToHashSet(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// Saca del change tracker lo que una operación revertida rastreó (factura nueva, venta con estado
+        /// Facturada, movimientos): ya no coincide con la base. Lo rastreado antes de la operación no se toca.
+        /// </summary>
+        private void DescartarEntidadesRastreadasDesde(HashSet<object> previas)
+        {
+            foreach (var entry in _context.ChangeTracker.Entries().ToList())
+            {
+                if (!previas.Contains(entry.Entity))
+                    entry.State = EntityState.Detached;
+            }
         }
 
         private async Task<AperturaCaja> AsegurarCajaAbiertaParaUsuarioActualAsync(string mensajeError)

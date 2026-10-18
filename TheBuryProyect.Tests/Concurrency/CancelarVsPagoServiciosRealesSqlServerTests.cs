@@ -269,8 +269,14 @@ public class ConcSqlHostFixture : IAsyncLifetime
         _masterCs = baseCs.ConnectionString;
         await EjecutarEnMasterAsync($"IF DB_ID(N'{_catalogoSvc}') IS NOT NULL BEGIN ALTER DATABASE [{_catalogoSvc}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{_catalogoSvc}]; END; CREATE DATABASE [{_catalogoSvc}];");
         // Igual que el catálogo base: si el runner pidió RCSI, la BD de servicios lo hereda.
-        if (Environment.GetEnvironmentVariable("QA_FIN_CONC_RCSI") == "1")
+        var rcsiPedido = Environment.GetEnvironmentVariable("QA_FIN_CONC_RCSI") == "1";
+        if (rcsiPedido)
             await EjecutarEnMasterAsync($"ALTER DATABASE [{_catalogoSvc}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;");
+        // Evidencia del modo real: la matriz RCSI 0/1 solo vale si el catálogo efectivamente quedó en el modo pedido.
+        RcsiActivo = await LeerRcsiAsync();
+        if (RcsiActivo != rcsiPedido)
+            throw new InvalidOperationException(
+                $"READ_COMMITTED_SNAPSHOT del catálogo {_catalogoSvc} es {(RcsiActivo ? "ON" : "OFF")} pero se pidió {(rcsiPedido ? "ON" : "OFF")} (QA_FIN_CONC_RCSI).");
         var gate = new ConcGateInterceptor();
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -324,6 +330,18 @@ public class ConcSqlHostFixture : IAsyncLifetime
             SqlConnection.ClearAllPools();
             await EjecutarEnMasterAsync($"IF DB_ID(N'{_catalogoSvc}') IS NOT NULL BEGIN ALTER DATABASE [{_catalogoSvc}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{_catalogoSvc}]; END;");
         }
+    }
+
+    /// <summary>true si el catálogo de esta clase corre con READ_COMMITTED_SNAPSHOT ON (verificado contra sys.databases).</summary>
+    public bool RcsiActivo { get; private set; }
+
+    private async Task<bool> LeerRcsiAsync()
+    {
+        await using var c = new SqlConnection(_masterCs);
+        await c.OpenAsync();
+        await using var cmd = new SqlCommand("SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = @n", c);
+        cmd.Parameters.AddWithValue("@n", _catalogoSvc);
+        return (bool)(await cmd.ExecuteScalarAsync())!;
     }
 
     private async Task EjecutarEnMasterAsync(string sql)
