@@ -127,6 +127,35 @@ namespace TheBuryProject.Services.Interfaces
                 usuario);
 
         /// <summary>
+        /// FIN-CAJA-4-P0 (H-CAJA-4). Igual que la sobrecarga anterior, pero la apertura candidata ya fue resuelta por
+        /// el llamador ANTES de abrir su transacción. Dentro de una transacción SERIALIZABLE, volver a consultar "la
+        /// apertura activa del usuario" deja un lock de rango compartido sobre <c>AperturasCaja</c> que, al convertirse
+        /// en el lock de actualización de la apertura, forma un ciclo con el cierre de caja (deadlock 1205). El id es
+        /// solo un candidato: bajo el lock se relee la apertura de la base y se exige que siga abierta, vigente y que
+        /// pertenezca a <paramref name="usuario"/>; si no, se rechaza todo el cobro (nunca se elige otra caja).
+        /// Implementación default: delega en la sobrecarga sin candidato (compatibilidad con stubs).
+        /// </summary>
+        Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+            int cuotaId,
+            string creditoNumero,
+            int numeroCuota,
+            decimal montoBase,
+            decimal recargoMedioPago,
+            TipoPago? tipoPago,
+            string medioPago,
+            string usuario,
+            int aperturaIdCandidata)
+            => RegistrarMovimientoCuotaAsync(
+                cuotaId,
+                creditoNumero,
+                numeroCuota,
+                montoBase,
+                recargoMedioPago,
+                tipoPago,
+                medioPago,
+                usuario);
+
+        /// <summary>
         /// Registra automáticamente el movimiento de caja para un anticipo de crédito.
         /// El anticipo es un pago inicial que reduce el monto a financiar.
         /// </summary>
