@@ -381,7 +381,7 @@ namespace TheBuryProject.Services
                 if (existing == null)
                     throw new InvalidOperationException($"No se encontró el producto con ID {producto.Id}");
 
-                await ValidarProductoAsync(producto);
+                await ValidarProductoAsync(producto, submarcaActualId: existing.SubmarcaId);
 
                 producto.Codigo = NormalizarCodigo(producto.Codigo);
 
@@ -460,7 +460,11 @@ namespace TheBuryProject.Services
                 existing.Nombre = producto.Nombre;
                 existing.Descripcion = producto.Descripcion;
                 existing.CategoriaId = producto.CategoriaId;
+                // Subcategoría y submarca son opcionales: null es una selección válida (quitarla). Los flujos que
+                // no envían estos campos deben preservarlos antes de llegar acá (ver ProductoController.EditAjax).
+                existing.SubcategoriaId = producto.SubcategoriaId;
                 existing.MarcaId = producto.MarcaId;
+                existing.SubmarcaId = producto.SubmarcaId;
                 existing.PrecioCompra = producto.PrecioCompra;
                 existing.CostoEnvio = producto.CostoEnvio;
                 existing.PercepcionesCompra = producto.PercepcionesCompra;
@@ -730,7 +734,10 @@ namespace TheBuryProject.Services
         /// </summary>
         private static string NormalizarCodigo(string? codigo) => codigo?.Trim() ?? string.Empty;
 
-        private async Task ValidarProductoAsync(Producto producto)
+        /// <param name="submarcaActualId">Submarca ya persistida (solo en edición): se tolera aunque esté inactiva
+        /// para no bloquear la edición de otros campos; una submarca inactiva distinta de la actual se rechaza,
+        /// igual que el selector (GetChildrenAsync solo ofrece submarcas activas).</param>
+        private async Task ValidarProductoAsync(Producto producto, int? submarcaActualId = null)
         {
             if (string.IsNullOrWhiteSpace(producto.Codigo))
                 throw new InvalidOperationException("El código del producto no puede estar vacío");
@@ -757,6 +764,23 @@ namespace TheBuryProject.Services
 
             if (producto.MarcaId <= 0)
                 throw new InvalidOperationException("La marca es obligatoria");
+
+            if (producto.SubmarcaId.HasValue)
+            {
+                var submarca = await _context.Marcas
+                    .Where(m => m.Id == producto.SubmarcaId.Value && !m.IsDeleted)
+                    .Select(m => new { m.ParentId, m.Activo })
+                    .FirstOrDefaultAsync();
+
+                if (submarca == null)
+                    throw new InvalidOperationException("La submarca seleccionada no existe");
+
+                if (submarca.ParentId != producto.MarcaId)
+                    throw new InvalidOperationException("La submarca seleccionada no pertenece a la marca elegida");
+
+                if (!submarca.Activo && producto.SubmarcaId != submarcaActualId)
+                    throw new InvalidOperationException("La submarca seleccionada no está activa");
+            }
 
             if (producto.PrecioCompra < 0)
                 throw new InvalidOperationException("El precio de costo no puede ser negativo");

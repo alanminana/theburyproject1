@@ -640,6 +640,253 @@ public class ProductoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // UpdateAsync: Subcategoría y Submarca (RESCATE-PRODUCTO-P0)
+    // -------------------------------------------------------------------------
+
+    private sealed record Jerarquia(
+        Categoria Cat, Categoria SubA, Categoria SubB, Categoria OtraCat, Categoria SubDeOtra,
+        Marca Marca, Marca SubmarcaA, Marca SubmarcaB, Marca OtraMarca, Marca SubmarcaDeOtra,
+        Producto Producto);
+
+    /// <summary>Producto con Subcategoría A y Submarca A, más alternativas B (válidas) y ajenas.</summary>
+    private async Task<Jerarquia> SeedProductoConJerarquiaAsync()
+    {
+        static string Cod() => Guid.NewGuid().ToString("N")[..8];
+        static Categoria Cat(string n, int? parent = null) => new() { Codigo = Cod(), Nombre = n + Cod(), Activo = true, ParentId = parent };
+        static Marca Mar(string n, int? parent = null) => new() { Codigo = Cod(), Nombre = n + Cod(), Activo = true, ParentId = parent };
+
+        var cat = Cat("Cat-");
+        var otraCat = Cat("OtraCat-");
+        var marca = Mar("Marca-");
+        var otraMarca = Mar("OtraMarca-");
+        _context.Categorias.AddRange(cat, otraCat);
+        _context.Marcas.AddRange(marca, otraMarca);
+        await _context.SaveChangesAsync();
+
+        var subA = Cat("SubA-", cat.Id);
+        var subB = Cat("SubB-", cat.Id);
+        var subDeOtra = Cat("SubOtra-", otraCat.Id);
+        var submarcaA = Mar("SubmarcaA-", marca.Id);
+        var submarcaB = Mar("SubmarcaB-", marca.Id);
+        var submarcaDeOtra = Mar("SubmarcaOtra-", otraMarca.Id);
+        _context.Categorias.AddRange(subA, subB, subDeOtra);
+        _context.Marcas.AddRange(submarcaA, submarcaB, submarcaDeOtra);
+        await _context.SaveChangesAsync();
+
+        var codigo = Cod();
+        var producto = new Producto
+        {
+            Codigo = codigo, Nombre = "Prod-" + codigo,
+            CategoriaId = cat.Id, SubcategoriaId = subA.Id,
+            MarcaId = marca.Id, SubmarcaId = submarcaA.Id,
+            PrecioCompra = 10m, PrecioVenta = 50m, PorcentajeIVA = 21m,
+            StockActual = 10m, StockMinimo = 5m, Activo = true
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+        await _context.Entry(producto).ReloadAsync();
+
+        return new Jerarquia(cat, subA, subB, otraCat, subDeOtra, marca, submarcaA, submarcaB, otraMarca, submarcaDeOtra, producto);
+    }
+
+    private static Producto BuildEdicion(Producto p, int? subcategoriaId, int? submarcaId, byte[]? rowVersion = null) => new()
+    {
+        Id = p.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+        CategoriaId = p.CategoriaId, SubcategoriaId = subcategoriaId,
+        MarcaId = p.MarcaId, SubmarcaId = submarcaId,
+        PrecioCompra = p.PrecioCompra, PrecioVenta = p.PrecioVenta, PorcentajeIVA = p.PorcentajeIVA,
+        StockActual = p.StockActual, StockMinimo = p.StockMinimo, Activo = true,
+        RowVersion = rowVersion ?? p.RowVersion
+    };
+
+    /// <summary>Relee el producto con un DbContext nuevo sobre la misma base (sin cache del tracker).</summary>
+    private async Task<Producto> LeerConContextoNuevoAsync(int id)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options;
+        await using var fresco = new AppDbContext(options);
+        return await fresco.Productos.AsNoTracking().FirstAsync(p => p.Id == id);
+    }
+
+    [Fact]
+    public async Task PROD01_Update_CambiaSubcategoriaYSubmarca_PersisteEnContextoNuevo()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+
+        await _service.UpdateAsync(BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaB.Id));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubB.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaB.Id, bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task PROD02_Update_QuitaSubcategoriaYSubmarca_PersisteNull()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+
+        await _service.UpdateAsync(BuildEdicion(j.Producto, null, null));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Null(bd.SubcategoriaId);
+        Assert.Null(bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task PROD03_Update_SubcategoriaDeOtraCategoria_RechazaSinCambiosParciales()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var edicion = BuildEdicion(j.Producto, j.SubDeOtra.Id, j.SubmarcaB.Id);
+        edicion.Nombre = "Nombre que no debe guardarse";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(edicion));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubA.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaA.Id, bd.SubmarcaId);
+        Assert.Equal(j.Producto.Nombre, bd.Nombre);
+    }
+
+    [Fact]
+    public async Task PROD04_Update_SubmarcaDeOtraMarca_RechazaSinCambiosParciales()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var edicion = BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaDeOtra.Id);
+        edicion.Nombre = "Nombre que no debe guardarse";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(edicion));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubA.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaA.Id, bd.SubmarcaId);
+        Assert.Equal(j.Producto.Nombre, bd.Nombre);
+    }
+
+    [Fact]
+    public async Task PROD04_Update_MarcaRaizComoSubmarca_Rechaza()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubA.Id, j.OtraMarca.Id)));
+    }
+
+    [Fact]
+    public async Task PROD05_Update_SubmarcaYSubcategoriaInexistentesOEliminadas_Rechaza()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+
+        // Inexistentes.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubA.Id, 999999)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, 999999, j.SubmarcaA.Id)));
+
+        // Eliminadas (soft-delete).
+        j.SubmarcaB.IsDeleted = true;
+        j.SubB.IsDeleted = true;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubA.Id, j.SubmarcaB.Id)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaA.Id)));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubA.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaA.Id, bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task PROD05_Update_SubmarcaInactivaNueva_Rechaza_PeroLaYaAsignadaSeConserva()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        j.SubmarcaA.Activo = false;
+        j.SubmarcaB.Activo = false;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // El selector de submarcas solo ofrece activas: asignar una inactiva distinta es inválido.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubA.Id, j.SubmarcaB.Id)));
+
+        // Editar otros campos de un producto cuya submarca ya asignada se dio de baja no debe quedar bloqueado.
+        var edicion = BuildEdicion(j.Producto, j.SubA.Id, j.SubmarcaA.Id);
+        edicion.Nombre = "Renombrado";
+        await _service.UpdateAsync(edicion);
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubmarcaA.Id, bd.SubmarcaId);
+        Assert.Equal("Renombrado", bd.Nombre);
+    }
+
+    [Fact]
+    public async Task PROD06_Update_RowVersionObsoleto_NoPermiteActualizacionPerdida()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var versionLeida = j.Producto.RowVersion;
+
+        // Otra sesión guarda primero.
+        await _service.UpdateAsync(BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaB.Id));
+        _context.ChangeTracker.Clear();
+        // SQL Server rota rowversion en cada UPDATE; SQLite no lo hace solo, así que se emula.
+        await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE Productos SET RowVersion = randomblob(8) WHERE Id = {j.Producto.Id}");
+
+        // La segunda edición parte de la versión vieja.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(BuildEdicion(j.Producto, j.SubA.Id, j.SubmarcaA.Id, versionLeida)));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubB.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaB.Id, bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task PROD06_Update_SinRowVersion_RechazaYNoGuardaRelaciones()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var edicion = BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaB.Id);
+        edicion.RowVersion = null!;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(edicion));
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(j.SubA.Id, bd.SubcategoriaId);
+        Assert.Equal(j.SubmarcaA.Id, bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task PROD07_Update_CambiaRelacionesSinPermitirModificarStockActual()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var edicion = BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaB.Id);
+        edicion.StockActual = 999m;
+
+        await _service.UpdateAsync(edicion);
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(10m, bd.StockActual);
+        Assert.Equal(j.SubB.Id, bd.SubcategoriaId);
+    }
+
+    [Fact]
+    public async Task PROD08_Update_CambiaRelacionesYPrecio_RegistraHistorialDePrecio()
+    {
+        var j = await SeedProductoConJerarquiaAsync();
+        var llamadasAntes = StubPrecioHistoricoServiceProd.LlamadasRegistrar;
+        var edicion = BuildEdicion(j.Producto, j.SubB.Id, j.SubmarcaB.Id);
+        edicion.PrecioVenta = 80m;
+
+        await _service.UpdateAsync(edicion);
+
+        var bd = await LeerConContextoNuevoAsync(j.Producto.Id);
+        Assert.Equal(80m, bd.PrecioVenta);
+        Assert.Equal(j.SubB.Id, bd.SubcategoriaId);
+        Assert.True(StubPrecioHistoricoServiceProd.LlamadasRegistrar > llamadasAntes);
+        Assert.Equal(1, await _context.CambioPrecioEventos.CountAsync());
+    }
+
+    // -------------------------------------------------------------------------
     // DeleteAsync
     // -------------------------------------------------------------------------
 

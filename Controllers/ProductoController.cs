@@ -378,6 +378,25 @@ namespace TheBuryProject.Controllers
                         .Select(p => p.CostoEnvio)
                         .FirstOrDefaultAsync();
                 }
+                // Subcategoría/submarca: el select vacío envía "" (= quitar la selección, se persiste null), pero un
+                // cliente que ni siquiera envía el campo no debe borrar lo guardado. El binding de MVC no distingue
+                // ambos casos (los dos dan null), por eso se mira si la clave llegó: ModelState solo registra los
+                // campos que el cliente envió (aunque sea con valor vacío).
+                var omiteSubcategoria = !ModelState.ContainsKey(nameof(ProductoViewModel.SubcategoriaId));
+                var omiteSubmarca = !ModelState.ContainsKey(nameof(ProductoViewModel.SubmarcaId));
+                if (omiteSubcategoria || omiteSubmarca)
+                {
+                    var persistidas = await _context.Productos
+                        .AsNoTracking()
+                        .Where(p => p.Id == id)
+                        .Select(p => new { p.SubcategoriaId, p.SubmarcaId })
+                        .FirstOrDefaultAsync();
+                    if (persistidas != null)
+                    {
+                        if (omiteSubcategoria) producto.SubcategoriaId = persistidas.SubcategoriaId;
+                        if (omiteSubmarca) producto.SubmarcaId = persistidas.SubmarcaId;
+                    }
+                }
                 await _productoService.UpdateAsync(producto);
 
                 await transaction.CommitAsync();
