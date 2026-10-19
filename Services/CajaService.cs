@@ -499,7 +499,8 @@ namespace TheBuryProject.Services
             int aperturaId,
             Func<Task<T>> operacion,
             bool validarVigencia = true,
-            string mensajeCerrada = "No se pueden registrar movimientos en una caja cerrada")
+            string mensajeCerrada = "No se pueden registrar movimientos en una caja cerrada",
+            string? usuarioPropietario = null)
         {
             var propia = _context.Database.CurrentTransaction == null;
             await using var transaccion = propia ? await _context.Database.BeginTransactionAsync() : null;
@@ -517,6 +518,14 @@ namespace TheBuryProject.Services
             if (validarVigencia && EsAperturaVencida(apertura))
             {
                 throw new InvalidOperationException(MensajeCajaVencida);
+            }
+
+            // H-CAJA-4: el id de una apertura resuelto antes del lock es solo un candidato; bajo el lock se exige que
+            // siga siendo la caja del usuario que opera (nunca se acepta ni se sustituye por la de otro usuario).
+            if (usuarioPropietario != null
+                && !string.Equals(apertura.UsuarioApertura, usuarioPropietario, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("La caja indicada no pertenece al usuario que registra el movimiento.");
             }
 
             var resultado = await operacion();
@@ -1042,7 +1051,7 @@ namespace TheBuryProject.Services
                 medioPago,
                 usuario);
 
-        public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+        public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
             int cuotaId,
             string creditoNumero,
             int numeroCuota,
@@ -1051,26 +1060,69 @@ namespace TheBuryProject.Services
             TipoPago? tipoPago,
             string medioPago,
             string usuario)
+            => RegistrarMovimientoCuotaCoreAsync(
+                cuotaId, creditoNumero, numeroCuota, montoBase, recargoMedioPago, tipoPago, medioPago, usuario,
+                aperturaIdCandidata: null);
+
+        /// <inheritdoc/>
+        public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+            int cuotaId,
+            string creditoNumero,
+            int numeroCuota,
+            decimal montoBase,
+            decimal recargoMedioPago,
+            TipoPago? tipoPago,
+            string medioPago,
+            string usuario,
+            int aperturaIdCandidata)
+            => RegistrarMovimientoCuotaCoreAsync(
+                cuotaId, creditoNumero, numeroCuota, montoBase, recargoMedioPago, tipoPago, medioPago, usuario,
+                aperturaIdCandidata);
+
+        private async Task<MovimientoCaja?> RegistrarMovimientoCuotaCoreAsync(
+            int cuotaId,
+            string creditoNumero,
+            int numeroCuota,
+            decimal montoBase,
+            decimal recargoMedioPago,
+            TipoPago? tipoPago,
+            string medioPago,
+            string usuario,
+            int? aperturaIdCandidata)
         {
             try
             {
                 // El cobro se imputa a la caja abierta del usuario que cobra (mismo criterio que la
                 // venta). Antes caía en "la primera caja abierta del sistema": el dinero quedaba en
                 // la caja de otro usuario y el cobrador, sin caja asignada, no veía el pago.
-                var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
-                if (apertura == null)
+                //
+                // H-CAJA-4: con candidata resuelta por el llamador NO se vuelve a consultar la apertura acá (esa
+                // lectura, bajo la transacción SERIALIZABLE del cobro, deja un RangeS-S que choca con el cierre).
+                // Se toma el lock de la apertura de inmediato y BajoLockDeAperturaAsync revalida todo desde la base.
+                int aperturaId;
+                if (aperturaIdCandidata.HasValue)
                 {
-                    _logger.LogWarning(
-                        "El usuario {Usuario} no tiene caja abierta para registrar cobro de cuota {CreditoNumero} #{NumeroCuota}",
-                        usuario, creditoNumero, numeroCuota);
-                    return null;
+                    aperturaId = aperturaIdCandidata.Value;
+                }
+                else
+                {
+                    var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
+                    if (apertura == null)
+                    {
+                        _logger.LogWarning(
+                            "El usuario {Usuario} no tiene caja abierta para registrar cobro de cuota {CreditoNumero} #{NumeroCuota}",
+                            usuario, creditoNumero, numeroCuota);
+                        return null;
+                    }
+
+                    aperturaId = apertura.Id;
                 }
 
-                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
+                var movimiento = await BajoLockDeAperturaAsync(aperturaId, async () =>
                 {
                     var nuevo = new MovimientoCaja
                     {
-                        AperturaCajaId = apertura.Id,
+                        AperturaCajaId = aperturaId,
                         FechaMovimiento = DateTime.UtcNow,
                         Tipo = TipoMovimientoCaja.Ingreso,
                         Concepto = ConceptoMovimientoCaja.CobroCuota,
@@ -1091,7 +1143,7 @@ namespace TheBuryProject.Services
                     _context.MovimientosCaja.Add(nuevo);
                     await _context.SaveChangesAsync();
                     return nuevo;
-                });
+                }, usuarioPropietario: aperturaIdCandidata.HasValue ? usuario : null);
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para cuota #{NumeroCuota} de crédito {CreditoNumero}: ${Monto:N2} (base ${Base:N2}, ajuste medio ${Ajuste:N2})",

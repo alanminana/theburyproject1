@@ -94,6 +94,18 @@ jobs:
             --logger "console;verbosity=detailed" \
             --results-directory ./TestResults
 
+      # FIN-CAJA-4-P0 (H-CAJA-4): cobro de cuota vs. cierre de caja sin deadlock. R-01 era el escenario rojo (el cierre
+      # era victima del deadlock 1205 en 6 de 6 ejecuciones); ahora debe figurar Passed en ambos modos RCSI junto con
+      # R-02..R-05 y los CAJA-4-xx (pago multiple, adelanto, doble cobro, caja cerrada tras la seleccion, caja ajena).
+      - name: Cobro de cuota vs cierre FIN-CAJA-4-P0 (R-01..R-05, CAJA-4-04..CAJA-4-10)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~FinResidualSqlServerTests.R01_|FullyQualifiedName~FinResidualSqlServerTests.R02_|FullyQualifiedName~FinResidualSqlServerTests.R03_|FullyQualifiedName~FinResidualSqlServerTests.R04_|FullyQualifiedName~FinResidualSqlServerTests.R05_|FullyQualifiedName~FinResidualSqlServerTests.C4_"             --logger "trx;LogFileName=fin-caja4-sql-rcsi${{ matrix.rcsi }}.trx"             --logger "console;verbosity=detailed"             --results-directory ./TestResults
+
       - name: Locks de credito CONC-P0 (orden Credito -> Venta intacto)
         env:
           QA_RELEASE_TURNO: '1'
@@ -255,6 +267,28 @@ jobs:
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
           for R in R-09 R-09B R-10 R-10B R-10C R-10D R-10E; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          exit $RC
+
+      - name: Verificar cobro vs cierre FIN-CAJA-4-P0 (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          TRX=./TestResults/fin-caja4-sql-rcsi${{ matrix.rcsi }}.trx
+          if [ ! -f "$TRX" ]; then echo "No hay TRX de cobro vs cierre: los escenarios no se ejecutaron"; exit 1; fi
+          RC=0
+          {
+            echo "### Cobro de cuota vs cierre FIN-CAJA-4-P0 en SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for R in R-01 R-02 R-03 R-04 R-05 CAJA-4-04 CAJA-4-05a CAJA-4-05b CAJA-4-06a CAJA-4-06b CAJA-4-08 CAJA-4-09 CAJA-4-10; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"

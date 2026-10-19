@@ -1020,7 +1020,8 @@ namespace TheBuryProject.Services
                     cobro.RecargoMedioPago,
                     cobro.TipoPago,
                     medioPago,
-                    _currentUserService.GetUsername());
+                    _currentUserService.GetUsername(),
+                    cajaActiva.Id);
 
                 if (movimientoCaja == null)
                     throw new PagoCuotaRechazadoException(
@@ -1635,7 +1636,8 @@ namespace TheBuryProject.Services
                         recargoCuota,
                         tipoPagoMedio,
                         medioPago,
-                        usuario);
+                        usuario,
+                        cajaActiva.Id);
 
                     if (movimientoCaja == null)
                         throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago múltiple.");

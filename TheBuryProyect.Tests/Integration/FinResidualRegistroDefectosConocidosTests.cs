@@ -12,8 +12,8 @@ namespace TheBuryProject.Tests.Integration;
 /// Los 2 tests <c>Hallazgo_</c> PASAN porque REPRODUCEN defectos financieros VIGENTES (estado ABIERTO, PR correctiva
 /// PENDIENTE). Los hallazgos H-DEV-1/2/3 (CR-3, FIN-DEV-P0) H-ANT-1/2 (CR-4, FIN-ANT-P0) y H-CAJA-1 (CR-1, FIN-CAJA-P0) fueron CORREGIDOS y sus pruebas son <c>Regresion_</c>
 /// (exigen el comportamiento correcto; no se eliminó la evidencia histórica, ver docs/qa-fin-residual-registro-defectos.md).
-/// Los 6 <c>Contrato_</c> fijan comportamiento correcto. Los 10 escenarios R-xx de SQL Server están
-/// NO EJECUTADOS / BLOQUEADOS: omitirlos no equivale a PASS. Ver docs/qa-fin-residual-registro-defectos.md.
+/// Los 6 <c>Contrato_</c> fijan comportamiento correcto. Los escenarios R-xx y CAJA-4-xx de SQL Server fueron EJECUTADOS
+/// (SQL Server 2022 efímero, RCSI 0 y 1) y son regresiones: omitirlos no equivale a PASS. Ver docs/qa-fin-residual-registro-defectos.md.
 ///
 /// Al corregir un defecto, la PR correctiva debe: invertir la aserción del Hallazgo_, quitar su trait
 /// DefectoConocido, renombrarlo a Regresion_* y actualizar las cifras esperadas de este registro.
@@ -24,7 +24,7 @@ public sealed class FinResidualRegistroDefectosConocidosTests
     private const int HallazgosCorregidos = 24;
     private const int CausasRaiz = 0;
     private const int Contratos = 6;
-    private const int EscenariosSqlNoEjecutados = 8;
+    private const int EscenariosSqlNoEjecutados = 0;
 
     private readonly ITestOutputHelper _out;
 
@@ -129,21 +129,36 @@ public sealed class FinResidualRegistroDefectosConocidosTests
         }
     }
 
-    [Fact(DisplayName = "REGISTRO: 8 escenarios SQL Server R-01..R-08 NO EJECUTADOS / BLOQUEADOS (omitidos != PASS)")]
-    public void Registro_OchoEscenariosSqlServer_NoEjecutados()
+    [Fact(DisplayName = "REGISTRO: escenarios SQL Server R-01..R-14 + CAJA-4 son regresiones (0 sin ejecutar, 0 defectos confirmados abiertos)")]
+    public void Registro_EscenariosSqlServer_TodosSonRegresion()
     {
-        var escenarios = Metodos(typeof(FinResidualSqlServerTests))
-            .Where(x => x.Traits.GetValueOrDefault("Categoria") == "SqlServerNoEjecutado")
-            .ToList();
+        var todos = Metodos(typeof(FinResidualSqlServerTests)).ToList();
 
-        Assert.Equal(EscenariosSqlNoEjecutados, escenarios.Count);
-        foreach (var e in escenarios)
-        {
-            Assert.StartsWith("NO EJECUTADO / BLOQUEADO", e.DisplayName);
-            Assert.False(string.IsNullOrWhiteSpace(e.Traits.GetValueOrDefault("ResultadoEsperadoInferido")), e.Metodo.Name);
-        }
+        // Nada puede volver a figurar como "no ejecutado/bloqueado" ni como defecto confirmado abierto sin que este registro lo note.
+        Assert.Equal(EscenariosSqlNoEjecutados, todos.Count(x => x.Traits.GetValueOrDefault("Categoria") == "SqlServerNoEjecutado"));
+        Assert.DoesNotContain(todos, x => x.DisplayName.StartsWith("NO EJECUTADO", StringComparison.Ordinal));
+        Assert.DoesNotContain(todos, x => x.Traits.GetValueOrDefault("Categoria") == "DefectoConfirmadoSql");
+        Assert.DoesNotContain(todos, x => x.Traits.GetValueOrDefault("Estado") == "ABIERTO");
 
-        _out.WriteLine($"{EscenariosSqlNoEjecutados} escenarios SQL Server (R-01..R-08): NO EJECUTADOS / BLOQUEADOS. " +
-                       "Requieren un turno exclusivo con SQL Server efimero; omitirlos NO equivale a PASS.");
+        var regresiones = todos.Where(x => x.Traits.GetValueOrDefault("Categoria") == "SqlServerRegresion").ToList();
+        foreach (var r in regresiones)
+            Assert.StartsWith("SQL SERVER EFIMERO", r.DisplayName);
+
+        var nombres = regresiones.Select(x => x.Metodo.Name).ToList();
+        foreach (var esperado in new[]
+                 {
+                     "R01_", "R02_", "R03_", "R04_", "R05_", "R06_", "R07_", "R08_", "R09_", "R09B_", "R10_", "R10B_", "R10C_",
+                     "R10D_", "R10E_", "R11_", "R12_", "R13_", "R14_",
+                     "C4_04_", "C4_05a_", "C4_05b_", "C4_06a_", "C4_06b_", "C4_08_", "C4_09_", "C4_10_"
+                 })
+            Assert.Contains(nombres, n => n.StartsWith(esperado, StringComparison.Ordinal));
+
+        // H-CAJA-4 (R-01) quedó CORREGIDO por FIN-CAJA-4-P0: el test conserva el hallazgo como traza de la regresión.
+        var r01 = regresiones.Single(x => x.Metodo.Name.StartsWith("R01_", StringComparison.Ordinal));
+        Assert.Equal("H-CAJA-4", r01.Traits.GetValueOrDefault("Hallazgo"));
+        Assert.Equal("CORREGIDO", r01.Traits.GetValueOrDefault("Estado"));
+
+        _out.WriteLine($"{regresiones.Count} regresiones SQL Server (RCSI 0 y 1); 0 defectos confirmados abiertos. " +
+                       "H-CAJA-4 (deadlock cierre vs. cobro de cuota) corregido por FIN-CAJA-4-P0.");
     }
 }

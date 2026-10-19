@@ -18,14 +18,17 @@ namespace TheBuryProject.Tests.Concurrency;
 // EN UN COMANDO SQL concreto hasta que el test la libera; no hay Task.Delay como sincronización de correctitud,
 // solo como ventana de observación de "queda bloqueada").
 //
-// ESTADO: BLOCKED. Compilan, no se ejecutaron: requieren QA_RELEASE_TURNO=1 (turno exclusivo del stack FIN) y
-// QA_FIN_CONC_SQL con catálogo "qa_fin_conc*". Mismo gate de seguridad que el resto del harness: no pueden
-// tocar otra base. Catálogo propio "<base>_res" (no choca con "<base>_svc" de la otra clase al correr en paralelo).
+// ESTADO (medido, QA-FIN-SQL-HIST-P0, SQL Server 2022 efimero, RCSI 0 y RCSI 1): ver docs/qa-fin-residual-registro-defectos.md.
+//   R-01..R-14 (y los CAJA-4-xx de FinResidualSqlServerTests.Caja4.cs) PASAN (SqlServerRegresion). R-01 (H-CAJA-4,
+//   deadlock cobro de cuota vs. cierre) estuvo en rojo hasta FIN-CAJA-4-P0; R-10 (H-FACT-1) hasta FIN-FACT-P0.
+// Requieren QA_RELEASE_TURNO=1 (turno exclusivo del stack FIN) y QA_FIN_CONC_SQL con catalogo "qa_fin_conc*". Mismo gate
+// de seguridad que el resto del harness: no pueden tocar otra base. Catalogo propio "<base>_res" (no choca con
+// "<base>_svc" de la otra clase al correr en paralelo).
 //
-// Convención de resultado esperado HOY (sin corrección de producción), a confirmar en la ejecución:
-//   [esperado: FAIL]  el invariante se viola → defecto a confirmar por ejecución (hoy es riesgo INFERIDO del código)
-//   [esperado: PASS]  el invariante se conserva (por RowVersion / unique index / lock) → riesgo descartado al ejecutar
-// Los tests afirman el INVARIANTE DESEADO: los "[esperado: FAIL]" fallan hoy y pasan cuando se corrija.
+// Coordinacion (importante): la operacion detenida en la compuerta se libera SIEMPRE en un finally; la segunda
+// operacion se lanza SIN esperarla, se observa que queda bloqueada por el lock, se libera la compuerta y recien
+// entonces se esperan ambos resultados con tope. Un TIMEOUT_SQL, un DEADLOCK_VICTIMA o una operacion colgada nunca
+// cuentan como rechazo de negocio ni como PASS. Los tests afirman el INVARIANTE DESEADO.
 // ---------------------------------------------------------------------------------------------
 
 /// <summary>Catálogo propio de esta clase para poder correr en paralelo con CancelarVsPagoServiciosRealesSqlServerTests.</summary>
@@ -34,7 +37,7 @@ public sealed class FinResidualSqlHostFixture : ConcSqlHostFixture
     protected override string SufijoCatalogo => "_res";
 }
 
-public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture>
+public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture>
 {
     private static readonly TimeSpan EsperaCompuerta = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan EsperaObservacion = TimeSpan.FromSeconds(7);
@@ -197,6 +200,36 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
         };
         ctx.Ventas.Add(venta);
         await ctx.SaveChangesAsync();
+
+        // El fallback legado de FacturarVentaAsync da por "ya registrado" cualquier ingreso sin VentaId cuyo ReferenciaId
+        // (campo polimórfico: cuota, crédito, devolución…) coincida con el id de la venta, sin filtrar por concepto (hallazgo
+        // fuera de alcance de FIN-CAJA-4-P0, ver docs). En un catálogo compartido, un cobro de cuota con id == id de la venta
+        // anula el fallback que R-10* necesita ejercer. El test no depende de esa coincidencia de identidades: si el id
+        // nuevo colisiona con un ingreso polimórfico previo, descarta esa venta y crea otra.
+        if (!conIngreso)
+        {
+            for (var intento = 0; intento < 20; intento++)
+            {
+                var colisiona = await ctx.MovimientosCaja.AsNoTracking().AnyAsync(m =>
+                    m.VentaId == null && m.ReferenciaId == venta.Id && m.Tipo == TipoMovimientoCaja.Ingreso && !m.IsDeleted);
+                if (!colisiona) break;
+
+                venta.IsDeleted = true;
+                await ctx.SaveChangesAsync();
+                venta = new Venta
+                {
+                    Numero = "VFR" + s + intento, ClienteId = cliente.Id, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Efectivo,
+                    FechaVenta = DateTime.UtcNow, AperturaCajaId = aperturaId, Subtotal = 100m, Total = 100m,
+                    Detalles = new List<VentaDetalle>
+                    {
+                        new() { ProductoId = prod.Id, Cantidad = 2, PrecioUnitario = 50m, Subtotal = 100m, CostoUnitarioAlMomento = 17.5m, CostoTotalAlMomento = 35m }
+                    }
+                };
+                ctx.Ventas.Add(venta);
+                await ctx.SaveChangesAsync();
+            }
+        }
+
         if (conIngreso)
         {
             ctx.MovimientosCaja.Add(new MovimientoCaja
@@ -334,113 +367,240 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     // R-01 / R-02  Cobro vs. cierre de caja
     // =====================================================================================
 
-    /// <summary>
-    /// R-01 [esperado: FAIL]. El cierre ya leyó movimientos y calculó el arqueo (sin locks); un cobro entra y
-    /// confirma en esa apertura; el cierre se libera y commitea. Violación: cobro en una caja cerrada fuera del arqueo.
-    /// Invariante deseado: el cobro se rechaza (caja cerrada) o el cierre incorpora/rechaza (lock de la apertura).
-    /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-01]: CobroConfirmaEntreLecturaDelCierreYSuCommit_NoDejaMovimientoPosteriorAlCierre")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "FAIL")]
-    public async Task R01_CobroConfirmaEntreLecturaDelCierreYSuCommit_NoDejaMovimientoPosteriorAlCierre()
+    private async Task<(EstadoCuota estado, decimal montoPagado, int pagos, int cobrosEnCaja, decimal saldoCredito)> FotoCobroAsync(EscenarioSembrado s, int aperturaId)
     {
-        var aperturaId = await NuevaAperturaAsync();
-        var s = await NuevoCreditoAsync(aperturaId);
-        var plan = CierreAntesDeInsertar();
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var cuota = await ctx.Cuotas.AsNoTracking().FirstAsync(c => c.Id == s.CuotaIds[0]);
+        var pagos = await ctx.PagosCuota.AsNoTracking().CountAsync(p => p.CuotaId == cuota.Id && !p.IsDeleted);
+        var cobros = await ctx.MovimientosCaja.AsNoTracking().CountAsync(m =>
+            m.AperturaCajaId == aperturaId && m.Concepto == ConceptoMovimientoCaja.CobroCuota && !m.IsDeleted);
+        var saldo = await ctx.Creditos.AsNoTracking().Where(c => c.Id == s.CreditoId).Select(c => c.SaldoPendiente).FirstAsync();
+        return (cuota.Estado, cuota.MontoPagado, pagos, cobros, saldo);
+    }
 
-        var cierre = CerrarAsync(aperturaId, efectivo: 0m, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, cierre), "El cierre no llegó a la compuerta.");
-
-        var cobro = await CobrarCuotaAsync(s, 0);           // la apertura sigue abierta para el cobro: confirma
-        plan.Release.TrySetResult();
-        var resCierre = await cierre;
-
-        Informe("R-01", $"cobro={cobro}", $"cierre={resCierre}");
-        var viol = await ViolacionesCierreAsync(aperturaId);
-        Informe("R-01 invariante", viol.Count == 0 ? "OK" : string.Join(" | ", viol));
-        Assert.True(viol.Count == 0, string.Join(" | ", viol));
+    private async Task<(bool cerrada, int cierres, EstadoCaja estadoCaja)> FotoAperturaAsync(int aperturaId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ap = await ctx.AperturasCaja.AsNoTracking().Include(a => a.Caja).FirstAsync(a => a.Id == aperturaId);
+        var cierres = await ctx.CierresCaja.AsNoTracking().CountAsync(c => c.AperturaCajaId == aperturaId);
+        return (ap.Cerrada, cierres, ap.Caja.Estado);
     }
 
     /// <summary>
-    /// R-02 [esperado: PASS sin RCSI / FAIL con RCSI]. El cobro está en vuelo (movimiento de caja insertado, sin commit)
-    /// y arranca el cierre. En READ COMMITTED el SELECT de movimientos espera el X lock del insert y luego lo ve;
-    /// con READ_COMMITTED_SNAPSHOT lee la versión anterior y cierra sin el cobro.
+    /// R-01. El cierre ya tomó el lock de la apertura, leyó los movimientos y calculó el arqueo; se detiene justo
+    /// antes de insertar CierreCaja. Un cobro de cuota arranca en esa apertura: debe QUEDAR BLOQUEADO por el lock
+    /// (si confirmara ahora quedaría fuera del arqueo). Al liberar el cierre, el cobro se reanuda, ve la caja
+    /// cerrada y se rechaza SIN efectos parciales (cuota, ledger, caja y saldo del crédito intactos).
+    /// Un timeout o un deadlock NO cuentan como rechazo.
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-02]: CierreMientrasUnCobroEstaEnVuelo_NoDejaMovimientoPosteriorAlCierre")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "DEPENDE-RCSI")]
-    public async Task R02_CierreMientrasUnCobroEstaEnVuelo_NoDejaMovimientoPosteriorAlCierre()
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-01]: CobroConcurrenteConElCierre_QuedaEsperandoYSeRechazaSinEfectosParciales")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Estado", "CORREGIDO")]
+    [Trait("Hallazgo", "H-CAJA-4")]
+    public async Task R01_CobroConcurrenteConElCierre_QuedaEsperandoYSeRechazaSinEfectosParciales()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var s = await NuevoCreditoAsync(aperturaId);
+        var antes = await FotoCobroAsync(s, aperturaId);
+        var plan = CierreAntesDeInsertar();
+
+        Task<string>? cierre = null, cobro = null;
+        bool bloqueado;
+        try
+        {
+            cierre = CerrarAsync(aperturaId, efectivo: 0m, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, cierre), "El cierre no llegó a la compuerta.");
+
+            cobro = CobrarCuotaAsync(s, 0);
+            bloqueado = await QuedaBloqueadaAsync(cobro);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+
+        var resCierre = await ResultadoAsync("cierre", cierre!, plan);
+        var resCobro = await ResultadoAsync("cobro", cobro!, plan);
+        var despues = await FotoCobroAsync(s, aperturaId);
+        var viol = await ViolacionesCierreAsync(aperturaId);
+        var foto = await FotoAperturaAsync(aperturaId);
+
+        Informe("R-01", $"cobro bloqueado por el lock del cierre = {bloqueado}", $"cierre={resCierre}", $"cobro={resCobro}",
+            $"cuota {antes.estado}/{antes.montoPagado} -> {despues.estado}/{despues.montoPagado}, pagos={despues.pagos}, cobros en caja={despues.cobrosEnCaja}, saldo crédito={despues.saldoCredito}",
+            $"apertura cerrada={foto.cerrada} cierres={foto.cierres} caja={foto.estadoCaja}",
+            "invariante I-CAJA: " + (viol.Count == 0 ? "OK" : string.Join(" | ", viol)));
+
+        Assert.True(bloqueado, "El cobro no esperó el lock de la apertura tomado por el cierre (hubiera podido confirmar fuera del arqueo).");
+        NoEsFalloDeInfraestructura("cobro", resCobro);
+        NoEsFalloDeInfraestructura("cierre", resCierre);
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Contains("cerrada", resCobro, StringComparison.OrdinalIgnoreCase);
+        Assert.True(foto.cerrada && foto.cierres == 1 && foto.estadoCaja == EstadoCaja.Cerrada);
+        Assert.Empty(viol);
+        // Sin cambios parciales: el cobro rechazado no dejó rastros.
+        Assert.Equal(antes, despues);
+        Assert.Equal(0, despues.pagos);
+        Assert.Equal(0, despues.cobrosEnCaja);
+    }
+
+    /// <summary>
+    /// R-02. El cobro está en vuelo (movimiento de caja insertado bajo el lock de la apertura, sin commit) y arranca el
+    /// cierre: debe esperar el lock; al confirmarse el cobro el cierre lo ve e INCLUYE en el arqueo (no queda nada
+    /// posterior al cierre). Vale con READ COMMITTED y con READ_COMMITTED_SNAPSHOT (el lock es UPDLOCK explícito).
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-02]: CierreMientrasUnCobroEstaEnVuelo_EsperaEIncorporaElCobro")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R02_CierreMientrasUnCobroEstaEnVuelo_EsperaEIncorporaElCobro()
     {
         var aperturaId = await NuevaAperturaAsync();
         var s = await NuevoCreditoAsync(aperturaId);
         var plan = CobroEnVuelo();
 
-        var cobro = CobrarCuotaAsync(s, 0, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, cobro), "El cobro no llegó a la compuerta.");
+        Task<string>? cobro = null, cierre = null;
+        bool bloqueado;
+        try
+        {
+            cobro = CobrarCuotaAsync(s, 0, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, cobro), "El cobro no llegó a la compuerta.");
 
-        var cierre = CerrarAsync(aperturaId, efectivo: 300m);
-        var bloqueado = await QuedaBloqueadaAsync(cierre);
-        Informe("R-02", $"cierre bloqueado por el cobro en vuelo = {bloqueado}");
-        plan.Release.TrySetResult();
-        var resCobro = await cobro;
-        var resCierre = await cierre;
+            cierre = CerrarAsync(aperturaId, efectivo: 300m);
+            bloqueado = await QuedaBloqueadaAsync(cierre);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
 
-        Informe("R-02", $"cobro={resCobro}", $"cierre={resCierre}");
+        var resCobro = await ResultadoAsync("cobro", cobro!, plan);
+        var resCierre = await ResultadoAsync("cierre", cierre!, plan);
+        var despues = await FotoCobroAsync(s, aperturaId);
         var viol = await ViolacionesCierreAsync(aperturaId);
-        Informe("R-02 invariante", viol.Count == 0 ? "OK" : string.Join(" | ", viol));
-        Assert.True(viol.Count == 0, string.Join(" | ", viol));
+        var foto = await FotoAperturaAsync(aperturaId);
+        decimal ingresosCierre;
+        using (var scope = _fx.Services.CreateScope())
+            ingresosCierre = (await scope.ServiceProvider.GetRequiredService<AppDbContext>().CierresCaja.AsNoTracking()
+                .FirstAsync(c => c.AperturaCajaId == aperturaId)).TotalIngresosSistema;
+
+        Informe("R-02", $"cierre bloqueado por el cobro en vuelo = {bloqueado}", $"cobro={resCobro}", $"cierre={resCierre}",
+            $"cuota {despues.estado}/{despues.montoPagado}, pagos={despues.pagos}, cobros en caja={despues.cobrosEnCaja}, ingresos del cierre={ingresosCierre}",
+            "invariante I-CAJA: " + (viol.Count == 0 ? "OK" : string.Join(" | ", viol)));
+
+        Assert.True(bloqueado, "El cierre no esperó el lock de la apertura tomado por el cobro en vuelo.");
+        NoEsFalloDeInfraestructura("cobro", resCobro);
+        NoEsFalloDeInfraestructura("cierre", resCierre);
+        Assert.StartsWith("OK(", resCobro);
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Empty(viol);
+        Assert.True(foto.cerrada && foto.cierres == 1 && foto.estadoCaja == EstadoCaja.Cerrada);
+        Assert.Equal(300m, ingresosCierre);                       // el arqueo incorporó el cobro
+        Assert.Equal(EstadoCuota.Pagada, despues.estado);
+        Assert.Equal(300m, despues.montoPagado);
+        Assert.Equal(1, despues.pagos);
+        Assert.Equal(1, despues.cobrosEnCaja);
+        Assert.Equal(600m, despues.saldoCredito);
     }
 
     /// <summary>
-    /// R-03 [esperado: FAIL]. Cierre detenido tras leer; la CANCELACIÓN de una venta de esa apertura confirma
-    /// (contramovimiento en la apertura original); el cierre commitea sin verlo. Mismo invariante I-CAJA.
+    /// R-03. El cierre tiene el lock de la apertura y está detenido antes de insertar CierreCaja; se lanza la
+    /// CANCELACIÓN de una venta de esa apertura. Debe quedar bloqueada en su contramovimiento (mismo lock); al liberar el
+    /// cierre, ve la caja cerrada y se rechaza revirtiendo TODA su transacción (venta Confirmada, stock sin devolver,
+    /// sin contramovimiento). Timeout/deadlock no cuentan.
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-03]: CancelacionConfirmaEntreLecturaDelCierreYSuCommit_NoDejaMovimientoPosteriorAlCierre")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "FAIL")]
-    public async Task R03_CancelacionConfirmaEntreLecturaDelCierreYSuCommit_NoDejaMovimientoPosteriorAlCierre()
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-03]: CancelacionConcurrenteConElCierre_QuedaEsperandoYSeRechazaSinEfectosParciales")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R03_CancelacionConcurrenteConElCierre_QuedaEsperandoYSeRechazaSinEfectosParciales()
     {
         var aperturaId = await NuevaAperturaAsync();
-        var v = await NuevaVentaContadoAsync(aperturaId);
+        var v = await NuevaVentaContadoAsync(aperturaId, stock: 10m);
         var plan = CierreAntesDeInsertar();
 
-        var cierre = CerrarAsync(aperturaId, efectivo: 100m, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, cierre));
+        Task<string>? cierre = null, cancel = null;
+        bool bloqueada;
+        try
+        {
+            cierre = CerrarAsync(aperturaId, efectivo: 100m, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, cierre), "El cierre no llegó a la compuerta.");
 
-        var cancel = await CancelarVentaAsync(v.VentaId);
-        plan.Release.TrySetResult();
-        var resCierre = await cierre;
+            cancel = CancelarVentaAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(cancel);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
 
-        Informe("R-03", $"cancelación={cancel}", $"cierre={resCierre}");
+        var resCierre = await ResultadoAsync("cierre", cierre!, plan);
+        var resCancel = await ResultadoAsync("cancelación", cancel!, plan);
+        var (ing, egr) = await CajaDeVentaAsync(v.VentaId);
+        var stock = await StockAsync(v.ProductoId);
+        var estado = await EstadoVentaAsync(v.VentaId);
         var viol = await ViolacionesCierreAsync(aperturaId);
-        Informe("R-03 invariante", viol.Count == 0 ? "OK" : string.Join(" | ", viol));
-        Assert.True(viol.Count == 0, string.Join(" | ", viol));
+        var foto = await FotoAperturaAsync(aperturaId);
+
+        Informe("R-03", $"cancelación bloqueada por el lock del cierre = {bloqueada}", $"cierre={resCierre}", $"cancelación={resCancel}",
+            $"venta={estado} caja: ingresos={ing} egresos={egr} stock={stock}", $"apertura cerrada={foto.cerrada} cierres={foto.cierres}",
+            "invariante I-CAJA: " + (viol.Count == 0 ? "OK" : string.Join(" | ", viol)));
+
+        Assert.True(bloqueada, "La cancelación no esperó el lock de la apertura tomado por el cierre (su contramovimiento hubiera quedado fuera del arqueo).");
+        NoEsFalloDeInfraestructura("cancelación", resCancel);
+        NoEsFalloDeInfraestructura("cierre", resCierre);
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Contains("caja ya cerrada", resCancel, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(viol);
+        Assert.True(foto.cerrada && foto.cierres == 1);
+        // Rollback íntegro de la cancelación rechazada: ni venta cancelada, ni stock devuelto, ni contramovimiento.
+        Assert.Equal(EstadoVenta.Confirmada, estado);
+        Assert.Equal(100m, ing);
+        Assert.Equal(0m, egr);
+        Assert.Equal(10m, stock);
     }
 
     /// <summary>
-    /// R-04 [esperado: PASS (inseguro pero seguro)]. Dos cierres simultáneos de la misma apertura: el índice único
-    /// de CierreCaja.AperturaCajaId y la RowVersion de AperturaCaja deben dejar exactamente un cierre. Se registra
-    /// cómo falla el segundo (hoy llega al usuario como mensaje crudo de EF: TempData["Error"] = ex.Message).
+    /// R-04. Dos cierres de la misma apertura: el primero tiene el lock y está detenido antes de insertar CierreCaja; el
+    /// segundo debe quedar bloqueado en el lock; al liberar, el primero cierra y el segundo ve "La caja ya está
+    /// cerrada" y se rechaza. Exactamente un CierreCaja (no un timeout ni una excepción de índice único).
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-04]: DosCierresSimultaneos_DejanExactamenteUnCierre")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "PASS")]
-    public async Task R04_DosCierresSimultaneos_DejanExactamenteUnCierre()
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-04]: DosCierresSimultaneos_SeSerializanYDejanExactamenteUnCierre")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    public async Task R04_DosCierresSimultaneos_SeSerializanYDejanExactamenteUnCierre()
     {
         var aperturaId = await NuevaAperturaAsync();
         var plan = CierreAntesDeInsertar();
-        var primero = CerrarAsync(aperturaId, efectivo: 0m, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, primero));
 
-        var segundo = await CerrarAsync(aperturaId, efectivo: 0m);   // este completa
-        plan.Release.TrySetResult();
-        var resPrimero = await primero;
+        Task<string>? primero = null, segundo = null;
+        bool bloqueado;
+        try
+        {
+            primero = CerrarAsync(aperturaId, efectivo: 0m, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, primero), "El primer cierre no llegó a la compuerta.");
 
-        Informe("R-04", $"segundo(completo)={segundo}", $"primero(liberado)={resPrimero}");
-        using var scope = _fx.Services.CreateScope();
-        var n = await scope.ServiceProvider.GetRequiredService<AppDbContext>().CierresCaja.CountAsync(c => c.AperturaCajaId == aperturaId);
-        Assert.Equal(1, n);
-        Assert.Equal(1, new[] { segundo, resPrimero }.Count(x => x.StartsWith("OK(")));
+            segundo = CerrarAsync(aperturaId, efectivo: 0m);
+            bloqueado = await QuedaBloqueadaAsync(segundo);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+
+        var resPrimero = await ResultadoAsync("primer cierre", primero!, plan);
+        var resSegundo = await ResultadoAsync("segundo cierre", segundo!, plan);
+        var foto = await FotoAperturaAsync(aperturaId);
+        var viol = await ViolacionesCierreAsync(aperturaId);
+
+        Informe("R-04", $"segundo cierre bloqueado por el primero = {bloqueado}", $"primero={resPrimero}", $"segundo={resSegundo}",
+            $"cierres={foto.cierres} apertura cerrada={foto.cerrada} caja={foto.estadoCaja}");
+
+        Assert.True(bloqueado, "El segundo cierre no esperó el lock de la apertura tomado por el primero.");
+        NoEsFalloDeInfraestructura("primer cierre", resPrimero);
+        NoEsFalloDeInfraestructura("segundo cierre", resSegundo);
+        Assert.StartsWith("OK(", resPrimero);
+        Assert.Contains("ya está cerrada", resSegundo, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, foto.cierres);
+        Assert.True(foto.cerrada);
+        Assert.Equal(EstadoCaja.Cerrada, foto.estadoCaja);
+        Assert.Empty(viol);
     }
 
     // =====================================================================================
@@ -448,13 +608,13 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     // =====================================================================================
 
     /// <summary>
-    /// R-05 [esperado: PASS por RowVersion de Caja]. Dos aperturas simultáneas de la MISMA caja: no existe índice
-    /// único filtrado (CajaId, Cerrada=0); la única defensa es que ambas actualizan Caja.Estado con RowVersion.
-    /// Si el esquema deja de actualizar la fila de Caja, este test se pone en rojo.
+    /// R-05. Dos aperturas simultáneas de la MISMA caja: no existe índice único filtrado (CajaId, Cerrada=0); la
+    /// defensa es que ambas actualizan Caja.Estado con RowVersion. La primera se detiene antes de insertar la
+    /// apertura, la segunda completa, y al liberar la primera el UPDATE de Caja debe fallar por RowVersion
+    /// (rechazo de concurrencia, no timeout ni deadlock). Una sola apertura abierta y la caja Abierta.
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-05]: DosAperturasSimultaneasDeLaMismaCaja_DejanUnaSolaAbierta")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "PASS")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-05]: DosAperturasSimultaneasDeLaMismaCaja_DejanUnaSolaAbierta")]
+    [Trait("Categoria", "SqlServerRegresion")]
     public async Task R05_DosAperturasSimultaneasDeLaMismaCaja_DejanUnaSolaAbierta()
     {
         int cajaId;
@@ -471,17 +631,36 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
             (await sp.GetRequiredService<ICajaService>().AbrirCajaAsync(new AbrirCajaViewModel { CajaId = cajaId, MontoInicial = 0m }, ConcCurrentUser.Usuario)).Id);
 
         var plan = Compuerta("apertura/antes-de-insertar", "INSERT INTO [AperturasCaja]");
-        var primera = Abrir(plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, primera));
-        var segunda = await Abrir(null);
-        plan.Release.TrySetResult();
-        var resPrimera = await primera;
+        Task<string>? primera = null;
+        string segunda;
+        try
+        {
+            primera = Abrir(plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, primera), "La primera apertura no llegó a la compuerta.");
+            segunda = await ResultadoAsync("segunda apertura", Abrir(null), plan);   // no hay lock compartido: completa
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resPrimera = await ResultadoAsync("primera apertura", primera!, plan);
 
-        Informe("R-05", $"segunda(completa)={segunda}", $"primera(liberada)={resPrimera}");
-        using var check = _fx.Services.CreateScope();
-        var abiertas = await check.ServiceProvider.GetRequiredService<AppDbContext>().AperturasCaja
-            .CountAsync(a => a.CajaId == cajaId && !a.Cerrada && !a.IsDeleted);
+        int abiertas;
+        EstadoCaja estadoCaja;
+        using (var check = _fx.Services.CreateScope())
+        {
+            var ctx = check.ServiceProvider.GetRequiredService<AppDbContext>();
+            abiertas = await ctx.AperturasCaja.CountAsync(a => a.CajaId == cajaId && !a.Cerrada && !a.IsDeleted);
+            estadoCaja = await ctx.Cajas.AsNoTracking().Where(c => c.Id == cajaId).Select(c => c.Estado).FirstAsync();
+        }
+        Informe("R-05", $"segunda(completa)={segunda}", $"primera(liberada)={resPrimera}", $"aperturas abiertas={abiertas} caja={estadoCaja}");
+
+        NoEsFalloDeInfraestructura("segunda apertura", segunda);
+        NoEsFalloDeInfraestructura("primera apertura", resPrimera);
+        Assert.Equal(1, new[] { segunda, resPrimera }.Count(x => x.StartsWith("OK(", StringComparison.Ordinal)));
+        Assert.Contains("DbUpdateConcurrencyException", resPrimera);
         Assert.Equal(1, abiertas);
+        Assert.Equal(EstadoCaja.Abierta, estadoCaja);
     }
 
     // =====================================================================================
@@ -489,30 +668,49 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     // =====================================================================================
 
     /// <summary>
-    /// R-06 [esperado: FAIL]. Dos altas simultáneas de devolución sobre la misma venta (cada una por la cantidad
-    /// total): ambas leen "ya devuelto = 0". No hay lock ni fila compartida escrita. Invariante: Σ devuelta ≤ vendida.
+    /// R-06. Dos altas simultáneas de devolución sobre la misma venta (cada una por la cantidad total). La primera queda
+    /// detenida antes de insertar la cabecera, con el lock de la venta tomado (FIN-DEV-P0): la segunda debe QUEDAR
+    /// BLOQUEADA en ese lock (no leer "ya devuelto = 0"); al liberar, la primera crea la devolución y la segunda ve la
+    /// cantidad ya devuelta y se rechaza. Invariante: Σ devuelta ≤ vendida (exactamente 2). Un timeout del comando de la
+    /// segunda NO es un rechazo válido (antes este test pasaba vacío por ese timeout).
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-06]: DosDevolucionesSimultaneasPorLaCantidadTotal_NoExcedenLoVendido")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "FAIL")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-06]: DosDevolucionesSimultaneasPorLaCantidadTotal_NoExcedenLoVendido")]
+    [Trait("Categoria", "SqlServerRegresion")]
     public async Task R06_DosDevolucionesSimultaneasPorLaCantidadTotal_NoExcedenLoVendido()
     {
         var aperturaId = await NuevaAperturaAsync();
         var v = await NuevaVentaContadoAsync(aperturaId);
         var plan = Compuerta("devolucion/antes-de-insertar", "INSERT INTO [Devoluciones]");
 
-        var primera = CrearDevolucionAsync(v, cantidad: 2, plan);
-        Assert.True(await LlegoALaCompuertaAsync(plan, primera));
-        var segunda = await CrearDevolucionAsync(v, cantidad: 2);
-        plan.Release.TrySetResult();
-        var resPrimera = await primera;
+        Task<string>? primera = null, segunda = null;
+        bool bloqueada;
+        try
+        {
+            primera = CrearDevolucionAsync(v, cantidad: 2, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, primera), "La primera alta no llegó a la compuerta.");
+            segunda = CrearDevolucionAsync(v, cantidad: 2);
+            bloqueada = await QuedaBloqueadaAsync(segunda);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resPrimera = await ResultadoAsync("primera alta", primera!, plan);
+        var resSegunda = await ResultadoAsync("segunda alta", segunda!, plan);
 
-        Informe("R-06", $"segunda(completa)={segunda}", $"primera(liberada)={resPrimera}");
+        Informe("R-06", $"segunda alta bloqueada por la primera = {bloqueada}", $"primera={resPrimera}", $"segunda={resSegunda}");
         using var scope = _fx.Services.CreateScope();
         var devuelto = await scope.ServiceProvider.GetRequiredService<AppDbContext>().DevolucionDetalles
             .Where(d => !d.IsDeleted && d.Devolucion.VentaId == v.VentaId && d.Devolucion.Estado != EstadoDevolucion.Rechazada)
             .SumAsync(d => d.Cantidad);
-        Assert.True(devuelto <= 2, $"Devuelto acumulado {devuelto} > vendido 2.");
+        Informe("R-06", $"devuelto acumulado={devuelto} (vendido 2)");
+
+        Assert.True(bloqueada, "La segunda alta no esperó el lock de la venta tomado por la primera.");
+        NoEsFalloDeInfraestructura("primera alta", resPrimera);
+        NoEsFalloDeInfraestructura("segunda alta", resSegunda);
+        Assert.Equal(1, new[] { resPrimera, resSegunda }.Count(x => x.StartsWith("OK(", StringComparison.Ordinal)));
+        Assert.Equal(2m, devuelto);
+        Assert.Equal(1, await DevolucionesAsync(v.VentaId));
     }
 
     /// <summary>
@@ -522,9 +720,8 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     /// devolución Completada y se rechaza. Lo que sale de caja no supera lo ingresado y el stock no supera
     /// lo existente más lo vendido (variante determinista de H-DEV-2/H-DEV-3).
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-07]: CompletarDevolucionYCancelarLaMismaVenta_NoSacaMasDineroNiMasStockQueLoVendido")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "FAIL")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-07]: CompletarDevolucionYCancelarLaMismaVenta_NoSacaMasDineroNiMasStockQueLoVendido")]
+    [Trait("Categoria", "SqlServerRegresion")]
     public async Task R07_CompletarDevolucionYCancelarLaMismaVenta_NoSacaMasDineroNiMasStockQueLoVendido()
     {
         var aperturaId = await NuevaAperturaAsync();
@@ -761,9 +958,8 @@ public class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHostFixture
     /// R-08 [esperado: PASS]. Dos completar simultáneos de la MISMA devolución (doble clic): estado + RowVersion
     /// deben dejar un único reembolso y un único reintegro de stock.
     /// </summary>
-    [SqlServerConcFact(DisplayName = "NO EJECUTADO / BLOQUEADO [R-08]: DosCompletarSimultaneosDeLaMismaDevolucion_ReembolsanUnaSolaVez")]
-    [Trait("Categoria", "SqlServerNoEjecutado")]
-    [Trait("ResultadoEsperadoInferido", "PASS")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-08]: DosCompletarSimultaneosDeLaMismaDevolucion_ReembolsanUnaSolaVez")]
+    [Trait("Categoria", "SqlServerRegresion")]
     public async Task R08_DosCompletarSimultaneosDeLaMismaDevolucion_ReembolsanUnaSolaVez()
     {
         var aperturaId = await NuevaAperturaAsync();

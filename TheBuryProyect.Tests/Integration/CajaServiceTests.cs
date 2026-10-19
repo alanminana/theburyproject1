@@ -900,6 +900,67 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(5_000m, resultado.DescuentoMedioPago);
     }
 
+    // FIN-CAJA-4-P0: con apertura candidata resuelta por el llamador (antes de su transacción), el servicio no
+    // vuelve a consultar la apertura: toma el lock y revalida estado y propietario desde la base.
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConAperturaCandidataPropia_PersistMovimientoEnEsaApertura()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CRED-C4A", numeroCuota: 1, montoBase: 500m, recargoMedioPago: 0m,
+            tipoPago: null, medioPago: "Efectivo", usuario: "testuser", aperturaIdCandidata: apertura.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(apertura.Id, resultado!.AperturaCajaId);
+        Assert.Equal(500m, resultado.Monto);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConAperturaCandidataDeOtroUsuario_RechazaYNoImputa()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja); // abierta por "testuser"
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CRED-C4B", numeroCuota: 1, montoBase: 500m, recargoMedioPago: 0m,
+            tipoPago: null, medioPago: "Efectivo", usuario: "otro-usuario", aperturaIdCandidata: apertura.Id));
+
+        Assert.Contains("no pertenece", ex.Message);
+        Assert.Empty(_context.MovimientosCaja.Where(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota));
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConAperturaCandidataCerrada_RechazaYNoEligeOtraCaja()
+    {
+        var cajaCerrada = await SeedCajaAsync();
+        var aperturaCerrada = await AbrirCajaAsync(cajaCerrada);
+        aperturaCerrada.Cerrada = true;
+        await _context.SaveChangesAsync();
+
+        var cajaAbierta = await SeedCajaAsync();
+        await AbrirCajaAsync(cajaAbierta); // otra caja abierta del MISMO usuario: no debe recibir el cobro
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CRED-C4C", numeroCuota: 1, montoBase: 500m, recargoMedioPago: 0m,
+            tipoPago: null, medioPago: "Efectivo", usuario: "testuser", aperturaIdCandidata: aperturaCerrada.Id));
+
+        Assert.Contains("cerrada", ex.Message);
+        Assert.Empty(_context.MovimientosCaja.Where(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota));
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConAperturaCandidataInexistente_Rechaza()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CRED-C4D", numeroCuota: 1, montoBase: 500m, recargoMedioPago: 0m,
+            tipoPago: null, medioPago: "Efectivo", usuario: "testuser", aperturaIdCandidata: 999_999));
+
+        Assert.Contains("no encontrada", ex.Message);
+    }
+
     // -------------------------------------------------------------------------
     // RegistrarMovimientoVentaAsync — crédito personal y cuenta corriente → null
     // -------------------------------------------------------------------------

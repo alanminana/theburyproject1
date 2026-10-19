@@ -1,14 +1,14 @@
 # QA-FIN-RESIDUAL — Registro de defectos financieros conocidos
 
-> **Estado tras FIN-CAJA-3-P0: 9 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
+> **Estado tras FIN-CAJA-4-P0: 10 hallazgos CORREGIDOS (H-DEV-1, H-DEV-2, H-DEV-3 — causa raíz CR-3, FIN-DEV-P0 —,
 > H-ANT-1, H-ANT-2 — causa raíz CR-4, FIN-ANT-P0 —, H-CAJA-1, H-CAJA-2 — causa raíz CR-1, FIN-CAJA-P0 y FIN-CAJA-2-P0 —,
-> H-IDEM-1 — causa raíz CR-5, FIN-IDEM-P0 — y H-CAJA-3 — causa raíz CR-2, FIN-CAJA-3-P0) con pruebas de regresión; no
-> quedan hallazgos ABIERTOS. La conciliación auditada de pagos posteriores al cierre sigue PENDIENTE (funcionalidad separada,
-> NO implementada).**
+> H-IDEM-1 — causa raíz CR-5, FIN-IDEM-P0 —, H-CAJA-3 — causa raíz CR-2, FIN-CAJA-3-P0 — y H-CAJA-4 — deadlock cierre vs.
+> cobro de cuota, FIN-CAJA-4-P0) con pruebas de regresión; no quedan hallazgos ABIERTOS en este registro. La conciliación
+> auditada de pagos posteriores al cierre sigue PENDIENTE (funcionalidad separada, NO implementada).**
 > Un test `Hallazgo_` en verde significa que **reprodujo un defecto vigente**, no que esté corregido.
-> De los 10 escenarios SQL Server (R-01 a R-10), **R-06, R-07, R-08, R-09 y R-10 se ejecutan ahora contra un SQL Server
-> efímero** en `.github/workflows/fin-dev-sqlserver.yml` (más R-09B, R-10B, R-10C, R-11, R-12, R-13 y R-14, nuevos); los
-> otros 5 (R-01 … R-05) siguen **NO EJECUTADOS / BLOQUEADOS**: omitirlos no equivale a PASS.
+> Los 10 escenarios históricos SQL Server (R-01 a R-10) están **EJECUTADOS y APROBADOS** contra un SQL Server efímero
+> (RCSI 0 y 1) en `.github/workflows/fin-dev-sqlserver.yml`, junto con R-09B, R-10B…R-10E, R-11…R-14 y los CAJA-4-xx de
+> FIN-CAJA-4-P0; el workflow exige `Passed` para cada uno (un omitido o «NO ENCONTRADO» hace fallar el job).
 >
 > **FIN-FACT-P0 — H-FACT-1 CORREGIDO** (hallazgo del QA histórico en SQL Server real, escenario R-10): `FacturarVentaAsync`
 > commiteaba la factura y el estado de la venta sin transacción ni lock y recién después asentaba el ingreso de caja "de
@@ -16,8 +16,16 @@
 > ventana no encontraba ingreso que contra-asentar y el ingreso posterior quedaba huérfano sobre una venta `Cancelada`
 > (medido: ingresos=100, egresos=0, con RCSI 0 y 1). Ahora factura + estado + ingreso son una sola transacción bajo los
 > locks Crédito → Venta → Apertura (el orden de la cancelación y del cierre); R-09, R-09B, R-10, R-10B y R-10C pasan en
-> ambos modos RCSI y el workflow exige `Passed` para cada uno. **H-CAJA-4 (deadlock cierre vs. cobro de cuota, R-01) sigue
-> ABIERTO y fuera de esta corrección.**
+> ambos modos RCSI y el workflow exige `Passed` para cada uno.
+>
+> **FIN-CAJA-4-P0 — H-CAJA-4 CORREGIDO** (deadlock 1205 entre el cobro de una cuota y el cierre de caja, escenario R-01; el cierre
+> era la víctima en 6 de 6 ejecuciones históricas). Causa raíz confirmada con el grafo de deadlock: el cobro (`SERIALIZABLE`)
+> releía «la apertura activa del usuario» dentro de su transacción, reteniendo `RangeS-S` sobre `AperturasCaja`, y luego
+> convertía a `U` mientras el cierre, que ya tenía `U`, convertía a `X`. Ahora el cobro usa la apertura que el servidor ya resolvió
+> antes de la transacción solo como candidata: toma el lock directo y revalida estado, vigencia y propietario bajo el lock
+> (`CajaService.RegistrarMovimientoCuotaAsync(…, aperturaIdCandidata)`). R-01 pasa 12 de 12 veces (6 en RCSI 0, 6 en RCSI 1, 0
+> deadlocks). Detalle, grafo, orden de locks y resultados en
+> [qa-fin-sql-historico-resultado.md](qa-fin-sql-historico-resultado.md).
 
 Origen: commit `24973bfe` de la rama `qa/fin-residual-20261014` (auditoría completa en
 [qa-fin-residual-auditoria.md](qa-fin-residual-auditoria.md)). Verificado contra `main` `f9e1440b`: los servicios
@@ -32,11 +40,11 @@ sobre `main` `c04f1b86`) corrigió H-DEV-1/2/3; **FIN-ANT-P0** (rama `fix/fin-an
 | `DefectoConocido` (`Hallazgo_*`) | **0** | Ninguno abierto. Si reaparece uno, pasa porque fija el comportamiento defectuoso actual. |
 | `Regresion` (`Regresion_*`; los 3 `Regresion_H_DEV_*`, los 2 `Regresion_H_ANT_*` más las matrices FIN-DEV-P0 y FIN-ANT-P0) | **5** hallazgos + matrices | El defecto está **CORREGIDO**: la prueba exige el comportamiento correcto y falla contra el código anterior. |
 | `ContratoValido` (`Contrato_*`) | **6** | Comportamiento correcto que debe preservarse. No son bugs. |
-| `SqlServerNoEjecutado` (`R01`..`R08`) | **8** | Omitidos (BLOCKED) en el CI general, que no tiene SQL Server. **R-06/R-07/R-08 sí se ejecutan** en `fin-dev-sqlserver.yml`; R-01 … R-05 **no se ejecutaron nunca** en CI. |
-| `SqlServerRegresion` (`R09`, `R09B`, `R10`, `R10B`, `R10C`, `R11`..`R14`) | **9** | R-11 … R-14 de FIN-DEV-P0 y R-09 … R-10C de FIN-FACT-P0 (H-FACT-1): se ejecutan solo en `fin-dev-sqlserver.yml` (SQL Server efímero, con y sin RCSI). |
+| `SqlServerNoEjecutado` | **0** | Ninguno. Si reaparece uno, es un escenario omitido (BLOCKED) y **no** cuenta como aprobado. |
+| `SqlServerRegresion` (`R01`…`R14`, `C4_*`) | **27** | Todos los escenarios SQL Server: R-01 … R-05 (cierre de caja; R-01 = H-CAJA-4), R-06 … R-08 y R-11 … R-14 (FIN-DEV-P0), R-09 … R-10E (FIN-FACT-P0) y los CAJA-4-04…10 de FIN-CAJA-4-P0. Se ejecutan solo en `fin-dev-sqlserver.yml` (SQL Server efímero, con y sin RCSI); el CI general los omite. |
 
 Los nombres visibles en CI llevan el prefijo `DEFECTO CONOCIDO ABIERTO [H-…]`, `CONTRATO VALIDO …` o
-`NO EJECUTADO / BLOQUEADO [R-…]`. El test `FinResidualRegistroDefectosConocidosTests` falla si alguien quita un
+`SQL SERVER EFIMERO [R-…]`. El test `FinResidualRegistroDefectosConocidosTests` falla si alguien quita un
 hallazgo o sus metadatos sin actualizar este registro. Filtros útiles:
 `dotnet test --filter "Categoria=DefectoConocido"`, `--filter "Categoria=ContratoValido"`.
 
@@ -248,19 +256,18 @@ rollback total (CAJA-05), contramovimiento en vuelo (CAJA-06), modo RCSI efectiv
 `Contrato_PagoMultipleDeCuotas_ReintentoConLaMismaRowVersion_SeRechazaSinDuplicar`,
 `Contrato_CancelarVenta_Reintento_NoDuplicaContramovimientoNiStock`.
 
-## Los 10 escenarios SQL Server (R-06/R-07/R-08 ejecutados en CI efímero; los otros 7 NO EJECUTADOS)
+## Los escenarios SQL Server (todos EJECUTADOS en CI efímero, RCSI 0 y 1)
 
-`FinResidualSqlServerTests` exige `QA_RELEASE_TURNO=1` **y** `QA_FIN_CONC_SQL` (catálogo `qa_fin_conc*`). Ninguno de
-los workflows actuales los define, así que **nunca se ejecutaron**. El resultado esperado es una **inferencia de la
-lectura del código**, no un resultado medido.
+`FinResidualSqlServerTests` exige `QA_RELEASE_TURNO=1` **y** `QA_FIN_CONC_SQL` (catálogo `qa_fin_conc*`); `fin-dev-sqlserver.yml`
+los define y verifica que cada uno figure `Passed` en el TRX. Resultados **medidos** (ya no inferidos):
 
-| Escenario | Qué prueba | Resultado esperado (inferido, no medido) |
+| Escenario | Qué prueba | Resultado |
 |---|---|---|
-| R-01 | Cobro entra entre la lectura del cierre y su commit | FAIL |
-| R-02 | Cierre con un cobro en vuelo | Depende de RCSI |
-| R-03 | Cancelación entre la lectura del cierre y su commit | FAIL |
-| R-04 | Dos cierres simultáneos | PASS |
-| R-05 | Dos aperturas simultáneas de la misma caja | PASS |
+| R-01 | Cierre con el lock tomado vs. cobro de cuota que arranca después — H-CAJA-4 | **FAIL medido antes** de FIN-CAJA-4-P0 (deadlock, el cierre es la víctima); **PASS medido ahora** (RCSI 0 y 1, 12/12 repeticiones). **Ejecutado en CI** |
+| R-02 | Cierre con un cobro en vuelo | **PASS medido** (RCSI 0 y 1). **Ejecutado en CI** |
+| R-03 | Cancelación de venta vs. cierre con el lock tomado | **PASS medido**. **Ejecutado en CI** |
+| R-04 | Dos cierres simultáneos | **PASS medido**. **Ejecutado en CI** |
+| R-05 | Dos aperturas simultáneas de la misma caja | **PASS medido**. **Ejecutado en CI** |
 | R-06 | Dos altas de devolución por la cantidad total | FAIL (antes de FIN-DEV-P0). **Ejecutado en `fin-dev-sqlserver.yml`** |
 | R-07 | Completar devolución mientras se cancela la venta | FAIL (antes de FIN-DEV-P0). **Reescrito para la regla nueva y ejecutado en `fin-dev-sqlserver.yml`** |
 | R-08 | Doble completar simultáneo | PASS. **Ejecutado en `fin-dev-sqlserver.yml`** |
@@ -269,6 +276,13 @@ lectura del código**, no un resultado medido.
 | R-10 | Cancelar entre la factura y su ingreso de respaldo (legado) — H-FACT-1 | **FAIL medido antes** de FIN-FACT-P0 (ingresos=100, egresos=0); **PASS medido ahora** (RCSI 0 y 1). **Ejecutado en CI** |
 | R-10B | Dos facturaciones simultáneas de la misma venta legada | **PASS medido**. Nuevo, ejecutado en CI |
 | R-10C | Facturar mientras se cierra la caja | **PASS medido**. Nuevo, ejecutado en CI |
+| R-10D / R-10E | Facturar en transacción ambiental que falla (se confirma / no se reintenta) | **PASS medido**. Ejecutados en CI (FIN-FACT-HARDENING-P0) |
+| CAJA-4-04 | Dos cobros de la misma cuota | **PASS medido** (un pago, un movimiento). FIN-CAJA-4-P0 |
+| CAJA-4-05a/b | Pago de varias cuotas vs. cierre (cierre primero / cobro primero) | **PASS medido**; el rechazado no deja efectos parciales. FIN-CAJA-4-P0 |
+| CAJA-4-06a/b | Adelanto de cuota vs. cierre (ambos órdenes) | **PASS medido**. FIN-CAJA-4-P0 |
+| CAJA-4-08 | La apertura se cierra después de la selección previa y antes del lock | **PASS medido**: rechazo, sin elegir otra caja. FIN-CAJA-4-P0 |
+| CAJA-4-09 | Apertura candidata de otro usuario | **PASS medido**: no recibe el movimiento. FIN-CAJA-4-P0 |
+| CAJA-4-10 | Totales y diferencia del cierre en ambos órdenes y con faltante | **PASS medido**. FIN-CAJA-4-P0 |
 
 ## Plan: de Hallazgo_ a test de regresión
 
@@ -276,7 +290,7 @@ Cada PR correctiva, una por causa raíz y en este orden (de mayor a menor riesgo
 
 1. ~~**CR-3**~~ (devolución↔venta): **hecho en FIN-DEV-P0**. ~~**CR-4**~~ (anticipo): **hecho en FIN-ANT-P0**.
 2. **CR-1** (guardia y lock de apertura al final del orden Crédito → Venta → Apertura): ~~H-CAJA-1~~ **hecho en FIN-CAJA-P0**; ~~H-CAJA-2~~ **hecho en FIN-CAJA-2-P0**.
-3. **CR-5** (idempotencia manual) y ~~R-10 (Facturar, H-FACT-1)~~ **hecho en FIN-FACT-P0**.
+3. **CR-5** (idempotencia manual) y ~~R-10 (Facturar, H-FACT-1)~~ **hecho en FIN-FACT-P0**; ~~H-CAJA-4 (deadlock cobro de cuota vs. cierre)~~ **hecho en FIN-CAJA-4-P0**.
 4. ~~**CR-2**~~ tras la decisión de negocio: **hecho en FIN-CAJA-3-P0**.
 
 En cada una: invertir las aserciones del `Hallazgo_`, quitar el trait `DefectoConocido`, renombrarlo a `Regresion_*`,
@@ -289,6 +303,13 @@ SQL Server efímero (con y sin RCSI) exigiendo cero deadlocks.
 2. ~~**H-DEV-2**~~ — **RESUELTA por el dueño: se rechaza cancelar con devoluciones vivas** (implementado en FIN-DEV-P0).
 3. ~~**H-ANT-1**~~ — **RESUELTA por el dueño: se rechaza cancelar con anticipo cobrado** (implementado en FIN-ANT-P0). Pendiente: diseñar el procedimiento de devolución auditada del anticipo.
 4. ~~**H-CAJA-3**~~ — **RESUELTA por el dueño: el cierre se permite con pendientes; la acreditación directa posterior al cierre se rechaza** (implementado en FIN-CAJA-3-P0). Pendiente: diseñar el procedimiento de conciliación auditada.
+
+## Hallazgos fuera de alcance, sin corregir
+
+* **Fallback de `FacturarVentaAsync` y `ReferenciaId` polimórfico** (descubierto en FIN-CAJA-4-P0): el fallback de ventas legadas da por
+  «ya registrado» cualquier ingreso `VentaId == null` con `ReferenciaId == venta.Id`, sin filtrar por concepto; un cobro de cuota con
+  `cuotaId == ventaId` suprime el ingreso de respaldo. Acotado a ventas legadas. Ver
+  [qa-fin-sql-historico-resultado.md](qa-fin-sql-historico-resultado.md).
 
 ## Limitaciones
 

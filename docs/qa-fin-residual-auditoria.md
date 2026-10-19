@@ -1,5 +1,14 @@
 # QA-FIN-RESIDUAL — Auditoría de cierre de caja, devoluciones, anticipos e idempotencia
 
+> **Actualización FIN-CAJA-4-P0 (2026-10-18):** el escenario R-01 (cierre con el lock tomado vs. cobro de cuota que
+> arranca después) reveló en SQL Server real un **deadlock 1205** (H-CAJA-4): el cobro releía la apertura bajo `SERIALIZABLE`
+> reteniendo `RangeS-S` y luego convertía a `U` mientras el cierre convertía a `X`; el cierre era la víctima. Quedó
+> **CORREGIDO** (el cobro usa la apertura candidata resuelta antes de la transacción, toma el lock directo y revalida estado,
+> vigencia y propietario bajo el lock). Todos los R-01 … R-14 y los CAJA-4-xx están **ejecutados y aprobados** en RCSI 0 y 1.
+> Las columnas «Esperado hoy» de las tablas de abajo son la **inferencia histórica** (previa a todas las correcciones y a la
+> ejecución real); los resultados medidos están en [qa-fin-sql-historico-resultado.md](qa-fin-sql-historico-resultado.md) y el
+> estado vigente en [qa-fin-residual-registro-defectos.md](qa-fin-residual-registro-defectos.md).
+
 > **Actualización FIN-DEV-P0 (2026-10-16):** H-DEV-1, H-DEV-2 y H-DEV-3 (causa raíz CR-3) fueron **CORREGIDOS** con la
 > regla conservadora aprobada (no se cancela con devoluciones vivas; no se devuelve ni se completa sobre una venta
 > cancelada). Las filas de esta auditoría son la **evidencia histórica** y no se modificaron; el estado vigente está en
