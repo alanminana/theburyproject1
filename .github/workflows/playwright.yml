@@ -158,6 +158,19 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      # Regresiones JS del front (e2e-js/): no usan la app, la base ni login (page.route sobre una pagina
+      # sintetica), por eso corren antes del suite E2E y con su propia config/outputDir
+      # (qa-evidence/e2e-js), sin tocar e2e/.auth ni qa-evidence/e2e. Sin continue-on-error: si falla, el job
+      # falla. Ademas del exit code se exige exactamente 12 pruebas esperadas, 0 omitidas/falladas/flaky,
+      # para que una corrida vacia o con skips no aparente aprobar.
+      - name: Regresiones JavaScript (harness e2e-js)
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-js-harness.json
+        run: |
+          set -euo pipefail
+          npx playwright test -c playwright.js-harness.config.js --forbid-only --reporter=list,json
+          node -e "const s=require(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME).stats; console.log(JSON.stringify(s)); if(s.expected!==12||s.skipped||s.unexpected||s.flaky){console.error('::error::Harness e2e-js: se esperaban 12 pruebas aprobadas sin omitidas/falladas/flaky'); process.exit(1)}"
+
       # Usuario E2E sintetico: creado por DbInitializer.CreateTestUsersAsync (Data/DbInitializer.cs,
       # ya versionado) SOLO porque `migrate` corrio en Development en este job — no es un secreto,
       # es una contraseña de desarrollo hardcodeada en el propio repo, nunca una credencial real.
