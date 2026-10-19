@@ -1248,15 +1248,6 @@ namespace TheBuryProject.Services
             $"No se puede cancelar la venta {ventaNumero}: el ingreso original pertenece a una caja ya cerrada. " +
             "Se requiere un procedimiento de reversión auditada.";
 
-        private static readonly ConceptoMovimientoCaja[] ConceptosIngresoVenta =
-        {
-            ConceptoMovimientoCaja.VentaEfectivo,
-            ConceptoMovimientoCaja.VentaTarjeta,
-            ConceptoMovimientoCaja.VentaCheque,
-            ConceptoMovimientoCaja.VentaTransferencia,
-            ConceptoMovimientoCaja.VentaMercadoPago
-        };
-
         /// <inheritdoc/>
         public async Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(
             int ventaId,
@@ -1270,10 +1261,7 @@ namespace TheBuryProject.Services
                 // (venta, cuota, crédito, devolución, orden ML...), por lo que nunca alcanza por sí
                 // solo para identificar la operación: se exige además concepto de cobro de venta.
                 var movimientoOriginal = await _context.MovimientosCaja
-                    .Where(m => m.VentaId == ventaId
-                             && m.Tipo == TipoMovimientoCaja.Ingreso
-                             && ConceptosIngresoVenta.Contains(m.Concepto)
-                             && !m.IsDeleted)
+                    .Where(IngresoVentaCaja.Directo(ventaId))
                     .OrderBy(m => m.Id)
                     .FirstOrDefaultAsync();
 
@@ -1282,12 +1270,7 @@ namespace TheBuryProject.Services
                 if (movimientoOriginal == null)
                 {
                     movimientoOriginal = await _context.MovimientosCaja
-                        .Where(m => m.VentaId == null
-                                 && m.ReferenciaId == ventaId
-                                 && m.Referencia == ventaNumero
-                                 && m.Tipo == TipoMovimientoCaja.Ingreso
-                                 && ConceptosIngresoVenta.Contains(m.Concepto)
-                                 && !m.IsDeleted)
+                        .Where(IngresoVentaCaja.HistoricoSinVenta(ventaId, ventaNumero))
                         .OrderBy(m => m.Id)
                         .FirstOrDefaultAsync();
                 }

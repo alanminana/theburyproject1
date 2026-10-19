@@ -297,6 +297,45 @@ jobs:
           done
           exit $RC
 
+      # FIN-FACT-REFERENCIA-P0 (H-FACT-2): el fallback de facturacion de ventas legadas no puede dar por registrado un
+      # ingreso ajeno que comparta ReferenciaId (campo polimorfico). Colision deliberada con un cobro de cuota, ingreso
+      # historico legitimo, conceptos ajenos, Referencia de otra venta, cancelacion concurrente, rollback, transaccion
+      # ambiental, caja cerrada y todos los medios de pago. Un omitido, un timeout o un "no encontrado" hacen fallar el job.
+      - name: Facturacion FIN-FACT-REFERENCIA-P0 (FACT-REF-01 a FACT-REF-10)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~FinResidualSqlServerTests.FactRef" \
+            --logger "trx;LogFileName=fin-fact-ref-sql-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=detailed" \
+            --results-directory ./TestResults
+
+      - name: Verificar facturacion FIN-FACT-REFERENCIA-P0 (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          TRX=./TestResults/fin-fact-ref-sql-rcsi${{ matrix.rcsi }}.trx
+          if [ ! -f "$TRX" ]; then echo "No hay TRX de FACT-REF: los escenarios no se ejecutaron"; exit 1; fi
+          RC=0
+          {
+            echo "### Facturacion FIN-FACT-REFERENCIA-P0 en SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for R in FACT-REF-01 FACT-REF-02 FACT-REF-03 FACT-REF-04 FACT-REF-05 FACT-REF-06 FACT-REF-07 FACT-REF-08 FACT-REF-09 FACT-REF-10; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          exit $RC
+
       - name: Subir TRX
         if: always()
         uses: actions/upload-artifact@v4

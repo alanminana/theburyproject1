@@ -27,6 +27,24 @@
 > deadlocks). Detalle, grafo, orden de locks y resultados en
 > [qa-fin-sql-historico-resultado.md](qa-fin-sql-historico-resultado.md).
 
+>
+> **FIN-FACT-REFERENCIA-P0 — H-FACT-2 CORREGIDO** (defecto distinto de H-FACT-1, detectado en el QA de FIN-CAJA-4-P0): el
+> fallback de `FacturarVentaAsync` para ventas legadas daba por «ya registrado» cualquier ingreso con `VentaId == null` y
+> `ReferenciaId == venta.Id`. `ReferenciaId` es polimórfico (venta, cuota, crédito, devolución, orden ML…): el cobro de una
+> cuota con `Cuota.Id == Venta.Id` (p. ej. 250 y 250) suprimía el ingreso propio de la venta, que quedaba `Facturada` sin su
+> ingreso de caja. Ahora un movimiento solo cuenta como ingreso de la venta si es `Ingreso`, vigente, de concepto de cobro de
+> venta (efectivo, tarjeta, cheque, transferencia, Mercado Pago) y: tiene `VentaId` igual a la venta, **o** (histórico sin
+> `VentaId`) `ReferenciaId == venta.Id` **y** `Referencia == venta.Numero` (el formato real que graba
+> `RegistrarMovimientoVentaAsync`). El criterio vive en un único lugar (`Services/IngresoVentaCaja.cs`) y lo usan la
+> facturación y `RegistrarContramovimientoVentaAsync`. Pruebas: `VentaServiceFacturacionAtomicidadTests.FactRef*` (SQLite, con
+> `Cuota.Id == Venta.Id` real; 18 de 32 fallan contra el código anterior) y `FinResidualSqlServerTests.FactRef01…10` (SQL Server
+> efímero, RCSI 0 y 1; 7 de 10 fallan contra el código anterior, 02/05/09 son reglas que debían seguir cumpliéndose). El
+> harness de R-10* ya no evita la colisión desplazando identidades. **Ambigüedad histórica no resuelta:** un ingreso histórico
+> sin `VentaId` cuya `Referencia` no sea exactamente el número de la venta (formato anterior a `Referencia = ventaNumero`, si
+> existiera) no se reconoce y la facturación asentaría un segundo ingreso; no se inventa una asociación ni se modifican saldos
+> automáticamente. Antes de aplicarlo en producción conviene consultar si existen ingresos de venta con `VentaId IS NULL` y
+> `Referencia <> Venta.Numero`.
+
 Origen: commit `24973bfe` de la rama `qa/fin-residual-20261014` (auditoría completa en
 [qa-fin-residual-auditoria.md](qa-fin-residual-auditoria.md)). Verificado contra `main` `f9e1440b`: los servicios
 financieros (`CajaService`, `DevolucionService`, `VentaService`, `CreditoService`) no cambiaron respecto de la base de
