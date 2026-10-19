@@ -47,9 +47,31 @@ El binding de MVC no distingue "vacío" de "ausente" (ambos dan `null`), por eso
 - PROD07/PROD08: stock protegido y historial de precios conservados al cambiar relaciones; los permisos `precios.apply`
   siguen cubiertos por `QaPrdP1HttpTests`/`ProductoControllerPrecioTests` (sin cambios).
 
+## Endurecimiento del modal Editar (carga asíncrona)
+
+`producto-editar-modal.js` cargaba las opciones de Subcategoría/Submarca por `fetch` *después* de abrir el modal, con el
+select ya vaciado y el botón «Guardar cambios» habilitado. Guardar antes de la respuesta (o con la petición fallida,
+cuyo `.catch` estaba vacío) enviaba `SubcategoriaId=""` y `SubmarcaId=""`, que `EditAjax` interpreta correctamente
+como «quitar la selección»: se borraban relaciones guardadas sin que el usuario lo eligiera.
+
+Contrato actual del cliente:
+
+- Carga pendiente: el select queda deshabilitado (un campo deshabilitado no viaja, y el servidor conserva lo guardado) y el
+  botón Guardar queda inactivo; un submit forzado se bloquea con un aviso.
+- Carga fallida: el select sigue deshabilitado y muestra la relación guardada en solo lectura; guardar no la toca. Si la falla
+  ocurre tras un cambio de categoría/marca hecho por el usuario, el guardado se bloquea (no hay opciones válidas que enviar).
+- Solo un select habilitado y cargado puede enviar `""`, y eso significa una elección deliberada («Sin subcategoría/submarca»).
+- Cada carga lleva un token por select y la apertura una secuencia: las respuestas tardías o fuera de orden (otra marca,
+  otro producto, `GetJson` de una apertura anterior) se descartan.
+
+Regresión: `e2e-js/producto-editar-modal-dependientes.spec.js` (12 casos). Carga el JS real en una página sintética y
+controla cada respuesta HTTP con compuertas de `page.route`; no requiere app, base ni Docker:
+`npx playwright test -c playwright.js-harness.config.js`. Contra el JS anterior fallan 9 de 12 (los 3 verdes son los caminos
+felices); con el actual pasan los 12.
+
 ## Limitaciones conocidas
 
 - La concurrencia optimista real (rowversion de SQL Server) solo se ejercita en el CI con SQL Server; localmente se emula.
-- No se validó en navegador el modal Editar contra una base real (no se tocó ninguna base persistente).
+- El modal Editar se validó en navegador solo con respuestas HTTP controladas (`e2e-js/`), no contra una base real; esa regresión no está cableada al CI.
 - No hay UI que advierta si, al cambiar la marca, la submarca previa deja de corresponder: el JS ya recarga y vacía
   el selector de submarcas, y el servidor ahora lo rechaza si llegara una combinación inválida.

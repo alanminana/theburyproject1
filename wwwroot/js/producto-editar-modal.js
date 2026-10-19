@@ -10,6 +10,17 @@
     var caractIndex = 0;
     var _openTrigger = null;
     var _tabs = null;
+    // Cada apertura del modal tiene un número de secuencia: toda respuesta asíncrona (GetJson, subcategorías,
+    // submarcas) que llega con una secuencia vieja se descarta.
+    var openSeq = 0;
+    var clickSeq = 0;
+    // Estado de carga de los selects dependientes. Mientras 'loading' o 'error' el select queda deshabilitado
+    // (un campo deshabilitado no se envía, y EditAjax interpreta un campo ausente como "conservar lo guardado");
+    // solo un select 'ready' puede enviar "" para significar "quitar la selección".
+    var DEP_SELECTS = {
+        subcategoria: { id: 'prod-edit-subcategoriaId', status: 'ready', token: 0, cambiado: false, label: 'subcategorías' },
+        submarca:     { id: 'prod-edit-submarcaId',     status: 'ready', token: 0, cambiado: false, label: 'submarcas' }
+    };
 
     function el(id) { return document.getElementById(id); }
 
@@ -37,6 +48,8 @@
         modal.classList.remove('flex');
         document.body.style.overflow = '';
         currentRow = null;
+        openSeq++;
+        invalidarCargasDependientes();
         clearErrors();
         hideValidation();
         if (trigger) trigger.focus();
@@ -52,6 +65,7 @@
     }
 
     function populate(data) {
+        openSeq++;
         el('prod-edit-id').value          = data.id;
         el('prod-edit-rowversion').value  = data.rowVersion || '';
         el('prod-edit-codigo').value      = data.codigo || '';
@@ -140,40 +154,38 @@
         loadSubmarcas(marcaId, submarcaId, submarcaNombre);
     }
 
-    function loadSubcategorias(categoriaId, selectedId, selectedNombre) {
-        var sel = el('prod-edit-subcategoriaId');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">Sin subcategoría</option>';
-        if (!categoriaId) return;
-        fetch('/Producto/GetSubcategorias/' + categoriaId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (list) {
-                list.forEach(function (s) {
-                    var opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = s.nombre;
-                    if (selectedId && String(s.id) === String(selectedId)) opt.selected = true;
-                    sel.appendChild(opt);
-                });
-                if (selectedId && !sel.value && selectedNombre) {
-                    var opt = document.createElement('option');
-                    opt.value = selectedId;
-                    opt.textContent = selectedNombre;
-                    opt.selected = true;
-                    sel.appendChild(opt);
-                }
-            })
-            .catch(function () {});
+    function loadSubcategorias(categoriaId, selectedId, selectedNombre, cambioDelUsuario) {
+        loadDependiente(DEP_SELECTS.subcategoria, 'Sin subcategoría', '/Producto/GetSubcategorias/',
+            categoriaId, selectedId, selectedNombre, cambioDelUsuario);
     }
 
-    function loadSubmarcas(marcaId, selectedId, selectedNombre) {
-        var sel = el('prod-edit-submarcaId');
+    function loadSubmarcas(marcaId, selectedId, selectedNombre, cambioDelUsuario) {
+        loadDependiente(DEP_SELECTS.submarca, 'Sin submarca', '/Producto/GetSubmarcas/',
+            marcaId, selectedId, selectedNombre, cambioDelUsuario);
+    }
+
+    function loadDependiente(dep, textoVacio, url, parentId, selectedId, selectedNombre, cambioDelUsuario) {
+        var sel = el(dep.id);
         if (!sel) return;
-        sel.innerHTML = '<option value="">Sin submarca</option>';
-        if (!marcaId) return;
-        fetch('/Producto/GetSubmarcas/' + marcaId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
+        var token = ++dep.token;
+        dep.cambiado = !!cambioDelUsuario;
+        sel.innerHTML = '';
+        sel.appendChild(new Option(textoVacio, ''));
+        if (!parentId) {
+            // Sin padre no hay opciones que cargar: "sin selección" es el estado real, no una carga pendiente.
+            setDepStatus(dep, sel, 'ready');
+            return;
+        }
+        setDepStatus(dep, sel, 'loading');
+        var seq = openSeq;
+        fetch(url + parentId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
             .then(function (list) {
+                if (!Array.isArray(list)) throw new Error('Respuesta inválida');
+                if (token !== dep.token || seq !== openSeq) return; // respuesta tardía de otra carga u otro producto
                 list.forEach(function (s) {
                     var opt = document.createElement('option');
                     opt.value = s.id;
@@ -188,8 +200,60 @@
                     opt.selected = true;
                     sel.appendChild(opt);
                 }
+                setDepStatus(dep, sel, 'ready');
             })
-            .catch(function () {});
+            .catch(function () {
+                if (token !== dep.token || seq !== openSeq) return;
+                // Se muestra la relación guardada (solo lectura): el select deshabilitado no se envía y el servidor la conserva.
+                if (selectedId && selectedNombre) {
+                    var guardada = new Option(selectedNombre, selectedId, true, true);
+                    sel.appendChild(guardada);
+                }
+                setDepStatus(dep, sel, 'error');
+            });
+    }
+
+    function setDepStatus(dep, sel, status) {
+        dep.status = status;
+        sel.disabled = status !== 'ready';
+        sel.setAttribute('aria-busy', status === 'loading' ? 'true' : 'false');
+        if (status === 'error') sel.title = 'No se pudieron cargar las ' + dep.label + '.';
+        else sel.removeAttribute('title');
+        syncGuardarButton();
+    }
+
+    function hayCargaPendiente() {
+        return DEP_SELECTS.subcategoria.status === 'loading' || DEP_SELECTS.submarca.status === 'loading';
+    }
+
+    // Botón "Guardar cambios" inactivo mientras haya una carga en curso. No toca el estado "Guardando..." del submit.
+    function syncGuardarButton() {
+        var btn = el('btn-guardar-producto-edit');
+        var form = el(FORM_ID);
+        if (!btn || (form && form.getAttribute('data-guardando') === '1')) return;
+        btn.disabled = hayCargaPendiente();
+    }
+
+    // Devuelve un mensaje si el estado actual no permite guardar sin riesgo de perder o falsear una relación.
+    function bloqueoPorCargaDependiente() {
+        if (hayCargaPendiente()) {
+            return 'Se están cargando subcategorías y submarcas. Esperá un momento e intentá nuevamente.';
+        }
+        var fallidos = Object.keys(DEP_SELECTS).map(function (k) { return DEP_SELECTS[k]; })
+            .filter(function (d) { return d.status === 'error' && d.cambiado; });
+        if (fallidos.length) {
+            return 'No se pudieron cargar las ' + fallidos.map(function (d) { return d.label; }).join(' ni las ') +
+                   ' de la selección actual. Volvé a elegir la categoría o la marca e intentá nuevamente.';
+        }
+        return null;
+    }
+
+    function invalidarCargasDependientes() {
+        Object.keys(DEP_SELECTS).forEach(function (k) {
+            DEP_SELECTS[k].token++;
+            DEP_SELECTS[k].status = 'ready';
+            DEP_SELECTS[k].cambiado = false;
+        });
     }
 
     // ── Características ─────────────────────────────────────────
@@ -505,8 +569,15 @@
             hideValidation();
             clearErrors();
 
+            var bloqueo = bloqueoPorCargaDependiente();
+            if (bloqueo) {
+                showValidation(bloqueo);
+                return;
+            }
+
             var btn = el('btn-guardar-producto-edit');
             var origHTML = btn.innerHTML;
+            form.setAttribute('data-guardando', '1');
             btn.disabled = true;
             btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Guardando...';
 
@@ -535,8 +606,9 @@
             } catch (_) {
                 showValidation('Error de conexión. Intentá nuevamente.');
             } finally {
-                btn.disabled = false;
+                form.removeAttribute('data-guardando');
                 btn.innerHTML = origHTML;
+                syncGuardarButton();
             }
         });
     }
@@ -550,12 +622,15 @@
             if (editBtn) {
                 var id = editBtn.getAttribute('data-prod-edit-id');
                 var row = editBtn.closest('tr');
+                var seqClick = ++clickSeq;
                 try {
                     var resp = await fetch('/Producto/GetJson/' + id, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     if (!resp.ok) throw new Error();
-                    populate(await resp.json());
+                    var data = await resp.json();
+                    if (seqClick !== clickSeq) return; // se pidió otro producto después: esta respuesta ya no aplica
+                    populate(data);
                     open(row, editBtn);
                 } catch (_) {
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
@@ -590,13 +665,13 @@
         var catSel = el('prod-edit-categoriaId');
         if (catSel) {
             catSel.addEventListener('change', function () {
-                loadSubcategorias(this.value, null, null);
+                loadSubcategorias(this.value, null, null, true);
             });
         }
         var marcaSel = el('prod-edit-marcaId');
         if (marcaSel) {
             marcaSel.addEventListener('change', function () {
-                loadSubmarcas(this.value, null, null);
+                loadSubmarcas(this.value, null, null, true);
             });
         }
 
