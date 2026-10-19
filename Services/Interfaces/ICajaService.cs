@@ -167,6 +167,15 @@ namespace TheBuryProject.Services.Interfaces
         /// Si ya existe un anticipo vigente para esa venta se devuelve sin duplicar.</param>
         /// <returns>MovimientoCaja creado; null solo si el anticipo es 0.</returns>
         /// <exception cref="InvalidOperationException">Anticipo mayor que 0 y el usuario no tiene caja abierta válida (FIN-ANT-P0).</exception>
+        /// <summary>
+        /// Fecha (UTC) del cierre vigente más reciente por caja, en una sola consulta agrupada.
+        /// Excluye cierres y aperturas eliminados lógicamente. Si <paramref name="cajaIds"/> no es null,
+        /// limita el resultado a esas cajas (visibilidad por padrón). Cajas sin cierres no aparecen.
+        /// La implementación por defecto no está soportada: los stubs que no la usan siguen compilando.
+        /// </summary>
+        Task<Dictionary<int, DateTime>> ObtenerUltimosCierresPorCajaAsync(IReadOnlyCollection<int>? cajaIds = null)
+            => throw new NotSupportedException();
+
         Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(
             int creditoId,
             string creditoNumero,

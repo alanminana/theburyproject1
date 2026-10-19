@@ -313,7 +313,18 @@
                                             }
                                         </td>
                                         <td class="muted num">
-                                            @(estaAbierta ? "Turno en curso" : "—")
+                                            @if (estaAbierta)
+                                            {
+                                                @:Turno en curso
+                                            }
+                                            else if (Model.UltimoCierrePorCaja.TryGetValue(caja.Id, out var ultimoCierre))
+                                            {
+                                                <span data-ultimo-cierre="@ultimoCierre.ToString("yyyy-MM-dd'T'HH:mm")">@ultimoCierre.ToString("dd/MM · HH:mm")</span>
+                                            }
+                                            else
+                                            {
+                                                @:—
+                                            }
                                         </td>
                                         <td>
                                             <div class="row-actions">
