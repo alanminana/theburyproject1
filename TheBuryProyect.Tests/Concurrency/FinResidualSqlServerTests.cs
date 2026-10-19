@@ -168,7 +168,7 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
     private sealed record VentaContado(int VentaId, string Numero, int ClienteId, int ProductoId, int AperturaId);
 
     /// <summary>Venta de contado Confirmada, 2 × $50; opcionalmente con su ingreso VentaEfectivo $100 ya asentado.</summary>
-    private async Task<VentaContado> NuevaVentaContadoAsync(int aperturaId, bool conIngreso = true, decimal stock = 10m)
+    private async Task<VentaContado> NuevaVentaContadoAsync(int aperturaId, bool conIngreso = true, decimal stock = 10m, TipoPago tipoPago = TipoPago.Efectivo)
     {
         using var scope = _fx.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -191,7 +191,7 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
         await ctx.SaveChangesAsync();
         var venta = new Venta
         {
-            Numero = "VFR" + s, ClienteId = cliente.Id, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Efectivo,
+            Numero = "VFR" + s, ClienteId = cliente.Id, Estado = EstadoVenta.Confirmada, TipoPago = tipoPago,
             FechaVenta = DateTime.UtcNow, AperturaCajaId = aperturaId, Subtotal = 100m, Total = 100m,
             Detalles = new List<VentaDetalle>
             {
@@ -200,35 +200,6 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
         };
         ctx.Ventas.Add(venta);
         await ctx.SaveChangesAsync();
-
-        // El fallback legado de FacturarVentaAsync da por "ya registrado" cualquier ingreso sin VentaId cuyo ReferenciaId
-        // (campo polimórfico: cuota, crédito, devolución…) coincida con el id de la venta, sin filtrar por concepto (hallazgo
-        // fuera de alcance de FIN-CAJA-4-P0, ver docs). En un catálogo compartido, un cobro de cuota con id == id de la venta
-        // anula el fallback que R-10* necesita ejercer. El test no depende de esa coincidencia de identidades: si el id
-        // nuevo colisiona con un ingreso polimórfico previo, descarta esa venta y crea otra.
-        if (!conIngreso)
-        {
-            for (var intento = 0; intento < 20; intento++)
-            {
-                var colisiona = await ctx.MovimientosCaja.AsNoTracking().AnyAsync(m =>
-                    m.VentaId == null && m.ReferenciaId == venta.Id && m.Tipo == TipoMovimientoCaja.Ingreso && !m.IsDeleted);
-                if (!colisiona) break;
-
-                venta.IsDeleted = true;
-                await ctx.SaveChangesAsync();
-                venta = new Venta
-                {
-                    Numero = "VFR" + s + intento, ClienteId = cliente.Id, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Efectivo,
-                    FechaVenta = DateTime.UtcNow, AperturaCajaId = aperturaId, Subtotal = 100m, Total = 100m,
-                    Detalles = new List<VentaDetalle>
-                    {
-                        new() { ProductoId = prod.Id, Cantidad = 2, PrecioUnitario = 50m, Subtotal = 100m, CostoUnitarioAlMomento = 17.5m, CostoTotalAlMomento = 35m }
-                    }
-                };
-                ctx.Ventas.Add(venta);
-                await ctx.SaveChangesAsync();
-            }
-        }
 
         if (conIngreso)
         {
@@ -1346,5 +1317,410 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
         var despues = await FotoFacturacionAsync(v);
         Informe("R-10E", $"{antes} -> {despues}");
         Assert.Equal(antes, despues);
+    }
+
+    // =====================================================================================
+    // FIN-FACT-REFERENCIA-P0 (H-FACT-2): colisión de ReferenciaId polimórfico en el fallback de facturación
+    // =====================================================================================
+    // MovimientoCaja.ReferenciaId es polimórfico (venta, cuota, crédito, devolución, orden ML…). Una venta legada
+    // Confirmada y sin ingreso, cuyo id numérico coincide con el de una cuota ya cobrada, quedaba facturada SIN su ingreso
+    // porque el fallback daba por "ya registrado" el cobro de la cuota. Estos escenarios provocan la colisión a propósito
+    // (sin desplazar identidades) y exigen que el ingreso propio de la venta se asiente igual y el cobro ajeno no se toque.
+
+    /// <summary>
+    /// Cobro de cuota ajeno: Ingreso/CobroCuota, VentaId = null y ReferenciaId = id de la venta (la cuota "tendría" ese mismo
+    /// id). Es exactamente la forma que graba <c>CajaService.RegistrarMovimientoCuotaAsync</c>. Variante con la entidad Cuota
+    /// real y Cuota.Id == Venta.Id: <c>VentaServiceFacturacionAtomicidadTests.FactRef01_*</c> (SQLite admite id explícito;
+    /// aquí la columna es IDENTITY).
+    /// </summary>
+    private async Task<int> SembrarIngresoAjenoAsync(
+        VentaContado v, ConceptoMovimientoCaja concepto = ConceptoMovimientoCaja.CobroCuota, string? referencia = null,
+        int? referenciaId = null, bool conVentaId = false, TipoPago tipoPago = TipoPago.Efectivo)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var m = new MovimientoCaja
+        {
+            AperturaCajaId = v.AperturaId, Tipo = TipoMovimientoCaja.Ingreso, Concepto = concepto,
+            EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado, TipoPago = tipoPago, Monto = 100m,
+            Descripcion = "ajeno " + concepto, Referencia = referencia ?? ("CRE-AJENO-C1-" + v.Numero),
+            ReferenciaId = referenciaId ?? v.VentaId, VentaId = conVentaId ? v.VentaId : null,
+            Usuario = ConcCurrentUser.Usuario, FechaMovimiento = DateTime.UtcNow
+        };
+        ctx.MovimientosCaja.Add(m);
+        await ctx.SaveChangesAsync();
+        return m.Id;
+    }
+
+    /// <summary>Ingresos de ESTA venta según un oráculo independiente del código de producción (directo o histórico con su número).</summary>
+    private async Task<int> IngresosPropiosAsync(VentaContado v)
+    {
+        var conceptos = new[]
+        {
+            ConceptoMovimientoCaja.VentaEfectivo, ConceptoMovimientoCaja.VentaTarjeta, ConceptoMovimientoCaja.VentaCheque,
+            ConceptoMovimientoCaja.VentaTransferencia, ConceptoMovimientoCaja.VentaMercadoPago
+        };
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await ctx.MovimientosCaja.AsNoTracking().CountAsync(m =>
+            m.Tipo == TipoMovimientoCaja.Ingreso && !m.IsDeleted && conceptos.Contains(m.Concepto)
+            && (m.VentaId == v.VentaId || (m.VentaId == null && m.ReferenciaId == v.VentaId && m.Referencia == v.Numero)));
+    }
+
+    private async Task AssertMovimientoAjenoIntactoAsync(int movimientoId, ConceptoMovimientoCaja concepto)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var m = await ctx.MovimientosCaja.AsNoTracking().FirstAsync(x => x.Id == movimientoId);
+        Assert.Equal(concepto, m.Concepto);
+        Assert.Equal(TipoMovimientoCaja.Ingreso, m.Tipo);
+        Assert.Equal(100m, m.Monto);
+        Assert.False(m.IsDeleted);
+        Assert.Null(m.VentaId);
+        // ninguna reversión ni cobro extra colgó de él
+        Assert.Equal(0, await ctx.MovimientosCaja.AsNoTracking().CountAsync(x =>
+            x.Id != movimientoId && x.Concepto == concepto && x.ReferenciaId == m.ReferenciaId && x.VentaId == null));
+    }
+
+    private async Task<int> ReversionesDeVentaAsync(int ventaId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await ctx.MovimientosCaja.AsNoTracking().CountAsync(m =>
+            m.Tipo == TipoMovimientoCaja.Egreso && m.Concepto == ConceptoMovimientoCaja.ReversionVenta && m.VentaId == ventaId && !m.IsDeleted);
+    }
+
+    /// <summary>FACT-REF-01. Colisión con un cobro de cuota: la venta legada se factura con SU ingreso y el cobro ajeno queda intacto.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-01]: CobroDeCuotaConElMismoReferenciaId_NoImpideElIngresoDeLaVenta")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef01_CobroDeCuotaConElMismoReferenciaId_NoImpideElIngresoDeLaVenta()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+        Assert.Equal(0, await IngresosPropiosAsync(v));
+        var resFacturar = await ResultadoAsync("facturar", FacturarAsync(v.VentaId));
+        var foto = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-01", $"facturar={resFacturar}", $"{foto}", $"ingresos propios={await IngresosPropiosAsync(v)}");
+        Assert.StartsWith("OK(", resFacturar);
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal((1, 1), (foto.FacturasTotales, foto.FacturasVigentes));
+        Assert.Equal(100m, foto.Ingresos);
+        Assert.Equal(1, await IngresosPropiosAsync(v));
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+    }
+
+    /// <summary>FACT-REF-02. Ingreso histórico legítimo (sin VentaId, concepto de venta, Referencia = número de la venta): se reconoce, no se duplica.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-02]: IngresoHistoricoLegitimoSinVentaId_NoSeDuplica")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef02_IngresoHistoricoLegitimoSinVentaId_NoSeDuplica()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        await SembrarIngresoAjenoAsync(v, ConceptoMovimientoCaja.VentaEfectivo, referencia: v.Numero);
+        var resFacturar = await ResultadoAsync("facturar", FacturarAsync(v.VentaId));
+        var foto = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-02", $"facturar={resFacturar}", $"{foto}", $"ingresos propios={await IngresosPropiosAsync(v)}");
+        Assert.StartsWith("OK(", resFacturar);
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal(1, await IngresosPropiosAsync(v));
+        Assert.Equal(0m, foto.Ingresos);                   // ningún ingreso nuevo con VentaId: el histórico bastó
+    }
+
+    /// <summary>FACT-REF-03. Mismo ReferenciaId y hasta la misma Referencia textual, pero concepto ajeno: no cuenta como ingreso de venta.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-03]: IngresoAjenoConElMismoReferenciaId_NoCuentaComoIngresoDeVenta")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef03_IngresoAjenoConElMismoReferenciaId_NoCuentaComoIngresoDeVenta()
+    {
+        var conceptosAjenos = new[]
+        {
+            ConceptoMovimientoCaja.CobroCuota, ConceptoMovimientoCaja.AnticipoCredito, ConceptoMovimientoCaja.DepositoEfectivo,
+            ConceptoMovimientoCaja.LiquidacionMercadoLibre, ConceptoMovimientoCaja.Otro
+        };
+        var aperturaId = await NuevaAperturaAsync();
+        var lineas = new List<string>();
+        foreach (var concepto in conceptosAjenos)
+        {
+            var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+            var ajenoId = await SembrarIngresoAjenoAsync(v, concepto, referencia: v.Numero);
+            var res = await ResultadoAsync("facturar " + concepto, FacturarAsync(v.VentaId));
+            var foto = await FotoFacturacionAsync(v);
+            lineas.Add($"{concepto}: facturar={res} ingresos propios={await IngresosPropiosAsync(v)} {foto}");
+
+            Assert.StartsWith("OK(", res);
+            Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+            Assert.Equal(100m, foto.Ingresos);
+            Assert.Equal(1, await IngresosPropiosAsync(v));
+            await AssertMovimientoAjenoIntactoAsync(ajenoId, concepto);
+        }
+        Informe("FACT-REF-03", lineas.ToArray());
+    }
+
+    /// <summary>FACT-REF-04. Concepto de venta pero Referencia de OTRA venta: no suprime el ingreso correcto.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-04]: MismoConceptoYReferenciaDeOtraVenta_NoSuprimeElIngresoCorrecto")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef04_MismoConceptoYReferenciaDeOtraVenta_NoSuprimeElIngresoCorrecto()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var otra = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        await SembrarIngresoAjenoAsync(v, ConceptoMovimientoCaja.VentaEfectivo, referencia: otra.Numero);
+        var res = await ResultadoAsync("facturar", FacturarAsync(v.VentaId));
+        var foto = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-04", $"facturar={res}", $"{foto}", $"ingresos propios={await IngresosPropiosAsync(v)}");
+        Assert.StartsWith("OK(", res);
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal(100m, foto.Ingresos);
+        Assert.Equal(1, await IngresosPropiosAsync(v));
+    }
+
+    /// <summary>FACT-REF-05. Ingreso con vínculo directo (VentaId): sigue reconocido, también bajo colisión, sin duplicar.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-05]: IngresoConVinculoDirecto_SigueReconocidoSinDuplicar")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef05_IngresoConVinculoDirecto_SigueReconocidoSinDuplicar()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: true);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+        var res = await ResultadoAsync("facturar", FacturarAsync(v.VentaId));
+        var foto = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-05", $"facturar={res}", $"{foto}", $"ingresos propios={await IngresosPropiosAsync(v)}");
+        Assert.StartsWith("OK(", res);
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal(100m, foto.Ingresos);
+        Assert.Equal(1, await IngresosPropiosAsync(v));
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+    }
+
+    /// <summary>
+    /// FACT-REF-06. R-10 bajo colisión deliberada: la facturación (que debe asentar el ingreso faltante pese al cobro de
+    /// cuota con el mismo ReferenciaId) se detiene antes del INSERT; la cancelación espera el lock de la venta; al liberar,
+    /// Σ egresos = Σ ingresos de la venta (ni ingreso huérfano ni reversión faltante) y el cobro ajeno no se revierte.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-06]: FacturarYCancelarConcurrentesBajoColision_NoDejanIngresosHuerfanosNiFaltantes")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef06_FacturarYCancelarConcurrentesBajoColision_NoDejanIngresosHuerfanosNiFaltantes()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+        var antes = await FotoFacturacionAsync(v);
+        var plan = Compuerta("facturar/antes-del-ingreso-de-respaldo", "INSERT INTO [MovimientosCaja]");
+
+        Task<string>? facturar = null, cancel = null;
+        bool bloqueada;
+        try
+        {
+            facturar = FacturarAsync(v.VentaId, plan);
+            Assert.True(await LlegoALaCompuertaAsync(plan, facturar), "Facturar no llegó a la compuerta del ingreso de respaldo.");
+            cancel = CancelarVentaAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(cancel);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var resCancel = await ResultadoAsync("cancelación", cancel!, plan);
+        var despues = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-06", $"cancelación bloqueada = {bloqueada}", $"facturar={resFacturar}", $"cancelación={resCancel}", $"{antes} -> {despues}",
+            $"reversiones de la venta={await ReversionesDeVentaAsync(v.VentaId)}");
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        NoEsFalloDeInfraestructura("cancelación", resCancel);
+        Assert.True(bloqueada, "La cancelación no esperó la facturación en curso.");
+        Assert.StartsWith("OK(", resFacturar);
+        Assert.StartsWith("OK(", resCancel);
+        Assert.Equal(EstadoVenta.Cancelada, despues.Estado);
+        Assert.Equal(100m, despues.Ingresos);              // el ingreso PROPIO se asentó pese a la colisión
+        Assert.Equal(despues.Ingresos, despues.Egresos);   // y la cancelación lo contra-asentó
+        Assert.Equal(1, await ReversionesDeVentaAsync(v.VentaId));
+        Assert.Equal(1, despues.FacturasTotales);
+        Assert.Equal(0, despues.FacturasVigentes);
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+    }
+
+    /// <summary>FACT-REF-07. Bajo colisión, una falla al asentar el ingreso (sin transacción del llamador) revierte factura, estado e ingreso.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-07]: FallaAlAsentarElIngresoBajoColision_RevierteFacturaEstadoEIngreso")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef07_FallaAlAsentarElIngresoBajoColision_RevierteFacturaEstadoEIngreso()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+        var antes = await FotoFacturacionAsync(v);
+
+        var plan = Compuerta("facturar/falla-en-el-ingreso", "INSERT INTO [MovimientosCaja]");
+        plan.FallarAlDisparar = true;
+        var resFalla = await ResultadoAsync("facturar", FacturarAsync(v.VentaId, plan), plan);
+        var despues = await FotoFacturacionAsync(v);
+
+        Informe("FACT-REF-07", $"falla={resFalla}", $"{antes} -> {despues}");
+        Assert.True(plan.Fired, "La compuerta de falla no se alcanzó.");
+        Assert.StartsWith("DbUpdateException", resFalla);
+        Assert.Equal(antes, despues);                      // Confirmada, sin factura, sin ingreso propio
+        Assert.Equal(0, await IngresosPropiosAsync(v));
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+
+        // Reintento sin falla: factura una vez y asienta el ingreso propio.
+        var reintento = await ResultadoAsync("reintento", FacturarAsync(v.VentaId));
+        var final = await FotoFacturacionAsync(v);
+        Assert.StartsWith("OK(", reintento);
+        Assert.Equal((EstadoVenta.Facturada, 1, 100m), (final.Estado, final.FacturasTotales, final.Ingresos));
+    }
+
+    /// <summary>FACT-REF-08. R-10D bajo colisión: transacción ambiental con savepoint; falla, el llamador sigue, reintenta y confirma.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-08]: TransaccionAmbientalBajoColision_ConservaSavepointYTrabajoPrevio")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef08_TransaccionAmbientalBajoColision_ConservaSavepointYTrabajoPrevio()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var otra = await NuevaVentaContadoAsync(aperturaId, conIngreso: true);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+
+        string resFalla;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var ventas = scope.ServiceProvider.GetRequiredService<IVentaService>();
+            var vm = new FacturaViewModel { VentaId = v.VentaId, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+            await using var ambiental = await ctx.Database.BeginTransactionAsync();
+            var entidadOtra = await ctx.Ventas.FirstAsync(x => x.Id == otra.VentaId);
+            entidadOtra.Observaciones = "previo del llamador";
+            await ctx.SaveChangesAsync();
+
+            var plan = Compuerta("facturar/falla-en-el-ingreso", "INSERT INTO [MovimientosCaja]");
+            plan.FallarAlDisparar = true;
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                await ventas.FacturarVentaAsync(v.VentaId, vm);
+                resFalla = "OK(sin falla: la falla inyectada no se disparó)";
+            }
+            catch (Exception ex)
+            {
+                resFalla = Clasificar(ex);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+
+            Assert.True(plan.Fired, "La compuerta de falla no se alcanzó.");
+            Assert.StartsWith("DbUpdateException", resFalla);
+            Assert.NotNull(ctx.Database.CurrentTransaction);
+            Assert.Equal(0, await ctx.Facturas.CountAsync(f => f.VentaId == v.VentaId));
+
+            Assert.True(await ventas.FacturarVentaAsync(v.VentaId, vm));
+            await ambiental.CommitAsync();
+        }
+
+        var foto = await FotoFacturacionAsync(v);
+        Informe("FACT-REF-08", $"falla={resFalla}", $"{foto}");
+        Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+        Assert.Equal(1, foto.FacturasTotales);
+        Assert.Equal(100m, foto.Ingresos);
+        Assert.Equal(1, await IngresosPropiosAsync(v));
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+        using var scope2 = _fx.Services.CreateScope();
+        Assert.Equal("previo del llamador", await scope2.ServiceProvider.GetRequiredService<AppDbContext>().Ventas.AsNoTracking()
+            .Where(x => x.Id == otra.VentaId).Select(x => x.Observaciones).FirstAsync());
+    }
+
+    /// <summary>FACT-REF-09. R-10C bajo colisión: el cierre tiene el lock de la apertura; la facturación espera y se rechaza sin factura, estado ni ingreso.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-09]: CajaCerradaBajoColision_NoInsertaIngresoNiPersisteParcialmente")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef09_CajaCerradaBajoColision_NoInsertaIngresoNiPersisteParcialmente()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false);
+        var cobroId = await SembrarIngresoAjenoAsync(v);
+        var antes = await FotoFacturacionAsync(v);
+        var plan = CierreAntesDeInsertar();
+
+        Task<string>? cierre = null, facturar = null;
+        bool bloqueada;
+        try
+        {
+            cierre = CerrarAsync(aperturaId, efectivo: 100m, plan);   // el cobro ajeno ya está en el libro en efectivo
+            Assert.True(await LlegoALaCompuertaAsync(plan, cierre), "El cierre no llegó a la compuerta.");
+            facturar = FacturarAsync(v.VentaId);
+            bloqueada = await QuedaBloqueadaAsync(facturar);
+        }
+        finally
+        {
+            plan.Release.TrySetResult();
+        }
+        var resCierre = await ResultadoAsync("cierre", cierre!, plan);
+        var resFacturar = await ResultadoAsync("facturar", facturar!, plan);
+        var despues = await FotoFacturacionAsync(v);
+        var viol = await ViolacionesCierreAsync(aperturaId);
+
+        Informe("FACT-REF-09", $"facturar bloqueada = {bloqueada}", $"cierre={resCierre}", $"facturar={resFacturar}", $"{antes} -> {despues}",
+            "invariante I-CAJA: " + (viol.Count == 0 ? "OK" : string.Join(" | ", viol)));
+        NoEsFalloDeInfraestructura("cierre", resCierre);
+        NoEsFalloDeInfraestructura("facturar", resFacturar);
+        Assert.True(bloqueada, "La facturación no esperó el lock de la apertura tomado por el cierre.");
+        Assert.StartsWith("OK(", resCierre);
+        Assert.Contains("cerrada", resFacturar, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(antes, despues);
+        Assert.Equal(0, await IngresosPropiosAsync(v));
+        Assert.Empty(viol);
+        await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+    }
+
+    /// <summary>FACT-REF-10. Todos los medios de pago de contado, bajo colisión: cada uno asienta su ingreso con el concepto de su medio.</summary>
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [FACT-REF-10]: TodosLosMediosDePagoBajoColision_RegistranSuIngreso")]
+    [Trait("Categoria", "SqlServerRegresion")]
+    [Trait("Hallazgo", "H-FACT-2")]
+    public async Task FactRef10_TodosLosMediosDePagoBajoColision_RegistranSuIngreso()
+    {
+        var medios = new (TipoPago Pago, ConceptoMovimientoCaja Concepto)[]
+        {
+            (TipoPago.Efectivo, ConceptoMovimientoCaja.VentaEfectivo),
+            (TipoPago.Tarjeta, ConceptoMovimientoCaja.VentaTarjeta),
+            (TipoPago.Transferencia, ConceptoMovimientoCaja.VentaTransferencia),
+            (TipoPago.Cheque, ConceptoMovimientoCaja.VentaCheque),
+            (TipoPago.MercadoPago, ConceptoMovimientoCaja.VentaMercadoPago)
+        };
+        var aperturaId = await NuevaAperturaAsync();
+        var lineas = new List<string>();
+        foreach (var (pago, concepto) in medios)
+        {
+            var v = await NuevaVentaContadoAsync(aperturaId, conIngreso: false, tipoPago: pago);
+            var cobroId = await SembrarIngresoAjenoAsync(v);
+            var res = await ResultadoAsync("facturar " + pago, FacturarAsync(v.VentaId));
+            var foto = await FotoFacturacionAsync(v);
+
+            using (var scope = _fx.Services.CreateScope())
+            {
+                var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var propios = await ctx.MovimientosCaja.AsNoTracking()
+                    .Where(m => m.VentaId == v.VentaId && m.Tipo == TipoMovimientoCaja.Ingreso && !m.IsDeleted).ToListAsync();
+                lineas.Add($"{pago}: facturar={res} concepto={string.Join(",", propios.Select(p => p.Concepto))} {foto}");
+                Assert.Single(propios);
+                Assert.Equal(concepto, propios[0].Concepto);
+            }
+            Assert.StartsWith("OK(", res);
+            Assert.Equal(EstadoVenta.Facturada, foto.Estado);
+            Assert.Equal(100m, foto.Ingresos);
+            await AssertMovimientoAjenoIntactoAsync(cobroId, ConceptoMovimientoCaja.CobroCuota);
+        }
+        Informe("FACT-REF-10", lineas.ToArray());
     }
 }

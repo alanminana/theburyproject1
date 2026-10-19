@@ -52,6 +52,7 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
     private readonly AppDbContext _context;
     private readonly FallaAlGuardarMovimientoCajaInterceptor _falla = new();
     private readonly VentaService _service;
+    private readonly CajaService _cajaService;
     private readonly AperturaCaja _apertura;
 
     private static int _counter = 7000;
@@ -80,6 +81,7 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
         _context.SaveChanges();
 
         var cajaService = new CajaService(_context, mapper, NullLogger<CajaService>.Instance, null!);
+        _cajaService = cajaService;
 
         _service = new VentaService(
             _context,
@@ -407,6 +409,310 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
 
         var (estado, facturas, ingresos, monto) = await EstadoAsync(id);
         Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), (estado, facturas, ingresos, monto));
+    }
+
+    // ------------------------------------------------------------------ FIN-FACT-REFERENCIA-P0
+    // MovimientoCaja.ReferenciaId es polimórfico: el id de una venta legada puede coincidir con el de una cuota, un crédito,
+    // una devolución… El fallback de FacturarVentaAsync no puede dar por "ya registrado" un ingreso ajeno por esa coincidencia.
+
+    private static readonly ConceptoMovimientoCaja[] ConceptosVenta =
+    {
+        ConceptoMovimientoCaja.VentaEfectivo, ConceptoMovimientoCaja.VentaTarjeta, ConceptoMovimientoCaja.VentaCheque,
+        ConceptoMovimientoCaja.VentaTransferencia, ConceptoMovimientoCaja.VentaMercadoPago
+    };
+
+    /// <summary>
+    /// Cobro de cuota GENUINO (producido por <c>CajaService.RegistrarMovimientoCuotaAsync</c>) de una cuota cuyo
+    /// <c>Cuota.Id</c> es exactamente el id de la venta: el movimiento queda con VentaId = null y ReferenciaId = ventaId.
+    /// </summary>
+    private async Task<(int cuotaId, int creditoId, int movimientoId)> SembrarCobroDeCuotaConElMismoIdAsync(int ventaId)
+    {
+        var s = Interlocked.Increment(ref _counter).ToString();
+        var cliente = new Cliente { Nombre = "Cuota", Apellido = "Ajena" + s, NumeroDocumento = "8" + s };
+        var credito = new Credito
+        {
+            Cliente = cliente, Numero = "CRE-FR" + s, MontoSolicitado = 1_000m, MontoAprobado = 1_000m, TasaInteres = 0m,
+            CantidadCuotas = 1, MontoCuota = 1_000m, TotalAPagar = 1_000m, SaldoPendiente = 1_000m,
+            Estado = EstadoCredito.Activo, FechaSolicitud = DateTime.UtcNow.AddMonths(-1), PuntajeRiesgoInicial = 100m
+        };
+        credito.Cuotas.Add(new Cuota
+        {
+            Id = ventaId, NumeroCuota = 1, MontoCapital = 1_000m, MontoInteres = 0m, MontoTotal = 1_000m, MontoPagado = 0m,
+            FechaVencimiento = DateTime.UtcNow.AddDays(30)
+        });
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+
+        var mov = await _cajaService.RegistrarMovimientoCuotaAsync(ventaId, credito.Numero, 1, 100m, "Efectivo", "testfact");
+        Assert.NotNull(mov);
+        Assert.Equal(ventaId, mov!.ReferenciaId);
+        Assert.Null(mov.VentaId);
+        var movId = mov.Id;
+        _context.ChangeTracker.Clear();
+        return (ventaId, credito.Id, movId);
+    }
+
+    private async Task<int> SembrarMovimientoAsync(Action<MovimientoCaja> configurar)
+    {
+        var m = new MovimientoCaja
+        {
+            AperturaCajaId = _apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaEfectivo,
+            EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado, TipoPago = TipoPago.Efectivo, Monto = 100m,
+            Usuario = "testfact", FechaMovimiento = DateTime.UtcNow
+        };
+        configurar(m);
+        _context.MovimientosCaja.Add(m);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return m.Id;
+    }
+
+    private Task<string> NumeroDeVentaAsync(int ventaId) =>
+        _context.Ventas.AsNoTracking().Where(v => v.Id == ventaId).Select(v => v.Numero).FirstAsync();
+
+    /// <summary>Oráculo independiente del código de producción: ingresos de ESTA venta (vínculo directo o histórico con su número).</summary>
+    private async Task<List<MovimientoCaja>> IngresosDeLaVentaAsync(int ventaId)
+    {
+        var numero = await NumeroDeVentaAsync(ventaId);
+        return await _context.MovimientosCaja.AsNoTracking()
+            .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso && !m.IsDeleted && ConceptosVenta.Contains(m.Concepto)
+                     && (m.VentaId == ventaId || (m.VentaId == null && m.ReferenciaId == ventaId && m.Referencia == numero)))
+            .ToListAsync();
+    }
+
+    private async Task AssertCobroDeCuotaIntactoAsync(int movimientoId, int cuotaId, int creditoId)
+    {
+        var cobro = await _context.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == movimientoId);
+        Assert.Equal(ConceptoMovimientoCaja.CobroCuota, cobro.Concepto);
+        Assert.Equal(100m, cobro.Monto);
+        Assert.False(cobro.IsDeleted);
+        Assert.Null(cobro.VentaId);
+        Assert.Equal(cuotaId, cobro.ReferenciaId);
+        Assert.Equal(1, await _context.MovimientosCaja.AsNoTracking()
+            .CountAsync(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.ReferenciaId == cuotaId));
+        var credito = await _context.Creditos.AsNoTracking().FirstAsync(c => c.Id == creditoId);
+        Assert.Equal(1_000m, credito.SaldoPendiente);
+        Assert.Equal(0m, (await _context.Cuotas.AsNoTracking().FirstAsync(c => c.Id == cuotaId)).MontoPagado);
+    }
+
+    private static (EstadoVenta, int, int, decimal) Completo((EstadoVenta estado, int facturas, int ingresos, decimal monto) r) =>
+        (r.estado, r.facturas, r.ingresos, r.monto);
+
+    // FACT-REF-01
+    [Fact]
+    public async Task FactRef01_CobroDeCuotaConElMismoId_NoImpideElIngresoDeLaVenta()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+        Assert.Empty(await IngresosDeLaVentaAsync(id));   // precondición: la venta no tiene ingreso propio
+
+        Assert.True(await FacturarAsync(id));
+
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+        var propios = await IngresosDeLaVentaAsync(id);
+        Assert.Single(propios);
+        Assert.Equal(ConceptoMovimientoCaja.VentaEfectivo, propios[0].Concepto);
+        Assert.Equal(id, propios[0].VentaId);
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+    }
+
+    // FACT-REF-02
+    [Fact]
+    public async Task FactRef02_IngresoHistoricoLegitimoSinVentaId_NoSeDuplica()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var numero = await NumeroDeVentaAsync(id);
+        await SembrarMovimientoAsync(m =>
+        {
+            m.VentaId = null; m.ReferenciaId = id; m.Referencia = numero; m.Descripcion = "Venta " + numero;
+        });
+
+        Assert.True(await FacturarAsync(id));
+
+        Assert.Equal(EstadoVenta.Facturada, (await EstadoAsync(id)).estado);
+        Assert.Single(await IngresosDeLaVentaAsync(id));
+        Assert.Equal(0, (await EstadoAsync(id)).ingresos);   // no se creó ningún ingreso con VentaId
+    }
+
+    // FACT-REF-03
+    [Theory]
+    [InlineData(ConceptoMovimientoCaja.CobroCuota)]
+    [InlineData(ConceptoMovimientoCaja.AnticipoCredito)]
+    [InlineData(ConceptoMovimientoCaja.DepositoEfectivo)]
+    [InlineData(ConceptoMovimientoCaja.LiquidacionMercadoLibre)]
+    [InlineData(ConceptoMovimientoCaja.Otro)]
+    public async Task FactRef03_IngresoAjenoConElMismoReferenciaId_NoCuentaComoIngresoDeVenta(ConceptoMovimientoCaja ajeno)
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var numero = await NumeroDeVentaAsync(id);
+        // Peor caso: además del mismo ReferenciaId, hasta la Referencia textual coincide; sólo el concepto lo delata.
+        var ajenoId = await SembrarMovimientoAsync(m =>
+        {
+            m.Concepto = ajeno; m.VentaId = null; m.ReferenciaId = id; m.Referencia = numero; m.Descripcion = "ajeno";
+        });
+
+        Assert.True(await FacturarAsync(id));
+
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+        var intacto = await _context.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == ajenoId);
+        Assert.Equal(ajeno, intacto.Concepto);
+        Assert.Null(intacto.VentaId);
+        Assert.False(intacto.IsDeleted);
+    }
+
+    // FACT-REF-04
+    [Fact]
+    public async Task FactRef04_MismoConceptoYReferenciaDeOtraVenta_NoSuprimeElIngresoCorrecto()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var otra = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var numeroOtra = await NumeroDeVentaAsync(otra);
+        await SembrarMovimientoAsync(m =>
+        {
+            m.VentaId = null; m.ReferenciaId = id; m.Referencia = numeroOtra; m.Descripcion = "Venta " + numeroOtra;
+        });
+
+        Assert.True(await FacturarAsync(id));
+
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+    }
+
+    // FACT-REF-05
+    [Fact]
+    public async Task FactRef05_IngresoConVinculoDirecto_SigueReconocidoAunConColision()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: true);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+
+        Assert.True(await FacturarAsync(id));
+
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+        Assert.Single(await IngresosDeLaVentaAsync(id));
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+    }
+
+    // FACT-REF-07
+    [Fact]
+    public async Task FactRef07_ConColisionYFallaAlAsentarElIngreso_RevierteTodoYNoTocaElCobroAjeno()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+        _falla.Armado = true;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));
+        _falla.Armado = false;
+
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0, 0m), Completo(await EstadoAsync(id)));
+        Assert.Empty(await IngresosDeLaVentaAsync(id));
+        Assert.Null(_context.Database.CurrentTransaction);
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+
+        // El reintento factura una sola vez y SÍ asienta el ingreso de la venta pese a la colisión.
+        Assert.True(await FacturarAsync(id));
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+    }
+
+    // FACT-REF-08
+    [Fact]
+    public async Task FactRef08_ConColisionYTransaccionAmbiental_ConservaSavepointsYTrabajoPrevioDelLlamador()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var otraId = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: true);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+
+        await using var ambiental = await _context.Database.BeginTransactionAsync();
+        var otra = await _context.Ventas.FirstAsync(v => v.Id == otraId);
+        otra.Observaciones = "previo del llamador";
+        await _context.SaveChangesAsync();
+
+        _falla.Armado = true;
+        await Assert.ThrowsAsync<DbUpdateException>(() => FacturarAsync(id));
+        _falla.Armado = false;
+
+        Assert.NotNull(_context.Database.CurrentTransaction);
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0, 0m), Completo(await EstadoAsync(id)));
+
+        Assert.True(await FacturarAsync(id));   // reintento dentro de la misma transacción ajena
+        await ambiental.CommitAsync();
+
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+        Assert.Equal("previo del llamador", await _context.Ventas.AsNoTracking().Where(v => v.Id == otraId).Select(v => v.Observaciones).FirstAsync());
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+    }
+
+    [Fact]
+    public async Task FactRef08B_ConColisionYRollbackDelDuenioDeLaTransaccion_DeshaceTodoLoDeLaFacturacion()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+
+        await using var ambiental = await _context.Database.BeginTransactionAsync();
+        Assert.True(await FacturarAsync(id));
+        Assert.Equal((EstadoVenta.Facturada, 1, 1, 100m), Completo(await EstadoAsync(id)));
+        await ambiental.RollbackAsync();
+
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0, 0m), Completo(await EstadoAsync(id)));
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+    }
+
+    // FACT-REF-09
+    [Fact]
+    public async Task FactRef09_ConColisionYCajaCerradaAntesDelIngreso_NoInsertaNiPersisteParcialmente()
+    {
+        var id = await SeedVentaAsync(TipoPago.Efectivo, conIngreso: false);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+
+        await using var cierre = new CierraAperturaAlGuardarFactura(_connection, _apertura.Id);
+        var contexto = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).AddInterceptors(cierre).Options);
+        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
+        var servicio = new VentaService(
+            contexto, mapper, NullLogger<VentaService>.Instance, null!, null!, null!, new VentaValidator(),
+            new VentaNumberGenerator(contexto, NullLogger<VentaNumberGenerator>.Instance), new PrecioVigenteResolver(contexto),
+            new StubCurrentUserFacturacionAtomica(), null!, new CajaService(contexto, mapper, NullLogger<CajaService>.Instance, null!),
+            null!, new StubContratoVentaCreditoService(true), new StubConfiguracionPagoServiceVenta());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            servicio.FacturarVentaAsync(id, new FacturaViewModel { VentaId = id, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow }));
+        Assert.Contains("caja cerrada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(cierre.Disparado);
+
+        Assert.Equal((EstadoVenta.Confirmada, 0, 0, 0m), Completo(await EstadoAsync(id)));
+        Assert.Empty(await IngresosDeLaVentaAsync(id));
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+    }
+
+    // FACT-REF-10
+    [Theory]
+    [InlineData(TipoPago.Efectivo, ConceptoMovimientoCaja.VentaEfectivo)]
+    [InlineData(TipoPago.Tarjeta, ConceptoMovimientoCaja.VentaTarjeta)]
+    [InlineData(TipoPago.TarjetaDebito, ConceptoMovimientoCaja.VentaTarjeta)]
+    [InlineData(TipoPago.TarjetaCredito, ConceptoMovimientoCaja.VentaTarjeta)]
+    [InlineData(TipoPago.Transferencia, ConceptoMovimientoCaja.VentaTransferencia)]
+    [InlineData(TipoPago.Cheque, ConceptoMovimientoCaja.VentaCheque)]
+    [InlineData(TipoPago.MercadoPago, ConceptoMovimientoCaja.VentaMercadoPago)]
+    public async Task FactRef10_TodosLosMediosDePago_ConColision_RegistranSuIngreso_YConHistoricoNoDuplican(
+        TipoPago tipoPago, ConceptoMovimientoCaja concepto)
+    {
+        // a) colisión con un cobro de cuota: el ingreso faltante se registra con el concepto del medio.
+        var id = await SeedVentaAsync(tipoPago, conIngreso: false);
+        var (cuotaId, creditoId, cobroId) = await SembrarCobroDeCuotaConElMismoIdAsync(id);
+        Assert.True(await FacturarAsync(id));
+        var propios = await IngresosDeLaVentaAsync(id);
+        Assert.Single(propios);
+        Assert.Equal(concepto, propios[0].Concepto);
+        Assert.Equal(id, propios[0].VentaId);
+        await AssertCobroDeCuotaIntactoAsync(cobroId, cuotaId, creditoId);
+
+        // b) ingreso histórico legítimo del mismo medio (sin VentaId): se reconoce y no se duplica.
+        var id2 = await SeedVentaAsync(tipoPago, conIngreso: false);
+        var numero2 = await NumeroDeVentaAsync(id2);
+        await SembrarMovimientoAsync(m =>
+        {
+            m.Concepto = concepto; m.TipoPago = tipoPago; m.VentaId = null; m.ReferenciaId = id2; m.Referencia = numero2;
+        });
+        Assert.True(await FacturarAsync(id2));
+        Assert.Single(await IngresosDeLaVentaAsync(id2));
+        Assert.Equal(EstadoVenta.Facturada, (await EstadoAsync(id2)).estado);
     }
 
     private static (EstadoVenta, int, int) Resumen((EstadoVenta estado, int facturas, int ingresos, decimal monto) r) =>

@@ -216,14 +216,15 @@ exclusivamente en las corridas de reproducción con el código anterior (R-01 y 
 0** deadlocks sobre `AperturasCaja` en las 12 repeticiones de R-01 y en las dos baterías completas. Los 2 deadlocks restantes del contador (uno por
 modo) pertenecen a `CancelarVsPagoLockModelSqlServerTests` (`qaconc.Cuotas` / `qaconc.Ventas`, consultas del propio modelo), no a producción.
 
-### Hallazgo nuevo, fuera de alcance (no corregido): fallback de `FacturarVentaAsync` y `ReferenciaId` polimórfico
+### H-FACT-2 (antes «fuera de alcance»): fallback de `FacturarVentaAsync` y `ReferenciaId` polimórfico — CORREGIDO en FIN-FACT-REFERENCIA-P0
 
-`VentaService.FacturarVentaAsync` (fallback de ventas legadas, ~línea 1681) da por «ya registrado» cualquier ingreso con
-`VentaId == null` y `ReferenciaId == venta.Id`. `ReferenciaId` es polimórfico (cuota, crédito, devolución…) y no se filtra por
-concepto: un cobro de cuota cuyo `cuotaId` coincida con el id de una venta legada **suprime** el ingreso de respaldo de esa venta.
-Se manifestó aquí porque los nuevos escenarios crean más cobros y desplazaron las identidades hasta hacer colisionar a R-10E en el
-catálogo compartido. El harness (`NuevaVentaContadoAsync`) evita ahora esa coincidencia; el defecto de producción queda **abierto**
-como candidato a una tarea FIN-FACT posterior (acotado: solo ventas legadas confirmadas antes del fix del ingreso al confirmar).
+`VentaService.FacturarVentaAsync` (fallback de ventas legadas) daba por «ya registrado» cualquier ingreso con `VentaId == null` y
+`ReferenciaId == venta.Id`, sin filtrar por concepto ni por `Referencia`. `ReferenciaId` es polimórfico (cuota, crédito,
+devolución…): un cobro de cuota cuyo `cuotaId` coincidiera con el id de una venta legada **suprimía** el ingreso de esa venta.
+Se manifestó en este QA porque los escenarios crearon más cobros y desplazaron las identidades hasta hacer colisionar a R-10E, y
+el harness lo evitaba descartando la venta. Corregido en FIN-FACT-REFERENCIA-P0: criterio único `IngresoVentaCaja` (concepto de
+venta + `VentaId` directo, o histórico con `ReferenciaId` y `Referencia == Venta.Numero`) compartido con la cancelación; la
+evasión del harness se eliminó y los escenarios `FACT-REF-01…10` (SQL Server efímero, RCSI 0 y 1) provocan la colisión a propósito.
 
 ## CI
 

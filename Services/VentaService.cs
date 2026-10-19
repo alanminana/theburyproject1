@@ -1669,19 +1669,10 @@ namespace TheBuryProject.Services
             if (venta.TipoPago != TipoPago.CreditoPersonal &&
                 venta.TipoPago != TipoPago.CuentaCorriente)
             {
-                var yaRegistrado = await _context.MovimientosCaja
-                    .AnyAsync(m => m.VentaId == venta.Id
-                                && m.Tipo == TipoMovimientoCaja.Ingreso
-                                && !m.IsDeleted);
-
-                if (!yaRegistrado)
-                {
-                    yaRegistrado = await _context.MovimientosCaja
-                        .AnyAsync(m => m.VentaId == null
-                                    && m.ReferenciaId == venta.Id
-                                    && m.Tipo == TipoMovimientoCaja.Ingreso
-                                    && !m.IsDeleted);
-                }
+                // Mismo criterio que la cancelación (IngresoVentaCaja): ReferenciaId es polimórfico, así que un
+                // ingreso ajeno (p. ej. el cobro de una cuota con id == id de la venta) no cuenta como el de la venta.
+                var yaRegistrado = await _context.MovimientosCaja.AnyAsync(IngresoVentaCaja.Directo(venta.Id))
+                    || await _context.MovimientosCaja.AnyAsync(IngresoVentaCaja.HistoricoSinVenta(venta.Id, venta.Numero));
 
                 if (!yaRegistrado)
                 {
