@@ -70,6 +70,8 @@ namespace TheBuryProject.Controllers
             var hoyComercial = _relojComercial.HoyComercial;
             var zonaComercial = _relojComercial.ZonaComercial;
 
+            var ultimosCierres = await _cajaService.ObtenerUltimosCierresPorCajaAsync(cajaIdsVisibles);
+
             var viewModel = new CajasListViewModel
             {
                 CajasActivas = cajas.Where(c => c.Activa).ToList(),
@@ -83,7 +85,10 @@ namespace TheBuryProject.Controllers
                 AperturasVencidasIds = aperturasAbiertas
                     .Where(a => Services.CajaService.EsAperturaVencida(a, hoyComercial, zonaComercial))
                     .Select(a => a.Id)
-                    .ToHashSet()
+                    .ToHashSet(),
+                UltimoCierrePorCaja = ultimosCierres.ToDictionary(
+                    kv => kv.Key,
+                    kv => AHoraComercial(kv.Value, zonaComercial))
             };
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
@@ -885,6 +890,13 @@ namespace TheBuryProject.Controllers
         /// Visibilidad: null = sin restricción (admin o quien administra cajas); de lo contrario,
         /// ids de las cajas del padrón del usuario. Una caja fuera del padrón no se muestra.
         /// </summary>
+        /// <summary>
+        /// Convierte un instante UTC (leído de SQL Server con Kind=Unspecified) a la zona comercial
+        /// configurada, sin depender de la zona horaria del servidor.
+        /// </summary>
+        internal static DateTime AHoraComercial(DateTime utc, TimeZoneInfo zonaComercial) =>
+            TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zonaComercial);
+
         private async Task<IReadOnlyCollection<int>?> ObtenerCajaIdsVisiblesAsync()
         {
             if (EsAdminCaja())

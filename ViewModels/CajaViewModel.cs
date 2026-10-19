@@ -219,6 +219,12 @@ public class CajasListViewModel
     public IList<Caja> CajasInactivas { get; set; } = new List<Caja>();
 
     /// <summary>
+    /// Fecha/hora del último cierre vigente por caja (clave: Caja.Id), ya expresada en hora comercial.
+    /// Las cajas sin cierres no tienen entrada.
+    /// </summary>
+    public IDictionary<int, DateTime> UltimoCierrePorCaja { get; set; } = new Dictionary<int, DateTime>();
+
+    /// <summary>
     /// Resumen de efectivo esperado por apertura (clave: AperturaCaja.Id), calculado por el service.
     /// Index lo consume para mostrar el mismo valor que el detalle de apertura.
     /// </summary>
