@@ -151,7 +151,13 @@ Causas cerradas (categoría, causa, acción):
   Docker corriendo en paralelo durante el desarrollo de este bloque), no con un bug determinista
   de la app ni de los specs.
 
-**Sin cerrar — 1 fallo real, requiere debugging en vivo (no se fuerza un fix a ciegas):**
+**Sin cerrar al 2026-09-23 — 1 fallo real, requiere debugging en vivo (no se fuerza un fix a ciegas):**
+
+> **Estado histórico.** Esta sección describe el estado del cierre del 2026-09-23 y se conserva como registro.
+> La medición posterior del 2026-09-24 (ver "Resultado tras integrar main con los fixes de staging") dio
+> 0 fallidos sobre los mismos 196 tests, por lo que este fallo ya no figura como abierto. Ese documento no
+> registra qué cambio resolvió el `#btn-confirmar` deshabilitado en Create; la causa raíz no está confirmada aquí.
+
 `venta-functional-audit.spec.js` ("Create: validaciones, cliente, productos, descuentos, pago,
 crédito, modal y guardado"). Reproducido de forma consistente: al llegar al paso "Revisión" de un
 alta Efectivo simple (4 productos, sin crédito), `#btn-confirmar` queda con el atributo `disabled`
@@ -219,7 +225,7 @@ docker compose -p bury-e2e-ci -f docker-compose.yml -f docker-compose.ci.yml dow
 | `e2e/credito-visual-excepcion-reposicion.spec.js` | Fix drift: confirmación de excepción sin badge retirado (cierre) |
 | `e2e/credito-visual-otros-motivos.spec.js` | Fix drift: heading retirado, Cupo filtrado siempre, Observaciones colapsada (cierre) |
 | `e2e/venta-excepcion-documental-reload.spec.js` | Fix drift + mock de motivos con shape correcto (cierre) |
-| `e2e/venta-functional-audit.spec.js` | Fixes parciales de navegación (queda 1 fallo sin resolver, ver arriba) (cierre) |
+| `e2e/venta-functional-audit.spec.js` | Fixes parciales de navegación (cierre 2026-09-23: quedaba 1 fallo sin resolver; en la medición del 2026-09-24 ya no falla, ver abajo) |
 | `e2e/credito-pago-cuota-individual.spec.js` | Fix `aNumero()` (parser de moneda agnóstico de locale) (cierre) |
 | `e2e/credito-adelanto-pago-multiple.spec.js` | Fix `aNumero()` (mismo parser) (cierre) |
 | `e2e/ui-4e-layout-visual.spec.js` | Fix drift: storageState limpio en "Login visual" (cierre) |
@@ -234,6 +240,7 @@ ninguna regla de negocio de la aplicación.
 ## Estado
 
 ```text
+[HISTÓRICO — instantánea del cierre del 2026-09-23; vigente: ver sección del 2026-09-24]
 Corrida final (1 sola pasada, base fresca, 1366x768): 196 total
   174 passed, 1 failed, 0 flaky, 15 skipped (~6.7 min)
 
@@ -242,7 +249,7 @@ productos, descuentos, pago, crédito, modal y guardado". #btn-confirmar queda d
 llegar a Revisión sin causa identificable por análisis estático; requiere debugging en vivo
 (ver sección de arriba). No se oculta ni se fuerza a verde.
 
-GitHub Actions real: NO ejecutado en este cierre (sin acceso a gh CLI ni MCP github
+GitHub Actions real: NO ejecutado en este cierre del 2026-09-23 (sin acceso a gh CLI ni MCP github
 funcional en este entorno — ver informe de cierre de la tarea). Pendiente de que se abra el
 PR y corra el workflow real antes de mergear.
 ```
@@ -264,3 +271,10 @@ Drift de tests corregido (no se toco producto):
 
 Nota operativa: dos corridas Playwright simultaneas en el mismo worktree se pisan (`e2e/.auth/user.json`
 y `qa-evidence/`); usar un worktree/stack por corrida.
+
+### Estado vigente según la última medición documentada (2026-09-24)
+
+- Medido localmente (1366x768, stack Docker efimero limpio): 196 tests, 182 passed, 0 failed, 0 flaky, 14 skipped.
+- El fallo único de `venta-functional-audit.spec.js` registrado el 2026-09-23 no aparece en esa corrida. Este documento no atribuye la resolución a un cambio concreto; los fixes listados arriba de ese spec corresponden al flujo Edit.
+- Los 14 skips siguen existiendo: son skips explícitos y documentados (permisos de la sesión QA, datos ausentes, sin egreso a BCRA, escenario no alcanzable por UI). No están solucionados ni se consideran validados.
+- Esta sección no cubre corridas posteriores del workflow en GitHub Actions; solo resume lo medido y registrado arriba.
