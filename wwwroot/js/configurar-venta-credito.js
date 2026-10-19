@@ -160,8 +160,13 @@
         // servidor (FinancialCalculationService.SimularPlanCredito). Mientras se espera
         // la respuesta de /Credito/SimularPlanVenta se muestra un estado "calculando",
         // nunca un valor derivado en el navegador.
-        function marcarSimulacionPendiente() {
+        function mostrarCalculando() {
             if (txtMontoFin) txtMontoFin.textContent = 'Calculando…';
+        }
+
+        // Cambio REAL del usuario (anticipo, cuotas, gastos, fecha): invalida lo ya confirmado.
+        function marcarSimulacionPendiente() {
+            mostrarCalculando();
             programarSimulacion();
         }
 
@@ -220,11 +225,21 @@
         }
 
         // ── 3. Simulación de Plan (AJAX) ──────────────────────────────────
+        // Cambio de entrada del usuario: avisa al host (onCambioPlan) para que invalide la
+        // configuración ya confirmada y agenda una nueva simulación.
         function programarSimulacion() {
+            opts.onCambioPlan?.();
+            agendarSimulacion();
+        }
+
+        // Agenda la simulación SIN avisar un cambio de plan. La usa la inicialización: pintar
+        // el fragmento recién inyectado no es una edición del usuario, y avisar `onCambioPlan`
+        // ahí invalidaba (configurado:false) un crédito que el servidor acaba de renderizar como
+        // ya configurado, lo que bloqueaba Revisión y expulsaba al operador de ese paso.
+        function agendarSimulacion() {
             // Ningún cambio de entrada deja el botón de confirmar habilitado con un plan
             // desactualizado: se deshabilita apenas se agenda una nueva simulación.
             deshabilitarConfirmar(true);
-            opts.onCambioPlan?.();
             clearTimeout(simulacionTimer);
             simulacionTimer = setTimeout(simularPlan, 400);
         }
@@ -770,7 +785,8 @@
         // (dato del servidor) y numerar las secciones visibles (WIP: renumerarSecciones).
         aplicarCuotasHabilitadas();
         renumerarSecciones();
-        marcarSimulacionPendiente();
+        mostrarCalculando();
+        agendarSimulacion();
         actualizarPrimeraCuota();
 
         return {
