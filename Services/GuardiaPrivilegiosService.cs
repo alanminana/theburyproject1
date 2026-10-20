@@ -15,6 +15,7 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
     private const string MensajeSinAssignRoles = "No tenés permiso para asignar roles.";
 
     private const string MensajeRolReservado = "Los roles Administrador, Gerente y SuperAdmin son del sistema: solo un SuperAdmin puede crearlos, renombrarlos, eliminarlos o usar su nombre.";
+    private const string MensajeAutoridadUsuarioReservado = "No podés gestionar a un usuario que tiene un rol del sistema con más autoridad que la tuya.";
     private const string MensajeAutoridadRolReservado = "No podés asignar ni quitar un rol del sistema que otorga más autoridad que la tuya.";
 
     // Roles cuyo NOMBRE concede autoridad implícita en el backend (IsInRole en Caja, Venta, MercadoLibre,
@@ -101,10 +102,16 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
             from ur in _context.UserRoles.AsNoTracking()
             join r in _context.Roles.AsNoTracking() on ur.RoleId equals r.Id
             where ur.UserId == targetUserId
-            select new { r.Id, r.NormalizedName }).ToListAsync();
+            select new { r.Id, r.Name, r.NormalizedName }).ToListAsync();
 
         if (rolesDelTarget.Any(r => r.NormalizedName == RoleConstants.SuperAdmin.ToUpperInvariant()))
             return GuardiaResultado.Denegado(MensajeSuperAdmin);
+
+        // Cambiar el email o la contraseña de quien tiene Administrador/Gerente equivale a adoptar su
+        // autoridad por nombre (IsInRole): exige tener al menos ese rango, no solo permisos equivalentes.
+        var rangoActor = RangoDelActor();
+        if (rolesDelTarget.Any(r => RangoReservado(r.Name) > rangoActor))
+            return GuardiaResultado.Denegado(MensajeAutoridadUsuarioReservado);
 
         // Modificar email/contraseña de un usuario con más privilegios que el actor equivale a adoptar su cuenta.
         var claimsDelTarget = new List<string>();
@@ -215,9 +222,11 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
 
     /// <summary>
     /// Renombrar o eliminar un rol reservado, o renombrar cualquier rol hacia un nombre reservado, altera la
-    /// identidad que el código reconoce: solo SuperAdmin. Conservar el nombre exacto (editar descripción/estado) no se restringe aquí.
+    /// identidad que el código reconoce, y activarlo o desactivarlo enciende/apaga la autoridad de todos sus
+    /// miembros: solo SuperAdmin. Conservar el nombre y el estado (editar la descripción) no se restringe aquí.
     /// </summary>
-    public async Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(string roleId, string? nuevoNombre, bool eliminar)
+    public async Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(
+        string roleId, string? nuevoNombre, bool? nuevoActivo, bool eliminar)
     {
         if (ActorEsSuperAdmin || string.IsNullOrWhiteSpace(roleId))
             return GuardiaResultado.Ok;
@@ -234,7 +243,12 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
         if (RangoReservado(actual) == 0)
             return GuardiaResultado.Ok;
 
-        return eliminar || renombra
+        // Activar o desactivar un rol reservado enciende/apaga la autoridad de todos sus miembros.
+        var estadoActual = await _context.RolMetadatas.AsNoTracking()
+            .Where(m => m.RoleId == roleId).Select(m => (bool?)m.Activo).FirstOrDefaultAsync() ?? true;
+        var cambiaEstado = nuevoActivo.HasValue && nuevoActivo.Value != estadoActual;
+
+        return eliminar || renombra || cambiaEstado
             ? GuardiaResultado.Denegado(MensajeRolReservado)
             : GuardiaResultado.Ok;
     }
@@ -263,8 +277,9 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
         if (!await EsRolSuperAdminAsync(roleId))
             return GuardiaResultado.Ok;
 
+        // Ordinal: IsInRole distingue mayúsculas, "superadmin" deshabilitaría el bypass de todos los SuperAdmin.
         var renombra = nuevoNombre != null &&
-                       !string.Equals(nuevoNombre.Trim(), RoleConstants.SuperAdmin, StringComparison.OrdinalIgnoreCase);
+                       !string.Equals(nuevoNombre.Trim(), RoleConstants.SuperAdmin, StringComparison.Ordinal);
 
         return eliminar || renombra || nuevoActivo == false
             ? GuardiaResultado.Denegado(MensajeRolSistema)
@@ -353,8 +368,14 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
         }
         catch
         {
-            if (propia) await transaction!.RollbackAsync();
             _context.ChangeTracker.Clear();
+            if (propia)
+            {
+                // Si la conexión ya está rota el rollback puede fallar: no debe tapar la excepción original.
+                try { await transaction!.RollbackAsync(); }
+                catch (Exception ex) { _logger.LogError(ex, "Falló el rollback de la operación protegida por la guardia de SuperAdmin."); }
+            }
+
             throw;
         }
         finally

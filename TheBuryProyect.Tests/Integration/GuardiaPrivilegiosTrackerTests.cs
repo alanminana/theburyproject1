@@ -51,6 +51,12 @@ public class GuardiaPrivilegiosTrackerTests : IAsyncLifetime
     private GuardiaPrivilegiosService Guardia(AppDbContext context) =>
         new(context, new Actor(), new HttpContextAccessor(), new AuditoriaNula(), NullLogger<GuardiaPrivilegiosService>.Instance);
 
+    private async Task<string?> NombreEnBdAsync()
+    {
+        await using var otro = Nuevo();
+        return await otro.Users.AsNoTracking().Where(u => u.Id == _userId).Select(u => u.Nombre).SingleAsync();
+    }
+
     private async Task<bool> ActivoEnBdAsync()
     {
         await using var otro = Nuevo();
@@ -75,6 +81,7 @@ public class GuardiaPrivilegiosTrackerTests : IAsyncLifetime
         await _context.SaveChangesAsync();
 
         Assert.True(await ActivoEnBdAsync());
+        Assert.NotEqual("modificado y sin guardar", await NombreEnBdAsync());
     }
 
     [Fact]
@@ -93,6 +100,7 @@ public class GuardiaPrivilegiosTrackerTests : IAsyncLifetime
         await _context.SaveChangesAsync();
 
         Assert.True(await ActivoEnBdAsync());
+        Assert.NotEqual("pendiente", await NombreEnBdAsync());
     }
 
     private sealed class Actor : ICurrentUserService

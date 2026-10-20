@@ -67,9 +67,10 @@ public interface IGuardiaPrivilegiosService
     Task<GuardiaResultado> ValidarNombreRolAsync(string nombre);
 
     /// <summary>
-    /// Renombrar o eliminar un rol reservado existente: solo SuperAdmin.
+    /// Renombrar, eliminar o cambiar el estado activo de un rol reservado existente: solo SuperAdmin.
     /// </summary>
-    Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(string roleId, string? nuevoNombre, bool eliminar);
+    Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(
+        string roleId, string? nuevoNombre, bool? nuevoActivo, bool eliminar);
 
     /// <summary>
     /// El rol SuperAdmin es del sistema: nadie (ni un SuperAdmin) puede eliminarlo, renombrarlo ni

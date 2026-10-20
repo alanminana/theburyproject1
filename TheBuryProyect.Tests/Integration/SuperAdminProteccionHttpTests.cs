@@ -373,6 +373,23 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task DosSuperAdmin_UnoBloqueado_AccionMasivaSobreAmbos_SeRechazaTodaSinEscriturasParciales()
+    {
+        await BloquearTemporalEnBdAsync(_super2Id);
+        var client = _factory.CreateClientWithUserId(_super1Id);
+        var token = await TokenAsync(client);
+
+        await client.PostAsync("/Usuarios/BulkAction", Form(
+            ("__RequestVerificationToken", token),
+            ("ids", $"{_normalId},{_super1Id},{_super2Id}"), ("accion", "desactivar")));
+
+        Assert.True((await EstadoAsync(_normalId)).Activo);
+        Assert.True((await EstadoAsync(_super1Id)).Activo);
+        Assert.True((await EstadoAsync(_super2Id)).Activo);
+        Assert.Equal(2, await ContarSuperAdminActivosAsync());
+    }
+
+    [Fact]
     public async Task DosSuperAdmin_UnoBloqueado_SePuedeDesactivarElBloqueadoPeroNoElQueQuedaHabilitado()
     {
         await BloquearTemporalEnBdAsync(_super2Id);
@@ -450,10 +467,16 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
             ("__RequestVerificationToken", token), ("Id", roleId), ("Nombre", Roles.SuperAdmin), ("Activo", "false")));
         Assert.Equal(HttpStatusCode.Forbidden, desactivar.StatusCode);
 
+        // Cambiar solo la capitalización también deshabilitaría el bypass (IsInRole distingue mayúsculas).
+        var capitalizacion = await client.PostAsync("/Seguridad/EditRol", Form(
+            ("__RequestVerificationToken", token), ("Id", roleId), ("Nombre", "superadmin"), ("Activo", "true")));
+        Assert.Equal(HttpStatusCode.Forbidden, capitalizacion.StatusCode);
+
         await client.PostAsync("/Seguridad/ToggleRolActivo", Form(
             ("__RequestVerificationToken", token), ("id", roleId), ("activo", "false")));
 
         Assert.Equal(roleId, await IdDeRolOrNullAsync(Roles.SuperAdmin));
+        Assert.Equal(Roles.SuperAdmin, await NombreDeRolAsync(roleId));
         Assert.True(await RolActivoAsync(roleId));
     }
 
@@ -644,6 +667,13 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         return await context.Roles.Where(r => r.Name == nombre).Select(r => r.Id).SingleOrDefaultAsync();
+    }
+
+    private async Task<string?> NombreDeRolAsync(string roleId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.Roles.AsNoTracking().Where(r => r.Id == roleId).Select(r => r.Name).SingleAsync();
     }
 
     private async Task<bool> RolActivoAsync(string roleId)

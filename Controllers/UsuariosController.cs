@@ -1058,6 +1058,18 @@ public class UsuariosController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error en acción masiva '{Accion}'", accion);
+            // La guardia ya revirtió y descartó el tracker: queda constancia de que no se persistió nada.
+            try
+            {
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Revertido", $"{userIds.Length} usuario(s)",
+                    $"Acción masiva '{accion}' abortada por un error inesperado; no se aplicó ningún cambio.");
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogError(auditEx, "No se pudo auditar la reversión de la acción masiva '{Accion}'", accion);
+            }
+
             TempData["Error"] = "Error al ejecutar la acción masiva. No se aplicó ningún cambio.";
         }
 

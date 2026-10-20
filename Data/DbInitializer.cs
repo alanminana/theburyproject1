@@ -302,12 +302,49 @@ namespace TheBuryProject.Data
                     logger.LogInformation("Rol 'SuperAdmin' asignado al usuario existente {Email}", adminEmail);
                 }
 
+                if (await RecuperarSuperAdminConfiguradoAsync(context, userManager, adminUser, logger))
+                {
+                    adminUpdated = true;
+                }
+
                 if (adminUpdated)
                 {
                     await userManager.UpdateAsync(adminUser);
                     logger.LogInformation("Sucursal base sincronizada para usuario administrador {Email}", adminEmail);
                 }
             }
+        }
+
+        /// <summary>
+        /// Recuperación acotada: si la instalación quedó SIN ningún SuperAdmin activo (cuenta activa con el rol
+        /// asignado y activo), la cuenta administradora configurada (Admin:UserName/Email, con el rol SuperAdmin)
+        /// se reactiva y se desbloquea. Si hay al menos un SuperAdmin activo no toca nada: una baja deliberada
+        /// no se revierte en cada arranque. No crea cuentas ni contraseñas.
+        /// </summary>
+        internal static async Task<bool> RecuperarSuperAdminConfiguradoAsync(
+            AppDbContext context, UserManager<ApplicationUser> userManager, ApplicationUser adminUser, ILogger logger)
+        {
+            var normalizado = Roles.SuperAdmin.ToUpperInvariant();
+            var haySuperAdminActivo = await (
+                from u in context.Users.AsNoTracking()
+                join ur in context.UserRoles.AsNoTracking() on u.Id equals ur.UserId
+                join r in context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                join m in context.RolMetadatas.AsNoTracking() on r.Id equals m.RoleId into metadatos
+                from m in metadatos.DefaultIfEmpty()
+                where r.NormalizedName == normalizado && u.Activo && (m == null || m.Activo)
+                select u.Id).AnyAsync();
+
+            if (haySuperAdminActivo || !await userManager.IsInRoleAsync(adminUser, Roles.SuperAdmin))
+                return false;
+
+            adminUser.Activo = true;
+            adminUser.FechaDesactivacion = null;
+            adminUser.DesactivadoPor = null;
+            adminUser.MotivoDesactivacion = null;
+            adminUser.LockoutEnd = null;
+            adminUser.AccessFailedCount = 0;
+            logger.LogWarning("La instalación no tenía ningún SuperAdmin activo: se reactivó y desbloqueó la cuenta administradora configurada {UserName}.", adminUser.UserName);
+            return true;
         }
 
         private static async Task EnsurePlantillaContratoDefaultAsync(AppDbContext context, ILogger logger)

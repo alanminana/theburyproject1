@@ -208,8 +208,18 @@ public class SeguridadController : Controller
             }
 
             var result = UsuarioUpdateResult.Failed("Operación no ejecutada.");
+            var rolDenegadoBajoLock = GuardiaResultado.Ok;
             var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
             {
+                // Con el lock tomado se recalculan los deltas con los roles vigentes: el servicio también los
+                // recalcula, y un cambio concurrente no debe esquivar la regla de rango/permisos.
+                var rolesVigentes = await _rolService.GetUserRolesAsync(model.Id);
+                rolDenegadoBajoLock = await _guardia.ValidarCambioRolesAsync(
+                    model.RolesSeleccionados.Except(rolesVigentes, StringComparer.OrdinalIgnoreCase).ToList(),
+                    rolesVigentes.Except(model.RolesSeleccionados, StringComparer.OrdinalIgnoreCase).ToList());
+                if (!rolDenegadoBajoLock.Permitido)
+                    return false;
+
                 result = await _usuarioService.UpdateUsuarioAsync(new UsuarioUpdateRequest
                 {
                     UserId = model.Id,
@@ -227,6 +237,14 @@ public class SeguridadController : Controller
                 });
                 return result.Ok;
             }, [model.Id]);
+
+            if (!rolDenegadoBajoLock.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Editar usuario", $"Usuario \"{model.UserName}\"", rolDenegadoBajoLock.Motivo!);
+                ModelState.AddModelError(string.Empty, rolDenegadoBajoLock.Motivo!);
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return View("EditUsuario_tw", model);
+            }
 
             if (!invariante.Permitido)
             {
@@ -425,7 +443,7 @@ public class SeguridadController : Controller
         if (guardia.Permitido)
             guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
         if (guardia.Permitido)
-            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(model.Id, model.Nombre, eliminar: false);
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
 
         // Reactivar un rol desde acá es lo mismo que ToggleRolActivo(activo: true): mismo control.
         if (guardia.Permitido && model.Activo)
@@ -564,15 +582,14 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "update")]
     public async Task<IActionResult> ToggleRolActivo(string id, bool activo, string? returnUrl)
     {
-        if (activo)
+        var guardiaEstado = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, activo, eliminar: false);
+        if (guardiaEstado.Permitido && activo)
+            guardiaEstado = await _guardia.ValidarActivacionRolAsync(id);
+        if (!guardiaEstado.Permitido)
         {
-            var guardia = await _guardia.ValidarActivacionRolAsync(id);
-            if (!guardia.Permitido)
-            {
-                await _guardia.RegistrarDenegacionAsync("Activar rol", $"Rol \"{id}\"", guardia.Motivo!);
-                TempData["Error"] = guardia.Motivo;
-                return RedirectToAction(nameof(Index), new { tab = "roles" });
-            }
+            await _guardia.RegistrarDenegacionAsync(activo ? "Activar rol" : "Desactivar rol", $"Rol \"{id}\"", guardiaEstado.Motivo!);
+            TempData["Error"] = guardiaEstado.Motivo;
+            return RedirectToAction(nameof(Index), new { tab = "roles" });
         }
 
         try
@@ -625,7 +642,7 @@ public class SeguridadController : Controller
         if (guardia.Permitido)
             guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(id, null, null, eliminar: true);
         if (guardia.Permitido)
-            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, eliminar: true);
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, null, eliminar: true);
         if (!guardia.Permitido)
         {
             await _guardia.RegistrarDenegacionAsync("Eliminar rol", $"Rol \"{id}\"", guardia.Motivo!);

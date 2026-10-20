@@ -26,6 +26,8 @@ public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactor
     private string _superId = null!;
     private string _adminId = null!;
     private string _gerenteId = null!;
+    private string _adminConDeleteId = null!;  // Administrador + rol personalizado con roles.delete
+    private string _clonAdminId = null!;     // custom con TODOS los permisos persistidos de Administrador, sin el rol
     private string _gestorRolesId = null!;   // custom: administra roles y asigna roles, sin ser Administrador
     private string _objetivoId = null!;      // usuario ordinario
     private string _sinRolId = null!;        // usuario sin roles: el gestor sí puede administrarlo
@@ -53,7 +55,32 @@ public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactor
         _superId = await CrearUsuarioAsync(scope, $"super_{_sfx}", Roles.SuperAdmin);
         _adminId = await CrearUsuarioAsync(scope, $"adm_{_sfx}", Roles.Administrador);
         _gerenteId = await CrearUsuarioAsync(scope, $"ger_{_sfx}", Roles.Gerente);
+        var rolDelete = await CrearRolConPermisosAsync(context, $"RolSoloDelete{_sfx}", "roles.view", "roles.delete");
+        _adminConDeleteId = await CrearUsuarioAsync(scope, $"admdel_{_sfx}", Roles.Administrador);
+        using (var s2 = _factory.Services.CreateScope())
+        {
+            var um = s2.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await um.AddToRoleAsync((await um.FindByIdAsync(_adminConDeleteId))!, rolDelete)).Succeeded);
+        }
         _gestorRolesId = await CrearUsuarioAsync(scope, $"gestor_{_sfx}", rolGestor);
+
+        // Rol personalizado con exactamente los permisos persistidos del Administrador sembrado: sin la regla de
+        // rango, "mismos permisos" alcanzaría para gestionar (resetear/adoptar) cuentas Administrador.
+        var rolClon = $"RolClonAdmin{_sfx}";
+        var adminRoleId = await context.Roles.Where(r => r.Name == Roles.Administrador).Select(r => r.Id).SingleAsync();
+        var cloneId = Guid.NewGuid().ToString();
+        context.Roles.Add(new IdentityRole { Id = cloneId, Name = rolClon, NormalizedName = rolClon.ToUpperInvariant() });
+        await context.SaveChangesAsync();
+        foreach (var rp in await context.RolPermisos.AsNoTracking().Where(p => p.RoleId == adminRoleId && !p.IsDeleted).ToListAsync())
+        {
+            context.RolPermisos.Add(new RolPermiso
+            {
+                RoleId = cloneId, ModuloId = rp.ModuloId, AccionId = rp.AccionId, ClaimValue = rp.ClaimValue,
+                IsDeleted = false, RowVersion = new byte[8]
+            });
+        }
+        await context.SaveChangesAsync();
+        _clonAdminId = await CrearUsuarioAsync(scope, $"clon_{_sfx}", rolClon);
         _objetivoId = await CrearUsuarioAsync(scope, $"objetivo_{_sfx}", Roles.Vendedor);
         _sinRolId = await CrearUsuarioAsync(scope, $"sinrol_{_sfx}", null);
     }
@@ -180,15 +207,57 @@ public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactor
     [Theory]
     [InlineData("Administrador")]
     [InlineData("Gerente")]
-    public async Task DeleteRol_NoSuperAdminNoPuedeEliminarUnRolReservado(string reservado)
+    public async Task DeleteRol_NoSuperAdminNoPuedeEliminarUnRolReservadoSinMiembrosActivos(string reservado)
     {
         var id = await IdDeRolAsync(reservado);
-        var client = _factory.CreateClientWithUserId(_gestorRolesId);
-        var token = await TokenAsync(client);
+        // Sin miembros activos RolService.DeleteRoleAsync lo eliminaría: solo la guardia puede impedirlo.
+        var inactivados = await InactivarMiembrosAsync(id);
+        try
+        {
+            var client = _factory.CreateClientWithUserId(_gestorRolesId);
+            var token = await TokenAsync(client);
 
-        await client.PostAsync("/Seguridad/DeleteRol", Form(("__RequestVerificationToken", token), ("id", id)));
+            var response = await client.PostAsync("/Seguridad/DeleteRol", Form(("__RequestVerificationToken", token), ("id", id)));
 
-        Assert.Equal(id, await IdDeRolOrNullAsync(reservado));
+            Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+            Assert.Equal(id, await IdDeRolOrNullAsync(reservado));
+            Assert.True(await EventosDenegadoAsync("Eliminar rol") > 0, "Debe auditarse la denegación de la guardia.");
+        }
+        finally
+        {
+            await ReactivarAsync(inactivados);
+        }
+    }
+
+    [Theory]
+    [InlineData("Administrador", "Eliminar")]
+    [InlineData("Gerente", "Eliminar")]
+    [InlineData("Administrador", "Renombrar")]
+    [InlineData("Gerente", "Renombrar")]
+    public async Task Administrador_SinSerSuperAdminNoPuedeRenombrarNiEliminarAdministradorOGerente(string reservado, string operacion)
+    {
+        // El Administrador sembrado tiene roles.update (no roles.delete): para "Eliminar" se usa además un
+        // actor Administrador con roles.delete concedido por un rol personalizado.
+        var id = await IdDeRolAsync(reservado);
+        var inactivados = operacion == "Eliminar" ? await InactivarMiembrosAsync(id) : [];
+        try
+        {
+            var client = _factory.CreateClientWithUserId(_adminConDeleteId);
+            var token = await TokenAsync(client);
+
+            HttpResponseMessage response = operacion == "Eliminar"
+                ? await client.PostAsync("/Seguridad/DeleteRol", Form(("__RequestVerificationToken", token), ("id", id)))
+                : await client.PostAsync("/Seguridad/EditRol", Form(
+                    ("__RequestVerificationToken", token), ("Id", id), ("Nombre", $"Renombrado{_sfx}"), ("Activo", "true")));
+
+            Assert.True(response.StatusCode is HttpStatusCode.Found or HttpStatusCode.Forbidden);
+            Assert.Equal(id, await IdDeRolOrNullAsync(reservado));
+            Assert.Null(await IdDeRolOrNullAsync($"Renombrado{_sfx}"));
+        }
+        finally
+        {
+            await ReactivarAsync(inactivados);
+        }
     }
 
     [Fact]
@@ -306,6 +375,165 @@ public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactor
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.False(await ExisteUsuarioAsync(userName));
+    }
+
+    [Theory]
+    [InlineData("administrador")]
+    [InlineData("ADMINISTRADOR")]
+    [InlineData(" Gerente ")]
+    [InlineData("gerente")]
+    public async Task EditUsuario_VariantesDeCapitalizacionYEspacios_NoEvitanLaGuardia(string variante)
+    {
+        var client = _factory.CreateClientWithUserId(_gestorRolesId);
+        var token = await TokenAsync(client);
+        var rolesAntes = await RolesDeUsuarioAsync(_sinRolId);
+
+        var campos = new List<KeyValuePair<string, string>>
+        {
+            new("__RequestVerificationToken", token), new("Id", _sinRolId), new("UserName", $"sinrol_{_sfx}"),
+            new("Email", $"sinrol_{_sfx}@test.com"), new("Activo", "true"),
+            new("RowVersion", Convert.ToBase64String(await RowVersionAsync(_sinRolId))),
+            // Mezcla: uno permitido + uno reservado + duplicado con otra capitalización.
+            new("RolesSeleccionados", _rolBase), new("RolesSeleccionados", variante), new("RolesSeleccionados", variante.ToUpperInvariant())
+        };
+        var response = await client.PostAsync("/Seguridad/EditUsuario", new FormUrlEncodedContent(campos));
+
+        Assert.NotEqual(HttpStatusCode.Found, response.StatusCode);
+        var rolesDespues = await RolesDeUsuarioAsync(_sinRolId);
+        Assert.Equal(rolesAntes.OrderBy(r => r), rolesDespues.OrderBy(r => r));
+        Assert.DoesNotContain(rolesDespues, r => string.Equals(r.Trim(), variante.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("administrador")]
+    [InlineData(" ADMINISTRADOR ")]
+    [InlineData("gerente")]
+    [InlineData(" Gerente")]
+    public async Task BulkAction_VariantesDeCapitalizacionYEspacios_NoEvitanLaGuardia(string variante)
+    {
+        var client = _factory.CreateClientWithUserId(_gestorRolesId);
+        var token = await TokenAsync(client);
+
+        await client.PostAsync("/Usuarios/BulkAction", Form(
+            ("__RequestVerificationToken", token), ("ids", _sinRolId), ("accion", "asignarRol"), ("rol", variante)));
+
+        Assert.Empty(await RolesDeUsuarioAsync(_sinRolId));
+    }
+
+    [Theory]
+    [InlineData("administrador")]
+    [InlineData("GERENTE")]
+    public async Task Create_VariantesDeCapitalizacion_NoEvitanLaGuardia(string variante)
+    {
+        var client = _factory.CreateClientWithUserId(_gestorRolesId);
+        var token = await TokenAsync(client);
+        var userName = $"nuevo_{variante.Trim().ToLowerInvariant()}_{_sfx}";
+
+        var response = await client.PostAsync("/Usuarios/Create", Form(
+            ("__RequestVerificationToken", token),
+            ("UserName", userName), ("Email", $"{userName}@test.com"),
+            ("Password", "Test123!"), ("ConfirmPassword", "Test123!"),
+            ("RolesSeleccionados", _rolBase), ("RolesSeleccionados", variante), ("Activo", "true"), ("EmailConfirmed", "true")));
+
+        // La variante no existe como rol (la validación de existencia es sensible a mayúsculas) o la guardia la
+        // rechaza: en ambos casos no se crea nada. Nunca debe terminar en un usuario con el rol reservado.
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.False(json.RootElement.GetProperty("success").GetBoolean());
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        Assert.False(await ExisteUsuarioAsync(userName));
+    }
+
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Gerente")]
+    public async Task ActorConLosMismosPermisosPeroSinElRol_NoPuedeGestionarAUnaCuentaConRolReservado(string reservado)
+    {
+        // Adoptar la cuenta (cambiar su email/datos y luego resetear la clave) equivale a ganar la autoridad por nombre.
+        var objetivo = reservado == Roles.Administrador ? _adminId : _gerenteId;
+        var userName = reservado == Roles.Administrador ? $"adm_{_sfx}" : $"ger_{_sfx}";
+        var client = _factory.CreateClientWithUserId(_clonAdminId);
+        var token = await TokenAsync(client);
+
+        var campos = new List<KeyValuePair<string, string>>
+        {
+            new("__RequestVerificationToken", token), new("Id", objetivo), new("UserName", userName),
+            new("Email", $"adoptada_{_sfx}@evil.test"), new("Nombre", "Adoptada"), new("Activo", "true"),
+            new("RowVersion", Convert.ToBase64String(await RowVersionAsync(objetivo))),
+            new("RolesSeleccionados", reservado)
+        };
+        var edicion = await client.PostAsync("/Seguridad/EditUsuario", new FormUrlEncodedContent(campos));
+
+        Assert.NotEqual(HttpStatusCode.Found, edicion.StatusCode);
+        Assert.NotEqual("Adoptada", await NombreAsync(objetivo));
+        Assert.Equal($"{userName}@test.com", await EmailAsync(objetivo));
+
+        // Una cuenta sin rol reservado sí sigue siendo gestionable por ese actor (la regla no es genérica).
+        var normal = await PostEditUsuarioAsync(client, token, _sinRolId, $"sinrol_{_sfx}", agregar: _rolBase);
+        Assert.Equal(HttpStatusCode.Found, normal.StatusCode);
+    }
+
+    [Fact]
+    public async Task Administrador_SiPuedeGestionarCuentasAdministradorYGerente()
+    {
+        var client = _factory.CreateClientWithUserId(_adminId);
+        var token = await TokenAsync(client);
+
+        var response = await PostEditUsuarioAsync(client, token, _gerenteId, $"ger_{_sfx}", agregar: null);
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+    }
+
+    // ───────────── estado activo/inactivo de los roles reservados ─────────────
+
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Gerente")]
+    public async Task ToggleRolActivo_NoSuperAdminNoPuedeDesactivarNiReactivarUnRolReservado(string reservado)
+    {
+        var id = await IdDeRolAsync(reservado);
+        var client = _factory.CreateClientWithUserId(_gestorRolesId);
+        var token = await TokenAsync(client);
+
+        await client.PostAsync("/Seguridad/ToggleRolActivo", Form(("__RequestVerificationToken", token), ("id", id), ("activo", "false")));
+        Assert.True(await RolActivoAsync(id), "El rol reservado no debe poder desactivarlo un no-SuperAdmin.");
+
+        var edit = await client.PostAsync("/Seguridad/EditRol", Form(
+            ("__RequestVerificationToken", token), ("Id", id), ("Nombre", reservado), ("Activo", "false")));
+        Assert.Equal(HttpStatusCode.Forbidden, edit.StatusCode);
+        Assert.True(await RolActivoAsync(id));
+    }
+
+    [Fact]
+    public async Task ToggleRolActivo_SuperAdminSiPuedeDesactivarYReactivarUnRolReservado()
+    {
+        var id = await IdDeRolAsync(Roles.Gerente);
+        var client = _factory.CreateClientWithUserId(_superId);
+        var token = await TokenAsync(client);
+
+        try
+        {
+            await client.PostAsync("/Seguridad/ToggleRolActivo", Form(("__RequestVerificationToken", token), ("id", id), ("activo", "false")));
+            Assert.False(await RolActivoAsync(id));
+
+            // Un no-SuperAdmin tampoco puede reactivarlo.
+            var gestor = _factory.CreateClientWithUserId(_gestorRolesId);
+            var tokenGestor = await TokenAsync(gestor);
+            await gestor.PostAsync("/Seguridad/ToggleRolActivo", Form(("__RequestVerificationToken", tokenGestor), ("id", id), ("activo", "true")));
+            Assert.False(await RolActivoAsync(id));
+        }
+        finally
+        {
+            await client.PostAsync("/Seguridad/ToggleRolActivo", Form(("__RequestVerificationToken", token), ("id", id), ("activo", "true")));
+        }
+
+        Assert.True(await RolActivoAsync(id));
     }
 
     [Fact]
@@ -452,6 +680,59 @@ public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactor
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         Assert.True((await roleManager.CreateAsync(new IdentityRole(nombre))).Succeeded);
         return (await roleManager.FindByNameAsync(nombre))!.Id;
+    }
+
+    private async Task<List<string>> InactivarMiembrosAsync(string roleId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ids = await (from ur in context.UserRoles
+                         join u in context.Users on ur.UserId equals u.Id
+                         where ur.RoleId == roleId && u.Activo
+                         select u.Id).ToListAsync();
+        foreach (var u in await context.Users.Where(x => ids.Contains(x.Id)).ToListAsync())
+            u.Activo = false;
+        await context.SaveChangesAsync();
+        return ids;
+    }
+
+    private async Task ReactivarAsync(List<string> ids)
+    {
+        if (ids.Count == 0) return;
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        foreach (var u in await context.Users.Where(x => ids.Contains(x.Id)).ToListAsync())
+            u.Activo = true;
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<int> EventosDenegadoAsync(string operacion)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.SeguridadEventosAuditoria.AsNoTracking()
+            .CountAsync(e => e.Modulo == "Seguridad" && e.Accion == "Denegado" && e.Detalle != null && e.Detalle.StartsWith(operacion));
+    }
+
+    private async Task<bool> RolActivoAsync(string roleId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.RolMetadatas.AsNoTracking().Where(m => m.RoleId == roleId).Select(m => (bool?)m.Activo).SingleOrDefaultAsync() ?? true;
+    }
+
+    private async Task<string?> NombreAsync(string userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Nombre).SingleAsync();
+    }
+
+    private async Task<string?> EmailAsync(string userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Email).SingleAsync();
     }
 
     private async Task<int> ContarRolesAsync()

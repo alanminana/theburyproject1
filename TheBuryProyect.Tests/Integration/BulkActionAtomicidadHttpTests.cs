@@ -200,11 +200,13 @@ public class BulkActionAtomicidadHttpTests : IClassFixture<FaultyUserManagerFact
     {
         FaultyUserManager.Faults[_nombres[posicionQueFalla]] = operacion;
         var antes = await SnapshotAsync();
+        var revertidosAntes = await EventosAuditoriaAsync("Revertido");
 
         var response = await PostBulkAsync(_superId, _ids, "bloquear");
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
         Assert.Equal(antes, await SnapshotAsync());
+        Assert.Equal(revertidosAntes + 1, await EventosAuditoriaAsync("Revertido"));
         foreach (var id in _ids)
             Assert.Null((await EstadoAsync(id)).LockoutEnd);
     }
@@ -218,11 +220,13 @@ public class BulkActionAtomicidadHttpTests : IClassFixture<FaultyUserManagerFact
     {
         FaultyUserManager.Faults[_nombres[posicionQueFalla]] = FaultyUserManager.AddRole;
         var antes = await SnapshotAsync();
+        var revertidosAntes = await EventosAuditoriaAsync("Revertido");
 
         var response = await PostBulkAsync(_superId, _ids, "asignarRol");
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
         Assert.Equal(antes, await SnapshotAsync());
+        Assert.Equal(revertidosAntes + 1, await EventosAuditoriaAsync("Revertido"));
         foreach (var id in _ids)
             Assert.DoesNotContain(Roles.Cajero, (await EstadoAsync(id)).Roles);
     }
@@ -234,11 +238,13 @@ public class BulkActionAtomicidadHttpTests : IClassFixture<FaultyUserManagerFact
     {
         FaultyUserManager.Faults[_nombres[2]] = FaultyUserManager.Concurrency;
         var antes = await SnapshotAsync();
+        var revertidosAntes = await EventosAuditoriaAsync("Revertido");
 
         var response = await PostBulkAsync(_superId, _ids, "desactivar");
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
         Assert.Equal(antes, await SnapshotAsync());
+        Assert.Equal(revertidosAntes + 1, await EventosAuditoriaAsync("Revertido"));
         foreach (var id in _ids)
             Assert.True((await EstadoAsync(id)).Activo);
     }
@@ -273,6 +279,25 @@ public class BulkActionAtomicidadHttpTests : IClassFixture<FaultyUserManagerFact
         var response = await PostBulkAsync(_sinPermisosId, _ids, accion);
 
         Assert.True(response.StatusCode is HttpStatusCode.Found or HttpStatusCode.Forbidden);
+        Assert.Equal(antes, await SnapshotAsync());
+    }
+
+    [Fact]
+    public async Task IdsDuplicadosYVaciosEnLaSeleccion()
+    {
+        // Duplicados: se aplica una sola vez y el conteo informado/auditado es el real.
+        var exitosAntes = await EventosAuditoriaAsync("Acción masiva");
+        await PostBulkAsync(_superId, [_ids[0], _ids[0], _ids[1]], "desactivar");
+
+        Assert.False((await EstadoAsync(_ids[0])).Activo);
+        Assert.False((await EstadoAsync(_ids[1])).Activo);
+        Assert.True((await EstadoAsync(_ids[2])).Activo);
+        Assert.Equal(exitosAntes + 1, await EventosAuditoriaAsync("Acción masiva"));
+
+        // Vacíos: rechazo sin cambios.
+        var antes = await SnapshotAsync();
+        var response = await PostBulkAsync(_superId, [" ", ","], "desactivar");
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
         Assert.Equal(antes, await SnapshotAsync());
     }
 
