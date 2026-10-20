@@ -61,6 +61,17 @@ public interface IGuardiaPrivilegiosService
     Task<GuardiaResultado> ValidarDuplicadoRolAsync(string sourceRoleId);
 
     /// <summary>
+    /// Nombres reservados (SuperAdmin, Administrador, Gerente) otorgan autoridad implícita por IsInRole:
+    /// solo un SuperAdmin puede crear un rol con ese nombre o usarlo como destino de un renombrado/duplicado.
+    /// </summary>
+    Task<GuardiaResultado> ValidarNombreRolAsync(string nombre);
+
+    /// <summary>
+    /// Renombrar o eliminar un rol reservado existente: solo SuperAdmin.
+    /// </summary>
+    Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(string roleId, string? nuevoNombre, bool eliminar);
+
+    /// <summary>
     /// El rol SuperAdmin es del sistema: nadie (ni un SuperAdmin) puede eliminarlo, renombrarlo ni
     /// desactivarlo, porque dejaría al ERP sin acceso administrativo. Cualquier otro rol se ignora.
     /// </summary>

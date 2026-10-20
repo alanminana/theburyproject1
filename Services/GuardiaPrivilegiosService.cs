@@ -10,8 +10,21 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
 {
     private const string MensajeSuperAdmin = "Solo un SuperAdmin puede gestionar el rol o los usuarios SuperAdmin.";
     private const string MensajeRolSistema = "El rol SuperAdmin es del sistema: no se puede eliminar, renombrar ni desactivar.";
-    private const string MensajeUltimoSuperAdmin = "La operación dejaría al sistema sin ningún SuperAdmin utilizable (activo, sin bloqueo y con el rol activo). No se aplicó ningún cambio.";
+    private const string MensajeUltimoSuperAdmin = "La operación dejaría al sistema sin ningún SuperAdmin activo (cuenta activa con el rol SuperAdmin asignado y activo). No se aplicó ningún cambio.";
+    private const string MensajeUltimoSuperAdminHabilitado = "La operación dejaría al sistema sin ningún SuperAdmin habilitado para iniciar sesión (los demás están bloqueados). No se aplicó ningún cambio.";
     private const string MensajeSinAssignRoles = "No tenés permiso para asignar roles.";
+
+    private const string MensajeRolReservado = "Los roles Administrador, Gerente y SuperAdmin son del sistema: solo un SuperAdmin puede crearlos, renombrarlos, eliminarlos o usar su nombre.";
+    private const string MensajeAutoridadRolReservado = "No podés asignar ni quitar un rol del sistema que otorga más autoridad que la tuya.";
+
+    // Roles cuyo NOMBRE concede autoridad implícita en el backend (IsInRole en Caja, Venta, MercadoLibre,
+    // autorizaciones). Rango = nivel de autoridad: asignarlos o quitarlos exige tener al menos ese nivel.
+    private static readonly (string Nombre, int Rango)[] RolesReservados =
+    [
+        (RoleConstants.SuperAdmin, 3),
+        (RoleConstants.Administrador, 2),
+        (RoleConstants.Gerente, 1),
+    ];
 
     private readonly AppDbContext _context;
     private readonly ICurrentUserService _currentUser;
@@ -50,6 +63,12 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
         if (rolesAAgregar.Concat(rolesAQuitar).Any(r =>
                 string.Equals(r, RoleConstants.SuperAdmin, StringComparison.OrdinalIgnoreCase)))
             return GuardiaResultado.Denegado(MensajeSuperAdmin);
+
+        // El nombre Administrador/Gerente concede poder fuera de la matriz de permisos: quien lo asigna
+        // o lo quita debe tener al menos esa autoridad (no alcanza con "usuarios.assignroles").
+        var rangoActor = RangoDelActor();
+        if (rolesAAgregar.Concat(rolesAQuitar).Any(r => RangoReservado(r) > rangoActor))
+            return GuardiaResultado.Denegado(MensajeAutoridadRolReservado);
 
         foreach (var nombre in rolesAAgregar)
         {
@@ -180,6 +199,64 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
                 $"No podés duplicar un rol que otorga permisos que no tenés ({Resumir(fueraDeAlcance)}).");
     }
 
+    /// <summary>
+    /// Nombre de rol reservado (Administrador/Gerente/SuperAdmin, sin distinguir mayúsculas ni espacios
+    /// laterales): solo un SuperAdmin puede crearlo o usarlo como destino de un renombrado/duplicado.
+    /// </summary>
+    public Task<GuardiaResultado> ValidarNombreRolAsync(string nombre)
+    {
+        if (ActorEsSuperAdmin)
+            return Task.FromResult(GuardiaResultado.Ok);
+
+        return Task.FromResult(RangoReservado(nombre) > 0
+            ? GuardiaResultado.Denegado(MensajeRolReservado)
+            : GuardiaResultado.Ok);
+    }
+
+    /// <summary>
+    /// Renombrar o eliminar un rol reservado, o renombrar cualquier rol hacia un nombre reservado, altera la
+    /// identidad que el código reconoce: solo SuperAdmin. Conservar el nombre exacto (editar descripción/estado) no se restringe aquí.
+    /// </summary>
+    public async Task<GuardiaResultado> ValidarIdentidadRolReservadoAsync(string roleId, string? nuevoNombre, bool eliminar)
+    {
+        if (ActorEsSuperAdmin || string.IsNullOrWhiteSpace(roleId))
+            return GuardiaResultado.Ok;
+
+        var actual = await _context.Roles.AsNoTracking()
+            .Where(r => r.Id == roleId).Select(r => r.Name).FirstOrDefaultAsync();
+
+        var renombra = nuevoNombre != null && !string.Equals(nuevoNombre.Trim(), actual, StringComparison.Ordinal);
+
+        // Renombrar un rol cualquiera A un nombre reservado (o cambiar su capitalización) también suplanta.
+        if (renombra && RangoReservado(nuevoNombre) > 0)
+            return GuardiaResultado.Denegado(MensajeRolReservado);
+
+        if (RangoReservado(actual) == 0)
+            return GuardiaResultado.Ok;
+
+        return eliminar || renombra
+            ? GuardiaResultado.Denegado(MensajeRolReservado)
+            : GuardiaResultado.Ok;
+    }
+
+    private int RangoDelActor() =>
+        RolesReservados.Where(r => _currentUser.IsInRole(r.Nombre)).Select(r => r.Rango).DefaultIfEmpty(0).Max();
+
+    private static int RangoReservado(string? nombre)
+    {
+        var limpio = nombre?.Trim();
+        if (string.IsNullOrEmpty(limpio))
+            return 0;
+
+        foreach (var (reservado, rango) in RolesReservados)
+        {
+            if (string.Equals(limpio, reservado, StringComparison.OrdinalIgnoreCase))
+                return rango;
+        }
+
+        return 0;
+    }
+
     public async Task<GuardiaResultado> ValidarInmutabilidadRolSuperAdminAsync(
         string roleId, string? nuevoNombre, bool? nuevoActivo, bool eliminar)
     {
@@ -240,22 +317,35 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
                 }
             }
 
-            // Solo se defiende la invariante si hoy se cumple: una instalación sin SuperAdmin utilizable
-            // (p. ej. recién sembrada) no debe quedar con toda la administración de usuarios trabada.
-            var habiaSuperAdmin = await ExisteSuperAdminUtilizableAsync();
+            // Solo se defiende la invariante si hoy se cumple: una instalación sin SuperAdmin activo
+            // (recién sembrada, o que ya perdió todos) no debe quedar con la administración de usuarios
+            // trabada; la cuenta SuperAdmin se aprovisiona/recupera por DbInitializer, nunca por este camino.
+            var habiaSuperAdmin = await ExisteSuperAdminActivoAsync();
+            // Segunda garantía, solo si hoy se cumple: no apagar el último SuperAdmin que puede iniciar
+            // sesión ahora. No reemplaza a la estructural: un bloqueo ajeno nunca la desactiva.
+            var habiaHabilitado = await ExisteSuperAdminHabilitadoAsync();
 
             if (!await operacion())
             {
                 if (propia) await transaction!.RollbackAsync();
+                // Una operación rechazada pudo dejar entidades modificadas en el tracker (p. ej. un
+                // UpdateAsync fallido): un SaveChanges posterior del mismo contexto las persistiría.
+                _context.ChangeTracker.Clear();
                 return GuardiaResultado.Ok;
             }
 
-            if (habiaSuperAdmin && !await ExisteSuperAdminUtilizableAsync())
+            string? violacion = null;
+            if (habiaSuperAdmin && !await ExisteSuperAdminActivoAsync())
+                violacion = MensajeUltimoSuperAdmin;
+            else if (habiaHabilitado && !await ExisteSuperAdminHabilitadoAsync())
+                violacion = MensajeUltimoSuperAdminHabilitado;
+
+            if (violacion != null)
             {
                 if (propia) await transaction!.RollbackAsync();
                 // La operación pudo dejar entidades modificadas en el tracker: se descartan.
                 _context.ChangeTracker.Clear();
-                return GuardiaResultado.Denegado(MensajeUltimoSuperAdmin);
+                return GuardiaResultado.Denegado(violacion);
             }
 
             if (propia) await transaction!.CommitAsync();
@@ -264,6 +354,7 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
         catch
         {
             if (propia) await transaction!.RollbackAsync();
+            _context.ChangeTracker.Clear();
             throw;
         }
         finally
@@ -273,11 +364,30 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
     }
 
     /// <summary>
-    /// Utilizable = puede iniciar sesión y conserva el rol: usuario activo, sin bloqueo vigente,
-    /// con el rol SuperAdmin asignado y ese rol activo. Es lo que exige el login
-    /// (<c>ActiveUserSignInManager</c> + lockout de Identity) y el filtro de roles activos.
+    /// SuperAdmin estructuralmente activo = cuenta administrativamente activa con el rol SuperAdmin
+    /// asignado y ese rol activo. El bloqueo temporal de login (lockout) NO cuenta: una cuenta bloqueada
+    /// por intentos fallidos sigue siendo un SuperAdmin que la invariante debe conservar.
     /// </summary>
-    private async Task<bool> ExisteSuperAdminUtilizableAsync()
+    private async Task<bool> ExisteSuperAdminActivoAsync()
+    {
+        var normalizado = RoleConstants.SuperAdmin.ToUpperInvariant();
+
+        return await (
+            from u in _context.Users.AsNoTracking()
+            join ur in _context.UserRoles.AsNoTracking() on u.Id equals ur.UserId
+            join r in _context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+            join m in _context.RolMetadatas.AsNoTracking() on r.Id equals m.RoleId into metadatos
+            from m in metadatos.DefaultIfEmpty()
+            where r.NormalizedName == normalizado
+                  && u.Activo
+                  && (m == null || m.Activo)
+            select u.Id).AnyAsync();
+    }
+
+    /// <summary>
+    /// SuperAdmin habilitado = estructuralmente activo y sin bloqueo de login vigente en este momento.
+    /// </summary>
+    private async Task<bool> ExisteSuperAdminHabilitadoAsync()
     {
         var ahora = DateTimeOffset.UtcNow;
         var normalizado = RoleConstants.SuperAdmin.ToUpperInvariant();

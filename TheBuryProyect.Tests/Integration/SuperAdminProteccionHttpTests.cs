@@ -325,6 +325,106 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         Assert.True((await EstadoAsync(_super1Id)).Activo);
     }
 
+    // ───────────────────────── PROMPT 56-C: la invariante es ESTRUCTURAL (el lockout no la apaga) ─────────────────────────
+
+    [Fact]
+    public async Task UltimoSuperAdmin_TemporalmenteBloqueado_SigueProtegidoContraDesactivacionEliminacionYQuitarRol()
+    {
+        // Único SuperAdmin activo, con un bloqueo de login vigente (p. ej. intentos fallidos). Con la
+        // definición "utilizable" esto apagaba la protección y cualquier SuperAdmin podía dejar el sistema en cero.
+        await DesactivarEnBdAsync(_super2Id);
+        await BloquearTemporalEnBdAsync(_super1Id);
+        var client = _factory.CreateClientWithUserId(_super1Id);
+        var token = await TokenAsync(client);
+
+        await client.PostAsync("/Usuarios/Desactivar", Form(("__RequestVerificationToken", token), ("id", _super1Id)));
+        await client.PostAsync("/Usuarios/Delete", Form(("__RequestVerificationToken", token), ("id", _super1Id), ("motivo", "baja")));
+        var quitarRol = await PostEditUsuarioAsync(client, token, _super1Id, $"super1_{_sfx}",
+            roles: [Roles.Vendedor], activo: true, nombre: "Intruso");
+        var desactivarPorEdicion = await PostEditUsuarioAsync(client, token, _super1Id, $"super1_{_sfx}",
+            roles: [Roles.SuperAdmin], activo: false, nombre: "Intruso");
+
+        Assert.Equal(HttpStatusCode.Forbidden, quitarRol.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, desactivarPorEdicion.StatusCode);
+        Assert.True((await EstadoAsync(_super1Id)).Activo);
+        Assert.Contains(Roles.SuperAdmin, await RolesDeUsuarioAsync(_super1Id));
+        Assert.NotEqual("Intruso", await NombreAsync(_super1Id));
+        Assert.Equal(1, await ContarSuperAdminActivosAsync());
+    }
+
+    [Theory]
+    [InlineData("desactivar")]
+    public async Task UltimoSuperAdmin_TemporalmenteBloqueado_AccionMasivaSeRechazaTodaSinEscriturasParciales(string accion)
+    {
+        await DesactivarEnBdAsync(_super2Id);
+        await BloquearTemporalEnBdAsync(_super1Id);
+        var client = _factory.CreateClientWithUserId(_super1Id);
+        var token = await TokenAsync(client);
+
+        var response = await client.PostAsync("/Usuarios/BulkAction", Form(
+            ("__RequestVerificationToken", token), ("ids", $"{_normalId},{_super1Id}"), ("accion", accion)));
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        var normal = await EstadoAsync(_normalId);
+        Assert.True(normal.Activo);
+        Assert.Null(normal.LockoutEnd);
+        Assert.True((await EstadoAsync(_super1Id)).Activo);
+        Assert.Equal(1, await ContarSuperAdminActivosAsync());
+    }
+
+    [Fact]
+    public async Task DosSuperAdmin_UnoBloqueado_SePuedeDesactivarElBloqueadoPeroNoElQueQuedaHabilitado()
+    {
+        await BloquearTemporalEnBdAsync(_super2Id);
+        var client = _factory.CreateClientWithUserId(_super1Id);
+        var token = await TokenAsync(client);
+
+        // Apagar al único que puede iniciar sesión se rechaza (el otro seguiría bloqueado).
+        await client.PostAsync("/Usuarios/Desactivar", Form(("__RequestVerificationToken", token), ("id", _super1Id)));
+        Assert.True((await EstadoAsync(_super1Id)).Activo);
+
+        // Desactivar al bloqueado no reduce el acceso real ni deja el sistema en cero.
+        await client.PostAsync("/Usuarios/Desactivar", Form(("__RequestVerificationToken", token), ("id", _super2Id)));
+        Assert.False((await EstadoAsync(_super2Id)).Activo);
+        Assert.Equal(1, await ContarSuperAdminActivosAsync());
+    }
+
+    [Fact]
+    public async Task RecuperacionLegitima_UnSuperAdminReactivaYDesbloqueaAOtro()
+    {
+        await DesactivarEnBdAsync(_super2Id);
+        await BloquearTemporalEnBdAsync(_super1Id);
+        var client = _factory.CreateClientWithUserId(_super1Id);
+        var token = await TokenAsync(client);
+
+        await client.PostAsync("/Usuarios/Reactivar", Form(("__RequestVerificationToken", token), ("id", _super2Id)));
+        Assert.True((await EstadoAsync(_super2Id)).Activo);
+
+        var otro = _factory.CreateClientWithUserId(_super2Id);
+        var token2 = await TokenAsync(otro);
+        await otro.PostAsync("/Usuarios/Desbloquear", Form(("__RequestVerificationToken", token2), ("id", _super1Id)));
+        Assert.Null((await EstadoAsync(_super1Id)).LockoutEnd);
+        Assert.Equal(2, await ContarSuperAdminActivosAsync());
+    }
+
+    [Fact]
+    public async Task InstalacionSinSuperAdminActivo_LaAdministracionDeUsuariosNoQuedaTrabada()
+    {
+        // Instalación recién sembrada (o que ya perdió todas sus cuentas): no hay nada que conservar y la
+        // administración ordinaria no se bloquea. El SuperAdmin se aprovisiona/recupera por DbInitializer.
+        await DesactivarEnBdAsync(_super1Id);
+        await DesactivarEnBdAsync(_super2Id);
+        var client = _factory.CreateClientWithUserId(_adminId);
+        var token = await TokenAsync(client);
+
+        // El Administrador sembrado no tiene usuarios.delete: se usa una acción masiva de bloqueo (update).
+        await client.PostAsync("/Usuarios/BulkAction", Form(
+            ("__RequestVerificationToken", token), ("ids", _normalId), ("accion", "bloquear")));
+
+        Assert.NotNull((await EstadoAsync(_normalId)).LockoutEnd);
+        Assert.Equal(0, await ContarSuperAdminActivosAsync());
+    }
+
     // ───────────────────────── B. el rol SuperAdmin es del sistema ─────────────────────────
 
     [Fact]
@@ -465,6 +565,28 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         user.LockoutEnabled = true;
         user.LockoutEnd = DateTimeOffset.MaxValue;
         await context.SaveChangesAsync();
+    }
+
+    private async Task BloquearTemporalEnBdAsync(string userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await context.Users.SingleAsync(u => u.Id == userId);
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(15);
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>Estructuralmente activos: cuenta activa con el rol SuperAdmin; el lockout no cuenta.</summary>
+    private async Task<int> ContarSuperAdminActivosAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await (from u in context.Users.AsNoTracking()
+                      join ur in context.UserRoles on u.Id equals ur.UserId
+                      join r in context.Roles on ur.RoleId equals r.Id
+                      where r.Name == Roles.SuperAdmin && u.Activo
+                      select u.Id).CountAsync();
     }
 
     private sealed record EstadoUsuario(bool Activo, DateTimeOffset? LockoutEnd, string? MotivoDesactivacion, string? SecurityStamp);

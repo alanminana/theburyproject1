@@ -333,6 +333,12 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
+        var guardiaNombre = await _guardia.ValidarNombreRolAsync(model.Nombre);
+        if (!guardiaNombre.Permitido)
+        {
+            return await DenegarJsonAsync("Crear rol", $"Rol \"{model.Nombre}\"", guardiaNombre.Motivo!);
+        }
+
         if (await _rolService.RoleExistsAsync(model.Nombre))
         {
             ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
@@ -418,6 +424,8 @@ public class SeguridadController : Controller
         var guardia = await _guardia.ValidarGestionRolAsync(model.Id);
         if (guardia.Permitido)
             guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(model.Id, model.Nombre, eliminar: false);
 
         // Reactivar un rol desde acá es lo mismo que ToggleRolActivo(activo: true): mismo control.
         if (guardia.Permitido && model.Activo)
@@ -510,7 +518,9 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
-        var guardia = await _guardia.ValidarDuplicadoRolAsync(model.RolOrigenId);
+        var guardia = await _guardia.ValidarNombreRolAsync(model.Nombre);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarDuplicadoRolAsync(model.RolOrigenId);
         if (!guardia.Permitido)
         {
             return await DenegarJsonAsync("Duplicar rol", $"Rol origen \"{model.RolOrigenId}\"", guardia.Motivo!);
@@ -614,6 +624,8 @@ public class SeguridadController : Controller
         var guardia = await _guardia.ValidarGestionRolAsync(id);
         if (guardia.Permitido)
             guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(id, null, null, eliminar: true);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, eliminar: true);
         if (!guardia.Permitido)
         {
             await _guardia.RegistrarDenegacionAsync("Eliminar rol", $"Rol \"{id}\"", guardia.Motivo!);

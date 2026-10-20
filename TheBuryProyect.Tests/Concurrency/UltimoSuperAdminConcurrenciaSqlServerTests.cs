@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -118,6 +119,149 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         Assert.NotEqual("Escrito", estadoB.Nombre);
     }
 
+    // ───────────────────────── PROMPT 56: invariante estructural y atomicidad masiva en SQL Server real ─────────────────────────
+
+    [SuperAdminSqlServerFact]
+    public async Task UnicoSuperAdminTemporalmenteBloqueado_NoSePuedeDesactivar()
+    {
+        var (a, b) = await SembrarDosSuperAdminAsync();
+        await using (var context = NuevoContexto())
+        {
+            // b queda inactivo y a con un bloqueo de login vigente: a sigue siendo el último SuperAdmin activo.
+            (await context.Users.SingleAsync(u => u.Id == b)).Activo = false;
+            var ua = await context.Users.SingleAsync(u => u.Id == a);
+            ua.LockoutEnabled = true;
+            ua.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(15);
+            await context.SaveChangesAsync();
+        }
+
+        var rechazo = await Ejecutar(u => u.Activo = false, a);
+
+        Assert.False(rechazo.Permitido);
+        await using var verificacion = NuevoContexto();
+        Assert.True(await verificacion.Users.AsNoTracking().Where(u => u.Id == a).Select(u => u.Activo).SingleAsync());
+    }
+
+    [SuperAdminSqlServerFact]
+    public async Task DosDesactivacionesSimultaneasConUnoBloqueado_NuncaQuedaCeroActivos()
+    {
+        for (var i = 0; i < Iteraciones; i++)
+        {
+            var (a, b) = await SembrarDosSuperAdminAsync();
+            await using (var context = NuevoContexto())
+            {
+                var ub = await context.Users.SingleAsync(u => u.Id == b);
+                ub.LockoutEnabled = true;
+                ub.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(15);
+                await context.SaveChangesAsync();
+            }
+
+            await Task.WhenAll(Ejecutar(u => u.Activo = false, a), Ejecutar(u => u.Activo = false, b));
+
+            Assert.True(await ContarActivosAsync() >= 1, "Quedaron cero SuperAdmin activos.");
+        }
+    }
+
+    [SuperAdminSqlServerFact]
+    public async Task OperacionMasivaConConflictoDeConcurrenciaReal_RevierteTodoYNoPersisteDespues()
+    {
+        var ids = await SembrarOrdinariosAsync(3);
+
+        await using var context = NuevoContexto();
+        var guardia = NuevaGuardia(context);
+        var userManager = NuevoUserManager(context);
+
+        var resultado = await guardia.EjecutarConservandoSuperAdminAsync(async () =>
+        {
+            var usuarios = await userManager.Users.Where(u => ids.Contains(u.Id)).OrderBy(u => u.UserName).ToListAsync();
+
+            // Otra sesión modifica al tercero entre la lectura y el UPDATE (rowversion real de SQL Server).
+            await using (var otra = NuevoContexto())
+            {
+                var fila = await otra.Users.SingleAsync(u => u.Id == usuarios[2].Id);
+                fila.Telefono = "concurrente";
+                await otra.SaveChangesAsync();
+            }
+
+            foreach (var user in usuarios)
+            {
+                user.Activo = false;
+                var r = await userManager.UpdateAsync(user);
+                if (!r.Succeeded)
+                    return false;
+            }
+
+            return true;
+        });
+
+        Assert.True(resultado.Permitido);
+
+        // Un SaveChanges posterior del mismo contexto no debe persistir lo revertido (tracker descartado).
+        await context.SaveChangesAsync();
+
+        await using var verificacion = NuevoContexto();
+        var estados = await verificacion.Users.AsNoTracking().Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Activo, u.Telefono }).ToListAsync();
+        Assert.All(estados, e => Assert.True(e.Activo));
+        Assert.Equal(1, estados.Count(e => e.Telefono == "concurrente"));
+    }
+
+    [SuperAdminSqlServerFact]
+    public async Task ExcepcionEnMedioDeLaOperacionMasiva_RevierteTodoYDescartaElTracker()
+    {
+        var ids = await SembrarOrdinariosAsync(3);
+
+        await using var context = NuevoContexto();
+        var guardia = NuevaGuardia(context);
+        var userManager = NuevoUserManager(context);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => guardia.EjecutarConservandoSuperAdminAsync(async () =>
+        {
+            var usuarios = await userManager.Users.Where(u => ids.Contains(u.Id)).OrderBy(u => u.UserName).ToListAsync();
+            for (var i = 0; i < usuarios.Count; i++)
+            {
+                if (i == 2) throw new InvalidOperationException("fallo inyectado");
+                usuarios[i].Activo = false;
+                Assert.True((await userManager.UpdateAsync(usuarios[i])).Succeeded);
+            }
+
+            return true;
+        }));
+
+        await context.SaveChangesAsync();
+
+        await using var verificacion = NuevoContexto();
+        Assert.All(await verificacion.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).Select(u => u.Activo).ToListAsync(),
+            activo => Assert.True(activo));
+    }
+
+    [SuperAdminSqlServerFact]
+    public async Task OperacionMasivaCorrecta_ConfirmaTodoEnSqlServer()
+    {
+        var ids = await SembrarOrdinariosAsync(3);
+
+        await using var context = NuevoContexto();
+        var guardia = NuevaGuardia(context);
+        var userManager = NuevoUserManager(context);
+
+        var resultado = await guardia.EjecutarConservandoSuperAdminAsync(async () =>
+        {
+            foreach (var user in await userManager.Users.Where(u => ids.Contains(u.Id)).ToListAsync())
+            {
+                user.Activo = false;
+                if (!(await userManager.UpdateAsync(user)).Succeeded)
+                    return false;
+            }
+
+            return true;
+        });
+
+        Assert.True(resultado.Permitido);
+        await using var verificacion = NuevoContexto();
+        Assert.All(await verificacion.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).Select(u => u.Activo).ToListAsync(),
+            activo => Assert.False(activo));
+    }
+
     // ───────────────────────── infraestructura ─────────────────────────
 
     private static AppDbContext NuevoContexto() =>
@@ -174,6 +318,49 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
 
         await context.SaveChangesAsync();
         return (ids[0], ids[1]);
+    }
+
+    private static GuardiaPrivilegiosService NuevaGuardia(AppDbContext context) =>
+        new(context, new SuperAdminActor(), new Microsoft.AspNetCore.Http.HttpContextAccessor(),
+            new AuditoriaNula(), NullLogger<GuardiaPrivilegiosService>.Instance);
+
+    private static UserManager<ApplicationUser> NuevoUserManager(AppDbContext context) =>
+        new(new UserStore<ApplicationUser>(context), Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(), [], [], new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(), null!, NullLogger<UserManager<ApplicationUser>>.Instance);
+
+    private static async Task<List<string>> SembrarOrdinariosAsync(int cantidad)
+    {
+        await using var context = NuevoContexto();
+        context.UserRoles.RemoveRange(context.UserRoles);
+        context.Users.RemoveRange(context.Users);
+        await context.SaveChangesAsync();
+
+        var ids = new List<string>();
+        for (var i = 0; i < cantidad; i++)
+        {
+            var id = Guid.NewGuid().ToString();
+            ids.Add(id);
+            context.Users.Add(new ApplicationUser
+            {
+                Id = id, UserName = $"ord_{i}", NormalizedUserName = $"ORD_{i}",
+                Email = $"o{i}@t.test", NormalizedEmail = $"O{i}@T.TEST",
+                SecurityStamp = Guid.NewGuid().ToString(), ConcurrencyStamp = Guid.NewGuid().ToString(), Activo = true
+            });
+        }
+
+        await context.SaveChangesAsync();
+        return ids;
+    }
+
+    private static async Task<int> ContarActivosAsync()
+    {
+        await using var context = NuevoContexto();
+        return await (from u in context.Users.AsNoTracking()
+                      join ur in context.UserRoles on u.Id equals ur.UserId
+                      join r in context.Roles on ur.RoleId equals r.Id
+                      where r.NormalizedName == "SUPERADMIN" && u.Activo
+                      select u.Id).CountAsync();
     }
 
     private static async Task<int> ContarUtilizablesAsync()

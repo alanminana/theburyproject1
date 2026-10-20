@@ -887,13 +887,22 @@ public class UsuariosController : Controller
             }
         }
 
-        var userIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var userIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         var count = 0;
         var errores = new List<string>();
 
         try
         {
             var usuarios = await _usuarioService.GetUsuariosByIdsAsync(userIds);
+
+            // Todo o nada: un id inexistente invalida la operación completa (no se aplica a "los que sí están").
+            if (userIds.Length == 0 || usuarios.Count != userIds.Length)
+            {
+                TempData["Error"] = "Algunos de los usuarios seleccionados no existen. No se aplicó ningún cambio.";
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
 
             // Todo o nada: si el actor no puede administrar a alguno de los seleccionados (p. ej. un
             // SuperAdmin), no se aplica la acción a ninguno.
@@ -905,116 +914,119 @@ public class UsuariosController : Controller
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
-            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            // Devuelve true si el resultado falló. Ante el primer fallo individual la operación retorna
+            // false: la guardia revierte la transacción completa y descarta el tracker, de modo que no
+            // queda ningún usuario/rol/bloqueo/sucursal confirmado.
+            bool Falla(ApplicationUser user, IdentityResult result)
             {
-            foreach (var user in usuarios)
-            {
+                if (result.Succeeded)
+                    return false;
 
-                switch (accion)
-                {
-                    case "activar":
-                        if (user.Activo)
-                        {
-                            continue;
-                        }
-
-                        user.Activo = true;
-                        user.FechaDesactivacion = null;
-                        user.DesactivadoPor = null;
-                        user.MotivoDesactivacion = null;
-
-                        var activarResult = await _userManager.UpdateAsync(user);
-                        if (activarResult.Succeeded)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", activarResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
-
-                    case "desactivar":
-                        if (!user.Activo)
-                        {
-                            continue;
-                        }
-
-                        user.Activo = false;
-                        user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
-                        user.FechaDesactivacion = DateTime.UtcNow;
-                        user.DesactivadoPor = _currentUser.GetUsername();
-                        user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";
-
-                        var desactivarResult = await _userManager.UpdateAsync(user);
-                        if (desactivarResult.Succeeded)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", desactivarResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
-
-                    case "bloquear":
-                        if (user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
-                        {
-                            continue;
-                        }
-
-                        await _userManager.SetLockoutEnabledAsync(user, true);
-                        await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
-                        count++;
-                        break;
-
-                    case "asignarRol":
-                        if (rol != null && !await _userManager.IsInRoleAsync(user, rol))
-                        {
-                            var addToRoleResult = await _userManager.AddToRoleAsync(user, rol);
-                            if (addToRoleResult.Succeeded)
-                            {
-                                count++;
-                            }
-                            else
-                            {
-                                errores.Add($"{user.UserName}: {string.Join(", ", addToRoleResult.Errors.Select(e => e.Description))}");
-                            }
-                        }
-                        break;
-
-                    case "cambiarSucursal":
-                        if (sucursalDestino != null && user.SucursalId == sucursalDestino.Id)
-                        {
-                            continue;
-                        }
-
-                        user.SucursalId = sucursalDestino?.Id;
-                        user.Sucursal = sucursalDestino?.Nombre;
-                        var sucursalResult = await _userManager.UpdateAsync(user);
-                        if (sucursalResult.Succeeded)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", sucursalResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
-
-                    default:
-                        // Inalcanzable: una acción desconocida se rechaza antes por no tener permiso asociado.
-                        break;
-                }
+                errores.Add($"{user.UserName}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                return true;
             }
 
-            return true;
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                foreach (var user in usuarios)
+                {
+                    switch (accion)
+                    {
+                        case "activar":
+                            if (user.Activo)
+                            {
+                                continue;
+                            }
+
+                            user.Activo = true;
+                            user.FechaDesactivacion = null;
+                            user.DesactivadoPor = null;
+                            user.MotivoDesactivacion = null;
+
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "desactivar":
+                            if (!user.Activo)
+                            {
+                                continue;
+                            }
+
+                            user.Activo = false;
+                            user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
+                            user.FechaDesactivacion = DateTime.UtcNow;
+                            user.DesactivadoPor = _currentUser.GetUsername();
+                            user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";
+
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "bloquear":
+                            if (user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
+                            {
+                                continue;
+                            }
+
+                            if (Falla(user, await _userManager.SetLockoutEnabledAsync(user, true)) ||
+                                Falla(user, await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "asignarRol":
+                            if (rol != null && !await _userManager.IsInRoleAsync(user, rol))
+                            {
+                                if (Falla(user, await _userManager.AddToRoleAsync(user, rol)))
+                                    return false;
+                                count++;
+                            }
+                            break;
+
+                        case "cambiarSucursal":
+                            if (sucursalDestino != null && user.SucursalId == sucursalDestino.Id)
+                            {
+                                continue;
+                            }
+
+                            user.SucursalId = sucursalDestino?.Id;
+                            user.Sucursal = sucursalDestino?.Nombre;
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
+                            count++;
+                            break;
+
+                        default:
+                            // Inalcanzable: una acción desconocida se rechaza antes por no tener permiso asociado.
+                            break;
+                    }
+                }
+
+                return true;
             }, usuarios.Select(u => u.Id));
 
             if (!invariante.Permitido)
             {
                 await _guardia.RegistrarDenegacionAsync($"Acción masiva '{accion}'", $"{usuarios.Count} usuario(s)", invariante.Motivo!);
                 TempData["Error"] = invariante.Motivo;
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
+
+            if (errores.Count > 0)
+            {
+                // La guardia ya revirtió todo: lo que se informa y se audita es lo realmente persistido (nada).
+                var detalle = errores.Count <= 3
+                    ? string.Join(" | ", errores)
+                    : $"{errores.Count} error(es), primero: {errores[0]}";
+                _logger.LogWarning("Acción masiva '{Accion}' revertida por {Admin}: {Detalle}",
+                    accion, _currentUser.GetUsername(), detalle);
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Revertido", $"{userIds.Length} usuario(s)",
+                    $"Acción masiva '{accion}' revertida sin cambios: {detalle}");
+                TempData["Error"] = $"No se aplicó ningún cambio. {detalle}";
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
@@ -1033,25 +1045,20 @@ public class UsuariosController : Controller
 
             if (count > 0)
             {
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Acción masiva", $"{count} usuario(s)",
+                    $"Acción masiva '{accion}' aplicada a {count} de {userIds.Length} usuario(s) seleccionados.");
                 TempData["Success"] = $"{count} usuario(s) {accionLabel} correctamente.";
             }
-            else if (!errores.Any())
+            else
             {
                 TempData["Error"] = "La acción masiva no produjo cambios sobre los usuarios seleccionados.";
-            }
-
-            if (errores.Any())
-            {
-                var resumen = errores.Count <= 3
-                    ? string.Join(" | ", errores)
-                    : $"Se produjeron errores en {errores.Count} usuario(s).";
-                TempData["Error"] = resumen;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error en acción masiva '{Accion}'", accion);
-            TempData["Error"] = "Error al ejecutar la acción masiva.";
+            TempData["Error"] = "Error al ejecutar la acción masiva. No se aplicó ningún cambio.";
         }
 
         return RedirectToReturnUrlOrIndex(returnUrl);
