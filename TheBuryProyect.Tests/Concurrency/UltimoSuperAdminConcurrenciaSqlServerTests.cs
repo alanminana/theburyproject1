@@ -67,7 +67,19 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         await context.Database.EnsureDeletedAsync();
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-00] el catalogo corre con el modo de aislamiento pedido (RCSI)")]
+    public async Task SA00_ModoDeAislamientoDelCatalogo_CoincideConElPedido()
+    {
+        var pedido = Environment.GetEnvironmentVariable("QA_SEC_SUPERADMIN_RCSI") == "1" ? 1 : 0;
+        await using var c = new SqlConnection(SuperAdminSqlEnv.ConnectionString);
+        await c.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "SELECT CAST(is_read_committed_snapshot_on AS int) FROM sys.databases WHERE name = DB_NAME()", c);
+        var real = (int)(await cmd.ExecuteScalarAsync())!;
+        Assert.Equal(pedido, real);
+    }
+
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-01] dos desactivaciones simultaneas de SuperAdmin distintos: solo una se aplica")]
     public async Task DosDesactivacionesSimultaneasDeSuperAdminDistintos_SoloUnaSeAplica()
     {
         for (var i = 0; i < Iteraciones; i++)
@@ -84,7 +96,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         }
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-02] desactivar y bloquear simultaneos de SuperAdmin distintos: solo una se aplica")]
     public async Task DesactivarYBloquearSimultaneosDeSuperAdminDistintos_SoloUnaSeAplica()
     {
         for (var i = 0; i < Iteraciones; i++)
@@ -104,7 +116,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         }
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-03] operacion rechazada no deja escrituras")]
     public async Task OperacionRechazadaNoDejaEscrituras()
     {
         var (a, b) = await SembrarDosSuperAdminAsync();
@@ -121,7 +133,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
 
     // ───────────────────────── PROMPT 56: invariante estructural y atomicidad masiva en SQL Server real ─────────────────────────
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-04] unico SuperAdmin bloqueado temporalmente no se puede desactivar")]
     public async Task UnicoSuperAdminTemporalmenteBloqueado_NoSePuedeDesactivar()
     {
         var (a, b) = await SembrarDosSuperAdminAsync();
@@ -142,7 +154,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         Assert.True(await verificacion.Users.AsNoTracking().Where(u => u.Id == a).Select(u => u.Activo).SingleAsync());
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-05] dos desactivaciones con uno bloqueado nunca dejan cero activos")]
     public async Task DosDesactivacionesSimultaneasConUnoBloqueado_NuncaQuedaCeroActivos()
     {
         for (var i = 0; i < Iteraciones; i++)
@@ -162,7 +174,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         }
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-06] operacion masiva con conflicto de concurrencia real revierte todo")]
     public async Task OperacionMasivaConConflictoDeConcurrenciaReal_RevierteTodoYNoPersisteDespues()
     {
         var ids = await SembrarOrdinariosAsync(3);
@@ -206,7 +218,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         Assert.Equal(1, estados.Count(e => e.Telefono == "concurrente"));
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-07] excepcion en medio de la operacion masiva revierte todo y descarta el tracker")]
     public async Task ExcepcionEnMedioDeLaOperacionMasiva_RevierteTodoYDescartaElTracker()
     {
         var ids = await SembrarOrdinariosAsync(3);
@@ -235,7 +247,7 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
             activo => Assert.True(activo));
     }
 
-    [SuperAdminSqlServerFact]
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 57 [SA-08] operacion masiva correcta confirma todo en SQL Server")]
     public async Task OperacionMasivaCorrecta_ConfirmaTodoEnSqlServer()
     {
         var ids = await SembrarOrdinariosAsync(3);
