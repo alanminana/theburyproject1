@@ -1088,6 +1088,94 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(resultado.VentaId, factura.VentaId);
     }
 
+    // RESCATE-FACTURA-SELECTOR-P0: un tipo que no emite factura nueva (NC/ND/valor fuera del enum)
+    // se rechaza ANTES de crear la venta y de confirmarla — no queda una venta confirmada sin facturar.
+    [Theory]
+    [InlineData(TipoFactura.NotaCredito)]
+    [InlineData(TipoFactura.NotaDebito)]
+    [InlineData((TipoFactura)99)]
+    public async Task Convertir_ConFacturarYTipoInvalido_NoCreaNiConfirmaLaVenta(TipoFactura tipo)
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+        var ventasAntes = await _context.Ventas.CountAsync();
+
+        var confirmaciones = 0;
+        var ventaServiceStub = new StubVentaServiceConfirmarFacturar(
+            confirmar: _ => { confirmaciones++; return Task.FromResult(true); });
+        var currentUser = new StubCurrentUserServiceConversion(
+            tienePermisoAutorizar: false, tienePermisoActualizar: true, tienePermisoFacturar: true);
+        var service = BuildServiceParaConfirmarFacturar(currentUser, ventaServiceStub);
+
+        var request = new CotizacionConversionRequest
+        {
+            UsarPrecioCotizado = true,
+            ConfirmarAdvertencias = true,
+            ConfirmarVenta = true,
+            Facturar = true,
+            TipoFactura = tipo
+        };
+
+        var resultado = await service.ConvertirAVentaAsync(cotizacion.Id, request, "carlos");
+
+        Assert.False(resultado.Exitoso);
+        Assert.Contains(TheBuryProject.Helpers.TipoFacturaEmision.MensajeInvalido, resultado.Errores);
+        Assert.Equal(0, confirmaciones);
+        Assert.Empty(ventaServiceStub.FacturasSolicitadas);
+        Assert.Equal(ventasAntes, await _context.Ventas.CountAsync());
+        var persistida = await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == cotizacion.Id);
+        Assert.NotEqual(EstadoCotizacion.ConvertidaAVenta, persistida.Estado);
+    }
+
+    [Theory]
+    [InlineData(TipoFactura.A)]
+    [InlineData(TipoFactura.B)]
+    [InlineData(TipoFactura.C)]
+    public async Task Convertir_ConFacturarYTipoValido_ConfirmaYFacturaConEseTipo(TipoFactura tipo)
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var ventaServiceStub = new StubVentaServiceConfirmarFacturar();
+        var currentUser = new StubCurrentUserServiceConversion(
+            tienePermisoAutorizar: false, tienePermisoActualizar: true, tienePermisoFacturar: true);
+        var service = BuildServiceParaConfirmarFacturar(currentUser, ventaServiceStub);
+
+        var resultado = await service.ConvertirAVentaAsync(cotizacion.Id, new CotizacionConversionRequest
+        {
+            UsarPrecioCotizado = true,
+            ConfirmarAdvertencias = true,
+            ConfirmarVenta = true,
+            Facturar = true,
+            TipoFactura = tipo
+        }, "carlos");
+
+        Assert.True(resultado.Exitoso);
+        Assert.True(resultado.Facturada);
+        Assert.Equal(tipo, Assert.Single(ventaServiceStub.FacturasSolicitadas).Tipo);
+    }
+
+    // Sin ConfirmarVenta no se factura: el tipo no se evalúa (comportamiento previo intacto).
+    [Fact]
+    public async Task Convertir_SinConfirmarVenta_NoEvaluaElTipoDeFactura()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, new CotizacionConversionRequest
+        {
+            UsarPrecioCotizado = true,
+            ConfirmarAdvertencias = true,
+            TipoFactura = TipoFactura.NotaCredito
+        }, "carlos");
+
+        Assert.True(resultado.Exitoso);
+        Assert.False(resultado.VentaConfirmada);
+    }
+
     // §9 del pedido: nunca confiar sólo en el frontend — sin el permiso real
     // (ventas/update), la venta queda CREADA pero no confirmada, con el motivo explícito.
     [Fact]

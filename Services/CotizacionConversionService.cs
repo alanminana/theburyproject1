@@ -324,6 +324,9 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         if (!_currentUserService.HasPermission(modulo, "update"))
             bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_permiso_confirmar", Mensaje = "No tenés permiso para confirmar ventas." });
 
+        if (request.Facturar && !TipoFacturaEmision.EsPermitido(request.TipoFactura))
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "tipo_factura_invalido", Mensaje = TipoFacturaEmision.MensajeInvalido });
+
         if (request.Facturar && !_currentUserService.HasPermission(modulo, "invoice"))
             bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_permiso_facturar", Mensaje = "No tenés permiso para facturar." });
 
@@ -419,6 +422,11 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         ValidarEstadoConvertible(cotizacion, erroresEstado);
         if (erroresEstado.Count > 0)
             return CotizacionConversionResultado.Fallido(cotizacionId, erroresEstado);
+
+        // Antes de crear la venta (y mucho antes de confirmarla): si se pidió facturar con un tipo
+        // que no emite una factura nueva, no se persiste nada.
+        if (request.ConfirmarVenta && request.Facturar && !TipoFacturaEmision.EsPermitido(request.TipoFactura))
+            return CotizacionConversionResultado.Fallido(cotizacionId, [TipoFacturaEmision.MensajeInvalido]);
 
         // Resolver cliente: override tiene prioridad sobre cotización
         var clienteId = request.ClienteIdOverride ?? cotizacion.ClienteId;

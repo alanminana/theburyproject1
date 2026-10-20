@@ -55,7 +55,7 @@
 *@
 @inject TheBuryProject.Services.Interfaces.IServicioVentaPrecioService ServiciosVentaSvc
 @{
-    ViewData["TiposFactura"] = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(Enum.GetValues(typeof(TipoFactura)));
+    ViewData["TiposFactura"] = TheBuryProject.Helpers.TipoFacturaEmision.CrearSelectList(TipoFactura.B);
 
     // VENTA-SERVICIOS-01: precios globales de envío (Ciudad/Rural) y armados N.º 1..6. Sólo los activos
     // se ofrecen; el importe real lo resuelve el servidor al simular y al guardar (nunca el navegador).
