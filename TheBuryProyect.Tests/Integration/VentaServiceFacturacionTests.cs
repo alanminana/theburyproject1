@@ -326,6 +326,58 @@ public class VentaServiceFacturacionTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // RESCATE-FACTURA-SELECTOR-P0: una factura nueva solo se emite como A, B o C
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(TipoFactura.NotaCredito)]
+    [InlineData(TipoFactura.NotaDebito)]
+    [InlineData((TipoFactura)99)]
+    [InlineData((TipoFactura)(-1))]
+    public async Task Facturar_TipoNoPermitido_RechazaSinFacturaNiCambioDeEstadoNiCaja(TipoFactura tipo)
+    {
+        var venta = await SeedVentaConfirmada();
+        var facturaVm = new FacturaViewModel { Tipo = tipo, FechaEmision = DateTime.UtcNow };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.FacturarVentaAsync(venta.Id, facturaVm));
+
+        Assert.Equal(TipoFacturaEmision.MensajeInvalido, ex.Message);
+        _context.ChangeTracker.Clear();
+        var persistida = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, persistida.Estado);
+        Assert.Null(persistida.FechaFacturacion);
+        Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
+        Assert.False(_movimientoCajaRegistrado[0]);
+    }
+
+    [Fact]
+    public async Task Facturar_TipoNoPermitido_SeRechazaAunqueLaVentaNoExista()
+    {
+        // La validación va antes de abrir transacción o consultar la venta: no depende del estado.
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.NotaCredito, FechaEmision = DateTime.UtcNow };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.FacturarVentaAsync(id: 99_999, facturaViewModel: facturaVm));
+    }
+
+    [Theory]
+    [InlineData(TipoFactura.A)]
+    [InlineData(TipoFactura.B)]
+    [InlineData(TipoFactura.C)]
+    public async Task Facturar_TipoPermitido_FacturaConElTipoPedido(TipoFactura tipo)
+    {
+        var venta = await SeedVentaConfirmada();
+        var facturaVm = new FacturaViewModel { Tipo = tipo, FechaEmision = DateTime.UtcNow };
+
+        var result = await _service.FacturarVentaAsync(venta.Id, facturaVm);
+
+        Assert.True(result);
+        var factura = await _context.Facturas.SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(tipo, factura.Tipo);
+    }
+
+    // -------------------------------------------------------------------------
     // Tests — FacturarVentaAsync: happy path
     // -------------------------------------------------------------------------
 

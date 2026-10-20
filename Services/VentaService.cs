@@ -1520,6 +1520,9 @@ namespace TheBuryProject.Services
         /// </summary>
         public async Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel)
         {
+            // Antes de abrir transacción, locks o tocar caja: solo A/B/C emiten una factura nueva.
+            TipoFacturaEmision.Validar(facturaViewModel.Tipo);
+
             var ambiental = _context.Database.CurrentTransaction;
             var propia = ambiental == null;
             await using var transaction = propia ? await _context.Database.BeginTransactionAsync() : null;

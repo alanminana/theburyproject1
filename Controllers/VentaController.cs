@@ -297,7 +297,7 @@ namespace TheBuryProject.Controllers
 
                 // Datos para modal de facturación
                 var facturaViewModel = CrearFacturaViewModel(venta);
-                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                ViewBag.TiposFactura = TipoFacturaEmision.CrearSelectList(facturaViewModel.Tipo);
                 ViewBag.FacturaViewModel = facturaViewModel;
 
                 return View("Details_tw", venta);
@@ -601,6 +601,13 @@ namespace TheBuryProject.Controllers
                 }
 
                 var ventaAntes = await _ventaService.GetByIdAsync(id);
+
+                // Se rechaza ANTES de UpdateAsync/Confirmar: un tipo inválido no debe dejar la venta
+                // guardada o confirmada a medias. Solo aplica si el POST realmente va a facturar.
+                if (accionConfirmacion == "confirmar-facturar" && !TipoFacturaEmision.EsPermitido(tipoFactura))
+                {
+                    ModelState.AddModelError("tipoFactura", TipoFacturaEmision.MensajeInvalido);
+                }
 
                 _logger.LogDebug(
                     "Edit(POST) venta {Id} received. ModelStateValid:{ModelStateValid} Detalles:{Detalles} TipoPago:{TipoPago} RowVersion:{RowVersionLength}",
@@ -1572,7 +1579,7 @@ namespace TheBuryProject.Controllers
                 var facturaViewModel = CrearFacturaViewModel(venta);
 
                 ViewBag.Venta = venta;
-                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                ViewBag.TiposFactura = TipoFacturaEmision.CrearSelectList(facturaViewModel.Tipo);
 
                 return View("Facturar_tw", facturaViewModel);
             }
@@ -1601,11 +1608,16 @@ namespace TheBuryProject.Controllers
                     return cajaGuard;
                 }
 
+                if (!TipoFacturaEmision.EsPermitido(facturaViewModel.Tipo))
+                {
+                    ModelState.AddModelError(nameof(FacturaViewModel.Tipo), TipoFacturaEmision.MensajeInvalido);
+                }
+
                 if (!ModelState.IsValid)
                 {
                     var venta = await _ventaService.GetByIdAsync(facturaViewModel.VentaId);
                     ViewBag.Venta = venta;
-                    ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                    ViewBag.TiposFactura = TipoFacturaEmision.CrearSelectList(facturaViewModel.Tipo);
                     return View("Facturar_tw", facturaViewModel);
                 }
 
@@ -1634,6 +1646,13 @@ namespace TheBuryProject.Controllers
         // pública propia (Venta/ConfirmarYFacturar fue retirada: ningún formulario la posteaba).
         private async Task<IActionResult> EjecutarConfirmarYFacturarAsync(int id, TipoFactura tipo)
         {
+            // Antes de cualquier efecto (confirmar descuenta stock): tipo inválido => nada se procesa.
+            if (!TipoFacturaEmision.EsPermitido(tipo))
+            {
+                TempData["Error"] = TipoFacturaEmision.MensajeInvalido;
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
             try
             {
                 var cajaGuard = await RedirigirSiCajaCerradaAsync(

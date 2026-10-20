@@ -120,12 +120,17 @@
                 {
                     @foreach (var item in tiposFactura)
                     {
+                        // Solo A/B/C (factura nueva) y selected explícito = Model.Tipo (default B):
+                        // sin esto el navegador marca la primera opción (A).
+                        var valorOpcion = item.Value ?? item.Text;
+                        if (!TheBuryProject.Helpers.TipoFacturaEmision.EsPermitidoTexto(valorOpcion)) { continue; }
+                        var opcionSeleccionada = string.Equals(valorOpcion, Model.Tipo.ToString(), StringComparison.Ordinal);
                         @* SelectListItem.Value viene null cuando el SelectList se construye sin
                            dataValueField (new SelectList(Enum.GetValues(...))) — el propio
                            SelectTagHelper cae a Text en ese caso (GenerateOption interno); se
                            replica el mismo fallback acá para tener el mismo `value` que ya
                            tenía este <select> con asp-items. *@
-                        <option value="@(item.Value ?? item.Text)" selected="@(item.Selected ? "selected" : null)">@item.Text</option>
+                        <option value="@valorOpcion" selected="@(opcionSeleccionada ? "selected" : null)">@item.Text</option>
                     }
                 }
             </select>
