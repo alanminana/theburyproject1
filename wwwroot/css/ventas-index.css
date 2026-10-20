@@ -546,6 +546,23 @@
     flex-wrap: wrap;
 }
 
+/* Aviso de filtros activos en las pestañas derivadas de Operaciones */
+#venta-index-rework .filtros-activos-aviso {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    color: var(--venta-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+#venta-index-rework .filtros-activos-aviso__texto {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
 /* ─────────────────────────────────────────────
    Filtros
 ───────────────────────────────────────────── */

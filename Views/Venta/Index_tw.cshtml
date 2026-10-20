@@ -17,8 +17,12 @@
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
     var pendientesAutorizacion = ventas.Count(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion);
-    var filtroActivo = filter.Numero != null || filter.FechaDesde != null || filter.FechaHasta != null
-                    || filter.Estado != null || filter.TipoPago != null || filter.EstadoAutorizacion != null;
+    // Debe cubrir todo filtro que VentaService.GetAllAsync efectivamente aplica (incluye ClienteId y
+    // EstadoEnvio, que llegan por querystring aunque no tengan control en la barra de filtros).
+    var filtroActivo = !string.IsNullOrEmpty(filter.Numero) || filter.FechaDesde != null || filter.FechaHasta != null
+                    || filter.Estado != null || filter.TipoPago != null || filter.EstadoAutorizacion != null
+                    || filter.ClienteId != null || filter.EstadoEnvio != null;
+    const string avisoTextoDerivado = "Este listado muestra solo lo que coincide con los filtros de Operaciones.";
     var fechaDesdeStr = filter.FechaDesde?.ToString("yyyy-MM-dd") ?? "";
     var fechaHastaStr = filter.FechaHasta?.ToString("yyyy-MM-dd") ?? "";
     var cotizacionesPresupuestos = ventas
@@ -715,6 +719,10 @@
                                                                 <p>Operaciones que necesitan autorización antes de continuar.</p>
                                                             </div>
                                                         </div>
+                                                        @if (filtroActivo)
+                                                        {
+                                                            @await Html.PartialAsync("_FiltrosActivosAviso", new TheBuryProject.ViewModels.VentaFiltrosActivosAvisoViewModel { Pestana = "pendientes", Texto = avisoTextoDerivado })
+                                                        }
                                                         <div class="compact-list">
                                                             @foreach (var v in ventas.Where(v => v.EstadoAutorizacion ==
                                                             EstadoAutorizacionVenta.PendienteAutorizacion))
@@ -754,6 +762,10 @@
                                                                     <p>Registros reales en estado cotización o presupuesto.</p>
                                                                 </div>
                                                             </div>
+                                                            @if (filtroActivo)
+                                                            {
+                                                                @await Html.PartialAsync("_FiltrosActivosAviso", new TheBuryProject.ViewModels.VentaFiltrosActivosAvisoViewModel { Pestana = "cotizaciones", Texto = avisoTextoDerivado })
+                                                            }
                                                             <div class="compact-list">
                                                                 @foreach (var v in cotizacionesPresupuestos)
                                                                 {
@@ -796,6 +808,10 @@
                                                                        class="btn btn-ghost no-underline">Ver historial</a>
                                                                 }
                                                             </div>
+                                                            @if (filtroActivo)
+                                                            {
+                                                                @await Html.PartialAsync("_FiltrosActivosAviso", new TheBuryProject.ViewModels.VentaFiltrosActivosAvisoViewModel { Pestana = "devoluciones", Texto = avisoTextoDerivado })
+                                                            }
                                                             <div class="compact-list">
                                                                 @foreach (var v in devolucionesElegibles)
                                                                 {
@@ -833,6 +849,10 @@
                                                                     <p>Ventas con envío a domicilio que todavía no llegaron a destino. Abajo, el historial de cerrados por mes: el mes en curso completo y un buscador para meses anteriores.</p>
                                                                 </div>
                                                             </div>
+                                                            @if (filtroActivo)
+                                                            {
+                                                                @await Html.PartialAsync("_FiltrosActivosAviso", new TheBuryProject.ViewModels.VentaFiltrosActivosAvisoViewModel { Pestana = "envios", Texto = "Los envíos pendientes respetan los filtros de Operaciones. El historial de cerrados por mes no." })
+                                                            }
                                                             <div class="compact-list">
                                                                 @foreach (var v in enviosPendientes)
                                                                 {

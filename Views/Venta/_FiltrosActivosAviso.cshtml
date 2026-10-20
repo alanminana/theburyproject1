@@ -1,0 +1,14 @@
+@* Aviso de filtros activos para las pestañas derivadas de Operaciones (Pendientes, Cotizaciones,
+   Devoluciones, Envíos). Esas pestañas se arman en memoria desde el mismo conjunto ya filtrado,
+   así que cualquier filtro de Operaciones también las restringe aunque el listado no esté vacío.
+   Solo se renderiza cuando hay filtros; "Limpiar filtros" vuelve al Index sin querystring y
+   conserva la pestaña actual vía #fragmento (venta-index.js lo usa como deep-link). *@
+@model TheBuryProject.ViewModels.VentaFiltrosActivosAvisoViewModel
+<div class="filtros-activos-aviso" role="status" data-venta-filtros-activos="@Model.Pestana">
+    <span class="pill pill-blue">Filtros activos</span>
+    <span class="filtros-activos-aviso__texto">@Model.Texto</span>
+    <a asp-action="Index" asp-fragment="@Model.Pestana" class="btn btn-ghost btn-xs no-underline">
+        <span class="material-symbols-outlined" aria-hidden="true">clear_all</span>
+        Limpiar filtros
+    </a>
+</div>
