@@ -502,8 +502,10 @@
                 showBulkConfigError('Seleccioná un rol para continuar.');
                 return;
             }
+            // closeBulkConfigModal() limpia currentBulkModalAction: se captura antes de cerrar.
+            const action = currentBulkModalAction;
             closeBulkConfigModal();
-            submitBulkAction(currentBulkModalAction, { rol: selectedRole });
+            submitBulkAction(action, { rol: selectedRole });
             return;
         }
         const selectedSucursalId = (bulkSucursalSelect?.value || '').trim();
@@ -511,8 +513,9 @@
             showBulkConfigError('Seleccioná una sucursal para continuar.');
             return;
         }
+        const action = currentBulkModalAction;
         closeBulkConfigModal();
-        submitBulkAction(currentBulkModalAction, { sucursalId: selectedSucursalId });
+        submitBulkAction(action, { sucursalId: selectedSucursalId });
     });
 
     document.addEventListener('click', event => {
