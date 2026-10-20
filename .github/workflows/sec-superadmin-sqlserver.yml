@@ -1,4 +1,4 @@
-name: SEC SQL Server (ultimo SuperAdmin: concurrencia y atomicidad)
+name: SEC SQL Server (ultimo SuperAdmin - concurrencia y atomicidad)
 
 # PROMPT 57: ejecuta CONTRA UN SQL SERVER REAL EFIMERO la clase UltimoSuperAdminConcurrenciaSqlServerTests
 # (concurrencia y atomicidad del invariante "siempre queda un SuperAdmin utilizable"). SQLite no sirve: un unico
