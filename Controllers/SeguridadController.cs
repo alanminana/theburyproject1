@@ -418,6 +418,15 @@ public class SeguridadController : Controller
         var guardia = await _guardia.ValidarGestionRolAsync(model.Id);
         if (guardia.Permitido)
             guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
+
+        // Reactivar un rol desde acá es lo mismo que ToggleRolActivo(activo: true): mismo control.
+        if (guardia.Permitido && model.Activo)
+        {
+            var metadataActual = await _rolService.GetRoleMetadataAsync(model.Id);
+            if (metadataActual is { Activo: false })
+                guardia = await _guardia.ValidarActivacionRolAsync(model.Id);
+        }
+
         if (!guardia.Permitido)
         {
             return await DenegarJsonAsync("Editar rol", $"Rol \"{model.Nombre}\"", guardia.Motivo!);

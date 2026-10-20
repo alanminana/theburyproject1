@@ -435,7 +435,14 @@ public class UsuariosController : Controller
             user.DesactivadoPor = null;
             user.MotivoDesactivacion = null;
 
-            var result = await _userManager.UpdateAsync(user);
+            IdentityResult result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Reactivar usuario", user, invariante.Motivo!, returnUrl);
 
             if (result.Succeeded)
             {
@@ -517,8 +524,17 @@ public class UsuariosController : Controller
                 return await DenegarJsonAsync("Reset de contraseña", $"Usuario \"{user.UserName}\"", guardia.Motivo!);
             }
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
+            // Se revalida bajo el lock: si un SuperAdmin promovió al usuario después del chequeo previo,
+            // el actor no-SuperAdmin ya no puede cambiarle la contraseña.
+            var result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarJsonAsync("Reset de contraseña", $"Usuario \"{user.UserName}\"", invariante.Motivo!);
 
             if (result.Succeeded)
             {
@@ -611,8 +627,19 @@ public class UsuariosController : Controller
             }
 
             // Generar token y confirmar email
-            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            var result = await _userManager.ConfirmEmailAsync(user, token);
+            var result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                result = await _userManager.ConfirmEmailAsync(user, token);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Confirmar email", $"Usuario \"{user.UserName}\"", invariante.Motivo!);
+                TempData["Error"] = invariante.Motivo;
+                return RedirectToReturnUrlOrDetails(id, returnUrl);
+            }
 
             if (result.Succeeded)
             {
@@ -751,7 +778,19 @@ public class UsuariosController : Controller
             if (!guardiaUsuario.Permitido)
                 return await DenegarRedirectAsync("Desbloquear usuario", user, guardiaUsuario.Motivo!, returnUrl);
 
-            await _userManager.SetLockoutEndDateAsync(user, null);
+            var desbloqueado = false;
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                desbloqueado = (await _userManager.SetLockoutEndDateAsync(user, null)).Succeeded;
+                return desbloqueado;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Desbloquear usuario", user, invariante.Motivo!, returnUrl);
+            if (!desbloqueado)
+            {
+                TempData["Error"] = "No se pudo desbloquear al usuario.";
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
 
             _logger.LogInformation("Usuario {UserId} desbloqueado por {Admin}", id, _currentUser.GetUsername());
             TempData["Success"] = $"Usuario {user.UserName} desbloqueado correctamente.";

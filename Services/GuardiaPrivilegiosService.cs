@@ -233,6 +233,9 @@ public class GuardiaPrivilegiosService : IGuardiaPrivilegiosService
                 if (!gestion.Permitido)
                 {
                     if (propia) await transaction!.RollbackAsync();
+                    // El controller pudo mutar el objetivo antes de entrar: si quedara en el tracker, el
+                    // SaveChanges de la auditoría de la denegación lo persistiría fuera de la transacción revertida.
+                    _context.ChangeTracker.Clear();
                     return gestion;
                 }
             }

@@ -319,6 +319,33 @@ public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task EditRol_AdministradorNoPuedeReactivarUnRolConPermisosQueNoTiene()
+    {
+        var nombre = $"RolDormidoEdit{_sfx}";
+        string roleId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await CrearRolConPermisosAsync(context, nombre, "configuracion.update");
+            roleId = await context.Roles.Where(r => r.Name == nombre).Select(r => r.Id).SingleAsync();
+            context.RolMetadatas.Add(new RolMetadata { RoleId = roleId, Activo = false, RowVersion = new byte[8] });
+            await context.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithUserId(_adminId);
+        var token = await TokenAsync(client);
+
+        var response = await client.PostAsync("/Seguridad/EditRol", Form(
+            ("__RequestVerificationToken", token),
+            ("Id", roleId), ("Nombre", nombre), ("Activo", "true")));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var scope2 = _factory.Services.CreateScope();
+        var ctx = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(await ctx.RolMetadatas.Where(m => m.RoleId == roleId).Select(m => m.Activo).SingleAsync());
+    }
+
+    [Fact]
     public async Task SavePermisosRol_AdministradorNoPuedeOtorgarseConfiguracionUpdate()
     {
         var adminRoleId = await IdDeRolAsync(Roles.Administrador);
