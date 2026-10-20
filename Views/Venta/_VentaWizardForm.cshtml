@@ -511,7 +511,7 @@
                                     </summary>
                                     <div
                                         class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-800/50 p-4 md:grid-cols-4">
-                                        <select id="filtro-categoria" class="venta-select text-xs">
+                                        <select id="filtro-categoria" class="venta-select text-xs" aria-label="Filtrar por categoría">
                                             <option value="">Categoría: Todas</option>
                                             @if (categorias != null)
                                             {
@@ -521,7 +521,7 @@
                                                 }
                                             }
                                         </select>
-                                        <select id="filtro-marca" class="venta-select text-xs">
+                                        <select id="filtro-marca" class="venta-select text-xs" aria-label="Filtrar por marca">
                                             <option value="">Marca: Todas</option>
                                             @if (marcas != null)
                                             {
@@ -533,9 +533,9 @@
                                         </select>
                                         <div class="flex gap-2">
                                             <input data-rule="monto" id="filtro-precio-min" type="number" min="0" step="0.01"
-                                                   class="w-full venta-select text-xs" placeholder="Min $" />
+                                                   class="w-full venta-select text-xs" placeholder="Min $" aria-label="Precio mínimo" />
                                             <input data-rule="monto" id="filtro-precio-max" type="number" min="0" step="0.01"
-                                                   class="w-full venta-select text-xs" placeholder="Max $" />
+                                                   class="w-full venta-select text-xs" placeholder="Max $" aria-label="Precio máximo" />
                                         </div>
                                         <label class="flex items-center gap-2 cursor-pointer">
                                             <input id="filtro-solo-stock" type="checkbox" checked
@@ -551,6 +551,7 @@
                                             <span
                                             class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 pointer-events-none">search</span>
                                             <input id="input-buscar-producto" type="text" autocomplete="off" class="venta-input"
+                                                   aria-label="Buscar producto por código o nombre"
                                                    style="padding-left: 2.5rem"
                                                    placeholder="Escriba código o nombre del producto..." />
                                             <div id="dropdown-productos"
@@ -562,7 +563,7 @@
                                         <div id="panel-agregar-producto"
                                              class="hidden grid-cols-2 gap-3 rounded-xl border border-primary/20 bg-primary/10 p-4 md:grid-cols-5">
                                             <div class="md:col-span-2">
-                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Producto
+                                                <label for="txt-producto-seleccionado" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Producto
                                                     Seleccionado</label>
                                                     <input id="txt-producto-seleccionado" type="text" readonly
                                                            class="w-full text-sm bg-slate-700 border-none rounded-lg text-slate-300 px-3 py-2" />
@@ -573,7 +574,7 @@
                                                     <input type="hidden" id="hdn-producto-requiere-numero-serie" />
                                                 </div>
                                                 <div>
-                                                    <label
+                                                    <label for="txt-cantidad"
                                                     class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Cantidad</label>
                                                     <input id="txt-cantidad" type="number" min="1" value="1" class="venta-input" />
                                                     <p id="stock-error" class="hidden text-[9px] text-red-500 font-bold mt-1"></p>
@@ -606,7 +607,7 @@
                                                     </div>
                                                     <div id="panel-selector-unidad"
                                                          class="hidden col-span-2 md:col-span-5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
-                                                        <label class="block text-[10px] font-bold text-amber-500 uppercase mb-1">Unidad
+                                                        <label for="select-producto-unidad" class="block text-[10px] font-bold text-amber-500 uppercase mb-1">Unidad
                                                             física</label>
                                                             <select id="select-producto-unidad" class="venta-input"
                                                                     aria-describedby="producto-unidad-ayuda producto-unidad-error">
@@ -629,8 +630,8 @@
                                                                  class="hidden col-span-2 md:col-span-5 items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
                                                             </div>
                                                             <div>
-                                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
-                                                                    %</label>
+                                                                <label for="txt-descuento-item" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
+                                                                    %<span class="sr-only"> (descuento del producto)</span></label>
                                                                     <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
                                                                            class="venta-input" />
                                                                 </div>
@@ -827,43 +828,43 @@
                                                                                             </h4>
                                                                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                                                 <div>
-                                                                                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de
+                                                                                                    <label for="txt-num-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de
                                                                                                         Cheque</label>
                                                                                                         <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque"
                                                                                                                class="venta-input" placeholder="Nº de cheque" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-banco-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Banco</label>
                                                                                                         <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque"
                                                                                                                class="venta-input" placeholder="Nombre del banco" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-titular-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Titular</label>
                                                                                                         <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque"
                                                                                                                class="venta-input" placeholder="Nombre del titular" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-cuit-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">CUIT</label>
                                                                                                         <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque"
                                                                                                                class="venta-input" placeholder="XX-XXXXXXXX-X" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
+                                                                                                        <label for="txt-fecha-emision-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                             Emisión</label>
                                                                                                             <input type="date" data-fecha="hoy" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque"
                                                                                                                    class="venta-input" />
                                                                                                         </div>
                                                                                                         <div>
-                                                                                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
+                                                                                                            <label for="txt-fecha-vencimiento-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                                 Vencimiento</label>
                                                                                                                 <input type="date" data-fecha="hoy" name="DatosCheque.FechaVencimiento" min="@DateTime.Today.ToString("yyyy-MM-dd")"
                                                                                                                        id="txt-fecha-vencimiento-cheque" class="venta-input" />
                                                                                                             </div>
                                                                                                             <div>
-                                                                                                                <label
+                                                                                                                <label for="txt-monto-cheque"
                                                                                                                 class="block text-xs font-bold text-slate-500 uppercase mb-1">Monto</label>
                                                                                                                 <input type="number" step="0.01" name="DatosCheque.Monto" id="txt-monto-cheque"
                                                                                                                        class="venta-input" placeholder="$0,00" />
@@ -1018,7 +1019,7 @@
                                                                                                                             condiciones señaladas arriba siguen sin resolverse.
                                                                                                                         </p>
                                                                                                                         <div>
-                                                                                                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                                                                                            <label for="txt-excepcion-documental" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                                                                                                                 Motivo <span class="text-red-500">*</span>
                                                                                                                             </label>
                                                                                                                             <textarea asp-for="MotivoExcepcionDocumentalCreate"
@@ -1647,7 +1648,7 @@
                                                                                                         <p id="doc-archivo-nombre" class="text-[11px] text-slate-500 mt-2 hidden"></p>
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo de documento</label>
+                                                                                                        <label for="select-tipo-documento" class="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo de documento</label>
                                                                                                         <select id="select-tipo-documento"
                                                                                                                 class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg px-3 py-2">
                                                                                                             <option value="">Seleccione tipo...</option>
