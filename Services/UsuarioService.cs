@@ -144,7 +144,10 @@ public class UsuarioService : IUsuarioService
         // Concurrencia optimista
         _context.Entry(user).Property(u => u.RowVersion).OriginalValue = request.RowVersion;
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        // Si el caller ya abrió una transacción (guardia del último SuperAdmin) se une a ella: la
+        // confirma o revierte quien la abrió, no se puede anidar otra.
+        var transaccionPropia = _context.Database.CurrentTransaction == null;
+        await using var transaction = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
 
         try
         {
@@ -184,7 +187,8 @@ public class UsuarioService : IUsuarioService
                     return UsuarioUpdateResult.Failed(addResult.Errors.Select(e => e.Description));
             }
 
-            await transaction.CommitAsync();
+            if (transaction != null)
+                await transaction.CommitAsync();
 
             _logger.LogInformation(
                 "Usuario actualizado - Id {UserId} - Activo {Activo} - RolesAgregados {Added} - RolesQuitados {Removed}",
@@ -194,7 +198,8 @@ public class UsuarioService : IUsuarioService
         }
         catch
         {
-            await transaction.RollbackAsync();
+            if (transaction != null)
+                await transaction.RollbackAsync();
             throw;
         }
     }
