@@ -221,6 +221,18 @@ namespace TheBuryProject.Services
             {
                 var venta = _mapper.Map<Venta>(viewModel);
                 VentaContactoLibre.ValidarVenta(venta);
+
+                // FIN-S-002: el estado inicial siempre lo fija el servidor; el cliente no puede
+                // saltar el flujo Confirmar/Facturar enviando un Estado distinto en el POST.
+                venta.Estado = EstadoVenta.Cotizacion;
+
+                // FIN-S-002: FechaVenta no puede ser retroactiva más de 1 día ni futura.
+                var hoy = DateTime.UtcNow.Date;
+                if (viewModel.FechaVenta.Date < hoy.AddDays(-1) || viewModel.FechaVenta.Date > hoy.AddDays(1))
+                {
+                    venta.FechaVenta = DateTime.UtcNow;
+                }
+
                 venta.AperturaCajaId = aperturaActiva.Id;
 
                 var vendedorResuelto = await ResolverVendedorAsync(currentUserId, currentUserName);
@@ -231,7 +243,9 @@ namespace TheBuryProject.Services
                 // de la caja de la apertura activa (bypass admin; estricto: sin padrón ⇒ solo admin).
                 await ValidarVendedorHabilitadoEnCajaAsync(venta.VendedorUserId, aperturaActiva.CajaId);
 
-                venta.Numero = await _numberGenerator.GenerarNumeroAsync(viewModel.Estado);
+                // FIN-S-002: usar venta.Estado (fijado por el servidor arriba) para determinar
+                // el prefijo del número; nunca viewModel.Estado que viene del cliente.
+                venta.Numero = await _numberGenerator.GenerarNumeroAsync(venta.Estado);
 
                 AgregarDetalles(venta, viewModel.Detalles);
 
@@ -270,7 +284,9 @@ namespace TheBuryProject.Services
                 transaction = await _context.Database.BeginTransactionAsync();
 
                 _context.Ventas.Add(venta);
-                await GuardarVentaConReintentoNumeroAsync(venta, viewModel.Estado);
+                // FIN-S-002: usar venta.Estado (puede haber sido actualizado por
+                // AplicarResultadoValidacionAsync) en lugar de viewModel.Estado.
+                await GuardarVentaConReintentoNumeroAsync(venta, venta.Estado);
 
                 // Para crédito personal, crear el crédito inmediatamente después de guardar la venta
                 if (viewModel.TipoPago == TipoPago.CreditoPersonal && 
