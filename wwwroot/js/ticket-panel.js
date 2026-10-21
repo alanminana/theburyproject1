@@ -386,7 +386,7 @@
                         : adj.tamanoBytes + ' B';
                 html += '<li class="flex items-center gap-2 group" data-aid="' + adj.id + '">';
                 html += '<span class="material-symbols-outlined text-sm text-slate-500 shrink-0">' + icon + '</span>';
-                html += '<a href="/' + esc(adj.rutaArchivo) + '" target="_blank" rel="noopener" class="flex-1 min-w-0 text-xs text-slate-300 hover:text-primary truncate no-underline">' + esc(adj.nombreArchivo) + '</a>';
+                html += '<a href="/Ticket/DescargarAdjunto/' + encodeURIComponent(adj.id) + '" target="_blank" rel="noopener" class="flex-1 min-w-0 text-xs text-slate-300 hover:text-primary truncate no-underline">' + esc(adj.nombreArchivo) + '</a>';
                 html += '<span class="shrink-0 text-[10px] text-slate-600">' + size + '</span>';
                 if (state.canEdit && editable) {
                     html += '<button type="button" class="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all" data-tp-do="del-adj" title="Eliminar adjunto"><span class="material-symbols-outlined text-base leading-none">close</span></button>';

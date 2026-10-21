@@ -33,4 +33,13 @@ public interface ITicketService
     // ── Adjuntos ───────────────────────────────────────────────────────────
     Task<TicketAdjunto> SubirAdjuntoAsync(int ticketId, IFormFile archivo);
     Task EliminarAdjuntoAsync(int adjuntoId);
+
+    /// <summary>
+    /// Abre un adjunto vigente de un ticket vigente. Null si el ticket o el adjunto no existen, están
+    /// eliminados o el archivo físico no puede resolverse dentro de la carpeta de adjuntos.
+    /// El llamador es dueño del stream.
+    /// </summary>
+    Task<TicketAdjuntoDescarga?> AbrirAdjuntoAsync(int adjuntoId);
 }
+
+public sealed record TicketAdjuntoDescarga(Stream Contenido, string NombreArchivo, string ContentType);

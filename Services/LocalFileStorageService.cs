@@ -34,6 +34,35 @@ public class LocalFileStorageService : IFileStorageService
         return $"{subFolder}/{nombreArchivo}".Replace('\\', '/');
     }
 
+    public Stream? OpenRead(string rutaRelativa, string subFolder)
+    {
+        if (string.IsNullOrWhiteSpace(rutaRelativa) || string.IsNullOrWhiteSpace(subFolder))
+            return null;
+
+        try
+        {
+            // La DB puede traer rutas guardadas con separadores de Windows: ambos son el mismo directorio.
+            static string Normalizar(string ruta) =>
+                ruta.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
+            var carpeta = Path.GetFullPath(Path.Combine(_environment.WebRootPath, Normalizar(subFolder)))
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var rutaCompleta = Path.GetFullPath(Path.Combine(_environment.WebRootPath, Normalizar(rutaRelativa)));
+
+            if (!rutaCompleta.StartsWith(carpeta, StringComparison.OrdinalIgnoreCase) || !File.Exists(rutaCompleta))
+                return null;
+
+            return new FileStream(rutaCompleta, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+                bufferSize: 4096, useAsync: true);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException
+                                       or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "No se pudo abrir el archivo en ruta '{Ruta}'.", rutaRelativa);
+            return null;
+        }
+    }
+
     public Task DeleteAsync(string rutaRelativa)
     {
         try

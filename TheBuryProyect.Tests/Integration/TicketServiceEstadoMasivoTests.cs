@@ -96,6 +96,7 @@ file sealed class StubFileStorageTicket : IFileStorageService
 {
     public Task<string> SaveAsync(IFormFile archivo, string subFolder) => throw new NotImplementedException();
     public Task DeleteAsync(string rutaRelativa) => Task.CompletedTask;
+    public Stream? OpenRead(string rutaRelativa, string subFolder) => null;
 }
 
 file sealed class StubCurrentUserTicket : ICurrentUserService
