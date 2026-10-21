@@ -40,7 +40,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Lista de todos los umbrales configurados
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     public async Task<IActionResult> Index(string? returnUrl)
     {
         ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -60,7 +61,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Formulario para crear nuevo umbral
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     [HttpGet]
     public IActionResult CrearUmbral(string? returnUrl)
     {
@@ -71,7 +73,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Procesar creación de umbral
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CrearUmbral(UmbralAutorizacionViewModel model, string? returnUrl)
@@ -109,7 +112,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Formulario para editar umbral
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     [HttpGet]
     public async Task<IActionResult> EditarUmbral(int id, string? returnUrl)
     {
@@ -138,7 +142,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Procesar edición de umbral
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditarUmbral(UmbralAutorizacionViewModel model, string? returnUrl)
@@ -175,7 +180,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Eliminar umbral
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EliminarUmbral(int id, string? returnUrl)
@@ -199,7 +205,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Lista de solicitudes de autorización
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
     public async Task<IActionResult> Solicitudes(string? returnUrl)
     {
         ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -309,7 +316,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Aprobar solicitud
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Aprobar)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Aprobar)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AprobarSolicitud(int id, string? comentario, string? returnUrl)
@@ -329,7 +337,8 @@ public class AutorizacionController : Controller
 
     /// <summary>
     /// Rechazar solicitud
-    /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Rechazar)]
+    /// </summary>
+    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Rechazar)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RechazarSolicitud(int id, string comentario, string? returnUrl)
