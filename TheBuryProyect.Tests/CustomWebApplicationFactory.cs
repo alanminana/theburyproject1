@@ -959,6 +959,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ProductoMarcaSoloLecturaUserId, "test-producto-marca-solo-lectura-role-id", "TestProductoMarcaSoloLecturaRole", 9960,
             "productos.view", "marcas.view");
 
+    // FIN-S-006: usuario NO administrador con permisos de caja (acreditar/mover/ver). Su acceso a cada caja
+    // depende exclusivamente del padron CajaVendedores que sembre el test.
+    public const string CajaEditPermsUserId = "test-caja-edit-perms-id";
+    public const string CajaEditOtroPermsUserId = "test-caja-edit-otro-perms-id";
+
+    public Task SeedUserWithCajaEditPermissionAsync(string userId = CajaEditPermsUserId) =>
+        SeedPermissionUserAsync(
+            userId,
+            "role-" + userId,
+            "TestCajaEdit" + userId.GetHashCode().ToString("X"),
+            9970 + (Math.Abs(userId.GetHashCode()) % 20) * 10,
+            "caja.edit",
+            "caja.movements",
+            "caja.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,
