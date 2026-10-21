@@ -82,7 +82,7 @@ jobs:
           dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
           dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
 
-      - name: Ultimo SuperAdmin - clase completa (SA-00..SA-08)
+      - name: Ultimo SuperAdmin - clase completa (SA-00..SA-10)
         env:
           QA_RELEASE_TURNO: '1'
           QA_SEC_SUPERADMIN_RCSI: ${{ matrix.rcsi }}
@@ -119,10 +119,10 @@ jobs:
           done
           TOTAL=$(grep -o '<UnitTestResult ' "$TRX" | wc -l)
           PASSED=$(grep -o '<UnitTestResult [^>]*outcome="Passed"' "$TRX" | wc -l)
-          echo "Total=$TOTAL Passed=$PASSED (esperado 9/9)"
+          echo "Total=$TOTAL Passed=$PASSED (esperado 11/11)"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Total: $TOTAL, Passed: $PASSED (esperado 9 / 9)" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$TOTAL" != "9" ] || [ "$PASSED" != "9" ]; then RC=1; fi
+          echo "Total: $TOTAL, Passed: $PASSED (esperado 11 / 11)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TOTAL" != "11" ] || [ "$PASSED" != "11" ]; then RC=1; fi
           exit $RC
 
       - name: Subir TRX
