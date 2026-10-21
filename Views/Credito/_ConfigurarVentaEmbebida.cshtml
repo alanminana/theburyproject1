@@ -1,4 +1,5 @@
 @model ConfiguracionCreditoVentaViewModel
+@inject TheBuryProject.Services.Interfaces.IDescuentoVisibilidadService DescuentoVisibilidad
 @{
     // Fragmento embebido del configurador canónico de Crédito Personal, reutilizado
     // dentro del paso "Crédito" del wizard de Venta (Crear/Editar). Comparte modelo,
@@ -337,11 +338,14 @@
         @if (Model.ContratoGenerado)
         {
             <p class="hint">Contrato generado.</p>
-            <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
-               target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
-                <span class="material-symbols-outlined">print</span>
-                Ver / imprimir contrato
-            </a>
+            @if (!await DescuentoVisibilidad.DebeDenegarVentaAsync(Model.VentaId ?? 0))
+            {
+                <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
+                   target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
+                    <span class="material-symbols-outlined">print</span>
+                    Ver / imprimir contrato
+                </a>
+            }
         }
         else if (!Model.PlantillaActivaDisponible)
         {

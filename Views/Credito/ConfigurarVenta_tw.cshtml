@@ -1,4 +1,5 @@
 @model ConfiguracionCreditoVentaViewModel
+@inject TheBuryProject.Services.Interfaces.IDescuentoVisibilidadService DescuentoVisibilidad
 @{
     ViewData["Title"] = "Solicitud de Crédito Personal";
     var returnUrl = ViewData["ReturnUrl"] as string;
@@ -369,7 +370,7 @@
                     <section class="card-2" style="margin-top:1rem;padding:1rem">
                         <div class="sec-title">Documentación contractual</div>
                         <p class="hint">@tituloResumenContrato</p>
-                        @if (Model.ContratoGenerado)
+                        @if (Model.ContratoGenerado && !await DescuentoVisibilidad.DebeDenegarVentaAsync(Model.VentaId ?? 0))
                         {
                             <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
                                target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">

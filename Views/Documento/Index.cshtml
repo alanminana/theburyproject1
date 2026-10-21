@@ -28,6 +28,7 @@
     int? VistaRuta(VistaDocumento v) => v == VistaDocumento.Todos ? null : (int)v;
     var puedeConfig = User.TienePermiso("documentos", "managetemplates");
     var puedeReimprimir = User.TienePermiso("documentos", "reprint");
+    var restringidos = ViewBag.DocumentosRestringidos as IReadOnlySet<int> ?? new HashSet<int>();
     // Los enlaces a la operación respetan el permiso de ver de cada módulo; sin él se muestra el dato como texto.
     var puedeVerVentas = User.TienePermiso("ventas", "view");
     var puedeVerCotizaciones = User.TienePermiso("cotizaciones", "view");
@@ -177,10 +178,17 @@
                             <td><span class="@ChipClase(d.Estado)">@EstadoTexto(d.Estado)</span></td>
                             <td>
                                 <div class="doc-actions">
-                                    <a class="doc-btn" target="_blank" rel="noopener" asp-action="Ver" asp-route-id="@d.Id">Ver</a>
-                                    @if (puedeReimprimir)
+                                    @if (restringidos.Contains(d.Id))
                                     {
-                                        <a class="doc-btn" target="_blank" rel="noopener" asp-action="Reimprimir" asp-route-ids="@d.Id">Imprimir</a>
+                                        <span class="doc-muted" data-doc-restringido title="Contiene descuentos comerciales: requiere el permiso «Aplicar descuentos».">Restringido</span>
+                                    }
+                                    else
+                                    {
+                                        <a class="doc-btn" target="_blank" rel="noopener" asp-action="Ver" asp-route-id="@d.Id">Ver</a>
+                                        @if (puedeReimprimir)
+                                        {
+                                            <a class="doc-btn" target="_blank" rel="noopener" asp-action="Reimprimir" asp-route-ids="@d.Id">Imprimir</a>
+                                        }
                                     }
                                 </div>
                             </td>

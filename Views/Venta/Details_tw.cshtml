@@ -1028,7 +1028,10 @@
                     // acceso al contrato cuando no había caja abierta, lo que había forzado a
                     // duplicar el mismo botón sin condición dentro de la card "Contrato
                     // generado" para no perder esa vía.
-                    var hayAccionVerContrato = contratoVentaCredito != null;
+                    // DESCUENTO-PERMISO-03: la factura y el contrato emitidos no se entregan sin ventas.discount si la venta tiene descuentos.
+                    var documentosRestringidosPorDescuento = !puedeDescuentos
+                        && (Model.Descuento > 0 || detalles.Any(d => d.Descuento > 0 || d.DescuentoGeneralProrrateado > 0));
+                    var hayAccionVerContrato = contratoVentaCredito != null && !documentosRestringidosPorDescuento;
                     var hayAccionPrepararVenta = puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas;
                     // Reapertura (reporte directo del usuario): "Confirmar Venta" (+ checkbox
                     // "Facturar al confirmar") se retira de Details — quedaba duplicado contra
@@ -1039,7 +1042,7 @@
                     // YA confirmada, sólo falta facturarla) no se toca: es un estado distinto,
                     // sin equivalente en el wizard.
                     var hayAccionFacturar = puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas;
-                    var hayAccionImprimirFactura = tieneFactura && facturaActiva != null;
+                    var hayAccionImprimirFactura = tieneFactura && facturaActiva != null && !documentosRestringidosPorDescuento;
                     var hayAccionAutorizar = Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas);
                     var hayAccionDevolucion = puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones;
                     var hayAccionEditar = puedeOperarVentas && Model.PuedeEditar && puedeActualizarVentas;

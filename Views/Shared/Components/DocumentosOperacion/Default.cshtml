@@ -20,7 +20,7 @@
 
     var vigentes = docs.Where(d => d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado).ToList();
     var grupos = vigentes.Where(d => d.GrupoImpresionId != null)
-        .GroupBy(d => d.GrupoImpresionId!.Value).Where(g => g.Count() > 1).ToList();
+        .GroupBy(d => d.GrupoImpresionId!.Value).Where(g => g.Count() > 1 && !g.Any(d => Model.Restringidos.Contains(d.Id))).ToList();
 }
 
 <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
@@ -124,16 +124,23 @@
                             </div>
                         </div>
                         <div class="doc-actions">
-                            <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Ver" asp-route-id="@d.Id">
-                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-                                Ver
-                            </a>
-                            @if (Model.PuedeReimprimir)
+                            @if (Model.Restringidos.Contains(d.Id))
                             {
-                                <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@d.Id">
-                                    <span class="material-symbols-outlined" aria-hidden="true">print</span>
-                                    Imprimir
+                                <span class="doc-muted" data-doc-restringido title="Contiene descuentos comerciales: requiere el permiso «Aplicar descuentos».">Restringido</span>
+                            }
+                            else
+                            {
+                                <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Ver" asp-route-id="@d.Id">
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                    Ver
                                 </a>
+                                @if (Model.PuedeReimprimir)
+                                {
+                                    <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@d.Id">
+                                        <span class="material-symbols-outlined" aria-hidden="true">print</span>
+                                        Imprimir
+                                    </a>
+                                }
                             }
                         </div>
 

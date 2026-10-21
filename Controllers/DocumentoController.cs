@@ -22,12 +22,15 @@ namespace TheBuryProject.Controllers
         private readonly IDocumentoService _documentos;
         private readonly IDocumentoConfiguracionService _config;
         private readonly ILogger<DocumentoController> _logger;
+        private readonly IDescuentoVisibilidadService _descuentoVisibilidad;
 
         public DocumentoController(
             IDocumentoService documentos,
             IDocumentoConfiguracionService config,
-            ILogger<DocumentoController> logger)
+            ILogger<DocumentoController> logger,
+            IDescuentoVisibilidadService descuentoVisibilidad)
         {
+            _descuentoVisibilidad = descuentoVisibilidad;
             _documentos = documentos;
             _config = config;
             _logger = logger;
@@ -42,6 +45,8 @@ namespace TheBuryProject.Controllers
             ViewBag.Total = total;
             ViewBag.Filtro = filtro;
             ViewBag.ConteoVistas = await _documentos.ContarPorVistaAsync(filtro);
+            // Los accesos a documentos con descuentos se ocultan sin ventas.discount; el 403 de ServirPdfAsync no depende de esto.
+            ViewBag.DocumentosRestringidos = await _descuentoVisibilidad.DocumentosRestringidosAsync(items.Select(d => d.Id).ToList());
             return View(items);
         }
 
@@ -126,6 +131,15 @@ namespace TheBuryProject.Controllers
 
         private async Task<IActionResult> ServirPdfAsync(IReadOnlyCollection<int> ids, bool reimprimir)
         {
+            // DESCUENTO-PERMISO-03: punto único de entrega de PDF (ver, por pago, varios, grupo y reimpresión). Un
+            // documento anclado a una venta/cotización con descuentos comerciales no se entrega sin ventas.discount.
+            // Va antes de generar el PDF y antes de contar la reimpresión, y el mensaje no menciona importes.
+            if (await _descuentoVisibilidad.DebeDenegarDocumentosAsync(ids))
+            {
+                _logger.LogWarning("Entrega de documentos {Ids} denegada: contienen descuentos comerciales y falta ventas.discount", string.Join(",", ids));
+                return Forbid();
+            }
+
             try
             {
                 var archivo = reimprimir

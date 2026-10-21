@@ -1793,6 +1793,14 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public async Task<IActionResult> ComprobanteFactura(int facturaId)
         {
+            // DESCUENTO-PERMISO-03: la factura emitida no se altera ni se censura; si contiene descuentos comerciales
+            // y el usuario no tiene ventas.discount, simplemente no se le entrega (mismo 403 que un permiso faltante).
+            var visibilidad = HttpContext.RequestServices.GetRequiredService<IDescuentoVisibilidadService>();
+            if (await visibilidad.DebeDenegarFacturaAsync(facturaId))
+            {
+                return Forbid();
+            }
+
             var factura = await _context.Facturas
                 .AsNoTracking()
                 .Include(f => f.Venta)

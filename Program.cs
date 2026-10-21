@@ -171,6 +171,7 @@ builder.Services.AddScoped<ICotizacionConversionService, CotizacionConversionSer
 builder.Services.AddSingleton<ICotizacionPdfService, CotizacionPdfService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
 builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoService>();
+builder.Services.AddScoped<IDescuentoVisibilidadService, DescuentoVisibilidadService>();
 builder.Services.AddScoped<IClienteDatosContractualesService, ClienteDatosContractualesService>();
 
 // Motor documental configurable (tipos, plantillas versionadas, reglas, paquetes, documentos emitidos)
