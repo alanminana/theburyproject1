@@ -175,18 +175,193 @@ public class DbInitializerRecuperacionSuperAdminTests : IClassFixture<CustomWebA
         }
     }
 
-    private static IServiceProvider ProveedorConAdmin(IServiceScope scope, string userName, string email)
+    // ───────── PROMPT 58: el arranque no crea otra cuenta SuperAdmin si ya hay administración válida ─────────
+
+    private const string PasswordAprovisionamiento = "Aprov#Test123!";
+
+    private async Task<int> ContarSuperAdminAsync(AppDbContext context) =>
+        await (from ur in context.UserRoles.AsNoTracking()
+               join r in context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+               where r.NormalizedName == "SUPERADMIN"
+               select ur.UserId).CountAsync();
+
+    [Fact]
+    public async Task Arranque_CuentaConfiguradaEliminada_ConOtroSuperAdminActivo_NoReapareceNingunaCuentaPrivilegiada()
     {
-        var cfg = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
-            .AddConfiguration(scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>())
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Admin:UserName"] = userName, ["Admin:Email"] = email })
-            .Build();
-        return new ProveedorConfig(scope.ServiceProvider, cfg);
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        await CrearSuperAdminAsync(userManager, $"vigente_{_sfx}", activo: true, bloqueado: false);
+        var antes = await ContarSuperAdminAsync(context);
+        var cfgName = $"cfg_{_sfx}";
+
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test"), NullLogger.Instance);
+
+        Assert.Null(await userManager.FindByNameAsync(cfgName));
+        Assert.Equal(antes, await ContarSuperAdminAsync(context));
     }
 
-    private sealed class ProveedorConfig(IServiceProvider inner, Microsoft.Extensions.Configuration.IConfiguration cfg) : IServiceProvider
+    [Fact]
+    public async Task Arranque_CambioDeNombreOEmailConfigurado_ConAdministracionValida_NoCreaCuenta()
     {
-        public object? GetService(Type t) => t == typeof(Microsoft.Extensions.Configuration.IConfiguration) ? cfg : inner.GetService(t);
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        await CrearSuperAdminAsync(userManager, $"vigente_{_sfx}", activo: true, bloqueado: false);
+        var antes = await ContarSuperAdminAsync(context);
+
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, $"otro_{_sfx}", $"viejo_{_sfx}@t.test"), NullLogger.Instance);
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, $"nuevo_{_sfx}", $"nuevo_{_sfx}@t.test"), NullLogger.Instance);
+
+        Assert.Null(await userManager.FindByNameAsync($"otro_{_sfx}"));
+        Assert.Null(await userManager.FindByNameAsync($"nuevo_{_sfx}"));
+        Assert.Equal(antes, await ContarSuperAdminAsync(context));
+    }
+
+    [Fact]
+    public async Task Arranque_UnicoSuperAdminBloqueadoTemporalmente_NoCreaOtraCuentaYConservaSuRol()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        var bloqueado = await CrearSuperAdminAsync(userManager, $"bloq_{_sfx}", activo: true, bloqueado: true);
+        var antes = await ContarSuperAdminAsync(context);
+        var cfgName = $"cfg_{_sfx}";
+
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test"), NullLogger.Instance);
+
+        Assert.Null(await userManager.FindByNameAsync(cfgName));
+        Assert.Equal(antes, await ContarSuperAdminAsync(context));
+        var db = await context.Users.AsNoTracking().SingleAsync(u => u.Id == bloqueado.Id);
+        Assert.True(db.Activo);
+        Assert.NotNull(db.LockoutEnd);
+        Assert.True(await userManager.IsInRoleAsync(bloqueado, Roles.SuperAdmin));
+    }
+
+    [Fact]
+    public async Task Arranque_InstalacionSinSuperAdmin_AprovisionaLaPrimeraCuenta_YReejecutarNoDuplica()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        var cfgName = $"cfg_{_sfx}";
+        var activosAntes = await ContarSuperAdminActivosAsync(context);
+
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test"), NullLogger.Instance);
+        var creada = await userManager.FindByNameAsync(cfgName);
+        Assert.NotNull(creada);
+        Assert.True(creada!.Activo);
+        Assert.True(await userManager.IsInRoleAsync(creada, Roles.SuperAdmin));
+        Assert.Equal(activosAntes + 1, await ContarSuperAdminActivosAsync(context));
+
+        await DbInitializer.CreateAdminUserAsync(ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test"), NullLogger.Instance);
+
+        Assert.Equal(1, await context.Users.AsNoTracking().CountAsync(u => u.NormalizedUserName == cfgName.ToUpperInvariant()));
+        Assert.Equal(activosAntes + 1, await ContarSuperAdminActivosAsync(context));
+    }
+
+    [Fact]
+    public async Task Arranque_FalloAlAsignarElRol_NoDejaUnaCuentaSinRolNiSeInformaComoExito()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var inner = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        var falla = new UserManagerQueFallaAlAsignarRol(scope.ServiceProvider);
+        var cfgName = $"cfg_{_sfx}";
+        var candidato = new ApplicationUser { UserName = cfgName, Email = $"{cfgName}@t.test", EmailConfirmed = true, Activo = true };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DbInitializer.AprovisionarPrimerSuperAdminAsync(context, falla, candidato, PasswordAprovisionamiento, NullLogger.Instance));
+
+        context.ChangeTracker.Clear();
+        Assert.Null(await inner.FindByNameAsync(cfgName));
+    }
+
+    [Fact]
+    public async Task Arranque_Produccion_SinSuperAdmin_ExigeLaConfiguracionDeBootstrap()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        var cfgName = $"cfg_{_sfx}";
+
+        await Assert.ThrowsAnyAsync<Exception>(() => DbInitializer.CreateAdminUserAsync(
+            ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test", password: null, produccion: true), NullLogger.Instance));
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByNameAsync(cfgName));
+    }
+
+    [Fact]
+    public async Task Arranque_Produccion_ConSuperAdminActivo_NoExigeNiCreaBootstrap()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await DesactivarTodosLosSuperAdminAsync(context);
+        await CrearSuperAdminAsync(userManager, $"vigente_{_sfx}", activo: true, bloqueado: false);
+        var cfgName = $"cfg_{_sfx}";
+
+        await DbInitializer.CreateAdminUserAsync(
+            ProveedorConAdmin(scope, cfgName, $"{cfgName}@t.test", password: null, produccion: true), NullLogger.Instance);
+
+        Assert.Null(await userManager.FindByNameAsync(cfgName));
+    }
+
+    private static async Task<int> ContarSuperAdminActivosAsync(AppDbContext context) =>
+        await (from u in context.Users.AsNoTracking()
+               join ur in context.UserRoles.AsNoTracking() on u.Id equals ur.UserId
+               join r in context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+               where r.NormalizedName == "SUPERADMIN" && u.Activo
+               select u.Id).CountAsync();
+
+    private sealed class UserManagerQueFallaAlAsignarRol(IServiceProvider sp) : UserManager<ApplicationUser>(
+        sp.GetRequiredService<IUserStore<ApplicationUser>>(),
+        sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<IdentityOptions>>(),
+        sp.GetRequiredService<IPasswordHasher<ApplicationUser>>(),
+        sp.GetServices<IUserValidator<ApplicationUser>>(),
+        sp.GetServices<IPasswordValidator<ApplicationUser>>(),
+        sp.GetRequiredService<ILookupNormalizer>(),
+        sp.GetRequiredService<IdentityErrorDescriber>(),
+        sp,
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UserManager<ApplicationUser>>>())
+    {
+        public override Task<IdentityResult> AddToRoleAsync(ApplicationUser user, string role) =>
+            Task.FromResult(IdentityResult.Failed(new IdentityError { Code = "Simulado", Description = "Fallo simulado de rol." }));
+    }
+
+    private static IServiceProvider ProveedorConAdmin(
+        IServiceScope scope, string userName, string email, string? password = PasswordAprovisionamiento, bool produccion = false)
+    {
+        var valores = new Dictionary<string, string?> { ["Admin:UserName"] = userName, ["Admin:Email"] = email, ["Admin:Password"] = password };
+        var cfg = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddConfiguration(scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>())
+            .AddInMemoryCollection(valores)
+            .Build();
+        return new ProveedorConfig(scope.ServiceProvider, cfg, produccion);
+    }
+
+    private sealed class ProveedorConfig(IServiceProvider inner, Microsoft.Extensions.Configuration.IConfiguration cfg, bool produccion = false) : IServiceProvider
+    {
+        public object? GetService(Type t)
+        {
+            if (t == typeof(Microsoft.Extensions.Configuration.IConfiguration)) return cfg;
+            if (produccion && t == typeof(Microsoft.AspNetCore.Hosting.IWebHostEnvironment)) return new EntornoProduccion();
+            return inner.GetService(t);
+        }
+    }
+
+    private sealed class EntornoProduccion : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "Test";
+        public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
+        public string WebRootPath { get; set; } = "";
+        public string EnvironmentName { get; set; } = "Production";
+        public string ContentRootPath { get; set; } = "";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 
     private static async Task DesactivarTodosLosSuperAdminAsync(AppDbContext context)

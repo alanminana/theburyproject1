@@ -292,6 +292,82 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
             activo => Assert.False(activo));
     }
 
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 58 [SA-09] dos arranques simultaneos sin SuperAdmin: se aprovisiona una sola cuenta privilegiada")]
+    public async Task DosArranquesSimultaneosSinSuperAdmin_AprovisionanUnaSolaCuenta()
+    {
+        for (var i = 0; i < Iteraciones; i++)
+        {
+            await LimpiarUsuariosYAsegurarRolAsync();
+
+            var resultados = await Task.WhenAll(Arrancar($"boot_a{i}"), Arrancar($"boot_b{i}"));
+
+            Assert.Equal(1, resultados.Count(r => r.Creado));
+            Assert.Equal(1, await ContarActivosAsync());
+            await using var verificacion = NuevoContexto();
+            Assert.Equal(1, await verificacion.Users.AsNoTracking().CountAsync());
+        }
+    }
+
+    [SuperAdminSqlServerFact(DisplayName = "PROMPT 58 [SA-10] fallo al asignar el rol en SQL Server no deja la cuenta creada")]
+    public async Task FalloAlAsignarElRol_EnSqlServer_RevierteLaCuenta()
+    {
+        await LimpiarUsuariosYAsegurarRolAsync();
+        await using var context = NuevoContexto();
+        var um = new UserManagerRolFallido(context);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DbInitializer.AprovisionarPrimerSuperAdminAsync(
+            context, um, NuevoCandidato("boot_fallo"), "Aprov#Test123!", NullLogger.Instance));
+
+        await using var verificacion = NuevoContexto();
+        Assert.Equal(0, await verificacion.Users.AsNoTracking().CountAsync());
+    }
+
+    private static async Task<(bool Creado, IdentityResult Resultado)> Arrancar(string nombre)
+    {
+        await using var context = NuevoContexto();
+        return await DbInitializer.AprovisionarPrimerSuperAdminAsync(
+            context, new UserManagerLento(context), NuevoCandidato(nombre), "Aprov#Test123!", NullLogger.Instance);
+    }
+
+    private static ApplicationUser NuevoCandidato(string nombre) =>
+        new() { UserName = nombre, Email = $"{nombre}@t.test", EmailConfirmed = true, Activo = true };
+
+    private static async Task LimpiarUsuariosYAsegurarRolAsync()
+    {
+        await using var context = NuevoContexto();
+        context.UserRoles.RemoveRange(context.UserRoles);
+        context.Users.RemoveRange(context.Users);
+        await context.SaveChangesAsync();
+        if (!await context.Roles.AnyAsync(r => r.NormalizedName == "SUPERADMIN"))
+        {
+            context.Roles.Add(new IdentityRole { Id = Guid.NewGuid().ToString(), Name = Roles.SuperAdmin, NormalizedName = "SUPERADMIN" });
+            await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>Ensancha la ventana entre la verificación y la confirmación para que la carrera sea observable.</summary>
+    private sealed class UserManagerLento(AppDbContext context) : UserManager<ApplicationUser>(
+        new UserStore<ApplicationUser>(context), Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
+        new PasswordHasher<ApplicationUser>(), [], [], new UpperInvariantLookupNormalizer(),
+        new IdentityErrorDescriber(), null!, NullLogger<UserManager<ApplicationUser>>.Instance)
+    {
+        public override async Task<IdentityResult> CreateAsync(ApplicationUser user, string password)
+        {
+            var r = await base.CreateAsync(user, password);
+            await Task.Delay(400);
+            return r;
+        }
+    }
+
+    private sealed class UserManagerRolFallido(AppDbContext context) : UserManager<ApplicationUser>(
+        new UserStore<ApplicationUser>(context), Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
+        new PasswordHasher<ApplicationUser>(), [], [], new UpperInvariantLookupNormalizer(),
+        new IdentityErrorDescriber(), null!, NullLogger<UserManager<ApplicationUser>>.Instance)
+    {
+        public override Task<IdentityResult> AddToRoleAsync(ApplicationUser user, string role) =>
+            Task.FromResult(IdentityResult.Failed(new IdentityError { Description = "Fallo simulado." }));
+    }
+
     // ───────────────────────── infraestructura ─────────────────────────
 
     private static AppDbContext NuevoContexto() =>

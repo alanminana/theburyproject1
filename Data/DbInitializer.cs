@@ -203,6 +203,13 @@ namespace TheBuryProject.Data
             var adminPassword = configuration["Admin:Password"]; // debe venir de user-secrets / ENV
             var adminUser = await userManager.FindByNameAsync(adminUserName)
                 ?? await userManager.FindByEmailAsync(adminEmail);
+            // Con administración estructuralmente activa (un bloqueo de login no cuenta como ausencia) el arranque
+            // no aprovisiona nada: una cuenta retirada, renombrada o con otro email no reaparece como SuperAdmin.
+            if (adminUser == null && await HaySuperAdminUtilizableAsync(context))
+            {
+                logger.LogInformation("La cuenta administradora configurada no existe pero la instalación ya tiene un SuperAdmin activo: no se aprovisiona ninguna cuenta.");
+                return;
+            }
             if (env?.IsProduction() == true && adminUser == null)
             {
                 TheBuryProject.Helpers.ProductionSecrets.Require(adminEmail, "Admin:Email");
@@ -248,19 +255,9 @@ namespace TheBuryProject.Data
                     Sucursal = sucursalDefault?.Nombre
                 };
 
-                var result = await userManager.CreateAsync(adminUser, adminPassword!);
+                var (_, result) = await AprovisionarPrimerSuperAdminAsync(context, userManager, adminUser, adminPassword!, logger);
 
-                if (result.Succeeded)
-                {
-                    logger.LogInformation("Usuario administrador creado: {UserName} ({Email})", adminUserName, adminEmail);
-
-                    // Asignar rol SuperAdmin
-                    await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
-                    logger.LogInformation("Rol 'SuperAdmin' asignado al usuario {UserName}", adminUserName);
-
-                    logger.LogWarning("⚠️ Credenciales provisionales creadas. Cambiar la contraseña inmediatamente si es necesario.");
-                }
-                else
+                if (!result.Succeeded)
                 {
                     logger.LogError("Error al crear usuario administrador: {Errors}",
                         string.Join(", ", result.Errors.Select(e => e.Description)));
@@ -302,7 +299,13 @@ namespace TheBuryProject.Data
                 {
                     if (!await HaySuperAdminUtilizableAsync(context))
                     {
-                        await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
+                        var rolExistente = await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
+                        if (!rolExistente.Succeeded)
+                        {
+                            logger.LogError("No se pudo asignar el rol SuperAdmin al usuario existente {Email}: {Errors}",
+                                adminEmail, string.Join(", ", rolExistente.Errors.Select(e => e.Description)));
+                            throw new InvalidOperationException("No se pudo asignar el rol SuperAdmin a la cuenta administradora configurada.");
+                        }
                         logger.LogInformation("Rol 'SuperAdmin' asignado al usuario existente {Email}", adminEmail);
                     }
                     else
@@ -322,6 +325,48 @@ namespace TheBuryProject.Data
                     logger.LogInformation("Sucursal base sincronizada para usuario administrador {Email}", adminEmail);
                 }
             }
+        }
+
+        /// <summary>
+        /// Aprovisiona la primera cuenta SuperAdmin de una instalación sin administración activa. Atómico: usuario y rol
+        /// se confirman juntos o ninguno (un fallo del rol lanza y revierte). En SQL Server serializa arranques
+        /// concurrentes con un applock de transacción y re-verifica bajo el lock, de modo que no se crea una cuenta
+        /// privilegiada si otra instancia ya la aprovisionó. Nunca registra la contraseña.
+        /// </summary>
+        internal static async Task<(bool Creado, IdentityResult Resultado)> AprovisionarPrimerSuperAdminAsync(
+            AppDbContext context, UserManager<ApplicationUser> userManager, ApplicationUser adminUser, string adminPassword, ILogger logger)
+        {
+            await using var tx = await context.Database.BeginTransactionAsync();
+
+            if (context.Database.IsSqlServer())
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "DECLARE @r int; EXEC @r = sp_getapplock @Resource = N'thebury:aprovisionar-superadmin', @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 30000; " +
+                    "IF @r < 0 THROW 50000, N'No se pudo obtener el bloqueo de aprovisionamiento del SuperAdmin.', 1;");
+            }
+
+            if (await HaySuperAdminUtilizableAsync(context))
+            {
+                logger.LogInformation("Otra instancia ya aprovisionó un SuperAdmin activo: no se crea la cuenta {UserName}.", adminUser.UserName);
+                return (false, IdentityResult.Success);
+            }
+
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (!result.Succeeded) return (false, result);
+
+            var rol = await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
+            if (!rol.Succeeded)
+            {
+                logger.LogError("No se pudo asignar el rol SuperAdmin a {UserName}: {Errors}. Se revierte el aprovisionamiento.",
+                    adminUser.UserName, string.Join(", ", rol.Errors.Select(e => e.Description)));
+                context.Entry(adminUser).State = EntityState.Detached; // la BD se revierte al salir; no dejar la entidad rastreada
+                throw new InvalidOperationException("No se pudo asignar el rol SuperAdmin al administrador inicial; el aprovisionamiento se revirtió.");
+            }
+
+            await tx.CommitAsync();
+            logger.LogInformation("Usuario administrador creado con rol SuperAdmin: {UserName} ({Email})", adminUser.UserName, adminUser.Email);
+            logger.LogWarning("⚠️ Credenciales provisionales creadas. Cambiar la contraseña inmediatamente si es necesario.");
+            return (true, result);
         }
 
         /// <summary>Hay al menos una cuenta activa con el rol SuperAdmin asignado y activo.</summary>
