@@ -88,24 +88,35 @@
                             return;
                         }
 
-                        resultados.innerHTML = data.map(function (d) {
-                            return '<div class="doc-row" style="cursor:pointer;padding:.4rem .5rem;border-radius:4px"' +
-                                ' data-garante-candidato' +
-                                ' data-id="' + d.clienteId + '"' +
-                                ' data-nombre="' + d.nombreCompleto + '"' +
-                                ' data-dni="' + d.numeroDocumento + '"' +
-                                ' data-puntaje="' + d.puntajeCliente + '"' +
-                                ' data-compras="' + d.cantidadCompras + '"' +
-                                ' data-garantias="' + d.garantiasActivas + '">' +
-                                '<div class="flex-1 min-w-0">' +
-                                '<div class="text-sm text-white">' + d.nombreCompleto + '</div>' +
-                                '<div class="text-xs muted-2">DNI ' + d.numeroDocumento + ' &bull; Puntaje ' + d.puntajeCliente + '/5 &bull; ' +
-                                d.cantidadCompras + ' compra(s) &bull; ' + d.garantiasActivas + ' garantia(s)</div>' +
-                                '</div></div>';
-                        }).join('');
+                        // nombreCompleto y numeroDocumento son texto libre persistido (COM-S-002):
+                        // se escriben con textContent/dataset, nunca concatenados a HTML.
+                        resultados.textContent = '';
+                        data.forEach(function (d) {
+                            var row = document.createElement('div');
+                            row.className = 'doc-row';
+                            row.style.cssText = 'cursor:pointer;padding:.4rem .5rem;border-radius:4px';
+                            row.setAttribute('data-garante-candidato', '');
+                            row.dataset.id = d.clienteId;
+                            row.dataset.nombre = d.nombreCompleto;
+                            row.dataset.dni = d.numeroDocumento;
+                            row.dataset.puntaje = d.puntajeCliente;
+                            row.dataset.compras = d.cantidadCompras;
+                            row.dataset.garantias = d.garantiasActivas;
 
-                        resultados.querySelectorAll('[data-garante-candidato]').forEach(function (row) {
+                            var body = document.createElement('div');
+                            body.className = 'flex-1 min-w-0';
+                            var nombre = document.createElement('div');
+                            nombre.className = 'text-sm text-white';
+                            nombre.textContent = d.nombreCompleto;
+                            var detalle = document.createElement('div');
+                            detalle.className = 'text-xs muted-2';
+                            detalle.textContent = 'DNI ' + d.numeroDocumento + ' • Puntaje ' + d.puntajeCliente + '/5 • ' +
+                                d.cantidadCompras + ' compra(s) • ' + d.garantiasActivas + ' garantia(s)';
+                            body.appendChild(nombre);
+                            body.appendChild(detalle);
+                            row.appendChild(body);
                             row.addEventListener('click', function () { seleccionarCandidato(row); });
+                            resultados.appendChild(row);
                         });
                     })
                     .catch(function () {
