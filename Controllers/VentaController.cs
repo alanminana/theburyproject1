@@ -478,6 +478,17 @@ namespace TheBuryProject.Controllers
 
                 return Json(new { success = true, requiresRedirect = true, redirectUrl = detailsUrl, message = mensaje });
             }
+            catch (DescuentoNoAutorizadoException ex)
+            {
+                _logger.LogWarning(ex, "CreateAjax rechazado: descuentos sin permiso ventas.discount");
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Json(new
+                {
+                    success = false,
+                    message = ex.Message,
+                    errors = ErrorGlobal(ex.Message)
+                });
+            }
             catch (CondicionesPagoVentaException ex)
             {
                 var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
@@ -841,6 +852,11 @@ namespace TheBuryProject.Controllers
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Venta rechazada por regla de negocio en EditAjax {Id}", id);
+                if (ex is DescuentoNoAutorizadoException)
+                {
+                    Response.StatusCode = StatusCodes.Status403Forbidden;
+                }
+
                 return Json(new
                 {
                     success = false,

@@ -241,7 +241,7 @@ namespace TheBuryProject.Controllers
         // GET: Reporte/ExportarVentasExcel
         public async Task<IActionResult> ExportarVentasExcel([FromQuery] ReporteVentasFiltroViewModel filtro)
             => await ExportarExcel(
-                () => _reporteService.ExportarVentasExcelAsync(filtro),
+                () => _reporteService.ExportarVentasExcelAsync(filtro, User.PuedeAplicarDescuentos()),
                 "ReporteVentas",
                 nameof(Ventas));
 

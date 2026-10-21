@@ -115,7 +115,11 @@ public static class RolesPermisosSeeder
                 ("Facturar", "invoice", 7),
                 ("Cancelar", "cancel", 8),
                 ("Exportar", "export", 9),
-                ("Solicitar Excepción", "requestexception", 10)
+                ("Solicitar Excepción", "requestexception", 10),
+                // Descuentos comerciales manuales (línea/general): permiso independiente. Ni
+                // ventas.create/update/invoice ni el grant en bloque del módulo para Gerente lo
+                // otorgan (ver exclusión en SeedPermisosAsync).
+                ("Aplicar descuentos", "discount", 11)
             }),
             ("Cotizaciones", "cotizaciones", "Ventas", "bi-file-text", 21, new List<(string, string, int)>
             {
@@ -458,6 +462,8 @@ public static class RolesPermisosSeeder
         if (superAdminRole != null)
             await AsignarTodosLosPermisosAsync(context, superAdminRole.Id, modulos);
 
+        // ventas.discount: Administrador lo recibe por el grant "todo salvo la lista" (igual que
+        // productos.editshippingcost) — única asignación inicial a un rol no-SuperAdmin.
         var adminRole = roles.FirstOrDefault(r => r.Name == Models.Constants.Roles.Administrador);
         if (adminRole != null)
             await AsignarTodosLosPermisosAsync(context, adminRole.Id, modulos, exceptoAcciones: new[]
@@ -484,7 +490,11 @@ public static class RolesPermisosSeeder
                 AutorizacionesConstants.Modulo,
                 "reportes", "dashboard", "notificaciones"
             };
-            await AsignarPermisosModulosAsync(context, gerenteRole.Id, modulos, modulosGerente);
+            // ventas.discount queda fuera del grant en bloque del módulo "ventas": los descuentos son
+            // un permiso independiente y Gerente no lo recibe implícitamente (decisión pendiente de
+            // negocio: se asigna a mano desde Seguridad > Roles).
+            await AsignarPermisosModulosAsync(context, gerenteRole.Id, modulos, modulosGerente,
+                exceptoAcciones: new[] { VentaConstants.PermisoDescuento.Claim });
 
             // Documentos: gestiona plantillas y reglas, pero no los tipos documentales (alta/baja de clases de documento).
             await AsignarPermisosEspecificosAsync(context, gerenteRole.Id, modulos, new Dictionary<string, string[]>
@@ -650,9 +660,11 @@ public static class RolesPermisosSeeder
         }
     }
 
-    private static async Task AsignarPermisosModulosAsync(AppDbContext context, string roleId, List<ModuloSistema> modulos, string[] modulosClaves)
+    private static async Task AsignarPermisosModulosAsync(
+        AppDbContext context, string roleId, List<ModuloSistema> modulos, string[] modulosClaves, string[]? exceptoAcciones = null)
     {
         var set = modulosClaves.Select(Canon).ToHashSet(StringComparer.Ordinal);
+        var excepto = (exceptoAcciones ?? Array.Empty<string>()).Select(Canon).ToHashSet(StringComparer.Ordinal);
         var existing = await LoadPermisosRoleAsync(context, roleId);
 
         foreach (var modulo in modulos)
@@ -662,6 +674,9 @@ public static class RolesPermisosSeeder
 
             foreach (var accion in modulo.Acciones)
             {
+                if (excepto.Contains(ClaimValue(modulo.Clave, accion.Clave)))
+                    continue;
+
                 await EnsurePermisoAsync(context, roleId, modulo, accion, existing);
             }
         }

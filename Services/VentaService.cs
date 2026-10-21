@@ -210,6 +210,11 @@ namespace TheBuryProject.Services
         {
             ValidarTipoPagoTarjetaNoPermitidoEnVentaNueva(viewModel.TipoPago);
 
+            if (!PuedeAplicarDescuentos())
+            {
+                ExigirSinDescuentosSinPermiso(viewModel);
+            }
+
             var currentUserName = _currentUserService.GetUsername();
             var currentUserId = await ObtenerUserIdActualAsync();
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
@@ -735,6 +740,12 @@ namespace TheBuryProject.Services
 
             _context.Entry(venta).Property(v => v.RowVersion).OriginalValue = viewModel.RowVersion;
 
+            // DESCUENTO-PERMISO-01: antes de tocar descuentos/detalles (ver región de la política).
+            if (!PuedeAplicarDescuentos())
+            {
+                ConservarDescuentosPersistidosSinPermiso(venta, viewModel);
+            }
+
             ActualizarDatosVenta(venta, viewModel);
             await ValidarTrazabilidadDetallesVMAsync(viewModel.Detalles);
             ActualizarDetalles(venta, viewModel.Detalles);
@@ -743,7 +754,7 @@ namespace TheBuryProject.Services
             await AplicarPrecioVigenteADetallesAsync(venta);
 
             var envioServicio = await AplicarServiciosAsync(venta, viewModel);
-            CalcularTotales(venta, envioServicio);
+            CalcularTotales(venta, envioServicio, descuentoGeneralConservado: !PuedeAplicarDescuentos());
             // INVARIANTE: CalcularTotales siempre debe preceder a SincronizarDatosTarjetaEdicionAsync.
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
@@ -2682,14 +2693,14 @@ namespace TheBuryProject.Services
         {
             return CalcularTotalesPreviewCoreAsync(
                 detalles, descuentoGeneral, descuentoEsPorcentaje, tipoPago,
-                configuracionTarjetaId, configuracionPagoPlanId, tipoEnvio: null);
+                configuracionTarjetaId, configuracionPagoPlanId, tipoEnvio: null, ventaId: null);
         }
 
         public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConServiciosAsync(CalcularTotalesVentaRequest request)
         {
             return CalcularTotalesPreviewCoreAsync(
                 request.Detalles, request.DescuentoGeneral, request.DescuentoEsPorcentaje, request.TipoPago,
-                request.TarjetaId, request.ConfiguracionPagoPlanId, request.TipoEnvio);
+                request.TarjetaId, request.ConfiguracionPagoPlanId, request.TipoEnvio, request.VentaId);
         }
 
         private async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewCoreAsync(
@@ -2699,9 +2710,10 @@ namespace TheBuryProject.Services
             TipoPago tipoPago,
             int? configuracionTarjetaId,
             int? configuracionPagoPlanId,
-            TipoServicioVenta? tipoEnvio)
+            TipoServicioVenta? tipoEnvio,
+            int? ventaId)
         {
-            var response = await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje, tipoEnvio);
+            var response = await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje, tipoEnvio, ventaId);
             var plan = await ValidarYObtenerPlanPagoGlobalAsync(configuracionPagoPlanId, tipoPago, configuracionTarjetaId);
 
             if (plan == null)
@@ -3140,6 +3152,202 @@ namespace TheBuryProject.Services
         /// </summary>
         private static decimal TruncarAPesos(decimal value) => Math.Floor(value);
 
+        #region Permiso independiente de descuentos (ventas.discount)
+
+        // DESCUENTO-PERMISO-01: otorgar, subir o modificar un descuento comercial manual (de línea
+        // o general) requiere ventas.discount, un permiso independiente: ni ventas.create/update ni
+        // invoice lo implican. La decisión la toma SIEMPRE el servidor con el usuario autenticado;
+        // ningún campo oculto ni bandera del navegador la sustituye. Sin permiso:
+        //  - Create: cualquier descuento ≠ 0 se rechaza.
+        //  - Update: los descuentos persistidos se CONSERVAN (el formulario sin permiso no los
+        //    renderiza, así que llegan en 0 y la reconstrucción de detalles no debe borrarlos);
+        //    un valor entrante distinto de 0 y de lo persistido se rechaza.
+        //  - Preview: igual que Update, resolviendo lo persistido por (ventaId, producto).
+        // Los ajustes del medio de pago (recargo/descuento por plan) son otro concepto y NO pasan
+        // por esta política: no son descuentos comerciales manuales.
+
+        private bool PuedeAplicarDescuentos() =>
+            _currentUserService.HasPermission(
+                VentaConstants.PermisoDescuento.Modulo,
+                VentaConstants.PermisoDescuento.Accion);
+
+        private DescuentoNoAutorizadoException CrearRechazoDescuentoNoAutorizado(string contexto)
+        {
+            _logger.LogWarning(
+                "Intento de aplicar o modificar descuentos sin el permiso {Permiso}. Usuario:{Usuario} Contexto:{Contexto}",
+                VentaConstants.PermisoDescuento.Claim,
+                _currentUserService.GetUsername(),
+                contexto);
+
+            return new DescuentoNoAutorizadoException(VentaConstants.PermisoDescuento.MensajeSinPermiso);
+        }
+
+        /// <summary>
+        /// Create sin permiso: no existe descuento persistido que conservar, así que todo descuento
+        /// (general o de línea) debe llegar en 0.
+        /// </summary>
+        private void ExigirSinDescuentosSinPermiso(VentaViewModel viewModel)
+        {
+            if (viewModel.Descuento != 0m || viewModel.Detalles.Any(d => d.Descuento != 0m))
+            {
+                throw CrearRechazoDescuentoNoAutorizado("Create");
+            }
+        }
+
+        /// <summary>
+        /// Update sin permiso: reemplaza los descuentos entrantes por los persistidos. Debe correr
+        /// ANTES de <see cref="ActualizarDetalles"/> (que hace soft-delete + recreate) y de
+        /// <see cref="ActualizarDatosVenta"/>.
+        /// </summary>
+        private void ConservarDescuentosPersistidosSinPermiso(Venta venta, VentaViewModel viewModel)
+        {
+            viewModel.Descuento = ResolverDescuentoSinPermiso(
+                viewModel.Descuento, venta.Descuento, "Update/general");
+
+            var resueltos = ResolverDescuentosLineaSinPermiso(
+                viewModel.Detalles.Select(d => (d.Id, d.ProductoId, (decimal)d.Cantidad, d.Descuento)).ToList(),
+                venta.Detalles.Where(d => !d.IsDeleted),
+                "Update/linea");
+
+            for (var i = 0; i < viewModel.Detalles.Count; i++)
+            {
+                viewModel.Detalles[i].Descuento = resueltos[i];
+            }
+        }
+
+        /// <summary>
+        /// Valor entrante == 0 → "no enviado", se conserva lo persistido; == persistido → sin
+        /// cambio; cualquier otro valor intenta crear/modificar un descuento y se rechaza.
+        /// </summary>
+        private decimal ResolverDescuentoSinPermiso(decimal entrante, decimal persistido, string contexto)
+        {
+            if (entrante == 0m || entrante == persistido)
+            {
+                return persistido;
+            }
+
+            throw CrearRechazoDescuentoNoAutorizado(contexto);
+        }
+
+        /// <summary>
+        /// Resuelve el descuento de cada línea entrante contra las líneas persistidas de la venta:
+        /// 1) por Id exacto (misma venta, mismo producto, cada Id una sola vez; es lo que envía el wizard);
+        /// 2) para las líneas sin Id válido, por producto SOLO si no hay ambigüedad (una línea entrante y
+        ///    una persistida sin usar), o si ninguna persistida pendiente de ese producto tiene descuento;
+        /// 3) una línea sin correspondiente persistido (producto nuevo) solo admite 0.
+        /// Si hay descuentos persistidos que no pueden asignarse de forma unívoca se rechaza (fail-closed):
+        /// emparejar "por orden" podía trasladar el descuento de una línea borrada a otra del mismo producto.
+        /// Tampoco se puede AUMENTAR la cantidad de una línea con descuento: el porcentaje se conserva, pero
+        /// el importe descontado crecería con las unidades agregadas (las unidades extra van en una línea nueva).
+        /// </summary>
+        private List<decimal> ResolverDescuentosLineaSinPermiso(
+            IReadOnlyList<(int Id, int ProductoId, decimal Cantidad, decimal Descuento)> entrantes,
+            IEnumerable<VentaDetalle> persistidas,
+            string contexto)
+        {
+            var persistidasLista = persistidas.OrderBy(d => d.Id).ToList();
+            var usadas = new HashSet<int>();
+            var asignado = new decimal?[entrantes.Count];
+            var cantidadPersistida = new decimal[entrantes.Count];
+
+            for (var i = 0; i < entrantes.Count; i++)
+            {
+                var entrante = entrantes[i];
+                if (entrante.Id <= 0)
+                {
+                    continue;
+                }
+
+                var persistida = persistidasLista.FirstOrDefault(p =>
+                    p.Id == entrante.Id && p.ProductoId == entrante.ProductoId && !usadas.Contains(p.Id));
+                if (persistida != null)
+                {
+                    usadas.Add(persistida.Id);
+                    asignado[i] = persistida.Descuento;
+                    cantidadPersistida[i] = persistida.Cantidad;
+                }
+            }
+
+            foreach (var grupo in Enumerable.Range(0, entrantes.Count)
+                         .Where(i => asignado[i] == null)
+                         .GroupBy(i => entrantes[i].ProductoId))
+            {
+                var indices = grupo.ToList();
+                var pendientes = persistidasLista
+                    .Where(p => p.ProductoId == grupo.Key && !usadas.Contains(p.Id))
+                    .ToList();
+
+                if (pendientes.Count == 0 || pendientes.All(p => p.Descuento == 0m))
+                {
+                    // Línea nueva, o producto sin descuentos persistidos que preservar ni mezclar.
+                    indices.ForEach(i => asignado[i] = 0m);
+                }
+                else if (indices.Count == 1 && pendientes.Count == 1)
+                {
+                    usadas.Add(pendientes[0].Id);
+                    asignado[indices[0]] = pendientes[0].Descuento;
+                    cantidadPersistida[indices[0]] = pendientes[0].Cantidad;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "No se puede determinar a qué línea corresponde cada descuento existente de este producto. Recargá la venta e intentá nuevamente.");
+                }
+            }
+
+            var resueltos = new List<decimal>(entrantes.Count);
+            for (var i = 0; i < entrantes.Count; i++)
+            {
+                var descuento = ResolverDescuentoSinPermiso(entrantes[i].Descuento, asignado[i] ?? 0m, contexto);
+
+                if (descuento > 0m && entrantes[i].Cantidad > cantidadPersistida[i])
+                {
+                    _logger.LogWarning(
+                        "Intento de aumentar la cantidad de una línea con descuento sin el permiso {Permiso}. Usuario:{Usuario} Contexto:{Contexto}",
+                        VentaConstants.PermisoDescuento.Claim,
+                        _currentUserService.GetUsername(),
+                        contexto);
+                    throw new DescuentoNoAutorizadoException(
+                        "No tenés permiso para aumentar la cantidad de una línea con descuento. Agregá las unidades como una línea nueva o pedí a un usuario con permiso de descuentos que la modifique.");
+                }
+
+                resueltos.Add(descuento);
+            }
+
+            return resueltos;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// FIN-R2: rechaza descuentos que no pueden representarse de forma coherente. Antes se persistían
+        /// tal cual y solo se recortaban al calcular (Descuento=999999 → Total=0 con Descuento=999999 en
+        /// la fila; Descuento negativo → total sin cambios con Descuento negativo persistido). No
+        /// introduce umbrales: solo exige 0 ≤ descuento de línea ≤ 100 % y 0 ≤ descuento general ≤ subtotal
+        /// de productos (igual que CotizacionPagoCalculator). El descuento igual al subtotal (100 %) sigue
+        /// permitido, como ya lo permite el descuento de línea del 100 %.
+        /// </summary>
+        private static void ValidarDescuentosVenta(Venta venta, List<VentaDetalle> detallesActivos, bool descuentoGeneralConservado = false)
+        {
+            if (detallesActivos.Any(d => d.Descuento < 0m || d.Descuento > 100m))
+            {
+                throw new InvalidOperationException("El descuento de línea debe estar entre 0 y 100.");
+            }
+
+            if (venta.Descuento < 0m)
+            {
+                throw new InvalidOperationException("El descuento general no puede ser negativo.");
+            }
+
+            var subtotalProductos = RedondearMoneda(detallesActivos.Sum(d => d.Subtotal));
+            if (RedondearMoneda(venta.Descuento) > subtotalProductos)
+            {
+                throw new InvalidOperationException(descuentoGeneralConservado
+                    ? "La venta tiene un descuento general que supera el subtotal resultante de los productos. Pedí a un usuario con permiso de descuentos que lo ajuste antes de guardar."
+                    : "El descuento general no puede superar el subtotal de los productos.");
+            }
+        }
+
         /// <summary>
         /// Descuenta los centavos truncados del IVA (y, si no alcanza, del neto) para que
         /// Subtotal + IVA siga cerrando contra el Total redondeado.
@@ -3156,7 +3364,7 @@ namespace TheBuryProject.Services
         /// Total para que el recargo del medio de pago (que se aplica después sobre Total) los alcance.
         /// </summary>
         /// <param name="importeEnvio">Precio del envío resuelto por <see cref="AplicarServiciosAsync"/> (0 si no hay).</param>
-        private void CalcularTotales(Venta venta, decimal importeEnvio = 0m)
+        private void CalcularTotales(Venta venta, decimal importeEnvio = 0m, bool descuentoGeneralConservado = false)
         {
             var detallesList = venta.Detalles.Where(d => !d.IsDeleted).ToList();
 
@@ -3165,6 +3373,8 @@ namespace TheBuryProject.Services
                 detalle.Subtotal = CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, detalle.Descuento);
                 AplicarSnapshotIvaMontos(detalle);
             }
+
+            ValidarDescuentosVenta(venta, detallesList, descuentoGeneralConservado);
 
             AplicarProrrateoDescuentoGeneral(detallesList, venta.Descuento);
 
@@ -3402,9 +3612,22 @@ namespace TheBuryProject.Services
             IEnumerable<DetalleCalculoVentaRequest> detalles,
             decimal descuentoGeneral,
             bool descuentoEsPorcentaje,
-            TipoServicioVenta? tipoEnvio = null)
+            TipoServicioVenta? tipoEnvio = null,
+            int? ventaId = null)
         {
             var detallesList = detalles.ToList();
+
+            // DESCUENTO-PERMISO-01: sin ventas.discount el preview no acepta descuentos del cliente;
+            // para una venta existente (ventaId) usa los persistidos, de modo que los totales
+            // mostrados coincidan con los que guardará UpdateAsync sin revelar el desglose.
+            var puedeDescuentos = PuedeAplicarDescuentos();
+            var descuentosLinea = detallesList.Select(d => d.Descuento).ToList();
+            if (!puedeDescuentos)
+            {
+                (descuentosLinea, descuentoGeneral, descuentoEsPorcentaje) =
+                    await ResolverDescuentosPreviewSinPermisoAsync(
+                        detallesList, descuentoGeneral, descuentoEsPorcentaje, ventaId);
+            }
             var productoIds = detallesList
                 .Where(d => d.ProductoId > 0)
                 .Select(d => d.ProductoId)
@@ -3423,9 +3646,10 @@ namespace TheBuryProject.Services
 
             var detallesCalculados = new List<DetalleCalculoTotalesVentaResponse>();
 
-            foreach (var detalle in detallesList)
+            for (var indice = 0; indice < detallesList.Count; indice++)
             {
-                var subtotalFinal = RedondearMoneda(CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, detalle.Descuento));
+                var detalle = detallesList[indice];
+                var subtotalFinal = RedondearMoneda(CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, descuentosLinea[indice]));
                 var ivaSnapshot = ResolverSnapshotIvaPreview(detalle.ProductoId, productos);
                 var (subtotalNeto, subtotalIva) = SepararNetoIva(subtotalFinal, ivaSnapshot.Porcentaje);
 
@@ -3494,7 +3718,64 @@ namespace TheBuryProject.Services
                 ImporteEnvio = importeEnvio
             };
 
+            if (!puedeDescuentos)
+            {
+                // Los importes finales (subtotal, IVA, total, subtotal por línea) siguen reales; solo
+                // se omite el desglose específico del descuento general.
+                response.DescuentoGeneralAplicado = 0m;
+                foreach (var detalleCalculado in response.Detalles)
+                {
+                    detalleCalculado.DescuentoGeneralProrrateado = 0m;
+                }
+            }
+
             return response;
+        }
+
+        private async Task<(List<decimal> DescuentosLinea, decimal DescuentoGeneral, bool EsPorcentaje)> ResolverDescuentosPreviewSinPermisoAsync(
+            List<DetalleCalculoVentaRequest> detalles,
+            decimal descuentoGeneral,
+            bool descuentoEsPorcentaje,
+            int? ventaId)
+        {
+            Venta? persistida = null;
+            // El ventaId existe para el wizard de edición: solo se honra con ventas.update, así un usuario
+            // de solo lectura no usa el preview para inferir descuentos de ventas ajenas por diferencia.
+            if (ventaId.HasValue && _currentUserService.HasPermission("ventas", "update"))
+            {
+                persistida = await _context.Ventas
+                    .AsNoTracking()
+                    .Include(v => v.Detalles)
+                    .FirstOrDefaultAsync(v => v.Id == ventaId.Value && !v.IsDeleted);
+            }
+
+            var lineas = ResolverDescuentosLineaSinPermiso(
+                detalles.Select(d => (d.LineaId ?? 0, d.ProductoId, d.Cantidad, d.Descuento)).ToList(),
+                persistida?.Detalles.Where(d => !d.IsDeleted) ?? Enumerable.Empty<VentaDetalle>(),
+                "Preview/linea");
+
+            // El general persistido es un importe; el entrante solo se acepta en 0 (o igual al
+            // persistido cuando viene como importe).
+            var generalPersistido = persistida?.Descuento ?? 0m;
+            if (descuentoGeneral != 0m && !(!descuentoEsPorcentaje && descuentoGeneral == generalPersistido))
+            {
+                throw CrearRechazoDescuentoNoAutorizado("Preview/general");
+            }
+
+            // Igual que UpdateAsync: un general conservado que supera el subtotal resultante no se guarda,
+            // así que el preview lo informa en vez de recortarlo en silencio.
+            if (generalPersistido > 0m)
+            {
+                var subtotalProductos = RedondearMoneda(detalles.Select((d, i) =>
+                    CalcularSubtotalLineaConDescuento(d.PrecioUnitario, d.Cantidad, lineas[i])).Sum());
+                if (RedondearMoneda(generalPersistido) > subtotalProductos)
+                {
+                    throw new InvalidOperationException(
+                        "La venta tiene un descuento general que supera el subtotal resultante de los productos. Pedí a un usuario con permiso de descuentos que lo ajuste antes de guardar.");
+                }
+            }
+
+            return (lineas, generalPersistido, false);
         }
 
         private (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre) ResolverSnapshotIvaPreview(

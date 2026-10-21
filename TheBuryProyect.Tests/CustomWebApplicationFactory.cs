@@ -825,6 +825,86 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             "productos.update",
             "productos.editshippingcost");
 
+    public const string VentaSinDescuentoUserId = "test-venta-sin-descuento-id";
+    public const string VentaConDescuentoUserId = "test-venta-con-descuento-id";
+    public const string VentaDescuentoRetiradoUserId = "test-venta-descuento-retirado-id";
+
+    /// <summary>DESCUENTO-PERMISO-01: opera ventas y cotizaciones (ver/crear/editar/convertir) SIN ventas.discount.</summary>
+    public Task SeedUserWithVentaSinDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            VentaSinDescuentoUserId, "test-venta-sin-descuento-role-id", "TestVentaSinDescuentoRole", 9800,
+            "ventas.view", "ventas.create", "ventas.update", "ventas.invoice",
+            "cotizaciones.view", "cotizaciones.create", "cotizaciones.convert");
+
+    /// <summary>DESCUENTO-PERMISO-01: mismo perfil que el anterior más el permiso independiente ventas.discount.</summary>
+    public Task SeedUserWithVentaConDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            VentaConDescuentoUserId, "test-venta-con-descuento-role-id", "TestVentaConDescuentoRole", 9780,
+            "ventas.view", "ventas.create", "ventas.update", "ventas.invoice", "ventas.discount",
+            "cotizaciones.view", "cotizaciones.create", "cotizaciones.convert");
+
+    /// <summary>Igual que ConDescuento, pero luego el test le retira ventas.discount (RetirarPermisoDescuentoAsync).</summary>
+    public Task SeedUserWithVentaDescuentoRetirableAsync() =>
+        SeedPermissionUserAsync(
+            VentaDescuentoRetiradoUserId, "test-venta-descuento-retirado-role-id", "TestVentaDescuentoRetiradoRole", 9760,
+            "ventas.view", "ventas.create", "ventas.update", "ventas.discount",
+            "cotizaciones.view", "cotizaciones.create");
+
+    /// <summary>Marca como eliminado el RolPermiso ventas.discount del rol de <see cref="VentaDescuentoRetiradoUserId"/>.</summary>
+    public Task RetirarPermisoDescuentoAsync() => FijarPermisoDescuentoRetirableAsync(retirado: true);
+
+    /// <summary>
+    /// Deja a <see cref="VentaDescuentoRetiradoUserId"/> CON ventas.discount (siembra el usuario si falta). El usuario es
+    /// compartido por los tests de la clase: cada test que retira el permiso debe partir de esto para no depender del orden.
+    /// </summary>
+    public async Task PrepararUsuarioConDescuentoRetirableAsync()
+    {
+        await SeedUserWithVentaDescuentoRetirableAsync();
+        await FijarPermisoDescuentoRetirableAsync(retirado: false);
+    }
+
+    private async Task FijarPermisoDescuentoRetirableAsync(bool retirado)
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        var permiso = await context.RolPermisos.SingleAsync(rp =>
+            rp.RoleId == "test-venta-descuento-retirado-role-id" && rp.ClaimValue == "ventas.discount");
+        permiso.IsDeleted = retirado;
+        await context.SaveChangesAsync();
+    }
+
+    public const string ReporteSinDescuentoUserId = "test-reporte-sin-descuento-id";
+    public const string ReporteConDescuentoUserId = "test-reporte-con-descuento-id";
+
+    /// <summary>DESCUENTO-PERMISO-02: consulta y exporta reportes (reportes.view/export) SIN ventas.discount.</summary>
+    public Task SeedUserWithReporteSinDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            ReporteSinDescuentoUserId, "test-reporte-sin-descuento-role-id", "TestReporteSinDescuentoRole", 9740,
+            "reportes.view", "reportes.export", "ventas.view");
+
+    /// <summary>DESCUENTO-PERMISO-02: mismo perfil más ventas.discount.</summary>
+    public Task SeedUserWithReporteConDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            ReporteConDescuentoUserId, "test-reporte-con-descuento-role-id", "TestReporteConDescuentoRole", 9720,
+            "reportes.view", "reportes.export", "ventas.view", "ventas.discount");
+
+    public const string DocumentosSinDescuentoUserId = "test-docs-sin-descuento-id";
+    public const string DocumentosConDescuentoUserId = "test-docs-con-descuento-id";
+
+    /// <summary>DESCUENTO-PERMISO-03: ve ventas, facturas y documentos emitidos (ver/reimprimir) SIN ventas.discount.</summary>
+    public Task SeedUserWithDocumentosSinDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            DocumentosSinDescuentoUserId, "test-docs-sin-descuento-role-id", "TestDocsSinDescuentoRole", 9700,
+            "ventas.view", "ventas.invoice", "documentos.view", "documentos.reprint", "cotizaciones.view");
+
+    /// <summary>DESCUENTO-PERMISO-03: mismo perfil más ventas.discount.</summary>
+    public Task SeedUserWithDocumentosConDescuentoAsync() =>
+        SeedPermissionUserAsync(
+            DocumentosConDescuentoUserId, "test-docs-con-descuento-role-id", "TestDocsConDescuentoRole", 9680,
+            "ventas.view", "ventas.invoice", "ventas.discount", "documentos.view", "documentos.reprint", "cotizaciones.view");
+
     public const string StockLectorUserId = "test-stock-lector-id";
     public const string StockOperadorUserId = "test-stock-operador-id";
     public const string ProductoEditConPreciosUserId = "test-producto-edit-con-precios-id";

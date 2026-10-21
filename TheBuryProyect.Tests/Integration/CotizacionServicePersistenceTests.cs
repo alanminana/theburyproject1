@@ -65,7 +65,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
         _context.SaveChanges();
 
         _calculator = new StubCotizacionPagoCalculator(_producto.Id);
-        _service = new CotizacionService(_context, _calculator, NullLogger<CotizacionService>.Instance);
+        _service = new CotizacionService(_context, _calculator, PermisosCurrentUserService.ConDescuentos(), NullLogger<CotizacionService>.Instance);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
     public async Task CrearCotizacion_ConCreditoPersonalSeleccionado_PersisteAnticipoComoIntencion()
     {
         var calculator = new StubCotizacionPagoCalculatorCreditoPersonal(_producto.Id, anticipo: 20m);
-        var service = new CotizacionService(_context, calculator, NullLogger<CotizacionService>.Instance);
+        var service = new CotizacionService(_context, calculator, PermisosCurrentUserService.ConDescuentos(), NullLogger<CotizacionService>.Instance);
         var request = new CotizacionCrearRequest
         {
             Simulacion = new CotizacionSimulacionRequest
@@ -375,7 +375,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
         var calculatorConDescuento = new StubCotizacionPagoCalculatorConDescuentoTotal(
             _producto.Id, descuentoTotal: 10m, totalBase: 90m);
         var service = new CotizacionService(
-            _context, calculatorConDescuento, NullLogger<CotizacionService>.Instance);
+            _context, calculatorConDescuento, PermisosCurrentUserService.ConDescuentos(), NullLogger<CotizacionService>.Instance);
 
         var request = new CotizacionCrearRequest
         {
@@ -400,6 +400,80 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
 
         Assert.Equal(10m, resultado.DescuentoTotal);
         Assert.Equal(90m, resultado.TotalBase);
+    }
+
+    // ── DESCUENTO-PERMISO-01 ─────────────────────────────────────────────
+    // Una cotización con descuento manual termina en una venta con descuento: guardarla exige
+    // ventas.discount (independiente de cotizaciones.create).
+
+    private CotizacionService ServicioSinPermisoDescuento() =>
+        new(_context, _calculator, PermisosCurrentUserService.SinDescuentos(), NullLogger<CotizacionService>.Instance);
+
+    [Theory]
+    [InlineData(10, null)]
+    [InlineData(null, 15)]
+    public async Task CrearCotizacion_SinPermisoDescuento_DescuentoDeLinea_EsRechazadaYNoPersiste(int? porcentaje, int? importe)
+    {
+        await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.DescuentoNoAutorizadoException>(() =>
+            ServicioSinPermisoDescuento().CrearAsync(RequestConDescuento(porcentaje, importe), "carlos"));
+
+        Assert.Equal(0, await _context.Cotizaciones.CountAsync());
+        Assert.Equal(0, _calculator.CallCount);
+    }
+
+    [Theory]
+    [InlineData(10, null)]
+    [InlineData(null, 15)]
+    public async Task CrearCotizacion_SinPermisoDescuento_DescuentoGeneral_EsRechazadaYNoPersiste(int? porcentaje, int? importe)
+    {
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                ClienteId = _cliente.Id,
+                DescuentoGeneralPorcentaje = porcentaje,
+                DescuentoGeneralImporte = importe,
+                Productos = { new CotizacionProductoRequest { ProductoId = _producto.Id, Cantidad = 1 } }
+            }
+        };
+
+        await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.DescuentoNoAutorizadoException>(() =>
+            ServicioSinPermisoDescuento().CrearAsync(request, "carlos"));
+
+        Assert.Equal(0, await _context.Cotizaciones.CountAsync());
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_SinPermisoDescuento_SinDescuentos_SePersisteNormalmente()
+    {
+        var resultado = await ServicioSinPermisoDescuento().CrearAsync(Request(clienteId: _cliente.Id), "carlos");
+
+        Assert.Equal(1, await _context.Cotizaciones.CountAsync());
+        Assert.Null(resultado.Detalles.Single().DescuentoPorcentajeSnapshot);
+        Assert.Null(resultado.Detalles.Single().DescuentoImporteSnapshot);
+    }
+
+    [Fact]
+    public void SimulacionRequest_TieneDescuentosManuales_DetectaGeneralYPorLinea_YNoElCeroNiNull()
+    {
+        Assert.False(new CotizacionSimulacionRequest().TieneDescuentosManuales());
+        Assert.False(new CotizacionSimulacionRequest
+        {
+            DescuentoGeneralPorcentaje = 0m,
+            DescuentoGeneralImporte = 0m,
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 1, DescuentoPorcentaje = 0m, DescuentoImporte = 0m } }
+        }.TieneDescuentosManuales());
+
+        Assert.True(new CotizacionSimulacionRequest { DescuentoGeneralPorcentaje = 1m }.TieneDescuentosManuales());
+        Assert.True(new CotizacionSimulacionRequest { DescuentoGeneralImporte = 1m }.TieneDescuentosManuales());
+        Assert.True(new CotizacionSimulacionRequest
+        {
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 1, DescuentoPorcentaje = 5m } }
+        }.TieneDescuentosManuales());
+        Assert.True(new CotizacionSimulacionRequest
+        {
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 1, DescuentoImporte = 5m } }
+        }.TieneDescuentosManuales());
     }
 
     public void Dispose()

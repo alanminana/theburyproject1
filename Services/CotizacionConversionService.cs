@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -63,6 +64,17 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         _productoUnidadService = productoUnidadService;
         _logger = logger;
     }
+
+    private const string MensajeConversionSinPermisoDescuento =
+        "Esta cotización incluye descuentos manuales. Para convertirla en venta necesitás el permiso «Aplicar descuentos».";
+
+    private static bool TieneDescuentosManuales(Cotizacion cotizacion) =>
+        cotizacion.Detalles.Any(d =>
+            (d.DescuentoImporteSnapshot ?? 0m) > 0m || (d.DescuentoPorcentajeSnapshot ?? 0m) > 0m);
+
+    private bool PuedeAplicarDescuentos() =>
+        _currentUserService.HasPermission(
+            VentaConstants.PermisoDescuento.Modulo, VentaConstants.PermisoDescuento.Accion);
 
     public async Task<CotizacionConversionPreviewResultado> PreviewConversionAsync(
         int cotizacionId,
@@ -229,6 +241,9 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         ValidarEstadoConvertible(cotizacion, erroresEstado);
         foreach (var error in erroresEstado)
             bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "cotizacion_invalida", Mensaje = error });
+
+        if (TieneDescuentosManuales(cotizacion) && !PuedeAplicarDescuentos())
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_permiso_descuento", Mensaje = MensajeConversionSinPermisoDescuento });
 
         var clienteId = request.ClienteIdOverride ?? cotizacion.ClienteId;
         if (clienteId is null && ErrorContactoLibre(cotizacion) is { } errorContacto)
@@ -422,6 +437,18 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         ValidarEstadoConvertible(cotizacion, erroresEstado);
         if (erroresEstado.Count > 0)
             return CotizacionConversionResultado.Fallido(cotizacionId, erroresEstado);
+
+        // DESCUENTO-PERMISO-01: la conversión traslada el descuento manual de la cotización a las
+        // líneas de la venta; sin ventas.discount no se puede usar este camino para aplicarlo.
+        if (TieneDescuentosManuales(cotizacion) && !PuedeAplicarDescuentos())
+        {
+            _logger.LogWarning(
+                "Conversión de cotización {CotizacionId} rechazada: tiene descuentos y falta el permiso {Permiso}. Usuario:{Usuario}",
+                cotizacionId,
+                VentaConstants.PermisoDescuento.Claim,
+                _currentUserService.GetUsername());
+            return CotizacionConversionResultado.Fallido(cotizacionId, [MensajeConversionSinPermisoDescuento]);
+        }
 
         // Antes de crear la venta (y mucho antes de confirmarla): si se pidió facturar con un tipo
         // que no emite una factura nueva, no se persiste nada.

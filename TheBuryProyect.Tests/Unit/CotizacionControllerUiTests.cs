@@ -596,5 +596,6 @@ public sealed class CotizacionControllerUiTests
     private sealed class StubNullPdfService : ICotizacionPdfService
     {
         public byte[] Generar(CotizacionResultado cotizacion) => Array.Empty<byte>();
+        public byte[] Generar(CotizacionResultado cotizacion, bool incluirDescuentos) => Generar(cotizacion);
     }
 }

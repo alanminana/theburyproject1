@@ -48,9 +48,11 @@ namespace TheBuryProject.Services.Interfaces
             ReporteMovimientosValorizadosFiltroViewModel filtro);
 
         /// <summary>
-        /// Exporta reporte de ventas a Excel.
+        /// Exporta reporte de ventas a Excel. Sin <paramref name="incluirDescuentos"/> (permiso
+        /// <c>ventas.discount</c>) omite la columna de descuento (el subtotal ya es neto de descuento y
+        /// no se altera); el total no cambia.
         /// </summary>
-        Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro);
+        Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro, bool incluirDescuentos);
 
         /// <summary>
         /// Exporta reporte de margenes a Excel.

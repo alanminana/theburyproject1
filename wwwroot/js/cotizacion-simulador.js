@@ -109,6 +109,8 @@
     // backend igual rechazaría (VentaController.Facturar/ConfirmarYFacturar exigen
     // ventas/invoice); CotizacionConversionService revalida este permiso de nuevo.
     const puedeFacturar = root.dataset.puedeFacturar === 'true';
+    // DESCUENTO-PERMISO-01: fail-closed; sólo 'true' muestra/envía descuentos (el servidor decide igual).
+    const puedeDescuentos = root.dataset.puedeDescuentos === 'true';
 
     const urls = {
         simular: root.dataset.simularUrl || '/api/cotizacion/simular',
@@ -467,7 +469,7 @@
                             <button type="button" aria-label="Sumar" onclick="stepRow(this,1)"${producto.productoUnidadId ? ' disabled' : ''}>+</button>
                         </div>
                     </div>
-                    <div class="cart-row__field">
+                    ${!puedeDescuentos ? '' : `<div class="cart-row__field">
                         <span class="cart-row__label">Descuento</span>
                         <div class="dto-control">
                             <div class="dto-toggle" role="group" aria-label="Tipo de descuento">
@@ -477,7 +479,7 @@
                             <input type="number" value="${producto.descuentoPorcentaje ?? ''}" min="0" max="100" step="0.01" placeholder="0" data-cotizacion-desc-pct-index="${index}" aria-label="Descuento porcentaje producto" class="mini${modo === 'pct' ? '' : ' hidden'}">
                             <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini${modo === 'importe' ? '' : ' hidden'}">
                         </div>
-                    </div>
+                    </div>`}
                     <div class="cart-row__precio">
                         <span class="total-display">${formatCurrency(producto.precioUnitario)}</span>
                         <span class="cart-row__subtotal" title="Subtotal de la línea"><span class="cart-row__label">Subtotal</span> <span class="total-display">${formatCurrency(subtotal)}</span></span>

@@ -53,7 +53,7 @@ public sealed class CotizacionNumeracionTests : IDisposable
         _productoId = producto.Id;
 
         _calculator = new StubCalculator(_productoId);
-        _service = new CotizacionService(_context, _calculator, NullLogger<CotizacionService>.Instance);
+        _service = new CotizacionService(_context, _calculator, PermisosCurrentUserService.SinDescuentos(), NullLogger<CotizacionService>.Instance);
     }
 
     [Fact]

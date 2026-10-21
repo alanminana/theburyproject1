@@ -96,7 +96,7 @@ public sealed class CotizacionController : Controller
         if (cotizacion is null)
             return NotFound();
 
-        var bytes = _pdfService.Generar(cotizacion);
+        var bytes = _pdfService.Generar(cotizacion, incluirDescuentos: User.PuedeAplicarDescuentos());
         var fileName = $"Cotizacion-{cotizacion.Numero}.pdf";
         return File(bytes, "application/pdf", fileName);
     }

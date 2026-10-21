@@ -30,7 +30,7 @@ public sealed class CotizacionVencimientoServiceTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        _service = new CotizacionService(_context, new StubCalculator(), NullLogger<CotizacionService>.Instance);
+        _service = new CotizacionService(_context, new StubCalculator(), PermisosCurrentUserService.SinDescuentos(), NullLogger<CotizacionService>.Instance);
     }
 
     // ── TRANSICIONES CORRECTAS ────────────────────────────────────────────

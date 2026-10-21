@@ -7,6 +7,8 @@
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
     var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso("cotizaciones", "convert");
+    // DESCUENTO-PERMISO-01: sin ventas.discount no se muestra el descuento manual de la cotización.
+    var puedeDescuentos = User.PuedeAplicarDescuentos();
 
     string QuoteBadgeClass(EstadoCotizacion e) => e switch
     {
@@ -235,15 +237,20 @@
         </section>
     }
 
-    <section class="grid grid-cols-1 gap-3 md:grid-cols-4">
+    <section class="grid grid-cols-1 gap-3 @(puedeDescuentos ? "md:grid-cols-4" : "md:grid-cols-3")">
         <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
-            <p class="mt-2 text-lg font-black text-white">@Model.Subtotal.ToString("C")</p>
+            @* Sin ventas.discount el subtotal se muestra neto del descuento manual, para que el documento concilie
+               (Subtotal + servicios = Total base) sin exponer el desglose. *@
+            <p class="mt-2 text-lg font-black text-white">@((puedeDescuentos ? Model.Subtotal : Model.Subtotal - Model.DescuentoTotal).ToString("C"))</p>
         </div>
-        <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descuento</p>
-            <p class="mt-2 text-lg font-black text-white">@Model.DescuentoTotal.ToString("C")</p>
-        </div>
+        @if (puedeDescuentos)
+        {
+            <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descuento</p>
+                <p class="mt-2 text-lg font-black text-white">@Model.DescuentoTotal.ToString("C")</p>
+            </div>
+        }
         <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total base</p>
             <p class="mt-2 text-lg font-black text-white">@Model.TotalBase.ToString("C")</p>

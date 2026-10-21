@@ -107,6 +107,9 @@
     const hdnProductoRequiereNumeroSerie = $('#hdn-producto-requiere-numero-serie');
     const txtCantidad = $('#txt-cantidad');
     const txtDescuentoItem = $('#txt-descuento-item');
+    // DESCUENTO-PERMISO-01: sin ventas.discount el servidor no renderiza el control ni los porcentajes
+    // persistidos. Fail-closed: sólo 'true' habilita la UI de descuentos (el servidor decide igual).
+    const puedeDescuentos = document.getElementById('venta-form')?.dataset.puedeDescuentos === 'true';
     const panelSelectorUnidad = $('#panel-selector-unidad');
     const selectProductoUnidad = $('#select-producto-unidad');
     const productoUnidadError = $('#producto-unidad-error');
@@ -1014,7 +1017,7 @@
         productoActualRequiereNumeroSerie = requiereNumeroSerie;
         txtProductoSeleccionado.value = `${item.dataset.codigo} - ${item.dataset.nombre}`;
         txtCantidad.value = 1;
-        txtDescuentoItem.value = 0;
+        if (txtDescuentoItem) txtDescuentoItem.value = 0;
         hide(stockError);
 
         showGrid(panelAgregarProducto);
@@ -1089,7 +1092,7 @@
         const precioUnitario = parseFloat(hdnProductoPrecio.value) || 0;
         const stock = parseInt(hdnProductoStock.value) || 0;
         const cantidad = parseInt(txtCantidad.value) || 0;
-        const descuentoPct = parseFloat(txtDescuentoItem.value) || 0;
+        const descuentoPct = puedeDescuentos ? (parseFloat(txtDescuentoItem?.value) || 0) : 0;
         const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
         const origenEsUnidad = esOrigenUnidadFisica();
 
@@ -1175,7 +1178,7 @@
         // Agregar al carrito
         const existing = origenEsUnidad
             ? null
-            : detalles.find(d => d.productoId === productoId && !d.productoUnidadId);
+            : detalles.find(d => d.productoId === productoId && !d.productoUnidadId && (puedeDescuentos || !d.lineaId));
         if (existing) {
             const newQty = existing.cantidad + cantidad;
             if (newQty > stock) {
@@ -1183,8 +1186,10 @@
                 return;
             }
             existing.cantidad = newQty;
-            existing.descuento = descuentoPct;
-            existing.subtotal = calcularSubtotalLinea(existing.precioUnitario, newQty, descuentoPct);
+            // Sin permiso la línea conserva su descuento (el navegador lo ve en 0; el servidor lo
+            // mantiene) y el subtotal real vuelve del preview.
+            if (puedeDescuentos) existing.descuento = descuentoPct;
+            existing.subtotal = calcularSubtotalLinea(existing.precioUnitario, newQty, existing.descuento);
             filaAResaltar = detalles.indexOf(existing);
         } else {
             const subtotal = calcularSubtotalLinea(precioUnitario, cantidad, descuentoPct);
@@ -1462,7 +1467,7 @@
                     <p id="detalle-cantidad-error-${i}" class="venta-quantity-error" aria-live="polite"></p>
                 </td>
                 <td class="py-4 px-2 text-sm text-right">${formatCurrency(d.precioUnitario)}</td>
-                <td class="py-4 px-2 text-sm text-right">${d.descuento}%</td>
+                ${puedeDescuentos ? `<td data-col="descuento" class="py-4 px-2 text-sm text-right">${d.descuento}%</td>` : '<td data-col="descuento" style="display:none" aria-hidden="true"></td>'}
                 <td class="py-4 px-2 text-sm font-bold text-right" data-line-subtotal="${i}">${formatCurrency(d.subtotal)}</td>
                 <td class="py-4 px-2 text-right">
                     <button type="button" class="btn-eliminar-detalle text-slate-400 hover:text-red-500 transition-colors" data-index="${i}" aria-label="Eliminar ${esc(d.nombre)}">
@@ -1485,6 +1490,8 @@
                 el.value = val;
                 return el;
             };
+            // Id de la línea persistida (sólo en edición): el servidor la usa para conservar su descuento.
+            if (d.lineaId) detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Id`, d.lineaId));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoId`, d.productoId));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Cantidad`, d.cantidad));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].PrecioUnitario`, d.precioUnitario));
@@ -1610,6 +1617,7 @@
             const planId = parseInt(hdnConfiguracionPagoPlanId?.value) || null;
             const body = {
                 detalles: detalles.map(d => ({
+                    lineaId: d.lineaId ?? null,
                     productoId: d.productoId,
                     cantidad: d.cantidad,
                     precioUnitario: d.precioUnitario,
@@ -1619,6 +1627,9 @@
                 })),
                 descuentoGeneral: 0,
                 descuentoEsPorcentaje: true,
+                // Venta en edición: sin ventas.discount el servidor aplica los descuentos persistidos
+                // de esta venta para que los totales coincidan con lo que va a guardar Edit.
+                ventaId: window.ventaInicial?.id ?? null,
                 tipoPago: parseInt(selectTipoPago?.value) || 0,
                 tarjetaId: tarjetaId,
                 configuracionPagoPlanId: planId,
@@ -1628,6 +1639,7 @@
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
             if (seq !== recalculoSeq) return;
             ultimoResultadoTotales = result;
+            sincronizarSubtotalesDesdeBackend(result);
             actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total, result);
             aplicarLimiteCuotasSinInteres(result.maxCuotasSinInteresEfectivo ?? null, result.cuotasSinInteresLimitadasPorProducto ?? false);
             publicarTotales(result);
@@ -1643,6 +1655,19 @@
         // Update credit availability notice
         actualizarAvisoCredito();
         verificarElegibilidadAuto();
+    }
+
+    // Sin ventas.discount el navegador no conoce el descuento de las líneas persistidas: el subtotal
+    // por línea (importe final, no el descuento) viene del preview del servidor, en el mismo orden.
+    function sincronizarSubtotalesDesdeBackend(result) {
+        if (puedeDescuentos || !Array.isArray(result?.detalles)) return;
+        result.detalles.forEach((calculado, i) => {
+            const detalle = detalles[i];
+            if (!detalle || !Number.isFinite(Number(calculado?.subtotal))) return;
+            detalle.subtotal = Number(calculado.subtotal);
+            const celda = tbodyDetalles?.querySelector(`[data-line-subtotal="${i}"]`);
+            if (celda) celda.textContent = formatCurrency(detalle.subtotal);
+        });
     }
 
     function aplicarLimiteCuotasSinInteres(maxEfectivo, limitadoPorProducto) {
@@ -2799,7 +2824,11 @@
 
         if (!Number.isInteger(cantidad) || cantidad < 1) mensaje = 'Ingresá una cantidad entera mayor que cero.';
         else if (detalle.productoUnidadId && cantidad !== 1) mensaje = 'La unidad física solo admite cantidad 1.';
-        else {
+        else if (!puedeDescuentos && detalle.lineaId && cantidad > (detalle.cantidadInicial || 0)) {
+            // El navegador no conoce los descuentos (no se los envía): por seguridad una línea ya guardada
+            // no puede crecer sin ventas.discount; las unidades extra se agregan como línea nueva.
+            mensaje = 'Para sumar unidades a una línea ya guardada, agregá el producto otra vez como línea nueva.';
+        } else {
             const maximoCantidad = obtenerMaximoCantidadEditable(detalle);
             if (maximoCantidad !== null && cantidad > maximoCantidad) {
                 mensaje = detalle.cantidadInicial > 0 && detalle.stock === 0
@@ -3206,6 +3235,7 @@
     if (window.ventaInicial && Array.isArray(window.ventaInicial.detalles)) {
         window.ventaInicial.detalles.forEach(function (d) {
             detalles.push({
+                lineaId: d.lineaId || null,
                 productoId: d.productoId,
                 codigo: d.codigo || '',
                 nombre: d.nombre || '',

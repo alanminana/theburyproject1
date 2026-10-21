@@ -26,4 +26,14 @@ public sealed class CotizacionSimulacionRequest
 
     /// <summary>Envío Ciudad/Rural (null = sin envío). El precio sale de la tabla global.</summary>
     public TheBuryProject.Models.Enums.TipoServicioVenta? TipoEnvio { get; init; }
+
+    /// <summary>
+    /// True si el pedido trae algún descuento comercial manual (general o por línea). Es el dato que
+    /// exige el permiso independiente <c>ventas.discount</c>; los ajustes automáticos por medio de
+    /// pago (recargo/descuento del plan) no pasan por acá.
+    /// </summary>
+    public bool TieneDescuentosManuales() =>
+        DescuentoGeneralPorcentaje is > 0m
+        || DescuentoGeneralImporte is > 0m
+        || Productos.Any(p => p.DescuentoPorcentaje is > 0m || p.DescuentoImporte is > 0m);
 }

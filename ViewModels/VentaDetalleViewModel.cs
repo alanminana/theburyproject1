@@ -32,7 +32,7 @@ namespace TheBuryProject.ViewModels
         // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: porcentaje (0-100) sobre PrecioUnitario*Cantidad,
         // no importe absoluto. Único consumidor autoritativo: VentaService.CalcularSubtotalLineaConDescuento.
         [Display(Name = "Descuento")]
-        [Range(0, 100, ErrorMessage = "El descuento debe estar entre 0 y 100")]
+        [Range(0d, 100d, ErrorMessage = "El descuento debe estar entre 0 y 100")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal Descuento { get; set; }
 

@@ -1523,7 +1523,7 @@ public class ReporteServiceTests : IDisposable
     {
         var filtro = new ReporteVentasFiltroViewModel();
 
-        var resultado = await _service.ExportarVentasExcelAsync(filtro);
+        var resultado = await _service.ExportarVentasExcelAsync(filtro, incluirDescuentos: true);
 
         Assert.NotNull(resultado);
         Assert.True(resultado.Length > 0);
@@ -1538,7 +1538,7 @@ public class ReporteServiceTests : IDisposable
 
         var filtro = new ReporteVentasFiltroViewModel();
 
-        var resultado = await _service.ExportarVentasExcelAsync(filtro);
+        var resultado = await _service.ExportarVentasExcelAsync(filtro, incluirDescuentos: true);
 
         Assert.True(resultado.Length > 0);
         // Signature de ZIP/Office Open XML: PK magic bytes
@@ -1560,7 +1560,7 @@ public class ReporteServiceTests : IDisposable
             costoTotalAlMomento: 20m,
             recargoDebitoAplicado: 5m);
 
-        var bytes = await _service.ExportarVentasExcelAsync(new ReporteVentasFiltroViewModel());
+        var bytes = await _service.ExportarVentasExcelAsync(new ReporteVentasFiltroViewModel(), incluirDescuentos: true);
 
         using var stream = new MemoryStream(bytes);
         using var workbook = new XLWorkbook(stream);
@@ -1569,6 +1569,55 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(5m, worksheet.Cell(2, 9).GetValue<decimal>());
         Assert.Equal(105m, worksheet.Cell(2, 10).GetValue<decimal>());
         Assert.Equal(80m, worksheet.Cell(2, 11).GetValue<decimal>());
+    }
+
+    private async Task<byte[]> ExportarVentaConDescuentoAsync(bool incluirDescuentos)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto.Id, 50m, 2);
+        // Como en datos reales: Subtotal ya es neto de descuento (Subtotal + IVA = Total).
+        venta.Descuento = 10m;
+        venta.Subtotal = 90m;
+        venta.Total = 90m;
+        await _context.SaveChangesAsync();
+
+        return await _service.ExportarVentasExcelAsync(new ReporteVentasFiltroViewModel(), incluirDescuentos);
+    }
+
+    [Fact]
+    public async Task ExportarVentasExcel_ConPermisoDescuento_IncluyeColumnaDescuento()
+    {
+        var bytes = await ExportarVentaConDescuentoAsync(incluirDescuentos: true);
+
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet("Ventas");
+        Assert.Equal("Descuento ($)", ws.Cell(1, 7).GetString());
+        Assert.Equal(90m, ws.Cell(2, 6).GetValue<decimal>());
+        Assert.Equal(10m, ws.Cell(2, 7).GetValue<decimal>());
+        Assert.Equal(90m, ws.Cell(2, 10).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task ExportarVentasExcel_SinPermisoDescuento_OmiteDescuentoYConservaTotal()
+    {
+        var bytes = await ExportarVentaConDescuentoAsync(incluirDescuentos: false);
+
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet("Ventas");
+        var textos = ws.CellsUsed().Select(c => c.GetString()).ToList();
+        Assert.DoesNotContain(textos, t => t.Contains("Descuento", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("Subtotal Neto", ws.Cell(1, 6).GetString());
+        Assert.Equal("IVA", ws.Cell(1, 7).GetString());
+        // Subtotal ya neto: Total − (Subtotal + IVA + Recargo) no puede reconstruir el descuento (debe ser 0).
+        Assert.Equal(90m, ws.Cell(2, 6).GetValue<decimal>());
+        Assert.Equal(0m, ws.Cell(2, 9).GetValue<decimal>() - ws.Cell(2, 6).GetValue<decimal>()
+            - ws.Cell(2, 7).GetValue<decimal>() - ws.Cell(2, 8).GetValue<decimal>());
+        Assert.Equal("Total", ws.Cell(1, 9).GetString());
+        Assert.Equal(90m, ws.Cell(2, 9).GetValue<decimal>());
+        Assert.Equal(90m, ws.Cell(3, 9).GetValue<decimal>()); // fila TOTALES
+        Assert.Equal(90m, ws.Cell(3, 6).GetValue<decimal>());
+        Assert.Equal(11, ws.LastColumnUsed()!.ColumnNumber());
     }
 
     [Fact]
