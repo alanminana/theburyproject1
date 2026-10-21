@@ -75,8 +75,8 @@ public class RegistroPublicoDeshabilitadoHttpTests : IClassFixture<CookieAuthWeb
 
         var response = await NewBrowser().SendAsync(request);
 
-        Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed,
-            $"Se esperaba 404/405 y se obtuvo {(int)response.StatusCode}.");
+        Assert.True(response.StatusCode is HttpStatusCode.NotFound,
+            $"Se esperaba 404 y se obtuvo {(int)response.StatusCode}.");
         Assert.False(await ExisteUsuarioAsync(userName));
     }
 
@@ -145,6 +145,20 @@ public class RegistroPublicoDeshabilitadoHttpTests : IClassFixture<CookieAuthWeb
             .GetExternalAuthenticationSchemesAsync());
     }
 
+    [Theory]
+    [InlineData("RegisterConfirmation")]
+    [InlineData("ResendEmailConfirmation")]
+    public async Task PaginasDelFlujoDeRegistro_NoExponenEmailsNiLinksDeConfirmacion(string pagina)
+    {
+        var user = await SeedAsync("regconf");
+
+        var response = await NewBrowser().GetAsync($"/Identity/Account/{pagina}?email={Uri.EscapeDataString(user.Email!)}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain("ConfirmEmail", html, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task PantallaDeLogin_NoOfreceEnlaceDeRegistro()
     {
@@ -161,7 +175,7 @@ public class RegistroPublicoDeshabilitadoHttpTests : IClassFixture<CookieAuthWeb
 
         var login = await LoginAsync(client, user.UserName!);
         Assert.True(TieneCookieDeSesion(login));
-        Assert.NotEqual(HttpStatusCode.Unauthorized, (await GetAjaxAsync(client, "/Cliente")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await GetAjaxAsync(client, "/Cliente")).StatusCode); // autenticado, sin permiso (sin sesión sería 401)
 
         var logout = await client.PostAsync("/Identity/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
         {

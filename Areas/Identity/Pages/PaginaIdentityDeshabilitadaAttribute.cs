@@ -10,6 +10,8 @@ namespace TheBuryProject.Areas.Identity.Pages
     /// de modo que el comportamiento es uniforme y no depende de que exista un OnPost.
     /// Se aplica sobre una página propia que reemplaza a la de Identity UI (misma ruta, la de la app gana):
     /// no se usa AddPageRoute porque agrega rutas sin quitar las originales.
+    /// IAllowAnonymous es intencional y NO debe reutilizarse en paginas que deban exigir sesion: hace que el
+    /// FallbackPolicy no redirija al login antes de llegar al 404, para que anonimos y autenticados vean lo mismo.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public sealed class PaginaIdentityDeshabilitadaAttribute : Attribute, IResourceFilter, IAllowAnonymous
