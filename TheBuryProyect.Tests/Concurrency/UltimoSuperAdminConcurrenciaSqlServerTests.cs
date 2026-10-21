@@ -55,9 +55,27 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         if (SuperAdminSqlEnv.SkipReason() != null) return;
+        await CrearCatalogoAsync();
         await using var context = NuevoContexto();
-        await context.Database.EnsureDeletedAsync();
         await context.Database.MigrateAsync();
+    }
+
+    /// <summary>
+    /// Crea el catálogo descartable con el modo de aislamiento pedido (QA_SEC_SUPERADMIN_RCSI = 0 / 1) fijado de forma
+    /// explícita en ambos sentidos: no se confía en lo que herede de `model` ni en lo que haga el proveedor al crearlo.
+    /// </summary>
+    private static async Task CrearCatalogoAsync()
+    {
+        var csb = new SqlConnectionStringBuilder(SuperAdminSqlEnv.ConnectionString);
+        var catalogo = csb.InitialCatalog;
+        csb.InitialCatalog = "master";
+        var rcsi = Environment.GetEnvironmentVariable("QA_SEC_SUPERADMIN_RCSI") == "1" ? "ON" : "OFF";
+        await using var c = new SqlConnection(csb.ConnectionString);
+        await c.OpenAsync();
+        await using var cmd = new SqlCommand(
+            $"IF DB_ID(N'{catalogo}') IS NOT NULL BEGIN ALTER DATABASE [{catalogo}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{catalogo}]; END; " +
+            $"CREATE DATABASE [{catalogo}]; ALTER DATABASE [{catalogo}] SET READ_COMMITTED_SNAPSHOT {rcsi} WITH ROLLBACK IMMEDIATE;", c);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     public async Task DisposeAsync()

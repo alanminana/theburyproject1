@@ -11,8 +11,8 @@ name: SEC SQL Server (ultimo SuperAdmin - concurrencia y atomicidad)
 #   - el puerto solo escucha en 127.0.0.1 del runner: sin conectividad con ninguna base de desarrollo;
 #   - el catalogo se llama qa_sec_superadmin* (las pruebas se niegan a correr contra otro nombre);
 #   - todos los datos los crean los propios tests.
-# RCSI: las pruebas recrean el catalogo en cada escenario, asi que el modo se fija en la base `model`
-# (los catalogos nuevos lo heredan) y SA-00 comprueba que el catalogo real coincide con el pedido.
+# RCSI: las pruebas recrean el catalogo en cada escenario y fijan QA_SEC_SUPERADMIN_RCSI de forma explicita
+# (ON/OFF) al crearlo; SA-00 comprueba que el catalogo real coincide con el pedido.
 # Un omitido NO es un aprobado: el paso de verificacion falla si algun escenario no figura como Passed en el TRX.
 
 on:
@@ -58,7 +58,7 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      - name: Levantar SQL Server efimero (credenciales sinteticas) y fijar RCSI en model
+      - name: Levantar SQL Server efimero (credenciales sinteticas)
         run: |
           set -euo pipefail
           SA_PW="Ee1!$(openssl rand -hex 12)"
@@ -76,12 +76,6 @@ jobs:
             sleep 3
           done
           if [ "$READY" != "1" ]; then docker logs "$MSSQL_CONTAINER" | tail -50; echo "SQL Server no arranco"; exit 1; fi
-          if [ "${{ matrix.rcsi }}" = "1" ]; then
-            docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PW" -b \
-              -Q "ALTER DATABASE model SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE"
-          fi
-          docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PW" -h -1 -W \
-            -Q "SET NOCOUNT ON; SELECT 'model.is_read_committed_snapshot_on=' + CAST(is_read_committed_snapshot_on AS varchar(1)) FROM sys.databases WHERE name='model'"
 
       - name: Restore + Build (Release)
         run: |
