@@ -19,7 +19,7 @@ namespace TheBuryProject.Tests.Integration;
 // Stubs locales (file-scoped para evitar colisiones con otros archivos)
 // ---------------------------------------------------------------------------
 
-file sealed class StubCajaServiceOverposting : ICajaService
+sealed class StubCajaServiceOverposting : ICajaService
 {
     private readonly AperturaCaja _apertura;
     public StubCajaServiceOverposting(AperturaCaja apertura) => _apertura = apertura;
@@ -65,7 +65,7 @@ file sealed class StubCajaServiceOverposting : ICajaService
     public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
 }
 
-file sealed class StubCurrentUserOverposting : ICurrentUserService
+sealed class StubCurrentUserOverposting : ICurrentUserService
 {
     // SuperAdmin para que ValidarVendedorHabilitadoEnCajaAsync sea bypass.
     public string GetUsername() => "testuser";
@@ -107,7 +107,7 @@ sealed class StubMovimientoStockOverposting : IMovimientoStockService
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }
 
-file sealed class StubAlertaStockOverposting : IAlertaStockService
+sealed class StubAlertaStockOverposting : IAlertaStockService
 {
     public Task<int> VerificarYGenerarAlertasAsync(IEnumerable<int> productoIds) => Task.FromResult(0);
     public Task<int> GenerarAlertasStockBajoAsync(CancellationToken ct = default) => Task.FromResult(0);
@@ -125,7 +125,7 @@ file sealed class StubAlertaStockOverposting : IAlertaStockService
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();
 }
 
-file sealed class StubCreditoDisponibleOverposting : ICreditoDisponibleService
+sealed class StubCreditoDisponibleOverposting : ICreditoDisponibleService
 {
     public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken ct = default) => Task.FromResult(0m);
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken ct = default) => Task.FromResult(0m);
@@ -135,10 +135,18 @@ file sealed class StubCreditoDisponibleOverposting : ICreditoDisponibleService
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 
-file sealed class StubValidacionVentaOverposting : IValidacionVentaService
+// No es file-scoped: el test accede a los últimos argumentos recibidos.
+sealed class StubValidacionVentaOverposting : IValidacionVentaService
 {
+    public int? UltimoClienteId { get; private set; }
+    public int? UltimoCreditoId { get; private set; }
+
     public Task<ValidacionVentaResult> ValidarVentaCreditoPersonalAsync(int clienteId, decimal montoVenta, int? creditoId = null)
-        => Task.FromResult(new ValidacionVentaResult { NoViable = false });
+    {
+        UltimoClienteId = clienteId;
+        UltimoCreditoId = creditoId;
+        return Task.FromResult(new ValidacionVentaResult { NoViable = false });
+    }
     public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => throw new NotImplementedException();
     public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
 }
@@ -164,6 +172,7 @@ public class VentaServiceOverpostingSecurityTests : IDisposable
     private readonly AppDbContext _context;
     private readonly VentaService _service;
     private readonly StubMovimientoStockOverposting _stockStub;
+    private readonly StubValidacionVentaOverposting _validacionStub = new();
     private readonly AperturaCaja _apertura;
 
     private static int _counter = 3000;
@@ -199,7 +208,7 @@ public class VentaServiceOverpostingSecurityTests : IDisposable
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
             new PrecioVigenteResolver(_context),
             new StubCurrentUserOverposting(),
-            new StubValidacionVentaOverposting(),
+            _validacionStub,
             new StubCajaServiceOverposting(_apertura),
             new StubCreditoDisponibleOverposting(),
             new StubContratoVentaCreditoService(),
@@ -404,6 +413,166 @@ public class VentaServiceOverpostingSecurityTests : IDisposable
         // Debe ser cercana a hoy, no la fecha manipulada
         Assert.True(v!.FechaVenta >= DateTime.UtcNow.AddDays(-2),
             $"FechaVenta debería ser cercana a hoy. Fue: {v.FechaVenta}");
+    }
+
+    // -------------------------------------------------------------------------
+    // FIN-S-002 (A1/A2/F1/F2/F3): hallazgos de la revisión independiente
+    // -------------------------------------------------------------------------
+
+    private async Task<int> SeedClienteSoloAsync()
+    {
+        var cli = new Cliente
+        {
+            Nombre = "Otro", Apellido = "OvP", NumeroDocumento = $"8{Interlocked.Increment(ref _counter)}",
+            NivelRiesgo = NivelRiesgoCredito.AprobadoTotal, IsDeleted = false
+        };
+        _context.Clientes.Add(cli);
+        await _context.SaveChangesAsync();
+        return cli.Id;
+    }
+
+    // SQLite no genera rowversion: se fija uno explícito para ejercitar UpdateAsync.
+    private async Task<byte[]> FijarRowVersionAsync(Venta venta)
+    {
+        venta.RowVersion = new byte[8];
+        await _context.SaveChangesAsync();
+        return venta.RowVersion;
+    }
+
+    private async Task<int> SeedOtroClienteConCreditoAsync()
+    {
+        var otroClienteId = await SeedClienteSoloAsync();
+        var credito = new Credito
+        {
+            ClienteId = otroClienteId, Numero = $"CRE-OVP-{Interlocked.Increment(ref _counter)}",
+            Estado = EstadoCredito.Activo, SaldoPendiente = 1_000_000m, RowVersion = new byte[8]
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        return credito.Id;
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalConCreditoDeOtroCliente_Rechaza()
+    {
+        var creditoAjenoId = await SeedOtroClienteConCreditoAsync();
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        vm.TipoPago = TipoPago.CreditoPersonal;
+        vm.CreditoId = creditoAjenoId;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateAsync(vm));
+
+        Assert.Empty(_context.Ventas);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CambiarClienteConCreditoAsociado_Rechaza()
+    {
+        var creditoAjenoId = await SeedOtroClienteConCreditoAsync();
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        var creada = await _service.CreateAsync(vm);
+        var venta = await _context.Ventas.FindAsync(creada.Id);
+        venta!.CreditoId = creditoAjenoId;
+        await _context.SaveChangesAsync();
+        var otroClienteId = await SeedClienteSoloAsync();
+
+        vm.ClienteId = otroClienteId;
+        vm.RowVersion = await FijarRowVersionAsync(venta);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(creada.Id, vm));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CreditoPersonal_UsaIdsCanonicosNoLosDelPost()
+    {
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        vm.TipoPago = TipoPago.CreditoPersonal;
+        vm.CreditoId = null;
+        var creada = await _service.CreateAsync(vm);
+        var venta = await _context.Ventas.FindAsync(creada.Id);
+        var propio = new Credito
+        {
+            ClienteId = vm.ClienteId, Numero = $"CRE-OVP-{Interlocked.Increment(ref _counter)}",
+            Estado = EstadoCredito.Activo, SaldoPendiente = 1_000_000m, RowVersion = new byte[8]
+        };
+        _context.Creditos.Add(propio);
+        await _context.SaveChangesAsync();
+        venta!.CreditoId = propio.Id;
+        await _context.SaveChangesAsync();
+
+        vm.CreditoId = await SeedOtroClienteConCreditoAsync();   // forjado
+        vm.RowVersion = await FijarRowVersionAsync(venta);
+        await _service.UpdateAsync(creada.Id, vm);
+
+        Assert.Equal(vm.ClienteId, _validacionStub.UltimoClienteId);
+        Assert.Null(_validacionStub.UltimoCreditoId);   // ni el forjado ni el propio pendiente: cupo general
+    }
+
+    [Theory]
+    [InlineData(-30)]
+    [InlineData(5)]
+    public async Task UpdateAsync_FechaVentaFueraDeRango_ConservaLaPersistida(int offsetDias)
+    {
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        var creada = await _service.CreateAsync(vm);
+        var venta = await _context.Ventas.FindAsync(creada.Id);
+        var original = venta!.FechaVenta;
+
+        vm.FechaVenta = DateTime.UtcNow.AddDays(offsetDias);
+        vm.RowVersion = await FijarRowVersionAsync(venta);
+        await _service.UpdateAsync(creada.Id, vm);
+
+        Assert.Equal(original, (await _context.Ventas.FindAsync(creada.Id))!.FechaVenta);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_VentaHistoricaSinCambiarFecha_PermiteEditarOtrosCampos()
+    {
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        var creada = await _service.CreateAsync(vm);
+        var venta = await _context.Ventas.FindAsync(creada.Id);
+        var historica = DateTime.UtcNow.AddDays(-90);
+        venta!.FechaVenta = historica;
+        await _context.SaveChangesAsync();
+
+        vm.FechaVenta = historica;
+        vm.Observaciones = "editada";
+        vm.RowVersion = await FijarRowVersionAsync(venta);
+        await _service.UpdateAsync(creada.Id, vm);
+
+        var v = (await _context.Ventas.FindAsync(creada.Id))!;
+        Assert.Equal(historica, v.FechaVenta);
+        Assert.Equal("editada", v.Observaciones);
+    }
+
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(1, true)]
+    [InlineData(-2, false)]
+    [InlineData(2, false)]
+    public void ResolverFechaVenta_LimitesDelRango(int offsetDias, bool acepta)
+    {
+        var fallback = new DateTime(2000, 1, 1);
+        var entrante = DateTime.UtcNow.Date.AddDays(offsetDias).AddHours(23);
+
+        var r = VentaService.ResolverFechaVenta(entrante, fallback, null);
+
+        Assert.Equal(acepta ? entrante : fallback, r);
+    }
+
+    [Fact]
+    public async Task CreateAsync_FechaConfiguracionCreditoYCreatedAtForjados_SeIgnoran()
+    {
+        var vm = await BuildVmConEstadoManipulado(EstadoVenta.Cotizacion);
+        vm.TipoPago = TipoPago.Efectivo;
+        vm.FechaConfiguracionCredito = new DateTime(2020, 1, 1);
+        vm.CreatedAt = new DateTime(2001, 1, 1);
+
+        var creada = await _service.CreateAsync(vm);
+
+        var v = (await _context.Ventas.FindAsync(creada.Id))!;
+        Assert.Null(v.FechaConfiguracionCredito);
+        Assert.True(v.CreatedAt >= DateTime.UtcNow.AddMinutes(-5), $"CreatedAt forjado persistido: {v.CreatedAt}");
     }
 
     // -------------------------------------------------------------------------

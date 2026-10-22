@@ -227,10 +227,13 @@ namespace TheBuryProject.Services
                 venta.Estado = EstadoVenta.Cotizacion;
 
                 // FIN-S-002: FechaVenta no puede ser retroactiva más de 1 día ni futura.
-                var hoy = DateTime.UtcNow.Date;
-                if (viewModel.FechaVenta.Date < hoy.AddDays(-1) || viewModel.FechaVenta.Date > hoy.AddDays(1))
+                venta.FechaVenta = ResolverFechaVenta(viewModel.FechaVenta, DateTime.UtcNow, null);
+
+                // FIN-S-002 (A1): el CreditoId del POST no se asocia a la venta, pero sí se usa para
+                // evaluar cupos; debe ser un crédito vigente del mismo cliente.
+                if (viewModel.TipoPago == TipoPago.CreditoPersonal)
                 {
-                    venta.FechaVenta = DateTime.UtcNow;
+                    await ValidarCreditoReferenciadoPerteneceAlClienteAsync(viewModel.ClienteId, viewModel.CreditoId);
                 }
 
                 venta.AperturaCajaId = aperturaActiva.Id;
@@ -3639,6 +3642,33 @@ namespace TheBuryProject.Services
         private static decimal RedondearMoneda(decimal value) =>
             Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
+        /// <summary>
+        /// FIN-S-002: FechaVenta no puede ser futura ni retroactiva más de 1 día (día UTC). Una fecha
+        /// fuera de rango se reemplaza por <paramref name="fallback"/>; una fecha con el mismo día que la
+        /// ya persistida se acepta siempre, para no bloquear editar ventas históricas.
+        /// </summary>
+        internal static DateTime ResolverFechaVenta(DateTime entrante, DateTime fallback, DateTime? persistida)
+        {
+            var hoy = DateTime.UtcNow.Date;
+            var enRango = entrante.Date >= hoy.AddDays(-1) && entrante.Date <= hoy.AddDays(1);
+            var sinCambio = persistida.HasValue && entrante.Date == persistida.Value.Date;
+            return enRango || sinCambio ? entrante : fallback;
+        }
+
+        private async Task ValidarCreditoReferenciadoPerteneceAlClienteAsync(int clienteId, int? creditoId)
+        {
+            if (!creditoId.HasValue)
+                return;
+
+            var valido = await _context.Creditos.AsNoTracking()
+                .AnyAsync(c => c.Id == creditoId.Value && c.ClienteId == clienteId && !c.IsDeleted);
+            if (!valido)
+            {
+                throw new InvalidOperationException(
+                    "El crédito indicado no existe o no pertenece al cliente de la venta.");
+            }
+        }
+
         private void ActualizarDatosVenta(Venta venta, VentaViewModel viewModel)
         {
             _logger.LogDebug(
@@ -3649,8 +3679,19 @@ namespace TheBuryProject.Services
                 viewModel.CreditoId,
                 viewModel.Descuento);
 
-            venta.ClienteId = viewModel.ClienteId > 0 ? viewModel.ClienteId : null;
-            venta.FechaVenta = viewModel.FechaVenta;
+            var clienteIdEntrante = viewModel.ClienteId > 0 ? viewModel.ClienteId : (int?)null;
+
+            // FIN-S-002 (A2): con un crédito ya asociado, cambiar el cliente dejaría el crédito
+            // de un cliente colgado de la venta de otro.
+            if (venta.CreditoId.HasValue && clienteIdEntrante != venta.ClienteId)
+            {
+                throw new InvalidOperationException(
+                    "No se puede cambiar el cliente de una venta que ya tiene un crédito asociado.");
+            }
+
+            venta.ClienteId = clienteIdEntrante;
+            // FIN-S-002 (F1): misma política que CreateAsync; fuera de rango se conserva la fecha persistida.
+            venta.FechaVenta = ResolverFechaVenta(viewModel.FechaVenta, venta.FechaVenta, venta.FechaVenta);
             venta.TipoPago = viewModel.TipoPago;
             venta.Descuento = viewModel.Descuento;
             venta.Observaciones = viewModel.Observaciones;
@@ -3948,10 +3989,14 @@ namespace TheBuryProject.Services
             if (viewModel.TipoPago == TipoPago.CreditoPersonal)
             {
                 // Usar el servicio de validación unificado
+                // FIN-S-002 (A2): cliente canónico de la entidad, nunca el del POST. Se evalúa el cupo
+                // general (creditoId null), como hacía el flujo real, donde el form no envía CreditoId:
+                // el crédito propio de la venta (PendienteConfiguracion/Configurado) no es un crédito
+                // "Activo" contra el cual medir el cupo y marcaría NoViable, pisando RequiereAutorizacion.
                 var validacion = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
-                    viewModel.ClienteId, 
-                    venta.Total, 
-                    viewModel.CreditoId);
+                    venta.ClienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado."),
+                    venta.Total,
+                    null);
 
                 venta.RequiereAutorizacion = validacion.RequiereAutorizacion;
 

@@ -280,6 +280,11 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.VendedorUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.VendedorNombre, opt => opt.Ignore())
                 .ForMember(dest => dest.CreditoId, opt => opt.Ignore())
+                // FIN-S-002 (F2/F3): FechaConfiguracionCredito la fija sólo el servidor al
+                // configurar el financiamiento (habilita confirmar crédito); CreatedAt es
+                // auditoría de servidor (AppDbContext sólo lo completa si viene en default).
+                .ForMember(dest => dest.FechaConfiguracionCredito, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.EstadoAutorizacion, opt => opt.Ignore())
                 .ForMember(dest => dest.RequiereAutorizacion, opt => opt.Ignore())
                 .ForMember(dest => dest.UsuarioSolicita, opt => opt.Ignore())
