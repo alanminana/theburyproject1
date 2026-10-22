@@ -2352,6 +2352,18 @@ namespace TheBuryProject.Services
 
         public async Task ConfigurarCreditoAsync(ConfiguracionCreditoComando cmd)
         {
+            // PROMPT 96: mismo orden de locks que ConfirmarVentaCreditoAsync/Cancelar/Pagos (Crédito PRIMERO).
+            // Sin esto, el SaveChanges de abajo escribe Contrato -> Crédito -> Venta en un único batch y toma
+            // X sobre el contrato ANTES de pedir el crédito, mientras Confirmar retiene el crédito y luego lee
+            // el contrato: deadlock (SQL 1205, RCSI OFF). Si la víctima es Configurar, el controller (que solo
+            // captura rechazo y DbUpdateConcurrencyException) lo propaga como HTTP 500. Con el lock tomado antes
+            // de leer, ambas operaciones se serializan por el crédito y
+            // Configurar relee el estado ya comprometido por Confirmar (el RowVersion queda como segunda defensa).
+            await using var transaccionPropia = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
+            await CreditoConcurrencia.BloquearAsync(_context, cmd.CreditoId);
+
             var credito = await _context.Creditos
                 .FirstOrDefaultAsync(c => c.Id == cmd.CreditoId && !c.IsDeleted);
 
@@ -2448,6 +2460,8 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+            if (transaccionPropia != null)
+                await transaccionPropia.CommitAsync();
 
             _logger.LogInformation(
                 "Crédito {CreditoId} configurado: Método={Metodo}, Fuente={Fuente}, " +
