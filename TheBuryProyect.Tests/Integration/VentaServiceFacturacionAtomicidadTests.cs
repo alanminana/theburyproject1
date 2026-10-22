@@ -107,6 +107,27 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
 
     // ------------------------------------------------------------------ helpers
 
+    // FIN-S-002: una venta a credito Confirmada debe tener su credito generado (cuotas) para poder facturarse.
+    private async Task AdjuntarCreditoGeneradoAsync(int ventaId)
+    {
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var credito = new Credito
+        {
+            ClienteId = v.ClienteId!.Value, Numero = "CRF" + ventaId, Estado = EstadoCredito.Generado,
+            MontoAprobado = v.Total, MontoSolicitado = v.Total, SaldoPendiente = v.Total, CantidadCuotas = 1
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        _context.Cuotas.Add(new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = v.Total, MontoInteres = 0m, MontoTotal = v.Total,
+            FechaVencimiento = DateTime.UtcNow.AddMonths(1), Estado = EstadoCuota.Pendiente
+        });
+        await _context.SaveChangesAsync();
+        await _context.Ventas.Where(x => x.Id == ventaId).ExecuteUpdateAsync(s => s.SetProperty(x => x.CreditoId, credito.Id));
+        _context.ChangeTracker.Clear();
+    }
+
     private async Task<int> SeedVentaAsync(TipoPago tipoPago, bool conIngreso, decimal total = 100m)
     {
         var s = Interlocked.Increment(ref _counter).ToString();
@@ -264,6 +285,7 @@ public class VentaServiceFacturacionAtomicidadTests : IDisposable
     public async Task Facturar_VentaACreditoPersonal_NoRegistraIngresoInmediato()
     {
         var id = await SeedVentaAsync(TipoPago.CreditoPersonal, conIngreso: false);
+        await AdjuntarCreditoGeneradoAsync(id);
 
         Assert.True(await FacturarAsync(id));
 

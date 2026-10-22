@@ -284,8 +284,16 @@
 
         const showErrors = messages => {
             if (!errorBox || !errorList) return;
-            errorList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
+            // textContent: los motivos de rechazo incluyen nombres de rol enviados por el cliente.
+            errorList.replaceChildren(...messages.map(message => {
+                const paragraph = document.createElement('p');
+                paragraph.textContent = message;
+                return paragraph;
+            }));
             errorBox.classList.remove('hidden');
+            // El cuerpo del modal puede estar desplazado (p. ej. al marcar un rol al final de la lista):
+            // sin esto el rechazo queda fuera de la vista y parece que no pasó nada.
+            errorBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         };
 
         const resetSubmitButton = () => {
@@ -316,7 +324,13 @@
                 body: new FormData(form),
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-                .then(response => response.json())
+                .then(response => {
+                    // Sin permiso para la acción, el filtro redirige a AccessDenied (HTML), no devuelve JSON.
+                    if (response.redirected && /AccessDenied/i.test(response.url)) {
+                        throw new Error('forbidden');
+                    }
+                    return response.json();
+                })
                 .then(result => {
                     if (result.success) {
                         onSuccess?.(result, form);
@@ -325,8 +339,10 @@
                     showErrors(result.errors || [defaultErrorMessage]);
                     resetSubmitButton();
                 })
-                .catch(() => {
-                    showErrors(['Error de conexión. Intentá de nuevo.']);
+                .catch(error => {
+                    showErrors([error?.message === 'forbidden'
+                        ? 'No tenés permiso para realizar esta acción.'
+                        : 'Error de conexión. Intentá de nuevo.']);
                     resetSubmitButton();
                 });
         });

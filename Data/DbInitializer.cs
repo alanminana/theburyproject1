@@ -191,7 +191,7 @@ namespace TheBuryProject.Data
         /// En desarrollo, si no están definidas, se puede usar la contraseña por defecto (sólo dev).
         /// Nunca registra la contraseña en logs.
         /// </summary>
-        private static async Task CreateAdminUserAsync(IServiceProvider services, ILogger logger)
+        internal static async Task CreateAdminUserAsync(IServiceProvider services, ILogger logger)
         {
             var configuration = services.GetRequiredService<IConfiguration>();
             var env = services.GetService<IWebHostEnvironment>();
@@ -203,6 +203,13 @@ namespace TheBuryProject.Data
             var adminPassword = configuration["Admin:Password"]; // debe venir de user-secrets / ENV
             var adminUser = await userManager.FindByNameAsync(adminUserName)
                 ?? await userManager.FindByEmailAsync(adminEmail);
+            // Con administración estructuralmente activa (un bloqueo de login no cuenta como ausencia) el arranque
+            // no aprovisiona nada: una cuenta retirada, renombrada o con otro email no reaparece como SuperAdmin.
+            if (adminUser == null && await HaySuperAdminUtilizableAsync(context))
+            {
+                logger.LogInformation("La cuenta administradora configurada no existe pero la instalación ya tiene un SuperAdmin activo: no se aprovisiona ninguna cuenta.");
+                return;
+            }
             if (env?.IsProduction() == true && adminUser == null)
             {
                 TheBuryProject.Helpers.ProductionSecrets.Require(adminEmail, "Admin:Email");
@@ -248,19 +255,9 @@ namespace TheBuryProject.Data
                     Sucursal = sucursalDefault?.Nombre
                 };
 
-                var result = await userManager.CreateAsync(adminUser, adminPassword!);
+                var (_, result) = await AprovisionarPrimerSuperAdminAsync(context, userManager, adminUser, adminPassword!, logger);
 
-                if (result.Succeeded)
-                {
-                    logger.LogInformation("Usuario administrador creado: {UserName} ({Email})", adminUserName, adminEmail);
-
-                    // Asignar rol SuperAdmin
-                    await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
-                    logger.LogInformation("Rol 'SuperAdmin' asignado al usuario {UserName}", adminUserName);
-
-                    logger.LogWarning("⚠️ Credenciales provisionales creadas. Cambiar la contraseña inmediatamente si es necesario.");
-                }
-                else
+                if (!result.Succeeded)
                 {
                     logger.LogError("Error al crear usuario administrador: {Errors}",
                         string.Join(", ", result.Errors.Select(e => e.Description)));
@@ -296,10 +293,30 @@ namespace TheBuryProject.Data
                 }
 
                 // Verificar que tenga el rol SuperAdmin
+                // Solo si la instalación no tiene ya administración utilizable: con otro SuperAdmin activo, una
+                // degradación deliberada de la cuenta configurada no se revierte en cada arranque.
                 if (!await userManager.IsInRoleAsync(adminUser, Roles.SuperAdmin))
                 {
-                    await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
-                    logger.LogInformation("Rol 'SuperAdmin' asignado al usuario existente {Email}", adminEmail);
+                    if (!await HaySuperAdminUtilizableAsync(context))
+                    {
+                        var rolExistente = await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
+                        if (!rolExistente.Succeeded)
+                        {
+                            logger.LogError("No se pudo asignar el rol SuperAdmin al usuario existente {Email}: {Errors}",
+                                adminEmail, string.Join(", ", rolExistente.Errors.Select(e => e.Description)));
+                            throw new InvalidOperationException("No se pudo asignar el rol SuperAdmin a la cuenta administradora configurada.");
+                        }
+                        logger.LogInformation("Rol 'SuperAdmin' asignado al usuario existente {Email}", adminEmail);
+                    }
+                    else
+                    {
+                        logger.LogInformation("La cuenta {Email} no tiene el rol SuperAdmin y la instalación ya dispone de un SuperAdmin activo: no se reasigna.", adminEmail);
+                    }
+                }
+
+                if (await RecuperarSuperAdminConfiguradoAsync(context, userManager, adminUser, logger))
+                {
+                    adminUpdated = true;
                 }
 
                 if (adminUpdated)
@@ -308,6 +325,97 @@ namespace TheBuryProject.Data
                     logger.LogInformation("Sucursal base sincronizada para usuario administrador {Email}", adminEmail);
                 }
             }
+        }
+
+        /// <summary>
+        /// Aprovisiona la primera cuenta SuperAdmin de una instalación sin administración activa. Atómico: usuario y rol
+        /// se confirman juntos o ninguno (un fallo del rol lanza y revierte). En SQL Server serializa arranques
+        /// concurrentes con un applock de transacción y re-verifica bajo el lock, de modo que no se crea una cuenta
+        /// privilegiada si otra instancia ya la aprovisionó. Nunca registra la contraseña.
+        /// </summary>
+        internal static async Task<(bool Creado, IdentityResult Resultado)> AprovisionarPrimerSuperAdminAsync(
+            AppDbContext context, UserManager<ApplicationUser> userManager, ApplicationUser adminUser, string adminPassword, ILogger logger)
+        {
+            await using var tx = await context.Database.BeginTransactionAsync();
+
+            if (context.Database.IsSqlServer())
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "DECLARE @r int; EXEC @r = sp_getapplock @Resource = N'thebury:aprovisionar-superadmin', @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 30000; " +
+                    "IF @r < 0 THROW 50000, N'No se pudo obtener el bloqueo de aprovisionamiento del SuperAdmin.', 1;");
+            }
+
+            if (await HaySuperAdminUtilizableAsync(context))
+            {
+                logger.LogInformation("Otra instancia ya aprovisionó un SuperAdmin activo: no se crea la cuenta {UserName}.", adminUser.UserName);
+                return (false, IdentityResult.Success);
+            }
+
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (!result.Succeeded) return (false, result);
+
+            var rol = await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
+            if (!rol.Succeeded)
+            {
+                logger.LogError("No se pudo asignar el rol SuperAdmin a {UserName}: {Errors}. Se revierte el aprovisionamiento.",
+                    adminUser.UserName, string.Join(", ", rol.Errors.Select(e => e.Description)));
+                context.Entry(adminUser).State = EntityState.Detached; // la BD se revierte al salir; no dejar la entidad rastreada
+                throw new InvalidOperationException("No se pudo asignar el rol SuperAdmin al administrador inicial; el aprovisionamiento se revirtió.");
+            }
+
+            await tx.CommitAsync();
+            logger.LogInformation("Usuario administrador creado con rol SuperAdmin: {UserName} ({Email})", adminUser.UserName, adminUser.Email);
+            logger.LogWarning("⚠️ Credenciales provisionales creadas. Cambiar la contraseña inmediatamente si es necesario.");
+            return (true, result);
+        }
+
+        /// <summary>Hay al menos una cuenta activa con el rol SuperAdmin asignado y activo.</summary>
+        private static async Task<bool> HaySuperAdminUtilizableAsync(AppDbContext context)
+        {
+            var normalizado = Roles.SuperAdmin.ToUpperInvariant();
+            return await (
+                from u in context.Users.AsNoTracking()
+                join ur in context.UserRoles.AsNoTracking() on u.Id equals ur.UserId
+                join r in context.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                join m in context.RolMetadatas.AsNoTracking() on r.Id equals m.RoleId into metadatos
+                from m in metadatos.DefaultIfEmpty()
+                where r.NormalizedName == normalizado && u.Activo && (m == null || m.Activo)
+                select u.Id).AnyAsync();
+        }
+
+        /// <summary>
+        /// Recuperación acotada: si la instalación quedó SIN ningún SuperAdmin activo (cuenta activa con el rol
+        /// asignado y activo), la cuenta administradora configurada (Admin:UserName/Email, con el rol SuperAdmin)
+        /// se reactiva y se desbloquea. Si hay al menos un SuperAdmin activo no toca nada: una baja deliberada
+        /// no se revierte en cada arranque. No crea cuentas ni contraseñas.
+        /// </summary>
+        internal static async Task<bool> RecuperarSuperAdminConfiguradoAsync(
+            AppDbContext context, UserManager<ApplicationUser> userManager, ApplicationUser adminUser, ILogger logger)
+        {
+            var haySuperAdminActivo = await HaySuperAdminUtilizableAsync(context);
+
+            if (haySuperAdminActivo || !await userManager.IsInRoleAsync(adminUser, Roles.SuperAdmin))
+                return false;
+
+            adminUser.Activo = true;
+            adminUser.FechaDesactivacion = null;
+            adminUser.DesactivadoPor = null;
+            adminUser.MotivoDesactivacion = null;
+            adminUser.LockoutEnd = null;
+            adminUser.AccessFailedCount = 0;
+
+            // Si el rol mismo estaba inactivo, reactivar la cuenta no alcanza: seguiría sin haber un SuperAdmin utilizable.
+            var normalizado = Roles.SuperAdmin.ToUpperInvariant();
+            var metadata = await (
+                from m in context.RolMetadatas
+                join r in context.Roles on m.RoleId equals r.Id
+                where r.NormalizedName == normalizado && !m.Activo
+                select m).ToListAsync();
+            foreach (var m in metadata) m.Activo = true;
+            if (metadata.Count > 0) await context.SaveChangesAsync();
+
+            logger.LogWarning("La instalación no tenía ningún SuperAdmin activo: se reactivó y desbloqueó la cuenta administradora configurada {UserName}.", adminUser.UserName);
+            return true;
         }
 
         private static async Task EnsurePlantillaContratoDefaultAsync(AppDbContext context, ILogger logger)

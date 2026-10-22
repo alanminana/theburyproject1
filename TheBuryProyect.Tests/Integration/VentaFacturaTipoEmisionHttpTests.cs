@@ -214,6 +214,27 @@ public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicati
         Assert.Equal(esperado, factura.Tipo);
     }
 
+    // FIN-S-002 (O2): un rechazo de negocio al facturar debe llegar visible al usuario (antes se perdía en el redirect).
+    [Fact]
+    public async Task FacturarPost_RechazoDeNegocio_MuestraMensajeEnDetailsSinFiltrarInterno()
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var seed = await SeedVentaAsync(EstadoVenta.Presupuesto);
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await GetTokenAsync(client, seed.VentaId);
+
+        var response = await PostFacturarAsync(client, token, seed.VentaId, "B");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location?.OriginalString ?? "";
+        Assert.Contains($"/Venta/Details/{seed.VentaId}", location);
+        var html = WebUtility.HtmlDecode(await GetHtmlAsync(client, location));
+        Assert.Contains("No se pudo facturar la venta", html);
+        Assert.DoesNotContain("StackTrace", html);
+        Assert.Equal(0, (await LeerAsync(seed)).Facturas);
+    }
+
     // ------------------------------------------------------------------ Edit POST (guardar + confirmar + facturar)
 
     [Theory]

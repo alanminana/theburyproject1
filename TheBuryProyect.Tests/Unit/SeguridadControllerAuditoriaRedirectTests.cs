@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Unit;
 public class SeguridadControllerAuditoriaRedirectTests
 {
     private static SeguridadController CrearController() =>
-        new(null!, null!, null!, null!, NullLogger<SeguridadController>.Instance);
+        new(null!, null!, null!, null!, null!, NullLogger<SeguridadController>.Instance);
 
     [Fact]
     public void Auditoria_RedirigeALaPestanaConLosFiltros()

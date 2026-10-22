@@ -445,8 +445,10 @@ namespace TheBuryProject.Services
             {
                 var credito = await _context.Creditos
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == creditoId.Value && !c.IsDeleted);
+                    .FirstOrDefaultAsync(c => c.Id == creditoId.Value && c.ClienteId == clienteId && !c.IsDeleted);
 
+                // FIN-S-002 (A1): un crédito ajeno se trata como inexistente (no revela su existencia
+                // ni permite evaluar el cupo contra el saldo de otro cliente).
                 if (credito == null)
                 {
                     evaluacion.Resultado = ResultadoPrevalidacion.NoViable;
