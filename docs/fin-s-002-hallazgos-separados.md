@@ -41,3 +41,15 @@ veredicto de las correcciones A1/A2/F1/F2/F3, pero el segundo debilita la garant
 - **Pendiente (PR propia):** exigir en GET y POST `credito.Id == venta.CreditoId` y `credito.ClienteId ==
   venta.ClienteId` (404 si no coincide), un permiso específico para configurar, y en `ConfirmarVentaCreditoAsync`
   no "corregir" el estado del crédito con sólo la fecha de la venta.
+
+## O1/O2/O3 — cierre preventivo (PROMPT 98)
+
+- **O1:** `ValidarCreditoGeneradoParaFacturarAsync` pasó de exclusión a lista explícita: sólo `Generado` (lo deja
+  Confirmar), `Activo` y `Finalizado` (evolución por cobros). `Aprobado` y todo otro estado se deniega aunque tenga
+  cuotas. Con esto, reconfigurar un crédito ya generado (H-IDOR-1 lo deja en `Configurado`) también bloquea facturar.
+- **O2:** el POST de Facturar ya no pierde el rechazo: `InvalidOperationException` => `TempData["Error"]` con el
+  mensaje de negocio y redirect a Details; cualquier otra excepción => mensaje genérico (sin `ex.Message` ni stack).
+- **O3:** Confirmar deriva cuotas/saldo/total del crédito en el servidor (`GenerarCuotasCreditoAsync`, plan canónico)
+  y Facturar no recibe montos del cliente. No se halló vía demostrable para facturar financiación inconsistente más
+  allá de H-IDOR-1 (ya documentado). Sin cambios adicionales; control de integridad en
+  `scripts/sql/fin-s-002-ventas-credito-facturables-anomalias.sql` (requisito previo al despliegue).

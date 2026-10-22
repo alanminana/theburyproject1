@@ -1623,8 +1623,9 @@ namespace TheBuryProject.Services
 
         /// <summary>
         /// FIN-S-002: defensa en profundidad. Una venta a crédito sólo se factura si su crédito es del mismo cliente,
-        /// ya pasó por configuración + confirmación (cuotas generadas) y no quedó en un estado previo o terminal.
-        /// Confirmar ya lo garantiza; esto evita facturar un dato legado o manipulado que llegó a Confirmada por otra vía.
+        /// ya pasó por configuración + confirmación (cuotas generadas) y está en un estado explícitamente permitido:
+        /// Generado (lo deja Confirmar), Activo o Finalizado (evolución por cobros). Cualquier otro (Aprobado, Solicitado,
+        /// Configurado, etc.) se deniega aunque tenga cuotas. Confirmar ya lo garantiza; esto evita facturar un dato legado o manipulado que llegó a Confirmada por otra vía.
         /// </summary>
         private async Task ValidarCreditoGeneradoParaFacturarAsync(Venta venta)
         {
@@ -1637,11 +1638,9 @@ namespace TheBuryProject.Services
                     c.Id == creditoId.Value
                     && c.ClienteId == venta.ClienteId
                     && !c.IsDeleted
-                    && c.Estado != EstadoCredito.Solicitado
-                    && c.Estado != EstadoCredito.Rechazado
-                    && c.Estado != EstadoCredito.Cancelado
-                    && c.Estado != EstadoCredito.PendienteConfiguracion
-                    && c.Estado != EstadoCredito.Configurado)
+                    && (c.Estado == EstadoCredito.Generado
+                        || c.Estado == EstadoCredito.Activo
+                        || c.Estado == EstadoCredito.Finalizado))
                 && await _context.Cuotas.AsNoTracking().AnyAsync(q => q.CreditoId == creditoId.Value && !q.IsDeleted);
 
             if (!valido)
