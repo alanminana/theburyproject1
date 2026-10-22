@@ -184,6 +184,31 @@ public class VentaServiceFacturacionTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
+    // FIN-S-002: una venta a credito Confirmada debe tener su credito generado (cuotas) para poder facturarse.
+    private async Task AdjuntarCreditoGeneradoAsync(
+        int ventaId, EstadoCredito estado = EstadoCredito.Generado, bool conCuotas = true)
+    {
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var credito = new Credito
+        {
+            ClienteId = v.ClienteId!.Value, Numero = "CRF" + ventaId, Estado = estado,
+            MontoAprobado = v.Total, MontoSolicitado = v.Total, SaldoPendiente = v.Total, CantidadCuotas = 1
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        if (conCuotas)
+        {
+            _context.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = v.Total, MontoInteres = 0m, MontoTotal = v.Total,
+                FechaVencimiento = DateTime.UtcNow.AddMonths(1), Estado = EstadoCuota.Pendiente
+            });
+            await _context.SaveChangesAsync();
+        }
+        await _context.Ventas.Where(x => x.Id == ventaId).ExecuteUpdateAsync(s => s.SetProperty(x => x.CreditoId, credito.Id));
+        _context.ChangeTracker.Clear();
+    }
+
     private async Task<Venta> SeedVentaConfirmada(
         TipoPago tipoPago = TipoPago.Efectivo,
         EstadoVenta estado = EstadoVenta.Confirmada,
@@ -322,6 +347,57 @@ public class VentaServiceFacturacionTests : IDisposable
             serviceSinContrato.FacturarVentaAsync(venta.Id, facturaVm));
 
         Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
+        Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
+    }
+
+    // FIN-S-002 (O1): lista explícita de estados de crédito facturables.
+    [Theory]
+    [InlineData(EstadoCredito.Generado)]
+    [InlineData(EstadoCredito.Activo)]
+    [InlineData(EstadoCredito.Finalizado)]
+    public async Task Facturar_CreditoPersonalConEstadoPermitido_Factura(EstadoCredito estado)
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id, estado);
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+        Assert.True(await _service.FacturarVentaAsync(venta.Id, facturaVm));
+
+        Assert.Equal(EstadoVenta.Facturada, (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).Estado);
+    }
+
+    [Theory]
+    [InlineData(EstadoCredito.Aprobado)]
+    [InlineData(EstadoCredito.Solicitado)]
+    [InlineData(EstadoCredito.Rechazado)]
+    [InlineData(EstadoCredito.Cancelado)]
+    [InlineData(EstadoCredito.PendienteConfiguracion)]
+    [InlineData(EstadoCredito.Configurado)]
+    [InlineData((EstadoCredito)99)]
+    public async Task Facturar_CreditoPersonalConEstadoNoPermitidoAunqueTengaCuotas_RechazaSinEfectos(EstadoCredito estado)
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id, estado);
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+        var movimientosAntes = await _context.MovimientosCaja.CountAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.FacturarVentaAsync(venta.Id, facturaVm));
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Confirmada, (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).Estado);
+        Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
+        Assert.Equal(movimientosAntes, await _context.MovimientosCaja.CountAsync());
+        Assert.False(_movimientoCajaRegistrado[0]);
+    }
+
+    [Fact]
+    public async Task Facturar_CreditoPersonalGeneradoSinCuotas_Rechaza()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id, EstadoCredito.Generado, conCuotas: false);
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.FacturarVentaAsync(venta.Id, facturaVm));
         Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
     }
 
@@ -506,6 +582,7 @@ public class VentaServiceFacturacionTests : IDisposable
     public async Task Facturar_TipoPagoCreditoPersonal_NoRegistraMovimientoEnCaja()
     {
         var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id);
         var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
 
         await _service.FacturarVentaAsync(venta.Id, facturaVm);

@@ -584,6 +584,21 @@ public class ValidacionVentaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ValidarVenta_CreditoDeOtroCliente_EsNoViable_AunqueTengaSaldo()
+    {
+        // FIN-S-002 (A1): un crédito ajeno no debe eludir la verificación de cupo del cliente.
+        var cliente = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var ajeno = await SeedCreditoAsync(otro.Id, estado: EstadoCredito.Activo, saldoPendiente: 1_000_000m);
+        _stubAptitud.ResultadoAptitud = AptitudApto();
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(cliente.Id, montoVenta: 500m, creditoId: ajeno.Id);
+
+        Assert.True(result.NoViable);
+        Assert.NotNull(result.RequisitosPendientes.FirstOrDefault(r => r.Tipo == TipoRequisitoPendiente.SinCreditoAprobado));
+    }
+
+    [Fact]
     public async Task ValidarVenta_CreditoEspecificoCancelado_EsNoViable()
     {
         var cliente = await SeedClienteAsync();
