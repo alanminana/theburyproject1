@@ -133,7 +133,12 @@ public static class RolesPermisosSeeder
                 ("Aprobar", "approve", 4),
                 ("Ver Cuotas", "viewinstallments", 5),
                 ("Reprogramar", "reschedule", 6),
-                ("Eliminar", "delete", 7)
+                ("Eliminar", "delete", 7),
+                // Configurar el plan de un crédito (monto, cuotas, estado de crédito y venta):
+                // mutación distinta de "view". Admin/SuperAdmin/Gerente lo reciben por grant de
+                // módulo; Vendedor por grant específico (arma el crédito en el wizard de Venta).
+                // Cajero y Contador quedan solo lectura.
+                ("Configurar", "configure", 8)
             }),
             ("Cobranzas", "cobranzas", "Ventas", "bi-cash-stack", 23, new List<(string, string, int)>
             {
@@ -499,7 +504,7 @@ public static class RolesPermisosSeeder
             await AsignarPermisosEspecificosAsync(context, vendedorRole.Id, modulos, new Dictionary<string, string[]>
             {
                 { "ventas", new[] { "view", "create", "requestexception", "invoice" } },
-                { "creditos", new[] { "view", "viewinstallments" } },
+                { "creditos", new[] { "view", "viewinstallments", "configure" } },
                 { "cotizaciones", new[] { "view", "create", "update", "convert" } },
                 { "clientes", new[] { "view", "create", "update", "viewdocs", "uploaddocs" } },
                 { "documentos", new[] { "view", "generate", "reprint", "sign" } },

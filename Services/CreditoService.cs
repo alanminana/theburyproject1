@@ -2356,7 +2356,23 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(c => c.Id == cmd.CreditoId && !c.IsDeleted);
 
             if (credito == null)
-                throw new InvalidOperationException($"Crédito {cmd.CreditoId} no encontrado.");
+                throw new ConfiguracionCreditoRechazadaException(
+                    MotivoRechazoConfiguracionCreditoServicio.NoEncontrado,
+                    $"Crédito {cmd.CreditoId} no encontrado.");
+
+            // Defensa en profundidad: el controller ya valida, pero el servicio no confía en que
+            // sus callers lo hayan hecho. El estado se revisa sobre la entidad recién leída (el
+            // RowVersion del SaveChanges cubre una transición concurrente a Generado/Activo).
+            if (credito.Estado is not (EstadoCredito.PendienteConfiguracion
+                                      or EstadoCredito.Solicitado
+                                      or EstadoCredito.Configurado))
+                throw new ConfiguracionCreditoRechazadaException(
+                    MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                    $"El crédito no puede configurarse en estado {credito.Estado}.");
+
+            var relacion = await ValidarRelacionConfiguracionAsync(cmd.CreditoId, cmd.VentaId);
+            if (!relacion.EsValida)
+                throw new ConfiguracionCreditoRechazadaException(relacion.Motivo!.Value, relacion.Mensaje!);
 
             credito.CantidadCuotas            = cmd.CantidadCuotas;
             credito.TasaInteres               = cmd.TasaMensual;
@@ -2432,6 +2448,54 @@ namespace TheBuryProject.Services
                 cmd.TasaMensual, cmd.GastosAdministrativos,
                 cmd.CuotasMinPermitidas, cmd.CuotasMaxPermitidas,
                 cmd.PerfilCreditoAplicadoId?.ToString() ?? "N/A");
+        }
+
+        public async Task<ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId)
+        {
+            var clienteIdCredito = await _context.Creditos
+                .AsNoTracking()
+                .Where(c => c.Id == creditoId && !c.IsDeleted)
+                .Select(c => (int?)c.ClienteId)
+                .FirstOrDefaultAsync();
+
+            if (clienteIdCredito == null)
+                return ResultadoRelacionConfiguracionCredito.Invalida(
+                    MotivoRechazoConfiguracionCreditoServicio.NoEncontrado,
+                    "No se encontró el crédito indicado.");
+
+            if (ventaId.HasValue)
+            {
+                var venta = await _context.Ventas
+                    .AsNoTracking()
+                    .Where(v => v.Id == ventaId.Value && !v.IsDeleted)
+                    .Select(v => new { v.CreditoId, v.ClienteId })
+                    .FirstOrDefaultAsync();
+
+                if (venta == null)
+                    return ResultadoRelacionConfiguracionCredito.Invalida(
+                        MotivoRechazoConfiguracionCreditoServicio.NoEncontrado,
+                        "No se encontró la venta indicada.");
+
+                if (venta.CreditoId != creditoId || venta.ClienteId != clienteIdCredito.Value)
+                    return ResultadoRelacionConfiguracionCredito.Invalida(
+                        MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                        "La venta indicada no corresponde a este crédito.");
+            }
+            else
+            {
+                // Un crédito asociado a una venta solo se configura desde esa venta: sin ella el
+                // monto lo definiría el formulario y no se invalidaría su contrato.
+                var tieneVenta = await _context.Ventas
+                    .AsNoTracking()
+                    .AnyAsync(v => v.CreditoId == creditoId && !v.IsDeleted);
+
+                if (tieneVenta)
+                    return ResultadoRelacionConfiguracionCredito.Invalida(
+                        MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                        "El crédito pertenece a una venta y debe configurarse desde ella.");
+            }
+
+            return ResultadoRelacionConfiguracionCredito.Valida(clienteIdCredito.Value);
         }
 
         private static string? BuildObservaciones(string? observacionesActuales, ConfiguracionCreditoComando cmd)
