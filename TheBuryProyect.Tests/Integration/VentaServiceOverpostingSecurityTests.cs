@@ -553,9 +553,11 @@ public class VentaServiceOverpostingSecurityTests : IDisposable
     public void ResolverFechaVenta_LimitesDelRango(int offsetDias, bool acepta)
     {
         var fallback = new DateTime(2000, 1, 1);
-        var entrante = DateTime.UtcNow.Date.AddDays(offsetDias).AddHours(23);
+        // Reloj fijo: con UtcNow real el limite de -1 dia fallaba si la prueba cruzaba la medianoche UTC.
+        var ahora = new DateTime(2026, 6, 15, 23, 59, 59, DateTimeKind.Utc);
+        var entrante = ahora.Date.AddDays(offsetDias).AddHours(23);
 
-        var r = VentaService.ResolverFechaVenta(entrante, fallback, null);
+        var r = VentaService.ResolverFechaVenta(entrante, fallback, null, ahora);
 
         Assert.Equal(acepta ? entrante : fallback, r);
     }

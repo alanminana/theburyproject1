@@ -1,0 +1,164 @@
+name: FIN-S-002 SQL Server (overposting de Venta, Confirmar y Facturar)
+
+# PROMPT 86: ejecuta CONTRA UN SQL SERVER REAL EFIMERO las dos clases de pruebas de FIN-S-002 que SQLite no puede
+# representar (rowversion, restricciones FK reales, locks y READ_COMMITTED_SNAPSHOT):
+#   - FinS002VentaSqlServerTests            (FS2-NUM, A1, A2a, A2b, F1, F2, F3)   -> QA_FIN_S002_SQL
+#   - FinS002ConfirmarFacturarSqlServerTests (S2-CF-01..S2-CF-08, adversariales)   -> QA_FIN_CONC_SQL + QA_RELEASE_TURNO
+# Sin esas variables las pruebas se OMITEN; ni ci.yml ni otro workflow las definen: este es el unico lugar donde dejan
+# de ser "omitidas".
+#
+# Aislamiento:
+#   - el contenedor se crea y se destruye DENTRO del job (con sus volumenes);
+#   - credenciales sinteticas generadas en el job, enmascaradas, nunca commiteadas ni subidas como artifact;
+#   - el puerto solo escucha en 127.0.0.1 del runner: sin conectividad con ninguna base de desarrollo;
+#   - los catalogos se llaman qa_fin_s002* / qa_fin_conc* (las pruebas se niegan a correr contra otro nombre);
+#   - todos los datos los crean los propios tests.
+# Un omitido NO es un aprobado: el paso de verificacion falla si algun escenario no figura como Passed en el TRX,
+# si falta alguno, o si el total ejecutado no es el esperado.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-s-002-sqlserver-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MSSQL_HOST_PORT_CI: 14342
+  MSSQL_CONTAINER: bury-fin-s-002-sql-ci
+
+jobs:
+  sqlserver-fin-s-002:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 0 = READ COMMITTED con locks (default de SQL Server); 1 = READ_COMMITTED_SNAPSHOT (default de Azure SQL).
+        rcsi: [ '0', '1' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (segun global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Levantar SQL Server efimero (credenciales sinteticas)
+        run: |
+          set -euo pipefail
+          SA_PW="Ee1!$(openssl rand -hex 12)"
+          echo "::add-mask::$SA_PW"
+          echo "SA_PW=$SA_PW" >> "$GITHUB_ENV"
+          docker run -d --name "$MSSQL_CONTAINER" \
+            -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e "MSSQL_SA_PASSWORD=$SA_PW" \
+            -p "127.0.0.1:${MSSQL_HOST_PORT_CI}:1433" \
+            mcr.microsoft.com/mssql/server:2022-latest
+          READY=0
+          for i in $(seq 1 60); do
+            if docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PW" -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server listo tras ${i} intentos"; READY=1; break
+            fi
+            sleep 3
+          done
+          if [ "$READY" != "1" ]; then docker logs "$MSSQL_CONTAINER" | tail -50; echo "SQL Server no arranco"; exit 1; fi
+
+      - name: Restore + Build (Release)
+        run: |
+          dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+          dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      - name: FIN-S-002 Venta (FS2-NUM, A1, A2a, A2b, F1, F2, F3)
+        env:
+          QA_FIN_S002_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_S002_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_s002;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~FinS002VentaSqlServerTests" \
+            --logger "trx;LogFileName=fin-s-002-venta-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=detailed" \
+            --results-directory ./TestResults
+
+      - name: FIN-S-002 Confirmar/Facturar adversarial (S2-CF-01..S2-CF-08)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~FinS002ConfirmarFacturarSqlServerTests" \
+            --logger "trx;LogFileName=fin-s-002-confirmar-facturar-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=detailed" \
+            --results-directory ./TestResults
+
+      # Un omitido no es un aprobado: cada escenario debe figurar con outcome="Passed" en su TRX, y no puede haber
+      # ningun resultado que no sea Passed ni ejecutarse un numero distinto del esperado (7 + 8).
+      - name: Verificar que se ejecutaron (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          RC=0
+          {
+            echo "### FIN-S-002 en SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          verificar() {
+            TRX="./TestResults/$1"; shift
+            ESPERADOS="$1"; shift
+            if [ ! -f "$TRX" ]; then echo "No hay TRX $TRX: los escenarios no se ejecutaron"; RC=1; return; fi
+            for R in "$@"; do
+              LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+              if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+              echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+              echo "$R -> $OUT"
+              if [ "$OUT" != "Passed" ]; then RC=1; fi
+            done
+            TOTAL=$(grep -o '<UnitTestResult ' "$TRX" | wc -l)
+            PASSED=$(grep -o '<UnitTestResult [^>]*outcome="Passed"' "$TRX" | wc -l)
+            echo "$TRX: Total=$TOTAL Passed=$PASSED (esperado $ESPERADOS/$ESPERADOS)"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "$(basename "$TRX"): Total $TOTAL, Passed $PASSED (esperado $ESPERADOS / $ESPERADOS)" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$TOTAL" != "$ESPERADOS" ] || [ "$PASSED" != "$ESPERADOS" ]; then RC=1; fi
+          }
+
+          verificar fin-s-002-venta-rcsi${{ matrix.rcsi }}.trx 7 \
+            FS2-NUM FS2-A1 FS2-A2a FS2-A2b FS2-F1 FS2-F2 FS2-F3
+          verificar fin-s-002-confirmar-facturar-rcsi${{ matrix.rcsi }}.trx 8 \
+            S2-CF-01 S2-CF-02 S2-CF-03 S2-CF-04 S2-CF-05 S2-CF-06 S2-CF-07 S2-CF-08
+          exit $RC
+
+      - name: Subir TRX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fin-s-002-sql-trx-rcsi${{ matrix.rcsi }}
+          path: TestResults/**/*.trx
+          retention-days: 14
+          if-no-files-found: warn
+
+      # El contenedor y sus volumenes anonimos se eliminan siempre, falle o no el job.
+      - name: Destruir SQL Server efimero
+        if: always()
+        run: |
+          docker rm -f -v "$MSSQL_CONTAINER" >/dev/null 2>&1 || true
+          docker ps -a --filter "name=$MSSQL_CONTAINER" --format '{{.Names}}' | wc -l

@@ -184,6 +184,27 @@ public class VentaServiceFacturacionTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
+    // FIN-S-002: una venta a credito Confirmada debe tener su credito generado (cuotas) para poder facturarse.
+    private async Task AdjuntarCreditoGeneradoAsync(int ventaId)
+    {
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var credito = new Credito
+        {
+            ClienteId = v.ClienteId!.Value, Numero = "CRF" + ventaId, Estado = EstadoCredito.Generado,
+            MontoAprobado = v.Total, MontoSolicitado = v.Total, SaldoPendiente = v.Total, CantidadCuotas = 1
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        _context.Cuotas.Add(new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = v.Total, MontoInteres = 0m, MontoTotal = v.Total,
+            FechaVencimiento = DateTime.UtcNow.AddMonths(1), Estado = EstadoCuota.Pendiente
+        });
+        await _context.SaveChangesAsync();
+        await _context.Ventas.Where(x => x.Id == ventaId).ExecuteUpdateAsync(s => s.SetProperty(x => x.CreditoId, credito.Id));
+        _context.ChangeTracker.Clear();
+    }
+
     private async Task<Venta> SeedVentaConfirmada(
         TipoPago tipoPago = TipoPago.Efectivo,
         EstadoVenta estado = EstadoVenta.Confirmada,
@@ -506,6 +527,7 @@ public class VentaServiceFacturacionTests : IDisposable
     public async Task Facturar_TipoPagoCreditoPersonal_NoRegistraMovimientoEnCaja()
     {
         var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id);
         var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
 
         await _service.FacturarVentaAsync(venta.Id, facturaVm);

@@ -1621,6 +1621,37 @@ namespace TheBuryProject.Services
             return null;
         }
 
+        /// <summary>
+        /// FIN-S-002: defensa en profundidad. Una venta a crédito sólo se factura si su crédito es del mismo cliente,
+        /// ya pasó por configuración + confirmación (cuotas generadas) y no quedó en un estado previo o terminal.
+        /// Confirmar ya lo garantiza; esto evita facturar un dato legado o manipulado que llegó a Confirmada por otra vía.
+        /// </summary>
+        private async Task ValidarCreditoGeneradoParaFacturarAsync(Venta venta)
+        {
+            if (venta.TipoPago != TipoPago.CreditoPersonal)
+                return;
+
+            var creditoId = venta.CreditoId;
+            var valido = creditoId.HasValue
+                && await _context.Creditos.AsNoTracking().AnyAsync(c =>
+                    c.Id == creditoId.Value
+                    && c.ClienteId == venta.ClienteId
+                    && !c.IsDeleted
+                    && c.Estado != EstadoCredito.Solicitado
+                    && c.Estado != EstadoCredito.Rechazado
+                    && c.Estado != EstadoCredito.Cancelado
+                    && c.Estado != EstadoCredito.PendienteConfiguracion
+                    && c.Estado != EstadoCredito.Configurado)
+                && await _context.Cuotas.AsNoTracking().AnyAsync(q => q.CreditoId == creditoId.Value && !q.IsDeleted);
+
+            if (!valido)
+            {
+                throw new InvalidOperationException(
+                    "No se puede facturar la venta: su crédito no está generado (falta configuración/confirmación) " +
+                    "o no pertenece al cliente de la venta.");
+            }
+        }
+
         private async Task<bool> FacturarVentaBajoLocksAsync(int id, FacturaViewModel facturaViewModel)
         {
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
@@ -1658,6 +1689,7 @@ namespace TheBuryProject.Services
             _validator.ValidarEstadoParaFacturacion(venta);
             _validator.ValidarAutorizacion(venta);
             await ValidarContratoCreditoPersonalGeneradoAsync(venta);
+            await ValidarCreditoGeneradoParaFacturarAsync(venta);
 
             // 3) Apertura (último lock de la cadena): el cierre de caja toma el mismo. Se relee de la base y se
             //    rechaza si se cerró mientras tanto, de modo que la factura nunca quede atribuida a una caja cerrada.
@@ -3647,9 +3679,9 @@ namespace TheBuryProject.Services
         /// fuera de rango se reemplaza por <paramref name="fallback"/>; una fecha con el mismo día que la
         /// ya persistida se acepta siempre, para no bloquear editar ventas históricas.
         /// </summary>
-        internal static DateTime ResolverFechaVenta(DateTime entrante, DateTime fallback, DateTime? persistida)
+        internal static DateTime ResolverFechaVenta(DateTime entrante, DateTime fallback, DateTime? persistida, DateTime? ahoraUtc = null)
         {
-            var hoy = DateTime.UtcNow.Date;
+            var hoy = (ahoraUtc ?? DateTime.UtcNow).Date;
             var enRango = entrante.Date >= hoy.AddDays(-1) && entrante.Date <= hoy.AddDays(1);
             var sinCambio = persistida.HasValue && entrante.Date == persistida.Value.Date;
             return enRango || sinCambio ? entrante : fallback;
