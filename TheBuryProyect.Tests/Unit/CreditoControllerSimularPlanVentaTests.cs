@@ -36,6 +36,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: aptitud);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         // ML6.1: con ventaId, el % lo resuelve la tasa única global configurada arriba (ver
         // TasaCreditoPersonalConfigService) — tasaMensual/metodoCalculo/fuenteConfiguracion ya no
@@ -78,6 +79,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -111,6 +113,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         // ML6.1: tasaMensual/metodoCalculo/fuenteConfiguracion ya no tienen autoridad; el 4.25%
         // sale de la tasa única global configurada arriba (este test solo verifica los nombres
@@ -165,6 +168,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         // ML6.1: tasaMensual ya no tiene autoridad; el 5% sale de la tasa única global configurada
         // arriba (este test solo verifica el fallback de fecha). ML8: ventaId da el contexto
@@ -207,6 +211,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -241,6 +246,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -274,6 +280,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -308,6 +315,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -341,6 +349,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
@@ -379,6 +388,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 999_999m,
@@ -421,6 +431,7 @@ public class CreditoControllerSimularPlanVentaTests
             currentUser: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
+        controller.ControllerContext = ContextoConPermisoConfigurar();
 
         var result = await controller.SimularPlanVenta(
             totalVenta: 999_999m,
@@ -595,5 +606,18 @@ public class CreditoControllerSimularPlanVentaTests
         public Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) =>
             Task.FromResult(PlanesCreditoPersonalResultado.SinTablaDePlanes());
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
+    }
+    /// <summary>Con ventaId, SimularPlanVenta exige creditos.configure (PROMPT 93).</summary>
+    private static Microsoft.AspNetCore.Mvc.ControllerContext ContextoConPermisoConfigurar()
+    {
+        var identity = new System.Security.Claims.ClaimsIdentity(
+            new[] { new System.Security.Claims.Claim("Permission", "creditos.configure") }, "Test");
+        return new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+            {
+                User = new System.Security.Claims.ClaimsPrincipal(identity)
+            }
+        };
     }
 }

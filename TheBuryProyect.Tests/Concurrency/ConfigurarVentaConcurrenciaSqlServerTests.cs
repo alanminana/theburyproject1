@@ -76,6 +76,18 @@ public class ConfigurarVentaConcurrenciaSqlServerTests : IAsyncLifetime
             await cmd.ExecuteNonQueryAsync();
         }
 
+        // Modo de aislamiento pedido (QA_SEC_CONFIGVENTA_RCSI = 0 / 1), fijado de forma explícita en
+        // ambos sentidos: no se confía en lo que herede de `model`. CV-00 lo verifica contra el catálogo real.
+        var rcsi = Environment.GetEnvironmentVariable("QA_SEC_CONFIGVENTA_RCSI") == "1" ? "ON" : "OFF";
+        csb.InitialCatalog = "master";
+        await using (var c = new SqlConnection(csb.ConnectionString))
+        {
+            await c.OpenAsync();
+            await using var cmd = new SqlCommand(
+                $"ALTER DATABASE [{catalogo}] SET READ_COMMITTED_SNAPSHOT {rcsi} WITH ROLLBACK IMMEDIATE;", c);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
         await using var context = NuevoContexto();
         await context.Database.MigrateAsync();
     }
@@ -85,6 +97,49 @@ public class ConfigurarVentaConcurrenciaSqlServerTests : IAsyncLifetime
         if (ConfigurarVentaSqlEnv.SkipReason() != null) return;
         await using var context = NuevoContexto();
         await context.Database.EnsureDeletedAsync();
+    }
+
+    [ConfigurarVentaSqlServerFact(DisplayName = "PROMPT 93 [CV-00] el catálogo corre con el modo de aislamiento pedido (RCSI)")]
+    public async Task CV00_ModoDeAislamientoDelCatalogo_CoincideConElPedido()
+    {
+        var pedido = Environment.GetEnvironmentVariable("QA_SEC_CONFIGVENTA_RCSI") == "1" ? 1 : 0;
+        await using var c = new SqlConnection(ConfigurarVentaSqlEnv.ConnectionString);
+        await c.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "SELECT CAST(is_read_committed_snapshot_on AS int) FROM sys.databases WHERE name = DB_NAME()", c);
+        Assert.Equal(pedido, (int)(await cmd.ExecuteScalarAsync())!);
+    }
+
+    [ConfigurarVentaSqlServerFact(DisplayName = "PROMPT 93 [CV-04] un crédito ya Generado no se reconfigura: rechazo sin mutaciones")]
+    public async Task CV04_CreditoYaGenerado_NoSeReconfigura_YNoSeMutaNada()
+    {
+        var circuito = await SembrarCircuitoAsync();
+        await using (var ctx = NuevoContexto())
+        {
+            var credito = await ctx.Creditos.SingleAsync(c => c.Id == circuito.CreditoId);
+            credito.Estado = EstadoCredito.Generado;
+            await ctx.SaveChangesAsync();
+        }
+
+        var resultados = await Task.WhenAll(
+            Capturar(() => NuevoServicio(NuevoContexto()).ConfigurarCreditoAsync(Comando(circuito, cuotas: 6))),
+            Capturar(() => NuevoServicio(NuevoContexto()).ConfigurarCreditoAsync(Comando(circuito, cuotas: 12))));
+
+        Assert.All(resultados, r => Assert.IsType<ConfiguracionCreditoRechazadaException>(r));
+        await AssertSinMutacionAsync(circuito, EstadoCredito.Generado);
+    }
+
+    private static async Task AssertSinMutacionAsync(Circuito c, EstadoCredito estadoCredito)
+    {
+        await using var verif = NuevoContexto();
+        var credito = await verif.Creditos.AsNoTracking().SingleAsync(x => x.Id == c.CreditoId);
+        var venta = await verif.Ventas.AsNoTracking().SingleAsync(x => x.Id == c.VentaId);
+        Assert.Equal(estadoCredito, credito.Estado);
+        Assert.Equal(0, credito.CantidadCuotas);
+        Assert.Equal(10_000m, credito.MontoAprobado);
+        Assert.Equal(EstadoVenta.PendienteFinanciacion, venta.Estado);
+        Assert.Null(venta.FechaConfiguracionCredito);
+        Assert.Empty(await verif.Cuotas.AsNoTracking().Where(q => q.CreditoId == c.CreditoId).ToListAsync());
     }
 
     [ConfigurarVentaSqlServerFact(DisplayName = "PROMPT 90 [CV-01] configurar vs. pasar a Generado: no se pisa un crédito Generado")]
@@ -113,6 +168,15 @@ public class ConfigurarVentaConcurrenciaSqlServerTests : IAsyncLifetime
             // jamás puede devolverlo a Configurado.
             if (resultados[1] == null)
                 Assert.Equal(EstadoCredito.Generado, final.Estado);
+
+            // Si la configuración perdió, no dejó mutaciones parciales (venta, cuotas ni monto).
+            if (resultados[0] != null)
+            {
+                var venta = await verif.Ventas.AsNoTracking().SingleAsync(v => v.Id == circuito.VentaId);
+                Assert.Equal(EstadoVenta.PendienteFinanciacion, venta.Estado);
+                Assert.Null(venta.FechaConfiguracionCredito);
+                Assert.Equal(0, final.CantidadCuotas);
+            }
 
             // Quien perdió falló por rechazo controlado o conflicto de concurrencia, nunca por otra causa.
             foreach (var ex in resultados.Where(r => r != null))

@@ -2416,6 +2416,14 @@ namespace TheBuryProject.Services
                 var venta = await _context.Ventas.FindAsync(cmd.VentaId.Value);
                 if (venta != null)
                 {
+                    // La venta de la validación previa se leyó sin tracking: una confirmación en el
+                    // medio no modifica el crédito y su RowVersion no la detectaría. Se revisa sobre
+                    // la entidad recién leída, antes de tocar nada.
+                    if (VentaNoAdmiteReconfigurarCredito(venta.Estado))
+                        throw new ConfiguracionCreditoRechazadaException(
+                            MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                            $"La venta está en estado {venta.Estado} y su crédito ya no puede configurarse.");
+
                     if (!venta.FechaConfiguracionCredito.HasValue)
                         venta.FechaConfiguracionCredito = DateTime.UtcNow;
 
@@ -2450,6 +2458,10 @@ namespace TheBuryProject.Services
                 cmd.PerfilCreditoAplicadoId?.ToString() ?? "N/A");
         }
 
+        private static bool VentaNoAdmiteReconfigurarCredito(EstadoVenta estado) =>
+            estado is EstadoVenta.Confirmada or EstadoVenta.Facturada
+                   or EstadoVenta.Entregada or EstadoVenta.Cancelada;
+
         public async Task<ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId)
         {
             var clienteIdCredito = await _context.Creditos
@@ -2468,7 +2480,7 @@ namespace TheBuryProject.Services
                 var venta = await _context.Ventas
                     .AsNoTracking()
                     .Where(v => v.Id == ventaId.Value && !v.IsDeleted)
-                    .Select(v => new { v.CreditoId, v.ClienteId })
+                    .Select(v => new { v.CreditoId, v.ClienteId, v.Estado })
                     .FirstOrDefaultAsync();
 
                 if (venta == null)
@@ -2480,6 +2492,13 @@ namespace TheBuryProject.Services
                     return ResultadoRelacionConfiguracionCredito.Invalida(
                         MotivoRechazoConfiguracionCreditoServicio.Conflicto,
                         "La venta indicada no corresponde a este crédito.");
+
+                // Reconfigurar invalida el contrato y reescribe monto/cuotas: una venta ya
+                // confirmada, facturada, entregada o cancelada no admite cambiar su financiación.
+                if (VentaNoAdmiteReconfigurarCredito(venta.Estado))
+                    return ResultadoRelacionConfiguracionCredito.Invalida(
+                        MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                        $"La venta está en estado {venta.Estado} y su crédito ya no puede configurarse.");
             }
             else
             {

@@ -1074,6 +1074,18 @@ namespace TheBuryProject.Controllers
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+            {
+                // Otro usuario modificó el crédito entre la lectura y el guardado (RowVersion).
+                const string mensajeConcurrencia = "El crédito fue modificado por otra operación. Recargá la pantalla e intentá nuevamente.";
+                if (embedded)
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, mensajeConcurrencia);
+
+                Response.StatusCode = StatusCodes.Status409Conflict;
+                ModelState.AddModelError(string.Empty, mensajeConcurrencia);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                return await RetornarVistaConPerfilesAsync(modelo);
+            }
 
             // El wizard crea una venta pendiente y reutiliza esta misma validación y
             // configuración canónica. Configurar no confirma ni factura: sólo deja el
@@ -1114,6 +1126,12 @@ namespace TheBuryProject.Controllers
             MetodoCalculoCredito? metodoCalculo = null,
             FuenteConfiguracionCredito? fuenteConfiguracion = null)
         {
+            // Con ventaId el total y los planes salen de esa venta (único caller: el wizard de
+            // Configurar Venta). Sin creditos.configure bastaría creditos.view para sondear totales
+            // de ventas ajenas por id; la simulación standalone (sin ventaId, Cotizador) sigue en view.
+            if (ventaId.HasValue && !User.TienePermiso("creditos", "configure"))
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "No tenés permiso para simular el plan de una venta." });
+
             try
             {
                 // ML6/ML6.1: con ventaId (el único caso real de Configurar Venta — venta con

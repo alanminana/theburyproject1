@@ -848,4 +848,42 @@ public class CreditoServiceConfiguracionTests : IDisposable
         Assert.Equal(antes.SaldoPendiente, despues.SaldoPendiente);
         Assert.Equal(antes.CantidadCuotas, despues.CantidadCuotas);
     }
+    [Theory]
+    [InlineData(EstadoVenta.Confirmada)]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    [InlineData(EstadoVenta.Cancelada)]
+    public async Task ConfigurarCredito_VentaPosteriorAConfigurar_RechazaYNoModificaCreditoVenta(EstadoVenta estadoVenta)
+    {
+        // PROMPT 93: crédito configurable pero venta ya confirmada/facturada/entregada/cancelada.
+        await SeedCredito(id: 1, estado: EstadoCredito.Configurado);
+        await SeedVenta(id: 1, estado: estadoVenta, clienteId: 1, creditoId: 1);
+        var creditoAntes = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        var ventaAntes = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == 1);
+
+        var ex = await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException>(
+            () => _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: 1)));
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, ex.Motivo);
+
+        _context.ChangeTracker.Clear();
+        var credito = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        var venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == 1);
+        Assert.Equal(creditoAntes.MontoAprobado, credito.MontoAprobado);
+        Assert.Equal(creditoAntes.CantidadCuotas, credito.CantidadCuotas);
+        Assert.Equal(estadoVenta, venta.Estado);
+        Assert.Equal(ventaAntes.FechaConfiguracionCredito, venta.FechaConfiguracionCredito);
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion)]
+    [InlineData(EstadoVenta.Presupuesto)]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
+    public async Task ValidarRelacion_VentaEnEstadosDelWizard_EsValida(EstadoVenta estadoVenta)
+    {
+        await SeedCredito(id: 1);
+        await SeedVenta(id: 1, estado: estadoVenta, clienteId: 1, creditoId: 1);
+
+        Assert.True((await _service.ValidarRelacionConfiguracionAsync(1, 1)).EsValida);
+    }
 }

@@ -70,6 +70,49 @@ public class RolesPermisosSeederCreditosConfigureTests : IDisposable
         Assert.Equal(esperado, tiene);
     }
 
+    [Theory]
+    [InlineData(Roles.Vendedor)]   // grant específico
+    [InlineData(Roles.Gerente)]    // grant de módulo
+    [InlineData(Roles.Administrador)]
+    public async Task Reseed_NoRevivePermisoRevocadoDesdeSeguridad(string rol)
+    {
+        await SembrarAsync();
+        var roleId = await _context.Roles.Where(r => r.Name == rol).Select(r => r.Id).SingleAsync();
+
+        // Revocación como la hace RolService.RemovePermissionFromRoleAsync (soft delete).
+        var permiso = await _context.RolPermisos.SingleAsync(rp => rp.RoleId == roleId && rp.ClaimValue == Claim && !rp.IsDeleted);
+        permiso.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        // "Reinicio del ERP": el seeder corre de nuevo (varias veces) sobre la misma base.
+        await SembrarAsync();
+        await SembrarAsync();
+
+        _context.ChangeTracker.Clear();
+        Assert.False(await _context.RolPermisos.AnyAsync(rp => rp.RoleId == roleId && rp.ClaimValue == Claim && !rp.IsDeleted),
+            $"El seeder reintrodujo {Claim} revocado para {rol}.");
+        Assert.Equal(1, await _context.RolPermisos.IgnoreQueryFilters().CountAsync(rp => rp.RoleId == roleId && rp.ClaimValue == Claim));
+    }
+
+    [Fact]
+    public async Task Seed_RolPersonalizadoConCreditosView_NoRecibeConfigure_NiTrasReseed()
+    {
+        await SembrarAsync();
+        var custom = new IdentityRole { Id = Guid.NewGuid().ToString(), Name = "Personalizado93", NormalizedName = "PERSONALIZADO93" };
+        _context.Roles.Add(custom);
+        var view = await _context.AccionesModulo.Include(a => a.Modulo).SingleAsync(a => a.Modulo.Clave == "creditos" && a.Clave == "view");
+        _context.RolPermisos.Add(new TheBuryProject.Models.Entities.RolPermiso
+        {
+            RoleId = custom.Id, ModuloId = view.ModuloId, AccionId = view.Id, ClaimValue = "creditos.view", IsDeleted = false
+        });
+        await _context.SaveChangesAsync();
+
+        await SembrarAsync();
+
+        var claims = await _context.RolPermisos.Where(rp => rp.RoleId == custom.Id && !rp.IsDeleted).Select(rp => rp.ClaimValue).ToListAsync();
+        Assert.Equal(new[] { "creditos.view" }, claims);
+    }
+
     private async Task SembrarAsync()
     {
         var roleManager = new RoleManager<IdentityRole>(

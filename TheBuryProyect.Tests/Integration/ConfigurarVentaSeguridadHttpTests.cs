@@ -147,6 +147,73 @@ public class ConfigurarVentaSeguridadHttpTests : IClassFixture<CustomWebApplicat
         await AssertCircuitoIntactoAsync(_b);
     }
 
+    [Fact]
+    public async Task SimularPlanVenta_ConVentaId_ExigeConfigure_SinVentaIdBastaView()
+    {
+        var viewOnly = _factory.CreateClientWithUserId(_soloViewId);
+        var configurador = _factory.CreateClientWithUserId(_configuradorId);
+        var conVenta = $"/Credito/SimularPlanVenta?totalVenta=1&cuotas=6&ventaId={_b.VentaId}";
+        var sinVenta = "/Credito/SimularPlanVenta?totalVenta=1000&cuotas=6";
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewOnly.GetAsync(conVenta)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Forbidden, (await configurador.GetAsync(conVenta)).StatusCode);
+        // Simulación standalone (Cotizador): sigue siendo de lectura.
+        Assert.False(Denegado(await viewOnly.GetAsync(sinVenta)));
+    }
+
+    [Fact]
+    public async Task Get_y_Post_VentaCancelada_EmbebidoRechaza409_YNoModificaCreditoNiVenta()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var venta = await context.Ventas.SingleAsync(v => v.Id == _a.VentaId);
+            venta.Estado = EstadoVenta.Cancelada;
+            await context.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithUserId(_configuradorId);
+        var get = await client.GetAsync($"/Credito/ConfigurarVenta?id={_a.CreditoId}&ventaId={_a.VentaId}&embedded=true");
+        var post = await PostConfigurarAsync(client, _a.CreditoId, _a.VentaId, _a.ClienteId, embedded: true);
+
+        Assert.Equal(HttpStatusCode.Conflict, get.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, post.StatusCode);
+        using var verif = _factory.Services.CreateScope();
+        var ctx = verif.ServiceProvider.GetRequiredService<AppDbContext>();
+        var credito = await ctx.Creditos.AsNoTracking().SingleAsync(c => c.Id == _a.CreditoId);
+        Assert.Equal(EstadoCredito.PendienteConfiguracion, credito.Estado);
+        Assert.Equal(0, credito.CantidadCuotas);
+        Assert.Equal(EstadoVenta.Cancelada, (await ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == _a.VentaId)).Estado);
+    }
+
+    [Fact]
+    public async Task Asignar_y_Revocar_CreditosConfigure_SurteEfectoEnElSiguienteRequest()
+    {
+        var url = $"/Credito/ConfigurarVenta?id={_a.CreditoId}&ventaId={_a.VentaId}&embedded=true";
+        var client = _factory.CreateClientWithUserId(_soloViewId);
+        Assert.True(Denegado(await client.GetAsync(url)));
+
+        string roleId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var rolService = scope.ServiceProvider.GetRequiredService<TheBuryProject.Services.Interfaces.IRolService>();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            roleId = await context.Roles.Where(r => r.Name == $"CredView_{_sfx}").Select(r => r.Id).SingleAsync();
+            var accion = await context.AccionesModulo.Include(a => a.Modulo).SingleAsync(a => a.Modulo.Clave == "creditos" && a.Clave == "configure");
+            await rolService.AssignPermissionToRoleAsync(roleId, accion.ModuloId, accion.Id);
+        }
+        Assert.False(Denegado(await _factory.CreateClientWithUserId(_soloViewId).GetAsync(url)), "Asignado: debería pasar el filtro.");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var rolService = scope.ServiceProvider.GetRequiredService<TheBuryProject.Services.Interfaces.IRolService>();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var accion = await context.AccionesModulo.Include(a => a.Modulo).SingleAsync(a => a.Modulo.Clave == "creditos" && a.Clave == "configure");
+            Assert.True(await rolService.RemovePermissionFromRoleAsync(roleId, accion.ModuloId, accion.Id));
+        }
+        Assert.True(Denegado(await _factory.CreateClientWithUserId(_soloViewId).GetAsync(url)), "Revocado: debe volver a denegar.");
+    }
+
     private (int ClienteId, int CreditoId, int VentaId) Circuito(string clave) => clave == "A" ? _a : _b;
 
     private async Task AssertCircuitoIntactoAsync((int ClienteId, int CreditoId, int VentaId) circuito)
