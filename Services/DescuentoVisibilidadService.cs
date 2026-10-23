@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services;
@@ -40,12 +42,18 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
         return snapshots.Any(SnapshotContratoTieneDescuentos);
     }
 
-    // El PDF del contrato se arma desde los documentos del motor documental de la venta: si alguno se emitió con
-    // descuentos (marca persistida), el contrato no se entrega sin ventas.discount aunque la venta ya no los tenga.
+    // El PDF del contrato se arma SOLO con los documentos vigentes del evento de contrato de crédito (mismo criterio que
+    // ContratoVentaCreditoService.ObtenerTextosDocumentalesAsync): si alguno se emitió con descuentos (marca persistida), el
+    // contrato no se entrega sin ventas.discount aunque la venta ya no los tenga. Un documento de otro evento (p. ej. un
+    // presupuesto) no alimenta el PDF y no debe bloquearlo; sigue restringido por su propia ruta (RestringidosAsync).
     private async Task<bool> DocumentoEmitidoConDescuentosDeLaVentaAsync(int ventaId)
     {
         var metadatas = await _context.DocumentosGenerados.AsNoTracking()
-            .Where(d => d.VentaId == ventaId)
+            .Where(d => d.VentaId == ventaId
+                && d.EventoOrigen == EventosDocumentales.ContratoCreditoSolicitado
+                && d.ContratoLegadoId == null
+                && d.Estado != EstadoDocumentoGenerado.Cancelado
+                && d.Estado != EstadoDocumentoGenerado.Reemplazado)
             .Select(d => d.MetadataJson)
             .ToListAsync();
         return metadatas.Any(DocumentoEmitidoConDescuentos);

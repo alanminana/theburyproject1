@@ -131,6 +131,38 @@ public class DocumentoDescuentoInmutableTests : DocumentoTestBase
     }
 
     [Fact]
+    public async Task ContratoPdf_DocumentoMarcadoDeOtroEvento_NoBloqueaElContratoSinDescuentos_PeroSigueRestringido()
+    {
+        // Hallazgo de la 3ª revisión: un presupuesto emitido con descuento y luego quitado no debe bloquear el PDF de un
+        // contrato posterior sin descuentos (el presupuesto no alimenta ese PDF), pero él mismo sigue restringido.
+        var (venta, docs) = await EmitirAsync(conDescuentos: false);   // contrato sin descuentos
+        var tipo = await Context.TiposDocumento.FirstAsync();
+        var plantilla = await Context.PlantillasDocumento.FirstAsync();
+        var version = await Context.PlantillasDocumentoVersion.FirstAsync();
+        var presupuesto = new DocumentoGenerado
+        {
+            TipoDocumentoId = tipo.Id,
+            PlantillaDocumentoId = plantilla.Id,
+            PlantillaDocumentoVersionId = version.Id,
+            Numero = "PRES-TEST-1",
+            VentaId = venta.Id,
+            EventoOrigen = "PresupuestoEmitido",
+            ClaveIdempotencia = "pres|test|1",
+            UsuarioGeneracion = "tester",
+            ContenidoRenderizado = "Presupuesto con descuento",
+            DatosSnapshotJson = "{}",
+            MetadataJson = "{\"conDescuentos\":true}"
+        };
+        Context.DocumentosGenerados.Add(presupuesto);
+        await Context.SaveChangesAsync();
+
+        var servicio = ServicioSinPermiso();
+        Assert.False(await servicio.DebeDenegarVentaAsync(venta.Id));
+        Assert.Contains(presupuesto.Id, await servicio.DocumentosRestringidosAsync(new[] { presupuesto.Id }));
+        Assert.Empty(await servicio.DocumentosRestringidosAsync(docs.Select(d => d.Id).ToList()));
+    }
+
+    [Fact]
     public async Task ContratoPdf_SinDocumentosMarcadosNiDescuentos_NoSeDeniega()
     {
         var (venta, _) = await EmitirAsync(conDescuentos: false);
