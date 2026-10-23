@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
@@ -27,7 +28,6 @@ public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFa
 
     private string _adminId = null!;
     private string _soloUpdateId = null!;
-    private string _soloViewAutId = null!;
     private string _gerenteId = null!;
     private string _rolesAdminId = null!;
     private string _targetNormalId = null!;
@@ -49,14 +49,11 @@ public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFa
 
         var rolSoloUpdate = await CrearRolConPermisosAsync(context, $"RolSoloUpdate{_sfx}",
             "usuarios.view", "usuarios.update", "roles.view");
-        var rolSoloViewAut = await CrearRolConPermisosAsync(context, $"RolSoloViewAut{_sfx}",
-            "autorizaciones.view");
         var rolAsignaPermisos = await CrearRolConPermisosAsync(context, $"RolAsignaPermisos{_sfx}",
             "roles.view", "roles.create", "roles.update", "roles.assignpermissions", "usuarios.view");
 
         _adminId = await CrearUsuarioAsync(scope, $"adm_{_sfx}", Roles.Administrador);
         _soloUpdateId = await CrearUsuarioAsync(scope, $"upd_{_sfx}", rolSoloUpdate);
-        _soloViewAutId = await CrearUsuarioAsync(scope, $"viewaut_{_sfx}", rolSoloViewAut);
         _gerenteId = await CrearUsuarioAsync(scope, $"ger_{_sfx}", Roles.Gerente);
         _rolesAdminId = await CrearUsuarioAsync(scope, $"rolesadm_{_sfx}", rolAsignaPermisos);
         _targetNormalId = await CrearUsuarioAsync(scope, $"tgt_{_sfx}", null);
@@ -492,76 +489,76 @@ public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFa
         Assert.Null(await IdDeRolOrNullAsync($"Renombrado{_sfx}"));
     }
 
-    // ───────────────────────── FIN-S-001: Autorización sin permisos efectivos ─────────────────────────
+    // ───────────────────────── FE-D-001: circuito genérico de Autorizaciones retirado ─────────────────────────
+    // Decisión funcional D1.B: se retiran los endpoints /Autorizacion/*; entidades, servicio y datos se conservan.
 
-    [Fact]
-    public async Task AprobarSolicitud_ConSoloViewNoPuedeAprobar()
+    [Theory]
+    [InlineData("GET", "/Autorizacion")]
+    [InlineData("GET", "/Autorizacion/Index")]
+    [InlineData("GET", "/Autorizacion/Solicitudes")]
+    [InlineData("GET", "/Autorizacion/DetallesSolicitud?id=1")]
+    [InlineData("GET", "/Autorizacion/CrearSolicitud")]
+    [InlineData("GET", "/Autorizacion/CrearUmbral")]
+    [InlineData("GET", "/Autorizacion/EditarUmbral?id=1")]
+    [InlineData("POST", "/Autorizacion/CrearUmbral")]
+    [InlineData("POST", "/Autorizacion/EditarUmbral")]
+    [InlineData("POST", "/Autorizacion/EliminarUmbral")]
+    [InlineData("POST", "/Autorizacion/CrearSolicitud")]
+    [InlineData("POST", "/Autorizacion/AprobarSolicitud")]
+    [InlineData("POST", "/Autorizacion/RechazarSolicitud")]
+    [InlineData("POST", "/Autorizacion/CancelarSolicitud")]
+    public async Task AutorizacionGenerica_EndpointRetirado_DevuelveNotFoundAunConRolAlto(string metodo, string ruta)
     {
-        var solicitudId = await CrearSolicitudPendienteAsync();
-        var client = _factory.CreateClientWithUserId(_soloViewAutId);
-        var token = await TokenAsync(client);
+        foreach (var userId in new[] { _gerenteId, _adminId })
+        {
+            var client = _factory.CreateClientWithUserId(userId);
+            var response = metodo == "GET"
+                ? await client.GetAsync(ruta)
+                : await client.PostAsync(ruta, Form(("id", "1"), ("comentario", "no debe ejecutarse")));
 
-        var response = await client.PostAsync("/Autorizacion/AprobarSolicitud", Form(
-            ("__RequestVerificationToken", token), ("id", solicitudId.ToString())));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal(EstadoSolicitud.Pendiente, await EstadoSolicitudAsync(solicitudId));
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
     }
 
     [Fact]
-    public async Task RechazarSolicitud_ConSoloViewNoPuedeRechazar()
-    {
-        var solicitudId = await CrearSolicitudPendienteAsync();
-        var client = _factory.CreateClientWithUserId(_soloViewAutId);
-        var token = await TokenAsync(client);
-
-        var response = await client.PostAsync("/Autorizacion/RechazarSolicitud", Form(
-            ("__RequestVerificationToken", token), ("id", solicitudId.ToString()), ("comentario", "no")));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal(EstadoSolicitud.Pendiente, await EstadoSolicitudAsync(solicitudId));
-    }
-
-    [Fact]
-    public async Task Umbrales_ConSoloViewNoPuedeGestionarlos()
-    {
-        var client = _factory.CreateClientWithUserId(_soloViewAutId);
-        var token = await TokenAsync(client);
-
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/Autorizacion/Index")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/Autorizacion/CrearUmbral")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/Autorizacion/EditarUmbral?id=1")).StatusCode);
-
-        var crear = await client.PostAsync("/Autorizacion/CrearUmbral", Form(
-            ("__RequestVerificationToken", token),
-            ("Rol", Roles.Vendedor), ("TipoUmbral", "0"), ("ValorMaximo", "1000"), ("Activo", "true")));
-        Assert.Equal(HttpStatusCode.Forbidden, crear.StatusCode);
-
-        var editar = await client.PostAsync("/Autorizacion/EditarUmbral", Form(
-            ("__RequestVerificationToken", token), ("Id", "1"), ("ValorMaximo", "999999"), ("Activo", "true")));
-        Assert.Equal(HttpStatusCode.Forbidden, editar.StatusCode);
-
-        var eliminar = await client.PostAsync("/Autorizacion/EliminarUmbral", Form(
-            ("__RequestVerificationToken", token), ("id", "1")));
-        Assert.Equal(HttpStatusCode.Forbidden, eliminar.StatusCode);
-
-        using var scope = _factory.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.False(await context.UmbralesAutorizacion.AnyAsync(u => u.ValorMaximo == 999999m));
-    }
-
-    [Fact]
-    public async Task AprobarSolicitud_ConPermisoApproveSigueFuncionando()
+    public async Task AutorizacionGenerica_RechazoNoCambiaDatos()
     {
         var solicitudId = await CrearSolicitudPendienteAsync();
         var client = _factory.CreateClientWithUserId(_gerenteId);
-        var token = await TokenAsync(client);
 
-        var response = await client.PostAsync("/Autorizacion/AprobarSolicitud", Form(
-            ("__RequestVerificationToken", token), ("id", solicitudId.ToString()), ("comentario", "ok")));
+        await client.PostAsync("/Autorizacion/AprobarSolicitud", Form(("id", solicitudId.ToString()), ("comentario", "x")));
+        await client.PostAsync("/Autorizacion/CancelarSolicitud", Form(("id", solicitudId.ToString())));
 
-        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
-        Assert.Equal(EstadoSolicitud.Aprobada, await EstadoSolicitudAsync(solicitudId));
+        Assert.Equal(EstadoSolicitud.Pendiente, await EstadoSolicitudAsync(solicitudId));
+    }
+
+    [Fact]
+    public void AutorizacionGenerica_NingunEndpointRegistradoParaElControllerRetirado()
+    {
+        // Evita reapariciones accidentales: ni por una clase AutorizacionController ni por [Route]/[ControllerName] que resuelvan a esa ruta.
+        var endpoints = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints;
+        var ofensores = endpoints
+            .Select(e => new
+            {
+                Descriptor = e.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>(),
+                Texto = (e as RouteEndpoint)?.RoutePattern.RawText
+            })
+            .Where(x => string.Equals(x.Descriptor?.ControllerName, "Autorizacion", StringComparison.OrdinalIgnoreCase)
+                        || (x.Texto?.StartsWith("Autorizacion", StringComparison.OrdinalIgnoreCase) ?? false))
+            .Select(x => x.Texto ?? x.Descriptor?.DisplayName)
+            .ToList();
+
+        Assert.True(ofensores.Count == 0, "Endpoints del circuito genérico reaparecieron:" + Environment.NewLine + string.Join(Environment.NewLine, ofensores));
+
+        Assert.DoesNotContain(typeof(Program).Assembly.GetTypes(), t => t.Name == "AutorizacionController");
+    }
+
+    [Fact]
+    public void AutorizacionGenerica_ServicioSigueRegistradoEnDI()
+    {
+        // D1.B conserva entidades y servicio: solo se retira la superficie HTTP.
+        using var scope = _factory.Services.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetService<TheBuryProject.Services.Interfaces.IAutorizacionService>());
     }
 
     // ───────────────────────── Defensa en profundidad (estructural) ─────────────────────────
@@ -580,36 +577,6 @@ public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFa
             .ToList();
 
         Assert.True(ofensores.Count == 0, "Atributos dentro de comentarios XML:\n" + string.Join("\n", ofensores));
-    }
-
-    [Fact]
-    public void AutorizacionController_TodaAccionTienePermisoPropioYLasDeEscrituraNoSonSoloView()
-    {
-        var acciones = typeof(TheBuryProject.Controllers.AutorizacionController)
-            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance |
-                        System.Reflection.BindingFlags.DeclaredOnly)
-            .Where(m => typeof(Microsoft.AspNetCore.Mvc.IActionResult).IsAssignableFrom(m.ReturnType) ||
-                        typeof(Task<Microsoft.AspNetCore.Mvc.IActionResult>).IsAssignableFrom(m.ReturnType))
-            .ToList();
-
-        Assert.NotEmpty(acciones);
-
-        string? AccionExigida(System.Reflection.MethodInfo m) => m
-            .GetCustomAttributes(typeof(TheBuryProject.Filters.PermisoRequeridoAttribute), inherit: false)
-            .Cast<TheBuryProject.Filters.PermisoRequeridoAttribute>()
-            .Select(a => a.Accion)
-            .FirstOrDefault();
-
-        foreach (var m in acciones)
-            Assert.True(AccionExigida(m) != null, $"{m.Name} no declara [PermisoRequerido] propio.");
-
-        void Exige(string nombre, string accion) =>
-            Assert.All(acciones.Where(m => m.Name == nombre), m => Assert.Equal(accion, AccionExigida(m)));
-
-        Exige("AprobarSolicitud", AutorizacionesConstants.Acciones.Aprobar);
-        Exige("RechazarSolicitud", AutorizacionesConstants.Acciones.Rechazar);
-        foreach (var n in new[] { "Index", "CrearUmbral", "EditarUmbral", "EliminarUmbral" })
-            Exige(n, AutorizacionesConstants.Acciones.GestionarUmbrales);
     }
 
     // ───────────────────────── Helpers ─────────────────────────

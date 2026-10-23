@@ -1632,10 +1632,19 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "No se pudo generar la factura";
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                // Rechazo de negocio (crédito no generado, caja cerrada, estado inválido, etc.): el mensaje es
+                // propio del servicio y se muestra en Details, que sí renderiza TempData (antes se perdía en el redirect).
+                _logger.LogWarning(ex, "Facturación rechazada para la venta {Id}", facturaViewModel.VentaId);
+                TempData["Error"] = "No se pudo facturar la venta: " + ex.Message;
+                return RedirectToAction(nameof(Details), new { id = facturaViewModel.VentaId });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al facturar venta");
-                ModelState.AddModelError("", "Error al generar la factura: " + ex.Message);
+                TempData["Error"] = "Error inesperado al generar la factura. Intentá nuevamente.";
+                return RedirectToAction(nameof(Details), new { id = facturaViewModel.VentaId });
             }
 
             return RedirectToAction(nameof(Index));

@@ -484,7 +484,6 @@ namespace TheBuryProject.Controllers
             {
                 ["AccionesController"] = new { Modulo = "acciones", Accion = "view", Estado = "✅" },
                 ["AlertaStockController"] = new { Modulo = "stock", Accion = "viewalerts", Estado = "✅" },
-                ["AutorizacionController"] = new { Modulo = "autorizaciones", Accion = "view", Estado = "✅ CORREGIDO" },
                 ["CajaController"] = new { Modulo = "caja", Accion = "view", Estado = "✅ CORREGIDO" },
                 ["CambiosPreciosController"] = new { Modulo = "precios", Accion = "view", Estado = "✅" },
                 ["CatalogoController"] = new { Modulo = "productos", Accion = "view", Estado = "✅ CORREGIDO - Era \"cotizaciones\" por error; ahora productos.view (+ precios.* en acciones de precio)" },

@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Unit;
 /// <summary>
 /// PROMPT 57-B: la causa raíz de FIN-S-001 fue un <c>[PermisoRequerido]</c> que quedó dentro de un comentario <c>///</c>:
 /// la acción solo heredaba el permiso <c>view</c> de la clase. Este contrato falla si una acción que modifica estado
-/// (POST/PUT/PATCH/DELETE) en Caja, Venta, MercadoLibre o Autorizaciones no declara a nivel de método un permiso distinto
+/// (POST/PUT/PATCH/DELETE) en Caja, Venta o MercadoLibre no declara a nivel de método un permiso distinto
 /// de <c>view</c>, o si queda anónima. No cambia reglas: fija el estado actual y detecta regresiones por comentario/borrado.
 /// </summary>
 public class AccionesMutantesPermisoContractTests
@@ -23,7 +23,7 @@ public class AccionesMutantesPermisoContractTests
     public static IEnumerable<object[]> Controladores() => new[]
     {
         typeof(CajaController), typeof(VentaController), typeof(VentaApiController),
-        typeof(MercadoLibreController), typeof(AutorizacionController)
+        typeof(MercadoLibreController)
     }.Select(t => new object[] { t });
 
     /// <summary>
@@ -32,8 +32,6 @@ public class AccionesMutantesPermisoContractTests
     /// </summary>
     private static readonly Dictionary<string, string> SoloViewPorDiseno = new()
     {
-        ["AutorizacionController.CrearSolicitud"] = "cualquier usuario con acceso al módulo puede pedir una autorización (view explícito en el método)",
-        ["AutorizacionController.CancelarSolicitud"] = "view explícito; PENDIENTE: AutorizacionService.CancelarSolicitudAsync no comprueba que la solicitud sea del usuario (IDOR, documentado en el informe PROMPT 57)",
         ["VentaApiController.CalcularTotalesVenta"] = "cálculo puro de totales, no persiste nada",
         ["MercadoLibreController.ProbarConexion"] = "sonda de conexión de una cuenta ya vinculada; no crea ni elimina vínculos",
     };
