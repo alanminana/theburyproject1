@@ -16,8 +16,8 @@ Todo lo de esta página es **punto en el tiempo**: re-verificar contra Git/GitHu
 
 ## 2. Git (verificado el 2026-10-23)
 
-- `origin/main` = `4b3ea885` (merge de PR #102, coordinación Codex → Claude), con #103 (FE-D-001) fusionada antes en `d1a6e2a8`. Verificado con `git fetch origin main` + `git rev-parse origin/main`.
-- PRs abiertas (verificado con `gh pr list --state open`): **#98** `fix/com-xss-20261020` (COM-S-001/002 XSS), **#99** `fix/fin-r2-descuento-venta-20261021` (permiso `ventas.discount`), **#100** `fix/sec-credito-configurar-venta-20261022` (ConfigurarVenta). Las tres son Draft. #101, #102 y #103 ya están fusionadas.
+- `origin/main` = `4ed1f405` (merge de PR #99, permiso `ventas.discount`). Fusionadas en esta secuencia: #98 (XSS, `814c20eb`), #100 (ConfigurarVenta, `ddc890d8`) y #99. Verificado con `git fetch origin main` + `git rev-parse origin/main`.
+- PRs abiertas (verificado con `gh pr list --state open`): ninguna. Fusionadas: #98, #99, #100, #101, #102, #103 y #104.
 - El checkout principal `D:\git\theburyproject1` está en `trabajo/cambios-pendientes` (c82c265d) con cambios sin commit de otros agentes (`AGENTS.md`, `CLAUDE.md`, skills): **no trabajar ahí**; usar worktrees.
 - Hay ~50 worktrees `D:\git\theburyproject1-*` de tareas previas: no modificarlos. Retirarlos requiere autorización (Bloque 3 del rescate Git).
 
@@ -25,10 +25,12 @@ Todo lo de esta página es **punto en el tiempo**: re-verificar contra Git/GitHu
 
 | Pendiente | Estado | Fuente |
 |---|---|---|
-| Publicar/mergear PRs de seguridad #98, #99, #100 | Drafts; CI verde reportado en su momento, re-verificar. Las tres están por detrás de `main` | `gh pr list`; memorias `prompt62`, `prompt76`, `prompt90` |
+| ~~Publicar/mergear PRs de seguridad #98, #99, #100~~ | **Hecho** (CI 12-14 checks en verde cada una, revisión adversarial de Codex por PR) | PRs #98, #99, #100 |
+| Descuentos (#99): documentos y contratos emitidos ANTES de la marca `conDescuentos` siguen clasificándose por el estado actual de la venta (decisión del usuario, no se cierran en bloque). Las vistas previas de `DocumentosConfigController` aceptan `ventaId` y renderizan datos de esa venta: sin revisar | Abierto; decidir si se revisa | `Services/DescuentoVisibilidadService.cs`; PR #99 |
+| Roles personalizados con `creditos.view` pierden "Configurar" crédito hasta que un administrador les asigne `creditos.configure` (#100) | Operativo: avisar al administrador | PR #100 |
 | **FE-D-001 (cerrado, PR #103)**: deuda del servicio conservado H4-H6 (ValorPermitido/TipoOperacion del request, sin índice único de umbral, comentarios sin contrato), D2 (lectura sin filtro de propietario) y D3 (autoaprobación posible). Deben resolverse antes de reactivar cualquier endpoint | Diferidas por decisión del usuario | `docs/autorizaciones-circuito-generico-retirado.md` |
 | FIN-S-002 (#97) ya mergeada; hallazgos A1 (CreditoId forjado en cupo), F1 (backdating `FechaVenta` en Edit), F2/F3 sin corregir | Esperan decisión de corregir | memoria `prompt84-pr97-actualizada-estado` |
-| ConfigurarVenta: correr `ConfigurarVentaConcurrenciaSqlServerTests` (env `QA_SEC_CONFIGVENTA_SQL`) cuando el SQL Server local esté libre | Pendiente | memoria `prompt90-configurar-venta-estado` |
+| ConfigurarVenta: `ConfigurarVentaConcurrenciaSqlServerTests` | Cubierto por el job `sqlserver-configventa` del CI (RCSI apagado y encendido, verde en #100 y #99); falta solo correrlo contra el SQL Server local si se quiere | `.github/workflows/sec-configurar-venta-sqlserver.yml` |
 | Backlog de la auditoría QA integral (8 hallazgos Altos; varios ya corregidos en PRs #96-#100) | Re-verificar cuáles siguen abiertos antes de planificar | `D:\git\QA-AUDITORIA\10-backlog-correcciones.md`; memoria `qa-integral-prompt52-estado` |
 | Rescate Git: Bloques 1-4 (fetch --prune, bundle no-EFS, retirar 18 worktrees limpios, borrar 2 ramas remotas) y decisiones D-1/D-2 | Sin autorización | memoria `rescate-git-p50-estado` |
 | E1 (controles de agentes): integrar, A2 (hooks Git compartidos), A5 (identidad/credenciales separadas) | Pendiente de decisión; **no tocar** | memoria `agent-guard-e1-estado` |
@@ -38,7 +40,7 @@ Todo lo de esta página es **punto en el tiempo**: re-verificar contra Git/GitHu
 
 - Autorizaciones genéricas (FE-D-001, 2026-10-23): D1.B, se retiraron los endpoints `/Autorizacion/*`; entidades, tablas, datos y servicio se conservan; el circuito de Venta/Crédito no cambia. U1/D4.A: solo el solicitante cancela su solicitud pendiente, sin excepción administrativa. Sobre `565cea8c` esas rutas respondían 500 (medido con datos sintéticos). Fuente: PR #103 y `docs/autorizaciones-circuito-generico-retirado.md`.
 
-- Descuentos comerciales: permiso independiente `ventas.discount`; validación server-side (PR #99). Fuente: memoria `prompt76`.
+- Descuentos comerciales: permiso independiente `ventas.discount`; validación server-side (PR #99). Un documento emitido con descuentos queda restringido para quien no tiene el permiso aunque después se quiten de la venta (marca `conDescuentos` en su metadata). Fuente: PR #99, memoria `prompt76`.
 - Crédito: el plan de cuotas es la única autoridad del porcentaje; mora nunca exceptuable en el cotizador. Fuentes: memorias `porcentaje-plan-ml-estado`, `cotizador-excepcion-documental-estado`.
 - Venta: `TotalACobrar = Total + CostoEnvio`; `TotalFacturable = Total`. Fuente: memoria `venta-envio-total-a-cobrar-estado`.
 - Caja: IVA discriminado solo para ventas Facturada/Entregada. Fuente: memoria `caja-iva-discriminado-confirmada-facturada-estado`.
