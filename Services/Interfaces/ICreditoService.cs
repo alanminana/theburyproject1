@@ -101,5 +101,13 @@ namespace TheBuryProject.Services.Interfaces
         /// resueltos por el caller; este método solo persiste y cambia estados.
         /// </summary>
         Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando);
+
+        /// <summary>
+        /// Verifica contra la base que crédito, venta y cliente son consistentes para configurar:
+        /// con <paramref name="ventaId"/>, la venta debe apuntar a ese crédito y compartir cliente;
+        /// sin él, ninguna venta activa puede estar asociada al crédito (crédito independiente).
+        /// Devuelve el cliente persistido del crédito.
+        /// </summary>
+        Task<ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId);
     }
 }

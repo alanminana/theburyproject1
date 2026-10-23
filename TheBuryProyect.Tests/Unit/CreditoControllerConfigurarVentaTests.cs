@@ -498,6 +498,116 @@ public class CreditoControllerConfigurarVentaTests
         Assert.Equal("La venta requiere autorización antes de configurar el crédito.", controller.TempData["Error"]);
     }
 
+    // PROMPT 90 — ConfigurarVenta: crédito, venta y cliente deben ser consistentes y la acción
+    // exige creditos.configure (creditos.view es solo lectura).
+
+    [Fact]
+    public void ConfigurarVenta_GetYPost_RequierenPermisoCreditosConfigure()
+    {
+        var acciones = typeof(CreditoController).GetMethods()
+            .Where(m => m.Name == nameof(CreditoController.ConfigurarVenta))
+            .ToList();
+
+        Assert.Equal(2, acciones.Count);
+        foreach (var accion in acciones)
+        {
+            var permisos = accion
+                .GetCustomAttributes(typeof(TheBuryProject.Filters.PermisoRequeridoAttribute), inherit: false)
+                .Cast<TheBuryProject.Filters.PermisoRequeridoAttribute>()
+                .ToList();
+
+            Assert.Contains(permisos, p => p.Modulo == "creditos" && p.Accion == "configure");
+        }
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaGet_VentaAjenaAlCredito_NoLeeTotalNiDevuelveFormulario()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase())
+        {
+            Relacion = ResultadoRelacionConfiguracionCredito.Invalida(
+                TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                "La venta indicada no corresponde a este crédito.")
+        };
+        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 4m),
+            ventaService: new StubVentaService(totalVenta: 999_999m));
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: 77);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Index", redirect.ActionName);
+        Assert.Equal((10, (int?)77), creditoService.UltimaRelacionConsultada);
+        Assert.Contains("no corresponde", controller.TempData["Error"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, 409)]
+    [InlineData(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.NoEncontrado, 404)]
+    public async Task ConfigurarVentaGetEmbebido_RelacionInvalida_DevuelveJsonConStatusDelMotivo(
+        TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio motivo, int status)
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase())
+        {
+            Relacion = ResultadoRelacionConfiguracionCredito.Invalida(motivo, "rechazo")
+        };
+        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 4m));
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: 77, embedded: true);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(status, controller.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_VentaOCreditoCruzados_NoConfiguraNada()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase())
+        {
+            Relacion = ResultadoRelacionConfiguracionCredito.Invalida(
+                TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                "La venta indicada no corresponde a este crédito.")
+        };
+        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 4m),
+            ventaService: new StubVentaService(venta: VentaConProducto()));
+
+        var result = await controller.ConfigurarVenta(ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99));
+
+        AssertViewWithModelError(result, controller, string.Empty, "no corresponde");
+        Assert.Equal(StatusCodes.Status409Conflict, controller.Response.StatusCode);
+        Assert.Null(creditoService.LastCommand);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_ClienteIdManipulado_SeReemplazaPorElDelCreditoPersistido()
+    {
+        // Falla temprano (sin tasa global) para poder inspeccionar el modelo devuelto.
+        var controller = CrearController(new RecordingCreditoService(CreditoBase()), ConfigService(tasaGlobal: null));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.PorCliente, MetodoCalculoCredito.UsarCliente);
+        modelo.ClienteId = 999;
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        Assert.Equal(20, AssertViewModel(result).ClienteId);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_ServicioRechazaPorEstadoConcurrente_Devuelve409SinExcepcion()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase())
+        {
+            ConfigurarThrows = new TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException(
+                TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto,
+                "El crédito no puede configurarse en estado Generado.")
+        };
+        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 5m));
+
+        var result = await controller.ConfigurarVenta(
+            ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global), embedded: true);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, controller.Response.StatusCode);
+    }
+
     private static CreditoController CrearController(
         RecordingCreditoService creditoService,
         StubConfiguracionPagoService configuracionPagoService,
@@ -645,9 +755,22 @@ public class CreditoControllerConfigurarVentaTests
 
         public ConfiguracionCreditoComando? LastCommand { get; private set; }
 
+        // Por defecto la relación es consistente y el cliente sale del crédito persistido;
+        // los tests de seguridad la reemplazan por una inválida o por un rechazo del servicio.
+        public ResultadoRelacionConfiguracionCredito? Relacion { get; set; }
+        public Exception? ConfigurarThrows { get; set; }
+        public (int CreditoId, int? VentaId)? UltimaRelacionConsultada { get; private set; }
+
+        public Task<ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId)
+        {
+            UltimaRelacionConsultada = (creditoId, ventaId);
+            return Task.FromResult(Relacion ?? ResultadoRelacionConfiguracionCredito.Valida(_credito?.ClienteId ?? 0));
+        }
+
         public Task<CreditoViewModel?> GetByIdAsync(int id) => Task.FromResult(_credito);
         public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando)
         {
+            if (ConfigurarThrows != null) throw ConfigurarThrows;
             LastCommand = comando;
             return Task.CompletedTask;
         }
