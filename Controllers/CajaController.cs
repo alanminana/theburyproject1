@@ -462,16 +462,18 @@ namespace TheBuryProject.Controllers
                     : RedirectToAction(nameof(Index));
             }
 
-            if (!ModelState.IsValid)
-            {
-                await TryPopulateMovimientoContextAsync(model);
-                return View("RegistrarMovimiento_tw", model);
-            }
-
+            // FIN-S-006: se autoriza ANTES de cargar o renderizar nada de la apertura; con el modelo inválido el
+            // formulario mostraría igualmente el nombre y el saldo de una caja ajena.
             if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
             {
                 TempData["Error"] = MensajeSinPermisoOperarCaja;
                 return RedirectToAction(nameof(Index));
+            }
+
+            if (!ModelState.IsValid)
+            {
+                await TryPopulateMovimientoContextAsync(model);
+                return View("RegistrarMovimiento_tw", model);
             }
 
             try
@@ -600,17 +602,19 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "close")]
         public async Task<IActionResult> Cerrar(CerrarCajaViewModel model, string? returnUrl = null)
         {
+            // FIN-S-006: se autoriza ANTES de cargar o renderizar nada de la apertura; con el modelo inválido el
+            // formulario mostraría igualmente fondo inicial, ingresos, egresos y efectivo esperado de una caja ajena.
+            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
             if (!ModelState.IsValid)
             {
                 await TryPopulateCerrarModelAsync(model);
                 ViewBag.ReturnUrl = returnUrl;
                 return View("Cerrar_tw", model);
-            }
-
-            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
-            {
-                TempData["Error"] = MensajeSinPermisoOperarCaja;
-                return RedirectToAction(nameof(Index));
             }
 
             try

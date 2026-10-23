@@ -964,6 +964,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public const string CajaEditPermsUserId = "test-caja-edit-perms-id";
     public const string CajaEditOtroPermsUserId = "test-caja-edit-otro-perms-id";
 
+    public const string CajaCierrePermsUserId = "test-caja-cierre-perms-id";
+
+    /// <summary>Cajero con caja.close/movements (FIN-S-006: POST con modelo inválido). Sin padrón: lo agrega cada test.</summary>
+    public Task SeedUserWithCajaCierrePermissionAsync(string userId = CajaCierrePermsUserId) =>
+        SeedPermissionUserAsync(
+            userId,
+            "role-" + userId,
+            "TestCajaCierre" + userId.GetHashCode().ToString("X"),
+            9970 + (Math.Abs(userId.GetHashCode()) % 20) * 10 + 5,
+            "caja.close",
+            "caja.movements",
+            "caja.view");
+
     public Task SeedUserWithCajaEditPermissionAsync(string userId = CajaEditPermsUserId) =>
         SeedPermissionUserAsync(
             userId,
