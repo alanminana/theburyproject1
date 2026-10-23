@@ -89,6 +89,13 @@ No ejecutar la suite completa salvo pre-merge, cierre de fase o pedido explícit
 
 Si un comando queda colgado, detenerlo, diagnosticar y no repetirlo indefinidamente. Cerrar únicamente procesos iniciados por la ejecución actual.
 
+## Revisión independiente (Claude ↔ Codex)
+
+- Claude es el único agente que escribe en un worktree; Codex revisa en solo lectura. Procedimiento, umbrales y registro: `.claude/skills/codex-review-protocolo/SKILL.md`.
+- Si actuás como revisor: no modifiques archivos. Reportá solo hallazgos materiales, con severidad, archivo:línea y evidencia (código leído, no suposiciones).
+- Prioridad en este repo: permisos/autorización, dinero (Caja, Crédito, Venta, cuotas, mora), transacciones/concurrencia/idempotencia, migraciones EF, hubs SignalR y contratos Razor/JS (ids, data-*).
+- No marques estilo ni refactors fuera de alcance, ni repitas hallazgos ya resueltos que figuren en el pedido.
+
 ## Git
 
 - No usar `git add -A` ni `git add --all`.
