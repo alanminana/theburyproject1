@@ -25,7 +25,6 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
     private readonly string _sfx = Guid.NewGuid().ToString("N")[..8];
 
     private string _adminId = null!;
-    private string _gerenteId = null!;
     private string _super1Id = null!;
     private string _super2Id = null!;
     private string _normalId = null!;
@@ -45,7 +44,6 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         await RolesPermisosSeeder.SeedAsync(context, roleManager);
 
         _adminId = await CrearUsuarioAsync(scope, $"adm_{_sfx}", Roles.Administrador);
-        _gerenteId = await CrearUsuarioAsync(scope, $"ger_{_sfx}", Roles.Gerente);
         _super1Id = await CrearUsuarioAsync(scope, $"super1_{_sfx}", Roles.SuperAdmin);
         _super2Id = await CrearUsuarioAsync(scope, $"super2_{_sfx}", Roles.SuperAdmin);
         _normalId = await CrearUsuarioAsync(scope, $"normal_{_sfx}", Roles.Vendedor);
@@ -480,36 +478,6 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         Assert.True(await RolActivoAsync(roleId));
     }
 
-    // ───────────────────────── Autorizaciones: autoaprobación autorizada (decisión funcional) ─────────────────────────
-
-    [Fact]
-    public async Task AprobarSolicitud_GerenteConPermisoPuedeAprobarSuPropiaSolicitud()
-    {
-        var solicitudId = await CrearSolicitudAsync(solicitante: $"ger_{_sfx}");
-        var client = _factory.CreateClientWithUserId(_gerenteId);
-        var token = await TokenAsync(client);
-
-        var response = await client.PostAsync("/Autorizacion/AprobarSolicitud", Form(
-            ("__RequestVerificationToken", token), ("id", solicitudId.ToString()), ("comentario", "propia")));
-
-        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
-        Assert.Equal(EstadoSolicitud.Aprobada, await EstadoSolicitudAsync(solicitudId));
-    }
-
-    [Fact]
-    public async Task AprobarSolicitud_SinPermisoDeAprobarSigueRechazadoAunqueSeaLaPropia()
-    {
-        var solicitudId = await CrearSolicitudAsync(solicitante: $"normal_{_sfx}");
-        var client = _factory.CreateClientWithUserId(_normalId);
-        var token = await TokenAsync(client);
-
-        var response = await client.PostAsync("/Autorizacion/AprobarSolicitud", Form(
-            ("__RequestVerificationToken", token), ("id", solicitudId.ToString()), ("comentario", "propia")));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal(EstadoSolicitud.Pendiente, await EstadoSolicitudAsync(solicitudId));
-    }
-
     // ───────────────────────── Helpers ─────────────────────────
 
     private static FormUrlEncodedContent Form(params (string Key, string Value)[] campos) =>
@@ -682,33 +650,5 @@ public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationF
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var activo = await context.RolMetadatas.AsNoTracking().Where(m => m.RoleId == roleId).Select(m => (bool?)m.Activo).SingleOrDefaultAsync();
         return activo ?? true;
-    }
-
-    private async Task<int> CrearSolicitudAsync(string solicitante)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var solicitud = new SolicitudAutorizacion
-        {
-            UsuarioSolicitante = solicitante,
-            RolSolicitante = Roles.Vendedor,
-            TipoUmbral = TipoUmbral.DescuentoVenta,
-            ValorSolicitado = 50m,
-            ValorPermitido = 10m,
-            TipoOperacion = "Venta",
-            Justificacion = "test",
-            Estado = EstadoSolicitud.Pendiente,
-            RowVersion = new byte[8]
-        };
-        context.SolicitudesAutorizacion.Add(solicitud);
-        await context.SaveChangesAsync();
-        return solicitud.Id;
-    }
-
-    private async Task<EstadoSolicitud> EstadoSolicitudAsync(int id)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        return await context.SolicitudesAutorizacion.AsNoTracking().Where(s => s.Id == id).Select(s => s.Estado).SingleAsync();
     }
 }

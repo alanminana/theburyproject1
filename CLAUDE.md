@@ -19,6 +19,7 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 - `ui-responsive-protocolo`
 - `csharp-testing`
 - `security-review`
+- `codex-review-protocolo`
 
 `ui-module` es una skill manual (`disable-model-invocation`): Claude no la activa sola. `/ui-module <módulo>` es el pipeline completo de auditoría UX/UI, implementación, QA visual y polish de una pantalla existente (ver "UX/UI especializado").
 
