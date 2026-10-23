@@ -40,7 +40,10 @@ file sealed class StubCurrentUserService : ICurrentUserService
     public bool IsAuthenticated() => true;
     public string? GetEmail() => "test@test.com";
     public bool IsInRole(string role) => false;
-    public bool HasPermission(string modulo, string accion) => false;
+    // DESCUENTO-PERMISO-01: estos tests ejercitan la mecánica de descuentos; el usuario de test tiene
+    // el permiso independiente ventas.discount (la política de autorización se prueba en
+    // VentaServiceDescuentoPermisoTests).
+    public bool HasPermission(string modulo, string accion) => modulo == "ventas" && accion == "discount";
     public string? GetIpAddress() => "127.0.0.1";
 }
 

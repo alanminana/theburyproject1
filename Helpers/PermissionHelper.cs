@@ -28,6 +28,15 @@ namespace TheBuryProject.Helpers
         }
 
         /// <summary>
+        /// Permiso independiente para ver y otorgar descuentos comerciales manuales
+        /// (<c>ventas.discount</c>). Lo usan vistas y controllers; el backend lo exige por su cuenta.
+        /// </summary>
+        public static bool PuedeAplicarDescuentos(this ClaimsPrincipal user)
+            => user.TienePermiso(
+                TheBuryProject.Models.Constants.VentaConstants.PermisoDescuento.Modulo,
+                TheBuryProject.Models.Constants.VentaConstants.PermisoDescuento.Accion);
+
+        /// <summary>
         /// Verifica si el usuario tiene cualquiera de los permisos especificados
         /// </summary>
         public static bool TieneCualquierPermiso(this ClaimsPrincipal user, params (string modulo, string accion)[] permisos)

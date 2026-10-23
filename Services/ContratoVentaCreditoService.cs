@@ -540,6 +540,8 @@ namespace TheBuryProject.Services
                     Numero = datos.Venta.Numero,
                     Fecha = datos.Venta.FechaVenta,
                     Total = datos.Venta.Total,
+                    ConDescuentos = datos.Venta.Descuento != 0m
+                        || datos.Venta.Detalles.Any(d => !d.IsDeleted && (d.Descuento != 0m || d.DescuentoGeneralProrrateado != 0m)),
                     Productos = datos.Venta.Detalles
                         .Where(d => !d.IsDeleted)
                         .OrderBy(d => d.Id)

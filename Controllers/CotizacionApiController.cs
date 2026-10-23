@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 
@@ -94,6 +97,9 @@ public sealed class CotizacionApiController : ControllerBase
         }
     }
 
+    private ObjectResult DescuentoSinPermiso() =>
+        StatusCode(StatusCodes.Status403Forbidden, new { error = VentaConstants.PermisoDescuento.MensajeSinPermiso });
+
     [HttpPost("simular")]
     public async Task<IActionResult> Simular(
         [FromBody] CotizacionSimulacionRequest? request,
@@ -104,6 +110,10 @@ public sealed class CotizacionApiController : ControllerBase
 
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+
+        // DESCUENTO-PERMISO-01: el simulador no devuelve descuentos que el usuario no puede otorgar.
+        if (request.TieneDescuentosManuales() && !User.PuedeAplicarDescuentos())
+            return DescuentoSinPermiso();
 
         try
         {
@@ -144,6 +154,10 @@ public sealed class CotizacionApiController : ControllerBase
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (DescuentoNoAutorizadoException)
+        {
+            return DescuentoSinPermiso();
         }
         catch (InvalidOperationException ex)
         {

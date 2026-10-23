@@ -14,14 +14,17 @@ namespace TheBuryProject.Controllers
         private readonly IContratoVentaCreditoService _contratoService;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<ContratoVentaCreditoController> _logger;
+        private readonly IDescuentoVisibilidadService _descuentoVisibilidad;
         private readonly IDocumentosEmitidosTracker? _tracker;
 
         public ContratoVentaCreditoController(
             IContratoVentaCreditoService contratoService,
             ICurrentUserService currentUser,
             ILogger<ContratoVentaCreditoController> logger,
+            IDescuentoVisibilidadService descuentoVisibilidad,
             IDocumentosEmitidosTracker? tracker = null)
         {
+            _descuentoVisibilidad = descuentoVisibilidad;
             _tracker = tracker;
             _contratoService = contratoService;
             _currentUser = currentUser;
@@ -137,6 +140,13 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public async Task<IActionResult> Ver(int ventaId)
         {
+            // DESCUENTO-PERMISO-03: el contrato emitido se conserva intacto; no se entrega a quien no tiene
+            // ventas.discount cuando la venta tiene descuentos comerciales.
+            if (await _descuentoVisibilidad.DebeDenegarVentaAsync(ventaId))
+            {
+                return Forbid();
+            }
+
             var archivo = await _contratoService.ObtenerPdfAsync(ventaId);
             if (archivo == null)
             {

@@ -74,7 +74,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
             null!,   // IVentaValidator — no usado
             null!,   // VentaNumberGenerator — no usado
             null!,   // IPrecioVigenteResolver — no usado
-            null!,   // ICurrentUserService — no usado
+            PermisosCurrentUserService.SinDescuentos(),   // ICurrentUserService — el preview consulta ventas.discount
             null!,   // IValidacionVentaService — no usado
             null!,   // ICajaService — no usado
             null!,   // ICreditoDisponibleService — no usado

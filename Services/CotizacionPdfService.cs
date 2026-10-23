@@ -20,7 +20,9 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
     private static readonly string ColorRojo = "#DC2626";
     private static readonly string ColorGrisMedio = "#6B7280";
 
-    public byte[] Generar(CotizacionResultado cotizacion)
+    public byte[] Generar(CotizacionResultado cotizacion) => Generar(cotizacion, incluirDescuentos: true);
+
+    public byte[] Generar(CotizacionResultado cotizacion, bool incluirDescuentos)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -38,9 +40,9 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                 {
                     col.Spacing(12);
                     col.Item().Element(c => RenderSectionGrid(c, cotizacion));
-                    col.Item().Element(c => RenderTablaProductos(c, cotizacion));
+                    col.Item().Element(c => RenderTablaProductos(c, cotizacion, incluirDescuentos));
                     RenderAjustePago(col, cotizacion);
-                    col.Item().Element(c => RenderTotales(c, cotizacion));
+                    col.Item().Element(c => RenderTotales(c, cotizacion, incluirDescuentos));
                     if (!string.IsNullOrWhiteSpace(cotizacion.Observaciones))
                         col.Item().Element(c => RenderObservaciones(c, cotizacion.Observaciones!));
                     col.Item().Element(RenderDisclaimer);
@@ -165,9 +167,9 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
         });
     }
 
-    private static void RenderTablaProductos(IContainer container, CotizacionResultado cotizacion)
+    private static void RenderTablaProductos(IContainer container, CotizacionResultado cotizacion, bool incluirDescuentos)
     {
-        var tieneDescuento = cotizacion.Detalles.Any(d =>
+        var tieneDescuento = incluirDescuentos && cotizacion.Detalles.Any(d =>
             d.DescuentoPorcentajeSnapshot.HasValue || d.DescuentoImporteSnapshot.HasValue);
 
         container.Table(table =>
@@ -301,13 +303,15 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
         });
     }
 
-    private static void RenderTotales(IContainer container, CotizacionResultado cotizacion)
+    private static void RenderTotales(IContainer container, CotizacionResultado cotizacion, bool incluirDescuentos)
     {
         container.AlignRight().Border(1).BorderColor(ColorNegro).Width(220).Column(col =>
         {
-            FilaTotales(col, "Subtotal", cotizacion.Subtotal.ToString("C2", CulturaMonetaria), false);
+            // Sin ventas.discount el subtotal va neto del descuento manual: el documento concilia sin exponerlo.
+            var subtotalMostrado = incluirDescuentos ? cotizacion.Subtotal : cotizacion.Subtotal - cotizacion.DescuentoTotal;
+            FilaTotales(col, "Subtotal", subtotalMostrado.ToString("C2", CulturaMonetaria), false);
 
-            if (cotizacion.DescuentoTotal != 0)
+            if (incluirDescuentos && cotizacion.DescuentoTotal != 0)
                 FilaTotales(col, "Descuento total", cotizacion.DescuentoTotal.ToString("C2", CulturaMonetaria), false);
 
             // Modelo nuevo: armados y envío están dentro del total base (y del recargo del plan).

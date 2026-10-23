@@ -2,8 +2,10 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 
@@ -15,15 +17,18 @@ public sealed class CotizacionService : ICotizacionService
 
     private readonly AppDbContext _context;
     private readonly ICotizacionPagoCalculator _calculator;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<CotizacionService> _logger;
 
     public CotizacionService(
         AppDbContext context,
         ICotizacionPagoCalculator calculator,
+        ICurrentUserService currentUserService,
         ILogger<CotizacionService> logger)
     {
         _context = context;
         _calculator = calculator;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -37,6 +42,19 @@ public sealed class CotizacionService : ICotizacionService
 
         if (request.Simulacion.Productos.Count == 0)
             throw new InvalidOperationException("Debe agregar al menos un producto para guardar la cotizacion.");
+
+        // DESCUENTO-PERMISO-01: una cotización con descuento manual termina convirtiéndose en una
+        // venta con descuento; sin ventas.discount no puede ser el atajo para otorgarlo.
+        if (request.Simulacion.TieneDescuentosManuales()
+            && !_currentUserService.HasPermission(
+                VentaConstants.PermisoDescuento.Modulo, VentaConstants.PermisoDescuento.Accion))
+        {
+            _logger.LogWarning(
+                "Cotización con descuentos rechazada: falta el permiso {Permiso}. Usuario:{Usuario}",
+                VentaConstants.PermisoDescuento.Claim,
+                _currentUserService.GetUsername());
+            throw new DescuentoNoAutorizadoException(VentaConstants.PermisoDescuento.MensajeSinPermiso);
+        }
 
         if (request.Simulacion.ClienteId.HasValue)
         {

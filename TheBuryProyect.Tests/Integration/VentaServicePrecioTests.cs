@@ -69,7 +69,10 @@ file sealed class StubCurrentUserServiceP : ICurrentUserService
     public bool IsAuthenticated() => true;
     public string? GetEmail() => "test@test.com";
     public bool IsInRole(string role) => false;
-    public bool HasPermission(string modulo, string accion) => false;
+    // DESCUENTO-PERMISO-01: estos tests ejercitan la mecánica de descuentos; el usuario de test tiene
+    // el permiso independiente ventas.discount (la política de autorización se prueba en
+    // VentaServiceDescuentoPermisoTests).
+    public bool HasPermission(string modulo, string accion) => modulo == "ventas" && accion == "discount";
     public string? GetIpAddress() => "127.0.0.1";
 }
 
@@ -913,8 +916,11 @@ public class VentaServicePrecioTests
         }
     }
 
+    // FIN-R2: antes este test fijaba el recorte silencioso (Descuento=200 sobre subtotal 100 → Total 0 y
+    // Descuento=200 persistido). Un descuento general mayor al subtotal ahora se rechaza en el servidor;
+    // el descuento igual al subtotal sigue siendo válido y deja Total 0.
     [Fact]
-    public async Task CreateAsync_DescuentoGeneralMayorAlTotal_LimitaTotalACero()
+    public async Task CreateAsync_DescuentoGeneralMayorAlTotal_RechazaYNoPersiste()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -928,11 +934,34 @@ public class VentaServicePrecioTests
             model.Descuento = 200m;
             var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
+            await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateAsync(model));
+
+            Assert.Empty(await ctx.Ventas.AsNoTracking().ToListAsync());
+            Assert.Empty(await ctx.VentaDetalles.AsNoTracking().ToListAsync());
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_DescuentoGeneralIgualAlTotal_DejaTotalEnCero()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.PrecioVenta = 100m;
+            producto.PorcentajeIVA = 0m;
+            await ctx.SaveChangesAsync();
+
+            var model = BuildViewModel(cliente.Id, producto.Id);
+            model.Descuento = 100m;
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
+
             await svc.CreateAsync(model);
 
             var venta = await ctx.Ventas.AsNoTracking().SingleAsync();
             var detalle = await ctx.VentaDetalles.AsNoTracking().SingleAsync(d => !d.IsDeleted);
 
+            Assert.Equal(100m, venta.Descuento);
             Assert.Equal(100m, detalle.DescuentoGeneralProrrateado);
             Assert.Equal(0m, detalle.SubtotalFinal);
             Assert.Equal(0m, venta.Total);

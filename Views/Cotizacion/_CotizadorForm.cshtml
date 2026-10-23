@@ -57,6 +57,11 @@
 @{
     ViewData["TiposFactura"] = TheBuryProject.Helpers.TipoFacturaEmision.CrearSelectList(TipoFactura.B);
 
+    // DESCUENTO-PERMISO-01: sin ventas.discount no se renderizan descuentos generales ni por línea
+    // ni su total; la cotización con descuento termina convertida en venta con descuento, así que
+    // el servidor (CotizacionApiController/CotizacionService) también lo exige.
+    var puedeDescuentos = User.PuedeAplicarDescuentos();
+
     // VENTA-SERVICIOS-01: precios globales de envío (Ciudad/Rural) y armados N.º 1..6. Sólo los activos
     // se ofrecen; el importe real lo resuelve el servidor al simular y al guardar (nunca el navegador).
     var serviciosVenta = (await ServiciosVentaSvc.ListarAsync()).Where(s => s.Activo).ToList();
@@ -83,7 +88,8 @@
      data-aptitud-credito-url="@Url.Content("~/api/cotizacion/aptitud-credito")" data-caja-url="@Url.Content("~/Caja")"
      data-puede-excepcion-documental="@User.TienePermiso("ventas", "authorize").ToString().ToLowerInvariant()"
      data-puede-confirmar-venta="@User.TienePermiso("ventas", "update").ToString().ToLowerInvariant()"
-     data-puede-facturar="@User.TienePermiso("ventas", "invoice").ToString().ToLowerInvariant()">
+     data-puede-facturar="@User.TienePermiso("ventas", "invoice").ToString().ToLowerInvariant()"
+     data-puede-descuentos="@puedeDescuentos.ToString().ToLowerInvariant()">
 
     <!-- ============================ TOP BAR ============================ -->
     @* §19: barra contextual liviana, un solo renglón — no un segundo hero. El
@@ -342,6 +348,8 @@
                            50/50 a una fila flex con ancho proporcional al tipo de dato (ver
                            .cond-pair en cotizacion-simulador.css) — mismos ids, bindings y
                            validaciones, sólo ancho. *@
+                                            @if (puedeDescuentos)
+                                            {
                                             <div class="cond-grid__full cond-pair cond-pair--descuento">
                                                 <div class="cond-pair__a">
                                                     <label for="cotizacion-descuento-gral-pct" class="label">Descuento %</label>
@@ -362,6 +370,7 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                            }
                                             <div class="cond-grid__full cond-pair cond-pair--anticipo">
                                                 @* Anticipo conserva su bloque propio (id/data-anticipo-activo) para que
                                actualizarPrioridadAnticipo() en cotizacion-simulador.js lo siga atenuando
@@ -394,11 +403,14 @@
                            guardarModalEnvio() en cotizacion-simulador.js. Si el usuario cancela
                            sin haber guardado nunca una configuración válida, el checkbox vuelve
                            a OFF (comportamiento pedido explícitamente). *@
+                                            @if (puedeDescuentos)
+                                            {
                                             <div data-descuentos-ambos class="cond-grid__full hidden note-amber">
                                                 <span class="material-symbols-outlined shrink-0"
                                                       style="font-size:14px">warning</span>
                                                 Se sumarán ambos descuentos.
                                             </div>
+                                            }
                                         </div>
                                     </details>
                                     @* "Facturar al confirmar" vive FUERA del desplegable de Condiciones para
@@ -453,6 +465,8 @@
                                     <div class="seg-label">Subtotal</div>
                                     <div id="cotizacion-subtotal" class="seg-value text-white total-display">—</div>
                                 </div>
+                                @if (puedeDescuentos)
+                                {
                                 <div class="seg">
                                     <div class="seg-label">Descuento</div>
                                     @* Neutral por defecto: sólo pasa a verde cuando hay descuento real
@@ -460,6 +474,7 @@
                            verde no comunica nada. *@
                                     <div id="cotizacion-descuento" class="seg-value text-white total-display">—</div>
                                 </div>
+                                }
                                 <div id="cotizacion-seg-total-base" class="seg">
                                     <div id="cotizacion-total-base-label" class="seg-label">Total productos</div>
                                     <div id="cotizacion-total-base" class="seg-value text-white total-display">—</div>

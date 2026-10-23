@@ -9,6 +9,13 @@ namespace TheBuryProject.ViewModels.Requests
         [Required]
         public List<DetalleCalculoVentaRequest> Detalles { get; set; } = new();
 
+        /// <summary>
+        /// Venta en edición (opcional). Sin el permiso ventas.discount el servidor ignora los descuentos
+        /// que envíe el cliente y usa los persistidos de esta venta (por producto, en orden), para que el
+        /// preview coincida con lo que guarda Edit sin exponer el desglose.
+        /// </summary>
+        public int? VentaId { get; set; }
+
         public decimal DescuentoGeneral { get; set; }
 
         public bool DescuentoEsPorcentaje { get; set; }
@@ -26,6 +33,12 @@ namespace TheBuryProject.ViewModels.Requests
     public class DetalleCalculoVentaRequest
     {
         public int ProductoId { get; set; }
+
+        /// <summary>
+        /// Id de la línea persistida de la venta en edición (opcional). Sin ventas.discount permite al servidor
+        /// emparejar exactamente cada línea con su descuento persistido, aun con el mismo producto repetido.
+        /// </summary>
+        public int? LineaId { get; set; }
 
         [Range(0, double.MaxValue)]
         public decimal Cantidad { get; set; }

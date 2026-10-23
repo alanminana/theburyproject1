@@ -1762,7 +1762,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
 
-        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
@@ -1779,7 +1779,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
 
-        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
@@ -1799,7 +1799,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
 
-        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
@@ -1987,6 +1987,79 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
     private static CotizacionConversionRequest RequestDefault() =>
         new() { UsarPrecioCotizado = true, ConfirmarAdvertencias = false };
+
+    // DESCUENTO-PERMISO-01: convertir una cotización con descuento manual requiere ventas.discount.
+    private CotizacionConversionService ServicioConPermisoDescuento() =>
+        BuildService(
+            new ValidacionVentaResult { NoViable = false, RequiereAutorizacion = false },
+            PermisosCurrentUserService.ConDescuentos());
+
+    private CotizacionConversionService ServicioSinPermisoDescuento() =>
+        BuildService(
+            new ValidacionVentaResult { NoViable = false, RequiereAutorizacion = false },
+            PermisosCurrentUserService.SinDescuentos());
+
+    [Theory]
+    [InlineData(null, 10)]   // solo importe (el que viaja a VentaDetalle.Descuento)
+    [InlineData(10, null)]   // solo porcentaje (snapshot): igual es una cotización con descuento
+    [InlineData(10, 15)]
+    public async Task Convertir_CotizacionConDescuentoManual_SinPermisoDescuento_EsRechazadaYNoCreaVenta(
+        int? porcentaje, int? importe)
+    {
+        var cotizacion = CotizacionEmitidaConDescuento(
+            conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: porcentaje, descuentoImporte: importe);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+        var ventasAntes = await _context.Ventas.IgnoreQueryFilters().CountAsync();
+
+        var resultado = await ServicioSinPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.False(resultado.Exitoso);
+        Assert.Contains(resultado.Errores, e => e.Contains("Aplicar descuentos"));
+        Assert.Equal(ventasAntes, await _context.Ventas.IgnoreQueryFilters().CountAsync());
+        Assert.Equal(EstadoCotizacion.Emitida, (await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == cotizacion.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Convertir_CotizacionSinDescuento_SinPermisoDescuento_SigueConvirtiendo()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await ServicioSinPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+    }
+
+    [Fact]
+    public async Task Preflight_CotizacionConDescuentoManual_SinPermisoDescuento_Bloquea()
+    {
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoImporte: 10m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var sinDescuento = new PermisosCurrentUserService("ventas.update", "ventas.invoice");
+        var resultado = await BuildServiceParaPreflight(sinDescuento, AperturaAbierta())
+            .PreflightConversionAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.False(resultado.Listo);
+        Assert.Contains(resultado.Bloqueos, b => b.Codigo == "sin_permiso_descuento");
+    }
+
+    [Fact]
+    public async Task Preflight_CotizacionConDescuentoManual_ConPermisoDescuento_NoBloqueaPorDescuento()
+    {
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoImporte: 10m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var conDescuento = new PermisosCurrentUserService("ventas.update", "ventas.invoice", "ventas.discount");
+        var resultado = await BuildServiceParaPreflight(conDescuento, AperturaAbierta())
+            .PreflightConversionAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.DoesNotContain(resultado.Bloqueos, b => b.Codigo == "sin_permiso_descuento");
+    }
 
     // ─── PREFLIGHT TESTS (COTIZACION-MIVENTA-02) ────────────────────────────
 

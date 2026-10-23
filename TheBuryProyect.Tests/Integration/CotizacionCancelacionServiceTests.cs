@@ -29,7 +29,7 @@ public sealed class CotizacionCancelacionServiceTests : IDisposable
         _context.Database.EnsureCreated();
 
         var stub = new StubCalculator();
-        _service = new CotizacionService(_context, stub, NullLogger<CotizacionService>.Instance);
+        _service = new CotizacionService(_context, stub, PermisosCurrentUserService.SinDescuentos(), NullLogger<CotizacionService>.Instance);
     }
 
     // ── CASOS EXITOSOS ────────────────────────────────────────────────────

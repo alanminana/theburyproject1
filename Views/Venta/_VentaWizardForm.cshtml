@@ -24,6 +24,10 @@
     // Personal (ConfirmarYFacturar no factura crédito personal en un paso); esa parte
     // reacciona en vivo al medio de pago vía venta-page-wizard.js.
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
+    // DESCUENTO-PERMISO-01: sin ventas.discount no se renderizan los controles ni el desglose de
+    // descuentos, y el estado inicial del navegador no recibe los porcentajes persistidos. Es sólo
+    // presentación: el servidor decide con el usuario autenticado (VentaService).
+    var puedeDescuentos = User.PuedeAplicarDescuentos();
     var clientes = ViewBag.Clientes as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var productos = ViewBag.Productos as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var tiposPago = ViewBag.TiposPago as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>;
@@ -90,12 +94,15 @@
                 },
             detalles = Model.Detalles.Select(d => new
             {
+                // Id de la línea persistida: permite al servidor emparejar cada línea con su descuento sin
+                // permiso (DESCUENTO-PERMISO-01) aun con el mismo producto repetido.
+                lineaId = d.Id > 0 ? d.Id : (int?)null,
                 productoId = d.ProductoId,
                 codigo = d.ProductoCodigo ?? string.Empty,
                 nombre = d.ProductoNombre ?? string.Empty,
                 cantidad = d.Cantidad,
                 precioUnitario = d.PrecioUnitario,
-                descuento = d.Descuento,
+                descuento = puedeDescuentos ? d.Descuento : 0m,
                 subtotal = d.Subtotal,
                 stock = d.StockDisponible,
                 requiereNumeroSerie = d.RequiereNumeroSerie,
@@ -202,6 +209,7 @@
     <p id="wizard-feedback" class="hidden mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-200" role="alert" aria-live="assertive"></p>
 
     <form id="venta-form" asp-action="@formAction" method="post"
+          data-puede-descuentos="@puedeDescuentos.ToString().ToLowerInvariant()"
           data-credito-configurado="@Model.CreditoConfigurado.ToString().ToLowerInvariant()"
           data-excepcion-documental-registrada="@Model.TieneExcepcionDocumentalRegistrada.ToString().ToLowerInvariant()"
           data-excepcion-documental-motivo="@Model.MotivoExcepcionDocumental">
@@ -629,12 +637,15 @@
                                                             <div id="advertencia-stock-sin-identificar"
                                                                  class="hidden col-span-2 md:col-span-5 items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
                                                             </div>
-                                                            <div>
-                                                                <label for="txt-descuento-item" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
-                                                                    %<span class="sr-only"> (descuento del producto)</span></label>
-                                                                    <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
-                                                                           class="venta-input" />
-                                                                </div>
+                                                            @if (puedeDescuentos)
+                                                            {
+                                                                <div>
+                                                                    <label for="txt-descuento-item" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
+                                                                        %<span class="sr-only"> (descuento del producto)</span></label>
+                                                                        <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
+                                                                               class="venta-input" />
+                                                                    </div>
+                                                            }
                                                                 <div class="flex items-end">
                                                                     <button type="button" id="btn-agregar-producto"
                                                                             class="w-full py-2.5 bg-primary text-white rounded-lg flex items-center justify-center gap-1 font-bold text-sm hover:bg-primary/90 transition-colors">
@@ -647,7 +658,7 @@
                                                         @* Tabla de detalles *@
                                                         <div id="venta-detalles-scroll" data-oc-scroll class="venta-scroll-medium">
                                                             <p data-oc-scroll-hint hidden class="mb-3 text-xs font-medium text-slate-400 lg:hidden">
-                                                                Deslizá la tabla para revisar cantidades, descuentos y subtotales completos.
+                                                                Deslizá la tabla para revisar @(puedeDescuentos ? "cantidades, descuentos y subtotales" : "cantidades y subtotales") completos.
                                                             </p>
                                                             <div data-oc-scroll-shell>
                                                                 <div data-oc-scroll-fade="left" hidden></div>
@@ -667,9 +678,12 @@
                                                                                             <th
                                                                                                 class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">
                                                                                                 Unitario</th>
+                                                                                                @if (puedeDescuentos)
+                                                                                                {
                                                                                                 <th
                                                                                                     class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">
                                                                                                     Desc.</th>
+                                                                                                }
                                                                                                     <th
                                                                                                         class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">
                                                                                                         Subtotal</th>
@@ -1407,10 +1421,13 @@
                                                                                                                         <span class="text-slate-400">Subtotal</span>
                                                                                                                         <span data-rev-subtotal class="font-semibold text-slate-200">$0,00</span>
                                                                                                                     </div>
+                                                                                                                    @if (puedeDescuentos)
+                                                                                                                    {
                                                                                                                     <div class="mt-2 flex justify-between text-sm">
                                                                                                                         <span class="text-slate-400">Descuento</span>
                                                                                                                         <span data-rev-descuento class="font-semibold text-slate-200">-$0,00</span>
                                                                                                                     </div>
+                                                                                                                    }
                                                                                                                     <div class="mt-2 flex justify-between text-sm">
                                                                                                                         <span class="text-slate-400">IVA</span>
                                                                                                                         <span data-rev-iva class="font-semibold text-slate-200">$0,00</span>
@@ -1556,7 +1573,15 @@
                                                                                                 <span id="total-iva" data-side-iva>$0,00</span>
                                                                                                 <span id="total-final" data-side-total>$0,00</span>
                                                                                                 <input type="hidden" asp-for="Subtotal" id="hdn-subtotal" />
-                                                                                                <input type="hidden" asp-for="Descuento" id="hdn-descuento" />
+                                                                                                @if (puedeDescuentos)
+                                                                                                {
+                                                                                                    <input type="hidden" asp-for="Descuento" id="hdn-descuento" />
+                                                                                                }
+                                                                                                else
+                                                                                                {
+                                                                                                    @* Sin ventas.discount el descuento general persistido no se vuelca al HTML: el servidor lo conserva. *@
+                                                                                                    <input type="hidden" name="Descuento" id="hdn-descuento" value="0" />
+                                                                                                }
                                                                                                 <input type="hidden" asp-for="IVA" id="hdn-iva" />
                                                                                                 <input type="hidden" asp-for="Total" id="hdn-total" />
                                                                                             </div>

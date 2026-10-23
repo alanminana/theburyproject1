@@ -1048,7 +1048,7 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Exportación Excel
-        public async Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro)
+        public async Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro, bool incluirDescuentos)
         {
             try
             {
@@ -1057,22 +1057,24 @@ namespace TheBuryProject.Services
                 using var workbook = new XLWorkbook();
                 var worksheet = workbook.Worksheets.Add("Ventas");
 
-                // Encabezados
-                worksheet.Cell(1, 1).Value = "Nº Venta";
-                worksheet.Cell(1, 2).Value = "Fecha";
-                worksheet.Cell(1, 3).Value = "Cliente";
-                worksheet.Cell(1, 4).Value = "Vendedor";
-                worksheet.Cell(1, 5).Value = "Tipo Pago";
-                worksheet.Cell(1, 6).Value = "Subtotal Neto";
-                worksheet.Cell(1, 7).Value = "Descuento ($)";
-                worksheet.Cell(1, 8).Value = "IVA";
-                worksheet.Cell(1, 9).Value = "Recargo débito";
-                worksheet.Cell(1, 10).Value = "Total";
-                worksheet.Cell(1, 11).Value = "Ganancia";
-                worksheet.Cell(1, 12).Value = "Margen %";
+                // Sin ventas.discount no se expone el descuento comercial: se omite su columna. Venta.Subtotal ya es
+                // neto de descuentos (Subtotal + IVA = Total), así que no se resta nada más: restarlo dejaba
+                // Total − (Subtotal + IVA) = importe exacto del descuento.
+                var encabezados = new List<string> { "Nº Venta", "Fecha", "Cliente", "Vendedor", "Tipo Pago", "Subtotal Neto" };
+                if (incluirDescuentos) encabezados.Add("Descuento ($)");
+                encabezados.AddRange(new[] { "IVA", "Recargo débito", "Total", "Ganancia", "Margen %" });
+                for (var i = 0; i < encabezados.Count; i++)
+                    worksheet.Cell(1, i + 1).Value = encabezados[i];
+
+                var ultimaColumna = encabezados.Count;
+                var colIva = incluirDescuentos ? 8 : 7;
+                var colRecargo = colIva + 1;
+                var colTotal = colIva + 2;
+                var colGanancia = colIva + 3;
+                var colMargen = colIva + 4;
 
                 // Estilo de encabezados
-                var headerRange = worksheet.Range("A1:L1");
+                var headerRange = worksheet.Range(1, 1, 1, ultimaColumna);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
 
@@ -1086,12 +1088,12 @@ namespace TheBuryProject.Services
                     worksheet.Cell(row, 4).Value = venta.VendedorNombre;
                     worksheet.Cell(row, 5).Value = venta.TipoPagoDescripcion;
                     worksheet.Cell(row, 6).Value = venta.Subtotal;
-                    worksheet.Cell(row, 7).Value = venta.Descuento;
-                    worksheet.Cell(row, 8).Value = venta.IVA;
-                    worksheet.Cell(row, 9).Value = venta.RecargoDebitoAplicado;
-                    worksheet.Cell(row, 10).Value = venta.Total;
-                    worksheet.Cell(row, 11).Value = venta.Ganancia;
-                    worksheet.Cell(row, 12).Value = venta.MargenPorcentaje;
+                    if (incluirDescuentos) worksheet.Cell(row, 7).Value = venta.Descuento;
+                    worksheet.Cell(row, colIva).Value = venta.IVA;
+                    worksheet.Cell(row, colRecargo).Value = venta.RecargoDebitoAplicado;
+                    worksheet.Cell(row, colTotal).Value = venta.Total;
+                    worksheet.Cell(row, colGanancia).Value = venta.Ganancia;
+                    worksheet.Cell(row, colMargen).Value = venta.MargenPorcentaje;
                     row++;
                 }
 
@@ -1099,16 +1101,16 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, 5).Value = "TOTALES:";
                 worksheet.Cell(row, 5).Style.Font.Bold = true;
                 worksheet.Cell(row, 6).Value = reporte.Ventas.Sum(v => v.Subtotal);
-                worksheet.Cell(row, 7).Value = reporte.Ventas.Sum(v => v.Descuento);
-                worksheet.Cell(row, 8).Value = reporte.Ventas.Sum(v => v.IVA);
-                worksheet.Cell(row, 9).Value = reporte.TotalRecargoDebito;
-                worksheet.Cell(row, 10).Value = reporte.TotalVentas;
-                worksheet.Cell(row, 11).Value = reporte.TotalGanancia;
-                worksheet.Cell(row, 12).Value = reporte.MargenPromedio;
+                if (incluirDescuentos) worksheet.Cell(row, 7).Value = reporte.Ventas.Sum(v => v.Descuento);
+                worksheet.Cell(row, colIva).Value = reporte.Ventas.Sum(v => v.IVA);
+                worksheet.Cell(row, colRecargo).Value = reporte.TotalRecargoDebito;
+                worksheet.Cell(row, colTotal).Value = reporte.TotalVentas;
+                worksheet.Cell(row, colGanancia).Value = reporte.TotalGanancia;
+                worksheet.Cell(row, colMargen).Value = reporte.MargenPromedio;
 
                 // Formatear columnas monetarias y porcentuales
-                worksheet.Range($"F2:K{row}").Style.NumberFormat.Format = "$#,##0.00";  // Subtotal neto, Descuento, IVA, Recargo, Total, Ganancia
-                worksheet.Range($"L2:L{row}").Style.NumberFormat.Format = "0.00";        // Margen %
+                worksheet.Range(2, 6, row, colGanancia).Style.NumberFormat.Format = "$#,##0.00";  // Subtotal neto, [Descuento], IVA, Recargo, Total, Ganancia
+                worksheet.Range(2, colMargen, row, colMargen).Style.NumberFormat.Format = "0.00";  // Margen %
 
                 // Ajustar ancho de columnas
                 worksheet.Columns().AdjustToContents();

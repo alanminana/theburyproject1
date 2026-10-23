@@ -1,5 +1,6 @@
 @using TheBuryProject.Models.Enums
 @model CreditoDetalleViewModel
+@inject TheBuryProject.Services.Interfaces.IDescuentoVisibilidadService DescuentoVisibilidad
 @{
     ViewData["Title"] = "Detalle de Crédito";
 
@@ -436,7 +437,10 @@
                                 <div class="text-sm text-white">Contrato @contratoVentaCredito.NumeroContrato</div>
                                 <div class="text-xs muted-2">Pagaré @contratoVentaCredito.NumeroPagare · @contratoVentaCredito.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
                             </div>
-                            <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@contratoVentaCredito.VentaId" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" aria-label="Ver contrato"><span class="material-symbols-outlined">open_in_new</span></a>
+                            @if (!await DescuentoVisibilidad.DebeDenegarVentaAsync(contratoVentaCredito.VentaId))
+                            {
+                                <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@contratoVentaCredito.VentaId" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" aria-label="Ver contrato"><span class="material-symbols-outlined">open_in_new</span></a>
+                            }
                         </div>
                         <dl class="kv mt-3">
                             <div class="kv-row"><dt>Estado documento</dt><dd>@contratoVentaCredito.EstadoDocumento</dd></div>

@@ -92,6 +92,65 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.Equal(1_210m, productos[0].GetProperty("Subtotal").GetDecimal());
     }
 
+    private sealed class UsuarioSinDescuentoContratoStub : TheBuryProject.Services.Interfaces.ICurrentUserService
+    {
+        public string GetUsername() => "sin.descuento";
+        public string GetUserId() => "sin-descuento-id";
+        public bool IsAuthenticated() => true;
+        public string? GetEmail() => null;
+        public bool IsInRole(string role) => false;
+        public bool HasPermission(string modulo, string accion) => false;
+        public string? GetIpAddress() => null;
+    }
+
+    [Fact]
+    public async Task GenerarAsync_SoloDescuentoGeneral_MarcaElSnapshot_YElContratoSigueDenegadoAlQuitarloDeLaVenta()
+    {
+        // Hallazgo de la revisión adversarial de #99: el snapshot guardaba el descuento por línea pero no el general,
+        // así que un contrato con SOLO descuento general quedaba entregable al quitar el descuento de la venta.
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_089m)
+        }, total: 1_089m, descuento: 121m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        using var snapshot = System.Text.Json.JsonDocument.Parse(contrato.DatosSnapshotJson);
+        Assert.True(snapshot.RootElement.GetProperty("Venta").GetProperty("ConDescuentos").GetBoolean());
+        Assert.True(TheBuryProject.Services.DescuentoVisibilidadService.SnapshotContratoTieneDescuentos(contrato.DatosSnapshotJson));
+
+        var sinPermiso = new TheBuryProject.Services.DescuentoVisibilidadService(_context, new UsuarioSinDescuentoContratoStub());
+        Assert.True(await sinPermiso.DebeDenegarVentaAsync(venta.Id));
+
+        // Se edita la venta (estados previos a la confirmación) y se quitan los descuentos.
+        var enBd = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == venta.Id);
+        enBd.Descuento = 0m;
+        foreach (var d in enBd.Detalles)
+        {
+            d.Descuento = 0m;
+            d.DescuentoGeneralProrrateado = 0m;
+        }
+        await _context.SaveChangesAsync();
+
+        Assert.True(await sinPermiso.DebeDenegarVentaAsync(venta.Id));
+    }
+
+    [Fact]
+    public async Task GenerarAsync_SinDescuentos_NoMarcaElSnapshot_YNoSeDeniega()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        using var snapshot = System.Text.Json.JsonDocument.Parse(contrato.DatosSnapshotJson);
+        Assert.False(snapshot.RootElement.GetProperty("Venta").GetProperty("ConDescuentos").GetBoolean());
+        var sinPermiso = new TheBuryProject.Services.DescuentoVisibilidadService(_context, new UsuarioSinDescuentoContratoStub());
+        Assert.False(await sinPermiso.DebeDenegarVentaAsync(venta.Id));
+    }
+
     [Fact]
     public async Task GenerarAsync_ConDescuentoGeneral_UsaSubtotalFinal()
     {

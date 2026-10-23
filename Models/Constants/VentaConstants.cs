@@ -20,6 +20,19 @@ namespace TheBuryProject.Models.Constants
             public const string GENERICO = "FA";
         }
 
+        /// <summary>
+        /// Permiso independiente para otorgar descuentos comerciales manuales (línea o general).
+        /// No lo implican ventas.create/update/invoice: debe asignarse explícitamente desde Seguridad.
+        /// </summary>
+        public static class PermisoDescuento
+        {
+            public const string Modulo = "ventas";
+            public const string Accion = "discount";
+            public const string Claim = "ventas.discount";
+            public const string MensajeSinPermiso =
+                "No tenés permiso para aplicar ni modificar descuentos en las ventas.";
+        }
+
         public static class ErrorMessages
         {
             public const string VENTA_NO_ENCONTRADA = "Venta no encontrada";

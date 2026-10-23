@@ -156,6 +156,7 @@ public sealed class CotizacionControllerPdfTests
     private sealed class StubPdfService : ICotizacionPdfService
     {
         public byte[] Generar(CotizacionResultado cotizacion) => [0x25, 0x50, 0x44, 0x46]; // "%PDF"
+        public byte[] Generar(CotizacionResultado cotizacion, bool incluirDescuentos) => Generar(cotizacion);
     }
 
     private sealed class StubCotizacionService : ICotizacionService

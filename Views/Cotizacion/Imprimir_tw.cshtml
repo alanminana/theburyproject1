@@ -6,6 +6,8 @@
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
     var titulo = $"Cotizacion {Model.Numero}";
     var totalMostrar = Model.TotalSeleccionado ?? Model.TotalBase;
+    // DESCUENTO-PERMISO-01: sin ventas.discount no se imprime el desglose de descuentos manuales.
+    var puedeDescuentos = User.PuedeAplicarDescuentos();
 }
 <!doctype html>
 <html lang="es">
@@ -355,7 +357,7 @@
                     <th>Codigo</th>
                     <th class="number">Cantidad</th>
                     <th class="number">Precio unit.</th>
-                    @if (Model.Detalles.Any(d => d.DescuentoPorcentajeSnapshot.HasValue || d.DescuentoImporteSnapshot.HasValue))
+                    @if (puedeDescuentos && Model.Detalles.Any(d => d.DescuentoPorcentajeSnapshot.HasValue || d.DescuentoImporteSnapshot.HasValue))
                     {
                         <th class="number">Descuento</th>
                     }
@@ -364,7 +366,7 @@
             </thead>
             <tbody>
                 @{
-                    var tieneDescuento = Model.Detalles.Any(d => d.DescuentoPorcentajeSnapshot.HasValue || d.DescuentoImporteSnapshot.HasValue);
+                    var tieneDescuento = puedeDescuentos && Model.Detalles.Any(d => d.DescuentoPorcentajeSnapshot.HasValue || d.DescuentoImporteSnapshot.HasValue);
                 }
                 @foreach (var item in Model.Detalles)
                 {
@@ -446,8 +448,8 @@
         }
 
         <section class="totals">
-            <div class="total-row"><span>Subtotal</span><strong>@Model.Subtotal.ToString("C2")</strong></div>
-            @if (Model.DescuentoTotal != 0)
+            <div class="total-row"><span>Subtotal</span><strong>@((puedeDescuentos ? Model.Subtotal : Model.Subtotal - Model.DescuentoTotal).ToString("C2"))</strong></div>
+            @if (puedeDescuentos && Model.DescuentoTotal != 0)
             {
                 <div class="total-row"><span>Descuento total</span><strong>@Model.DescuentoTotal.ToString("C2")</strong></div>
             }

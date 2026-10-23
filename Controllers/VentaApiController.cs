@@ -5,6 +5,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels.Responses;
@@ -230,6 +231,11 @@ namespace TheBuryProject.Controllers
                 }
 
                 return Ok(totales);
+            }
+            catch (DescuentoNoAutorizadoException ex)
+            {
+                _logger.LogWarning(ex, "Preview de totales rechazado: descuentos sin permiso ventas.discount");
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
