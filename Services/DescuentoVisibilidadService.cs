@@ -25,7 +25,8 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
     public async Task<bool> DebeDenegarVentaAsync(int ventaId)
         => !PuedeVerDescuentos
             && (await VentasConDescuentos(v => v.Id == ventaId).AnyAsync()
-                || await ContratoLegadoEmitidoConDescuentosAsync(ventaId));
+                || await ContratoLegadoEmitidoConDescuentosAsync(ventaId)
+                || await DocumentoEmitidoConDescuentosDeLaVentaAsync(ventaId));
 
     // El contrato legado emitido es inmutable: su snapshot conserva el descuento por línea tal como se emitió, aunque la
     // venta se haya editado después (VentaValidator permite editar en estados previos a la confirmación). Un snapshot
@@ -39,6 +40,17 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
         return snapshots.Any(SnapshotContratoTieneDescuentos);
     }
 
+    // El PDF del contrato se arma desde los documentos del motor documental de la venta: si alguno se emitió con
+    // descuentos (marca persistida), el contrato no se entrega sin ventas.discount aunque la venta ya no los tenga.
+    private async Task<bool> DocumentoEmitidoConDescuentosDeLaVentaAsync(int ventaId)
+    {
+        var metadatas = await _context.DocumentosGenerados.AsNoTracking()
+            .Where(d => d.VentaId == ventaId)
+            .Select(d => d.MetadataJson)
+            .ToListAsync();
+        return metadatas.Any(DocumentoEmitidoConDescuentos);
+    }
+
     internal static bool SnapshotContratoTieneDescuentos(string? snapshotJson)
     {
         if (string.IsNullOrWhiteSpace(snapshotJson))
@@ -46,12 +58,18 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
         try
         {
             using var doc = JsonDocument.Parse(snapshotJson);
-            foreach (var venta in doc.RootElement.EnumerateObject().Where(p => p.NameEquals("Venta") || string.Equals(p.Name, "venta", StringComparison.OrdinalIgnoreCase)))
+            foreach (var venta in doc.RootElement.EnumerateObject().Where(p => string.Equals(p.Name, "venta", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (venta.Value.EnumerateObject().Any(p => string.Equals(p.Name, "conDescuentos", StringComparison.OrdinalIgnoreCase)
+                        && p.Value.ValueKind == JsonValueKind.True))
+                    return true;
+
                 foreach (var productos in venta.Value.EnumerateObject().Where(p => string.Equals(p.Name, "productos", StringComparison.OrdinalIgnoreCase)))
                     foreach (var producto in productos.Value.EnumerateArray())
                         foreach (var d in producto.EnumerateObject().Where(p => string.Equals(p.Name, "descuento", StringComparison.OrdinalIgnoreCase)))
                             if (d.Value.ValueKind != JsonValueKind.Number || d.Value.GetDecimal() != 0m)
                                 return true;
+            }
             return false;
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)

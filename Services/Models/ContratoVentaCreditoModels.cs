@@ -68,6 +68,8 @@ namespace TheBuryProject.Services.Models
         public string Numero { get; init; } = string.Empty;
         public DateTime Fecha { get; init; }
         public decimal Total { get; init; }
+        /// <summary>Clasificación completa al emitir (descuento general, de línea o su prorrateo): el contrato emitido es inmutable.</summary>
+        public bool ConDescuentos { get; init; }
         public List<ProductoVentaSnapshot> Productos { get; init; } = new();
     }
 

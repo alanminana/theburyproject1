@@ -116,6 +116,28 @@ public class DocumentoDescuentoInmutableTests : DocumentoTestBase
         Assert.Empty(await conPermiso.DocumentosRestringidosAsync(docs.Select(d => d.Id).ToList()));
     }
 
+    [Fact]
+    public async Task ContratoPdf_ConDocumentoEmitidoConDescuentoGeneral_SigueDenegado_AunqueLaVentaYaNoLoTenga()
+    {
+        // Solo descuento general (líneas en cero): el guard del PDF del contrato debe consultar la marca de los documentos
+        // emitidos de la venta, no solo la venta actual ni el snapshot legado.
+        var (venta, docs) = await EmitirAsync(conDescuentos: true);
+        await QuitarDescuentosAsync(venta.Id);
+        var servicio = ServicioSinPermiso();
+
+        Assert.True(await servicio.DebeDenegarVentaAsync(venta.Id));
+        Assert.False(await new DescuentoVisibilidadService(Context, new DocUserStub()).DebeDenegarVentaAsync(venta.Id));
+        Assert.NotEmpty(docs);
+    }
+
+    [Fact]
+    public async Task ContratoPdf_SinDocumentosMarcadosNiDescuentos_NoSeDeniega()
+    {
+        var (venta, _) = await EmitirAsync(conDescuentos: false);
+
+        Assert.False(await ServicioSinPermiso().DebeDenegarVentaAsync(venta.Id));
+    }
+
     // ------------------------------------------------------------------ Contrato legado (snapshot inmutable)
 
     [Theory]
@@ -126,6 +148,8 @@ public class DocumentoDescuentoInmutableTests : DocumentoTestBase
     [InlineData("{}", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
+    [InlineData("{\"Venta\":{\"ConDescuentos\":true,\"Productos\":[{\"Descuento\":0}]}}", true)]
+    [InlineData("{\"Venta\":{\"ConDescuentos\":false,\"Productos\":[{\"Descuento\":0}]}}", false)]
     [InlineData("{no es json", true)]
     [InlineData("{\"Venta\":{\"Productos\":[{\"Descuento\":\"mucho\"}]}}", true)]
     public void SnapshotContrato_ClasificaPorElDescuentoDeLasLineasEmitidas(string? json, bool esperado)
