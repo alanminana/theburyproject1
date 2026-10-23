@@ -959,6 +959,34 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ProductoMarcaSoloLecturaUserId, "test-producto-marca-solo-lectura-role-id", "TestProductoMarcaSoloLecturaRole", 9960,
             "productos.view", "marcas.view");
 
+    // FIN-S-006: usuario NO administrador con permisos de caja (acreditar/mover/ver). Su acceso a cada caja
+    // depende exclusivamente del padron CajaVendedores que sembre el test.
+    public const string CajaEditPermsUserId = "test-caja-edit-perms-id";
+    public const string CajaEditOtroPermsUserId = "test-caja-edit-otro-perms-id";
+
+    public const string CajaCierrePermsUserId = "test-caja-cierre-perms-id";
+
+    /// <summary>Cajero con caja.close/movements (FIN-S-006: POST con modelo inválido). Sin padrón: lo agrega cada test.</summary>
+    public Task SeedUserWithCajaCierrePermissionAsync(string userId = CajaCierrePermsUserId) =>
+        SeedPermissionUserAsync(
+            userId,
+            "role-" + userId,
+            "TestCajaCierre" + userId.GetHashCode().ToString("X"),
+            9970 + (Math.Abs(userId.GetHashCode()) % 20) * 10 + 5,
+            "caja.close",
+            "caja.movements",
+            "caja.view");
+
+    public Task SeedUserWithCajaEditPermissionAsync(string userId = CajaEditPermsUserId) =>
+        SeedPermissionUserAsync(
+            userId,
+            "role-" + userId,
+            "TestCajaEdit" + userId.GetHashCode().ToString("X"),
+            9970 + (Math.Abs(userId.GetHashCode()) % 20) * 10,
+            "caja.edit",
+            "caja.movements",
+            "caja.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

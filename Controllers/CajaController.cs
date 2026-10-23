@@ -462,16 +462,18 @@ namespace TheBuryProject.Controllers
                     : RedirectToAction(nameof(Index));
             }
 
-            if (!ModelState.IsValid)
-            {
-                await TryPopulateMovimientoContextAsync(model);
-                return View("RegistrarMovimiento_tw", model);
-            }
-
+            // FIN-S-006: se autoriza ANTES de cargar o renderizar nada de la apertura; con el modelo inválido el
+            // formulario mostraría igualmente el nombre y el saldo de una caja ajena.
             if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
             {
                 TempData["Error"] = MensajeSinPermisoOperarCaja;
                 return RedirectToAction(nameof(Index));
+            }
+
+            if (!ModelState.IsValid)
+            {
+                await TryPopulateMovimientoContextAsync(model);
+                return View("RegistrarMovimiento_tw", model);
             }
 
             try
@@ -495,10 +497,37 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "edit")]
         public async Task<IActionResult> AcreditarMovimiento(int movimientoId, int aperturaId)
         {
-            if (!await PuedeOperarAperturaAsync(aperturaId))
+            // FIN-S-006: la autorización se decide sobre la apertura REAL del movimiento (server-side).
+            // El aperturaId del request es dato no confiable: solo se acepta si coincide con esa apertura.
+            var aperturaRealId = await _context.MovimientosCaja
+                .AsNoTracking()
+                .Where(m => m.Id == movimientoId && !m.IsDeleted)
+                .Select(m => (int?)m.AperturaCajaId)
+                .FirstOrDefaultAsync();
+
+            if (aperturaRealId == null)
             {
+                // Quien no puede operar cajas ajenas no distingue "inexistente" de "sin permiso".
+                TempData["Error"] = EsSupervisorCaja() ? "Movimiento no encontrado." : MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!await PuedeOperarAperturaAsync(aperturaRealId.Value))
+            {
+                _logger.LogWarning(
+                    "Acreditación denegada: usuario {Usuario} sin permiso sobre la caja del movimiento {MovimientoId} (apertura enviada {AperturaEnviada})",
+                    _currentUser.GetUsername(), movimientoId, aperturaId);
                 TempData["Error"] = MensajeSinPermisoOperarCaja;
-                return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (aperturaRealId.Value != aperturaId)
+            {
+                _logger.LogWarning(
+                    "Acreditación rechazada: el movimiento {MovimientoId} pertenece a la apertura {AperturaReal}, no a la enviada {AperturaEnviada}",
+                    movimientoId, aperturaRealId.Value, aperturaId);
+                TempData["Error"] = "El movimiento no pertenece a la apertura indicada.";
+                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -573,17 +602,19 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "close")]
         public async Task<IActionResult> Cerrar(CerrarCajaViewModel model, string? returnUrl = null)
         {
+            // FIN-S-006: se autoriza ANTES de cargar o renderizar nada de la apertura; con el modelo inválido el
+            // formulario mostraría igualmente fondo inicial, ingresos, egresos y efectivo esperado de una caja ajena.
+            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
             if (!ModelState.IsValid)
             {
                 await TryPopulateCerrarModelAsync(model);
                 ViewBag.ReturnUrl = returnUrl;
                 return View("Cerrar_tw", model);
-            }
-
-            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
-            {
-                TempData["Error"] = MensajeSinPermisoOperarCaja;
-                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -879,8 +910,9 @@ namespace TheBuryProject.Controllers
             var apertura = await _cajaService.ObtenerAperturaPorIdAsync(aperturaId);
             if (apertura == null)
             {
-                // Apertura inexistente: dejar que el flujo normal devuelva "no encontrada".
-                return true;
+                // Apertura inexistente: falla cerrada. Solo un supervisor sigue al flujo normal
+                // ("no encontrada"); quien no es supervisor no puede operar algo que no puede verificar.
+                return EsSupervisorCaja();
             }
 
             return await PuedeOperarCajaAsync(apertura.CajaId);
