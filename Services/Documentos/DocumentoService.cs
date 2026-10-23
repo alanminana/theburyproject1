@@ -204,10 +204,11 @@ namespace TheBuryProject.Services.Documentos
                 resultado.GrupoImpresionId = grupo;
 
                 var numerosPorTipo = items.ToDictionary(i => i.Plantilla.TipoDocumento.Codigo, i => i.Numero, StringComparer.OrdinalIgnoreCase);
+                var conDescuentos = await TieneDescuentosComercialesAsync(contexto, ct);
                 foreach (var item in items)
                 {
                     item.Render = RenderizarFinal(item, contexto, numerosPorTipo, usuario);
-                    nuevos.Add(CrearDocumento(item, contexto, evento, usuario, ahora, grupo));
+                    nuevos.Add(CrearDocumento(item, contexto, evento, usuario, ahora, grupo, conDescuentos));
                 }
 
                 _context.DocumentosGenerados.AddRange(nuevos);
@@ -624,7 +625,26 @@ namespace TheBuryProject.Services.Documentos
             return PlantillaRenderer.Renderizar(item.Version.Contenido, c);
         }
 
-        private DocumentoGenerado CrearDocumento(ItemPlan item, DocumentoContexto contexto, string evento, string usuario, DateTime ahora, Guid grupo)
+        /// <summary>
+        /// Si la operación anclada (venta, crédito vía su venta o cotización) tiene descuentos comerciales manuales EN EL
+        /// MOMENTO DE EMITIR. Se persiste en la metadata del documento: el documento emitido es inmutable, así que quitar
+        /// los descuentos de la venta después no lo vuelve visible para quien no tiene ventas.discount.
+        /// </summary>
+        private async Task<bool> TieneDescuentosComercialesAsync(DocumentoContexto contexto, CancellationToken ct)
+        {
+            if (contexto.VentaId is int ventaId
+                && await _context.Ventas.AsNoTracking().Where(v => v.Id == ventaId).Where(DescuentosComerciales.VentaConDescuento).AnyAsync(ct))
+                return true;
+            if (contexto.CreditoId is int creditoId
+                && await _context.Ventas.AsNoTracking().Where(v => v.CreditoId == creditoId).Where(DescuentosComerciales.VentaConDescuento).AnyAsync(ct))
+                return true;
+            if (contexto.CotizacionId is int cotizacionId
+                && await _context.Cotizaciones.AsNoTracking().Where(c => c.Id == cotizacionId).Where(DescuentosComerciales.CotizacionConDescuento).AnyAsync(ct))
+                return true;
+            return false;
+        }
+
+        private DocumentoGenerado CrearDocumento(ItemPlan item, DocumentoContexto contexto, string evento, string usuario, DateTime ahora, Guid grupo, bool conDescuentos)
         {
             var requiereFirma = item.Plantilla.RequiereFirma || item.Plantilla.TipoDocumento.RequiereFirma;
             var texto = item.Render!.Texto;
@@ -637,7 +657,8 @@ namespace TheBuryProject.Services.Documentos
                 version = item.Version.Numero,
                 variablesVacias = item.Render.Vacias,
                 variablesNoResueltas = item.Render.NoResueltas,
-                pagoCuotaIds = contexto.PagoCuotaIds.Count > 1 ? contexto.PagoCuotaIds : null
+                pagoCuotaIds = contexto.PagoCuotaIds.Count > 1 ? contexto.PagoCuotaIds : null,
+                conDescuentos
             };
 
             return new DocumentoGenerado
@@ -924,7 +945,8 @@ namespace TheBuryProject.Services.Documentos
                 };
                 item.Render = RenderizarFinal(item, contexto, new Dictionary<string, string> { [plantilla.TipoDocumento.Codigo] = numero }, usuario);
 
-                var nuevo = CrearDocumento(item, contexto, original.EventoOrigen, usuario, DateTime.UtcNow, original.GrupoImpresionId ?? Guid.NewGuid());
+                var nuevo = CrearDocumento(item, contexto, original.EventoOrigen, usuario, DateTime.UtcNow, original.GrupoImpresionId ?? Guid.NewGuid(),
+                    await TieneDescuentosComercialesAsync(contexto, CancellationToken.None));
                 nuevo.ReemplazaADocumentoId = original.Id;
                 nuevo.ExigeFirmaParaContinuar = original.ExigeFirmaParaContinuar && nuevo.RequiereFirma;
                 _context.DocumentosGenerados.Add(nuevo);

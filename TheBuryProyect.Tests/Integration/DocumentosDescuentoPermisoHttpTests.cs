@@ -121,6 +121,39 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
     // ------------------------------------------------------------------ Documentos emitidos
 
     [Fact]
+    public async Task Documento_EmitidoConDescuentos_SigueDenegado_AunqueLaVentaYaNoTengaDescuentos()
+    {
+        // Hallazgo de la revisión adversarial de #99: editar la venta (estados previos a la confirmación) para quitar los
+        // descuentos NO puede volver entregable un documento ya emitido con ellos.
+        await PrepararUsuariosAsync();
+        var (ventaId, _) = await SeedVentaAsync(conDescuentos: false, conFactura: false);
+        var grupo = Guid.NewGuid();
+        var docId = await SeedDocumentoAsync(ventaId: ventaId, grupo: grupo, metadataJson: "{\"conDescuentos\":true}");
+        var docLegado = await SeedDocumentoAsync(ventaId: ventaId);   // sin marca: se clasifica por el estado actual (sin descuentos)
+
+        using (var sin = Sin())
+        {
+            foreach (var url in new[]
+            {
+                $"/Documento/Ver/{docId}",
+                $"/Documento/VerVarios?ids={docId}",
+                $"/Documento/VerGrupo/{grupo}",
+                $"/Documento/Reimprimir?ids={docId}"
+            })
+            {
+                var response = await sin.GetAsync(url);
+                Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"{url} => {(int)response.StatusCode}");
+            }
+
+            var legado = await sin.GetAsync($"/Documento/Ver/{docLegado}");
+            Assert.NotEqual(HttpStatusCode.Forbidden, legado.StatusCode);
+        }
+
+        using var con = Con();
+        Assert.Equal(HttpStatusCode.OK, (await con.GetAsync($"/Documento/Ver/{docId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Documento_VentaConDescuentos_TodasLasRutasDeEntrega_SinPermiso_SeDeniegan_SinContarReimpresion()
     {
         await PrepararUsuariosAsync();
@@ -362,7 +395,7 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
         return cotizacion.Id;
     });
 
-    private Task<int> SeedDocumentoAsync(int? ventaId = null, int? cotizacionId = null, int? creditoId = null, Guid? grupo = null, int? pagoId = null) =>
+    private Task<int> SeedDocumentoAsync(int? ventaId = null, int? cotizacionId = null, int? creditoId = null, Guid? grupo = null, int? pagoId = null, string? metadataJson = null) =>
         ConContextoAsync(async context =>
         {
             var suffix = Interlocked.Increment(ref _counter);
@@ -394,6 +427,7 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
                 UsuarioGeneracion = "tester",
                 ContenidoRenderizado = "Contenido de prueba",
                 DatosSnapshotJson = "{}",
+                MetadataJson = metadataJson,
                 ContentHash = "h"
             };
             context.DocumentosGenerados.Add(doc);

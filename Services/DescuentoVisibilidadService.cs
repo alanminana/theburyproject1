@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
@@ -22,7 +23,61 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
         _currentUser.HasPermission(VentaConstants.PermisoDescuento.Modulo, VentaConstants.PermisoDescuento.Accion);
 
     public async Task<bool> DebeDenegarVentaAsync(int ventaId)
-        => !PuedeVerDescuentos && await VentasConDescuentos(v => v.Id == ventaId).AnyAsync();
+        => !PuedeVerDescuentos
+            && (await VentasConDescuentos(v => v.Id == ventaId).AnyAsync()
+                || await ContratoLegadoEmitidoConDescuentosAsync(ventaId));
+
+    // El contrato legado emitido es inmutable: su snapshot conserva el descuento por línea tal como se emitió, aunque la
+    // venta se haya editado después (VentaValidator permite editar en estados previos a la confirmación). Un snapshot
+    // ilegible se trata cerrado: no se puede probar que no tenga descuentos.
+    private async Task<bool> ContratoLegadoEmitidoConDescuentosAsync(int ventaId)
+    {
+        var snapshots = await _context.ContratosVentaCredito.AsNoTracking()
+            .Where(c => c.VentaId == ventaId && !c.IsDeleted)
+            .Select(c => c.DatosSnapshotJson)
+            .ToListAsync();
+        return snapshots.Any(SnapshotContratoTieneDescuentos);
+    }
+
+    internal static bool SnapshotContratoTieneDescuentos(string? snapshotJson)
+    {
+        if (string.IsNullOrWhiteSpace(snapshotJson))
+            return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(snapshotJson);
+            foreach (var venta in doc.RootElement.EnumerateObject().Where(p => p.NameEquals("Venta") || string.Equals(p.Name, "venta", StringComparison.OrdinalIgnoreCase)))
+                foreach (var productos in venta.Value.EnumerateObject().Where(p => string.Equals(p.Name, "productos", StringComparison.OrdinalIgnoreCase)))
+                    foreach (var producto in productos.Value.EnumerateArray())
+                        foreach (var d in producto.EnumerateObject().Where(p => string.Equals(p.Name, "descuento", StringComparison.OrdinalIgnoreCase)))
+                            if (d.Value.ValueKind != JsonValueKind.Number || d.Value.GetDecimal() != 0m)
+                                return true;
+            return false;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return true;
+        }
+    }
+
+    // Marca persistida al emitir (MetadataJson.conDescuentos). Los documentos anteriores a la marca no la tienen y siguen
+    // clasificándose por el estado actual de la venta (decisión funcional: no se restringe en bloque lo ya emitido).
+    internal static bool DocumentoEmitidoConDescuentos(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+            return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(metadataJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.EnumerateObject().Any(p => string.Equals(p.Name, "conDescuentos", StringComparison.OrdinalIgnoreCase)
+                    && p.Value.ValueKind == JsonValueKind.True);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     public async Task<bool> DebeDenegarFacturaAsync(int facturaId)
     {
@@ -59,14 +114,12 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
     private IQueryable<Venta> VentasConDescuentos(System.Linq.Expressions.Expression<Func<Venta, bool>> filtro)
         => _context.Ventas.AsNoTracking()
             .Where(filtro)
-            .Where(v => v.Descuento != 0m
-                || v.Detalles.Any(d => !d.IsDeleted && (d.Descuento != 0m || d.DescuentoGeneralProrrateado != 0m)));
+            .Where(DescuentosComerciales.VentaConDescuento);
 
     private IQueryable<Cotizacion> CotizacionesConDescuentos(System.Linq.Expressions.Expression<Func<Cotizacion, bool>> filtro)
         => _context.Cotizaciones.AsNoTracking()
             .Where(filtro)
-            .Where(c => c.DescuentoTotal != 0m
-                || c.Detalles.Any(d => (d.DescuentoImporteSnapshot ?? 0m) != 0m || (d.DescuentoPorcentajeSnapshot ?? 0m) != 0m));
+            .Where(DescuentosComerciales.CotizacionConDescuento);
 
     private async Task<bool> DocumentosConDescuentos(System.Linq.Expressions.Expression<Func<DocumentoGenerado, bool>> filtro)
         => (await RestringidosAsync(filtro)).Count > 0;
@@ -85,7 +138,7 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
     {
         var anclas = await _context.DocumentosGenerados.AsNoTracking()
             .Where(filtro)
-            .Select(d => new { d.Id, d.VentaId, d.CotizacionId, d.CreditoId })
+            .Select(d => new { d.Id, d.VentaId, d.CotizacionId, d.CreditoId, d.MetadataJson })
             .ToListAsync();
         var restringidos = new HashSet<int>();
         if (anclas.Count == 0)
@@ -105,7 +158,8 @@ public class DescuentoVisibilidadService : IDescuentoVisibilidadService
 
         foreach (var a in anclas)
         {
-            if ((a.VentaId.HasValue && ventasCon.Contains(a.VentaId.Value))
+            if (DocumentoEmitidoConDescuentos(a.MetadataJson)
+                || (a.VentaId.HasValue && ventasCon.Contains(a.VentaId.Value))
                 || (a.CreditoId.HasValue && creditosCon.Contains(a.CreditoId.Value))
                 || (a.CotizacionId.HasValue && cotizacionesCon.Contains(a.CotizacionId.Value)))
                 restringidos.Add(a.Id);
