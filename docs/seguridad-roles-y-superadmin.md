@@ -59,7 +59,7 @@ Reglas del arranque sobre la cuenta configurada (PROMPT 57-C), todas condicionad
 `BulkActionAtomicidadHttpTests`, `RolesReservadosHttpTests`, `SuperAdminProteccionHttpTests`,
 `GuardiaPrivilegiosTrackerTests`, `DbInitializerRecuperacionSuperAdminTests` (SQLite, corren siempre) y
 `AccionesMutantesPermisoContractTests` y `AutorizacionPorRolCajaVentaMercadoLibreHttpTests` (autorización por rol en
-Caja/Venta/MercadoLibre/Autorizaciones, SQLite, corren siempre) y `UltimoSuperAdminConcurrenciaSqlServerTests` (SQL
+Caja/Venta/MercadoLibre, y contrato de retiro de `/Autorizacion/*` en `PrivilegeEscalationHttpTests`, SQLite, corren siempre) y `UltimoSuperAdminConcurrenciaSqlServerTests` (SQL
 Server real; requiere `QA_SEC_SUPERADMIN_SQL` apuntando a una BD descartable `qa_sec_superadmin*`). Esta última clase
 **se omite** en `ci.yml`; la ejecuta el workflow `.github/workflows/sec-superadmin-sqlserver.yml` (SQL Server efímero,
 RCSI apagado y encendido, exige 9/9 `Passed` en el TRX).
@@ -68,7 +68,6 @@ RCSI apagado y encendido, exige 9/9 `Passed` en el TRX).
 
 - `CopyPermisosRol`/`SavePermisosRol` sobre `Administrador`/`Gerente`: un actor puede agregar o quitar permisos que él
   mismo posee (control existente de "permisos que no tenés"); no escala por encima de sus propios permisos.
-- `AutorizacionController.CancelarSolicitud` (solo exige `autorizaciones.view`): `AutorizacionService.CancelarSolicitudAsync`
-  no comprueba que la solicitud pertenezca al usuario aunque la acción se documenta como "solicitud propia". Pendiente
-  de decisión funcional.
+- Circuito genérico de Autorizaciones (`AutorizacionService`): sus endpoints `/Autorizacion/*` fueron retirados (FE-D-001, D1.B) y la
+  cancelación solo la permite el solicitante. Riesgos residuales en `docs/autorizaciones-circuito-generico-retirado.md`.
 - Otros nombres (`Vendedor`, `Cajero`, …) solo definen umbrales configurables de autorización, no autoridad ilimitada.
