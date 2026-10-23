@@ -20,6 +20,7 @@ public class AutorizacionServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly AutorizacionService _service;
+    private readonly StubCurrentUserAutorizacion _usuario = new("vendedor1", autenticado: true);
 
     public AutorizacionServiceTests()
     {
@@ -33,7 +34,7 @@ public class AutorizacionServiceTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        _service = new AutorizacionService(_context, NullLogger<AutorizacionService>.Instance);
+        _service = new AutorizacionService(_context, _usuario, NullLogger<AutorizacionService>.Instance);
     }
 
     public void Dispose()
@@ -373,18 +374,115 @@ public class AutorizacionServiceTests : IDisposable
     [Fact]
     public async Task CancelarSolicitud_Pendiente_MarcaCancelada()
     {
-        var solicitud = await SeedSolicitudAsync();
+        var solicitud = await SeedSolicitudAsync(usuario: "vendedor1");
 
         var resultado = await _service.CancelarSolicitudAsync(solicitud.Id);
 
         Assert.Equal(EstadoSolicitud.Cancelada, resultado.Estado);
         Assert.NotNull(resultado.FechaResolucion);
+        Assert.Contains("vendedor1", resultado.ComentarioResolucion);
+    }
+
+    [Fact]
+    public async Task CancelarSolicitud_UsuarioConOtraCapitalizacion_EsElSolicitante()
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: "Vendedor1");
+
+        var resultado = await _service.CancelarSolicitudAsync(solicitud.Id);
+
+        Assert.Equal(EstadoSolicitud.Cancelada, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarSolicitud_DeOtroUsuario_FallaCerradoYNoCambiaNada()
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: "otro.usuario");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.CancelarSolicitudAsync(solicitud.Id));
+
+        var bd = await _context.SolicitudesAutorizacion.AsNoTracking().SingleAsync(s => s.Id == solicitud.Id);
+        Assert.Equal(EstadoSolicitud.Pendiente, bd.Estado);
+        Assert.Null(bd.FechaResolucion);
+        Assert.Null(bd.ComentarioResolucion);
+    }
+
+    [Fact]
+    public async Task CancelarSolicitud_SinUsuarioAutenticado_FallaCerrado()
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: "Sistema");
+        _usuario.Autenticado = false;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.CancelarSolicitudAsync(solicitud.Id));
+
+        Assert.Equal(EstadoSolicitud.Pendiente,
+            (await _context.SolicitudesAutorizacion.AsNoTracking().SingleAsync(s => s.Id == solicitud.Id)).Estado);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CancelarSolicitud_IdentidadVacia_FallaCerrado(string username)
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: username);
+        _usuario.Username = username;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.CancelarSolicitudAsync(solicitud.Id));
+    }
+
+    [Theory]
+    [InlineData("Sistema")]
+    [InlineData("system")]
+    public async Task CancelarSolicitud_IdentidadAutenticadaConNombreDeSistema_FallaCerrado(string nombre)
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: nombre);
+        _usuario.Username = nombre;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.CancelarSolicitudAsync(solicitud.Id));
+
+        Assert.Equal(EstadoSolicitud.Pendiente,
+            (await _context.SolicitudesAutorizacion.AsNoTracking().SingleAsync(s => s.Id == solicitud.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task CancelarSolicitud_CurrentUserServiceRealConPrincipalSinClaimDeNombre_FallaCerrado()
+    {
+        // Reproduce el fallback real: Identity.Name == null => GetUsername() devuelve "Sistema".
+        var solicitud = await SeedSolicitudAsync(usuario: "Sistema");
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext
+        {
+            User = new System.Security.Claims.ClaimsPrincipal(
+                new System.Security.Claims.ClaimsIdentity(
+                    new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "u-1") },
+                    authenticationType: "Test"))
+        };
+        var real = new CurrentUserService(new Microsoft.AspNetCore.Http.HttpContextAccessor { HttpContext = http });
+        var service = new AutorizacionService(_context, real, NullLogger<AutorizacionService>.Instance);
+
+        Assert.True(real.IsAuthenticated());
+        Assert.Equal("Sistema", real.GetUsername());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CancelarSolicitudAsync(solicitud.Id));
+
+        Assert.Equal(EstadoSolicitud.Pendiente,
+            (await _context.SolicitudesAutorizacion.AsNoTracking().SingleAsync(s => s.Id == solicitud.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task CancelarSolicitud_AjenaYYaResuelta_NoRevelaEstadoAlNoPropietario()
+    {
+        var solicitud = await SeedSolicitudAsync(usuario: "otro.usuario", estado: EstadoSolicitud.Aprobada);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.CancelarSolicitudAsync(solicitud.Id));
     }
 
     [Fact]
     public async Task CancelarSolicitud_YaAprobada_LanzaExcepcion()
     {
-        var solicitud = await SeedSolicitudAsync(estado: EstadoSolicitud.Aprobada);
+        var solicitud = await SeedSolicitudAsync(usuario: "vendedor1", estado: EstadoSolicitud.Aprobada);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CancelarSolicitudAsync(solicitud.Id));
@@ -607,4 +705,24 @@ public class AutorizacionServiceTests : IDisposable
         var resultado = await _service.ObtenerSolicitudAsync(99999);
         Assert.Null(resultado);
     }
+}
+
+internal sealed class StubCurrentUserAutorizacion : TheBuryProject.Services.Interfaces.ICurrentUserService
+{
+    public StubCurrentUserAutorizacion(string username, bool autenticado)
+    {
+        Username = username;
+        Autenticado = autenticado;
+    }
+
+    public string Username { get; set; }
+    public bool Autenticado { get; set; }
+
+    public string GetUsername() => Username;
+    public string GetUserId() => Username;
+    public bool IsAuthenticated() => Autenticado;
+    public string? GetEmail() => null;
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => null;
 }

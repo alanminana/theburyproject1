@@ -12,11 +12,18 @@ namespace TheBuryProject.Services;
 public class AutorizacionService : IAutorizacionService
 {
     private readonly AppDbContext _context;
+    private static readonly string[] IdentidadesDeSistema = { "Sistema", "System" };
+
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<AutorizacionService> _logger;
 
-    public AutorizacionService(AppDbContext context, ILogger<AutorizacionService> logger)
+    public AutorizacionService(
+        AppDbContext context,
+        ICurrentUserService currentUser,
+        ILogger<AutorizacionService> logger)
     {
         _context = context;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -284,12 +291,32 @@ public class AutorizacionService : IAutorizacionService
         return solicitud;
     }
 
+    /// <summary>
+    /// Cancela una solicitud pendiente. Solo puede hacerlo su solicitante: la identidad se toma de la sesión
+    /// autenticada (<see cref="ICurrentUserService"/>), nunca de un parámetro, y ante identidad ausente o ajena falla cerrado.
+    /// </summary>
     public async Task<SolicitudAutorizacion> CancelarSolicitudAsync(int id)
     {
+        var actor = _currentUser.GetUsername();
+
+        // CurrentUserService.GetUsername() devuelve "Sistema" cuando la identidad no trae nombre: no es un solicitante real.
+        if (!_currentUser.IsAuthenticated()
+            || string.IsNullOrWhiteSpace(actor)
+            || IdentidadesDeSistema.Contains(actor.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Se requiere un usuario autenticado para cancelar una solicitud");
+        }
+
         var solicitud = await ObtenerSolicitudAsync(id);
         if (solicitud == null)
         {
             throw new KeyNotFoundException($"Solicitud con ID {id} no encontrada");
+        }
+
+        if (!string.Equals(solicitud.UsuarioSolicitante, actor, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Cancelación rechazada: solicitud {SolicitudId} no pertenece a {Actor}", id, actor);
+            throw new UnauthorizedAccessException("Solo el solicitante puede cancelar su solicitud");
         }
 
         if (solicitud.Estado != EstadoSolicitud.Pendiente)
@@ -299,12 +326,12 @@ public class AutorizacionService : IAutorizacionService
 
         solicitud.Estado = EstadoSolicitud.Cancelada;
         solicitud.FechaResolucion = DateTime.UtcNow;
-        solicitud.ComentarioResolucion = "Cancelada por el solicitante";
+        solicitud.ComentarioResolucion = $"Cancelada por el solicitante ({actor})";
         solicitud.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Solicitud cancelada - Id {SolicitudId}", id);
+        _logger.LogInformation("Solicitud cancelada - Id {SolicitudId} - Solicitante {Actor}", id, actor);
 
         return solicitud;
     }

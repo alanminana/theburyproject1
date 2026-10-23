@@ -83,8 +83,23 @@ const HistorialPrecioModal = (() => {
         });
     }
 
+    // Los datos del historial (motivo, usuario, fecha) son texto libre persistido: se renderizan siempre
+    // como nodos DOM con textContent, nunca concatenados a HTML (COM-S-001).
+    function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined && text !== null) node.textContent = String(text);
+        return node;
+    }
+
+    function cell(className, ...children) {
+        const td = el('td', className);
+        children.forEach((child) => child && td.appendChild(child));
+        return td;
+    }
+
     function motivoBadge(motivo) {
-        if (!motivo) return '';
+        if (!motivo) return null;
 
         const lower = motivo.toLowerCase();
         let color = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
@@ -99,33 +114,27 @@ const HistorialPrecioModal = (() => {
             color = 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
         }
 
-        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ' + color + '">' + motivo + '</span>';
+        return el('span', 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ' + color, motivo);
     }
 
-    function variacionHtml(anterior, nuevo) {
+    function variacionNode(anterior, nuevo) {
         if (!anterior || anterior === 0) {
-            return '<span class="text-slate-400">—</span>';
+            return el('span', 'text-slate-400', '—');
         }
 
         const diff = nuevo - anterior;
         const pct = ((diff / anterior) * 100).toFixed(1);
         const abs = fmt(Math.abs(diff));
 
-        if (diff > 0) {
-            return '<div class="flex flex-col items-center">' +
-                '<span class="text-xs font-bold text-red-500">+' + pct + '%</span>' +
-                '<span class="text-[11px] text-red-400">+' + abs + '</span>' +
-                '</div>';
+        if (diff > 0 || diff < 0) {
+            const up = diff > 0;
+            const wrap = el('div', 'flex flex-col items-center');
+            wrap.appendChild(el('span', 'text-xs font-bold ' + (up ? 'text-red-500' : 'text-emerald-500'), (up ? '+' : '') + pct + '%'));
+            wrap.appendChild(el('span', up ? 'text-[11px] text-red-400' : 'text-[11px] text-emerald-400', (up ? '+' : '') + abs));
+            return wrap;
         }
 
-        if (diff < 0) {
-            return '<div class="flex flex-col items-center">' +
-                '<span class="text-xs font-bold text-emerald-500">' + pct + '%</span>' +
-                '<span class="text-[11px] text-emerald-400">' + abs + '</span>' +
-                '</div>';
-        }
-
-        return '<span class="text-xs text-slate-400">0%</span>';
+        return el('span', 'text-xs text-slate-400', '0%');
     }
 
     function getToken() {
@@ -151,36 +160,36 @@ const HistorialPrecioModal = (() => {
             const fechaStr = (partes[0] || '').trim();
             const horaStr = (partes[1] || '').trim();
 
-            const revertBtn = item.puedeRevertir
-                ? '<button type="button" data-catalogo-action="historial-revert" data-catalogo-evento-id="' + item.eventoId + '" class="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors">' +
-                    '<span class="material-symbols-outlined text-sm">undo</span> Revertir' +
-                  '</button>'
-                : '<span class="text-xs text-slate-400 italic">—</span>';
+            let revertBtn;
+            if (item.puedeRevertir) {
+                revertBtn = el('button', 'inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors');
+                revertBtn.type = 'button';
+                revertBtn.setAttribute('data-catalogo-action', 'historial-revert');
+                revertBtn.setAttribute('data-catalogo-evento-id', String(parseInt(item.eventoId, 10)));
+                revertBtn.appendChild(el('span', 'material-symbols-outlined text-sm', 'undo'));
+                revertBtn.appendChild(document.createTextNode(' Revertir'));
+            } else {
+                revertBtn = el('span', 'text-xs text-slate-400 italic', '—');
+            }
 
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-slate-50/50 dark:hover:bg-white/[.02] transition-colors';
-            row.innerHTML =
-                '<td class="px-8 py-4">' +
-                    '<div class="text-sm font-medium dark:text-white">' + fechaStr + '</div>' +
-                    '<div class="text-xs text-slate-400">' + horaStr + '</div>' +
-                '</td>' +
-                '<td class="px-6 py-4">' +
-                    '<div class="flex items-center gap-2">' +
-                        '<span class="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">' +
-                            ((item.usuario || '?')[0] || '?').toUpperCase() +
-                        '</span>' +
-                        '<span class="text-sm dark:text-slate-300">' + (item.usuario || '—') + '</span>' +
-                    '</div>' +
-                '</td>' +
-                '<td class="px-6 py-4">' + motivoBadge(item.motivo) + '</td>' +
-                '<td class="px-6 py-4 text-right">' +
-                    '<span class="text-sm font-mono text-slate-500 dark:text-slate-400">' + fmt(item.precioAnterior) + '</span>' +
-                '</td>' +
-                '<td class="px-6 py-4 text-right">' +
-                    '<span class="text-sm font-mono font-bold dark:text-white">' + fmt(item.precioNuevo) + '</span>' +
-                '</td>' +
-                '<td class="px-6 py-4 text-center">' + variacionHtml(item.precioAnterior, item.precioNuevo) + '</td>' +
-                '<td class="px-8 py-4 text-right">' + revertBtn + '</td>';
+            const usuario = item.usuario ? String(item.usuario) : '';
+            const userCell = el('div', 'flex items-center gap-2');
+            userCell.appendChild(el('span', 'flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold',
+                (Array.from(usuario)[0] || '?').toUpperCase()));
+            userCell.appendChild(el('span', 'text-sm dark:text-slate-300', usuario || '—'));
+
+            const row = el('tr', 'hover:bg-slate-50/50 dark:hover:bg-white/[.02] transition-colors');
+            row.appendChild(cell('px-8 py-4',
+                el('div', 'text-sm font-medium dark:text-white', fechaStr),
+                el('div', 'text-xs text-slate-400', horaStr)));
+            row.appendChild(cell('px-6 py-4', userCell));
+            row.appendChild(cell('px-6 py-4', motivoBadge(item.motivo)));
+            row.appendChild(cell('px-6 py-4 text-right',
+                el('span', 'text-sm font-mono text-slate-500 dark:text-slate-400', fmt(item.precioAnterior))));
+            row.appendChild(cell('px-6 py-4 text-right',
+                el('span', 'text-sm font-mono font-bold dark:text-white', fmt(item.precioNuevo))));
+            row.appendChild(cell('px-6 py-4 text-center', variacionNode(item.precioAnterior, item.precioNuevo)));
+            row.appendChild(cell('px-8 py-4 text-right', revertBtn));
             tableBody.appendChild(row);
         });
 

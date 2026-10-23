@@ -185,6 +185,7 @@ builder.Services.AddScoped<IDocumentoConfiguracionService, TheBuryProject.Servic
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();
 builder.Services.AddScoped<IRolService, RolService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IGuardiaPrivilegiosService, GuardiaPrivilegiosService>();
 builder.Services.AddScoped<ISeguridadAuditoriaService, SeguridadAuditoriaService>();
 builder.Services.AddScoped<ITerminosCondicionesService, TerminosCondicionesService>();
 

@@ -1,0 +1,147 @@
+name: SEC SQL Server (Credito ConfigurarVenta - concurrencia e integridad)
+
+# PROMPT 93: ejecuta CONTRA UN SQL SERVER REAL EFIMERO la clase ConfigurarVentaConcurrenciaSqlServerTests
+# (CV-00..CV-04: configurar vs. Generado, configuraciones simultaneas, configuraciones cruzadas, credito
+# ya Generado) y ConfigurarVsConfirmarSqlServerTests (CV-05..CV-09: Configurar vs Confirmar con servicios reales). SQLite serializa escritores y esconderia la carrera. Sin QA_SEC_CONFIGVENTA_SQL esas
+# pruebas se OMITEN, y ni ci.yml ni otro workflow la define: este es el unico lugar donde dejan de ser
+# "omitidas". Un omitido NO es un aprobado: el paso de verificacion falla si algun escenario no figura
+# como Passed en el TRX.
+#
+# Aislamiento: contenedor creado y destruido dentro del job, credenciales sinteticas enmascaradas,
+# puerto solo en 127.0.0.1, catalogo qa_sec_configventa* (las pruebas se niegan a correr contra otro).
+# RCSI: matriz 0/1; CV-00 comprueba que el catalogo real coincide con el pedido.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sec-configventa-sqlserver-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MSSQL_HOST_PORT_CI: 14343
+  MSSQL_CONTAINER: bury-sec-configventa-sql-ci
+
+jobs:
+  sqlserver-configventa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 0 = READ COMMITTED con locks (default de SQL Server); 1 = READ_COMMITTED_SNAPSHOT (default de Azure SQL).
+        rcsi: [ '0', '1' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (segun global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Levantar SQL Server efimero (credenciales sinteticas)
+        run: |
+          set -euo pipefail
+          SA_PW="Ee1!$(openssl rand -hex 12)"
+          echo "::add-mask::$SA_PW"
+          echo "SA_PW=$SA_PW" >> "$GITHUB_ENV"
+          docker run -d --name "$MSSQL_CONTAINER" \
+            -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e "MSSQL_SA_PASSWORD=$SA_PW" \
+            -p "127.0.0.1:${MSSQL_HOST_PORT_CI}:1433" \
+            mcr.microsoft.com/mssql/server:2022-latest
+          READY=0
+          for i in $(seq 1 60); do
+            if docker exec "$MSSQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SA_PW" -Q "SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server listo tras ${i} intentos"; READY=1; break
+            fi
+            sleep 3
+          done
+          if [ "$READY" != "1" ]; then docker logs "$MSSQL_CONTAINER" | tail -50; echo "SQL Server no arranco"; exit 1; fi
+
+      - name: Restore + Build (Release)
+        run: |
+          dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+          dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      # Dos clases, un solo TRX: ConfigurarVentaConcurrenciaSqlServerTests (CV-00..CV-04, QA_SEC_CONFIGVENTA_*) y
+      # ConfigurarVsConfirmarSqlServerTests (CV-05..CV-09, servicios reales con compuertas SQL; usa el harness
+      # QA_FIN_CONC_* y crea su propio catalogo qa_fin_conc_cv, que hereda el RCSI pedido y lo verifica contra sys.databases).
+      - name: ConfigurarVenta - CV-00..CV-04 (modelo) + CV-05..CV-09 (Configurar vs Confirmar)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_SEC_CONFIGVENTA_RCSI: ${{ matrix.rcsi }}
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_SEC_CONFIGVENTA_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_sec_configventa;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~ConfigurarVentaConcurrenciaSqlServerTests|FullyQualifiedName~ConfigurarVsConfirmarSqlServerTests" \
+            --logger "trx;LogFileName=sec-configventa-sql-rcsi${{ matrix.rcsi }}.trx" \
+            --logger "console;verbosity=detailed" \
+            --results-directory ./TestResults
+
+      # Un omitido no es un aprobado: cada escenario debe figurar con outcome="Passed", y no puede haber
+      # ningun resultado que no sea Passed ni ejecutarse un numero distinto del esperado.
+      - name: Verificar que se ejecutaron (no omitidos)
+        if: always()
+        run: |
+          set -uo pipefail
+          TRX=./TestResults/sec-configventa-sql-rcsi${{ matrix.rcsi }}.trx
+          if [ ! -f "$TRX" ]; then echo "No hay TRX: los escenarios no se ejecutaron"; exit 1; fi
+          RC=0
+          {
+            echo "### ConfigurarVenta en SQL Server efimero (RCSI=${{ matrix.rcsi }})"
+            echo ""
+            echo "| Escenario | Resultado |"
+            echo "|-----------|-----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ESPERADOS="CV-00 CV-01 CV-02 CV-03 CV-04 CV-05 CV-06 CV-07 CV-08 CV-09"
+          N_ESPERADOS=$(echo $ESPERADOS | wc -w)
+          for R in $ESPERADOS; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          TOTAL=$(grep -o '<UnitTestResult ' "$TRX" | wc -l)
+          PASSED=$(grep -o '<UnitTestResult [^>]*outcome="Passed"' "$TRX" | wc -l)
+          NO_PASSED=$(grep -o '<UnitTestResult [^>]*outcome="[^"]*"' "$TRX" | grep -vc 'outcome="Passed"' || true)
+          echo "Total=$TOTAL Passed=$PASSED NoPassed=$NO_PASSED (esperado $N_ESPERADOS/$N_ESPERADOS)"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Total: $TOTAL, Passed: $PASSED, omitidos/fallidos: $NO_PASSED (esperado $N_ESPERADOS / $N_ESPERADOS)" >> "$GITHUB_STEP_SUMMARY"
+          # Cualquier resultado que no sea Passed (omitido, no ejecutado, fallido) o un conteo distinto del esperado rompe el job.
+          if [ "$TOTAL" != "$N_ESPERADOS" ] || [ "$PASSED" != "$N_ESPERADOS" ] || [ "$NO_PASSED" != "0" ]; then RC=1; fi
+          exit $RC
+
+      - name: Subir TRX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec-configventa-sql-trx-rcsi${{ matrix.rcsi }}
+          path: TestResults/**/*.trx
+          retention-days: 14
+          if-no-files-found: warn
+
+      # El contenedor y sus volumenes anonimos se eliminan siempre, falle o no el job.
+      - name: Destruir SQL Server efimero
+        if: always()
+        run: |
+          docker rm -f -v "$MSSQL_CONTAINER" >/dev/null 2>&1 || true
+          docker ps -a --filter "name=$MSSQL_CONTAINER" --format '{{.Names}}' | wc -l

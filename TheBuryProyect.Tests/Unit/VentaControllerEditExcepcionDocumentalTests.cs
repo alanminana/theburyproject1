@@ -195,6 +195,7 @@ public class VentaControllerEditExcepcionDocumentalTests
             => throw new NotImplementedException();
 
         public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando) => throw new NotImplementedException();
+        public Task<TheBuryProject.Services.Models.ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId) => throw new NotImplementedException();
 
         public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();

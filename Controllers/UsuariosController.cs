@@ -21,6 +21,7 @@ public class UsuariosController : Controller
     private readonly IUsuarioService _usuarioService;
     private readonly IRolService _rolService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
+    private readonly IGuardiaPrivilegiosService _guardia;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<UsuariosController> _logger;
     private readonly IdentityOptions _identityOptions;
@@ -46,6 +47,7 @@ public class UsuariosController : Controller
         IUsuarioService usuarioService,
         IRolService rolService,
         ISeguridadAuditoriaService seguridadAuditoria,
+        IGuardiaPrivilegiosService guardia,
         ICurrentUserService currentUser,
         ILogger<UsuariosController> logger,
         IOptions<IdentityOptions> identityOptions)
@@ -54,6 +56,7 @@ public class UsuariosController : Controller
         _usuarioService = usuarioService;
         _rolService = rolService;
         _seguridadAuditoria = seguridadAuditoria;
+        _guardia = guardia;
         _currentUser = currentUser;
         _logger = logger;
         _identityOptions = identityOptions.Value;
@@ -163,6 +166,12 @@ public class UsuariosController : Controller
                 });
             }
 
+            var guardia = await _guardia.ValidarCambioRolesAsync(model.RolesSeleccionados, []);
+            if (!guardia.Permitido)
+            {
+                return await DenegarJsonAsync("Crear usuario", $"Usuario \"{model.UserName}\"", guardia.Motivo!);
+            }
+
             var sucursal = await _usuarioService.GetSucursalByIdAsync(model.SucursalId);
             if (model.SucursalId.HasValue && sucursal == null)
             {
@@ -249,6 +258,10 @@ public class UsuariosController : Controller
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardiaUsuario.Permitido)
+                return await DenegarRedirectAsync("Desactivar usuario", user, guardiaUsuario.Motivo!, returnUrl);
+
             if (!user.Activo)
             {
                 TempData["Info"] = "El usuario ya estaba inactivo";
@@ -261,7 +274,14 @@ public class UsuariosController : Controller
             user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = "Desactivación rápida desde la grilla de usuarios.";
 
-            var result = await _userManager.UpdateAsync(user);
+            IdentityResult result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Desactivar usuario", user, invariante.Motivo!, returnUrl);
 
             if (result.Succeeded)
             {
@@ -342,6 +362,10 @@ public class UsuariosController : Controller
                 return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
             }
 
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardiaUsuario.Permitido)
+                return await DenegarRedirectAsync("Eliminar usuario", user, guardiaUsuario.Motivo!, returnUrl);
+
             // Soft delete: marcar como inactivo en lugar de eliminar
             user.Activo = false;
             user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
@@ -349,7 +373,14 @@ public class UsuariosController : Controller
             user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = motivo;
 
-            var result = await _userManager.UpdateAsync(user);
+            IdentityResult result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Eliminar usuario", user, invariante.Motivo!, returnUrl);
 
             if (result.Succeeded)
             {
@@ -388,6 +419,10 @@ public class UsuariosController : Controller
                 return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
             }
 
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardiaUsuario.Permitido)
+                return await DenegarRedirectAsync("Reactivar usuario", user, guardiaUsuario.Motivo!, returnUrl);
+
             if (user.Activo)
             {
                 TempData["Warning"] = "El usuario ya está activo";
@@ -400,7 +435,14 @@ public class UsuariosController : Controller
             user.DesactivadoPor = null;
             user.MotivoDesactivacion = null;
 
-            var result = await _userManager.UpdateAsync(user);
+            IdentityResult result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Reactivar usuario", user, invariante.Motivo!, returnUrl);
 
             if (result.Succeeded)
             {
@@ -476,8 +518,23 @@ public class UsuariosController : Controller
             if (user == null)
                 return Json(new { success = false, errors = new[] { "Usuario no encontrado." } });
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
+            var guardia = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardia.Permitido)
+            {
+                return await DenegarJsonAsync("Reset de contraseña", $"Usuario \"{user.UserName}\"", guardia.Motivo!);
+            }
+
+            // Se revalida bajo el lock: si un SuperAdmin promovió al usuario después del chequeo previo,
+            // el actor no-SuperAdmin ya no puede cambiarle la contraseña.
+            var result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarJsonAsync("Reset de contraseña", $"Usuario \"{user.UserName}\"", invariante.Motivo!);
 
             if (result.Succeeded)
             {
@@ -555,6 +612,14 @@ public class UsuariosController : Controller
                 return NotFound();
             }
 
+            var guardia = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardia.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Confirmar email", $"Usuario \"{user.UserName}\"", guardia.Motivo!);
+                TempData["Error"] = guardia.Motivo;
+                return RedirectToReturnUrlOrDetails(id, returnUrl);
+            }
+
             if (user.EmailConfirmed)
             {
                 TempData["Info"] = "El email ya estaba confirmado";
@@ -562,8 +627,19 @@ public class UsuariosController : Controller
             }
 
             // Generar token y confirmar email
-            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            var result = await _userManager.ConfirmEmailAsync(user, token);
+            var result = IdentityResult.Failed();
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                result = await _userManager.ConfirmEmailAsync(user, token);
+                return result.Succeeded;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Confirmar email", $"Usuario \"{user.UserName}\"", invariante.Motivo!);
+                TempData["Error"] = invariante.Motivo;
+                return RedirectToReturnUrlOrDetails(id, returnUrl);
+            }
 
             if (result.Succeeded)
             {
@@ -635,6 +711,10 @@ public class UsuariosController : Controller
             if (user == null)
                 return Json(new { success = false, errors = new[] { "Usuario no encontrado." } });
 
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardiaUsuario.Permitido)
+                return await DenegarJsonAsync("Bloquear usuario", $"Usuario \"{user.UserName}\"", guardiaUsuario.Motivo!);
+
             if (!user.Activo)
                 return Json(new { success = false, errors = new[] { "No se puede bloquear un usuario inactivo." } });
 
@@ -642,8 +722,18 @@ public class UsuariosController : Controller
                 ? new DateTimeOffset(DateTime.SpecifyKind(model.BloqueadoHasta.Value, DateTimeKind.Local))
                 : DateTimeOffset.MaxValue;
 
-            await _userManager.SetLockoutEnabledAsync(user, true);
-            await _userManager.SetLockoutEndDateAsync(user, lockoutEnd);
+            var bloqueado = false;
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                var habilitar = await _userManager.SetLockoutEnabledAsync(user, true);
+                var fijar = await _userManager.SetLockoutEndDateAsync(user, lockoutEnd);
+                bloqueado = habilitar.Succeeded && fijar.Succeeded;
+                return bloqueado;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarJsonAsync("Bloquear usuario", $"Usuario \"{user.UserName}\"", invariante.Motivo!);
+            if (!bloqueado)
+                return Json(new { success = false, errors = new[] { "No se pudo bloquear al usuario. Reintentá." } });
 
             var bloqueoLabel = model.BloqueadoHasta.HasValue
                 ? $"hasta {model.BloqueadoHasta.Value:dd/MM/yyyy HH:mm}"
@@ -684,7 +774,23 @@ public class UsuariosController : Controller
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
 
-            await _userManager.SetLockoutEndDateAsync(user, null);
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(user.Id);
+            if (!guardiaUsuario.Permitido)
+                return await DenegarRedirectAsync("Desbloquear usuario", user, guardiaUsuario.Motivo!, returnUrl);
+
+            var desbloqueado = false;
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                desbloqueado = (await _userManager.SetLockoutEndDateAsync(user, null)).Succeeded;
+                return desbloqueado;
+            }, [user.Id]);
+            if (!invariante.Permitido)
+                return await DenegarRedirectAsync("Desbloquear usuario", user, invariante.Motivo!, returnUrl);
+            if (!desbloqueado)
+            {
+                TempData["Error"] = "No se pudo desbloquear al usuario.";
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
 
             _logger.LogInformation("Usuario {UserId} desbloqueado por {Admin}", id, _currentUser.GetUsername());
             TempData["Success"] = $"Usuario {user.UserName} desbloqueado correctamente.";
@@ -754,6 +860,14 @@ public class UsuariosController : Controller
                 TempData["Error"] = $"El rol '{rol}' no existe.";
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
+
+            var guardia = await _guardia.ValidarCambioRolesAsync([rol], []);
+            if (!guardia.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Asignación masiva de rol", $"Rol \"{rol}\"", guardia.Motivo!);
+                TempData["Error"] = guardia.Motivo;
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
         }
 
         Sucursal? sucursalDestino = null;
@@ -773,7 +887,9 @@ public class UsuariosController : Controller
             }
         }
 
-        var userIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var userIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         var count = 0;
         var errores = new List<string>();
 
@@ -781,105 +897,137 @@ public class UsuariosController : Controller
         {
             var usuarios = await _usuarioService.GetUsuariosByIdsAsync(userIds);
 
-            foreach (var user in usuarios)
+            // Todo o nada: un id inexistente invalida la operación completa (no se aplica a "los que sí están").
+            if (userIds.Length == 0 || usuarios.Count != userIds.Length)
             {
+                TempData["Error"] = "Algunos de los usuarios seleccionados no existen. No se aplicó ningún cambio.";
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
 
-                switch (accion)
+            // Todo o nada: si el actor no puede administrar a alguno de los seleccionados (p. ej. un
+            // SuperAdmin), no se aplica la acción a ninguno.
+            var guardiaUsuarios = await _guardia.ValidarGestionUsuariosAsync(usuarios.Select(u => u.Id));
+            if (!guardiaUsuarios.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync($"Acción masiva '{accion}'", $"{usuarios.Count} usuario(s)", guardiaUsuarios.Motivo!);
+                TempData["Error"] = guardiaUsuarios.Motivo;
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
+
+            // Devuelve true si el resultado falló. Ante el primer fallo individual la operación retorna
+            // false: la guardia revierte la transacción completa y descarta el tracker, de modo que no
+            // queda ningún usuario/rol/bloqueo/sucursal confirmado.
+            bool Falla(ApplicationUser user, IdentityResult result)
+            {
+                if (result.Succeeded)
+                    return false;
+
+                errores.Add($"{user.UserName}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                return true;
+            }
+
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                foreach (var user in usuarios)
                 {
-                    case "activar":
-                        if (user.Activo)
-                        {
-                            continue;
-                        }
-
-                        user.Activo = true;
-                        user.FechaDesactivacion = null;
-                        user.DesactivadoPor = null;
-                        user.MotivoDesactivacion = null;
-
-                        var activarResult = await _userManager.UpdateAsync(user);
-                        if (activarResult.Succeeded)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", activarResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
-
-                    case "desactivar":
-                        if (!user.Activo)
-                        {
-                            continue;
-                        }
-
-                        user.Activo = false;
-                        user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
-                        user.FechaDesactivacion = DateTime.UtcNow;
-                        user.DesactivadoPor = _currentUser.GetUsername();
-                        user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";
-
-                        var desactivarResult = await _userManager.UpdateAsync(user);
-                        if (desactivarResult.Succeeded)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", desactivarResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
-
-                    case "bloquear":
-                        if (user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
-                        {
-                            continue;
-                        }
-
-                        await _userManager.SetLockoutEnabledAsync(user, true);
-                        await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
-                        count++;
-                        break;
-
-                    case "asignarRol":
-                        if (rol != null && !await _userManager.IsInRoleAsync(user, rol))
-                        {
-                            var addToRoleResult = await _userManager.AddToRoleAsync(user, rol);
-                            if (addToRoleResult.Succeeded)
+                    switch (accion)
+                    {
+                        case "activar":
+                            if (user.Activo)
                             {
+                                continue;
+                            }
+
+                            user.Activo = true;
+                            user.FechaDesactivacion = null;
+                            user.DesactivadoPor = null;
+                            user.MotivoDesactivacion = null;
+
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "desactivar":
+                            if (!user.Activo)
+                            {
+                                continue;
+                            }
+
+                            user.Activo = false;
+                            user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
+                            user.FechaDesactivacion = DateTime.UtcNow;
+                            user.DesactivadoPor = _currentUser.GetUsername();
+                            user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";
+
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "bloquear":
+                            if (user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
+                            {
+                                continue;
+                            }
+
+                            if (Falla(user, await _userManager.SetLockoutEnabledAsync(user, true)) ||
+                                Falla(user, await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue)))
+                                return false;
+                            count++;
+                            break;
+
+                        case "asignarRol":
+                            if (rol != null && !await _userManager.IsInRoleAsync(user, rol))
+                            {
+                                if (Falla(user, await _userManager.AddToRoleAsync(user, rol)))
+                                    return false;
                                 count++;
                             }
-                            else
+                            break;
+
+                        case "cambiarSucursal":
+                            if (sucursalDestino != null && user.SucursalId == sucursalDestino.Id)
                             {
-                                errores.Add($"{user.UserName}: {string.Join(", ", addToRoleResult.Errors.Select(e => e.Description))}");
+                                continue;
                             }
-                        }
-                        break;
 
-                    case "cambiarSucursal":
-                        if (sucursalDestino != null && user.SucursalId == sucursalDestino.Id)
-                        {
-                            continue;
-                        }
-
-                        user.SucursalId = sucursalDestino?.Id;
-                        user.Sucursal = sucursalDestino?.Nombre;
-                        var sucursalResult = await _userManager.UpdateAsync(user);
-                        if (sucursalResult.Succeeded)
-                        {
+                            user.SucursalId = sucursalDestino?.Id;
+                            user.Sucursal = sucursalDestino?.Nombre;
+                            if (Falla(user, await _userManager.UpdateAsync(user)))
+                                return false;
                             count++;
-                        }
-                        else
-                        {
-                            errores.Add($"{user.UserName}: {string.Join(", ", sucursalResult.Errors.Select(e => e.Description))}");
-                        }
-                        break;
+                            break;
 
-                    default:
-                        TempData["Error"] = $"Acción '{accion}' no reconocida.";
-                        return RedirectToReturnUrlOrIndex(returnUrl);
+                        default:
+                            // Inalcanzable: una acción desconocida se rechaza antes por no tener permiso asociado.
+                            break;
+                    }
                 }
+
+                return true;
+            }, usuarios.Select(u => u.Id));
+
+            if (!invariante.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync($"Acción masiva '{accion}'", $"{usuarios.Count} usuario(s)", invariante.Motivo!);
+                TempData["Error"] = invariante.Motivo;
+                return RedirectToReturnUrlOrIndex(returnUrl);
+            }
+
+            if (errores.Count > 0)
+            {
+                // La guardia ya revirtió todo: lo que se informa y se audita es lo realmente persistido (nada).
+                var detalle = errores.Count <= 3
+                    ? string.Join(" | ", errores)
+                    : $"{errores.Count} error(es), primero: {errores[0]}";
+                _logger.LogWarning("Acción masiva '{Accion}' revertida por {Admin}: {Detalle}",
+                    accion, _currentUser.GetUsername(), detalle);
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Revertido", $"{userIds.Length} usuario(s)",
+                    $"Acción masiva '{accion}' revertida sin cambios: {detalle}");
+                TempData["Error"] = $"No se aplicó ningún cambio. {detalle}";
+                return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
             var accionLabel = accion switch
@@ -897,25 +1045,32 @@ public class UsuariosController : Controller
 
             if (count > 0)
             {
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Acción masiva", $"{count} usuario(s)",
+                    $"Acción masiva '{accion}' aplicada a {count} de {userIds.Length} usuario(s) seleccionados.");
                 TempData["Success"] = $"{count} usuario(s) {accionLabel} correctamente.";
             }
-            else if (!errores.Any())
+            else
             {
                 TempData["Error"] = "La acción masiva no produjo cambios sobre los usuarios seleccionados.";
-            }
-
-            if (errores.Any())
-            {
-                var resumen = errores.Count <= 3
-                    ? string.Join(" | ", errores)
-                    : $"Se produjeron errores en {errores.Count} usuario(s).";
-                TempData["Error"] = resumen;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error en acción masiva '{Accion}'", accion);
-            TempData["Error"] = "Error al ejecutar la acción masiva.";
+            // La guardia ya revirtió y descartó el tracker: queda constancia de que no se persistió nada.
+            try
+            {
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad", "Revertido", $"{userIds.Length} usuario(s)",
+                    $"Acción masiva '{accion}' abortada por un error inesperado; no se aplicó ningún cambio.");
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogError(auditEx, "No se pudo auditar la reversión de la acción masiva '{Accion}'", accion);
+            }
+
+            TempData["Error"] = "Error al ejecutar la acción masiva. No se aplicó ningún cambio.";
         }
 
         return RedirectToReturnUrlOrIndex(returnUrl);
@@ -924,6 +1079,19 @@ public class UsuariosController : Controller
     #endregion
 
     #region Métodos auxiliares
+
+    private async Task<IActionResult> DenegarRedirectAsync(string operacion, ApplicationUser user, string motivo, string? returnUrl)
+    {
+        await _guardia.RegistrarDenegacionAsync(operacion, $"Usuario \"{user.UserName}\"", motivo);
+        TempData["Error"] = motivo;
+        return RedirectToReturnUrlOrIndex(returnUrl);
+    }
+
+    private async Task<IActionResult> DenegarJsonAsync(string operacion, string entidad, string motivo)
+    {
+        await _guardia.RegistrarDenegacionAsync(operacion, entidad, motivo);
+        return StatusCode(StatusCodes.Status403Forbidden, new { success = false, errors = new[] { motivo } });
+    }
 
     private async Task CargarRolesEnViewBag()
     {

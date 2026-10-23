@@ -367,6 +367,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public Task ActualizarEstadoCuotasAsync() => throw new NotImplementedException();
         public Task<bool> RecalcularSaldoCreditoAsync(int creditoId) => throw new NotImplementedException();
         public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando) => throw new NotImplementedException();
+        public Task<TheBuryProject.Services.Models.ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId) => throw new NotImplementedException();
         public Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();

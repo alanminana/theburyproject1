@@ -89,6 +89,13 @@ No ejecutar la suite completa salvo pre-merge, cierre de fase o pedido explícit
 
 Si un comando queda colgado, detenerlo, diagnosticar y no repetirlo indefinidamente. Cerrar únicamente procesos iniciados por la ejecución actual.
 
+## Revisión independiente (Claude ↔ Codex)
+
+- Claude es el único agente que escribe en un worktree; Codex revisa en solo lectura. Procedimiento, umbrales y registro: `.claude/skills/codex-review-protocolo/SKILL.md`.
+- Si actuás como revisor: no modifiques archivos. Reportá solo hallazgos materiales, con severidad, archivo:línea y evidencia (código leído, no suposiciones).
+- Prioridad en este repo: permisos/autorización, dinero (Caja, Crédito, Venta, cuotas, mora), transacciones/concurrencia/idempotencia, migraciones EF, hubs SignalR y contratos Razor/JS (ids, data-*).
+- No marques estilo ni refactors fuera de alcance, ni repitas hallazgos ya resueltos que figuren en el pedido.
+
 ## Git
 
 - No usar `git add -A` ni `git add --all`.
@@ -102,6 +109,26 @@ git diff --check
 git diff --stat
 git status --short
 ```
+
+## Coordinación Codex → Claude Code
+
+Aplica cuando el usuario da una instrucción corta ("continuá con los pendientes", "hacé QA", "revisá Ventas", "implementá la siguiente tarea aprobada"). Codex es analista, planificador y verificador; **Claude Code es el único escritor de código**. Si sos Claude ejecutando una delegación, no invoques Codex ni el wrapper, e ignorá `codex-review-protocolo`.
+
+1. **Contexto**: leer `docs/agentes/STATE.md` (pendientes, decisiones, fuentes), `git status`, `git worktree list` y re-verificar lo que vaya a usar. STATE.md es un punto en el tiempo, no autoridad.
+2. **Decidir** qué investigar o implementar. Lectura, análisis, planes y verificación los hace Codex; la edición de código la hace Claude. Para lo que no sea escribir (diagnóstico, auditoría), Codex no necesita delegar.
+3. **Delegar**: escribir `docs/agentes/delegations/<id>/task.md` desde `docs/agentes/delegations/TEMPLATE.md` (objetivo, alcance, criterios de aceptación verificables, pruebas) y ejecutar, con esta forma exacta (única que la regla de ejecución autoriza fuera del sandbox):
+
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\git\_agent-coord\theburyproject1\delegate\bin\delegate-claude.ps1 -TaskFile <ruta-absoluta-del-task.md> [-Perfil docs|code] [-BaseRef origin/main] [-TimeoutSec 600] [-MaxBudgetUsd 1.5] [-ResumeSession <sessionId>]
+   ```
+
+   Si el sandbox bloquea el comando o pide aprobación, **detenerse e informar**; nunca ejecutar `claude` directo, ni reescribir el wrapper, ni abrir red, ni usar otro mecanismo.
+4. **El wrapper** crea el worktree `D:\git\theburyproject1-t-<id>` (rama `task/<id>`) desde `BaseRef`, ejecuta Claude con `acceptEdits` y herramientas acotadas, aplica timeout y bloqueo por tarea, y deja en `D:\git\_agent-coord\theburyproject1\delegate\runs\<id>\` el `result-r<N>.json` (estado, `permissionModeObserved`, salida estructurada de Claude, evidencia git propia), el stream y el prompt.
+5. **Verificar de forma independiente** (no basta el relato de Claude): leer `result-r<N>.json`; en el worktree de la tarea revisar con `git -c safe.directory='*' -C <worktree> status|diff` los archivos realmente cambiados contra el alcance; confirmar `headEqualsBase = true` (Claude no hizo commits); correr las pruebas de los criterios de aceptación; contrastar con la salida de Claude.
+6. **Corregir**: si falla un criterio, reanudar con `-ResumeSession <sessionId>` y la corrección en el mismo `task.md`. Máximo 2 rondas de corrección (el wrapper lo impone); luego escalar al usuario.
+7. **Informar** al usuario: qué se delegó, evidencia real (rutas de `result`, diff, pruebas), criterios cumplidos o no, bloqueos y estado Git. Commit, push, PR y merge solo con autorización explícita.
+
+Prohibido: `bypassPermissions`/`--dangerously-skip-permissions`, escrituras simultáneas (un solo escritor por worktree), tocar E1, A5, otros worktrees, hooks Git compartidos o configuración global de Codex/Claude, e invocar delegaciones desde una delegación. Instalación y mantenimiento del wrapper: `docs/agentes/README.md`.
 
 ## Entregable
 

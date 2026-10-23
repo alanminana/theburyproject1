@@ -85,6 +85,7 @@ file sealed class StubCreditoServiceDoc : ICreditoService
     public Task ActualizarEstadoCuotasAsync() => throw new NotImplementedException();
     public Task<bool> RecalcularSaldoCreditoAsync(int creditoId) => throw new NotImplementedException();
     public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando) => throw new NotImplementedException();
+    public Task<TheBuryProject.Services.Models.ResultadoRelacionConfiguracionCredito> ValidarRelacionConfiguracionAsync(int creditoId, int? ventaId) => throw new NotImplementedException();
 }
 
 file sealed class StubDocumentoClienteServiceDoc : IDocumentoClienteService

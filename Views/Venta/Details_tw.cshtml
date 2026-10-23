@@ -68,6 +68,7 @@
 
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeVerCreditos = User.TienePermiso("creditos", "view");
+    var puedeConfigurarCreditos = User.TienePermiso("creditos", "configure");
     var puedeActualizarVentas = User.TienePermiso("ventas", "update");
     var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
     var puedeRechazarVentas = User.TienePermiso("ventas", "reject");
@@ -1019,7 +1020,7 @@
                     // de configurar el crédito." (CreditoController). Mostrar el CTA igual —y antes
                     // que Autorizar/Rechazar— es una contradicción de acciones (§14): no se renderiza
                     // mientras la autorización esté pendiente, sin duplicar la regla del backend.
-                    var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos && !Model.PuedeAutorizar;
+                    var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos && puedeConfigurarCreditos && !Model.PuedeAutorizar;
                     var hayAccionGenerarContrato = puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null;
                     // VENTA-DETAILS-DUPLICACION-02 (H12): "Ver contrato" es de solo lectura
                     // (ContratoVentaCreditoController.Ver sirve el PDF ya generado, sin

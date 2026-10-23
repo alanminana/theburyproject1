@@ -25,6 +25,7 @@ public class SeguridadController : Controller
     private readonly IRolService _rolService;
     private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
+    private readonly IGuardiaPrivilegiosService _guardia;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<SeguridadController> _logger;
 
@@ -32,12 +33,14 @@ public class SeguridadController : Controller
         IRolService rolService,
         IUsuarioService usuarioService,
         ISeguridadAuditoriaService seguridadAuditoria,
+        IGuardiaPrivilegiosService guardia,
         ICurrentUserService currentUser,
         ILogger<SeguridadController> logger)
     {
         _rolService = rolService;
         _usuarioService = usuarioService;
         _seguridadAuditoria = seguridadAuditoria;
+        _guardia = guardia;
         _currentUser = currentUser;
         _logger = logger;
     }
@@ -186,21 +189,70 @@ public class SeguridadController : Controller
                 return View("EditUsuario_tw", model);
             }
 
-            var result = await _usuarioService.UpdateUsuarioAsync(new UsuarioUpdateRequest
+            var guardiaUsuario = await _guardia.ValidarGestionUsuarioAsync(model.Id);
+            var rolesActuales = await _rolService.GetUserRolesAsync(model.Id);
+            var rolesAgregar = model.RolesSeleccionados
+                .Except(rolesActuales, StringComparer.OrdinalIgnoreCase).ToList();
+            var rolesQuitar = rolesActuales
+                .Except(model.RolesSeleccionados, StringComparer.OrdinalIgnoreCase).ToList();
+            var guardiaRoles = guardiaUsuario.Permitido
+                ? await _guardia.ValidarCambioRolesAsync(rolesAgregar, rolesQuitar)
+                : guardiaUsuario;
+
+            if (!guardiaRoles.Permitido)
             {
-                UserId = model.Id,
-                UserName = model.UserName,
-                Email = model.Email,
-                Nombre = model.Nombre,
-                Apellido = model.Apellido,
-                Telefono = model.Telefono,
-                SucursalId = model.SucursalId,
-                SucursalNombre = sucursalNombre,
-                Activo = model.Activo,
-                RolesDeseados = model.RolesSeleccionados,
-                RowVersion = model.RowVersion!,
-                EditadoPor = _currentUser.GetUsername()
-            });
+                await _guardia.RegistrarDenegacionAsync("Editar usuario", $"Usuario \"{model.UserName}\"", guardiaRoles.Motivo!);
+                ModelState.AddModelError(string.Empty, guardiaRoles.Motivo!);
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return View("EditUsuario_tw", model);
+            }
+
+            var result = UsuarioUpdateResult.Failed("Operación no ejecutada.");
+            var rolDenegadoBajoLock = GuardiaResultado.Ok;
+            var invariante = await _guardia.EjecutarConservandoSuperAdminAsync(async () =>
+            {
+                // Con el lock tomado se recalculan los deltas con los roles vigentes: el servicio también los
+                // recalcula, y un cambio concurrente no debe esquivar la regla de rango/permisos.
+                var rolesVigentes = await _rolService.GetUserRolesAsync(model.Id);
+                rolDenegadoBajoLock = await _guardia.ValidarCambioRolesAsync(
+                    model.RolesSeleccionados.Except(rolesVigentes, StringComparer.OrdinalIgnoreCase).ToList(),
+                    rolesVigentes.Except(model.RolesSeleccionados, StringComparer.OrdinalIgnoreCase).ToList());
+                if (!rolDenegadoBajoLock.Permitido)
+                    return false;
+
+                result = await _usuarioService.UpdateUsuarioAsync(new UsuarioUpdateRequest
+                {
+                    UserId = model.Id,
+                    UserName = model.UserName,
+                    Email = model.Email,
+                    Nombre = model.Nombre,
+                    Apellido = model.Apellido,
+                    Telefono = model.Telefono,
+                    SucursalId = model.SucursalId,
+                    SucursalNombre = sucursalNombre,
+                    Activo = model.Activo,
+                    RolesDeseados = model.RolesSeleccionados,
+                    RowVersion = model.RowVersion!,
+                    EditadoPor = _currentUser.GetUsername()
+                });
+                return result.Ok;
+            }, [model.Id]);
+
+            if (!rolDenegadoBajoLock.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Editar usuario", $"Usuario \"{model.UserName}\"", rolDenegadoBajoLock.Motivo!);
+                ModelState.AddModelError(string.Empty, rolDenegadoBajoLock.Motivo!);
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return View("EditUsuario_tw", model);
+            }
+
+            if (!invariante.Permitido)
+            {
+                await _guardia.RegistrarDenegacionAsync("Editar usuario", $"Usuario \"{model.UserName}\"", invariante.Motivo!);
+                ModelState.AddModelError(string.Empty, invariante.Motivo!);
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return View("EditUsuario_tw", model);
+            }
 
             if (!result.Ok)
             {
@@ -299,6 +351,12 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
+        var guardiaNombre = await _guardia.ValidarNombreRolAsync(model.Nombre);
+        if (!guardiaNombre.Permitido)
+        {
+            return await DenegarJsonAsync("Crear rol", $"Rol \"{model.Nombre}\"", guardiaNombre.Motivo!);
+        }
+
         if (await _rolService.RoleExistsAsync(model.Nombre))
         {
             ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
@@ -381,6 +439,25 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
+        var guardia = await _guardia.ValidarGestionRolAsync(model.Id);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(model.Id, model.Nombre, model.Activo, eliminar: false);
+
+        // Reactivar un rol desde acá es lo mismo que ToggleRolActivo(activo: true): mismo control.
+        if (guardia.Permitido && model.Activo)
+        {
+            var metadataActual = await _rolService.GetRoleMetadataAsync(model.Id);
+            if (metadataActual is { Activo: false })
+                guardia = await _guardia.ValidarActivacionRolAsync(model.Id);
+        }
+
+        if (!guardia.Permitido)
+        {
+            return await DenegarJsonAsync("Editar rol", $"Rol \"{model.Nombre}\"", guardia.Motivo!);
+        }
+
         try
         {
             var (ok, error, roleName) = await _rolService.UpdateRoleWithMetadataAsync(
@@ -459,6 +536,14 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
+        var guardia = await _guardia.ValidarNombreRolAsync(model.Nombre);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarDuplicadoRolAsync(model.RolOrigenId);
+        if (!guardia.Permitido)
+        {
+            return await DenegarJsonAsync("Duplicar rol", $"Rol origen \"{model.RolOrigenId}\"", guardia.Motivo!);
+        }
+
         try
         {
             var (ok, error, roleId, roleName, permisosCopiados) = await _rolService.DuplicateRoleAsync(
@@ -497,6 +582,16 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "update")]
     public async Task<IActionResult> ToggleRolActivo(string id, bool activo, string? returnUrl)
     {
+        var guardiaEstado = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, activo, eliminar: false);
+        if (guardiaEstado.Permitido && activo)
+            guardiaEstado = await _guardia.ValidarActivacionRolAsync(id);
+        if (!guardiaEstado.Permitido)
+        {
+            await _guardia.RegistrarDenegacionAsync(activo ? "Activar rol" : "Desactivar rol", $"Rol \"{id}\"", guardiaEstado.Motivo!);
+            TempData["Error"] = guardiaEstado.Motivo;
+            return RedirectToAction(nameof(Index), new { tab = "roles" });
+        }
+
         try
         {
             if (!activo)
@@ -543,6 +638,18 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "delete")]
     public async Task<IActionResult> DeleteRol(string id, string? returnUrl)
     {
+        var guardia = await _guardia.ValidarGestionRolAsync(id);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarInmutabilidadRolSuperAdminAsync(id, null, null, eliminar: true);
+        if (guardia.Permitido)
+            guardia = await _guardia.ValidarIdentidadRolReservadoAsync(id, null, null, eliminar: true);
+        if (!guardia.Permitido)
+        {
+            await _guardia.RegistrarDenegacionAsync("Eliminar rol", $"Rol \"{id}\"", guardia.Motivo!);
+            TempData["Error"] = guardia.Motivo;
+            return RedirectToAction(nameof(Index), new { tab = "roles" });
+        }
+
         try
         {
             var result = await _rolService.DeleteRoleAsync(id);
@@ -589,6 +696,14 @@ public class SeguridadController : Controller
         {
             TempData["Error"] = "Rol no encontrado.";
             return RedirectToAction(nameof(Index), new { tab = "permisos-rol" });
+        }
+
+        var guardia = await _guardia.ValidarCambioPermisosRolAsync(roleId, accionIds ?? []);
+        if (!guardia.Permitido)
+        {
+            await _guardia.RegistrarDenegacionAsync("Guardar permisos de rol", $"Rol \"{role.Name}\"", guardia.Motivo!);
+            TempData["Error"] = guardia.Motivo;
+            return RedirectToAction(nameof(Index), new { tab = "permisos-rol", roleId });
         }
 
         try
@@ -678,6 +793,12 @@ public class SeguridadController : Controller
             return Json(new { success = false, errors = new[] { "No se encontraron los roles seleccionados." } });
         }
 
+        var guardia = await _guardia.ValidarCopiaPermisosAsync(sourceRole.Id, targetRole.Id);
+        if (!guardia.Permitido)
+        {
+            return await DenegarJsonAsync("Copiar permisos entre roles", $"Rol \"{targetRole.Name}\"", guardia.Motivo!);
+        }
+
         try
         {
             var (ok, error, permisosCopiados) = await _rolService.CopyPermisosFromRoleAsync(sourceRole.Id, targetRole.Id);
@@ -710,6 +831,12 @@ public class SeguridadController : Controller
     }
 
     #endregion
+
+    private async Task<IActionResult> DenegarJsonAsync(string operacion, string entidad, string motivo)
+    {
+        await _guardia.RegistrarDenegacionAsync(operacion, entidad, motivo);
+        return StatusCode(StatusCodes.Status403Forbidden, new { success = false, errors = new[] { motivo } });
+    }
 
     #region Auditoría
 

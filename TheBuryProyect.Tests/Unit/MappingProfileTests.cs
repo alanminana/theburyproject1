@@ -433,6 +433,79 @@ public class MappingProfileTests
         Assert.Equal("OrdenCompraDetalle", vm.FuenteCosto);
     }
 
+    // =========================================================================
+    // FIN-S-002: VentaViewModel → Venta (campos de workflow ignorados)
+    // =========================================================================
+
+    [Theory]
+    [InlineData(EstadoVenta.Confirmada)]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    [InlineData(EstadoVenta.Cancelada)]
+    [InlineData(EstadoVenta.Presupuesto)]
+    public void Map_VentaViewModelToVenta_EstadoManipulado_SeIgnora(EstadoVenta estadoManipulado)
+    {
+        // El cliente no puede controlar el estado enviando un valor distinto en el POST.
+        var vm = new VentaViewModel { Estado = estadoManipulado, ClienteId = 1, TipoPago = TipoPago.Efectivo };
+
+        var entity = _mapper.Map<Venta>(vm);
+
+        Assert.Equal(EstadoVenta.Cotizacion, entity.Estado);
+    }
+
+    [Fact]
+    public void Map_VentaViewModelToVenta_CamposWorkflowYAutorizacionIgnorados()
+    {
+        // FIN-S-002: ningún campo de autorización/fechas/CreditoId del POST puede llegar a la entidad.
+        var vm = new VentaViewModel
+        {
+            ClienteId = 1,
+            TipoPago = TipoPago.Efectivo,
+            Estado = EstadoVenta.Facturada,
+            EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada,
+            RequiereAutorizacion = true,
+            UsuarioAutoriza = "atacante",
+            FechaAutorizacion = new DateTime(2020, 1, 1),
+            FechaConfirmacion = new DateTime(2020, 1, 1),
+            FechaFacturacion = new DateTime(2020, 1, 1),
+            FechaEntrega = new DateTime(2020, 1, 1),
+            FechaCancelacion = new DateTime(2020, 1, 1),
+            MotivoCancelacion = "bypass",
+            RazonesAutorizacionJson = "[\"fake\"]",
+            CreditoId = 9999,
+        };
+
+        var entity = _mapper.Map<Venta>(vm);
+
+        Assert.Equal(EstadoVenta.Cotizacion, entity.Estado);
+        Assert.Equal(EstadoAutorizacionVenta.NoRequiere, entity.EstadoAutorizacion);
+        Assert.False(entity.RequiereAutorizacion);
+        Assert.Null(entity.UsuarioAutoriza);
+        Assert.Null(entity.FechaAutorizacion);
+        Assert.Null(entity.FechaConfirmacion);
+        Assert.Null(entity.FechaFacturacion);
+        Assert.Null(entity.FechaEntrega);
+        Assert.Null(entity.FechaCancelacion);
+        Assert.Null(entity.MotivoCancelacion);
+        Assert.Null(entity.RazonesAutorizacionJson);
+        Assert.Null(entity.CreditoId);
+    }
+
+    [Fact]
+    public void Map_VentaViewModelToVenta_Numero_SeIgnora()
+    {
+        // El número de venta se genera en el servidor; no debe viajar desde el cliente.
+        var vm = new VentaViewModel { ClienteId = 1, Numero = "VE-FAKE-999" };
+
+        var entity = _mapper.Map<Venta>(vm);
+
+        Assert.Equal(string.Empty, entity.Numero);
+    }
+
+    // =========================================================================
+    // VentaDetalle → VentaDetalleViewModel (snapshots IVA solo lectura)
+    // =========================================================================
+
     [Fact]
     public void Map_VentaDetalle_IncluyeSnapshotsIvaSoloLectura()
     {

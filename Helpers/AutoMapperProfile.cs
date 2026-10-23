@@ -270,7 +270,35 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.Facturas, opt => opt.Ignore())
                 .ForMember(dest => dest.DatosCheque, opt => opt.Ignore())
                 .ForMember(dest => dest.DatosTarjeta, opt => opt.Ignore())
-                .ForMember(dest => dest.Envio, opt => opt.Ignore());
+                .ForMember(dest => dest.Envio, opt => opt.Ignore())
+                // FIN-S-002: el cliente nunca controla el estado de workflow ni la asociación
+                // de crédito. CreateAsync los fija o calcula; UpdateAsync los escribe
+                // explícitamente a través de ActualizarDatosVenta.
+                .ForMember(dest => dest.Estado, opt => opt.Ignore())
+                .ForMember(dest => dest.Numero, opt => opt.Ignore())
+                .ForMember(dest => dest.AperturaCajaId, opt => opt.Ignore())
+                .ForMember(dest => dest.VendedorUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.VendedorNombre, opt => opt.Ignore())
+                .ForMember(dest => dest.CreditoId, opt => opt.Ignore())
+                // FIN-S-002 (F2/F3): FechaConfiguracionCredito la fija sólo el servidor al
+                // configurar el financiamiento (habilita confirmar crédito); CreatedAt es
+                // auditoría de servidor (AppDbContext sólo lo completa si viene en default).
+                .ForMember(dest => dest.FechaConfiguracionCredito, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.EstadoAutorizacion, opt => opt.Ignore())
+                .ForMember(dest => dest.RequiereAutorizacion, opt => opt.Ignore())
+                .ForMember(dest => dest.UsuarioSolicita, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaSolicitudAutorizacion, opt => opt.Ignore())
+                .ForMember(dest => dest.UsuarioAutoriza, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaAutorizacion, opt => opt.Ignore())
+                .ForMember(dest => dest.MotivoAutorizacion, opt => opt.Ignore())
+                .ForMember(dest => dest.MotivoRechazo, opt => opt.Ignore())
+                .ForMember(dest => dest.RazonesAutorizacionJson, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaConfirmacion, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaFacturacion, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaEntrega, opt => opt.Ignore())
+                .ForMember(dest => dest.FechaCancelacion, opt => opt.Ignore())
+                .ForMember(dest => dest.MotivoCancelacion, opt => opt.Ignore());
 
             CreateMap<VentaDetalle, VentaDetalleViewModel>()
                 // Identidad histórica: snapshot al momento de la venta → relación viva sólo para filas

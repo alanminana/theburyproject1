@@ -18,7 +18,7 @@ namespace TheBuryProject.Tests.Integration;
 // Stubs mínimos — sólo lo que ConfigurarCreditoAsync necesita
 // ---------------------------------------------------------------------------
 
-file sealed class StubCajaServiceConfiguracion : ICajaService
+internal sealed class StubCajaServiceConfiguracion : ICajaService
 {
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
@@ -57,7 +57,7 @@ file sealed class StubCajaServiceConfiguracion : ICajaService
     public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
 }
 
-file sealed class StubFinancialServiceConfig : IFinancialCalculationService
+internal sealed class StubFinancialServiceConfig : IFinancialCalculationService
 {
     public decimal CalcularCuotaSistemaFrances(decimal monto, decimal tasaMensual, int cuotas) => throw new NotImplementedException();
     public decimal CalcularTotalConInteres(decimal monto, decimal tasaMensual, int cuotas) => throw new NotImplementedException();
@@ -74,7 +74,7 @@ file sealed class StubFinancialServiceConfig : IFinancialCalculationService
         IReadOnlyCollection<int>? cuotasSinRecargo = null) => throw new NotImplementedException();
 }
 
-file sealed class StubCreditoDisponibleServiceConfig : ICreditoDisponibleService
+internal sealed class StubCreditoDisponibleServiceConfig : ICreditoDisponibleService
 {
     public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -83,7 +83,7 @@ file sealed class StubCreditoDisponibleServiceConfig : ICreditoDisponibleService
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 
-file sealed class StubCurrentUserServiceConfig : ICurrentUserService
+internal sealed class StubCurrentUserServiceConfig : ICurrentUserService
 {
     public string GetUsername() => "TestUser";
     public string GetUserId() => "system";
@@ -192,12 +192,15 @@ public class CreditoServiceConfiguracionTests : IDisposable
     private async Task<Venta> SeedVenta(
         int id = 1,
         EstadoVenta estado = EstadoVenta.PendienteFinanciacion,
-        int clienteId = 1)
+        int clienteId = 1,
+        int? creditoId = 1)
     {
         var venta = new Venta
         {
             Id = id,
             ClienteId = clienteId,
+            // La venta apunta al crédito que se configura: ConfigurarCreditoAsync exige la relación.
+            CreditoId = creditoId,
             Numero = $"VTA{id:D4}",
             Estado = estado,
             Total = 10_000m,
@@ -250,7 +253,7 @@ public class CreditoServiceConfiguracionTests : IDisposable
         var cmd = BuildComando(creditoId: 999);
 
         // Act + Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(
             () => _service.ConfigurarCreditoAsync(cmd));
     }
 
@@ -306,7 +309,8 @@ public class CreditoServiceConfiguracionTests : IDisposable
     {
         // Arrange
         await SeedCredito(id: 1);
-        await SeedVenta(id: 1, estado: EstadoVenta.PendienteFinanciacion);
+        // Venta ajena al crédito (crédito independiente): un crédito con venta asociada exige VentaId.
+        await SeedVenta(id: 1, estado: EstadoVenta.PendienteFinanciacion, creditoId: null);
         var cmd = BuildComando(creditoId: 1, ventaId: null); // VentaId null
 
         // Act
@@ -638,5 +642,248 @@ public class CreditoServiceConfiguracionTests : IDisposable
         Assert.NotNull(credito);
         Assert.Equal(9_000m, credito!.MontoAprobado);
         Assert.Equal(9_000m, credito.SaldoPendiente);
+    }
+
+    // -------------------------------------------------------------------------
+    // PROMPT 90 — relación crédito/venta/cliente: dos clientes, dos ventas, dos créditos
+    // -------------------------------------------------------------------------
+
+    /// <summary>Cliente 1 / crédito 1 / venta 1 y cliente 2 / crédito 2 / venta 2, cada venta apuntando a su crédito.</summary>
+    private async Task SeedDosCircuitosAsync()
+    {
+        await SeedCredito(id: 1, numero: "CRED0001");
+        await SeedCredito(id: 2, numero: "CRED0002");
+        await SeedVenta(id: 1, clienteId: 1, creditoId: 1);
+        await SeedVenta(id: 2, clienteId: 2, creditoId: 2);
+    }
+
+    private async Task AssertCircuitoSinCambiosAsync(int creditoId, int ventaId)
+    {
+        _context.ChangeTracker.Clear();
+        var credito = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == creditoId);
+        var venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId);
+
+        Assert.Equal(EstadoCredito.Solicitado, credito.Estado);
+        Assert.Equal(0m, credito.MontoAprobado);
+        Assert.Equal(0, credito.CantidadCuotas);
+        Assert.Equal(EstadoVenta.PendienteFinanciacion, venta.Estado);
+        Assert.Null(venta.FechaConfiguracionCredito);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_CircuitoPropio_EsValidaYDevuelveClienteDelCredito()
+    {
+        await SeedDosCircuitosAsync();
+
+        var r1 = await _service.ValidarRelacionConfiguracionAsync(1, 1);
+        var r2 = await _service.ValidarRelacionConfiguracionAsync(2, 2);
+
+        Assert.True(r1.EsValida);
+        Assert.Equal(1, r1.ClienteId);
+        Assert.True(r2.EsValida);
+        Assert.Equal(2, r2.ClienteId);
+    }
+
+    [Theory]
+    [InlineData(1, 2)] // crédito del cliente 1 con la venta del cliente 2
+    [InlineData(2, 1)]
+    public async Task ValidarRelacion_IdsCruzados_Conflicto(int creditoId, int ventaId)
+    {
+        await SeedDosCircuitosAsync();
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(creditoId, ventaId);
+
+        Assert.False(r.EsValida);
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, r.Motivo);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_VentaDelMismoClientePeroOtroCredito_Conflicto()
+    {
+        await SeedDosCircuitosAsync();
+        // Segunda venta del cliente 1, asociada a un tercer crédito del mismo cliente.
+        _context.Creditos.Add(new Credito { Id = 3, ClienteId = 1, Numero = "CRED0003", Estado = EstadoCredito.Solicitado, IsDeleted = false });
+        await _context.SaveChangesAsync();
+        await SeedVenta(id: 3, clienteId: 1, creditoId: 3);
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(1, 3);
+
+        Assert.False(r.EsValida);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_VentaConClienteDistintoAlDelCredito_Conflicto()
+    {
+        await SeedDosCircuitosAsync();
+        // Venta 2 apunta al crédito 1 pero pertenece al cliente 2 (dato inconsistente/manipulado).
+        var venta2 = await _context.Ventas.SingleAsync(v => v.Id == 2);
+        venta2.CreditoId = 1;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(1, 2);
+
+        Assert.False(r.EsValida);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_IdsInexistentes_NoEncontrado()
+    {
+        await SeedDosCircuitosAsync();
+
+        var sinVenta = await _service.ValidarRelacionConfiguracionAsync(1, 999);
+        var sinCredito = await _service.ValidarRelacionConfiguracionAsync(999, 1);
+
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.NoEncontrado, sinVenta.Motivo);
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.NoEncontrado, sinCredito.Motivo);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_VentaEliminadaLogicamente_NoEncontrado()
+    {
+        await SeedDosCircuitosAsync();
+        var venta = await _context.Ventas.SingleAsync(v => v.Id == 1);
+        venta.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(1, 1);
+
+        Assert.False(r.EsValida);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_CreditoConVentaSinVentaId_Conflicto()
+    {
+        await SeedDosCircuitosAsync();
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(1, null);
+
+        Assert.False(r.EsValida);
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, r.Motivo);
+    }
+
+    [Fact]
+    public async Task ValidarRelacion_CreditoIndependienteSinVenta_EsValido()
+    {
+        await SeedCredito(id: 1);
+
+        var r = await _service.ValidarRelacionConfiguracionAsync(1, null);
+
+        Assert.True(r.EsValida);
+        Assert.Equal(1, r.ClienteId);
+    }
+
+    [Theory]
+    [InlineData(1, 2)] // configurar crédito 1 con venta 2: no debe tocar ninguna
+    [InlineData(2, 1)]
+    public async Task ConfigurarCredito_IdsCruzados_RechazaYNoModificaNingunaEntidad(int creditoId, int ventaId)
+    {
+        await SeedDosCircuitosAsync();
+
+        var ex = await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException>(
+            () => _service.ConfigurarCreditoAsync(BuildComando(creditoId: creditoId, ventaId: ventaId)));
+
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, ex.Motivo);
+        await AssertCircuitoSinCambiosAsync(1, 1);
+        await AssertCircuitoSinCambiosAsync(2, 2);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_CreditoConVentaSinVentaId_RechazaYNoModifica()
+    {
+        await SeedDosCircuitosAsync();
+
+        await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException>(
+            () => _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: null, monto: 1m, anticipo: 0m)));
+
+        await AssertCircuitoSinCambiosAsync(1, 1);
+        await AssertCircuitoSinCambiosAsync(2, 2);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_CircuitoPropio_ConfiguraSoloEseCircuito()
+    {
+        await SeedDosCircuitosAsync();
+
+        await _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: 1, monto: 10_000m, anticipo: 0m));
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoCredito.Configurado, (await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1)).Estado);
+        Assert.Equal(EstadoVenta.Presupuesto, (await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == 1)).Estado);
+        await AssertCircuitoSinCambiosAsync(2, 2);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_CreditoIndependiente_SigueFuncionando()
+    {
+        await SeedCredito(id: 1);
+
+        await _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: null, monto: 10_000m, anticipo: 1_000m));
+
+        _context.ChangeTracker.Clear();
+        var credito = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        Assert.Equal(EstadoCredito.Configurado, credito.Estado);
+        Assert.Equal(9_000m, credito.MontoAprobado);
+    }
+
+    [Theory]
+    [InlineData(EstadoCredito.Generado)]
+    [InlineData(EstadoCredito.Activo)]
+    [InlineData(EstadoCredito.Finalizado)]
+    [InlineData(EstadoCredito.Cancelado)]
+    public async Task ConfigurarCredito_EstadoNoConfigurable_RechazaSinSobrescribir(EstadoCredito estado)
+    {
+        // Modela la carrera: el controller leyó el crédito configurable y, antes del guardado,
+        // otra operación lo llevó a un estado posterior. El servicio revalida sobre lo leído.
+        await SeedCredito(id: 1, estado: estado);
+        await SeedVenta(id: 1, estado: EstadoVenta.Confirmada, clienteId: 1, creditoId: 1);
+        var antes = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+
+        await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException>(
+            () => _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: 1)));
+
+        _context.ChangeTracker.Clear();
+        var despues = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        Assert.Equal(estado, despues.Estado);
+        Assert.Equal(antes.MontoAprobado, despues.MontoAprobado);
+        Assert.Equal(antes.SaldoPendiente, despues.SaldoPendiente);
+        Assert.Equal(antes.CantidadCuotas, despues.CantidadCuotas);
+    }
+    [Theory]
+    [InlineData(EstadoVenta.Confirmada)]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    [InlineData(EstadoVenta.Cancelada)]
+    public async Task ConfigurarCredito_VentaPosteriorAConfigurar_RechazaYNoModificaCreditoVenta(EstadoVenta estadoVenta)
+    {
+        // PROMPT 93: crédito configurable pero venta ya confirmada/facturada/entregada/cancelada.
+        await SeedCredito(id: 1, estado: EstadoCredito.Configurado);
+        await SeedVenta(id: 1, estado: estadoVenta, clienteId: 1, creditoId: 1);
+        var creditoAntes = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        var ventaAntes = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == 1);
+
+        var ex = await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.ConfiguracionCreditoRechazadaException>(
+            () => _service.ConfigurarCreditoAsync(BuildComando(creditoId: 1, ventaId: 1)));
+        Assert.Equal(TheBuryProject.Services.Exceptions.MotivoRechazoConfiguracionCreditoServicio.Conflicto, ex.Motivo);
+
+        _context.ChangeTracker.Clear();
+        var credito = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == 1);
+        var venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == 1);
+        Assert.Equal(creditoAntes.MontoAprobado, credito.MontoAprobado);
+        Assert.Equal(creditoAntes.CantidadCuotas, credito.CantidadCuotas);
+        Assert.Equal(estadoVenta, venta.Estado);
+        Assert.Equal(ventaAntes.FechaConfiguracionCredito, venta.FechaConfiguracionCredito);
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion)]
+    [InlineData(EstadoVenta.Presupuesto)]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
+    public async Task ValidarRelacion_VentaEnEstadosDelWizard_EsValida(EstadoVenta estadoVenta)
+    {
+        await SeedCredito(id: 1);
+        await SeedVenta(id: 1, estado: estadoVenta, clienteId: 1, creditoId: 1);
+
+        Assert.True((await _service.ValidarRelacionConfiguracionAsync(1, 1)).EsValida);
     }
 }
