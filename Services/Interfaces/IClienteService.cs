@@ -9,7 +9,17 @@ namespace TheBuryProject.Services.Interfaces
         Task<IEnumerable<Cliente>> GetAllAsync();
         Task<Cliente?> GetByIdAsync(int id);
         Task<Cliente> CreateAsync(Cliente cliente);
+        /// <summary>Actualiza los datos del cliente. NO toca la configuración personalizada de crédito.</summary>
         Task<Cliente> UpdateAsync(Cliente cliente);
+
+        /// <summary>
+        /// Igual que <see cref="UpdateAsync(Cliente)"/> y, solo si <paramref name="actualizarConfiguracionCredito"/>, también
+        /// guarda la configuración personalizada de crédito (perfil, tasa, gastos, cuotas máximas, montos). El llamador lo
+        /// pide únicamente para usuarios con clientes.configurecredit: sin él, esas columnas ni siquiera entran en el UPDATE,
+        /// así que no pueden revertir un cambio autorizado concurrente. La implementación por defecto delega en el
+        /// método sin configuración (los dobles de prueba que no la necesitan no cambian).
+        /// </summary>
+        Task<Cliente> UpdateAsync(Cliente cliente, bool actualizarConfiguracionCredito) => UpdateAsync(cliente);
         Task<bool> DeleteAsync(int id);
         Task<IEnumerable<Cliente>> SearchAsync(
             string? searchTerm = null,

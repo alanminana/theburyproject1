@@ -164,9 +164,11 @@ namespace TheBuryProject.Controllers
         /// acá se garantiza en el servidor que tampoco puedan modificarse: en alta quedan vacíos
         /// y en edición se conservan los valores persistidos.
         /// </summary>
+        private bool PuedeConfigurarCredito() => _currentUser.HasPermission("clientes", "configurecredit");
+
         private async Task AplicarRestriccionConfigCreditoAsync(ClienteViewModel viewModel)
         {
-            if (_currentUser.HasPermission("clientes", "configurecredit"))
+            if (PuedeConfigurarCredito())
                 return;
 
             var actual = viewModel.Id > 0 ? await _clienteService.GetByIdAsync(viewModel.Id) : null;
@@ -273,7 +275,7 @@ namespace TheBuryProject.Controllers
 
                 await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
-                await _clienteService.UpdateAsync(cliente);
+                await _clienteService.UpdateAsync(cliente, PuedeConfigurarCredito());
 
                 TempData["Success"] = "Cliente actualizado exitosamente";
                 return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
@@ -372,7 +374,7 @@ namespace TheBuryProject.Controllers
             {
                 await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
-                await _clienteService.UpdateAsync(cliente);
+                await _clienteService.UpdateAsync(cliente, PuedeConfigurarCredito());
                 return Json(new { success = true, id = cliente.Id, nombre = cliente.NombreCompleto });
             }
             catch (InvalidOperationException ex)
