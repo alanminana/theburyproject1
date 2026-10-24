@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -468,6 +469,13 @@ namespace TheBuryProject.Controllers
             {
                 TempData["Error"] = MensajeSinPermisoOperarCaja;
                 return RedirectToAction(nameof(Index));
+            }
+
+            // FIN-S-007: el select de conceptos es solo una comodidad del navegador. Se exige en el servidor que el
+            // concepto sea uno de los que admite la carga manual para ese tipo (sin conceptos de sistema ni cruces).
+            if (!ConceptosMovimientoCajaManual.EsPermitido(model.Tipo, model.Concepto))
+            {
+                ModelState.AddModelError(nameof(model.Concepto), "El concepto no es válido para este tipo de movimiento.");
             }
 
             if (!ModelState.IsValid)

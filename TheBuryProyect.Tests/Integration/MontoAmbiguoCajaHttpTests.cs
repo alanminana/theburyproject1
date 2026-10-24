@@ -50,7 +50,7 @@ public class MontoAmbiguoCajaHttpTests : IClassFixture<CustomWebApplicationFacto
             ["AperturaCajaId"] = aperturaId.ToString(),
             ["IdempotencyKey"] = Guid.NewGuid().ToString(),
             ["Tipo"] = "0",          // Ingreso
-            ["Concepto"] = "99",     // Otro
+            ["Concepto"] = "0",      // VentaEfectivo (concepto manual valido para un ingreso)
             ["Descripcion"] = "FIN-S-017",
             ["Monto"] = monto
         }));
