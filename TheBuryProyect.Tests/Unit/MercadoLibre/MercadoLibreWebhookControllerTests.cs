@@ -101,6 +101,8 @@ public class MercadoLibreWebhookControllerTests
     [InlineData("""{"topic": "orders_v2", "user_id": 1.5}""")]
     [InlineData("""{"topic": "orders_v2", "user_id": 99999999999999999999999999}""")]
     [InlineData("""{"topic": "orders_v2", "attempts": 3000000000}""")]
+    [InlineData("{\"topic\": \"\\uDEAD\", \"resource\": \"/orders/1\"}")]
+    [InlineData("{\"topic\": \"orders_v2\", \"resource\": \"\\uD800A\"}")]
     [InlineData("""["no", "es", "un", "objeto"]""")]
     [InlineData("42")]
     [InlineData("null")]

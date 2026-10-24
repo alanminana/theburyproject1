@@ -92,8 +92,10 @@ namespace TheBuryProject.Controllers
                         evento.Attempts = intentos;
                 }
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
             {
+                // JsonException: no es JSON. InvalidOperationException: JSON sintácticamente válido cuyo texto no se puede
+                // materializar (p. ej. un surrogate suelto en un string hace fallar GetString()).
                 _logger.LogWarning("Webhook de Mercado Libre con body no parseable; se guarda crudo");
             }
 
