@@ -200,12 +200,19 @@ test.describe('Sin ventas.discount', () => {
     test('API: un POST manipulado con descuento recibe 403 con el mensaje de permiso desde la sesión del navegador', async ({ browser, baseURL, viewport }) => {
         const { context, page } = await contextoSinPermiso(browser, baseURL, viewport);
         try {
+            // COM-S-010: las APIs exigen antiforgery. Quien manipula el pedido desde su propia sesion tambien puede leer el
+            // token de la pagina, asi que la prueba lo envia: lo que se verifica aca es el permiso, no el CSRF.
+            await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
+            const token = await page.locator('meta[name="csrf-token"]').getAttribute('content');
+            const headers = { RequestVerificationToken: token };
             const resp = await page.request.post('/api/ventas/CalcularTotalesVenta', {
+                headers,
                 data: { detalles: [{ productoId: 1, cantidad: 2, precioUnitario: 1000, descuento: 50 }], descuentoGeneral: 0, descuentoEsPorcentaje: false, tipoPago: 0 },
             });
             expect(resp.status()).toBe(403);
             expect((await resp.json()).error).toMatch(/permiso/i);
             const sim = await page.request.post('/api/cotizacion/simular', {
+                headers,
                 data: { productos: [{ productoId: 1, cantidad: 1, descuentoPorcentaje: 10 }] },
             });
             expect(sim.status()).toBe(403);
