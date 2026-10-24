@@ -147,7 +147,11 @@ public class LoteABacklogSeguridadHttpTests : IClassFixture<CustomWebApplication
         using (var conExport = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ReporteSinDescuentoUserId))
         {
             var response = await conExport.GetAsync(url);
-            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var tipo = response.Content.Headers.ContentType?.MediaType;
+            Assert.True(tipo is "application/pdf" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"Se esperaba un archivo y fue '{tipo}'.");
+            Assert.True((await response.Content.ReadAsByteArrayAsync()).Length > 0);
         }
     }
 
