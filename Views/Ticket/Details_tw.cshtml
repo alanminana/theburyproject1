@@ -242,7 +242,7 @@
                                         }
                                     </p>
                                 </div>
-                                <a href="/@adj.RutaArchivo" target="_blank" rel="noopener"
+                                <a href="@Url.Action("DescargarAdjunto", "Ticket", new { id = adj.Id })" target="_blank" rel="noopener"
                                    class="shrink-0 inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors no-underline"
                                    title="Descargar @adj.NombreArchivo">
                                     <span class="material-symbols-outlined text-[14px]">download</span>

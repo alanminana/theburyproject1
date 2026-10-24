@@ -385,9 +385,46 @@ app.UseResponseCompression();
 // ({ClienteId}_{Tipo}_{timestamp}); bloqueado ANTES de UseStaticFiles para que solo sean accesibles
 // vía DocumentoClienteController.Descargar (autenticado + permiso "clientes.viewdocs"), que lee el
 // archivo directo del disco sin pasar por este middleware.
+// Adjuntos de tickets (COM-S-005): mismo bloqueo; solo se entregan vía TicketController.DescargarAdjunto
+// (autenticado + permiso "tickets.view", por identificador de adjunto).
+// En Windows el sistema de archivos normaliza "tickets." / "tickets " a "tickets" y admite nombres 8.3
+// ("TICKET~1"), por lo que StartsWithSegments solo no alcanza: se normalizan los segmentos antes de comparar.
+static bool EsRutaDeUploadsPrivados(PathString path)
+{
+    var valor = path.Value ?? string.Empty;
+
+    // Kestrel decodifica %5c a backslash pero su normalizacion de '.'/'..' solo conoce '/', y en Windows el proveedor
+    // de archivos trata el backslash como separador ('/uploads%5c.%5ctickets/x' llegaba a disco). Ninguna URL legitima
+    // del sitio lleva backslash: se rechaza de plano en lugar de intentar reinterpretarlo.
+    if (valor.Contains((char)92))
+        return true;
+
+    // Se resuelven '.'/'..' a mano antes de comparar (una ruta que no empieza por /uploads puede terminar ahi).
+    var pila = new List<string>();
+    foreach (var crudo in valor.Split('/', StringSplitOptions.RemoveEmptyEntries))
+    {
+        if (crudo == ".") continue;
+        if (crudo == "..")
+        {
+            if (pila.Count > 0) pila.RemoveAt(pila.Count - 1);
+            continue;
+        }
+        var segmento = crudo.TrimEnd('.', ' ');
+        if (segmento.Length == 0) continue;     // "...", ". ": el sistema de archivos los reduce a vacio
+        pila.Add(segmento);
+    }
+
+    if (pila.Count < 2 || !pila[0].Equals("uploads", StringComparison.OrdinalIgnoreCase))
+        return false;
+
+    return pila[1].Equals("tickets", StringComparison.OrdinalIgnoreCase)
+        || pila[1].Equals("documentos-clientes", StringComparison.OrdinalIgnoreCase)
+        || pila[1].Contains('~');
+}
+
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/uploads/documentos-clientes"))
+    if (EsRutaDeUploadsPrivados(context.Request.Path))
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return;

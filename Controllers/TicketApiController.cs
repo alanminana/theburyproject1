@@ -162,7 +162,7 @@ public class TicketApiController : ControllerBase
 
     /// <summary>
     /// Sube un archivo adjunto a un ticket.
-    /// Responde con { id, nombreArchivo, rutaRelativa } — usar rutaRelativa para construir la URL de descarga.
+    /// Responde con { id, nombreArchivo, urlDescarga } — urlDescarga es la descarga autenticada por identificador.
     /// </summary>
     [HttpPost("{id:int}/adjuntos")]
     [Consumes("multipart/form-data")]
@@ -182,7 +182,12 @@ public class TicketApiController : ControllerBase
         try
         {
             var adjunto = await _ticketService.SubirAdjuntoAsync(id, archivo);
-            return Ok(new { adjunto.Id, adjunto.NombreArchivo, rutaRelativa = adjunto.RutaArchivo });
+            return Ok(new
+            {
+                adjunto.Id,
+                adjunto.NombreArchivo,
+                urlDescarga = Url.Action("DescargarAdjunto", "Ticket", new { id = adjunto.Id })
+            });
         }
         catch (KeyNotFoundException) { return NotFound(); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }

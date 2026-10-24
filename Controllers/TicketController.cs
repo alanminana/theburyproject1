@@ -209,6 +209,21 @@ public class TicketController : Controller
         });
     }
 
+    // GET: /Ticket/DescargarAdjunto/5
+    // Única vía de acceso a los adjuntos (wwwroot/uploads/tickets está bloqueado como estático). Hereda
+    // [Authorize] + tickets.view del controller; la ruta física sale de la DB, nunca del cliente.
+    [HttpGet]
+    public async Task<IActionResult> DescargarAdjunto(int id)
+    {
+        var adjunto = await _ticketService.AbrirAdjuntoAsync(id);
+        if (adjunto is null)
+            return NotFound();
+
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers.CacheControl = "private, no-store";
+        return File(adjunto.Contenido, adjunto.ContentType, adjunto.NombreArchivo);
+    }
+
     private IActionResult RedirectToTicketReturnUrl(string? returnUrl)
     {
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))

@@ -34,6 +34,56 @@ public class LocalFileStorageService : IFileStorageService
         return $"{subFolder}/{nombreArchivo}".Replace('\\', '/');
     }
 
+    public Stream? OpenRead(string rutaRelativa, string subFolder)
+    {
+        if (string.IsNullOrWhiteSpace(rutaRelativa) || string.IsNullOrWhiteSpace(subFolder))
+            return null;
+
+        try
+        {
+            // La DB puede traer rutas guardadas con separadores de Windows: ambos son el mismo directorio.
+            static string Normalizar(string ruta) =>
+                ruta.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
+            var carpeta = Path.GetFullPath(Path.Combine(_environment.WebRootPath, Normalizar(subFolder)))
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var rutaCompleta = Path.GetFullPath(Path.Combine(_environment.WebRootPath, Normalizar(rutaRelativa)));
+
+            if (!rutaCompleta.StartsWith(carpeta, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // La contención textual no alcanza: un symlink/junction dentro de la carpeta apuntaría fuera de ella.
+            if (!File.Exists(rutaCompleta) || AtraviesaReparsePoint(rutaCompleta, carpeta))
+                return null;
+
+            return new FileStream(rutaCompleta, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+                bufferSize: 4096, useAsync: true);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException
+                                       or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "No se pudo abrir el archivo en ruta '{Ruta}'.", rutaRelativa);
+            return null;
+        }
+    }
+
+    // true si el archivo o algún directorio entre la carpeta autorizada y el archivo es un enlace (symlink/junction).
+    private static bool AtraviesaReparsePoint(string rutaCompleta, string carpetaAutorizada)
+    {
+        var actual = new FileInfo(rutaCompleta);
+        if (actual.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            return true;
+        var dir = actual.Directory;
+        var raiz = carpetaAutorizada.TrimEnd(Path.DirectorySeparatorChar);
+        while (dir != null && dir.FullName.Length > raiz.Length)
+        {
+            if (dir.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                return true;
+            dir = dir.Parent;
+        }
+        return false;
+    }
+
     public Task DeleteAsync(string rutaRelativa)
     {
         try
