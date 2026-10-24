@@ -193,24 +193,48 @@ public class RegistroPublicoDeshabilitadoHttpTests : IClassFixture<CookieAuthWeb
         Assert.Equal(HttpStatusCode.OK, (await NewBrowser().GetAsync("/Identity/Account/Lockout")).StatusCode);
     }
 
-    [Fact]
-    public async Task RecuperacionDeContrasena_NoSeDeshabilita()
+    [Theory]
+    [InlineData("ForgotPassword")]
+    [InlineData("ForgotPasswordConfirmation")]
+    [InlineData("ResetPassword?code=abc")]
+    [InlineData("ResetPasswordConfirmation")]
+    [InlineData("ConfirmEmail?userId=x&code=y")]
+    [InlineData("ConfirmEmailChange?userId=x&email=a%40b.c&code=y")]
+    public async Task RecuperacionYConfirmacionPorEmail_NoExistenParaAnonimos(string ruta)
     {
-        var user = await SeedAsync("forgot");
-        var client = NewBrowser();
+        var response = await NewBrowser().GetAsync("/Identity/Account/" + ruta);
 
-        var get = await client.GetAsync("/Identity/Account/ForgotPassword");
-        Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 
-        var post = await client.PostAsync("/Identity/Account/ForgotPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+    [Fact]
+    public async Task ResetPassword_Post_NoPermiteDistinguirCuentasExistentes()
+    {
+        var user = await SeedAsync("reset");
+        var existente = user.Email!;
+        var inexistente = "no-existe-" + Guid.NewGuid().ToString("N")[..8] + "@example.test";
+
+        async Task<HttpStatusCode> Enviar(string email)
         {
-            ["Input.Email"] = user.Email!,
-            ["__RequestVerificationToken"] = ExtraerToken(await get.Content.ReadAsStringAsync()),
-        }));
+            var client = NewBrowser();
+            // Sin pagina no hay token que extraer: se usa el de otra pagina publica; ambas respuestas deben ser iguales.
+            var login = await client.GetAsync("/Identity/Account/Login");
+            var post = await client.PostAsync("/Identity/Account/ResetPassword", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["Input.Email"] = email,
+                ["Input.Password"] = "Abcd1234!x",
+                ["Input.ConfirmPassword"] = "Abcd1234!x",
+                ["Input.Code"] = "token-inventado",
+                ["__RequestVerificationToken"] = ExtraerToken(await login.Content.ReadAsStringAsync()),
+            }));
+            return post.StatusCode;
+        }
 
-        Assert.True((int)post.StatusCode is >= 200 and < 400, $"ForgotPassword POST devolvió {(int)post.StatusCode}.");
-        Assert.NotEqual(HttpStatusCode.NotFound,
-            (await NewBrowser().GetAsync("/Identity/Account/ResetPassword?code=abc")).StatusCode);
+        var a = await Enviar(existente);
+        var b = await Enviar(inexistente);
+
+        Assert.Equal(HttpStatusCode.NotFound, a);
+        Assert.Equal(a, b);
     }
 
     [Fact]
