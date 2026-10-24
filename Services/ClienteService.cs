@@ -110,6 +110,11 @@ namespace TheBuryProject.Services
 
         public async Task<Cliente> UpdateAsync(Cliente cliente, bool actualizarConfiguracionCredito)
         {
+            // Escribir la configuración de crédito es una decisión financiera: sin la versión que el usuario vio, un
+            // formulario abierto hace rato pisaría en silencio un cambio posterior de otro operador autorizado.
+            if (actualizarConfiguracionCredito && (cliente.RowVersion == null || cliente.RowVersion.Length == 0))
+                throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá el cliente e intentá nuevamente.");
+
             var clienteExistente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == cliente.Id && !c.IsDeleted);
 

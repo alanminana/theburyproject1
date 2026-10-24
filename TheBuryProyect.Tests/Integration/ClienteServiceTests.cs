@@ -243,6 +243,9 @@ public class ClienteServiceTests : IDisposable
             MontoMinimoPersonalizado = 10000m, MontoMaximoPersonalizado = 900000m
         };
 
+        await _context.Entry(cliente).ReloadAsync();
+        actualizado.RowVersion = cliente.RowVersion;   // el formulario real envía la versión que vio el usuario
+
         await _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true);
 
         var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
@@ -256,6 +259,51 @@ public class ClienteServiceTests : IDisposable
         Assert.Equal(18, bd.CuotasMaximasPersonalizadas);
         Assert.Equal(10000m, bd.MontoMinimoPersonalizado);
         Assert.Equal(900000m, bd.MontoMaximoPersonalizado);
+    }
+
+    [Fact]
+    public async Task Update_ConConfiguracionDeCredito_SinRowVersion_Rechaza_YNoCambiaNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id, Nombre = "Otro", Apellido = cliente.Apellido, TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento, Email = cliente.Email, NivelRiesgo = cliente.NivelRiesgo, Activo = true,
+            TasaInteresMensualPersonalizada = 9m
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true));
+        actualizado.RowVersion = Array.Empty<byte>();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true));
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal("Test", bd.Nombre);
+        Assert.Null(bd.TasaInteresMensualPersonalizada);
+    }
+
+    [Fact]
+    public async Task Update_ConConfiguracionDeCredito_ConRowVersionObsoleta_Conflicto_YNoCambiaNada()
+    {
+        var cliente = await SeedClienteAsync();
+        await _context.Entry(cliente).ReloadAsync();
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id, RowVersion = new byte[] { 9, 9, 9, 9, 9, 9, 9, 9 }, Nombre = "Otro", Apellido = cliente.Apellido,
+            TipoDocumento = cliente.TipoDocumento, NumeroDocumento = cliente.NumeroDocumento, Email = cliente.Email,
+            NivelRiesgo = cliente.NivelRiesgo, Activo = true, TasaInteresMensualPersonalizada = 9m
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true));
+
+        Assert.Contains("concurrencia", ex.Message, StringComparison.OrdinalIgnoreCase);
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal("Test", bd.Nombre);
+        Assert.Null(bd.TasaInteresMensualPersonalizada);
     }
 
     [Fact]
