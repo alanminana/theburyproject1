@@ -749,6 +749,16 @@ namespace TheBuryProject.Controllers
             var usuarioActual = User ?? new ClaimsPrincipal(new ClaimsIdentity());
             var puedeFacturar = usuarioActual.TienePermiso(ModuloVentas, AccionFacturar);
 
+            // FIN-S-005: Edit exige ventas.update, pero Venta/Confirmar exige ventas.create. Encadenar la confirmación
+            // desde Edit no puede saltarse ese permiso: sin él, el guardado ya aplicado se conserva y la venta NO se
+            // confirma (mismo criterio de degradación que el checkbox "Facturar" sin ventas.invoice).
+            if (accionConfirmacion is "confirmar" or "confirmar-facturar"
+                && !usuarioActual.TienePermiso(ModuloVentas, AccionCrear))
+            {
+                TempData["Warning"] = "La venta se guardó, pero tu usuario no tiene permiso para confirmarla. Pedile a un usuario autorizado que la confirme.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
             switch (accionConfirmacion)
             {
                 case "confirmar-facturar" when puedeFacturar:

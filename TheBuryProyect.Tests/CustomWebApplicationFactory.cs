@@ -829,6 +829,29 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public const string VentaConDescuentoUserId = "test-venta-con-descuento-id";
     public const string VentaDescuentoRetiradoUserId = "test-venta-descuento-retirado-id";
 
+    public const string ReporteSoloVerUserId = "test-reporte-solo-ver-id";
+    public const string TicketsVerUserId = "test-tickets-ver-id";
+
+    /// <summary>COM-S-018: consulta reportes (reportes.view) pero NO puede exportarlos (sin reportes.export).</summary>
+    public Task SeedUserWithReporteSoloVerAsync() =>
+        SeedPermissionUserAsync(
+            ReporteSoloVerUserId, "test-reporte-solo-ver-role-id", "TestReporteSoloVerRole", 9640,
+            "reportes.view", "ventas.view");
+
+    /// <summary>COM-S-003: consulta tickets (tickets.view).</summary>
+    public Task SeedUserWithTicketsVerAsync() =>
+        SeedPermissionUserAsync(
+            TicketsVerUserId, "test-tickets-ver-role-id", "TestTicketsVerRole", 9630,
+            "tickets.view");
+
+    public const string VentaSoloActualizarUserId = "test-venta-solo-actualizar-id";
+
+    /// <summary>FIN-S-005: edita ventas (ventas.update) pero NO puede confirmarlas (sin ventas.create).</summary>
+    public Task SeedUserWithVentaSoloActualizarAsync() =>
+        SeedPermissionUserAsync(
+            VentaSoloActualizarUserId, "test-venta-solo-actualizar-role-id", "TestVentaSoloActualizarRole", 9650,
+            "ventas.view", "ventas.update");
+
     /// <summary>DESCUENTO-PERMISO-01: opera ventas y cotizaciones (ver/crear/editar/convertir) SIN ventas.discount.</summary>
     public Task SeedUserWithVentaSinDescuentoAsync() =>
         SeedPermissionUserAsync(
