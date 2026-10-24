@@ -14,6 +14,7 @@ namespace TheBuryProject.Controllers;
 /// API de cotizaciones: simulación, persistencia y conversión a venta.
 /// </summary>
 [Authorize]
+[AutoValidateAntiforgeryToken]
 [ApiController]
 [Route("api/cotizacion")]
 [PermisoRequerido(Modulo = "cotizaciones", Accion = "view")]

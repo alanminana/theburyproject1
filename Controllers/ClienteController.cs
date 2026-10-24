@@ -660,6 +660,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "clientes", Accion = "consultbcra")]
         public async Task<IActionResult> ActualizarBcra(int clienteId)
         {

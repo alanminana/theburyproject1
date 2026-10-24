@@ -7,6 +7,7 @@ namespace TheBuryProject.Controllers;
 
 [Authorize]
 [PermisoRequerido(Modulo = "notificaciones", Accion = "view")]
+[AutoValidateAntiforgeryToken]
 [ApiController]
 [Route("api/[controller]")]
 public class NotificacionController : ControllerBase

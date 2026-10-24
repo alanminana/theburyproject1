@@ -6,6 +6,7 @@ using TheBuryProject.Services.Interfaces;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
+    [AutoValidateAntiforgeryToken]
     [ApiController]
     [Route("api/productos")]
     public class ProductoApiController : ControllerBase

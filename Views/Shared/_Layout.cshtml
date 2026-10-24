@@ -1,3 +1,4 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 <!DOCTYPE html>
 <html class="dark" lang="es">
 
@@ -6,6 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>@ViewData["Title"] - TheBuryProject</title>
+
+    @* Token antiforgery para fetch/XHR (wwwroot/js/csrf-fetch.js): las APIs lo validan (COM-S-010). *@
+    <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
 
     <meta name="description"
           content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
@@ -455,6 +459,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
 
     <!-- App JS -->
+    <script src="~/js/csrf-fetch.js" asp-append-version="true"></script>
     <script src="~/js/fecha-defaults.js" asp-append-version="true"></script>
     <script src="~/js/shared-ui.js" asp-append-version="true"></script>
     <script src="~/js/validation-motion.js" asp-append-version="true"></script>
