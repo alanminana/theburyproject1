@@ -18,6 +18,7 @@ namespace TheBuryProject.ViewModels
         public bool Domiciliario { get; set; }
 
         [Range(0, 999999999.99, ErrorMessage = "El precio no puede ser negativo.")]
+        [TheBuryProject.Validation.MontoSinAmbiguedad]
         public decimal Precio { get; set; }
 
         public bool Activo { get; set; } = true;

@@ -96,6 +96,7 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         [Display(Name = "Gastos administrativos")]
         [Range(0, 1000000, ErrorMessage = "El valor debe ser mayor o igual a 0")]
+        [TheBuryProject.Validation.MontoSinAmbiguedad]
         public decimal? GastosAdministrativos { get; set; }
 
         [Display(Name = "Fecha de primera cuota")]

@@ -20,6 +20,7 @@ public sealed class PagarCuotaInputModel
         ParseLimitsInInvariantCulture = true,
         ErrorMessage = "El importe debe ser mayor a cero.")]
     [ModelBinder(typeof(DecimalModelBinder))]
+    [TheBuryProject.Validation.MontoSinAmbiguedad]
     public decimal MontoIngresado { get; set; }
 
     [Display(Name = "Medio de pago")]

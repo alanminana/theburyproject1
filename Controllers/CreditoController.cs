@@ -1116,10 +1116,10 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> SimularPlanVenta(
-            decimal totalVenta,
-            decimal? anticipo,
+            [TheBuryProject.Validation.MontoSinAmbiguedad] decimal totalVenta,
+            [TheBuryProject.Validation.MontoSinAmbiguedad] decimal? anticipo,
             int cuotas,
-            decimal? gastosAdministrativos,
+            [TheBuryProject.Validation.MontoSinAmbiguedad] decimal? gastosAdministrativos,
             string? fechaPrimeraCuota,
             decimal? tasaMensual,
             int? ventaId = null,

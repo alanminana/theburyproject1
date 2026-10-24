@@ -74,4 +74,22 @@ public class DecimalParsingHelperTests
         Assert.True(parsed);
         Assert.Equal(-1.5m, value);
     }
+
+    [Theory]
+    [InlineData("1.500", true)]
+    [InlineData("1,500", true)]
+    [InlineData("12,345", true)]
+    [InlineData("-1.500", true)]
+    [InlineData("1.50", false)]
+    [InlineData("1500", false)]
+    [InlineData("0.500", false)]
+    [InlineData("1.500,00", false)]
+    [InlineData("1.500.000", false)]
+    [InlineData("1234.567", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void EsMontoAmbiguo_SoloUnSeparadorConTresDigitosYEnteroNoCero(string? raw, bool esperado)
+    {
+        Assert.Equal(esperado, DecimalParsingHelper.EsMontoAmbiguo(raw));
+    }
 }

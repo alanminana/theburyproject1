@@ -35,6 +35,22 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> Guardar(ServiciosVentaAdminViewModel modelo)
         {
+            // Un importe que el binder rechazó (p. ej. "1.500", ambiguo) llega como 0: si se guardara, pisaría el precio
+            // vigente por cero. Un error en cualquier Precio aborta sin tocar nada. Solo se miran los errores de Precio:
+            // el formulario no envía Nombre (se muestra, no se edita) y MVC lo marca como requerido por ser no nulo.
+            var errorDePrecio = ModelState
+                .Where(kv => kv.Key.EndsWith(".Precio", StringComparison.Ordinal) && kv.Value?.Errors.Count > 0)
+                .SelectMany(kv => kv.Value!.Errors)
+                .Select(e => e.ErrorMessage)
+                .FirstOrDefault();
+            if (errorDePrecio != null)
+            {
+                TempData["Error"] = string.IsNullOrWhiteSpace(errorDePrecio)
+                    ? "Revisá los importes: no se guardó ningún precio."
+                    : errorDePrecio;
+                return RedirectToAction(nameof(Index));
+            }
+
             var items = (modelo.Envios ?? new()).Concat(modelo.Armados ?? new()).ToList();
 
             if (items.Any(i => i.Precio < 0m))

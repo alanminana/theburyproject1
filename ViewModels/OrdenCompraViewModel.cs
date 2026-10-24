@@ -41,6 +41,7 @@ namespace TheBuryProject.ViewModels
         public decimal Subtotal { get; set; }
 
         [Display(Name = "Descuento")]
+        [TheBuryProject.Validation.MontoSinAmbiguedad]
         public decimal Descuento { get; set; }
 
         [Display(Name = "IVA")]
