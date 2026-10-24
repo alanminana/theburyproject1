@@ -103,4 +103,21 @@ public class ApiAntiforgeryHttpTests : IClassFixture<CustomWebApplicationFactory
         Assert.Contains("/js/csrf-fetch.js", homeHtml);
         Assert.NotNull(html);
     }
+
+    [Fact]
+    public void CsrfFetchJs_SoloActuaSobreApisDelMismoOrigen_YProhibeRedirects()
+    {
+        // Contrato del script compartido (Codex): el token no debe seguir un redirect hacia otro origen ni agregarse a
+        // endpoints MVC que puedan redirigir fuera del sitio (p. ej. MercadoLibre/Conectar).
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "TheBuryProyect.csproj")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", "csrf-fetch.js"));
+
+        Assert.Contains("u.origin !== window.location.origin", js);
+        Assert.Contains("indexOf('/api/') === 0", js);
+        Assert.Contains("/cliente/actualizarbcra", js);
+        Assert.Contains("init.redirect = 'error'", js);
+    }
 }
