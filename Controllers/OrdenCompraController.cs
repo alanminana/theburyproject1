@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -353,6 +354,14 @@ namespace TheBuryProject.Controllers
             IActionResult Volver() => desdeIndex
                 ? RedirectToAction(nameof(Index))
                 : RedirectToAction(nameof(Details), new { id });
+
+            // COM-S-007: marcar una orden como Recibida es una recepción; con ordenescompra.update alcanzaba para saltarse el
+            // permiso de recepción (ordenescompra.receive) que sí exige Recepcionar.
+            if (nuevoEstado == EstadoOrdenCompra.Recibida && !User.TienePermiso(ModuloCompras, AccionRecepcionar))
+            {
+                TempData["Error"] = "Marcar una orden como recibida requiere el permiso de recepción de compras.";
+                return Volver();
+            }
 
             try
             {

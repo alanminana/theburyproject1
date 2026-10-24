@@ -75,14 +75,57 @@ namespace TheBuryProject.Services
             }
 
             await ValidarProveedorYProductosAsync(ordenCompra, "crear");
+            PrepararOrdenNueva(ordenCompra);
 
             await CalcularTotalesAsync(ordenCompra);
+            ValidarDescuentoNoSuperaSubtotal(ordenCompra);
             _context.OrdenesCompra.Add(ordenCompra);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Orden de compra {Numero} creada exitosamente", ordenCompra.Numero);
 
             return ordenCompra;
+        }
+
+        /// <summary>
+        /// COM-S-006: una orden nueva solo puede nacer en un estado inicial del circuito (Borrador, Enviada, Confirmada o
+        /// Cancelada, los que ofrece el formulario), sin recepción previa: EnTransito y Recibida solo se alcanzan
+        /// recorriendo el circuito (Recepcionar ingresa el stock), y CantidadRecibida/FechaRecepcion no vienen del cliente.
+        /// Además, cantidades, precios y descuento deben ser coherentes (un descuento negativo subiría el total).
+        /// </summary>
+        private static void PrepararOrdenNueva(OrdenCompra ordenCompra)
+        {
+            if (ordenCompra.Estado is EstadoOrdenCompra.EnTransito or EstadoOrdenCompra.Recibida)
+            {
+                throw new InvalidOperationException(
+                    "Una orden nueva no puede crearse En tránsito ni Recibida: avance el estado desde el circuito y registre la recepción.");
+            }
+
+            ordenCompra.FechaRecepcion = null;
+            foreach (var detalle in ordenCompra.Detalles ?? new List<OrdenCompraDetalle>())
+                detalle.CantidadRecibida = 0;
+
+            ValidarImportes(ordenCompra);
+        }
+
+        private static void ValidarImportes(OrdenCompra ordenCompra)
+        {
+            foreach (var detalle in ordenCompra.Detalles ?? new List<OrdenCompraDetalle>())
+            {
+                if (detalle.Cantidad <= 0)
+                    throw new InvalidOperationException("La cantidad de cada producto debe ser mayor a cero.");
+                if (detalle.PrecioUnitario < 0)
+                    throw new InvalidOperationException("El precio unitario no puede ser negativo.");
+            }
+
+            if (ordenCompra.Descuento < 0)
+                throw new InvalidOperationException("El descuento no puede ser negativo.");
+        }
+
+        private static void ValidarDescuentoNoSuperaSubtotal(OrdenCompra ordenCompra)
+        {
+            if (ordenCompra.Descuento > ordenCompra.Subtotal)
+                throw new InvalidOperationException("El descuento no puede superar el subtotal de la orden.");
         }
 
         private async Task ValidarProveedorYProductosAsync(OrdenCompra ordenCompra, string accion)
@@ -162,7 +205,9 @@ namespace TheBuryProject.Services
             }
 
             await ValidarProveedorYProductosAsync(ordenCompra, "guardar");
+            ValidarImportes(ordenCompra);
             await CalcularTotalesAsync(ordenCompra);
+            ValidarDescuentoNoSuperaSubtotal(ordenCompra);
 
             ordenExistente.Numero = ordenCompra.Numero;
             ordenExistente.ProveedorId = ordenCompra.ProveedorId;
@@ -200,6 +245,7 @@ namespace TheBuryProject.Services
                 else
                 {
                     detalleNuevo.OrdenCompraId = ordenExistente.Id;
+                    detalleNuevo.CantidadRecibida = 0;   // COM-S-006: la recepción no se declara al editar
                     (ordenExistente.Detalles ??= new List<OrdenCompraDetalle>())
                         .Add(detalleNuevo);
                 }

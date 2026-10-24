@@ -844,6 +844,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             TicketsVerUserId, "test-tickets-ver-role-id", "TestTicketsVerRole", 9630,
             "tickets.view");
 
+    public const string OrdenCompraSinRecepcionUserId = "test-oc-sin-recepcion-id";
+    public const string OrdenCompraConRecepcionUserId = "test-oc-con-recepcion-id";
+
+    /// <summary>COM-S-007: edita y cambia el estado de órdenes de compra (update) SIN poder recepcionar (receive).</summary>
+    public Task SeedUserWithOrdenCompraSinRecepcionAsync() =>
+        SeedPermissionUserAsync(
+            OrdenCompraSinRecepcionUserId, "test-oc-sin-recepcion-role-id", "TestOcSinRecepcionRole", 9620,
+            "ordenescompra.view", "ordenescompra.update");
+
+    /// <summary>COM-S-007: igual que el anterior más ordenescompra.receive.</summary>
+    public Task SeedUserWithOrdenCompraConRecepcionAsync() =>
+        SeedPermissionUserAsync(
+            OrdenCompraConRecepcionUserId, "test-oc-con-recepcion-role-id", "TestOcConRecepcionRole", 9610,
+            "ordenescompra.view", "ordenescompra.update", "ordenescompra.receive");
+
     public const string VentaSoloActualizarUserId = "test-venta-solo-actualizar-id";
 
     /// <summary>FIN-S-005: edita ventas (ventas.update) pero NO puede confirmarlas (sin ventas.create).</summary>

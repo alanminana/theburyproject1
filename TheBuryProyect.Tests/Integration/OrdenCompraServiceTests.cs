@@ -884,4 +884,137 @@ public class OrdenCompraServiceTests : IDisposable
             }
         }));
     }
+
+    // =========================================================================
+    // Backlog de la auditoria QA: COM-S-006 (alta de OC con estado/recepcion/importes manipulados)
+    // =========================================================================
+
+    private static OrdenCompra NuevaOrden(int proveedorId, int productoId, EstadoOrdenCompra estado = EstadoOrdenCompra.Borrador,
+        int cantidad = 5, decimal precio = 100m, decimal descuento = 0m, int cantidadRecibida = 0) => new()
+    {
+        Numero = $"OC-{DateTime.UtcNow.Year}-{Guid.NewGuid().ToString("N")[..6]}",
+        ProveedorId = proveedorId,
+        Estado = estado,
+        FechaEmision = DateTime.UtcNow,
+        Descuento = descuento,
+        Detalles = new List<OrdenCompraDetalle>
+        {
+            new() { ProductoId = productoId, Cantidad = cantidad, PrecioUnitario = precio, CantidadRecibida = cantidadRecibida }
+        }
+    };
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Recibida)]
+    [InlineData(EstadoOrdenCompra.EnTransito)]
+    public async Task Create_EstadoInicialQueSoloSeAlcanzaPorElCircuito_Rechaza(EstadoOrdenCompra estado)
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(NuevaOrden(proveedor.Id, producto.Id, estado)));
+
+        Assert.Empty(await _context.Set<OrdenCompra>().ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Borrador)]
+    [InlineData(EstadoOrdenCompra.Enviada)]
+    [InlineData(EstadoOrdenCompra.Confirmada)]
+    [InlineData(EstadoOrdenCompra.Cancelada)]
+    public async Task Create_EstadosInicialesQueOfreceElFormulario_SePermiten(EstadoOrdenCompra estado)
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+
+        var creada = await _service.CreateAsync(NuevaOrden(proveedor.Id, producto.Id, estado));
+
+        Assert.Equal(estado, creada.Estado);
+    }
+
+    [Fact]
+    public async Task Create_CantidadRecibidaYFechaRecepcionDelCliente_SeIgnoran()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = NuevaOrden(proveedor.Id, producto.Id, cantidadRecibida: 5);
+        orden.FechaRecepcion = DateTime.UtcNow;
+
+        var creada = await _service.CreateAsync(orden);
+
+        var bd = await _context.Set<OrdenCompra>().Include(o => o.Detalles).AsNoTracking().FirstAsync(o => o.Id == creada.Id);
+        Assert.Null(bd.FechaRecepcion);
+        Assert.All(bd.Detalles, d => Assert.Equal(0, d.CantidadRecibida));
+    }
+
+    [Theory]
+    [InlineData(0, 100, 0)]
+    [InlineData(-3, 100, 0)]
+    [InlineData(5, -100, 0)]
+    [InlineData(5, 100, -500)]
+    [InlineData(5, 100, 501)]
+    public async Task Create_CantidadPrecioODescuentoIncoherentes_Rechaza(int cantidad, decimal precio, decimal descuento)
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(NuevaOrden(proveedor.Id, producto.Id, cantidad: cantidad, precio: precio, descuento: descuento)));
+
+        Assert.Empty(await _context.Set<OrdenCompra>().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Create_DescuentoIgualAlSubtotal_Permite_YElTotalEsCero()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+
+        var creada = await _service.CreateAsync(NuevaOrden(proveedor.Id, producto.Id, cantidad: 5, precio: 100m, descuento: 500m));
+
+        Assert.Equal(0m, creada.Total);
+    }
+
+    [Fact]
+    public async Task Update_DetalleNuevoConCantidadRecibida_SeIgnora()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var otro = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+        var detalleExistente = orden.Detalles!.Single();
+
+        // Entidad entrante separada de la rastreada, como la que arma el controller desde el ViewModel.
+        var entrante = new OrdenCompra
+        {
+            Id = orden.Id, RowVersion = orden.RowVersion, Numero = orden.Numero, ProveedorId = proveedor.Id,
+            Estado = orden.Estado, FechaEmision = orden.FechaEmision,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { Id = detalleExistente.Id, ProductoId = producto.Id, Cantidad = 10, PrecioUnitario = 100m },
+                new() { ProductoId = otro.Id, Cantidad = 3, PrecioUnitario = 10m, CantidadRecibida = 3 }
+            }
+        };
+
+        await _service.UpdateAsync(entrante);
+
+        var detalles = await _context.Set<OrdenCompraDetalle>().AsNoTracking().Where(d => d.OrdenCompraId == orden.Id).ToListAsync();
+        Assert.Equal(2, detalles.Count);
+        Assert.All(detalles, d => Assert.Equal(0, d.CantidadRecibida));
+    }
+
+    [Fact]
+    public async Task Update_DescuentoNegativoOCantidadNoPositiva_Rechaza()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+        orden.Descuento = -100m;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(orden));
+
+        orden.Descuento = 0m;
+        orden.Detalles!.First().Cantidad = 0;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(orden));
+    }
 }
