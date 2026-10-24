@@ -74,6 +74,65 @@ public class ClienteServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // COM-S-008: un alta no toma del formulario lo que calcula el servidor
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_IgnoraSituacionBcraYScoringEnviadosPorElCliente()
+    {
+        var cliente = BuildCliente();
+        cliente.SituacionCrediticiaBcra = 1;
+        cliente.SituacionCrediticiaDescripcion = "Situación normal";
+        cliente.SituacionCrediticiaPeriodo = "202610";
+        cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+        cliente.SituacionCrediticiaConsultaOk = true;
+        cliente.SituacionCrediticiaBcraUltimoExito = 1;
+        cliente.SituacionCrediticiaDescripcionUltimoExito = "Situación normal";
+        cliente.SituacionCrediticiaPeriodoUltimoExito = "202610";
+        cliente.SituacionCrediticiaUltimoExitoUtc = DateTime.UtcNow;
+        cliente.PuntajeCliente = 5;
+        cliente.AntiguedadDias = 3650;
+        cliente.UltimaVentaFecha = DateTime.UtcNow;
+        cliente.CantidadComprasCliente = 99;
+        cliente.CreditosEnTermino = 40;
+        cliente.CreditosConAtraso = 0;
+
+        var creado = await _service.CreateAsync(cliente);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == creado.Id);
+        Assert.Null(bd.SituacionCrediticiaBcra);
+        Assert.Null(bd.SituacionCrediticiaDescripcion);
+        Assert.Null(bd.SituacionCrediticiaPeriodo);
+        Assert.Null(bd.SituacionCrediticiaUltimaConsultaUtc);
+        Assert.Null(bd.SituacionCrediticiaConsultaOk);
+        Assert.Null(bd.SituacionCrediticiaBcraUltimoExito);
+        Assert.Null(bd.SituacionCrediticiaDescripcionUltimoExito);
+        Assert.Null(bd.SituacionCrediticiaPeriodoUltimoExito);
+        Assert.Null(bd.SituacionCrediticiaUltimoExitoUtc);
+        Assert.Equal(1, bd.PuntajeCliente);
+        Assert.Equal(0, bd.AntiguedadDias);
+        Assert.Null(bd.UltimaVentaFecha);
+        Assert.Equal(0, bd.CantidadComprasCliente);
+        Assert.Equal(0, bd.CreditosEnTermino);
+        Assert.Equal(0, bd.CreditosConAtraso);
+    }
+
+    [Fact]
+    public async Task Create_ConservaLosDatosEditablesDelFormulario()
+    {
+        var cliente = BuildCliente(nivel: NivelRiesgoCredito.AprobadoCondicional);
+        cliente.Telefono = "341-555-0000";
+        cliente.Sueldo = 1500000m;
+
+        var creado = await _service.CreateAsync(cliente);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == creado.Id);
+        Assert.Equal("341-555-0000", bd.Telefono);
+        Assert.Equal(1500000m, bd.Sueldo);
+        Assert.Equal((int)NivelRiesgoCredito.AprobadoCondicional * 2m, bd.PuntajeRiesgo);
+    }
+
+    // -------------------------------------------------------------------------
     // CreateAsync
     // -------------------------------------------------------------------------
 
@@ -166,6 +225,62 @@ public class ClienteServiceTests : IDisposable
 
         Assert.Equal("NuevoNombre", resultado.Nombre);
         Assert.Equal(10m, resultado.PuntajeRiesgo); // AprobadoTotal * 2
+    }
+
+    [Fact]
+    public async Task Update_PersisteLosCamposDelFormularioQueAntesSeDescartaban()
+    {
+        // COM-S-014: CodigoPostal, Empleador, teléfonos adicionales, Observaciones y la configuración de crédito
+        // personalizada viajan en el formulario de edición y no se guardaban.
+        var cliente = await SeedClienteAsync();
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id, Nombre = cliente.Nombre, Apellido = cliente.Apellido, TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento, Email = cliente.Email, NivelRiesgo = cliente.NivelRiesgo, Activo = true,
+            CodigoPostal = "2000", Empleador = "ACME SA", TelefonoAlternativo = "341-111-0000", TelefonoLaboral = "341-222-0000",
+            Observaciones = "cliente con ficha revisada",
+            TasaInteresMensualPersonalizada = 4.5m, GastosAdministrativosPersonalizados = 2m, CuotasMaximasPersonalizadas = 18,
+            MontoMinimoPersonalizado = 10000m, MontoMaximoPersonalizado = 900000m
+        };
+
+        await _service.UpdateAsync(actualizado);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal("2000", bd.CodigoPostal);
+        Assert.Equal("ACME SA", bd.Empleador);
+        Assert.Equal("341-111-0000", bd.TelefonoAlternativo);
+        Assert.Equal("341-222-0000", bd.TelefonoLaboral);
+        Assert.Equal("cliente con ficha revisada", bd.Observaciones);
+        Assert.Equal(4.5m, bd.TasaInteresMensualPersonalizada);
+        Assert.Equal(2m, bd.GastosAdministrativosPersonalizados);
+        Assert.Equal(18, bd.CuotasMaximasPersonalizadas);
+        Assert.Equal(10000m, bd.MontoMinimoPersonalizado);
+        Assert.Equal(900000m, bd.MontoMaximoPersonalizado);
+    }
+
+    [Fact]
+    public async Task Update_NoTocaLaSituacionBcraNiElScoringCalculados()
+    {
+        var cliente = await SeedClienteAsync();
+        cliente.SituacionCrediticiaBcra = 2;
+        cliente.PuntajeCliente = 4;
+        cliente.CreditosEnTermino = 7;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id, Nombre = "Otro", Apellido = cliente.Apellido, TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento, Email = cliente.Email, NivelRiesgo = cliente.NivelRiesgo, Activo = true,
+            SituacionCrediticiaBcra = 1, PuntajeCliente = 5, CreditosEnTermino = 99
+        };
+
+        await _service.UpdateAsync(actualizado);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(2, bd.SituacionCrediticiaBcra);
+        Assert.Equal(4, bd.PuntajeCliente);
+        Assert.Equal(7, bd.CreditosEnTermino);
     }
 
     [Fact]
