@@ -239,6 +239,7 @@ namespace TheBuryProject.Controllers
         #region Exportar — Excel y PDF
 
         // GET: Reporte/ExportarVentasExcel
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarVentasExcel([FromQuery] ReporteVentasFiltroViewModel filtro)
             => await ExportarExcel(
                 () => _reporteService.ExportarVentasExcelAsync(filtro, User.PuedeAplicarDescuentos()),
@@ -246,6 +247,7 @@ namespace TheBuryProject.Controllers
                 nameof(Ventas));
 
         // GET: Reporte/ExportarMargenesExcel
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarMargenesExcel(int? categoriaId, int? marcaId)
             => await ExportarExcel(
                 () => _reporteService.ExportarMargenesExcelAsync(categoriaId, marcaId),
@@ -253,6 +255,7 @@ namespace TheBuryProject.Controllers
                 nameof(Margenes));
 
         // GET: Reporte/ExportarMorosidadExcel
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarMorosidadExcel()
             => await ExportarExcel(
                 () => _reporteService.ExportarMorosidadExcelAsync(),
@@ -268,6 +271,7 @@ namespace TheBuryProject.Controllers
                 nameof(MovimientosValorizados));
 
         // GET: Reporte/ExportarVentasPdf
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarVentasPdf([FromQuery] ReporteVentasFiltroViewModel filtro)
             => await ExportarPdf(
                 () => _reporteService.GenerarVentasPdfAsync(filtro),
@@ -275,6 +279,7 @@ namespace TheBuryProject.Controllers
                 nameof(Ventas));
 
         // GET: Reporte/ExportarMorosidadPdf
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarMorosidadPdf()
             => await ExportarPdf(
                 () => _reporteService.GenerarMorosidadPdfAsync(),

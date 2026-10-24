@@ -579,9 +579,36 @@ public class VentaDescuentoPermisoHttpTests : IClassFixture<CustomWebApplication
         Assert.Equal(1300m, total);
     }
 
+    // FIN-S-005: Edit exige ventas.update, pero confirmar exige ventas.create. Encadenar la confirmación desde Edit no
+    // puede saltarse ese permiso: el guardado se aplica y la venta NO se confirma.
+    [Theory]
+    [InlineData("confirmar")]
+    [InlineData("confirmar-facturar")]
+    public async Task EditPost_ConfirmarSinPermisoCrear_GuardaPeroNoConfirma(string accion)
+    {
+        await _factory.SeedUserWithVentaSoloActualizarAsync();
+        await SeedCajaAbiertaAsync();
+        var (ventaId, productoId, clienteId) = await SeedVentaConDescuentosConProductoAsync();
+        var lineaId = await LineaIdAsync(ventaId);
+        var estadoAntes = await EstadoVentaAsync(ventaId);
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.VentaSoloActualizarUserId);
+        var token = await TokenAsync(client, $"/Venta/Edit/{ventaId}");
+
+        var form = FormVenta(token, clienteId, productoId, "0", "0", rowVersion: await RowVersionAsync(ventaId), ventaId: ventaId, lineaId: lineaId);
+        form["accionConfirmacion"] = accion;
+        var response = await client.PostAsync($"/Venta/Edit/{ventaId}", new FormUrlEncodedContent(form));
+
+        Assert.True(response.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.Found, $"Esperaba redirect y fue {(int)response.StatusCode}.");
+        Assert.Equal(estadoAntes, await EstadoVentaAsync(ventaId));
+        Assert.NotEqual(EstadoVenta.Confirmada, await EstadoVentaAsync(ventaId));
+    }
+
     // =====================================================================
     // Helpers
     // =====================================================================
+
+    private Task<EstadoVenta> EstadoVentaAsync(int ventaId) => ConContextoAsync(async c =>
+        (await c.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId)).Estado);
 
     private static Dictionary<string, string> FormVenta(
         string token, int clienteId, int productoId, string descuentoLinea, string descuentoGeneral,

@@ -304,9 +304,17 @@
                             <div class="flex items-center justify-between px-5 py-3">
                                 <dt class="text-xs font-semibold uppercase text-slate-500">URL origen</dt>
                                 <dd>
-                                    <a href="@Model.UrlOrigen" class="text-primary-on-dark hover:underline text-[11px] break-all block text-right no-underline">
-                                        @Model.UrlOrigen
-                                    </a>
+                                    @if (TheBuryProject.Helpers.UrlOrigenSegura.EsSegura(Model.UrlOrigen))
+                                    {
+                                        <a href="@Model.UrlOrigen" class="text-primary-on-dark hover:underline text-[11px] break-all block text-right no-underline">
+                                            @Model.UrlOrigen
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        @* COM-S-003: esquema no permitido (p. ej. javascript:) => se muestra como texto, nunca como enlace *@
+                                        <span class="text-slate-400 text-[11px] break-all block text-right">@Model.UrlOrigen</span>
+                                    }
                                 </dd>
                             </div>
                         }

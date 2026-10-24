@@ -629,6 +629,7 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.EstadoNombre, o => o.MapFrom(s => s.Estado.GetDisplayName()));
 
             CreateMap<CreateTicketRequest, Ticket>()
+                .ForMember(d => d.UrlOrigen,       o => o.MapFrom(s => UrlOrigenSegura.Normalizar(s.UrlOrigen)))
                 .ForMember(d => d.Id,              o => o.Ignore())
                 .ForMember(d => d.Estado,          o => o.Ignore())
                 .ForMember(d => d.Resolucion,      o => o.Ignore())
