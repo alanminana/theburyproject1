@@ -234,6 +234,46 @@ public class PrecioServiceCambioDirectoTests : IDisposable
         Assert.False(resultado.Exitoso);
     }
 
+    // Backlog de la auditoria QA: el cambio directo del catalogo solo rechazaba precios NEGATIVOS; un -100 % dejaba
+    // el producto en cero y lo publicaba.
+    [Fact]
+    public async Task AplicarCambioDirecto_PrecioResultanteCero_RetornaNoExitoso_YNoCambiaNada()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+
+        var resultado = await _service.AplicarCambioPrecioDirectoAsync(
+            new AplicarCambioPrecioDirectoViewModel
+            {
+                Alcance = "seleccionados",
+                ValorPorcentaje = -100m,
+                ProductoIdsText = prod.Id.ToString()
+            });
+
+        Assert.False(resultado.Exitoso);
+        Assert.Contains("cero o negativos", resultado.Mensaje);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(100m, (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).PrecioVenta);
+        Assert.Empty(await _context.Set<PrecioHistorico>().AsNoTracking().Where(h => h.ProductoId == prod.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task AplicarCambioDirecto_DisminucionLegitima_SigueFuncionando()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+
+        var resultado = await _service.AplicarCambioPrecioDirectoAsync(
+            new AplicarCambioPrecioDirectoViewModel
+            {
+                Alcance = "seleccionados",
+                ValorPorcentaje = -99m,
+                ProductoIdsText = prod.Id.ToString()
+            });
+
+        Assert.True(resultado.Exitoso);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(1m, (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).PrecioVenta);
+    }
+
     [Fact]
     public async Task AplicarCambioDirecto_Disminucion_ActualizaCorrectamente()
     {

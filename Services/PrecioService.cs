@@ -393,12 +393,13 @@ public class PrecioService : IPrecioService
             var precioVentaAnterior = precioListaAnterior?.Precio ?? producto.PrecioVenta;
             var precioVentaNuevo = CalcularPrecioBase(precioVentaAnterior, model.TipoCambio, porcentaje, model.Redondeo);
 
-            if (precioVentaNuevo < 0)
+            if (precioVentaNuevo <= 0)
             {
+                // Cero o negativo (un -100 %, un valor que iguala el precio o un redondeo a cero): nunca se publica.
                 return new ResultadoAplicacionPrecios
                 {
                     Exitoso = false,
-                    Mensaje = $"El porcentaje genera precios negativos (Producto {producto.Codigo})."
+                    Mensaje = $"El cambio genera precios en cero o negativos (Producto {producto.Codigo})."
                 };
             }
 
@@ -983,6 +984,9 @@ public class PrecioService : IPrecioService
         DateTime? vigenciaDesde = null,
         string? notas = null)
     {
+        if (precio <= 0)
+            throw new InvalidOperationException("El precio debe ser mayor a cero.");
+
         vigenciaDesde ??= DateTime.UtcNow;
 
         using var transaction = await _context.Database.BeginTransactionAsync();
