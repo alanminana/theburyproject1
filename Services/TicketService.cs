@@ -361,6 +361,35 @@ public class TicketService : ITicketService
         await _context.SaveChangesAsync();
     }
 
+    public async Task<TicketAdjuntoDescarga?> AbrirAdjuntoAsync(int adjuntoId)
+    {
+        if (adjuntoId <= 0) return null;
+
+        var adjunto = await _context.TicketAdjuntos
+            .AsNoTracking()
+            .Where(a => a.Id == adjuntoId && !a.IsDeleted && !a.Ticket.IsDeleted)
+            .Select(a => new { a.NombreArchivo, a.RutaArchivo })
+            .FirstOrDefaultAsync();
+        if (adjunto is null) return null;
+
+        // La ruta sale siempre de la DB (nunca del cliente) y se resuelve solo dentro de la carpeta de adjuntos.
+        var contenido = _fileStorage.OpenRead(adjunto.RutaArchivo, TicketConstants.UploadFolder);
+        if (contenido is null)
+        {
+            _logger.LogWarning("Adjunto #{Id} sin archivo resoluble en {Carpeta}.", adjuntoId, TicketConstants.UploadFolder);
+            return null;
+        }
+
+        // El tipo se deriva de la extensión almacenada, no del Content-Type declarado por quien subió el archivo.
+        var contentType = ContentTypeProvider.TryGetContentType(adjunto.RutaArchivo, out var tipo)
+            ? tipo
+            : "application/octet-stream";
+
+        return new TicketAdjuntoDescarga(contenido, adjunto.NombreArchivo, contentType);
+    }
+
+    private static readonly Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider ContentTypeProvider = new();
+
     // ── Helpers privados ───────────────────────────────────────────────────
 
     private async Task<Ticket> ObtenerEntidadOFallarAsync(int id)

@@ -16,4 +16,11 @@ public interface IFileStorageService
     /// No lanza excepción si el archivo no existe.
     /// </summary>
     Task DeleteAsync(string rutaRelativa);
+
+    /// <summary>
+    /// Abre para lectura el archivo indicado por su ruta relativa desde wwwroot, solo si resuelve
+    /// dentro de <paramref name="subFolder"/>. Devuelve null si no existe, la ruta es inválida o
+    /// intenta salir de la carpeta autorizada (traversal, rutas absolutas).
+    /// </summary>
+    Stream? OpenRead(string rutaRelativa, string subFolder);
 }
