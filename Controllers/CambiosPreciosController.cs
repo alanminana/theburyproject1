@@ -473,6 +473,24 @@ public class CambiosPreciosController : Controller
 
             if (request.Modo == "filtrados" && request.Filtros != null)
             {
+                // COM-S-009: con filtros vacíos la selección es el catálogo entero y se aplicaba sin confirmación ni
+                // tope. SoloActivos no acota (casi todo el catálogo está activo). Cambiar todo el catálogo se hace por el
+                // circuito de cambio masivo (simular → aprobar → aplicar), donde se ve el alcance y hay aprobación.
+                var f = request.Filtros;
+                var tieneFiltroReal = !string.IsNullOrWhiteSpace(f.Busqueda)
+                    || f.CategoriaId > 0
+                    || f.MarcaId > 0
+                    || f.StockBajo == true;
+                if (!tieneFiltroReal)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        error = "Indicá al menos un filtro (búsqueda, categoría, marca o stock bajo) o seleccioná los productos. " +
+                                "Para cambiar todo el catálogo usá el cambio masivo con aprobación."
+                    });
+                }
+
                 // Modo Filtrados: obtener productos desde los filtros
                 var filtrosJson = System.Text.Json.JsonSerializer.Serialize(request.Filtros);
                 productosIds = await ObtenerProductosPorFiltros(filtrosJson);
