@@ -257,6 +257,21 @@ public class PrecioServicePrecioProductoTests : IDisposable
     // SetPrecioManualAsync
     // -------------------------------------------------------------------------
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-50)]
+    public async Task SetPrecioManual_PrecioCeroONegativo_Rechaza_YNoCreaPrecio(int precio)
+    {
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.SetPrecioManualAsync(prod.Id, lista.Id, precio: precio, costo: 90m));
+
+        Assert.Empty(await _context.ProductosPrecios.AsNoTracking()
+            .Where(p => p.ProductoId == prod.Id && p.ListaId == lista.Id).ToListAsync());
+    }
+
     [Fact]
     public async Task SetPrecioManual_DatosValidos_Persiste()
     {

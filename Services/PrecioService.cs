@@ -393,12 +393,13 @@ public class PrecioService : IPrecioService
             var precioVentaAnterior = precioListaAnterior?.Precio ?? producto.PrecioVenta;
             var precioVentaNuevo = CalcularPrecioBase(precioVentaAnterior, model.TipoCambio, porcentaje, model.Redondeo);
 
-            if (precioVentaNuevo < 0)
+            if (precioVentaNuevo <= 0)
             {
+                // Cero o negativo (un -100 %, un valor que iguala el precio o un redondeo a cero): nunca se publica.
                 return new ResultadoAplicacionPrecios
                 {
                     Exitoso = false,
-                    Mensaje = $"El porcentaje genera precios negativos (Producto {producto.Codigo})."
+                    Mensaje = $"El cambio genera precios en cero o negativos (Producto {producto.Codigo})."
                 };
             }
 
@@ -983,6 +984,9 @@ public class PrecioService : IPrecioService
         DateTime? vigenciaDesde = null,
         string? notas = null)
     {
+        if (precio <= 0)
+            throw new InvalidOperationException("El precio debe ser mayor a cero.");
+
         vigenciaDesde ??= DateTime.UtcNow;
 
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -1205,16 +1209,17 @@ public class PrecioService : IPrecioService
                     MargenNuevo = margenNuevo
                 };
 
-                // Validar advertencias
-                if (margenNuevo < 0)
+                // Validar advertencias. Un precio cero o negativo se informa primero: es el caso que AplicarBatchAsync
+                // rechaza (antes quedaba tapado por la advertencia de margen negativo, que siempre lo acompaña).
+                if (precioNuevo <= 0)
+                {
+                    item.TieneAdvertencia = true;
+                    item.MensajeAdvertencia = "Precio resultante es cero o negativo: no se podrá aplicar";
+                }
+                else if (margenNuevo < 0)
                 {
                     item.TieneAdvertencia = true;
                     item.MensajeAdvertencia = $"Margen negativo: {margenNuevo:F2}%";
-                }
-                else if (precioNuevo <= 0)
-                {
-                    item.TieneAdvertencia = true;
-                    item.MensajeAdvertencia = "Precio resultante es cero o negativo";
                 }
 
                 items.Add(item);
@@ -1487,6 +1492,17 @@ public class PrecioService : IPrecioService
             throw new InvalidOperationException("RowVersion es requerido para aplicar el batch");
 
         _context.Entry(batch).Property(e => e.RowVersion).OriginalValue = rowVersion;
+
+        // Un precio vigente de cero o negativo rompería ventas, márgenes y listas: un descuento mayor al 100 % o un valor
+        // absoluto que supera el precio solo producía una advertencia en la simulación y se aplicaba igual.
+        var preciosInvalidos = batch.Items.Where(i => i.PrecioNuevo <= 0).ToList();
+        if (preciosInvalidos.Count > 0)
+        {
+            var ejemplo = preciosInvalidos[0];
+            throw new InvalidOperationException(
+                $"El lote tiene {preciosInvalidos.Count} precio(s) resultantes en cero o negativos " +
+                $"(por ejemplo {ejemplo.ProductoCodigo}: {ejemplo.PrecioNuevo:N2}). Corregí el porcentaje o el valor antes de aplicar.");
+        }
 
         fechaVigencia ??= DateTime.UtcNow;
 

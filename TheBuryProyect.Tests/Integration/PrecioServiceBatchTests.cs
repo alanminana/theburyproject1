@@ -413,6 +413,63 @@ public class PrecioServiceBatchTests : IDisposable
         Assert.Equal(110m, precioVigente!.Precio); // 100 * 1.10
     }
 
+    // Backlog de la auditoria QA: un descuento > 100 % producia precios negativos que se aplicaban.
+    [Theory]
+    [InlineData(150, TipoAplicacion.Disminucion)]    // 100 * (1 - 1,5) = -50
+    [InlineData(100, TipoAplicacion.Disminucion)]    // precio cero
+    public async Task Aplicar_ConPrecioResultanteCeroONegativo_Rechaza_YNoCambiaLosPrecios(int porcentaje, TipoAplicacion aplicacion)
+    {
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 100m, costo: 60m);
+
+        var batch = await _service.SimularCambioMasivoAsync(
+            "Descuento excesivo", TipoCambio.PorcentajeSobrePrecioActual, aplicacion,
+            porcentaje, new List<int> { lista.Id }, productoIds: new List<int> { prod.Id });
+
+        // La simulacion lo informa: advertencia de precio cero o negativo (no la de margen).
+        var item = await _context.Set<PriceChangeItem>().AsNoTracking().SingleAsync(i => i.BatchId == batch.Id);
+        Assert.True(item.TieneAdvertencia);
+        Assert.Contains("cero o negativo", item.MensajeAdvertencia);
+
+        await _context.Entry(batch).ReloadAsync();
+        batch = await _service.AprobarBatchAsync(batch.Id, "sup", batch.RowVersion!);
+        await _context.Entry(batch).ReloadAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AplicarBatchAsync(batch.Id, "admin", batch.RowVersion!));
+        Assert.Contains("cero o negativos", ex.Message);
+
+        _context.ChangeTracker.Clear();
+        var vigentes = await _context.ProductosPrecios
+            .Where(p => p.ProductoId == prod.Id && p.ListaId == lista.Id && p.EsVigente && !p.IsDeleted).ToListAsync();
+        Assert.Equal(100m, Assert.Single(vigentes).Precio);
+        Assert.Equal(EstadoBatch.Aprobado, (await _context.PriceChangeBatches.AsNoTracking().SingleAsync(b => b.Id == batch.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Aplicar_DescuentoLegitimoConMargenNegativo_SigueAplicandose()
+    {
+        // Vender por debajo del costo es una decision comercial (advertencia), no un precio invalido.
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 100m, costo: 60m);
+
+        var batch = await _service.SimularCambioMasivoAsync(
+            "Liquidacion", TipoCambio.PorcentajeSobrePrecioActual, TipoAplicacion.Disminucion,
+            50m, new List<int> { lista.Id }, productoIds: new List<int> { prod.Id });
+        await _context.Entry(batch).ReloadAsync();
+        batch = await _service.AprobarBatchAsync(batch.Id, "sup", batch.RowVersion!);
+        await _context.Entry(batch).ReloadAsync();
+
+        await _service.AplicarBatchAsync(batch.Id, "admin", batch.RowVersion!);
+
+        _context.ChangeTracker.Clear();
+        var vigente = await _context.ProductosPrecios
+            .SingleAsync(p => p.ProductoId == prod.Id && p.ListaId == lista.Id && p.EsVigente && !p.IsDeleted);
+        Assert.Equal(50m, vigente.Precio);
+    }
+
     [Fact]
     public async Task Aplicar_NoAprobado_LanzaExcepcion()
     {

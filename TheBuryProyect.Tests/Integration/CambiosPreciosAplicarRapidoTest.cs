@@ -134,6 +134,47 @@ public class CambiosPreciosAplicarRapidoTest : IClassFixture<CustomWebApplicatio
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // COM-S-009: con filtros vacios la seleccion era el catalogo entero, aplicada sin confirmacion ni tope.
+    private async Task<(HttpStatusCode Status, string Body)> PostRapidoFiltradosAsync(FiltrosRapidoDto filtros)
+    {
+        await _factory.SeedTestUserAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var request = new AplicarRapidoRequest { Modo = "filtrados", Porcentaje = 5m, Filtros = filtros };
+        var paginaHtml = await GetHtmlAsync(client, "/CambiosPrecios/Simular");
+        var token = HiddenValue(paginaHtml, "__RequestVerificationToken");
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/CambiosPrecios/AplicarRapido");
+        httpRequest.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(request), System.Text.Encoding.UTF8, "application/json");
+        httpRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        httpRequest.Headers.Add("RequestVerificationToken", token);
+        var response = await client.SendAsync(httpRequest);
+        return (response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData(null, null, null, null, null)]
+    [InlineData("", null, null, null, null)]
+    [InlineData("   ", 0, 0, false, true)]     // SoloActivos solo no acota: casi todo el catalogo esta activo
+    public async Task Post_AplicarRapido_FiltradosSinNingunFiltroReal_EsRechazado(
+        string? busqueda, int? categoriaId, int? marcaId, bool? stockBajo, bool? soloActivos)
+    {
+        var (status, body) = await PostRapidoFiltradosAsync(new FiltrosRapidoDto
+        {
+            Busqueda = busqueda, CategoriaId = categoriaId, MarcaId = marcaId, StockBajo = stockBajo, SoloActivos = soloActivos
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Contains("al menos un filtro", body);
+    }
+
+    [Fact]
+    public async Task Post_AplicarRapido_FiltradosConFiltroReal_NoSeRechazaPorFiltroVacio()
+    {
+        var (_, body) = await PostRapidoFiltradosAsync(new FiltrosRapidoDto { Busqueda = "algo" });
+
+        Assert.DoesNotContain("al menos un filtro", body);
+    }
+
     private async Task<string> GetHtmlAsync(HttpClient client, string url)
     {
         var response = await client.GetAsync(url);
