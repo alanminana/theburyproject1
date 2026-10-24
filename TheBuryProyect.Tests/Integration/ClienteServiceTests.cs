@@ -243,7 +243,7 @@ public class ClienteServiceTests : IDisposable
             MontoMinimoPersonalizado = 10000m, MontoMaximoPersonalizado = 900000m
         };
 
-        await _service.UpdateAsync(actualizado);
+        await _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true);
 
         var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
         Assert.Equal("2000", bd.CodigoPostal);

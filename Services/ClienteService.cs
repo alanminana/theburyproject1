@@ -106,7 +106,9 @@ namespace TheBuryProject.Services
             cliente.CreditosConAtraso = 0;
         }
 
-        public async Task<Cliente> UpdateAsync(Cliente cliente)
+        public Task<Cliente> UpdateAsync(Cliente cliente) => UpdateAsync(cliente, actualizarConfiguracionCredito: false);
+
+        public async Task<Cliente> UpdateAsync(Cliente cliente, bool actualizarConfiguracionCredito)
         {
             var clienteExistente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == cliente.Id && !c.IsDeleted);
@@ -151,14 +153,18 @@ namespace TheBuryProject.Services
             clienteExistente.Empleador = cliente.Empleador;
             clienteExistente.TelefonoLaboral = cliente.TelefonoLaboral;
 
-            // Configuración personalizada de crédito: el controller ya conserva los valores persistidos cuando el usuario
-            // no tiene clientes.configurecredit (AplicarRestriccionConfigCreditoAsync), así que acá se guarda lo que llega.
-            clienteExistente.PerfilCreditoPreferidoId = cliente.PerfilCreditoPreferidoId;
-            clienteExistente.TasaInteresMensualPersonalizada = cliente.TasaInteresMensualPersonalizada;
-            clienteExistente.GastosAdministrativosPersonalizados = cliente.GastosAdministrativosPersonalizados;
-            clienteExistente.CuotasMaximasPersonalizadas = cliente.CuotasMaximasPersonalizadas;
-            clienteExistente.MontoMinimoPersonalizado = cliente.MontoMinimoPersonalizado;
-            clienteExistente.MontoMaximoPersonalizado = cliente.MontoMaximoPersonalizado;
+            // Configuración personalizada de crédito: solo si el llamador lo pide (usuario con clientes.configurecredit).
+            // Sin el pedido no se asigna ninguna de estas propiedades: no entran en el UPDATE y, por lo tanto, no pueden
+            // pisar un cambio autorizado concurrente (copiar el valor "persistido" leído antes sí lo permitía).
+            if (actualizarConfiguracionCredito)
+            {
+                clienteExistente.PerfilCreditoPreferidoId = cliente.PerfilCreditoPreferidoId;
+                clienteExistente.TasaInteresMensualPersonalizada = cliente.TasaInteresMensualPersonalizada;
+                clienteExistente.GastosAdministrativosPersonalizados = cliente.GastosAdministrativosPersonalizados;
+                clienteExistente.CuotasMaximasPersonalizadas = cliente.CuotasMaximasPersonalizadas;
+                clienteExistente.MontoMinimoPersonalizado = cliente.MontoMinimoPersonalizado;
+                clienteExistente.MontoMaximoPersonalizado = cliente.MontoMaximoPersonalizado;
+            }
 
             // Calificación crediticia manual (NivelRiesgo 1-5)
             // Se actualiza desde el formulario y el PuntajeRiesgo se calcula automáticamente
