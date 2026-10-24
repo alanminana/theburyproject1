@@ -391,19 +391,35 @@ app.UseResponseCompression();
 // ("TICKET~1"), por lo que StartsWithSegments solo no alcanza: se normalizan los segmentos antes de comparar.
 static bool EsRutaDeUploadsPrivados(PathString path)
 {
-    // Kestrel decodifica %5c a backslash y en Windows el proveedor de archivos lo trata como separador:
-    // 'uploads\tickets' debe contar como dos segmentos.
-    var segmentos = (path.Value ?? string.Empty)
-        .Replace((char)92, '/')
-        .Split('/', StringSplitOptions.RemoveEmptyEntries)
-        .Select(s => s.TrimEnd('.', ' '))
-        .ToArray();
-    if (segmentos.Length < 2 || !segmentos[0].Equals("uploads", StringComparison.OrdinalIgnoreCase))
+    var valor = path.Value ?? string.Empty;
+
+    // Kestrel decodifica %5c a backslash pero su normalizacion de '.'/'..' solo conoce '/', y en Windows el proveedor
+    // de archivos trata el backslash como separador ('/uploads%5c.%5ctickets/x' llegaba a disco). Ninguna URL legitima
+    // del sitio lleva backslash: se rechaza de plano en lugar de intentar reinterpretarlo.
+    if (valor.Contains((char)92))
+        return true;
+
+    // Se resuelven '.'/'..' a mano antes de comparar (una ruta que no empieza por /uploads puede terminar ahi).
+    var pila = new List<string>();
+    foreach (var crudo in valor.Split('/', StringSplitOptions.RemoveEmptyEntries))
+    {
+        if (crudo == ".") continue;
+        if (crudo == "..")
+        {
+            if (pila.Count > 0) pila.RemoveAt(pila.Count - 1);
+            continue;
+        }
+        var segmento = crudo.TrimEnd('.', ' ');
+        if (segmento.Length == 0) continue;     // "...", ". ": el sistema de archivos los reduce a vacio
+        pila.Add(segmento);
+    }
+
+    if (pila.Count < 2 || !pila[0].Equals("uploads", StringComparison.OrdinalIgnoreCase))
         return false;
 
-    return segmentos[1].Equals("tickets", StringComparison.OrdinalIgnoreCase)
-        || segmentos[1].Equals("documentos-clientes", StringComparison.OrdinalIgnoreCase)
-        || segmentos[1].Contains('~');
+    return pila[1].Equals("tickets", StringComparison.OrdinalIgnoreCase)
+        || pila[1].Equals("documentos-clientes", StringComparison.OrdinalIgnoreCase)
+        || pila[1].Contains('~');
 }
 
 app.Use(async (context, next) =>

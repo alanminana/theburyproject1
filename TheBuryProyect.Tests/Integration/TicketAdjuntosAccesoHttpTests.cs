@@ -74,6 +74,11 @@ public class TicketAdjuntosAccesoHttpTests :
     [InlineData("/uploads%5Ctickets/{0}")]
     [InlineData("/uploads%5ctickets%5c{0}")]
     [InlineData("/uploads/tickets%5C{0}")]
+    [InlineData("/uploads%5c.%5ctickets/{0}")]
+    [InlineData("/uploads%5cx%5c..%5ctickets/{0}")]
+    [InlineData("/x%5c..%5cuploads/tickets/{0}")]
+    [InlineData("/uploads/documentos-clientes/x/../../tickets/{0}")]
+    [InlineData("/uploads/.../tickets/{0}")]
     public async Task ArchivoExistente_VariantesDeUrlEstatica_NoSeEntregan(string plantilla)
     {
         await _factory.SeedTestUserAsync();
