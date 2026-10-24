@@ -391,7 +391,10 @@ app.UseResponseCompression();
 // ("TICKET~1"), por lo que StartsWithSegments solo no alcanza: se normalizan los segmentos antes de comparar.
 static bool EsRutaDeUploadsPrivados(PathString path)
 {
+    // Kestrel decodifica %5c a backslash y en Windows el proveedor de archivos lo trata como separador:
+    // 'uploads\tickets' debe contar como dos segmentos.
     var segmentos = (path.Value ?? string.Empty)
+        .Replace((char)92, '/')
         .Split('/', StringSplitOptions.RemoveEmptyEntries)
         .Select(s => s.TrimEnd('.', ' '))
         .ToArray();

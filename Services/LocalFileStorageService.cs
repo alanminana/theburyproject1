@@ -49,7 +49,11 @@ public class LocalFileStorageService : IFileStorageService
                 .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             var rutaCompleta = Path.GetFullPath(Path.Combine(_environment.WebRootPath, Normalizar(rutaRelativa)));
 
-            if (!rutaCompleta.StartsWith(carpeta, StringComparison.OrdinalIgnoreCase) || !File.Exists(rutaCompleta))
+            if (!rutaCompleta.StartsWith(carpeta, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // La contención textual no alcanza: un symlink/junction dentro de la carpeta apuntaría fuera de ella.
+            if (!File.Exists(rutaCompleta) || AtraviesaReparsePoint(rutaCompleta, carpeta))
                 return null;
 
             return new FileStream(rutaCompleta, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
@@ -61,6 +65,23 @@ public class LocalFileStorageService : IFileStorageService
             _logger.LogWarning(ex, "No se pudo abrir el archivo en ruta '{Ruta}'.", rutaRelativa);
             return null;
         }
+    }
+
+    // true si el archivo o algún directorio entre la carpeta autorizada y el archivo es un enlace (symlink/junction).
+    private static bool AtraviesaReparsePoint(string rutaCompleta, string carpetaAutorizada)
+    {
+        var actual = new FileInfo(rutaCompleta);
+        if (actual.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            return true;
+        var dir = actual.Directory;
+        var raiz = carpetaAutorizada.TrimEnd(Path.DirectorySeparatorChar);
+        while (dir != null && dir.FullName.Length > raiz.Length)
+        {
+            if (dir.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                return true;
+            dir = dir.Parent;
+        }
+        return false;
     }
 
     public Task DeleteAsync(string rutaRelativa)

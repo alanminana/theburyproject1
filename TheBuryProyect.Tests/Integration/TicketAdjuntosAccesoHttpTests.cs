@@ -71,6 +71,9 @@ public class TicketAdjuntosAccesoHttpTests :
     [InlineData("/uploads/tickets%20/{0}")]
     [InlineData("/uploads/tickets.%20./{0}")]
     [InlineData("/uploads/TICKET~1/{0}")]
+    [InlineData("/uploads%5Ctickets/{0}")]
+    [InlineData("/uploads%5ctickets%5c{0}")]
+    [InlineData("/uploads/tickets%5C{0}")]
     public async Task ArchivoExistente_VariantesDeUrlEstatica_NoSeEntregan(string plantilla)
     {
         await _factory.SeedTestUserAsync();
@@ -274,6 +277,45 @@ public class TicketAdjuntosAccesoHttpTests :
 
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
         Assert.DoesNotContain("SECRETO", await respuesta.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Descarga_EnlaceSimbolicoOJunctionDentroDeTickets_NoEntregaContenidoExterno()
+    {
+        await _factory.SeedTestUserAsync();
+        var webRoot = _factory.Services.GetRequiredService<IWebHostEnvironment>().WebRootPath;
+        var externa = Path.Combine(Path.GetTempPath(), "com-s-005-ext-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(externa);
+        await File.WriteAllBytesAsync(Path.Combine(externa, "secreto.txt"), Secreto);
+        var carpeta = Path.Combine(webRoot, "uploads", "tickets");
+        Directory.CreateDirectory(carpeta);
+        var enlace = Path.Combine(carpeta, "enlace-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            try { Directory.CreateSymbolicLink(enlace, externa); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Sin privilegio de symlink (Windows sin modo desarrollador): una junction no lo requiere.
+                var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe",
+                    $"/c mklink /J \"{enlace}\" \"{externa}\"") { CreateNoWindow = true, UseShellExecute = false });
+                p!.WaitForExit();
+            }
+            Assert.True(Directory.Exists(enlace), "No se pudo crear el enlace de prueba.");
+
+            var adjuntoId = await SembrarAdjuntoAsync(_factory, TxtSintetico, "enlace.txt", crearArchivo: false,
+                rutaPersistida: "uploads/tickets/" + Path.GetFileName(enlace) + "/secreto.txt");
+            using var admin = _factory.CreateAuthenticatedClient();
+
+            var respuesta = await admin.GetAsync($"/Ticket/DescargarAdjunto/{adjuntoId}");
+
+            Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+            Assert.DoesNotContain("SECRETO", await respuesta.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            try { Directory.Delete(enlace); } catch (Exception) { /* quita solo el enlace, no el destino */ }
+            try { Directory.Delete(externa, true); } catch (Exception) { /* limpieza best-effort */ }
+        }
     }
 
     [Fact]
