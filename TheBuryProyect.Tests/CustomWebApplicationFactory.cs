@@ -859,6 +859,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             OrdenCompraConRecepcionUserId, "test-oc-con-recepcion-role-id", "TestOcConRecepcionRole", 9610,
             "ordenescompra.view", "ordenescompra.update", "ordenescompra.receive");
 
+    public const string ConfiguracionActualizaUserId = "test-configuracion-actualiza-id";
+
+    /// <summary>FIN-S-017: edita la configuración (precios de envíos y armados). configuracion.view + configuracion.update.</summary>
+    public Task SeedUserWithConfiguracionActualizaAsync() =>
+        SeedPermissionUserAsync(
+            ConfiguracionActualizaUserId, "test-configuracion-actualiza-role-id", "TestConfiguracionActualizaRole", 9600,
+            "configuracion.view", "configuracion.update");
+
     public const string VentaSoloActualizarUserId = "test-venta-solo-actualizar-id";
 
     /// <summary>FIN-S-005: edita ventas (ventas.update) pero NO puede confirmarlas (sin ventas.create).</summary>

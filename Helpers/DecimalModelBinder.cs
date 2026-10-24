@@ -56,6 +56,11 @@ public class DecimalModelBinder : IModelBinder
         return Task.CompletedTask;
     }
 
+    // Un campo de dinero es el que declara [MontoArgentino] (validador) o [MontoSinAmbiguedad] (marcador sin validación).
+    // El marcador no es un ValidationAttribute, así que no entra en ValidatorMetadata: se busca entre los atributos del
+    // metadato (propiedad o parámetro de acción).
     private static bool EsCampoDeDinero(ModelMetadata metadata) =>
-        metadata.ValidatorMetadata.OfType<TheBuryProject.Validation.MontoArgentinoAttribute>().Any();
+        metadata.ValidatorMetadata.OfType<TheBuryProject.Validation.MontoArgentinoAttribute>().Any()
+        || (metadata is Microsoft.AspNetCore.Mvc.ModelBinding.Metadata.DefaultModelMetadata detallado
+            && detallado.Attributes.Attributes.OfType<TheBuryProject.Validation.MontoSinAmbiguedadAttribute>().Any());
 }
