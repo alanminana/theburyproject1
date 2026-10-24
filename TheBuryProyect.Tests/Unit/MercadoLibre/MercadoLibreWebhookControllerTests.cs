@@ -93,4 +93,67 @@ public class MercadoLibreWebhookControllerTests
         await using var ctx = factory.CreateDbContext();
         Assert.False(await ctx.MercadoLibreWebhookEvents.AnyAsync());
     }
+
+    // COM-S-004 (backlog de la auditoria QA): JSON valido pero de otra forma terminaba en 500, que ML reintenta.
+    [Theory]
+    [InlineData("""{"topic": 123, "resource": "/orders/1"}""")]
+    [InlineData("""{"topic": "orders_v2", "resource": {"id": 1}}""")]
+    [InlineData("""{"topic": "orders_v2", "user_id": 1.5}""")]
+    [InlineData("""{"topic": "orders_v2", "user_id": 99999999999999999999999999}""")]
+    [InlineData("""{"topic": "orders_v2", "attempts": 3000000000}""")]
+    [InlineData("{\"topic\": \"\\uDEAD\", \"resource\": \"/orders/1\"}")]
+    [InlineData("{\"topic\": \"orders_v2\", \"resource\": \"\\uD800A\"}")]
+    [InlineData("""["no", "es", "un", "objeto"]""")]
+    [InlineData("42")]
+    [InlineData("null")]
+    public async Task Recibir_JsonValidoDeOtraForma_NoDa500_YGuardaElEventoCrudo(string body)
+    {
+        var (controller, factory) = BuildController(body);
+
+        var resultado = await controller.Recibir(default);
+
+        Assert.IsType<OkResult>(resultado);
+        await using var ctx = factory.CreateDbContext();
+        var evento = await ctx.MercadoLibreWebhookEvents.SingleAsync();
+        Assert.Equal(body, evento.RawBody);
+    }
+
+    [Fact]
+    public async Task Recibir_CamposConElTipoEsperado_SeSiguenLeyendoAunqueOtrosVenganMal()
+    {
+        var (controller, factory) = BuildController("""{"topic": "orders_v2", "resource": "/orders/9", "user_id": 77, "attempts": "uno"}""");
+
+        await controller.Recibir(default);
+
+        await using var ctx = factory.CreateDbContext();
+        var evento = await ctx.MercadoLibreWebhookEvents.SingleAsync();
+        Assert.Equal("orders_v2", evento.Topic);
+        Assert.Equal("/orders/9", evento.Resource);
+        Assert.Equal(77, evento.MeliUserId);
+    }
+
+    [Fact]
+    public async Task Recibir_CuerpoQueSuperaElTope_Responde413_YNoPersiste()
+    {
+        var (controller, factory) = BuildController(new string('x', MercadoLibreWebhookController.MaxBodyChars + 1));
+
+        var resultado = await controller.Recibir(default);
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, Assert.IsType<StatusCodeResult>(resultado).StatusCode);
+        await using var ctx = factory.CreateDbContext();
+        Assert.False(await ctx.MercadoLibreWebhookEvents.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Recibir_CuerpoJustoEnElTope_SeGuarda()
+    {
+        var body = new string('x', MercadoLibreWebhookController.MaxBodyChars);
+        var (controller, factory) = BuildController(body);
+
+        var resultado = await controller.Recibir(default);
+
+        Assert.IsType<OkResult>(resultado);
+        await using var ctx = factory.CreateDbContext();
+        Assert.Equal(MercadoLibreWebhookController.MaxBodyChars, (await ctx.MercadoLibreWebhookEvents.SingleAsync()).RawBody.Length);
+    }
 }

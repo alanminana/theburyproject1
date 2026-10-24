@@ -30,14 +30,32 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Tope del cuerpo (caracteres). Las notificaciones de Mercado Libre pesan unos cientos de bytes; el endpoint es
+        /// anónimo (la firma no se puede verificar sin el secreto de la aplicación), así que no se lee ni se persiste
+        /// un cuerpo arbitrariamente grande.
+        /// </summary>
+        internal const int MaxBodyChars = 64 * 1024;
+
         [HttpPost]
         public async Task<IActionResult> Recibir(CancellationToken ct)
         {
+            if (Request.ContentLength is > MaxBodyChars * 4L)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge);
+
             string rawBody;
 
             using (var reader = new StreamReader(Request.Body))
             {
-                rawBody = await reader.ReadToEndAsync(ct);
+                var buffer = new char[MaxBodyChars + 1];
+                var leidos = await reader.ReadBlockAsync(buffer.AsMemory(), ct);
+                if (leidos > MaxBodyChars)
+                {
+                    _logger.LogWarning("Webhook de Mercado Libre descartado: el cuerpo supera {Max} caracteres", MaxBodyChars);
+                    return StatusCode(StatusCodes.Status413PayloadTooLarge);
+                }
+
+                rawBody = new string(buffer, 0, leidos);
             }
 
             if (string.IsNullOrWhiteSpace(rawBody))
@@ -55,20 +73,29 @@ namespace TheBuryProject.Controllers
                 using var doc = JsonDocument.Parse(rawBody);
                 var root = doc.RootElement;
 
-                if (root.TryGetProperty("topic", out var topic))
-                    evento.Topic = Truncar(topic.GetString(), 50) ?? string.Empty;
+                // Cada campo se lee solo si tiene el tipo esperado: un JSON válido pero de otra forma (topic numérico,
+                // user_id decimal o fuera de rango, raíz que no es objeto) ya no termina en un 500 que ML reintenta.
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    if (root.TryGetProperty("topic", out var topic) && topic.ValueKind == JsonValueKind.String)
+                        evento.Topic = Truncar(topic.GetString(), 50) ?? string.Empty;
 
-                if (root.TryGetProperty("resource", out var resource))
-                    evento.Resource = Truncar(resource.GetString(), 300) ?? string.Empty;
+                    if (root.TryGetProperty("resource", out var resource) && resource.ValueKind == JsonValueKind.String)
+                        evento.Resource = Truncar(resource.GetString(), 300) ?? string.Empty;
 
-                if (root.TryGetProperty("user_id", out var userId) && userId.ValueKind == JsonValueKind.Number)
-                    evento.MeliUserId = userId.GetInt64();
+                    if (root.TryGetProperty("user_id", out var userId)
+                        && userId.ValueKind == JsonValueKind.Number && userId.TryGetInt64(out var meliUserId))
+                        evento.MeliUserId = meliUserId;
 
-                if (root.TryGetProperty("attempts", out var attempts) && attempts.ValueKind == JsonValueKind.Number)
-                    evento.Attempts = attempts.GetInt32();
+                    if (root.TryGetProperty("attempts", out var attempts)
+                        && attempts.ValueKind == JsonValueKind.Number && attempts.TryGetInt32(out var intentos))
+                        evento.Attempts = intentos;
+                }
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
             {
+                // JsonException: no es JSON. InvalidOperationException: JSON sintácticamente válido cuyo texto no se puede
+                // materializar (p. ej. un surrogate suelto en un string hace fallar GetString()).
                 _logger.LogWarning("Webhook de Mercado Libre con body no parseable; se guarda crudo");
             }
 
