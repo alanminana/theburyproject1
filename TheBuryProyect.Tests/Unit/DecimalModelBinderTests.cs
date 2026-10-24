@@ -126,6 +126,99 @@ public class DecimalModelBinderTests
         }
     }
 
+    // FIN-S-017: en campos de dinero ([MontoArgentino]) un monto con un unico separador y tres digitos es ambiguo.
+    private sealed class NoOpDetailsProvider : ICompositeMetadataDetailsProvider
+    {
+        public void CreateBindingMetadata(BindingMetadataProviderContext context) { }
+        public void CreateDisplayMetadata(DisplayMetadataProviderContext context) { }
+        public void CreateValidationMetadata(ValidationMetadataProviderContext context) { }
+    }
+
+    private sealed class MontoModel
+    {
+        [TheBuryProject.Validation.MontoArgentino]
+        public decimal Monto { get; set; }
+
+        public decimal Porcentaje { get; set; }
+    }
+
+    private static DefaultModelBindingContext CreateMoneyBindingContext(string raw, bool esDinero)
+    {
+        var propiedad = esDinero ? nameof(MontoModel.Monto) : nameof(MontoModel.Porcentaje);
+        var identity = ModelMetadataIdentity.ForProperty(typeof(MontoModel).GetProperty(propiedad)!, typeof(decimal), typeof(MontoModel));
+        var details = new DefaultMetadataDetails(identity, ModelAttributes.GetAttributesForProperty(typeof(MontoModel), typeof(MontoModel).GetProperty(propiedad)!));
+        details.ValidationMetadata = new ValidationMetadata();
+        if (esDinero)
+            details.ValidationMetadata.ValidatorMetadata.Add(new TheBuryProject.Validation.MontoArgentinoAttribute());
+
+        var metadata = new DefaultModelMetadata(
+            new EmptyModelMetadataProvider(),
+            new NoOpDetailsProvider(),
+            details);
+
+        return new DefaultModelBindingContext
+        {
+            ModelMetadata = metadata,
+            ModelName = propiedad,
+            ModelState = new ModelStateDictionary(),
+            ValueProvider = new SingleValueProvider(propiedad, raw, CultureInfo.InvariantCulture)
+        };
+    }
+
+    [Theory]
+    [InlineData("1.500")]
+    [InlineData("1,500")]
+    [InlineData("12,345")]
+    [InlineData("999.999")]
+    [InlineData("-1.500")]
+    [InlineData(" 1.500 ")]
+    public async Task Monto_ConSeparadorUnicoYTresDigitos_EsAmbiguo_ErrorDeValidacion(string raw)
+    {
+        var ctx = CreateMoneyBindingContext(raw, esDinero: true);
+
+        await new DecimalModelBinder().BindModelAsync(ctx);
+
+        Assert.False(ctx.Result.IsModelSet);
+        var error = Assert.Single(ctx.ModelState[ctx.ModelName]!.Errors);
+        Assert.Contains("ambiguo", error.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("1500", 1500)]
+    [InlineData("1500.50", 1500.50)]
+    [InlineData("1500,50", 1500.50)]
+    [InlineData("1.50", 1.5)]
+    [InlineData("1.500,00", 1500)]
+    [InlineData("1.500.000,00", 1500000)]
+    [InlineData("0.500", 0.5)]
+    [InlineData("0,500", 0.5)]
+    [InlineData("12.5", 12.5)]
+    [InlineData("100", 100)]
+    public async Task Monto_FormatosNoAmbiguos_SeSiguenInterpretando(string raw, double esperado)
+    {
+        var ctx = CreateMoneyBindingContext(raw, esDinero: true);
+
+        await new DecimalModelBinder().BindModelAsync(ctx);
+
+        Assert.True(ctx.Result.IsModelSet);
+        Assert.Equal((decimal)esperado, (decimal)ctx.Result.Model!);
+    }
+
+    [Theory]
+    [InlineData("1.500", 1.5)]
+    [InlineData("1,500", 1.5)]
+    [InlineData("12,345", 12.345)]
+    public async Task CampoQueNoEsDinero_ConservaLaInterpretacionDecimal(string raw, double esperado)
+    {
+        // Cantidades, porcentajes y tasas aceptan tres decimales: el punto sigue siendo decimal.
+        var ctx = CreateMoneyBindingContext(raw, esDinero: false);
+
+        await new DecimalModelBinder().BindModelAsync(ctx);
+
+        Assert.True(ctx.Result.IsModelSet);
+        Assert.Equal((decimal)esperado, (decimal)ctx.Result.Model!);
+    }
+
     private static DefaultModelBindingContext CreateBindingContext(string raw)
         => CreateBindingContext(
             raw,
