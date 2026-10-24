@@ -70,6 +70,8 @@ namespace TheBuryProject.Services
             cliente.PuntajeRiesgo = (int)cliente.NivelRiesgo * 2m;
             cliente.FechaUltimaActualizacionDatos = DateTime.UtcNow;
 
+            ReiniciarCamposCalculadosPorElServidor(cliente);
+
             _context.Clientes.Add(cliente);
             await _context.SaveChangesAsync();
 
@@ -79,8 +81,40 @@ namespace TheBuryProject.Services
             return cliente;
         }
 
-        public async Task<Cliente> UpdateAsync(Cliente cliente)
+        /// <summary>
+        /// COM-S-008: la situación crediticia (BCRA) y el scoring de comportamiento los calcula el servidor a partir de
+        /// consultas y del historial real; un alta nunca los toma del formulario (el ViewModel los expone "solo lectura"
+        /// pero el binder los aceptaba). Un cliente nuevo arranca sin consulta BCRA, sin historial y con el puntaje inicial.
+        /// </summary>
+        private static void ReiniciarCamposCalculadosPorElServidor(Cliente cliente)
         {
+            cliente.SituacionCrediticiaBcra = null;
+            cliente.SituacionCrediticiaDescripcion = null;
+            cliente.SituacionCrediticiaPeriodo = null;
+            cliente.SituacionCrediticiaUltimaConsultaUtc = null;
+            cliente.SituacionCrediticiaConsultaOk = null;
+            cliente.SituacionCrediticiaBcraUltimoExito = null;
+            cliente.SituacionCrediticiaDescripcionUltimoExito = null;
+            cliente.SituacionCrediticiaPeriodoUltimoExito = null;
+            cliente.SituacionCrediticiaUltimoExitoUtc = null;
+
+            cliente.PuntajeCliente = 1;
+            cliente.AntiguedadDias = 0;
+            cliente.UltimaVentaFecha = null;
+            cliente.CantidadComprasCliente = 0;
+            cliente.CreditosEnTermino = 0;
+            cliente.CreditosConAtraso = 0;
+        }
+
+        public Task<Cliente> UpdateAsync(Cliente cliente) => UpdateAsync(cliente, actualizarConfiguracionCredito: false);
+
+        public async Task<Cliente> UpdateAsync(Cliente cliente, bool actualizarConfiguracionCredito)
+        {
+            // Escribir la configuración de crédito es una decisión financiera: sin la versión que el usuario vio, un
+            // formulario abierto hace rato pisaría en silencio un cambio posterior de otro operador autorizado.
+            if (actualizarConfiguracionCredito && (cliente.RowVersion == null || cliente.RowVersion.Length == 0))
+                throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá el cliente e intentá nuevamente.");
+
             var clienteExistente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == cliente.Id && !c.IsDeleted);
 
@@ -107,16 +141,35 @@ namespace TheBuryProject.Services
             clienteExistente.ConyugeSueldo = cliente.ConyugeSueldo;
 
             clienteExistente.Telefono = cliente.Telefono;
+            clienteExistente.TelefonoAlternativo = cliente.TelefonoAlternativo;
             clienteExistente.Email = cliente.Email;
             clienteExistente.Domicilio = cliente.Domicilio;
             clienteExistente.Provincia = cliente.Provincia;
             clienteExistente.Localidad = cliente.Localidad;
+            // COM-S-014: el formulario de edición los envía y antes se descartaban sin aviso.
+            clienteExistente.CodigoPostal = cliente.CodigoPostal;
+            clienteExistente.Observaciones = cliente.Observaciones;
 
             // Datos laborales / financieros
             clienteExistente.TipoEmpleo = cliente.TipoEmpleo;
             clienteExistente.Sueldo = cliente.Sueldo;
 
             clienteExistente.TieneReciboSueldo = cliente.TieneReciboSueldo;
+            clienteExistente.Empleador = cliente.Empleador;
+            clienteExistente.TelefonoLaboral = cliente.TelefonoLaboral;
+
+            // Configuración personalizada de crédito: solo si el llamador lo pide (usuario con clientes.configurecredit).
+            // Sin el pedido no se asigna ninguna de estas propiedades: no entran en el UPDATE y, por lo tanto, no pueden
+            // pisar un cambio autorizado concurrente (copiar el valor "persistido" leído antes sí lo permitía).
+            if (actualizarConfiguracionCredito)
+            {
+                clienteExistente.PerfilCreditoPreferidoId = cliente.PerfilCreditoPreferidoId;
+                clienteExistente.TasaInteresMensualPersonalizada = cliente.TasaInteresMensualPersonalizada;
+                clienteExistente.GastosAdministrativosPersonalizados = cliente.GastosAdministrativosPersonalizados;
+                clienteExistente.CuotasMaximasPersonalizadas = cliente.CuotasMaximasPersonalizadas;
+                clienteExistente.MontoMinimoPersonalizado = cliente.MontoMinimoPersonalizado;
+                clienteExistente.MontoMaximoPersonalizado = cliente.MontoMaximoPersonalizado;
+            }
 
             // Calificación crediticia manual (NivelRiesgo 1-5)
             // Se actualiza desde el formulario y el PuntajeRiesgo se calcula automáticamente
