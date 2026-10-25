@@ -1310,6 +1310,7 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.IdempotencyKey)
                     .IsUnique()
                     .HasFilter("[IdempotencyKey] IS NOT NULL");
+                entity.Property(e => e.IdempotencyHuella).HasMaxLength(64);
 
                 entity.Property(e => e.Numero)
                     .IsRequired()

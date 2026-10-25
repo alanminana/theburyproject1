@@ -11,6 +11,13 @@ namespace TheBuryProyect.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "IdempotencyHuella",
+                table: "Ventas",
+                type: "nvarchar(64)",
+                maxLength: 64,
+                nullable: true);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "IdempotencyKey",
                 table: "Ventas",
@@ -30,6 +37,10 @@ namespace TheBuryProyect.Migrations
         {
             migrationBuilder.DropIndex(
                 name: "IX_Ventas_IdempotencyKey",
+                table: "Ventas");
+
+            migrationBuilder.DropColumn(
+                name: "IdempotencyHuella",
                 table: "Ventas");
 
             migrationBuilder.DropColumn(

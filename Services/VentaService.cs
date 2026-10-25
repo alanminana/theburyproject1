@@ -260,6 +260,7 @@ namespace TheBuryProject.Services
                 }
 
                 venta.IdempotencyKey = viewModel.IdempotencyKey;
+                venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaDeSolicitud(viewModel) : null;
                 venta.AperturaCajaId = aperturaActiva.Id;
 
                 var vendedorResuelto = await ResolverVendedorAsync(currentUserId, currentUserName);
@@ -380,6 +381,31 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <summary>
+        /// FIN-S-018. Huella estable del contenido funcional de un alta (lo que el operador decide, no lo que calcula el
+        /// servidor): cliente, medio de pago, descuento general, anticipo, envio y cada linea (producto, cantidad, precio,
+        /// descuento, armado, unidad, entrega). El orden de las lineas no la altera.
+        /// </summary>
+        internal static string HuellaDeSolicitud(VentaViewModel vm)
+        {
+            static string N(decimal d) => d.ToString("0.####", CultureInfo.InvariantCulture);
+
+            var lineas = vm.Detalles
+                .Select(d => string.Join("|",
+                    d.ProductoId, d.Cantidad, N(d.PrecioUnitario), N(d.Descuento), d.TipoArmado?.ToString() ?? "-",
+                    d.EnviarADomicilio ? 1 : 0, d.ProductoUnidadId?.ToString(CultureInfo.InvariantCulture) ?? "-",
+                    d.TipoPago?.ToString() ?? "-", d.ProductoCondicionPagoPlanId?.ToString(CultureInfo.InvariantCulture) ?? "-"))
+                .OrderBy(l => l, StringComparer.Ordinal);
+
+            var canonico = string.Join("\n", new[]
+            {
+                vm.ClienteId.ToString(CultureInfo.InvariantCulture), vm.TipoPago.ToString(), N(vm.Descuento),
+                vm.Anticipo.HasValue ? N(vm.Anticipo.Value) : "-", vm.TieneEnvio ? "1" : "0", vm.Observaciones ?? string.Empty
+            }.Concat(lineas));
+
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonico)));
+        }
+
         internal const string IndiceIdempotenciaVenta = "IX_Ventas_IdempotencyKey";
 
         /// <summary>
@@ -419,16 +445,16 @@ namespace TheBuryProject.Services
                 return null;
             }
 
-            var clienteSolicitado = viewModel.ClienteId > 0 ? (int?)viewModel.ClienteId : null;
+            // La intencion es la misma solo si es el mismo vendedor Y el mismo contenido (cliente, medio de pago, carrito,
+            // descuentos...). Con otro carrito no se responde exito con la venta anterior: se le pide al operador una operacion nueva.
             var mismaIntencion = !existente.IsDeleted
                 && existente.VendedorUserId == currentUserId
-                && existente.ClienteId == clienteSolicitado
-                && existente.TipoPago == viewModel.TipoPago;
+                && string.Equals(existente.IdempotencyHuella, HuellaDeSolicitud(viewModel), StringComparison.Ordinal);
 
             if (!mismaIntencion)
             {
                 throw new InvalidOperationException(
-                    "La clave de la operación ya fue usada con datos distintos. Recargue el formulario para registrar una venta nueva.");
+                    "La clave de la operación ya fue usada con un carrito o datos distintos. Recargue el formulario para registrar una venta nueva.");
             }
 
             var resultado = _mapper.Map<VentaViewModel>(existente);

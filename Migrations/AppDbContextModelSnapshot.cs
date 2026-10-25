@@ -10431,6 +10431,10 @@ namespace TheBuryProject.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("IdempotencyHuella")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<Guid?>("IdempotencyKey")
                         .HasColumnType("uniqueidentifier");
 

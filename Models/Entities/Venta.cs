@@ -14,6 +14,13 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public Guid? IdempotencyKey { get; set; }
 
+        /// <summary>
+        /// FIN-S-018: huella (SHA-256 en hex) del contenido funcional de la solicitud que creó la venta. Un reintento con la
+        /// misma clave solo se acepta si su huella coincide; con otro carrito o datos se rechaza.
+        /// </summary>
+        [StringLength(64)]
+        public string? IdempotencyHuella { get; set; }
+
         [Required]
         [StringLength(20)]
         public string Numero { get; set; } = string.Empty;

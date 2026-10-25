@@ -12,7 +12,7 @@ using TheBuryProject.Data;
 namespace TheBuryProyect.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261025023303_FinS018VentaIdempotencyKey")]
+    [Migration("20261025025053_FinS018VentaIdempotencyKey")]
     partial class FinS018VentaIdempotencyKey
     {
         /// <inheritdoc />
@@ -10433,6 +10433,10 @@ namespace TheBuryProyect.Migrations
                     b.Property<decimal>("IVA")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("IdempotencyHuella")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<Guid?>("IdempotencyKey")
                         .HasColumnType("uniqueidentifier");

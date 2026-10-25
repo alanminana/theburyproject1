@@ -190,6 +190,51 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
         Assert.Empty(await VentasDeAsync(clienteB));
     }
 
+    [Theory]
+    [InlineData("Detalles[0].Cantidad", "3")]
+    [InlineData("Detalles[0].PrecioUnitario", "999")]
+    [InlineData("Descuento", "50")]
+    public async Task MismaClaveConOtroCarrito_SeRechaza_YNoDevuelveLaVentaAnterior(string campo, string valor)
+    {
+        // Atras del navegador (bfcache) o respuesta perdida: el formulario conserva la clave pero el operador cambio el
+        // carrito. Responder exito con la venta anterior perderia en silencio lo que pidio.
+        var (clienteId, productoId) = await SeedAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+        var clave = Guid.NewGuid();
+        var original = Form(clienteId, productoId, clave);
+        var modificado = Form(clienteId, productoId, clave);
+        modificado[campo] = valor;
+
+        var primera = await EnviarAsync(client, token, original);
+        var segunda = await EnviarAsync(client, token, modificado);
+
+        Assert.True(primera.GetProperty("success").GetBoolean(), primera.ToString());
+        Assert.False(segunda.GetProperty("success").GetBoolean(), segunda.ToString());
+        Assert.Contains("carrito o datos distintos", segunda.ToString());
+        Assert.Single(await VentasDeAsync(clienteId));
+    }
+
+    [Fact]
+    public void Huella_NoDependeDelOrdenDeLasLineas_PeroSiDelContenido()
+    {
+        VentaViewModel Vm(params (int Producto, int Cantidad)[] lineas) => new()
+        {
+            ClienteId = 7, TipoPago = TipoPago.Efectivo,
+            Detalles = lineas.Select(l => new VentaDetalleViewModel { ProductoId = l.Producto, Cantidad = l.Cantidad, PrecioUnitario = 10m }).ToList()
+        };
+
+        var ab = VentaService.HuellaDeSolicitud(Vm((1, 1), (2, 2)));
+        var ba = VentaService.HuellaDeSolicitud(Vm((2, 2), (1, 1)));
+        var otra = VentaService.HuellaDeSolicitud(Vm((1, 1), (2, 3)));
+        var otroCliente = VentaService.HuellaDeSolicitud(new VentaViewModel { ClienteId = 8, TipoPago = TipoPago.Efectivo, Detalles = Vm((1, 1), (2, 2)).Detalles });
+
+        Assert.Equal(ab, ba);
+        Assert.NotEqual(ab, otra);
+        Assert.NotEqual(ab, otroCliente);
+        Assert.Equal(64, ab.Length);
+    }
+
     [Fact]
     public async Task PostMvcDeAltaSinClave_NoCreaNadaYVuelveAlFormulario()
     {
