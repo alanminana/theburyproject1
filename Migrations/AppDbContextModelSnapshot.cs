@@ -10431,6 +10431,13 @@ namespace TheBuryProject.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("IdempotencyHuella")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -10540,6 +10547,10 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("Estado");
 
                     b.HasIndex("FechaVenta");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.HasIndex("Numero")
                         .IsUnique();

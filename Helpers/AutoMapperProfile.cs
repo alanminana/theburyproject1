@@ -263,6 +263,8 @@ namespace TheBuryProject.Helpers
                 // una operación anterior. UpdateAsync carga la entidad canónica por
                 // ruta y aplica sus campos explícitamente, por lo que tampoco debe
                 // cambiar la PK por AutoMapper.
+                // FIN-S-018: la clave la fija CreateAsync explícitamente; el mapeo jamás debe tocarla (Update incluido).
+                .ForMember(dest => dest.IdempotencyKey, opt => opt.Ignore())
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
                 .ForMember(dest => dest.Credito, opt => opt.Ignore())

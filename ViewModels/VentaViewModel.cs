@@ -16,6 +16,19 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public byte[]? RowVersion { get; set; }
 
+        /// <summary>
+        /// FIN-S-018: la emite el formulario de alta (GET) y es obligatoria en el POST de alta; el servicio la usa para que un
+        /// reintento o doble envío devuelva la venta ya creada. Nunca se aplica en la edición.
+        /// </summary>
+        public Guid? IdempotencyKey { get; set; }
+
+        /// <summary>
+        /// FIN-S-018: huella del formulario enviado, calculada por el controlador (HuellaFormulario). No se enlaza desde el
+        /// cliente. Si es null (llamadores directos del servicio) se usa una huella derivada de este modelo.
+        /// </summary>
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+        public string? HuellaSolicitud { get; set; }
+
         [Display(Name = "Número")]
         public string Numero { get; set; } = string.Empty;
 

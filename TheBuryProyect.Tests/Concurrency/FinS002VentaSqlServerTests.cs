@@ -130,6 +130,48 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
         }
     }
 
+    [FinS002SqlServerFact(DisplayName = "PROMPT 85 [FS2-IDEM] FIN-S-018: altas simultaneas con la misma clave crean una sola venta")]
+    public async Task Idem_AltasSimultaneasConLaMismaClave_UnaSolaVenta()
+    {
+        const int n = 8;
+        var modelo = await NuevoVmAsync();
+        var clave = Guid.NewGuid();
+
+        VentaViewModel Copia() => new()
+        {
+            ClienteId = modelo.ClienteId,
+            FechaVenta = modelo.FechaVenta,
+            TipoPago = modelo.TipoPago,
+            IdempotencyKey = clave,
+            Detalles = modelo.Detalles.Select(d => new VentaDetalleViewModel
+            {
+                ProductoId = d.ProductoId, Cantidad = d.Cantidad, PrecioUnitario = d.PrecioUnitario, Subtotal = d.Subtotal
+            }).ToList()
+        };
+
+        var resultados = await Task.WhenAll(Enumerable.Range(0, n).Select(async _ =>
+        {
+            await using var ctx = Nuevo();
+            try { return (Ok: true, Id: (await CrearServicio(ctx).CreateAsync(Copia())).Id, Error: (string?)null); }
+            catch (Exception ex) { return (Ok: false, Id: 0, Error: ex.GetType().Name + ": " + ex.Message + " | " + ex.InnerException?.Message); }
+        }));
+
+        // Integridad (siempre): exactamente una venta con la clave, y todo envio exitoso devuelve ESA venta.
+        await using var lectura = Nuevo();
+        var persistidas = await lectura.Ventas.AsNoTracking().Where(v => v.IdempotencyKey == clave).Select(v => v.Id).ToListAsync();
+        var unica = Assert.Single(persistidas);
+        var exitosos = resultados.Where(r => r.Ok).ToList();
+        Assert.NotEmpty(exitosos);
+        Assert.All(exitosos, r => Assert.Equal(unica, r.Id));
+
+        // Disponibilidad: con READ_COMMITTED_SNAPSHOT todos los envios terminan como reintento del ganador. Sin RCSI rige la
+        // misma limitacion preexistente que FS2-NUM (generador de numeros), por eso solo se exige aca.
+        if (Environment.GetEnvironmentVariable("QA_FIN_S002_RCSI") == "1")
+        {
+            Assert.Equal(n, exitosos.Count);
+        }
+    }
+
     public async Task DisposeAsync()
     {
         if (FinS002SqlEnv.SkipReason() != null) return;
