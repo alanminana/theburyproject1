@@ -21,13 +21,13 @@ public static class HuellaFormulario
 
     public static string De(IFormCollection form)
     {
-        // Se ordenan las CLAVES, no los valores: el binder toma el primer valor de un campo escalar repetido, asi que
-        // "Cantidad=1&Cantidad=3" y "Cantidad=3&Cantidad=1" son ventas distintas. Los valores de una clave conservan su orden.
+        // NO se reordena nada: el binder interpreta el formulario segun el orden en que llegaron los pares (toma el primer
+        // valor de un campo escalar repetido y, con alias como "A[B]" y "A[B][]", el ultimo que normaliza). El mismo
+        // formulario reenviado llega en el mismo orden; otro orden puede ser otra venta, y rechazarlo de mas es el error seguro.
         // La serializacion lleva longitudes por delante (sin separadores): ningun contenido (saltos de linea, separadores,
         // "=") puede hacerse pasar por otra estructura de campos.
         var campos = form
             .Where(c => !Excluidos.Contains(c.Key))
-            .OrderBy(c => c.Key, StringComparer.Ordinal)
             .ToList();
 
         var sb = new StringBuilder();

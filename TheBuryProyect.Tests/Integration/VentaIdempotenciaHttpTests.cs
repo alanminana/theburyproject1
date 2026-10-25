@@ -272,7 +272,11 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
 
         var baseForm = HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1")));
 
-        Assert.Equal(baseForm, HuellaFormulario.De(Form(("Detalles[0].Cantidad", "1"), ("ClienteId", "1"))));       // orden
+        // El orden de llegada importa: el binder lo usa para resolver alias y repetidos.
+        Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("Detalles[0].Cantidad", "1"), ("ClienteId", "1"))));
+        Assert.NotEqual(
+            HuellaFormulario.De(Form(("Detalles[0][Cantidad]", "1"), ("Detalles[0][Cantidad][]", "3"))),
+            HuellaFormulario.De(Form(("Detalles[0][Cantidad][]", "3"), ("Detalles[0][Cantidad]", "1"))));
         Assert.NotEqual(HuellaFormulario.De(RepetidoForm("1", "3")), HuellaFormulario.De(RepetidoForm("3", "1")));       // orden de valores repetidos
         Assert.Equal(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"),
             ("__RequestVerificationToken", "x"), ("IdempotencyKey", "y"), ("RowVersion", "z"), ("FechaVenta", "2026-01-01"))));
@@ -338,6 +342,26 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
         Assert.True(primera.GetProperty("success").GetBoolean(), primera.ToString());
         Assert.False(invertida.GetProperty("success").GetBoolean(), invertida.ToString());
         Assert.Single(await VentasDeAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task AliasDeClavesEnOtroOrden_SonOtraOperacion_YSeRechazan()
+    {
+        // "A[B]" y "A[B][]" se normalizan al mismo nombre y gana el ultimo en llegar: invertir el orden cambia la cantidad.
+        var (clienteId, productoId) = await SeedAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+        var baseForm = Form(clienteId, productoId, Guid.NewGuid());
+        baseForm.Remove("Detalles[0].Cantidad");
+        List<KeyValuePair<string, string>> Con(params (string K, string V)[] alias) =>
+            baseForm.Concat(alias.Select(a => new KeyValuePair<string, string>(a.K, a.V))).ToList();
+
+        var primera = await EnviarParesAsync(client, token, "/Venta/CreateAjax", Con(("Detalles[0][Cantidad]", "1"), ("Detalles[0][Cantidad][]", "3")));
+        var invertida = await EnviarParesAsync(client, token, "/Venta/CreateAjax", Con(("Detalles[0][Cantidad][]", "3"), ("Detalles[0][Cantidad]", "1")));
+
+        Assert.False(invertida.GetProperty("success").GetBoolean(), invertida.ToString());
+        Assert.True(primera.GetProperty("success").GetBoolean() || !(await VentasDeAsync(clienteId)).Any(), primera.ToString());
+        Assert.True((await VentasDeAsync(clienteId)).Count <= 1);
     }
 
     [Fact]
