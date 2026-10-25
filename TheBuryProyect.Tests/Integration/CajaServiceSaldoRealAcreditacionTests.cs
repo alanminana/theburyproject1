@@ -160,6 +160,30 @@ public class CajaServiceSaldoRealAcreditacionTests : IDisposable
         return mov;
     }
 
+    [Fact]
+    public async Task LimiteDeEgreso_ReversionConVentaSinMedioDePago_NoSeOcultaPorElMotivo()
+    {
+        // FIN-S-007: venta en efectivo sin TipoPago cancelada con un motivo que dice "transferencia". La reversión ya sacó el
+        // efectivo; clasificarla por el texto libre permitiría volver a retirarlo.
+        var ventaId = SeedVentaSync(TipoPago.Efectivo, 100m);
+        SeedIngresoSync(100m, null, ventaId: ventaId);
+        var reversion = SeedEgresoSync(100m, EstadoAcreditacionMovimientoCaja.Revertido, ConceptoMovimientoCaja.ReversionVenta, ventaId: ventaId);
+        reversion.Observaciones = "Motivo: pago por transferencia mal cargado";
+        _context.SaveChanges();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoAsync(
+            new MovimientoCajaViewModel
+            {
+                AperturaCajaId = _apertura.Id,
+                Tipo = TipoMovimientoCaja.Egreso,
+                Concepto = ConceptoMovimientoCaja.ExtraccionEfectivo,
+                Monto = 100m,
+                IdempotencyKey = Guid.NewGuid(),
+                ExigirSaldoSuficiente = true
+            }, "cajero9b"));
+        Assert.Contains("supera el efectivo disponible", ex.Message);
+    }
+
     // -------------------------------------------------------------------------
     // SaldoReal — reglas base
     // -------------------------------------------------------------------------
