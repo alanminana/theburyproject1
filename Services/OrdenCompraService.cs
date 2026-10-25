@@ -382,8 +382,13 @@ namespace TheBuryProject.Services
                     $"No se puede pasar una orden de {OrdenCompraUiHelper.EstadoNombre(orden.Estado)} a {OrdenCompraUiHelper.EstadoNombre(nuevoEstado)}. Los estados solo avanzan.");
             }
 
-            if (nuevoEstado == EstadoOrdenCompra.Recibida && orden.Estado != EstadoOrdenCompra.Recibida)
-                orden.FechaRecepcion = DateTime.UtcNow;
+            // Una orden pasa a Recibida registrando la recepción (RecepcionarAsync): es lo que ingresa el stock y deja
+            // CantidadRecibida/FechaRecepcion coherentes. Marcarla Recibida desde acá la daba por recibida SIN stock.
+            if (nuevoEstado == EstadoOrdenCompra.Recibida)
+            {
+                throw new InvalidOperationException(
+                    "Una orden pasa a Recibida registrando la recepción de la mercadería (Recepcionar): eso es lo que ingresa el stock.");
+            }
 
             orden.Estado = nuevoEstado;
             await _context.SaveChangesAsync();

@@ -115,18 +115,23 @@ public class OrdenCompraBacklogHttpTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
-    public async Task CambiarEstado_ARecibida_ConPermisoDeRecepcion_SigueFuncionando()
+    public async Task CambiarEstado_ARecibida_AunConPermisoDeRecepcion_NoSeOfreceNiSeAplica()
     {
+        // Recibida se alcanza registrando la recepcion (Recepcionar), que es lo que ingresa el stock; CambiarEstado solo
+        // la daba por recibida sin stock. El selector no la ofrece y un POST manual tampoco la aplica.
         await _factory.SeedUserWithOrdenCompraConRecepcionAsync();
         var id = await SeedOrdenConfirmadaAsync();
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.OrdenCompraConRecepcionUserId);
         var (html, token) = await DetailsAsync(client, id);
-        Assert.Contains($"value=\"{(int)EstadoOrdenCompra.Recibida}\"", html);
+        var select = Regex.Match(html, "<select\\b[^>]*\\bid=\"select-estado\"[^>]*>.*?</select>", RegexOptions.Singleline).Value;
+        Assert.NotEmpty(select);
+        Assert.DoesNotContain($"value=\"{(int)EstadoOrdenCompra.Recibida}\"", select);
+        Assert.Contains("Recepcionar", html);
 
         await CambiarEstadoAsync(client, token, id, EstadoOrdenCompra.Recibida);
 
         var (estado, recepcion) = await LeerAsync(id);
-        Assert.Equal(EstadoOrdenCompra.Recibida, estado);
-        Assert.NotNull(recepcion);
+        Assert.Equal(EstadoOrdenCompra.Confirmada, estado);
+        Assert.Null(recepcion);
     }
 }

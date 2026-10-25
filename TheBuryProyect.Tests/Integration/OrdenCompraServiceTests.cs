@@ -340,17 +340,22 @@ public class OrdenCompraServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CambiarEstado_ARecibida_SetearFechaRecepcion()
+    public async Task CambiarEstado_ARecibida_SeRechaza_PorqueLaRecepcionEsLaQueIngresaElStock()
     {
+        // Antes quedaba Recibida con FechaRecepcion pero SIN stock ingresado ni CantidadRecibida: inventario incoherente.
         var proveedor = await SeedProveedorAsync();
         var producto = await SeedProductoAsync();
-        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Confirmada);
+        var stockAntes = (await _context.Set<Producto>().AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual;
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.EnTransito);
 
-        await _service.CambiarEstadoAsync(orden.Id, EstadoOrdenCompra.Recibida);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CambiarEstadoAsync(orden.Id, EstadoOrdenCompra.Recibida));
 
-        var ordenBd = await _context.Set<OrdenCompra>().FirstAsync(o => o.Id == orden.Id);
-        Assert.Equal(EstadoOrdenCompra.Recibida, ordenBd.Estado);
-        Assert.NotNull(ordenBd.FechaRecepcion);
+        Assert.Contains("Recepcionar", ex.Message);
+        var ordenBd = await _context.Set<OrdenCompra>().AsNoTracking().FirstAsync(o => o.Id == orden.Id);
+        Assert.Equal(EstadoOrdenCompra.EnTransito, ordenBd.Estado);
+        Assert.Null(ordenBd.FechaRecepcion);
+        Assert.Equal(stockAntes, (await _context.Set<Producto>().AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual);
     }
 
     [Theory]
