@@ -874,6 +874,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             OrdenCompraConRecepcionUserId, "test-oc-con-recepcion-role-id", "TestOcConRecepcionRole", 9610,
             "ordenescompra.view", "ordenescompra.update", "ordenescompra.receive");
 
+    public const string PreciosSoloAplicarUserId = "test-precios-solo-aplicar-id";
+    public const string PreciosCambioRapidoUserId = "test-precios-cambio-rapido-id";
+
+    /// <summary>Cambio rápido de precios: solo precios.apply (no puede aprobar). Debe recibir 403 en AplicarRapido.</summary>
+    public Task SeedUserWithPreciosSoloAplicarAsync() =>
+        SeedPermissionUserAsync(
+            PreciosSoloAplicarUserId, "test-precios-solo-aplicar-role-id", "TestPreciosSoloAplicarRole", 9540,
+            "precios.view", "precios.apply");
+
+    /// <summary>Cambio rápido de precios completo: simular + aprobar + aplicar.</summary>
+    public Task SeedUserWithPreciosCambioRapidoCompletoAsync() =>
+        SeedPermissionUserAsync(
+            PreciosCambioRapidoUserId, "test-precios-cambio-rapido-role-id", "TestPreciosCambioRapidoRole", 9560,
+            "precios.view", "precios.simulate", "precios.approve", "precios.apply");
+
     public const string ConfiguracionActualizaUserId = "test-configuracion-actualiza-id";
 
     /// <summary>FIN-S-017: edita la configuración (precios de envíos y armados). configuracion.view + configuracion.update.</summary>

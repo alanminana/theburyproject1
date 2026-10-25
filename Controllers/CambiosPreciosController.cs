@@ -449,6 +449,18 @@ public class CambiosPreciosController : Controller
     [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionAplicar)]
     public async Task<IActionResult> AplicarRapido([FromBody] AplicarRapidoRequest request)
     {
+        // El cambio rápido simula, APRUEBA y aplica en un solo paso. Con solo precios.apply se saltaba la aprobación que el
+        // circuito normal reserva a precios.approve (separación de funciones): quien solo puede aplicar debe pasar por
+        // simular → aprobar (otra persona o rol) → aplicar.
+        if (!_currentUser.HasPermission(ModuloPrecios, AccionSimular) || !_currentUser.HasPermission(ModuloPrecios, AccionAprobar))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                success = false,
+                error = "El cambio rápido simula, aprueba y aplica en un solo paso: requiere además los permisos de simular y aprobar cambios de precios."
+            });
+        }
+
         if (request == null)
         {
             return BadRequest(new { success = false, error = "Request inválido" });
