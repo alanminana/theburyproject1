@@ -208,10 +208,12 @@ public class ClienteServiceTests : IDisposable
     public async Task Update_ClienteExistente_ActualizaCampos()
     {
         var cliente = await SeedClienteAsync();
+        await _context.Entry(cliente).ReloadAsync();   // RowVersion que genera SQLite: pedir la configuración de crédito lo exige
 
         var actualizado = new Cliente
         {
             Id = cliente.Id,
+            RowVersion = cliente.RowVersion,
             Nombre = "NuevoNombre",
             Apellido = "NuevoApellido",
             TipoDocumento = cliente.TipoDocumento,
@@ -221,7 +223,8 @@ public class ClienteServiceTests : IDisposable
             Activo = true
         };
 
-        var resultado = await _service.UpdateAsync(actualizado);
+        // La calificación (NivelRiesgo) es parte de la configuración de crédito: solo se cambia pidiéndolo (configurecredit).
+        var resultado = await _service.UpdateAsync(actualizado, actualizarConfiguracionCredito: true);
 
         Assert.Equal("NuevoNombre", resultado.Nombre);
         Assert.Equal(10m, resultado.PuntajeRiesgo); // AprobadoTotal * 2
