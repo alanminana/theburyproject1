@@ -134,6 +134,51 @@ public class CajaEgresoSaldoHttpTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task NoSupervisor_ReversionHistoricaNoSeOcultaPorElMotivo()
+    {
+        // Venta histórica en efectivo sin TipoPago cancelada con un motivo que dice "transferencia": la reversión ya sacó el
+        // efectivo y no puede volver a retirarse.
+        var aperturaId = await SembrarAperturaAsync(fondo: 0m, asignarAUsuario: true);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = aperturaId,
+                FechaMovimiento = DateTime.UtcNow,
+                Tipo = TheBuryProject.Models.Enums.TipoMovimientoCaja.Ingreso,
+                Concepto = TheBuryProject.Models.Enums.ConceptoMovimientoCaja.VentaEfectivo,
+                Monto = 100m,
+                Descripcion = "Venta histórica",
+                Usuario = "test",
+                CreatedAt = DateTime.UtcNow
+            });
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = aperturaId,
+                FechaMovimiento = DateTime.UtcNow,
+                Tipo = TheBuryProject.Models.Enums.TipoMovimientoCaja.Egreso,
+                Concepto = TheBuryProject.Models.Enums.ConceptoMovimientoCaja.ReversionVenta,
+                EstadoAcreditacion = TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Revertido,
+                Monto = 100m,
+                Descripcion = "Reversión histórica",
+                Observaciones = "Motivo: pago por transferencia mal cargado",
+                Usuario = "test",
+                CreatedAt = DateTime.UtcNow
+            });
+            await ctx.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithUserId(User);
+        var token = await TokenAsync(client, aperturaId);
+        var marca = "FIN-S-007 rev " + Guid.NewGuid().ToString("N")[..8];
+
+        var response = await PostEgresoAsync(client, token, aperturaId, "100", marca);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(0, await CantidadAsync(aperturaId, marca));
+    }
+
+    [Fact]
     public async Task NoSupervisor_EgresoIgualAlSaldo_SeRegistra()
     {
         var aperturaId = await SembrarAperturaAsync(fondo: 100m, asignarAUsuario: true);

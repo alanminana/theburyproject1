@@ -660,11 +660,11 @@ namespace TheBuryProject.Services
                             var movimientosApertura = (await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId))
                                 .Where(m => !m.IsDeleted).ToList();
                             var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(movimientosApertura);
-                            // Un egreso manual (sin medio de pago ni venta) se clasificaría por el texto libre de Observaciones;
-                            // para el límite se cuenta siempre, o bastaría escribir "transferencia" para que no se descuente.
+                            // Un egreso sin medio de pago explícito (manual o reversión histórica) se clasificaría por el texto libre de
+                            // Observaciones; para el límite se cuenta siempre, o bastaría escribir "transferencia" para que no se
+                            // descuente. Es conservador: nunca subestima el efectivo que ya salió.
                             var egresosManualesNoFisicos = movimientosApertura
-                                .Where(m => m.Tipo == TipoMovimientoCaja.Egreso && !m.TipoPago.HasValue && !m.VentaId.HasValue
-                                         && !EsMovimientoFisico(m))
+                                .Where(m => m.Tipo == TipoMovimientoCaja.Egreso && !m.TipoPago.HasValue && !EsMovimientoFisico(m))
                                 .Sum(m => m.Monto);
                             var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos - egresosManualesNoFisicos;
                             if (model.Monto > efectivoDisponible)
