@@ -16,6 +16,12 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public byte[]? RowVersion { get; set; }
 
+        /// <summary>
+        /// FIN-S-018: la emite el formulario de alta (GET) y es obligatoria en el POST de alta; el servicio la usa para que un
+        /// reintento o doble envío devuelva la venta ya creada. Nunca se aplica en la edición.
+        /// </summary>
+        public Guid? IdempotencyKey { get; set; }
+
         [Display(Name = "Número")]
         public string Numero { get; set; } = string.Empty;
 

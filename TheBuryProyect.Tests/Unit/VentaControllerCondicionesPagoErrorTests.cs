@@ -121,6 +121,7 @@ public class VentaControllerCondicionesPagoErrorTests
 
     private static VentaViewModel CreateVentaValida() => new()
     {
+        IdempotencyKey = Guid.NewGuid(),   // FIN-S-018
         ClienteId = 1,
         FechaVenta = DateTime.Today,
         Estado = EstadoVenta.Presupuesto,

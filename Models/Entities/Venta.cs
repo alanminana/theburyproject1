@@ -7,6 +7,13 @@ namespace TheBuryProject.Models.Entities
 {
     public class Venta  : AuditableEntity
     {
+        /// <summary>
+        /// FIN-S-018: clave de idempotencia de la creación (la emite el formulario). Un reintento o doble envío con la
+        /// misma clave devuelve la venta ya creada en lugar de crear otra. Índice único filtrado; null en ventas que no
+        /// nacen del formulario (conversión de cotización, Mercado Libre, históricas).
+        /// </summary>
+        public Guid? IdempotencyKey { get; set; }
+
         [Required]
         [StringLength(20)]
         public string Numero { get; set; } = string.Empty;
