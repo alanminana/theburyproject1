@@ -16,6 +16,7 @@ namespace TheBuryProject.Controllers
 {
     [Authorize]
     [PermisoRequerido(Modulo = "ventas", Accion = "view")]
+    [AutoValidateAntiforgeryToken]
     [ApiController]
     [Route("api/ventas/[action]")]
     public class VentaApiController : ControllerBase

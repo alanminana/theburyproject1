@@ -13,6 +13,7 @@ namespace TheBuryProject.Controllers;
 /// Preparado para integración global desde cualquier módulo/vista.
 /// </summary>
 [Authorize]
+[AutoValidateAntiforgeryToken]
 [ApiController]
 [Route("api/tickets")]
 [PermisoRequerido(Modulo = TicketConstants.Modulo, Accion = TicketConstants.Acciones.Ver)]

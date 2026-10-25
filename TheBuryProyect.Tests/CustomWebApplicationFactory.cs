@@ -91,6 +91,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    /// <summary>Todo cliente de test lleva el token antiforgery hacia /api/ (ver AntiforgeryApiHandler).</summary>
+    public new HttpClient CreateClient() => CreateClient(new WebApplicationFactoryClientOptions());
+
+    public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
+    {
+        // CreateDefaultClient no es virtual: se envuelve el cliente de la factory (que conserva cookies y redirecciones)
+        // con el handler de antiforgery como capa externa.
+        var interno = base.CreateClient(options);
+        interno.Timeout = Timeout.InfiniteTimeSpan;
+        var antiforgery = new Infrastructure.AntiforgeryApiHandler { InnerHandler = new Infrastructure.ClienteComoHandler(interno) };
+        var externo = new HttpClient(antiforgery) { BaseAddress = interno.BaseAddress };
+        antiforgery.Cliente = externo;
+        return externo;
+    }
+
     protected override IHost CreateHost(IHostBuilder builder)
     {
         var host = base.CreateHost(builder);
