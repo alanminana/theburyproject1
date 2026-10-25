@@ -217,6 +217,24 @@ namespace TheBuryProject.Services
 
             var currentUserName = _currentUserService.GetUsername();
             var currentUserId = await ObtenerUserIdActualAsync();
+
+            // FIN-S-018: una clave Guid.Empty colisionaria entre operaciones no relacionadas; se rechaza siempre.
+            if (viewModel.IdempotencyKey == Guid.Empty)
+            {
+                throw new InvalidOperationException("La clave de la operación no es válida. Recargue el formulario.");
+            }
+
+            // FIN-S-018: reintento o doble envio del mismo formulario => se devuelve la venta ya creada (aun con la caja
+            // cerrada: no se escribe nada), sin crear otra ni consumir otro numero.
+            if (viewModel.IdempotencyKey.HasValue)
+            {
+                var previa = await BuscarVentaIdempotenteAsync(viewModel, currentUserId);
+                if (previa != null)
+                {
+                    return previa;
+                }
+            }
+
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                 "No se puede registrar la venta: no hay una caja abierta para el usuario actual. Abra una caja antes de realizar ventas.");
 
@@ -241,6 +259,8 @@ namespace TheBuryProject.Services
                     await ValidarCreditoReferenciadoPerteneceAlClienteAsync(viewModel.ClienteId, viewModel.CreditoId);
                 }
 
+                venta.IdempotencyKey = viewModel.IdempotencyKey;
+                venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaEfectiva(viewModel) : null;
                 venta.AperturaCajaId = aperturaActiva.Id;
 
                 var vendedorResuelto = await ResolverVendedorAsync(currentUserId, currentUserName);
@@ -319,6 +339,29 @@ namespace TheBuryProject.Services
                 _logger.LogInformation("Venta {Numero} creada exitosamente. Estado: {Estado}", venta.Numero, venta.Estado);
                 return resultado;
             }
+            catch (DbUpdateException ex) when (viewModel.IdempotencyKey.HasValue && EsViolacionIndiceIdempotenciaVenta(ex))
+            {
+                // Dos envios simultaneos con la misma clave: el indice unico dejo pasar solo uno. Este se deshace y se
+                // resuelve como reintento devolviendo la venta ganadora.
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
+
+                foreach (var entrada in _context.ChangeTracker.Entries().Where(e => e.State == EntityState.Added).ToList())
+                {
+                    entrada.State = EntityState.Detached;
+                }
+
+                var ganadora = await BuscarVentaIdempotenteAsync(viewModel, currentUserId);
+                if (ganadora == null)
+                {
+                    throw;
+                }
+
+                _logger.LogInformation("Venta duplicada por doble envio resuelta como reintento. Clave:{Clave}", viewModel.IdempotencyKey);
+                return ganadora;
+            }
             catch (Exception ex)
             {
                 if (transaction != null)
@@ -338,6 +381,91 @@ namespace TheBuryProject.Services
             }
         }
 
+        // La del formulario completo (la fija el controlador) tiene prioridad; sin ella, la derivada del modelo.
+        private static string HuellaEfectiva(VentaViewModel vm) =>
+            string.IsNullOrEmpty(vm.HuellaSolicitud) ? HuellaDeSolicitud(vm) : vm.HuellaSolicitud;
+
+        /// <summary>
+        /// FIN-S-018. Huella estable del contenido funcional de un alta (lo que el operador decide, no lo que calcula el
+        /// servidor): cliente, medio de pago, descuento general, anticipo, envio y cada linea (producto, cantidad, precio,
+        /// descuento, armado, unidad, entrega). El orden de las lineas no la altera.
+        /// </summary>
+        internal static string HuellaDeSolicitud(VentaViewModel vm)
+        {
+            static string N(decimal d) => d.ToString("0.####", CultureInfo.InvariantCulture);
+
+            var lineas = vm.Detalles
+                .Select(d => string.Join("|",
+                    d.ProductoId, d.Cantidad, N(d.PrecioUnitario), N(d.Descuento), d.TipoArmado?.ToString() ?? "-",
+                    d.EnviarADomicilio ? 1 : 0, d.ProductoUnidadId?.ToString(CultureInfo.InvariantCulture) ?? "-",
+                    d.TipoPago?.ToString() ?? "-", d.ProductoCondicionPagoPlanId?.ToString(CultureInfo.InvariantCulture) ?? "-"))
+                .OrderBy(l => l, StringComparer.Ordinal);
+
+            var canonico = string.Join("\n", new[]
+            {
+                vm.ClienteId.ToString(CultureInfo.InvariantCulture), vm.TipoPago.ToString(), N(vm.Descuento),
+                vm.Anticipo.HasValue ? N(vm.Anticipo.Value) : "-", vm.TieneEnvio ? "1" : "0", vm.Observaciones ?? string.Empty
+            }.Concat(lineas));
+
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonico)));
+        }
+
+        internal const string IndiceIdempotenciaVenta = "IX_Ventas_IdempotencyKey";
+
+        /// <summary>
+        /// FIN-S-018. True solo si la excepcion es la violacion del indice unico de la clave de idempotencia (SQL Server:
+        /// nombre del indice en el mensaje; SQLite: columna Ventas.IdempotencyKey). Cualquier otra unicidad (p. ej. el numero
+        /// de venta) NO lo es y sigue su propio camino.
+        /// </summary>
+        internal static bool EsViolacionIndiceIdempotenciaVenta(DbUpdateException ex)
+        {
+            for (Exception? actual = ex; actual != null; actual = actual.InnerException)
+            {
+                var mensaje = actual.Message;
+                if (mensaje.Contains(IndiceIdempotenciaVenta, StringComparison.OrdinalIgnoreCase)
+                    || mensaje.Contains("Ventas.IdempotencyKey", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// FIN-S-018. Resuelve un reintento: si ya existe una venta con la clave, la devuelve cuando la intencion coincide
+        /// (mismo vendedor, cliente y tipo de pago) y rechaza si difiere o si esa venta fue dada de baja.
+        /// </summary>
+        private async Task<VentaViewModel?> BuscarVentaIdempotenteAsync(VentaViewModel viewModel, string? currentUserId)
+        {
+            var existente = await _context.Ventas
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Include(v => v.Detalles)
+                .FirstOrDefaultAsync(v => v.IdempotencyKey == viewModel.IdempotencyKey);
+
+            if (existente == null)
+            {
+                return null;
+            }
+
+            // La intencion es la misma solo si es el mismo vendedor Y el mismo contenido (cliente, medio de pago, carrito,
+            // descuentos...). Con otro carrito no se responde exito con la venta anterior: se le pide al operador una operacion nueva.
+            var mismaIntencion = !existente.IsDeleted
+                && existente.VendedorUserId == currentUserId
+                && string.Equals(existente.IdempotencyHuella, HuellaEfectiva(viewModel), StringComparison.Ordinal);
+
+            if (!mismaIntencion)
+            {
+                throw new InvalidOperationException(
+                    "La clave de la operación ya fue usada con un carrito o datos distintos. Recargue el formulario para registrar una venta nueva.");
+            }
+
+            var resultado = _mapper.Map<VentaViewModel>(existente);
+            resultado.CreditoId = existente.CreditoId;
+            return resultado;
+        }
+
         private async Task GuardarVentaConReintentoNumeroAsync(Venta venta, EstadoVenta estado)
         {
             const int maxIntentos = 5;
@@ -349,7 +477,7 @@ namespace TheBuryProject.Services
                     await _context.SaveChangesAsync();
                     return;
                 }
-                catch (DbUpdateException ex) when (EsErrorNumeroVentaDuplicado(ex) && intento < maxIntentos)
+                catch (DbUpdateException ex) when (!EsViolacionIndiceIdempotenciaVenta(ex) && EsErrorNumeroVentaDuplicado(ex) && intento < maxIntentos)
                 {
                     var numeroAnterior = venta.Numero;
                     venta.Numero = await _numberGenerator.GenerarNumeroAsync(estado);

@@ -220,6 +220,11 @@
         {
             <input type="hidden" asp-for="Id" />
         }
+        else
+        {
+            @* FIN-S-018: clave de idempotencia del alta; la emite el GET y la valida el POST. *@
+            <input type="hidden" asp-for="IdempotencyKey" />
+        }
         @if (sembrarEstado)
         {
             <input type="hidden" id="venta-inicial-json" data-seed-target="window.ventaInicial" value="@ventaInicialJson" />

@@ -141,8 +141,8 @@ jobs:
             if [ "$TOTAL" != "$ESPERADOS" ] || [ "$PASSED" != "$ESPERADOS" ]; then RC=1; fi
           }
 
-          verificar fin-s-002-venta-rcsi${{ matrix.rcsi }}.trx 7 \
-            FS2-NUM FS2-A1 FS2-A2a FS2-A2b FS2-F1 FS2-F2 FS2-F3
+          verificar fin-s-002-venta-rcsi${{ matrix.rcsi }}.trx 8 \
+            FS2-NUM FS2-IDEM FS2-A1 FS2-A2a FS2-A2b FS2-F1 FS2-F2 FS2-F3
           verificar fin-s-002-confirmar-facturar-rcsi${{ matrix.rcsi }}.trx 8 \
             S2-CF-01 S2-CF-02 S2-CF-03 S2-CF-04 S2-CF-05 S2-CF-06 S2-CF-07 S2-CF-08
           exit $RC

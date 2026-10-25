@@ -338,8 +338,16 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
-        public async Task<IActionResult> Create(VentaViewModel viewModel)
+        public async Task<IActionResult> Create([FromForm] VentaViewModel viewModel)
         {
+            // FIN-S-018: el token lo emite el GET y es obligatorio. Ausente o vacio se rechaza sin crear nada; el POST
+            // nunca fabrica uno (eso anularia la proteccion contra doble envio). Se vuelve al formulario con clave nueva.
+            if (viewModel.IdempotencyKey is null || viewModel.IdempotencyKey == Guid.Empty)
+            {
+                TempData["Error"] = "El formulario perdió su clave de seguridad. Complete la venta nuevamente.";
+                return RedirectToAction(nameof(Create));
+            }
+
             try
             {
                 var cajaGuard = await RedirigirSiCajaCerradaAsync(
@@ -366,6 +374,9 @@ namespace TheBuryProject.Controllers
                 {
                     return await RetornarVistaConDatos(viewModel);
                 }
+
+                // FIN-S-018: huella de TODO lo enviado, para detectar la clave reutilizada con otro contenido.
+                viewModel.HuellaSolicitud = Request?.HasFormContentType == true ? HuellaFormulario.De(Request.Form) : null;
 
                 var venta = await _ventaService.CreateAsync(viewModel);
 
@@ -431,8 +442,18 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
-        public async Task<IActionResult> CreateAjax(VentaViewModel viewModel)
+        public async Task<IActionResult> CreateAjax([FromForm] VentaViewModel viewModel)
         {
+            // FIN-S-018: ver Create. Sin clave valida no se crea nada.
+            if (viewModel.IdempotencyKey is null || viewModel.IdempotencyKey == Guid.Empty)
+            {
+                return Json(new
+                {
+                    success = false,
+                    errors = ErrorGlobal("El formulario perdió su clave de seguridad. Recargue la página y complete la venta nuevamente.")
+                });
+            }
+
             try
             {
                 if (!await UsuarioTieneCajaAbiertaAsync())
@@ -454,6 +475,9 @@ namespace TheBuryProject.Controllers
                 {
                     return Json(new { success = false, errors = ErroresDeModelState() });
                 }
+
+                // FIN-S-018: huella de TODO lo enviado, para detectar la clave reutilizada con otro contenido.
+                viewModel.HuellaSolicitud = Request?.HasFormContentType == true ? HuellaFormulario.De(Request.Form) : null;
 
                 var venta = await _ventaService.CreateAsync(viewModel);
 
@@ -1890,7 +1914,9 @@ namespace TheBuryProject.Controllers
             {
                 FechaVenta = DateTime.Today,
                 Estado = EstadoVenta.Presupuesto,
-                TipoPago = TipoPago.Efectivo
+                TipoPago = TipoPago.Efectivo,
+                // FIN-S-018: una clave nueva por cada apertura del formulario de alta.
+                IdempotencyKey = Guid.NewGuid()
             };
         }
 

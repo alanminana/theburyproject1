@@ -617,6 +617,7 @@ public class VentaDescuentoPermisoHttpTests : IClassFixture<CustomWebApplication
         var form = new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = token,
+            ["IdempotencyKey"] = Guid.NewGuid().ToString(),   // FIN-S-018: el alta exige la clave que emite el formulario
             ["ClienteId"] = clienteId.ToString(),
             ["FechaVenta"] = "2026-07-24",
             ["Estado"] = ((int)EstadoVenta.Presupuesto).ToString(),
