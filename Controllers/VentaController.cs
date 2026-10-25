@@ -375,6 +375,9 @@ namespace TheBuryProject.Controllers
                     return await RetornarVistaConDatos(viewModel);
                 }
 
+                // FIN-S-018: huella de TODO lo enviado, para detectar la clave reutilizada con otro contenido.
+                viewModel.HuellaSolicitud = Request?.HasFormContentType == true ? HuellaFormulario.De(Request.Form) : null;
+
                 var venta = await _ventaService.CreateAsync(viewModel);
 
                 // La configuración final necesita el crédito persistido.
@@ -472,6 +475,9 @@ namespace TheBuryProject.Controllers
                 {
                     return Json(new { success = false, errors = ErroresDeModelState() });
                 }
+
+                // FIN-S-018: huella de TODO lo enviado, para detectar la clave reutilizada con otro contenido.
+                viewModel.HuellaSolicitud = Request?.HasFormContentType == true ? HuellaFormulario.De(Request.Form) : null;
 
                 var venta = await _ventaService.CreateAsync(viewModel);
 

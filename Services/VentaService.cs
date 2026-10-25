@@ -260,7 +260,7 @@ namespace TheBuryProject.Services
                 }
 
                 venta.IdempotencyKey = viewModel.IdempotencyKey;
-                venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaDeSolicitud(viewModel) : null;
+                venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaEfectiva(viewModel) : null;
                 venta.AperturaCajaId = aperturaActiva.Id;
 
                 var vendedorResuelto = await ResolverVendedorAsync(currentUserId, currentUserName);
@@ -381,6 +381,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        // La del formulario completo (la fija el controlador) tiene prioridad; sin ella, la derivada del modelo.
+        private static string HuellaEfectiva(VentaViewModel vm) =>
+            string.IsNullOrEmpty(vm.HuellaSolicitud) ? HuellaDeSolicitud(vm) : vm.HuellaSolicitud;
+
         /// <summary>
         /// FIN-S-018. Huella estable del contenido funcional de un alta (lo que el operador decide, no lo que calcula el
         /// servidor): cliente, medio de pago, descuento general, anticipo, envio y cada linea (producto, cantidad, precio,
@@ -449,7 +453,7 @@ namespace TheBuryProject.Services
             // descuentos...). Con otro carrito no se responde exito con la venta anterior: se le pide al operador una operacion nueva.
             var mismaIntencion = !existente.IsDeleted
                 && existente.VendedorUserId == currentUserId
-                && string.Equals(existente.IdempotencyHuella, HuellaDeSolicitud(viewModel), StringComparison.Ordinal);
+                && string.Equals(existente.IdempotencyHuella, HuellaEfectiva(viewModel), StringComparison.Ordinal);
 
             if (!mismaIntencion)
             {

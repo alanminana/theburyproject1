@@ -194,6 +194,10 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
     [InlineData("Detalles[0].Cantidad", "3")]
     [InlineData("Detalles[0].PrecioUnitario", "999")]
     [InlineData("Descuento", "50")]
+    [InlineData("Envio.TipoEnvio", "Rural")]
+    [InlineData("Envio.Domicilio", "Otra calle 123")]
+    [InlineData("DatosTarjeta.CantidadCuotas", "6")]
+    [InlineData("AplicarExcepcionDocumental", "true")]
     public async Task MismaClaveConOtroCarrito_SeRechaza_YNoDevuelveLaVentaAnterior(string campo, string valor)
     {
         // Atras del navegador (bfcache) o respuesta perdida: el formulario conserva la clave pero el operador cambio el
@@ -233,6 +237,43 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
         Assert.NotEqual(ab, otra);
         Assert.NotEqual(ab, otroCliente);
         Assert.Equal(64, ab.Length);
+    }
+
+    [Fact]
+    public async Task MismaClave_ConOtraFechaYOtroToken_SigueSiendoElMismoReintento()
+    {
+        // La fecha, el token antiforgery y la version de concurrencia cambian legitimamente entre reintentos del mismo
+        // formulario (p. ej. cruzando la medianoche o recargando el token); no son una operacion distinta.
+        var (clienteId, productoId) = await SeedAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var clave = Guid.NewGuid();
+        var original = Form(clienteId, productoId, clave);
+        var reintento = Form(clienteId, productoId, clave);
+        reintento["FechaVenta"] = DateTime.UtcNow.AddHours(-3).ToString("yyyy-MM-dd");
+        reintento["RowVersion"] = "AAAAAAAAB9E=";
+
+        var primera = await EnviarAsync(client, await TokenAsync(client), original);
+        var segunda = await EnviarAsync(client, await TokenAsync(client), reintento);
+
+        Assert.True(primera.GetProperty("success").GetBoolean(), primera.ToString());
+        Assert.True(segunda.GetProperty("success").GetBoolean(), segunda.ToString());
+        Assert.Equal(primera.GetProperty("redirectUrl").GetString(), segunda.GetProperty("redirectUrl").GetString());
+        Assert.Single(await VentasDeAsync(clienteId));
+    }
+
+    [Fact]
+    public void HuellaDeFormulario_IncluyeTodoSalvoLoQueCambiaEntreReintentos()
+    {
+        static Microsoft.AspNetCore.Http.FormCollection Form(params (string K, string V)[] c) =>
+            new(c.ToDictionary(x => x.K, x => new Microsoft.Extensions.Primitives.StringValues(x.V)));
+
+        var baseForm = HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1")));
+
+        Assert.Equal(baseForm, HuellaFormulario.De(Form(("Detalles[0].Cantidad", "1"), ("ClienteId", "1"))));       // orden
+        Assert.Equal(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"),
+            ("__RequestVerificationToken", "x"), ("IdempotencyKey", "y"), ("RowVersion", "z"), ("FechaVenta", "2026-01-01"))));
+        Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "2"))));
+        Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"), ("CampoQueHoyNoExiste", "1"))));
     }
 
     [Fact]
