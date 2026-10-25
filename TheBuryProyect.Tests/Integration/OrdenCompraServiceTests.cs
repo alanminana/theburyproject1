@@ -450,6 +450,58 @@ public class OrdenCompraServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task Recepcionar_DosProductos_CompletarSoloUno_NoCierraLaOrden_YLaSegundaRecepcionLaCierra()
+    {
+        // Antes se cerraba como Recibida al completar un producto y dejar el otro en cero: la mercaderia pendiente no se
+        // podia ingresar nunca (una orden Recibida ya no admite recepciones).
+        var proveedor = await SeedProveedorAsync();
+        var p1 = await SeedProductoAsync(stockInicial: 0m);
+        var p2 = await SeedProductoAsync(stockInicial: 0m);
+        var orden = await SeedOrdenAsync(proveedor.Id, p1.Id, cantidad: 5, estado: EstadoOrdenCompra.Confirmada);
+        _context.Set<OrdenCompraDetalle>().Add(new OrdenCompraDetalle
+        {
+            OrdenCompraId = orden.Id, ProductoId = p2.Id, Cantidad = 3, PrecioUnitario = 100m, Subtotal = 300m, CantidadRecibida = 0
+        });
+        await _context.SaveChangesAsync();
+        await _context.Entry(orden).ReloadAsync();
+        var detalles = await _context.Set<OrdenCompraDetalle>().Where(d => d.OrdenCompraId == orden.Id).OrderBy(d => d.Id).ToListAsync();
+
+        var primera = await _service.RecepcionarAsync(orden.Id, orden.RowVersion, new List<RecepcionDetalleViewModel>
+        {
+            new() { DetalleId = detalles[0].Id, ProductoId = p1.Id, CantidadARecepcionar = 5 }
+        });
+
+        Assert.Equal(EstadoOrdenCompra.EnTransito, primera.Estado);
+        Assert.Null(primera.FechaRecepcion);
+
+        var segunda = await _service.RecepcionarAsync(orden.Id, primera.RowVersion, new List<RecepcionDetalleViewModel>
+        {
+            new() { DetalleId = detalles[1].Id, ProductoId = p2.Id, CantidadARecepcionar = 3 }
+        });
+
+        Assert.Equal(EstadoOrdenCompra.Recibida, segunda.Estado);
+        Assert.NotNull(segunda.FechaRecepcion);
+        Assert.Equal(5m, (await _context.Set<Producto>().AsNoTracking().FirstAsync(p => p.Id == p1.Id)).StockActual);
+        Assert.Equal(3m, (await _context.Set<Producto>().AsNoTracking().FirstAsync(p => p.Id == p2.Id)).StockActual);
+    }
+
+    [Fact]
+    public async Task Recepcionar_SinNingunaCantidad_SeRechaza_YNoCierraLaOrden()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync(stockInicial: 0m);
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, cantidad: 4, estado: EstadoOrdenCompra.Confirmada);
+        var detalle = await _context.Set<OrdenCompraDetalle>().FirstAsync(d => d.OrdenCompraId == orden.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecepcionarAsync(orden.Id, orden.RowVersion,
+            new List<RecepcionDetalleViewModel> { new() { DetalleId = detalle.Id, ProductoId = producto.Id, CantidadARecepcionar = 0 } }));
+
+        var ordenBd = await _context.Set<OrdenCompra>().AsNoTracking().FirstAsync(o => o.Id == orden.Id);
+        Assert.Equal(EstadoOrdenCompra.Confirmada, ordenBd.Estado);
+        Assert.Null(ordenBd.FechaRecepcion);
+    }
+
+    [Fact]
     public async Task Recepcionar_OrdenConfirmada_TotalRecibido_EstadoRecibida()
     {
         var proveedor = await SeedProveedorAsync();

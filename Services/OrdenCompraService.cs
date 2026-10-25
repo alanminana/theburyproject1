@@ -454,8 +454,6 @@ namespace TheBuryProject.Services
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            bool todosRecibidos = true;
-
             var entradas = new List<(int productoId, decimal cantidad, string? referencia)>();
             var costos = new List<MovimientoStockCostoLinea>();
             var referencia = $"Orden de Compra {orden.Numero}";
@@ -490,9 +488,18 @@ namespace TheBuryProject.Services
                     detalle.PrecioUnitario,
                     "OrdenCompraDetalle"));
 
-                if (detalle.CantidadRecibida < cantidadSolicitada)
-                    todosRecibidos = false;
             }
+
+            // Nada que ingresar: no es una recepcion (antes una llamada vacia cerraba la orden como Recibida).
+            if (entradas.Count == 0)
+            {
+                throw new InvalidOperationException("Indique al menos una cantidad a recepcionar.");
+            }
+
+            // La orden se cierra solo si TODAS sus lineas quedaron completas (no solo las que se recibieron ahora): recibir
+            // por completo un producto y dejar otro en cero no puede dar la orden por recibida.
+            var todosRecibidos = orden.Detalles != null && orden.Detalles.Count > 0
+                && orden.Detalles.All(d => d.CantidadRecibida >= d.Cantidad);
 
             await _movimientoStockService.RegistrarEntradasAsync(
                 entradas,
