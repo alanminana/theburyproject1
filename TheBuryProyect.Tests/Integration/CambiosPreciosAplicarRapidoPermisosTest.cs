@@ -71,4 +71,52 @@ public class CambiosPreciosAplicarRapidoPermisosTest : IClassFixture<CustomWebAp
         Assert.NotEqual(HttpStatusCode.Forbidden, respuesta.StatusCode);
         Assert.DoesNotContain("simular y aprobar", await respuesta.Content.ReadAsStringAsync());
     }
+
+    private async Task<(int Id, string RowVersion)> SembrarBatchSimuladoAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var ctx = await factory.CreateDbContextAsync();
+        var batch = new TheBuryProject.Models.Entities.PriceChangeBatch
+        {
+            Nombre = "Simulado sin aprobar " + Guid.NewGuid().ToString("N")[..6],
+            TipoCambio = TheBuryProject.Models.Enums.TipoCambio.PorcentajeSobrePrecioActual,
+            TipoAplicacion = TheBuryProject.Models.Enums.TipoAplicacion.Aumento,
+            ValorCambio = 10m,
+            AlcanceJson = "{}",
+            ListasAfectadasJson = "[]",
+            Estado = TheBuryProject.Models.Enums.EstadoBatch.Simulado,
+            RowVersion = new byte[8]
+        };
+        ctx.PriceChangeBatches.Add(batch);
+        await ctx.SaveChangesAsync();
+        await ctx.Entry(batch).ReloadAsync();
+        return (batch.Id, Convert.ToBase64String(batch.RowVersion));
+    }
+
+    [Fact]
+    public async Task Catalogo_AplicarCambioPrecios_SoloConApply_NoAutoapruebaUnLoteSimulado()
+    {
+        // Segundo camino de autoaprobacion (Catalogo): aplicar un lote ya aprobado se permite con precios.apply, pero aprobar
+        // uno simulado de paso requiere precios.approve.
+        await _factory.SeedUserWithPreciosSoloAplicarAsync();
+        var (id, rowVersion) = await SembrarBatchSimuladoAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.PreciosSoloAplicarUserId);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/Catalogo/AplicarCambioPrecios")
+        {
+            Content = new StringContent(
+                $"{{\"batchId\":{id},\"rowVersion\":\"{rowVersion}\"}}", System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("RequestVerificationToken", await TokenAsync(client));
+
+        var respuesta = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Contains("permiso de aprobar", await respuesta.Content.ReadAsStringAsync());
+        using var scope = _factory.Services.CreateScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var ctx = await factory.CreateDbContextAsync();
+        var batch = await ctx.PriceChangeBatches.AsNoTracking().FirstAsync(b => b.Id == id);
+        Assert.Equal(TheBuryProject.Models.Enums.EstadoBatch.Simulado, batch.Estado);
+    }
 }

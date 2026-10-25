@@ -881,13 +881,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public Task SeedUserWithPreciosSoloAplicarAsync() =>
         SeedPermissionUserAsync(
             PreciosSoloAplicarUserId, "test-precios-solo-aplicar-role-id", "TestPreciosSoloAplicarRole", 9540,
-            "precios.view", "precios.apply");
+            "precios.view", "precios.apply", "productos.view");
 
     /// <summary>Cambio rápido de precios completo: simular + aprobar + aplicar.</summary>
     public Task SeedUserWithPreciosCambioRapidoCompletoAsync() =>
         SeedPermissionUserAsync(
             PreciosCambioRapidoUserId, "test-precios-cambio-rapido-role-id", "TestPreciosCambioRapidoRole", 9560,
-            "precios.view", "precios.simulate", "precios.approve", "precios.apply");
+            "precios.view", "precios.simulate", "precios.approve", "precios.apply", "productos.view");
 
     public const string ConfiguracionActualizaUserId = "test-configuracion-actualiza-id";
 

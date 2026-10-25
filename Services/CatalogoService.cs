@@ -308,7 +308,7 @@ namespace TheBuryProject.Services
         }
 
         /// <inheritdoc />
-        public async Task<ResultadoAplicacionPrecios> AplicarCambioPreciosAsync(SolicitudAplicarPrecios solicitud)
+        public async Task<ResultadoAplicacionPrecios> AplicarCambioPreciosAsync(SolicitudAplicarPrecios solicitud, bool puedeAprobar)
         {
             try
             {
@@ -343,6 +343,17 @@ namespace TheBuryProject.Services
                 // Si está en estado Simulado, aprobar primero
                 if (batch.Estado == EstadoBatch.Simulado)
                 {
+                    // Aprobar es de quien tiene precios.approve (separación de funciones): aplicar un lote ya aprobado se
+                    // permite con precios.apply, pero aprobarlo de paso no. Se rechaza sin persistir nada.
+                    if (!puedeAprobar)
+                    {
+                        return new ResultadoAplicacionPrecios
+                        {
+                            Exitoso = false,
+                            Mensaje = "La simulación todavía no está aprobada y aprobarla requiere el permiso de aprobar cambios de precios."
+                        };
+                    }
+
                     batch = await _precioService.AprobarBatchAsync(
                         batch.Id,
                         usuario,

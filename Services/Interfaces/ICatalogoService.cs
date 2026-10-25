@@ -44,7 +44,7 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         /// <param name="solicitud">Referencia al batch y configuración de aplicación</param>
         /// <returns>Resultado con éxito/error y conteo de actualizaciones</returns>
-        Task<ResultadoAplicacionPrecios> AplicarCambioPreciosAsync(SolicitudAplicarPrecios solicitud);
+        Task<ResultadoAplicacionPrecios> AplicarCambioPreciosAsync(SolicitudAplicarPrecios solicitud, bool puedeAprobar);
 
         /// <summary>
         /// Aplica un cambio directo de precio a productos seleccionados o filtrados desde el catálogo.
