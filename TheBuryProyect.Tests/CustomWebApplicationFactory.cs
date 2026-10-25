@@ -874,6 +874,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             OrdenCompraConRecepcionUserId, "test-oc-con-recepcion-role-id", "TestOcConRecepcionRole", 9610,
             "ordenescompra.view", "ordenescompra.update", "ordenescompra.receive");
 
+    public const string ContratoSoloVentasUserId = "test-contrato-solo-ventas-id";
+    public const string ContratoConfigurarUserId = "test-contrato-configurar-id";
+
+    /// <summary>FIN-S-004: puede ver ventas pero NO configurar crédito. Debe recibir 403 al generar el contrato.</summary>
+    public Task SeedUserWithContratoSoloVentasAsync() =>
+        SeedPermissionUserAsync(
+            ContratoSoloVentasUserId, "test-contrato-solo-ventas-role-id", "TestContratoSoloVentasRole", 9520,
+            "ventas.view");
+
+    /// <summary>FIN-S-004: ventas.view + creditos.configure. Llega a la lógica de generación del contrato.</summary>
+    public Task SeedUserWithContratoConfigurarAsync() =>
+        SeedPermissionUserAsync(
+            ContratoConfigurarUserId, "test-contrato-configurar-role-id", "TestContratoConfigurarRole", 9580,
+            "ventas.view", "creditos.view", "creditos.configure");
+
     public const string PreciosSoloAplicarUserId = "test-precios-solo-aplicar-id";
     public const string PreciosCambioRapidoUserId = "test-precios-cambio-rapido-id";
 

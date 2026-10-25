@@ -651,6 +651,29 @@ namespace TheBuryProject.Services
                             }
                         }
 
+                        // FIN-S-007: bajo el lock de la apertura (sin carrera entre egresos simultáneos), un egreso manual no
+                        // puede superar el efectivo físico de la caja salvo que lo cargue un supervisor de caja. Se mide con el
+                        // mismo criterio que el cierre (solo movimientos en efectivo): el dinero acreditado por transferencia o
+                        // tarjeta no está en la caja y no habilita retirarlo como efectivo.
+                        if (model.ExigirSaldoSuficiente && model.Tipo == TipoMovimientoCaja.Egreso)
+                        {
+                            var movimientosApertura = (await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId))
+                                .Where(m => !m.IsDeleted).ToList();
+                            var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(movimientosApertura);
+                            // Un egreso sin medio de pago explícito (manual o reversión histórica) se clasificaría por el texto libre de
+                            // Observaciones; para el límite se cuenta siempre, o bastaría escribir "transferencia" para que no se
+                            // descuente. Es conservador: nunca subestima el efectivo que ya salió.
+                            var egresosManualesNoFisicos = movimientosApertura
+                                .Where(m => m.Tipo == TipoMovimientoCaja.Egreso && !m.TipoPago.HasValue && !EsMovimientoFisico(m))
+                                .Sum(m => m.Monto);
+                            var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos - egresosManualesNoFisicos;
+                            if (model.Monto > efectivoDisponible)
+                            {
+                                throw new InvalidOperationException(
+                                    $"El egreso (${model.Monto:N2}) supera el efectivo disponible en la caja (${efectivoDisponible:N2}). Solo un supervisor de caja puede registrarlo.");
+                            }
+                        }
+
                         nuevo = new MovimientoCaja
                         {
                             AperturaCajaId = model.AperturaCajaId,

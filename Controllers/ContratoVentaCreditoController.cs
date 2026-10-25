@@ -58,6 +58,9 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        // FIN-S-004: generar el contrato fija los términos del crédito de la venta; es una función de configuración de
+        // crédito (creditos.configure), no de cualquiera que pueda ver ventas.
+        [PermisoRequerido(Modulo = "creditos", Accion = "configure")]
         public async Task<IActionResult> Generar(int ventaId)
         {
             var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";

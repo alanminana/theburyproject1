@@ -31,6 +31,8 @@ public class CajaMovimientoConceptoManualHttpTests : IClassFixture<CustomWebAppl
         var aperturaId = await ConcSeed.SembrarAperturaAsync(ctx, User);
         var cajaId = (await ctx.AperturasCaja.AsNoTracking().FirstAsync(a => a.Id == aperturaId)).CajaId;
         ctx.CajaVendedores.Add(new CajaVendedor { CajaId = cajaId, VendedorUserId = User });
+        // FIN-S-007: un egreso de un no supervisor no puede superar el saldo; la caja arranca con fondo.
+        (await ctx.AperturasCaja.FirstAsync(a => a.Id == aperturaId)).MontoInicial = 1000m;
         await ctx.SaveChangesAsync();
         return aperturaId;
     }
