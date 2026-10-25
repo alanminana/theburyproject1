@@ -25,6 +25,7 @@ namespace TheBuryProject.Controllers
         private const string AccionActualizar = "update";
         private const string AccionSimular = "simulate";
         private const string AccionAplicar = "apply";
+        private const string AccionAprobar = "approve";
         private const string AccionRevertir = "revert";
 
         private readonly ICatalogoService _catalogoService;
@@ -291,7 +292,8 @@ namespace TheBuryProject.Controllers
                     return BadRequest(new { error = "Datos de solicitud inválidos", detalles = ModelState });
                 }
 
-                var resultado = await _catalogoService.AplicarCambioPreciosAsync(solicitud);
+                var resultado = await _catalogoService.AplicarCambioPreciosAsync(
+                    solicitud, User.TienePermiso(ModuloPrecios, AccionAprobar));
 
                 if (!resultado.Exitoso)
                 {
