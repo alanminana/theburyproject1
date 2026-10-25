@@ -657,9 +657,16 @@ namespace TheBuryProject.Services
                         // tarjeta no está en la caja y no habilita retirarlo como efectivo.
                         if (model.ExigirSaldoSuficiente && model.Tipo == TipoMovimientoCaja.Egreso)
                         {
-                            var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(
-                                (await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId)).Where(m => !m.IsDeleted));
-                            var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos;
+                            var movimientosApertura = (await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId))
+                                .Where(m => !m.IsDeleted).ToList();
+                            var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(movimientosApertura);
+                            // Un egreso manual (sin medio de pago ni venta) se clasificaría por el texto libre de Observaciones;
+                            // para el límite se cuenta siempre, o bastaría escribir "transferencia" para que no se descuente.
+                            var egresosManualesNoFisicos = movimientosApertura
+                                .Where(m => m.Tipo == TipoMovimientoCaja.Egreso && !m.TipoPago.HasValue && !m.VentaId.HasValue
+                                         && !EsMovimientoFisico(m))
+                                .Sum(m => m.Monto);
+                            var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos - egresosManualesNoFisicos;
                             if (model.Monto > efectivoDisponible)
                             {
                                 throw new InvalidOperationException(

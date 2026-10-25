@@ -46,16 +46,17 @@ public class CajaEgresoSaldoHttpTests : IClassFixture<CustomWebApplicationFactor
         return WebUtility.HtmlDecode(m.Groups[1].Value);
     }
 
-    private static Task<HttpResponseMessage> PostEgresoAsync(HttpClient client, string token, int aperturaId, string monto, string marca) =>
+    private static Task<HttpResponseMessage> PostEgresoAsync(HttpClient client, string token, int aperturaId, string monto, string marca, string concepto = "10", string? observaciones = null) =>
         client.PostAsync("/Caja/RegistrarMovimiento", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = token,
             ["AperturaCajaId"] = aperturaId.ToString(),
             ["IdempotencyKey"] = Guid.NewGuid().ToString(),
             ["Tipo"] = "1",
-            ["Concepto"] = "10",
+            ["Concepto"] = concepto,
             ["Descripcion"] = marca,
-            ["Monto"] = monto
+            ["Monto"] = monto,
+            ["Observaciones"] = observaciones ?? ""
         }));
 
     private async Task<int> CantidadAsync(int aperturaId, string marca)
@@ -112,6 +113,24 @@ public class CajaEgresoSaldoHttpTests : IClassFixture<CustomWebApplicationFactor
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(0, await CantidadAsync(aperturaId, marca));
+    }
+
+    [Fact]
+    public async Task NoSupervisor_ObservacionesNoOcultanEgresosDelEfectivo()
+    {
+        // Un egreso "Otro" cuyo texto libre dice "transferencia" no debe dejar de descontarse del efectivo disponible.
+        var aperturaId = await SembrarAperturaAsync(fondo: 100m, asignarAUsuario: true);
+        var client = _factory.CreateClientWithUserId(User);
+        var token = await TokenAsync(client, aperturaId);
+        var marca1 = "FIN-S-007 obs a " + Guid.NewGuid().ToString("N")[..8];
+        var marca2 = "FIN-S-007 obs b " + Guid.NewGuid().ToString("N")[..8];
+
+        await PostEgresoAsync(client, token, aperturaId, "100", marca1, concepto: "99", observaciones: "transferencia");
+        var segundo = await PostEgresoAsync(client, token, aperturaId, "100", marca2, concepto: "99", observaciones: "transferencia");
+
+        Assert.Equal(HttpStatusCode.OK, segundo.StatusCode);
+        Assert.Equal(1, await CantidadAsync(aperturaId, marca1));
+        Assert.Equal(0, await CantidadAsync(aperturaId, marca2));
     }
 
     [Fact]
