@@ -173,6 +173,8 @@ namespace TheBuryProject.Controllers
 
             var actual = viewModel.Id > 0 ? await _clienteService.GetByIdAsync(viewModel.Id) : null;
 
+            // NivelRiesgo es parte de la configuración de crédito: sin el permiso se conserva el persistido (o el inicial en un alta).
+            viewModel.NivelRiesgo = actual?.NivelRiesgo ?? NivelRiesgoCredito.AprobadoCondicional;
             viewModel.PerfilCreditoPreferidoId = actual?.PerfilCreditoPreferidoId;
             viewModel.TasaInteresMensualPersonalizada = actual?.TasaInteresMensualPersonalizada;
             viewModel.GastosAdministrativosPersonalizados = actual?.GastosAdministrativosPersonalizados;

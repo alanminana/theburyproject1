@@ -125,6 +125,57 @@ public class ClienteConfiguracionCreditoPermisoTests : IDisposable
     }
 
     [Fact]
+    public async Task EditAjax_SinConfigureCredit_NoCambiaElNivelDeRiesgo()
+    {
+        // El formulario de edicion lleva NivelRiesgo en un campo oculto: sin clientes.configurecredit nadie puede
+        // subirse la calificacion editando ese valor.
+        var cliente = await SeedClienteConConfiguracionAsync();
+        var form = FormularioConConfiguracionNueva(cliente);
+        form.NivelRiesgo = NivelRiesgoCredito.AprobadoTotal;
+
+        await CrearController(puedeConfigurarCredito: false).EditAjax(form);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, bd.NivelRiesgo);
+        Assert.Equal((int)NivelRiesgoCredito.AprobadoCondicional * 2m, bd.PuntajeRiesgo);
+        Assert.Equal("341-999-9999", bd.Telefono);   // el resto del formulario sí se guarda
+    }
+
+    [Fact]
+    public async Task EditAjax_ConConfigureCredit_CambiaElNivelDeRiesgoYDerivaElPuntaje()
+    {
+        var cliente = await SeedClienteConConfiguracionAsync();
+        var form = FormularioConConfiguracionNueva(cliente);
+        form.NivelRiesgo = NivelRiesgoCredito.AprobadoTotal;
+
+        await CrearController(puedeConfigurarCredito: true).EditAjax(form);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(NivelRiesgoCredito.AprobadoTotal, bd.NivelRiesgo);
+        Assert.Equal((int)NivelRiesgoCredito.AprobadoTotal * 2m, bd.PuntajeRiesgo);
+    }
+
+    [Fact]
+    public async Task Update_ServicioSinPedirConfiguracion_NoToca_NivelRiesgoNiPuntaje()
+    {
+        var cliente = await SeedClienteConConfiguracionAsync();
+        var puntajeAntes = (await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id)).PuntajeRiesgo;
+        var entrante = new Cliente
+        {
+            Id = cliente.Id, RowVersion = cliente.RowVersion, Nombre = cliente.Nombre, Apellido = cliente.Apellido,
+            TipoDocumento = cliente.TipoDocumento, NumeroDocumento = cliente.NumeroDocumento, Email = cliente.Email,
+            Activo = true, Telefono = "341-555-5555", NivelRiesgo = NivelRiesgoCredito.AprobadoTotal
+        };
+
+        await _service.UpdateAsync(entrante);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, bd.NivelRiesgo);
+        Assert.Equal(puntajeAntes, bd.PuntajeRiesgo);
+        Assert.Equal("341-555-5555", bd.Telefono);
+    }
+
+    [Fact]
     public async Task Update_SinPedirConfiguracion_NoRevierteUnCambioAutorizadoConcurrente()
     {
         // El usuario sin configurecredit abrió el formulario con la configuración vieja (3 %, 12 cuotas)...
