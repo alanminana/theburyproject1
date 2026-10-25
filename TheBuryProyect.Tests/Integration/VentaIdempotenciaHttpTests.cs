@@ -267,13 +267,69 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
         static Microsoft.AspNetCore.Http.FormCollection Form(params (string K, string V)[] c) =>
             new(c.ToDictionary(x => x.K, x => new Microsoft.Extensions.Primitives.StringValues(x.V)));
 
+        static Microsoft.AspNetCore.Http.FormCollection RepetidoForm(params string[] v) =>
+            new(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues> { ["Detalles[0].Cantidad"] = v });
+
         var baseForm = HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1")));
 
         Assert.Equal(baseForm, HuellaFormulario.De(Form(("Detalles[0].Cantidad", "1"), ("ClienteId", "1"))));       // orden
+        Assert.NotEqual(HuellaFormulario.De(RepetidoForm("1", "3")), HuellaFormulario.De(RepetidoForm("3", "1")));       // orden de valores repetidos
         Assert.Equal(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"),
             ("__RequestVerificationToken", "x"), ("IdempotencyKey", "y"), ("RowVersion", "z"), ("FechaVenta", "2026-01-01"))));
         Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "2"))));
         Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"), ("CampoQueHoyNoExiste", "1"))));
+    }
+
+    private static async Task<JsonElement> EnviarParesAsync(HttpClient client, string token, string url, IEnumerable<KeyValuePair<string, string>> pares)
+    {
+        var contenido = pares.Append(new KeyValuePair<string, string>("__RequestVerificationToken", token));
+        var resp = await client.PostAsync(url, new FormUrlEncodedContent(contenido));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        return JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.Clone();
+    }
+
+    [Fact]
+    public async Task CamposEnLaQuery_NoSeEnlazan_YNoPermitenEvadirLaHuella()
+    {
+        // El modelo se enlaza solo desde el formulario ([FromForm]): un ClienteId en la URL no cuenta, de modo que dos POST con
+        // el mismo formulario y distinto ClienteId en la query no pueden pasar por la misma operacion.
+        var (clienteA, productoId) = await SeedAsync();
+        var clienteB = await SeedClienteAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+        var clave = Guid.NewGuid();
+        var sinCliente = Form(0, productoId, clave);
+        sinCliente.Remove("ClienteId");
+
+        var a = await EnviarParesAsync(client, token, $"/Venta/CreateAjax?ClienteId={clienteA}", sinCliente);
+        var b = await EnviarParesAsync(client, token, $"/Venta/CreateAjax?ClienteId={clienteB}", sinCliente);
+
+        Assert.False(a.GetProperty("success").GetBoolean(), a.ToString());
+        Assert.False(b.GetProperty("success").GetBoolean(), b.ToString());
+        Assert.Empty(await VentasDeAsync(clienteA));
+        Assert.Empty(await VentasDeAsync(clienteB));
+    }
+
+    [Fact]
+    public async Task ValoresRepetidosEnOtroOrden_SonOtraOperacion_YSeRechazan()
+    {
+        // El binder toma el PRIMER valor de un campo escalar repetido: Cantidad=1&Cantidad=3 y Cantidad=3&Cantidad=1 son
+        // ventas distintas aunque tengan los mismos valores.
+        var (clienteId, productoId) = await SeedAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+        var clave = Guid.NewGuid();
+        var baseForm = Form(clienteId, productoId, clave);
+        baseForm.Remove("Detalles[0].Cantidad");
+        List<KeyValuePair<string, string>> Con(params string[] cantidades) =>
+            baseForm.Concat(cantidades.Select(c => new KeyValuePair<string, string>("Detalles[0].Cantidad", c))).ToList();
+
+        var primera = await EnviarParesAsync(client, token, "/Venta/CreateAjax", Con("1", "3"));
+        var invertida = await EnviarParesAsync(client, token, "/Venta/CreateAjax", Con("3", "1"));
+
+        Assert.True(primera.GetProperty("success").GetBoolean(), primera.ToString());
+        Assert.False(invertida.GetProperty("success").GetBoolean(), invertida.ToString());
+        Assert.Single(await VentasDeAsync(clienteId));
     }
 
     [Fact]

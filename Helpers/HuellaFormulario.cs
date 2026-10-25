@@ -21,6 +21,8 @@ public static class HuellaFormulario
 
     public static string De(IFormCollection form)
     {
+        // Se ordenan las CLAVES, no los valores: el binder toma el primer valor de un campo escalar repetido, asi que
+        // "Cantidad=1&Cantidad=3" y "Cantidad=3&Cantidad=1" son ventas distintas. Los valores de una clave conservan su orden.
         var lineas = new List<string>();
         foreach (var campo in form)
         {
@@ -29,10 +31,7 @@ public static class HuellaFormulario
                 continue;
             }
 
-            foreach (var valor in campo.Value)
-            {
-                lineas.Add(campo.Key + "=" + valor);
-            }
+            lineas.Add(campo.Key + "=" + string.Join('\u001f', campo.Value.Select(v => v ?? string.Empty)));
         }
 
         lineas.Sort(StringComparer.Ordinal);

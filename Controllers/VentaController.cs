@@ -338,7 +338,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
-        public async Task<IActionResult> Create(VentaViewModel viewModel)
+        public async Task<IActionResult> Create([FromForm] VentaViewModel viewModel)
         {
             // FIN-S-018: el token lo emite el GET y es obligatorio. Ausente o vacio se rechaza sin crear nada; el POST
             // nunca fabrica uno (eso anularia la proteccion contra doble envio). Se vuelve al formulario con clave nueva.
@@ -442,7 +442,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
-        public async Task<IActionResult> CreateAjax(VentaViewModel viewModel)
+        public async Task<IActionResult> CreateAjax([FromForm] VentaViewModel viewModel)
         {
             // FIN-S-018: ver Create. Sin clave valida no se crea nada.
             if (viewModel.IdempotencyKey is null || viewModel.IdempotencyKey == Guid.Empty)
