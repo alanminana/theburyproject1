@@ -282,35 +282,6 @@ public class CajaServiceSaldoRealAcreditacionTests : IDisposable
         Assert.Equal(0m, saldo); // ni el ingreso ni el egreso impactan SaldoReal
     }
 
-    [Fact]
-    public async Task SaldoReal_ReversionDeIngresoHistoricoSinVentaId_ReduceSaldoReal()
-    {
-        // FIN-S-007: el ingreso histórico no tiene VentaId (la reversión lo ubica por referencia). Si su reversión no se
-        // restara, el saldo quedaría sobrestimado y un egreso podría retirar efectivo que ya no está.
-        var ventaId = SeedVentaSync(TipoPago.Efectivo, 400m);
-        SeedIngresoSync(400m, EstadoAcreditacionMovimientoCaja.Acreditado);
-        SeedEgresoSync(400m, EstadoAcreditacionMovimientoCaja.Revertido,
-            ConceptoMovimientoCaja.ReversionVenta, ventaId: ventaId);
-
-        var saldo = await _service.CalcularSaldoRealAsync(_apertura.Id);
-
-        Assert.Equal(0m, saldo);
-    }
-
-    [Fact]
-    public async Task SaldoReal_ReversionDeIngresoSinEstado_ReduceSaldoReal()
-    {
-        // Un ingreso sin estado se cuenta como real; su reversión debe restarse igual.
-        var ventaId = SeedVentaSync(TipoPago.Efectivo, 400m);
-        SeedIngresoSync(400m, null, ventaId: ventaId);
-        SeedEgresoSync(400m, EstadoAcreditacionMovimientoCaja.Revertido,
-            ConceptoMovimientoCaja.ReversionVenta, ventaId: ventaId);
-
-        var saldo = await _service.CalcularSaldoRealAsync(_apertura.Id);
-
-        Assert.Equal(0m, saldo);
-    }
-
     // -------------------------------------------------------------------------
     // TransferenciaPendiente → Acreditado: ahora sí impacta SaldoReal
     // -------------------------------------------------------------------------

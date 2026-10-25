@@ -77,7 +77,40 @@ public class CajaEgresoSaldoHttpTests : IClassFixture<CustomWebApplicationFactor
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);   // vuelve al formulario con el error
-        Assert.Contains("supera el saldo disponible en efectivo", html);
+        Assert.Contains("supera el efectivo disponible", html);
+        Assert.Equal(0, await CantidadAsync(aperturaId, marca));
+    }
+
+    [Fact]
+    public async Task NoSupervisor_TransferenciaAcreditada_NoHabilitaRetirarEfectivo()
+    {
+        // El dinero acreditado por transferencia no está físicamente en la caja: el cierre no lo cuenta como efectivo.
+        var aperturaId = await SembrarAperturaAsync(fondo: 0m, asignarAUsuario: true);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = aperturaId,
+                FechaMovimiento = DateTime.UtcNow,
+                Tipo = TheBuryProject.Models.Enums.TipoMovimientoCaja.Ingreso,
+                Concepto = TheBuryProject.Models.Enums.ConceptoMovimientoCaja.VentaTransferencia,
+                EstadoAcreditacion = TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Acreditado,
+                TipoPago = TheBuryProject.Models.Enums.TipoPago.Transferencia,
+                Monto = 1000m,
+                Descripcion = "Transferencia acreditada",
+                Usuario = "test",
+                CreatedAt = DateTime.UtcNow
+            });
+            await ctx.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithUserId(User);
+        var token = await TokenAsync(client, aperturaId);
+        var marca = "FIN-S-007 transf " + Guid.NewGuid().ToString("N")[..8];
+
+        var response = await PostEgresoAsync(client, token, aperturaId, "1000", marca);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(0, await CantidadAsync(aperturaId, marca));
     }
 

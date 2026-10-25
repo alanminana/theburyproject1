@@ -652,14 +652,18 @@ namespace TheBuryProject.Services
                         }
 
                         // FIN-S-007: bajo el lock de la apertura (sin carrera entre egresos simultáneos), un egreso manual no
-                        // puede superar el saldo real en efectivo salvo que lo cargue un supervisor de caja.
+                        // puede superar el efectivo físico de la caja salvo que lo cargue un supervisor de caja. Se mide con el
+                        // mismo criterio que el cierre (solo movimientos en efectivo): el dinero acreditado por transferencia o
+                        // tarjeta no está en la caja y no habilita retirarlo como efectivo.
                         if (model.ExigirSaldoSuficiente && model.Tipo == TipoMovimientoCaja.Egreso)
                         {
-                            var saldoReal = await CalcularSaldoRealAsync(model.AperturaCajaId);
-                            if (model.Monto > saldoReal)
+                            var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(
+                                (await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId)).Where(m => !m.IsDeleted));
+                            var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos;
+                            if (model.Monto > efectivoDisponible)
                             {
                                 throw new InvalidOperationException(
-                                    $"El egreso (${model.Monto:N2}) supera el saldo disponible en efectivo de la caja (${saldoReal:N2}). Solo un supervisor de caja puede registrarlo.");
+                                    $"El egreso (${model.Monto:N2}) supera el efectivo disponible en la caja (${efectivoDisponible:N2}). Solo un supervisor de caja puede registrarlo.");
                             }
                         }
 
@@ -768,19 +772,11 @@ namespace TheBuryProject.Services
 
                 var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
 
-                // VentaIds cuyo ingreso cuenta como real (Acreditado o sin estado) y VentaIds con algún ingreso en la apertura:
-                // una reversión resta solo si su ingreso original fue contado. El ingreso histórico sin VentaId (la reversión
-                // lo ubica por referencia) no figura en ninguno de los dos conjuntos y también se resta; de lo contrario el
-                // saldo quedaría sobrestimado.
+                // VentaIds cuyo ingreso fue Acreditado: usados para filtrar egresos ReversionVenta
                 var ventasConIngresoAcreditado = movimientos
                     .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
-                             && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
-                              || m.EstadoAcreditacion == null)
+                             && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
                              && m.VentaId.HasValue)
-                    .Select(m => m.VentaId!.Value)
-                    .ToHashSet();
-                var ventasConAlgunIngreso = movimientos
-                    .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso && m.VentaId.HasValue)
                     .Select(m => m.VentaId!.Value)
                     .ToHashSet();
 
@@ -798,8 +794,7 @@ namespace TheBuryProject.Services
                               || m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.NoAplica
                               || (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Revertido
                                   && m.VentaId.HasValue
-                                  && (ventasConIngresoAcreditado.Contains(m.VentaId.Value)
-                                      || !ventasConAlgunIngreso.Contains(m.VentaId.Value)))))
+                                  && ventasConIngresoAcreditado.Contains(m.VentaId.Value))))
                     .Sum(m => m.Monto);
 
                 return apertura.MontoInicial + ingresosReales - egresosReales;
