@@ -23,18 +23,24 @@ public static class HuellaFormulario
     {
         // Se ordenan las CLAVES, no los valores: el binder toma el primer valor de un campo escalar repetido, asi que
         // "Cantidad=1&Cantidad=3" y "Cantidad=3&Cantidad=1" son ventas distintas. Los valores de una clave conservan su orden.
-        var lineas = new List<string>();
-        foreach (var campo in form)
-        {
-            if (Excluidos.Contains(campo.Key))
-            {
-                continue;
-            }
+        // La serializacion lleva longitudes por delante (sin separadores): ningun contenido (saltos de linea, separadores,
+        // "=") puede hacerse pasar por otra estructura de campos.
+        var campos = form
+            .Where(c => !Excluidos.Contains(c.Key))
+            .OrderBy(c => c.Key, StringComparer.Ordinal)
+            .ToList();
 
-            lineas.Add(campo.Key + "=" + string.Join('\u001f', campo.Value.Select(v => v ?? string.Empty)));
+        var sb = new StringBuilder();
+        foreach (var campo in campos)
+        {
+            sb.Append(campo.Key.Length).Append(':').Append(campo.Key).Append(campo.Value.Count).Append('#');
+            foreach (var valor in campo.Value)
+            {
+                var v = valor ?? string.Empty;
+                sb.Append(v.Length).Append(':').Append(v);
+            }
         }
 
-        lineas.Sort(StringComparer.Ordinal);
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', lineas))));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
     }
 }

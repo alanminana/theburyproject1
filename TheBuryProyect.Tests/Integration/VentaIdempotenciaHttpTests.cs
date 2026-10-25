@@ -278,6 +278,14 @@ public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFact
             ("__RequestVerificationToken", "x"), ("IdempotencyKey", "y"), ("RowVersion", "z"), ("FechaVenta", "2026-01-01"))));
         Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "2"))));
         Assert.NotEqual(baseForm, HuellaFormulario.De(Form(("ClienteId", "1"), ("Detalles[0].Cantidad", "1"), ("CampoQueHoyNoExiste", "1"))));
+
+        // Un valor con saltos de linea o "=" no puede imitar a otro campo (la serializacion es inequivoca).
+        Assert.NotEqual(
+            HuellaFormulario.De(Form(("Observaciones", "a\nObservacionesZ=b"))),
+            HuellaFormulario.De(Form(("Observaciones", "a"), ("ObservacionesZ", "b"))));
+        Assert.NotEqual(
+            HuellaFormulario.De(RepetidoForm("a", "b")),
+            HuellaFormulario.De(RepetidoForm("a\u001fb")));
     }
 
     private static async Task<JsonElement> EnviarParesAsync(HttpClient client, string token, string url, IEnumerable<KeyValuePair<string, string>> pares)
