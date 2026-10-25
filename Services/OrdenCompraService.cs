@@ -382,8 +382,13 @@ namespace TheBuryProject.Services
                     $"No se puede pasar una orden de {OrdenCompraUiHelper.EstadoNombre(orden.Estado)} a {OrdenCompraUiHelper.EstadoNombre(nuevoEstado)}. Los estados solo avanzan.");
             }
 
-            if (nuevoEstado == EstadoOrdenCompra.Recibida && orden.Estado != EstadoOrdenCompra.Recibida)
-                orden.FechaRecepcion = DateTime.UtcNow;
+            // Una orden pasa a Recibida registrando la recepción (RecepcionarAsync): es lo que ingresa el stock y deja
+            // CantidadRecibida/FechaRecepcion coherentes. Marcarla Recibida desde acá la daba por recibida SIN stock.
+            if (nuevoEstado == EstadoOrdenCompra.Recibida)
+            {
+                throw new InvalidOperationException(
+                    "Una orden pasa a Recibida registrando la recepción de la mercadería (Recepcionar): eso es lo que ingresa el stock.");
+            }
 
             orden.Estado = nuevoEstado;
             await _context.SaveChangesAsync();
@@ -449,8 +454,6 @@ namespace TheBuryProject.Services
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            bool todosRecibidos = true;
-
             var entradas = new List<(int productoId, decimal cantidad, string? referencia)>();
             var costos = new List<MovimientoStockCostoLinea>();
             var referencia = $"Orden de Compra {orden.Numero}";
@@ -485,9 +488,18 @@ namespace TheBuryProject.Services
                     detalle.PrecioUnitario,
                     "OrdenCompraDetalle"));
 
-                if (detalle.CantidadRecibida < cantidadSolicitada)
-                    todosRecibidos = false;
             }
+
+            // Nada que ingresar: no es una recepcion (antes una llamada vacia cerraba la orden como Recibida).
+            if (entradas.Count == 0)
+            {
+                throw new InvalidOperationException("Indique al menos una cantidad a recepcionar.");
+            }
+
+            // La orden se cierra solo si TODAS sus lineas quedaron completas (no solo las que se recibieron ahora): recibir
+            // por completo un producto y dejar otro en cero no puede dar la orden por recibida.
+            var todosRecibidos = orden.Detalles != null && orden.Detalles.Count > 0
+                && orden.Detalles.All(d => d.CantidadRecibida >= d.Cantidad);
 
             await _movimientoStockService.RegistrarEntradasAsync(
                 entradas,

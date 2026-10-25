@@ -1306,6 +1306,12 @@ namespace TheBuryProject.Data
                 entity.ToTable("Ventas");
                 entity.HasKey(e => e.Id);
 
+                // FIN-S-018: garantía persistente contra duplicar la venta por reintento/doble envío.
+                entity.HasIndex(e => e.IdempotencyKey)
+                    .IsUnique()
+                    .HasFilter("[IdempotencyKey] IS NOT NULL");
+                entity.Property(e => e.IdempotencyHuella).HasMaxLength(64);
+
                 entity.Property(e => e.Numero)
                     .IsRequired()
                     .HasMaxLength(20);

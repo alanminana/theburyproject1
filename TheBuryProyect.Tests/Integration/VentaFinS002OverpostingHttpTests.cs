@@ -93,6 +93,7 @@ public class VentaFinS002OverpostingHttpTests : IClassFixture<CustomWebApplicati
 
     private static Dictionary<string, string> Form(int clienteId, int productoId, string tipoPago = "Efectivo") => new()
     {
+        ["IdempotencyKey"] = Guid.NewGuid().ToString(),   // FIN-S-018: el alta exige la clave que emite el formulario
         ["ClienteId"] = clienteId.ToString(),
         ["FechaVenta"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
         ["TipoPago"] = tipoPago,

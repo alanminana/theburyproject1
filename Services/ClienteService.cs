@@ -169,12 +169,13 @@ namespace TheBuryProject.Services
                 clienteExistente.CuotasMaximasPersonalizadas = cliente.CuotasMaximasPersonalizadas;
                 clienteExistente.MontoMinimoPersonalizado = cliente.MontoMinimoPersonalizado;
                 clienteExistente.MontoMaximoPersonalizado = cliente.MontoMaximoPersonalizado;
-            }
 
-            // Calificación crediticia manual (NivelRiesgo 1-5)
-            // Se actualiza desde el formulario y el PuntajeRiesgo se calcula automáticamente
-            clienteExistente.NivelRiesgo = cliente.NivelRiesgo;
-            clienteExistente.PuntajeRiesgo = (int)cliente.NivelRiesgo * 2m; // Convierte 1-5 a 2-10
+                // Calificación crediticia manual (NivelRiesgo 1-5): es parte de la configuración de crédito del cliente, así que
+                // solo la cambia quien tiene clientes.configurecredit. El formulario de edición la lleva en un campo oculto, de
+                // modo que sin el permiso el valor posteado nunca es una decisión del usuario. El PuntajeRiesgo se deriva.
+                clienteExistente.NivelRiesgo = cliente.NivelRiesgo;
+                clienteExistente.PuntajeRiesgo = (int)cliente.NivelRiesgo * 2m; // Convierte 1-5 a 2-10
+            }
 
             // Estado
             clienteExistente.Activo = cliente.Activo;
