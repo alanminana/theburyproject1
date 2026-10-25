@@ -484,6 +484,10 @@ namespace TheBuryProject.Controllers
                 return View("RegistrarMovimiento_tw", model);
             }
 
+            // FIN-S-007: salvo un supervisor de caja, el egreso no puede superar el saldo real en efectivo (lo valida el
+            // servicio bajo el lock de la apertura).
+            model.ExigirSaldoSuficiente = !EsSupervisorCaja();
+
             try
             {
                 await _cajaService.RegistrarMovimientoAsync(model, _currentUser.GetUsername());

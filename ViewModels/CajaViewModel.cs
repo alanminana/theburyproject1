@@ -137,6 +137,13 @@ public class MovimientoCajaViewModel
     /// </summary>
     public Guid? IdempotencyKey { get; set; }
 
+    /// <summary>
+    /// FIN-S-007: el controlador lo activa para quien no es supervisor de caja; el servicio rechaza entonces un egreso
+    /// mayor al saldo real en efectivo de la apertura. Nunca se enlaza desde el formulario.
+    /// </summary>
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    public bool ExigirSaldoSuficiente { get; set; }
+
     // Info de la apertura (solo lectura)
     public string? CajaNombre { get; set; }
     public decimal? SaldoActual { get; set; }

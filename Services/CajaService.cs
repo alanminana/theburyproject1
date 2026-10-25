@@ -651,6 +651,18 @@ namespace TheBuryProject.Services
                             }
                         }
 
+                        // FIN-S-007: bajo el lock de la apertura (sin carrera entre egresos simultáneos), un egreso manual no
+                        // puede superar el saldo real en efectivo salvo que lo cargue un supervisor de caja.
+                        if (model.ExigirSaldoSuficiente && model.Tipo == TipoMovimientoCaja.Egreso)
+                        {
+                            var saldoReal = await CalcularSaldoRealAsync(model.AperturaCajaId);
+                            if (model.Monto > saldoReal)
+                            {
+                                throw new InvalidOperationException(
+                                    $"El egreso (${model.Monto:N2}) supera el saldo disponible en efectivo de la caja (${saldoReal:N2}). Solo un supervisor de caja puede registrarlo.");
+                            }
+                        }
+
                         nuevo = new MovimientoCaja
                         {
                             AperturaCajaId = model.AperturaCajaId,
