@@ -9,6 +9,9 @@
     var connection = new signalR.HubConnectionBuilder()
         .withUrl('/hubs/notificaciones')
         .withAutomaticReconnect()
+        // Sin log propio del cliente: ante una navegación que aborta la negociación escribía console.error aunque el fallo ya se
+        // captura abajo (rompía los E2E que exigen consola limpia).
+        .configureLogging(signalR.LogLevel.None)
         .build();
 
     var badge = document.getElementById('notificacionesBadge');
