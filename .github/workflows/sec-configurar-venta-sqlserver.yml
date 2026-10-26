@@ -111,7 +111,7 @@ jobs:
             echo "| Escenario | Resultado |"
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-          ESPERADOS="CV-00 CV-01 CV-02 CV-03 CV-04 CV-05 CV-06 CV-07 CV-08 CV-09"
+          ESPERADOS="CV-00 CV-01 CV-02 CV-03 CV-04 CV-05 CV-06 CV-07 CV-08 CV-09 CV-10"
           N_ESPERADOS=$(echo $ESPERADOS | wc -w)
           for R in $ESPERADOS; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
