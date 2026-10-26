@@ -73,44 +73,30 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// Entrega el próximo número del prefijo/período con UNA sentencia atómica sobre <c>NumeracionVentaContadores</c>.
-        /// El contador nunca queda por debajo del mayor número ya existente (<paramref name="prefijoCompleto"/> con sufijo),
-        /// de modo que numeración previa o creada por otro camino no genera colisiones. Si la fila no existe se crea;
-        /// ante una creación simultánea gana una sola y la otra reintenta el incremento.
+        /// Entrega el próximo número del prefijo/período con UNA sentencia sobre <c>NumeracionVentaContadores</c>: incrementa
+        /// la fila de <paramref name="prefijoCompleto"/> y devuelve el valor. Si la fila no existe (primer uso, o numeración
+        /// previa a la tabla) se crea partiendo del mayor sufijo NUMÉRICO ya presente en <c>Ventas</c> (no del orden de texto, que
+        /// falla pasados 999999); ante una creación simultánea gana una sola y la otra reintenta el incremento.
         /// </summary>
         private async Task<int> SiguienteAtomicoAsync(string prefijoCompleto)
         {
-            var ultimo = await _context.Ventas
-                .IgnoreQueryFilters()
-                .Where(v => v.Numero.StartsWith(prefijoCompleto))
-                .OrderByDescending(v => v.Numero)
-                .Select(v => v.Numero)
-                .FirstOrDefaultAsync();
-
-            var semilla = 0;
-            if (ultimo != null)
-            {
-                var partes = ultimo.Split('-');
-                if (partes.Length == 3 && int.TryParse(partes[2], out var parsed)) semilla = parsed;
-            }
-
             const string sql = @"
 SET NOCOUNT ON;
 DECLARE @v int;
-UPDATE [NumeracionVentaContadores]
-   SET @v = [Valor] = CASE WHEN [Valor] < @semilla THEN @semilla + 1 ELSE [Valor] + 1 END
- WHERE [Clave] = @clave;
+UPDATE [NumeracionVentaContadores] SET @v = [Valor] = [Valor] + 1 WHERE [Clave] = @clave;
 IF @@ROWCOUNT = 0
 BEGIN
+    DECLARE @semilla int = ISNULL((
+        SELECT MAX(TRY_CAST(SUBSTRING([Numero], LEN(@clave) + 2, 20) AS int))
+          FROM [Ventas]
+         WHERE [Numero] LIKE @clave + N'-%'), 0);
     BEGIN TRY
         INSERT INTO [NumeracionVentaContadores] ([Clave], [Valor]) VALUES (@clave, @semilla + 1);
         SET @v = @semilla + 1;
     END TRY
     BEGIN CATCH
         IF ERROR_NUMBER() NOT IN (2601, 2627) THROW;
-        UPDATE [NumeracionVentaContadores]
-           SET @v = [Valor] = CASE WHEN [Valor] < @semilla THEN @semilla + 1 ELSE [Valor] + 1 END
-         WHERE [Clave] = @clave;
+        UPDATE [NumeracionVentaContadores] SET @v = [Valor] = [Valor] + 1 WHERE [Clave] = @clave;
     END CATCH
 END
 SELECT @v;";
@@ -123,12 +109,6 @@ SELECT @v;";
                 await using var comando = conexion.CreateCommand();
                 comando.CommandText = sql;
                 comando.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
-
-                var pSemilla = comando.CreateParameter();
-                pSemilla.ParameterName = "@semilla";
-                pSemilla.DbType = DbType.Int32;
-                pSemilla.Value = semilla;
-                comando.Parameters.Add(pSemilla);
 
                 var pClave = comando.CreateParameter();
                 pClave.ParameterName = "@clave";

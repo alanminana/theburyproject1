@@ -107,6 +107,14 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
         // creados antes de la tabla de contadores o por otro camino).
         var previas = new List<int>();
         for (var i = 0; i < 3; i++) previas.Add((await CrearServicio(_context).CreateAsync(await NuevoVmAsync())).Id);
+        // Sufijos que cruzan el límite de 6 dígitos (el orden de texto los confundiría): 999999, 1000000 y 1000001.
+        var sufijos = new[] { 999999, 1000000, 1000001 };
+        for (var i = 0; i < previas.Count; i++)
+        {
+            var actual = await _context.Ventas.AsNoTracking().Where(v => v.Id == previas[i]).Select(v => v.Numero).SingleAsync();
+            var prefijo = string.Join('-', actual.Split('-').Take(2));
+            await _context.Database.ExecuteSqlRawAsync("UPDATE [Ventas] SET [Numero] = {0} WHERE [Id] = {1}", $"{prefijo}-{sufijos[i]}", previas[i]);
+        }
         var numerosPrevios = await _context.Ventas.AsNoTracking().Where(v => previas.Contains(v.Id)).Select(v => v.Numero).ToListAsync();
         await _context.Database.ExecuteSqlRawAsync("DELETE FROM [NumeracionVentaContadores]");
 
