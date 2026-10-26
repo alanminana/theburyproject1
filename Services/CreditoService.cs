@@ -2327,7 +2327,8 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync();
 
             var numero = ultimoCredito != null ? ultimoCredito.Id + 1 : 1;
-            return $"CRE-{DateTime.UtcNow:yyyyMM}-{numero:D6}";
+            var prefijo = await PrefijosNumeracion.ObtenerAsync(_context, TipoPrefijoNumeracion.Credito);
+            return $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{numero:D6}";
         }
 
         private async Task ValidarMontoDentroDelDisponibleAsync(

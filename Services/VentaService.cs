@@ -802,7 +802,8 @@ namespace TheBuryProject.Services
                 .OrderByDescending(c => c.Id)
                 .FirstOrDefaultAsync();
             var numeroSecuencial = ultimoCredito != null ? ultimoCredito.Id + 1 : 1;
-            var numeroCredito = $"CRE-{DateTime.UtcNow:yyyyMM}-{numeroSecuencial:D6}";
+            var prefijoCredito = await PrefijosNumeracion.ObtenerAsync(_context, TipoPrefijoNumeracion.Credito);
+            var numeroCredito = $"{prefijoCredito}-{DateTime.UtcNow:yyyyMM}-{numeroSecuencial:D6}";
 
             // Obtener puntaje de riesgo del cliente
             var cliente = await _context.Clientes.FindAsync(venta.ClienteId);

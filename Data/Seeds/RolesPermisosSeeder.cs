@@ -156,8 +156,8 @@ public static class RolesPermisosSeeder
             // Dashboard/gestión de mora (MoraController): módulo agregado para que los
             // permisos "mora.view/manage/config" que el controller ya exige por método
             // sean administrables desde /Seguridad (antes no existía y quedaban inalcanzables
-            // salvo para SuperAdmin). No se asigna a ningún rol operativo por defecto: la
-            // asignación a Gerente/Cajero/etc. es una decisión de negocio pendiente.
+            // salvo para SuperAdmin). Gerente: ver y gestionar; Cajero y Contador: solo ver; la
+            // configuración queda para Administrador/SuperAdmin.
             ("Mora", "mora", "Ventas", "bi-alarm", 24, new List<(string, string, int)>
             {
                 ("Ver", "view", 1),
@@ -493,13 +493,20 @@ public static class RolesPermisosSeeder
                 "proveedores", "ordenescompra", "stock", "movimientos",
                 "devoluciones", "garantias", "rmas", "notascredito",
                 AutorizacionesConstants.Modulo,
-                "reportes", "dashboard", "notificaciones"
+                "reportes", "dashboard", "notificaciones",
+                // Gestión de cobranza y política de precios: tareas de gerencia (antes quedaban solo para Admin).
+                "mora", "precios"
             };
             // ventas.discount queda fuera del grant en bloque del módulo "ventas": los descuentos son
             // un permiso independiente y Gerente no lo recibe implícitamente (decisión pendiente de
             // negocio: se asigna a mano desde Seguridad > Roles).
             await AsignarPermisosModulosAsync(context, gerenteRole.Id, modulos, modulosGerente,
-                exceptoAcciones: new[] { VentaConstants.PermisoDescuento.Claim });
+                exceptoAcciones: new[]
+                {
+                    VentaConstants.PermisoDescuento.Claim,
+                    // La configuración de mora y el alta/edición/baja de listas de precios siguen siendo administrativas.
+                    "mora.config", "precios.create", "precios.update", "precios.delete"
+                });
 
             // Documentos: gestiona plantillas y reglas, pero no los tipos documentales (alta/baja de clases de documento).
             await AsignarPermisosEspecificosAsync(context, gerenteRole.Id, modulos, new Dictionary<string, string[]>
@@ -535,6 +542,7 @@ public static class RolesPermisosSeeder
                 { "ventas", new[] { "view" } },
                 { "creditos", new[] { "view" } },
                 { "cobranzas", new[] { "view", "payinstallment", "viewarrears", "viewalerts" } },
+                { "mora", new[] { "view" } },
                 { "caja", new[] { "view", "open", "close", "movements", "history" } },
                 { "documentos", new[] { "view", "reprint" } },
                 { "clientes", new[] { "view" } },
@@ -581,6 +589,7 @@ public static class RolesPermisosSeeder
                 { "ventas", new[] { "view" } },
                 { "creditos", new[] { "view", "viewinstallments" } },
                 { "cobranzas", new[] { "view", "viewarrears", "viewalerts" } },
+                { "mora", new[] { "view" } },
                 { "clientes", new[] { "view" } },
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },

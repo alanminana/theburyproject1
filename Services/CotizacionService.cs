@@ -391,7 +391,8 @@ public sealed class CotizacionService : ICotizacionService
         try
         {
             var today = DateTime.UtcNow;
-            var prefix = $"COT-{today:yyyyMMdd}-";
+            var prefijo = await PrefijosNumeracion.ObtenerAsync(_context, TipoPrefijoNumeracion.Cotizacion);
+            var prefix = $"{prefijo}-{today:yyyyMMdd}-";
             var last = await _context.Cotizaciones
                 .AsNoTracking()
                 .Where(c => c.Numero.StartsWith(prefix))

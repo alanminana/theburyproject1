@@ -1,0 +1,89 @@
+@model PrefijosNumeracionAdminViewModel
+@{
+    ViewData["Title"] = "Configuración de prefijos";
+    var puedeEditar = User.TienePermiso("configuracion", "update");
+}
+
+@section Styles {
+    <style>
+        .cfgpago-head { border: 1px solid var(--pal-neutral-800); border-radius: 12px; background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent); padding: 1rem 1.25rem .85rem; margin: .5rem 0 1rem; }
+        .cfgpago-head-main { min-width: 0; }
+        .cfgpago-tabs-slot { margin-top: .75rem; }
+        .pf-card { border: 1px solid var(--pal-neutral-800); border-radius: 12px; background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent); padding: 1.1rem 1.25rem; }
+        .pf-row { display: grid; grid-template-columns: minmax(0, 1fr) 9rem minmax(0, 14rem); gap: .75rem 1rem; align-items: center; padding: .65rem 0; border-top: 1px solid var(--pal-neutral-800); }
+        .pf-row:first-of-type { border-top: 0; }
+        .pf-name { color: var(--pal-neutral-100); font-weight: 600; font-size: .9rem; }
+        .pf-field { width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--pal-neutral-700); background: var(--pal-neutral-925); color: var(--pal-neutral-100); padding: 0 .75rem; font-size: .875rem; font-family: ui-monospace, monospace; text-transform: uppercase; }
+        .pf-field:focus { outline: none; border-color: var(--pal-info-500); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-500) 35%, transparent); }
+        .pf-field[readonly] { opacity: .62; }
+        .pf-example { color: var(--pal-neutral-400); font-size: .8125rem; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+        .pf-hint { color: var(--pal-neutral-400); font-size: .8125rem; line-height: 1.5; margin: .25rem 0 .75rem; }
+        @@media (max-width: 639px) {
+            .pf-row { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+        }
+    </style>
+}
+
+<header class="cfgpago-head">
+    <div class="cfgpago-head-main">
+        <h1 class="cfgpago-title">Configuración</h1>
+        <p class="cfgpago-sub">Prefijos de los números de documento: elegí cómo querés que salgan.</p>
+    </div>
+    <div class="cfgpago-tabs-slot">
+        <partial name="~/Views/ConfiguracionPago/_ConfiguracionPagoTabs.cshtml" view-data="@(new ViewDataDictionary(ViewData) { { "ConfigPagoTab", "prefijos" } })" />
+    </div>
+</header>
+
+@if (TempData["Success"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <span class="material-symbols-outlined">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+        <span class="material-symbols-outlined">error</span>
+        @TempData["Error"]
+    </div>
+}
+
+<form asp-controller="PrefijosNumeracion" asp-action="Guardar" method="post" id="prefijos-form" class="space-y-5">
+    @Html.AntiForgeryToken()
+
+    <section class="pf-card" aria-labelledby="pf-title">
+        <h2 id="pf-title" class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">tag</span> Prefijos de numeración
+        </h2>
+        <p class="pf-hint">Hasta 5 letras o números (10 en crédito, orden de compra, contrato y pagaré; se guardan en mayúsculas); se permiten guiones entre medio, como en FA-A. El largo está limitado para que el número completo entre en su campo. Si lo dejás vacío vuelve al valor original. Cambiar un prefijo solo afecta a los números nuevos: los documentos ya emitidos conservan el suyo.</p>
+        @for (var i = 0; i < Model.Items.Count; i++)
+        {
+            <div class="pf-row" data-prefijo="@Model.Items[i].Tipo">
+                <input type="hidden" asp-for="Items[i].Tipo" />
+                <div class="pf-name">@Model.Items[i].Nombre</div>
+                <div>
+                    <label class="sr-only" for="prefijo-@i">Prefijo de @Model.Items[i].Nombre</label>
+                    <input asp-for="Items[i].Prefijo" id="prefijo-@i" type="text" maxlength="@Model.Items[i].LongitudMaxima" autocomplete="off"
+                           placeholder="@Model.Items[i].PrefijoPorDefecto" class="pf-field" readonly="@(!puedeEditar)" />
+                </div>
+                <div class="pf-example">Ej.: @Model.Items[i].Ejemplo</div>
+            </div>
+        }
+    </section>
+
+    @if (puedeEditar)
+    {
+        <div class="flex justify-end">
+            <button type="submit" class="btn-erp-primary">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                Guardar prefijos
+            </button>
+        </div>
+    }
+    else
+    {
+        <p class="pf-hint">Solo lectura: se necesita el permiso de edición de configuración para cambiar los prefijos.</p>
+    }
+</form>

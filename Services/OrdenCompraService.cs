@@ -408,7 +408,7 @@ namespace TheBuryProject.Services
         public async Task<string> GenerarNumeroOrdenAsync()
         {
             var anio = DateTime.UtcNow.Year;
-            var prefijo = $"OC-{anio}-";
+            var prefijo = $"{await PrefijosNumeracion.ObtenerAsync(_context, TipoPrefijoNumeracion.OrdenCompra)}-{anio}-";
             
             // Obtener el último número de orden del año actual
             var ultimaOrden = await _context.OrdenesCompra
@@ -424,7 +424,7 @@ namespace TheBuryProject.Services
             {
                 // Extraer el número secuencial del formato OC-YYYY-NNNN
                 var partes = ultimaOrden.Split('-');
-                if (partes.Length >= 3 && int.TryParse(partes[2], out int numeroActual))
+                if (partes.Length >= 3 && int.TryParse(partes[^1], out int numeroActual))
                 {
                     siguienteNumero = numeroActual + 1;
                 }

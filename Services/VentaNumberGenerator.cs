@@ -25,9 +25,7 @@ namespace TheBuryProject.Services
             // simultáneas. El camino "máximo + 1" bajo semáforo queda para los proveedores de prueba (SQLite).
             if (_context.Database.IsSqlServer())
             {
-                var prefijoVenta = estado == EstadoVenta.Cotizacion
-                    ? VentaConstants.PREFIJO_COTIZACION
-                    : VentaConstants.PREFIJO_VENTA;
+                var prefijoVenta = await ObtenerPrefijoVentaAsync(estado);
                 var periodoVenta = DateTime.UtcNow.ToString(VentaConstants.FORMATO_PERIODO);
                 var siguienteAtomico = await SiguienteAtomicoAsync($"{prefijoVenta}-{periodoVenta}");
                 var numeroAtomico = string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijoVenta, periodoVenta, siguienteAtomico);
@@ -38,9 +36,7 @@ namespace TheBuryProject.Services
             await _semaphore.WaitAsync();
             try
             {
-                var prefijo = estado == EstadoVenta.Cotizacion
-                    ? VentaConstants.PREFIJO_COTIZACION
-                    : VentaConstants.PREFIJO_VENTA;
+                var prefijo = await ObtenerPrefijoVentaAsync(estado);
 
                 var fecha = DateTime.UtcNow;
                 var periodo = fecha.ToString(VentaConstants.FORMATO_PERIODO);
@@ -56,7 +52,7 @@ namespace TheBuryProject.Services
                 if (ultimaVenta != null)
                 {
                     var partes = ultimaVenta.Numero.Split('-');
-                    if (partes.Length == 3 && int.TryParse(partes[2], out int ultimo))
+                    if (partes.Length >= 3 && int.TryParse(partes[^1], out int ultimo))
                     {
                         siguiente = ultimo + 1;
                     }
@@ -130,7 +126,7 @@ SELECT @v;";
             await _semaphore.WaitAsync();
             try
             {
-                var prefijo = ObtenerPrefijoFactura(tipo);
+                var prefijo = await ObtenerPrefijoFacturaAsync(tipo);
                 var fecha = DateTime.UtcNow;
                 var periodo = fecha.ToString(VentaConstants.FORMATO_PERIODO);
                 var prefijoCompleto = $"{prefijo}-{periodo}";
@@ -161,17 +157,24 @@ SELECT @v;";
             }
         }
 
-        private static string ObtenerPrefijoFactura(TipoFactura tipo)
+        // Cotización y venta comparten tabla pero llevan prefijo propio (configurable en Configuración → Prefijos).
+        private Task<string> ObtenerPrefijoVentaAsync(EstadoVenta estado) =>
+            PrefijosNumeracion.ObtenerAsync(
+                _context,
+                estado == EstadoVenta.Cotizacion ? TipoPrefijoNumeracion.Cotizacion : TipoPrefijoNumeracion.Venta);
+
+        private Task<string> ObtenerPrefijoFacturaAsync(TipoFactura tipo)
         {
-            return tipo switch
+            var tipoPrefijo = tipo switch
             {
-                TipoFactura.A => VentaConstants.FacturaPrefijos.TIPO_A,
-                TipoFactura.B => VentaConstants.FacturaPrefijos.TIPO_B,
-                TipoFactura.C => VentaConstants.FacturaPrefijos.TIPO_C,
-                TipoFactura.NotaCredito => VentaConstants.FacturaPrefijos.NOTA_CREDITO,
-                TipoFactura.NotaDebito => VentaConstants.FacturaPrefijos.NOTA_DEBITO,
-                _ => VentaConstants.FacturaPrefijos.GENERICO
+                TipoFactura.A => TipoPrefijoNumeracion.FacturaA,
+                TipoFactura.B => TipoPrefijoNumeracion.FacturaB,
+                TipoFactura.C => TipoPrefijoNumeracion.FacturaC,
+                TipoFactura.NotaCredito => TipoPrefijoNumeracion.NotaCreditoFiscal,
+                TipoFactura.NotaDebito => TipoPrefijoNumeracion.NotaDebitoFiscal,
+                _ => TipoPrefijoNumeracion.FacturaGenerica
             };
+            return PrefijosNumeracion.ObtenerAsync(_context, tipoPrefijo);
         }
     }
 }
