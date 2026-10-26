@@ -174,9 +174,8 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("Usuario autenticado: {UserName}", userName);
-
                     var user = await _userManager.FindByNameAsync(userName);
+                    _logger.LogInformation("Usuario autenticado: {UserId}", user?.Id);
                     if (user != null)
                     {
                         try
@@ -187,7 +186,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                         catch (Exception ex)
                         {
                             // El registro de último acceso nunca debe impedir el ingreso.
-                            _logger.LogWarning(ex, "No se pudo registrar el último acceso de {UserName}", userName);
+                            _logger.LogWarning(ex, "No se pudo registrar el último acceso de {UserId}", user.Id);
                         }
                     }
 
@@ -202,12 +201,17 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                     return LocalRedirect(returnUrl);
                 }
 
+                // LOG-D-002 / LOG-D-004: los intentos fallidos y bloqueos quedan en el log (Warning) con el id interno, nunca con el
+                // nombre tipeado (puede ser una contraseña pegada por error).
+                var idUsuario = (await _userManager.FindByNameAsync(userName))?.Id ?? "desconocido";
+
                 if (result.IsLockedOut)
                 {
-                    _logger.LogWarning("Cuenta bloqueada: {UserName}", userName);
+                    _logger.LogWarning("Cuenta bloqueada: {UserId}", idUsuario);
                     return RedirectToPage("./Lockout");
                 }
 
+                _logger.LogWarning("Intento de acceso fallido para {UserId}", idUsuario);
                 ModelState.AddModelError(string.Empty, "Usuario o contraseña incorrectos.");
             }
 
