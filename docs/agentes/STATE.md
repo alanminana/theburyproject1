@@ -17,7 +17,7 @@ Todo lo de esta página es **punto en el tiempo**: re-verificar contra Git/GitHu
 ## 2. Git (verificado el 2026-10-23)
 
 - `origin/main` = `43b0118b` (verificado el 2026-10-26 con `git fetch origin main` + `git rev-parse origin/main`; el SHA cambia con cada merge, incluido el de este archivo: re-verificar).
-- PRs abiertas (verificado con `gh pr list --state open`): ver `gh pr list --state open` (al cerrar esta ronda: #134, #135 y este archivo). Fusionadas desde la auditoría QA: #96-#100, #103, #106, #108-#133 (detalle en la sección 3).
+- PRs abiertas (verificado con `gh pr list --state open`): ver `gh pr list --state open` (al cerrar esta ronda: solo este archivo). Fusionadas desde la auditoría QA: #96-#100, #103, #106, #108-#135 (detalle en la sección 3).
 - El checkout principal `D:\git\theburyproject1` está en `trabajo/cambios-pendientes` (c82c265d) con cambios sin commit de otros agentes (`AGENTS.md`, `CLAUDE.md`, skills): **no trabajar ahí**; usar worktrees.
 - Hay ~50 worktrees `D:\git\theburyproject1-*` de tareas previas: no modificarlos. Retirarlos requiere autorización (Bloque 3 del rescate Git).
 
