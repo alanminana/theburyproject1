@@ -747,12 +747,13 @@ namespace TheBuryProject.Services
             return ctx;
         }
 
-        private Task<string> GenerarNumeroContratoAsync() => GenerarNumeroAsync("CVC");
+        private Task<string> GenerarNumeroContratoAsync() => GenerarNumeroAsync(TipoPrefijoNumeracion.ContratoCredito);
 
-        private Task<string> GenerarNumeroPagareAsync() => GenerarNumeroAsync("PAG");
+        private Task<string> GenerarNumeroPagareAsync() => GenerarNumeroAsync(TipoPrefijoNumeracion.Pagare);
 
-        private async Task<string> GenerarNumeroAsync(string prefijo)
+        private async Task<string> GenerarNumeroAsync(TipoPrefijoNumeracion tipoPrefijo)
         {
+            var prefijo = await PrefijosNumeracion.ObtenerAsync(_context, tipoPrefijo);
             var count = await _context.ContratosVentaCredito.IgnoreQueryFilters().CountAsync();
             return $"{prefijo}-{_reloj.HoyComercial:yyyyMM}-{count + 1:D6}";
         }

@@ -171,6 +171,7 @@ builder.Services.AddScoped<IPunitorioService, PunitorioService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IVentaEnvioService, VentaEnvioService>();
 builder.Services.AddScoped<IServicioVentaPrecioService, ServicioVentaPrecioService>();
+builder.Services.AddScoped<IPrefijoNumeracionService, PrefijoNumeracionService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();

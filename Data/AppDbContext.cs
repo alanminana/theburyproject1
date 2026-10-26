@@ -91,6 +91,7 @@ namespace TheBuryProject.Data
         public DbSet<DatosCheque> DatosCheque { get; set; }
         public DbSet<VentaEnvio> VentaEnvios { get; set; }
         public DbSet<ServicioVentaPrecio> ServiciosVentaPrecios { get; set; }
+        public DbSet<PrefijoNumeracion> PrefijosNumeracion { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
         public DbSet<AlertaMora> AlertasMora { get; set; }
@@ -1968,6 +1969,18 @@ namespace TheBuryProject.Data
             {
                 entity.ToTable("ServiciosVentaPrecios");
                 entity.Property(e => e.Precio).HasPrecision(18, 2);
+                entity.HasIndex(e => e.Tipo)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+            });
+
+            // =======================
+            // PrefijoNumeracion (prefijos configurables de los números de documento)
+            // =======================
+            modelBuilder.Entity<PrefijoNumeracion>(entity =>
+            {
+                entity.ToTable("PrefijosNumeracion");
+                entity.Property(e => e.Prefijo).HasMaxLength(10);
                 entity.HasIndex(e => e.Tipo)
                     .IsUnique()
                     .HasFilter("IsDeleted = 0");
