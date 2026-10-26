@@ -229,4 +229,79 @@ public class CajaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationF
 
         Assert.Equal(1, aperturas);
     }
+
+    // ---- Cerrar ----
+
+    private async Task<int> SembrarAperturaAbiertaAsync()
+    {
+        var cajaId = await SembrarCajaAsync();
+        await AbrirAsync(cajaId, f => f["MontoInicial"] = "1000");
+        await using var ctx = await NuevoContextoAsync();
+        return (await ctx.AperturasCaja.AsNoTracking().SingleAsync(a => a.CajaId == cajaId)).Id;
+    }
+
+    private async Task<bool> CerrarAsync(int aperturaId, Action<Dictionary<string, string>> ajuste)
+    {
+        var client = _factory.CreateAuthenticatedClient();
+        var campos = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await TokenAsync(client),
+            ["AperturaCajaId"] = aperturaId.ToString(),
+            ["EfectivoContado"] = "1000",
+            ["ChequesContados"] = "0",
+            ["ValesContados"] = "0",
+        };
+        ajuste(campos);
+        await client.PostAsync("/Caja/Cerrar", new FormUrlEncodedContent(campos));
+        await using var ctx = await NuevoContextoAsync();
+        return (await ctx.AperturasCaja.AsNoTracking().SingleAsync(a => a.Id == aperturaId)).Cerrada;
+    }
+
+    [Theory]
+    [InlineData("EfectivoContado", "-1")]
+    [InlineData("EfectivoContado", "20000001")]
+    [InlineData("EfectivoContado", "1.500")]   // ambiguo
+    [InlineData("EfectivoContado", "abc")]
+    [InlineData("ChequesContados", "-5")]
+    [InlineData("ValesContados", "-5")]
+    [InlineData("ChequesContados", "20000001")]
+    public async Task Cerrar_MontosFueraDeRegla_NoCierraLaCaja(string campo, string valor)
+    {
+        var aperturaId = await SembrarAperturaAbiertaAsync();
+
+        var cerrada = await CerrarAsync(aperturaId, f => f[campo] = valor);
+
+        Assert.False(cerrada, $"{campo}='{valor}' cerró la caja.");
+    }
+
+    [Theory]
+    [InlineData("JustificacionDiferencia", 1001)]
+    [InlineData("ObservacionesCierre", 501)]
+    [InlineData("DetalleArqueo", 2001)]
+    public async Task Cerrar_TextosDemasiadoLargos_NoCierraLaCaja(string campo, int largo)
+    {
+        var aperturaId = await SembrarAperturaAbiertaAsync();
+
+        var cerrada = await CerrarAsync(aperturaId, f => f[campo] = new string('x', largo));
+
+        Assert.False(cerrada);
+    }
+
+    [Fact]
+    public async Task Cerrar_ConDiferenciaSinJustificacion_NoCierraLaCaja()
+    {
+        var aperturaId = await SembrarAperturaAbiertaAsync();
+
+        var cerrada = await CerrarAsync(aperturaId, f => f["EfectivoContado"] = "900");
+
+        Assert.False(cerrada);
+    }
+
+    [Fact]
+    public async Task Cerrar_ConImportesCorrectos_CierraLaCaja()
+    {
+        var aperturaId = await SembrarAperturaAbiertaAsync();
+
+        Assert.True(await CerrarAsync(aperturaId, f => { }));
+    }
 }
