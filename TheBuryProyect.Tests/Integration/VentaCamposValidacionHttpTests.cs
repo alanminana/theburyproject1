@@ -202,6 +202,66 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     public Task Anticipo_FueraDeRegla_SeRechaza(string anticipo) =>
         AssertRechazadaAsync("Anticipo", anticipo);
 
+    private static void ConCheque(Dictionary<string, string> form)
+    {
+        var hoy = DateTime.UtcNow.Date;
+        form["TipoPago"] = "Cheque";
+        form["DatosCheque.NumeroCheque"] = "00012345";
+        form["DatosCheque.Banco"] = "Banco Nación";
+        form["DatosCheque.Titular"] = "Cliente de Prueba";
+        form["DatosCheque.CUIT"] = "20-12345678-6";
+        form["DatosCheque.FechaEmision"] = hoy.ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaVencimiento"] = hoy.AddDays(30).ToString("yyyy-MM-dd");
+        form["DatosCheque.Monto"] = "1000";
+    }
+
+    private async Task AssertChequeRechazadoAsync(string campo, string valor)
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form[campo] = valor;
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, $"{campo}='{valor}' fue ACEPTADO: {cuerpo}");
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_Valido_SeAcepta()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.True(success, cuerpo);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("20000001")]
+    public Task Cheque_Monto_FueraDeRegla_SeRechaza(string monto) =>
+        AssertChequeRechazadoAsync("DatosCheque.Monto", monto);
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("<script>")]
+    [InlineData("123 456")]
+    public Task Cheque_Numero_NoNumerico_SeRechaza(string numero) =>
+        AssertChequeRechazadoAsync("DatosCheque.NumeroCheque", numero);
+
+    [Fact]
+    public Task Cheque_Vencimiento_AnteriorALaEmision_SeRechaza() =>
+        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", DateTime.UtcNow.Date.AddDays(-10).ToString("yyyy-MM-dd"));
+
+    [Fact]
+    public Task Cheque_Cuit_ConVerificadorInvalido_SeRechaza() =>
+        AssertChequeRechazadoAsync("DatosCheque.CUIT", "20-12345678-0");
+
     [Fact]
     public async Task VentaValidaDeBorde_SeAcepta()
     {
