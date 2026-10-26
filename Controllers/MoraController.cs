@@ -411,22 +411,10 @@ namespace TheBuryProject.Controllers
 
         [PermisoRequerido(Modulo = "mora", Accion = "config")]
         [HttpGet]
-        public async Task<IActionResult> Configuracion(string? returnUrl = null)
+        public IActionResult Configuracion(string? returnUrl = null)
         {
-            try
-            {
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-                var config = await _moraService.GetConfiguracionAsync();
-                var vm = _mapper.Map<ConfiguracionMoraViewModel>(config);
-                return View(vm);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar configuración de mora");
-                TempData["Error"] = "Error al cargar configuración: " + ex.Message;
-                return View(new ConfiguracionMoraViewModel());
-            }
+            // La vista "Configuracion" no existe; la pantalla vigente es ConfiguracionExpandida (FUN-D-001).
+            return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "config")]
