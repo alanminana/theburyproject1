@@ -673,6 +673,150 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_CreditoSinCuotasVencidas_ResuelveLaAlertaDeMoraActiva()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // Alerta de mora activa, pero el crédito ya no tiene cuotas vencidas con saldo.
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.True(recargada.Resuelta);
+        Assert.NotNull(recargada.FechaResolucion);
+        Assert.Equal(EstadoGestionCobranza.Regularizado, recargada.EstadoGestion);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CreditoConCuotaVencidaAunImpaga_NoResuelveLaAlerta()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.False(recargada.Resuelta);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_DeudaImpagaDentroDeGraciaAmpliada_NoResuelveLaAlertaNiPierdePromesa()
+    {
+        _context.Set<ConfiguracionMora>().Add(new ConfiguracionMora
+        {
+            TasaMoraBase = 1m,
+            DiasGracia = 30,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        });
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // Capital impago vencido hace 10 días: queda dentro de los 30 días de gracia ampliados.
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        alerta.FechaPromesaPago = DateTime.Today.AddDays(2);
+        alerta.EstadoGestion = EstadoGestionCobranza.PromesaPago;
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.False(recargada.Resuelta);
+        Assert.Equal(EstadoGestionCobranza.PromesaPago, recargada.EstadoGestion);
+    }
+
+    [Fact]
+    public async Task Kpis_PromesaSobreAlertaPreventiva_SigueContandoEnIndicadoresDePromesas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var preventiva = await SeedAlertaAsync(cliente.Id, credito.Id);
+        preventiva.Tipo = TipoAlertaCobranza.ProximoVencimiento;
+        preventiva.FechaPromesaPago = _reloj.InicioDiaComercial;
+        preventiva.MontoPromesaPago = 700m;
+        await _context.SaveChangesAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(1, kpis.PromesasVencenHoy);
+        Assert.Equal(700m, kpis.MontoPromesasHoy);
+        Assert.Equal(0, kpis.TotalClientesMora);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_AcuerdoActivoSinDeudaVencida_ConservaLaAlerta()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id, estado: EstadoGestionCobranza.AcuerdoActivo);
+        // El acuerdo reprogramó los vencimientos: el crédito ya no tiene cuotas vencidas, pero el acuerdo sigue activo.
+        _context.AcuerdosPago.Add(new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id,
+            ClienteId = cliente.Id,
+            CreditoId = credito.Id,
+            NumeroAcuerdo = "AC-TEST-1",
+            Estado = EstadoAcuerdo.Activo,
+            MontoDeudaOriginal = 1_000m,
+            MontoTotalAcuerdo = 1_000m,
+            CantidadCuotas = 2
+        });
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.False(recargada.Resuelta);
+        Assert.Equal(EstadoGestionCobranza.AcuerdoActivo, recargada.EstadoGestion);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_NoResuelveAlertasPreventivasDeOtroCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var preventiva = await SeedAlertaAsync(cliente.Id, credito.Id);
+        preventiva.Tipo = TipoAlertaCobranza.ProximoVencimiento;
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == preventiva.Id);
+        Assert.False(recargada.Resuelta);
+    }
+
+    [Fact]
+    public async Task Kpis_YBandeja_NoCuentanAlertasPreventivasComoMora()
+    {
+        var clienteMora = await SeedClienteAsync();
+        var creditoMora = await SeedCreditoAsync(clienteMora.Id);
+        await SeedCuotaVencidaAsync(creditoMora.Id, diasVencido: 10);
+        var alertaMora = await SeedAlertaAsync(clienteMora.Id, creditoMora.Id);
+        alertaMora.MontoVencido = 1_000m;
+
+        var clientePreventivo = await SeedClienteAsync();
+        var creditoPreventivo = await SeedCreditoAsync(clientePreventivo.Id);
+        var preventiva = await SeedAlertaAsync(clientePreventivo.Id, creditoPreventivo.Id);
+        preventiva.Tipo = TipoAlertaCobranza.ProximoVencimiento;
+        preventiva.MontoVencido = 50_000m;
+        await _context.SaveChangesAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+
+        Assert.Equal(1, kpis.TotalClientesMora);
+        Assert.Equal(1_000m, kpis.MontoTotalVencido);
+        Assert.Equal(1, kpis.AlertasActivas);
+        Assert.Single(bandeja.Clientes);
+        Assert.Equal(clienteMora.Id, bandeja.Clientes[0].ClienteId);
+    }
+
+    [Fact]
     public async Task ProcesarMora_CuotaPorVencer_GeneraAlertaProximoVencimiento()
     {
         // Config con DiasAntesAlertaPreventiva = 5 → cuota que vence en 3 días sí genera alerta

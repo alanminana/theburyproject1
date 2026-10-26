@@ -280,6 +280,11 @@ namespace TheBuryProject.Services
                     }
                 }
 
+                // Una alerta de mora activa cuyo crédito ya no tiene cuotas vencidas con saldo (se pagó o
+                // se canceló todo lo vencido) deja de ser accionable: se resuelve para no seguir
+                // reclamando una deuda saldada. Mismo predicado que la generación de alertas.
+                await ResolverAlertasMoraRegularizadasAsync(creditoIds, hoy, ct);
+
                 // Generar alertas de próximos vencimientos
                 await GenerarAlertasProximosVencimientosAsync(config, ct);
 
@@ -330,6 +335,56 @@ namespace TheBuryProject.Services
                 _logger.LogInformation("Log de ejecución guardado. Duración: {Duracion}ms",
                     log.DuracionEjecucion.TotalMilliseconds);
             }
+        }
+
+        private async Task ResolverAlertasMoraRegularizadasAsync(List<int> creditoIdsConMora, DateTime hoy, CancellationToken ct)
+        {
+            var ahora = DateTime.UtcNow;
+            var candidatas = await _context.AlertasCobranza
+                .Where(a => !a.IsDeleted && !a.Resuelta
+                            && (a.Tipo == TipoAlertaCobranza.CuotaVencida || a.Tipo == TipoAlertaCobranza.MoraElevada)
+                            && !creditoIdsConMora.Contains(a.CreditoId))
+                .ToListAsync(ct);
+            if (candidatas.Count == 0)
+                return;
+
+            // "Regularizada" = sin capital vencido impago, SIN aplicar los días de gracia: si la gracia se amplió
+            // después de generar la alerta, la deuda sigue existiendo y su gestión (promesas, contactos) no se pierde.
+            var idsCandidatos = candidatas.Select(a => a.CreditoId).Distinct().ToList();
+            var creditosConDeudaVencida = (await _context.Cuotas
+                .Where(c => !c.IsDeleted &&
+                            idsCandidatos.Contains(c.CreditoId) &&
+                            c.Estado != EstadoCuota.Pagada &&
+                            c.Estado != EstadoCuota.Cancelada &&
+                            c.MontoPagado < c.MontoTotal &&
+                            c.FechaVencimiento < hoy)
+                .Select(c => c.CreditoId)
+                .Distinct()
+                .ToListAsync(ct))
+                .ToHashSet();
+            // Un acuerdo de pago activo puede haber reprogramado los vencimientos: mientras siga activo, la gestión
+            // de cobranza (y su visibilidad en la bandeja) se conserva; el acuerdo es la autoridad.
+            var creditosConAcuerdoActivo = (await _context.AcuerdosPago
+                .Where(ac => !ac.IsDeleted && ac.Estado == EstadoAcuerdo.Activo && idsCandidatos.Contains(ac.CreditoId))
+                .Select(ac => ac.CreditoId)
+                .Distinct()
+                .ToListAsync(ct))
+                .ToHashSet();
+            var regularizadas = candidatas
+                .Where(a => !creditosConDeudaVencida.Contains(a.CreditoId) && !creditosConAcuerdoActivo.Contains(a.CreditoId))
+                .ToList();
+
+            foreach (var alerta in regularizadas)
+            {
+                alerta.Resuelta = true;
+                alerta.FechaResolucion = ahora;
+                alerta.EstadoGestion = EstadoGestionCobranza.Regularizado;
+                alerta.MotivoResolucion = "Deuda vencida regularizada (resuelta por el proceso de mora)";
+                alerta.UpdatedAt = ahora;
+            }
+
+            if (regularizadas.Count > 0)
+                _logger.LogInformation("Alertas de mora regularizadas resueltas: {Cantidad}", regularizadas.Count);
         }
 
         private async Task GenerarAlertasProximosVencimientosAsync(ConfiguracionMora config, CancellationToken ct = default)
@@ -768,7 +823,8 @@ namespace TheBuryProject.Services
                     .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
-                    .Where(a => !a.IsDeleted && !a.Resuelta && a.Cliente != null && !a.Cliente.IsDeleted)
+                    .Where(a => !a.IsDeleted && !a.Resuelta && a.Tipo != TipoAlertaCobranza.ProximoVencimiento
+                                && a.Cliente != null && !a.Cliente.IsDeleted)
                     .AsQueryable();
 
                 // Materializar alertas con datos de cliente para poder usar ToDisplayName() en memoria
@@ -1459,12 +1515,15 @@ namespace TheBuryProject.Services
                 var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
                 var config = await GetConfiguracionAsync();
 
-                // Alertas activas (no resueltas)
-                var alertas = await _context.AlertasCobranza
+                // Alertas activas (no resueltas). Las de ProximoVencimiento son preventivas: la cuota todavía no
+                // venció, así que no cuentan como clientes en mora ni como monto vencido; sus promesas de pago sí
+                // siguen en los indicadores de promesas.
+                var alertasActivas = await _context.AlertasCobranza
                     .AsNoTracking()
                     .Where(a => !a.IsDeleted && !a.Resuelta)
                     .Include(a => a.Cliente)
                     .ToListAsync();
+                var alertas = alertasActivas.Where(a => a.Tipo != TipoAlertaCobranza.ProximoVencimiento).ToList();
 
                 var clienteIdsEnMora = alertas.Select(a => a.ClienteId).Distinct().ToList();
 
@@ -1487,10 +1546,10 @@ namespace TheBuryProject.Services
                 var diasPromedio = alertas.Any() ? alertas.Average(a => a.DiasAtraso) : 0;
 
                 // Promesas
-                var promesasActivas = alertas.Count(a => a.FechaPromesaPago >= hoy);
-                var promesasVencenHoy = alertas.Count(a => a.FechaPromesaPago?.Date == hoy);
-                var montoPromesasHoy = alertas.Where(a => a.FechaPromesaPago?.Date == hoy).Sum(a => a.MontoPromesaPago ?? 0);
-                var promesasVencidas = alertas.Count(a => a.FechaPromesaPago < hoy && a.FechaPromesaPago != null);
+                var promesasActivas = alertasActivas.Count(a => a.FechaPromesaPago >= hoy);
+                var promesasVencenHoy = alertasActivas.Count(a => a.FechaPromesaPago?.Date == hoy);
+                var montoPromesasHoy = alertasActivas.Where(a => a.FechaPromesaPago?.Date == hoy).Sum(a => a.MontoPromesaPago ?? 0);
+                var promesasVencidas = alertasActivas.Count(a => a.FechaPromesaPago < hoy && a.FechaPromesaPago != null);
 
                 // Acuerdos activos (calcular saldo pendiente a partir de cuotas)
                 var acuerdos = await _context.AcuerdosPago
