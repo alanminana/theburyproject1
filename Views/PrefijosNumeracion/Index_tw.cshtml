@@ -57,7 +57,7 @@
         <h2 id="pf-title" class="text-lg font-semibold text-white flex items-center gap-2">
             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">tag</span> Prefijos de numeración
         </h2>
-        <p class="pf-hint">Hasta 6 letras o números (10 en crédito, orden de compra, contrato y pagaré; se guardan en mayúsculas); se permiten guiones entre medio, como en FA-A. El largo está limitado para que el número completo entre en su campo. Si lo dejás vacío vuelve al valor original. Cambiar un prefijo solo afecta a los números nuevos: los documentos ya emitidos conservan el suyo.</p>
+        <p class="pf-hint">Hasta 5 letras o números (10 en crédito, orden de compra, contrato y pagaré; se guardan en mayúsculas); se permiten guiones entre medio, como en FA-A. El largo está limitado para que el número completo entre en su campo. Si lo dejás vacío vuelve al valor original. Cambiar un prefijo solo afecta a los números nuevos: los documentos ya emitidos conservan el suyo.</p>
         @for (var i = 0; i < Model.Items.Count; i++)
         {
             <div class="pf-row" data-prefijo="@Model.Items[i].Tipo">

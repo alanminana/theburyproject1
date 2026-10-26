@@ -44,8 +44,8 @@ public sealed class PrefijosNumeracionTests : IDisposable
     [Fact]
     public async Task Guardar_NormalizaAMayusculas_YVacioVuelveAlDefecto()
     {
-        await _service.GuardarAsync([new(TipoPrefijoNumeracion.Venta, " pedido ")]);
-        Assert.Equal("PEDIDO", (await _service.ListarAsync()).Single(p => p.Tipo == TipoPrefijoNumeracion.Venta).Prefijo);
+        await _service.GuardarAsync([new(TipoPrefijoNumeracion.Venta, " pedid ")]);
+        Assert.Equal("PEDID", (await _service.ListarAsync()).Single(p => p.Tipo == TipoPrefijoNumeracion.Venta).Prefijo);
 
         await _service.GuardarAsync([new(TipoPrefijoNumeracion.Venta, "  ")]);
         Assert.Equal("VTA", (await _service.ListarAsync()).Single(p => p.Tipo == TipoPrefijoNumeracion.Venta).Prefijo);
@@ -58,7 +58,7 @@ public sealed class PrefijosNumeracionTests : IDisposable
     [InlineData("A--B")]
     [InlineData("A/B")]
     [InlineData("ABCDEFGHIJK")]
-    [InlineData("PEDIDOS")]  // 7: "PEDIDOS-202610-000001" no entra en Ventas.Numero (20)
+    [InlineData("PEDIDO")]  // 6: con un contador de 7 dígitos "PEDIDO-202610-1000000" no entra en Ventas.Numero (20)
     public async Task Guardar_FormatoInvalido_SeRechazaSinGuardarNada(string invalido)
     {
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.GuardarAsync(
@@ -84,8 +84,8 @@ public sealed class PrefijosNumeracionTests : IDisposable
     public void LongitudMaxima_HaceQueElNumeroCompletoEntreEnLaColumna()
     {
         // Ventas, Facturas, Devoluciones, Notas de crédito y Garantías guardan el número en 20 caracteres.
-        foreach (var tipo in Enum.GetValues<TipoPrefijoNumeracion>().Where(t => t.LongitudMaxima() == 6))
-            Assert.True(tipo.Ejemplo(new string('X', 6)).Length <= 20, tipo.ToString());
+        foreach (var tipo in Enum.GetValues<TipoPrefijoNumeracion>().Where(t => t.LongitudMaxima() == 5))
+            Assert.True(tipo.Ejemplo(new string('X', 5)).Length + 1 <= 20, tipo.ToString()); // +1: contador de 7 dígitos
     }
 
     [Fact]
@@ -106,10 +106,10 @@ public sealed class PrefijosNumeracionTests : IDisposable
         Assert.StartsWith("VTA-", anterior);
 
         await _service.GuardarAsync([
-            new(TipoPrefijoNumeracion.Venta, "pedido"),
+            new(TipoPrefijoNumeracion.Venta, "pedid"),
             new(TipoPrefijoNumeracion.Cotizacion, "pres")]);
 
-        Assert.StartsWith("PEDIDO-", await generador.GenerarNumeroAsync(EstadoVenta.Confirmada));
+        Assert.StartsWith("PEDID-", await generador.GenerarNumeroAsync(EstadoVenta.Confirmada));
         Assert.StartsWith("PRES-", await generador.GenerarNumeroAsync(EstadoVenta.Cotizacion));
         Assert.StartsWith("VTA-", anterior);
     }

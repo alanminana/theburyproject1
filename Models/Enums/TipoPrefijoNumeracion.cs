@@ -43,14 +43,14 @@ namespace TheBuryProject.Models.Enums
         };
 
         /// <summary>
-        /// Largo máximo del prefijo: el número completo ("prefijo-yyyyMM-000001", 14 caracteres más) debe entrar en la
-        /// columna que lo guarda (20 en Ventas, Facturas, Devoluciones, Notas de crédito y Garantías; 50 en el resto).
+        /// Largo máximo del prefijo: el número completo ("prefijo-yyyyMM-" más hasta 7 dígitos, 15 caracteres) debe entrar
+        /// en la columna que lo guarda (20 en Ventas, Facturas, Devoluciones, Notas de crédito y Garantías; 50 en el resto).
         /// </summary>
         public static int LongitudMaxima(this TipoPrefijoNumeracion tipo) => tipo switch
         {
             TipoPrefijoNumeracion.Credito or TipoPrefijoNumeracion.OrdenCompra
                 or TipoPrefijoNumeracion.ContratoCredito or TipoPrefijoNumeracion.Pagare => 10,
-            _ => 6
+            _ => 5
         };
 
         public static string NombreVisible(this TipoPrefijoNumeracion tipo) => tipo switch
