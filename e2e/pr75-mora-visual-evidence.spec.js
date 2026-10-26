@@ -183,17 +183,24 @@ for (const v of VIEWPORTS) {
                 await snap(id, 'ficha-cliente', estado, desc, { locator: loc });
             });
         }
-        await escenario('F9', 'ficha-cliente', 'gestion-proximamente', async () => {
+        await escenario('F9', 'ficha-cliente', 'gestion-formularios', async () => {
             const gestion = page.locator('[data-mora-ficha-gestion]');
             await gestion.scrollIntoViewIfNeeded();
-            // Las tres acciones de gestión deben seguir NO disponibles (aria-disabled, sin enlace ni botón activo).
-            for (const a of ['contacto', 'promesa', 'acuerdo']) {
-                const item = gestion.locator(`[data-mora-gestion="${a}"]`);
-                await expect(item).toHaveAttribute('aria-disabled', 'true');
-                await expect(item).toContainText('Próximamente');
-                expect(await item.locator('a[href], button:not([disabled]), input, select, textarea').count()).toBe(0);
+            // Contacto, promesa y acuerdo son formularios reales (details) con su token anti-falsificación;
+            // un cliente sin alerta activa solo muestra el aviso explicativo.
+            if (await gestion.locator('[data-mora-gestion="contacto"]').count() === 0) {
+                await expect(gestion.locator('[data-mora-estado="gestion-sin-alerta"]')).toBeVisible();
+            } else {
+                for (const a of ['contacto', 'promesa', 'acuerdo']) {
+                    const item = gestion.locator(`[data-mora-gestion="${a}"]`);
+                    await expect(item).toBeVisible();
+                    await expect(item).not.toContainText('Próximamente');
+                    await item.locator('summary').click();
+                    await expect(item.locator('input[name="__RequestVerificationToken"]').first()).toBeAttached();
+                    await expect(item.locator('button[type="submit"]').first()).toBeVisible();
+                }
             }
-            await snap('F9', 'ficha-cliente', 'gestion-proximamente', 'Sección «Registrar gestión»: 3 acciones deshabilitadas con «Próximamente».', { locator: gestion });
+            await snap('F9', 'ficha-cliente', 'gestion-formularios', 'Sección «Registrar gestión»: formularios de contacto, promesa y acuerdo.', { locator: gestion });
         });
 
         await escenario('F10', 'ficha-cliente', 'sin-contactos', async () => {
