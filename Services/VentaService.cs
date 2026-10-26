@@ -3580,6 +3580,16 @@ namespace TheBuryProject.Services
 
             var totalConCentavos = detallesList.Sum(d => d.SubtotalFinal) + servicios;
             venta.Total = TruncarAPesos(totalConCentavos);
+
+            // VALID-L1: el total no puede superar el tope de monto del ERP (el mismo de [MontoArgentino]). Sin tope,
+            // una cantidad absurda (p. ej. int.MaxValue) producía una venta de billones. Se valida el total y no la
+            // cantidad: no inventa un límite de unidades y cubre cualquier combinación cantidad x precio.
+            if (venta.Total > Validation.MontoArgentinoAttribute.Maximo)
+            {
+                throw new InvalidOperationException(
+                    $"El total de la venta no puede superar ${Validation.MontoArgentinoAttribute.Maximo:N0}. Revise cantidades y precios.");
+            }
+
             (venta.Subtotal, venta.IVA) = AbsorberTruncadoEnNetoEIva(
                 detallesList.Sum(d => d.SubtotalFinalNeto) + serviciosNeto,
                 detallesList.Sum(d => d.SubtotalFinalIVA) + serviciosIva,
