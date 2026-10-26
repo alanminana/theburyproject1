@@ -87,6 +87,14 @@ public class PermisoRequeridoAttribute : AuthorizeAttribute, IAuthorizationFilte
 
         if (!hasPermission)
         {
+            // LOG-D-002: el acceso denegado es un evento de seguridad; se registra con el id (no el nombre) del usuario.
+            logger?.LogWarning(
+                "Acceso denegado a {Path}: requiere {Modulo}.{Accion}. UsuarioId: {UserId}",
+                requestPath,
+                normalizedModulo,
+                normalizedAccion,
+                user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonimo");
+
             context.Result = new ForbidResult();
             return;
         }
