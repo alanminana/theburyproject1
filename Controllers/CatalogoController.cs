@@ -272,7 +272,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al simular cambio de precios");
-                return StatusCode(500, new { error = "Error al simular el cambio de precios", mensaje = ex.Message });
+                return StatusCode(500, new { error = "Error al simular el cambio de precios", mensaje = "Ocurrió un error inesperado. Intentá nuevamente." });
             }
         }
 
@@ -305,7 +305,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al aplicar cambio de precios");
-                return StatusCode(500, new { error = "Error al aplicar el cambio de precios", mensaje = ex.Message });
+                return StatusCode(500, new { error = "Error al aplicar el cambio de precios", mensaje = "Ocurrió un error inesperado. Intentá nuevamente." });
             }
         }
         /// <summary>
@@ -338,7 +338,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al aplicar cambio directo de precio");
-                return StatusCode(500, new { error = "Error al aplicar el cambio de precio", mensaje = ex.Message });
+                return StatusCode(500, new { error = "Error al aplicar el cambio de precio", mensaje = "Ocurrió un error inesperado. Intentá nuevamente." });
             }
         }
 
