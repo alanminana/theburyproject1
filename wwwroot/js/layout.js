@@ -10,9 +10,20 @@
     const collapseBtn  = document.getElementById('collapseSidebar');
     const STORAGE_KEY  = 'sidebar-collapsed';
 
+    // FE-D-003: en mobile el menú cerrado está fuera de pantalla solo por transform; sin `inert` sus enlaces seguían
+    // recibiendo foco con Tab. En escritorio el menú siempre es visible y nunca es inert.
+    const mobileMq = window.matchMedia('(max-width: 1023px)');
+    function syncSidebarInert() {
+        if (!sidebar) return;
+        sidebar.inert = mobileMq.matches && !sidebar.classList.contains('open');
+    }
+    mobileMq.addEventListener('change', syncSidebarInert);
+    syncSidebarInert();
+
     // ── Sidebar toggle (mobile) ──
     function openSidebar() {
         sidebar?.classList.add('open');
+        syncSidebarInert();
         overlay?.classList.add('active');
         overlay?.classList.remove('hidden');
         toggleBtn?.setAttribute('aria-expanded', 'true');
@@ -20,6 +31,7 @@
 
     function closeSidebar() {
         sidebar?.classList.remove('open');
+        syncSidebarInert();
         overlay?.classList.remove('active');
         overlay?.classList.add('hidden');
         toggleBtn?.setAttribute('aria-expanded', 'false');
