@@ -125,6 +125,9 @@ public class DevolucionService : IDevolucionService
                 throw new InvalidOperationException(
                     "No se puede registrar una devolución sobre una venta cancelada.");
 
+            if (!EstadoPermiteDevolucion(estadoVenta.Value))
+                throw new InvalidOperationException(MensajeVentaNoDevolvible);
+
             // Validar que la venta existe
             var venta = await _context.Ventas
                 .AsNoTracking()
@@ -353,6 +356,9 @@ public class DevolucionService : IDevolucionService
                 throw new InvalidOperationException(
                     "No se puede aprobar la devolución: la venta asociada está cancelada.");
 
+            if (!EstadoPermiteDevolucion(estadoVenta.Value))
+                throw new InvalidOperationException($"No se puede aprobar la devolución. {MensajeVentaNoDevolvible}");
+
             devolucion.Estado = EstadoDevolucion.Aprobada;
             devolucion.AprobadoPor = aprobadoPor;
             devolucion.FechaAprobacion = DateTime.UtcNow;
@@ -543,6 +549,9 @@ public class DevolucionService : IDevolucionService
                 throw new InvalidOperationException(
                     "No se puede completar la devolución: la venta asociada está cancelada.");
 
+            if (!EstadoPermiteDevolucion(estadoVenta.Value))
+                throw new InvalidOperationException($"No se puede completar la devolución. {MensajeVentaNoDevolvible}");
+
             // Marcar como completada primero (misma transacción) para evitar doble procesamiento
             devolucion.Estado = EstadoDevolucion.Completada;
             devolucion.UpdatedAt = DateTime.UtcNow;
@@ -702,10 +711,24 @@ public class DevolucionService : IDevolucionService
     private static string FormatearNumero(string prefijo, int id) =>
         $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{id:D6}";
 
+    // Solo se devuelve lo que se vendió: una venta confirmada (con stock descontado e ingreso en caja), facturada o entregada.
+    // Una cotización, un presupuesto o una venta pendiente de requisitos/financiación nunca movió stock ni caja: devolverla
+    // reingresaría stock inexistente y registraría un reembolso sin cobro.
+    private const string MensajeVentaNoDevolvible = "Solo se pueden registrar devoluciones sobre ventas confirmadas, facturadas o entregadas.";
+
+    private static bool EstadoPermiteDevolucion(EstadoVenta estado) =>
+        estado is EstadoVenta.Confirmada or EstadoVenta.Facturada or EstadoVenta.Entregada;
+
     public async Task<bool> PuedeDevolverVentaAsync(int ventaId)
     {
-        var diasDesdeVenta = await ObtenerDiasDesdeVentaAsync(ventaId);
-        return diasDesdeVenta <= DiasLimiteDevolucion;
+        var venta = await _context.Ventas
+            .AsNoTracking()
+            .Where(v => v.Id == ventaId && !v.IsDeleted)
+            .Select(v => new { v.Estado, v.FechaVenta })
+            .FirstOrDefaultAsync();
+        if (venta == null || !EstadoPermiteDevolucion(venta.Estado)) return false;
+
+        return (DateTime.UtcNow - venta.FechaVenta).Days <= DiasLimiteDevolucion;
     }
 
     public async Task<int> ObtenerDiasDesdeVentaAsync(int ventaId)
@@ -1388,6 +1411,21 @@ public class DevolucionService : IDevolucionService
 
         if (monto <= 0)
             throw new InvalidOperationException("El monto a utilizar debe ser mayor a cero");
+
+        // Una NC emitida por una devolución sobre una venta que nunca se concretó (dato histórico anterior a la regla de
+        // estado) no representa dinero real del cliente: no puede consumirse.
+        if (notaCredito.DevolucionId > 0)
+        {
+            var estadoVentaOrigen = await _context.Devoluciones
+                .AsNoTracking()
+                .Where(d => d.Id == notaCredito.DevolucionId)
+                .Select(d => (EstadoVenta?)d.Venta.Estado)
+                .FirstOrDefaultAsync();
+            if (estadoVentaOrigen is EstadoVenta.Cotizacion or EstadoVenta.Presupuesto
+                or EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion)
+                throw new InvalidOperationException(
+                    "La nota de crédito proviene de una devolución sobre una venta que no se concretó y no puede utilizarse.");
+        }
 
         if (notaCredito.Estado != EstadoNotaCredito.Vigente &&
             notaCredito.Estado != EstadoNotaCredito.UtilizadaParcialmente)
