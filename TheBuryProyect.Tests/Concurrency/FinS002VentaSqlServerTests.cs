@@ -98,10 +98,26 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
             new StubContratoVentaCreditoService(), new StubConfiguracionPagoServiceVenta());
     }
 
-    [FinS002SqlServerFact(DisplayName = "PROMPT 85 [FS2-NUM] altas concurrentes: todas se crean con numero unico (reintento por colision)")]
+    [FinS002SqlServerFact(DisplayName = "PROMPT 85 [FS2-NUM] altas concurrentes: todas se crean con numero unico (contador atomico)")]
     public async Task Num_AltasConcurrentes_NumerosUnicos()
     {
         const int n = 8;
+
+        // Numeración previa: el contador debe continuar por encima de lo que ya existe aunque su fila falte (p. ej. números
+        // creados antes de la tabla de contadores o por otro camino).
+        var previas = new List<int>();
+        for (var i = 0; i < 3; i++) previas.Add((await CrearServicio(_context).CreateAsync(await NuevoVmAsync())).Id);
+        // Sufijos que cruzan el límite de 6 dígitos (el orden de texto los confundiría): 999999, 1000000 y 1000001.
+        var sufijos = new[] { 999999, 1000000, 1000001 };
+        for (var i = 0; i < previas.Count; i++)
+        {
+            var actual = await _context.Ventas.AsNoTracking().Where(v => v.Id == previas[i]).Select(v => v.Numero).SingleAsync();
+            var prefijo = string.Join('-', actual.Split('-').Take(2));
+            await _context.Database.ExecuteSqlRawAsync("UPDATE [Ventas] SET [Numero] = {0} WHERE [Id] = {1}", $"{prefijo}-{sufijos[i]}", previas[i]);
+        }
+        var numerosPrevios = await _context.Ventas.AsNoTracking().Where(v => previas.Contains(v.Id)).Select(v => v.Numero).ToListAsync();
+        await _context.Database.ExecuteSqlRawAsync("DELETE FROM [NumeracionVentaContadores]");
+
         var vms = new List<VentaViewModel>();
         for (var i = 0; i < n; i++) vms.Add(await NuevoVmAsync());
 
@@ -112,22 +128,19 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
             catch (Exception ex) { return (Ok: false, Id: 0, Error: ex.GetType().Name + ": " + ex.Message + " | " + ex.InnerException?.Message); }
         }));
 
-        // Un rechazo sólo es aceptable si es el seguro y explícito (reintentos agotados); nunca un duplicado persistido.
         var ids = resultados.Where(r => r.Ok).Select(r => r.Id).ToList();
         var numeros = await _context.Ventas.AsNoTracking().Where(v => ids.Contains(v.Id)).Select(v => v.Numero).ToListAsync();
 
-        // Integridad (siempre): jamás se persiste un número duplicado.
+        // Integridad: jamás un número duplicado, ni repetido respecto de los previos.
         Assert.Equal(numeros.Count, numeros.Distinct().Count());
+        Assert.Empty(numeros.Intersect(numerosPrevios));
 
-        // Disponibilidad: con READ_COMMITTED_SNAPSHOT todas las altas terminan (la colisión se resuelve por reintento).
-        // Sin RCSI (default de SQL Server) el reintento regenera el número dentro de la transacción y su SELECT queda
-        // bloqueado por la inserción sin commitear de otra alta mientras esa alta espera el semáforo estático del
-        // generador: tras 30 s de timeout fallan varias altas. Defecto PREEXISTENTE (VentaNumberGenerator no cambió en #97);
-        // registrado en el informe de PROMPT 85, no corregido en esta rama.
-        if (Environment.GetEnvironmentVariable("QA_FIN_S002_RCSI") == "1")
-        {
-            Assert.Equal(n, ids.Count);
-        }
+        // Disponibilidad: con el contador atómico las 8 altas terminan siempre (con o sin READ_COMMITTED_SNAPSHOT).
+        Assert.True(n == ids.Count, "Altas fallidas: " + string.Join(" || ", resultados.Where(r => !r.Ok).Select(r => r.Error)));
+
+        // Continuidad: todos los números nuevos del prefijo están por encima del mayor previo.
+        var maximoPrevio = numerosPrevios.Select(x => int.Parse(x.Split('-')[2])).Max();
+        Assert.All(numeros, x => Assert.True(int.Parse(x.Split('-')[2]) > maximoPrevio, "Número no continuó tras los previos: " + x));
     }
 
     [FinS002SqlServerFact(DisplayName = "PROMPT 85 [FS2-IDEM] FIN-S-018: altas simultaneas con la misma clave crean una sola venta")]
@@ -164,12 +177,9 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
         Assert.NotEmpty(exitosos);
         Assert.All(exitosos, r => Assert.Equal(unica, r.Id));
 
-        // Disponibilidad: con READ_COMMITTED_SNAPSHOT todos los envios terminan como reintento del ganador. Sin RCSI rige la
-        // misma limitacion preexistente que FS2-NUM (generador de numeros), por eso solo se exige aca.
-        if (Environment.GetEnvironmentVariable("QA_FIN_S002_RCSI") == "1")
-        {
-            Assert.Equal(n, exitosos.Count);
-        }
+        // Disponibilidad: todos los envios terminan como reintento del ganador (con o sin READ_COMMITTED_SNAPSHOT; el contador
+        // atomico de numeros eliminó la limitación que antes impedía exigirlo sin RCSI).
+        Assert.Equal(n, exitosos.Count);
     }
 
     public async Task DisposeAsync()

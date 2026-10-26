@@ -7193,6 +7193,20 @@ namespace TheBuryProject.Migrations
                     b.ToTable("Notificaciones");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.NumeracionVentaContador", b =>
+                {
+                    b.Property<string>("Clave")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Valor")
+                        .HasColumnType("int");
+
+                    b.HasKey("Clave");
+
+                    b.ToTable("NumeracionVentaContadores", (string)null);
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.OrdenCompra", b =>
                 {
                     b.Property<int>("Id")
