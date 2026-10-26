@@ -306,7 +306,15 @@ builder.Services.AddAuthorization(options =>
 // 400, sin importar qué token se mande. Bug real preexistente (nunca funcionó en un navegador
 // real), no introducido por esta superficie: se corrige acá, globalmente, porque es la única
 // forma correcta de que un fetch JSON pase antiforgery en ASP.NET Core.
-builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
+// Las cookies de antiforgery y de TempData no llevaban `Secure` aun detrás de HTTPS (verificado con la pila Docker + Caddy).
+// SameAsRequest respeta X-Forwarded-Proto (UseForwardedHeaders): Secure bajo HTTPS y sin Secure en desarrollo con HTTP.
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>(options =>
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest);
 
 // Compresion de estaticos de texto (css/js/svg) — MOBILE-DEBT-01. tailwind.css pesa 230 KB y en redes
 // moviles se nota. Solo estos tipos: HTML y JSON quedan fuera a proposito (pueden reflejar tokens antiforgery;
