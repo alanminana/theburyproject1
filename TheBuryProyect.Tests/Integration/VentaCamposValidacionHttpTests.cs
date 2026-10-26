@@ -259,6 +259,59 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
         AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", DateTime.UtcNow.Date.AddDays(-10).ToString("yyyy-MM-dd"));
 
     [Fact]
+    public Task Cheque_Vencimiento_MasDe360DiasDespuesDeLaEmision_SeRechaza() =>
+        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", DateTime.UtcNow.Date.AddDays(361).ToString("yyyy-MM-dd"));
+
+    [Fact]
+    public async Task Cheque_Vencimiento_A360Dias_SeAcepta()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form["DatosCheque.FechaVencimiento"] = DateTime.UtcNow.Date.AddDays(360).ToString("yyyy-MM-dd");
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.True(success, cuerpo);
+    }
+
+    [Theory]
+    [InlineData("9 de Julio")]
+    [InlineData("Ruta 8")]
+    public async Task Envio_Localidad_ConNumeros_SeAcepta(string localidad)
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        form["TieneEnvio"] = "true";
+        form["Envio.Destinatario"] = "Juan Perez";
+        form["Envio.Domicilio"] = "Calle 1 123";
+        form["Envio.TipoEnvio"] = "EnvioCiudad";
+        form["Envio.Localidad"] = localidad;
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.True(success, cuerpo);
+    }
+
+    [Theory]
+    [InlineData("Armado1")]
+    [InlineData("99")]
+    public async Task Envio_TipoEnvio_QueNoEsUnEnvio_SeRechaza(string tipo)
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        form["TieneEnvio"] = "true";
+        form["Envio.Destinatario"] = "Juan Perez";
+        form["Envio.Domicilio"] = "Calle 1 123";
+        form["Envio.TipoEnvio"] = tipo;
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, $"Envio.TipoEnvio='{tipo}' fue ACEPTADO: {cuerpo}");
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
     public Task Cheque_Cuit_ConVerificadorInvalido_SeRechaza() =>
         AssertChequeRechazadoAsync("DatosCheque.CUIT", "20-12345678-0");
 

@@ -77,13 +77,17 @@ public class NormalizacionCamposViewModelsTests
     }
 
     [Fact]
-    public void Cliente_LocalidadConNumeros_Invalida_YNombreLargoDeCiudad_Valido()
+    public void Cliente_LocalidadConNumeros_Valida_PeroConSimbolosInvalida_YNombreLargoDeCiudad_Valido()
     {
         var vm = ClienteValido();
         vm.Localidad = "Presidencia Roque Sáenz Peña";
         Assert.False(Falla(vm, nameof(vm.Localidad)));
 
-        vm.Localidad = "Córdoba 123";
+        // Hay localidades con número ("9 de Julio"): los dígitos se permiten, los símbolos no.
+        vm.Localidad = "9 de Julio";
+        Assert.False(Falla(vm, nameof(vm.Localidad)));
+
+        vm.Localidad = "Córdoba <123>";
         Assert.True(Falla(vm, nameof(vm.Localidad)));
     }
 
@@ -124,7 +128,7 @@ public class NormalizacionCamposViewModelsTests
             Domicilio = "Calle 123",
             Telefono = "abc",
             CodigoPostal = "12",
-            Localidad = "Córdoba 5",
+            Localidad = "Córdoba <5>",
             CostoEnvio = 20_000_001m,
         };
 

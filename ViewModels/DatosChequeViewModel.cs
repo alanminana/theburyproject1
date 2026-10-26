@@ -59,6 +59,13 @@ namespace TheBuryProject.ViewModels
                     "La fecha de vencimiento no puede ser anterior a la fecha de emisión.",
                     new[] { nameof(FechaVencimiento) });
             }
+            // Cheque de pago diferido: el plazo máximo entre emisión y vencimiento es de 360 días.
+            else if ((FechaVencimiento.Date - FechaEmision.Date).TotalDays > 360)
+            {
+                yield return new ValidationResult(
+                    "El cheque no puede vencer más de 360 días después de su emisión.",
+                    new[] { nameof(FechaVencimiento) });
+            }
         }
     }
 }

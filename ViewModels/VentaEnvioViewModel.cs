@@ -30,7 +30,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Localidad")]
         [StringLength(100)]
-        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6, PermitirDigitos = true)]
         public string? Localidad { get; set; }
 
         [Display(Name = "Provincia")]
