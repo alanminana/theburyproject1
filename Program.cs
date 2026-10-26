@@ -18,6 +18,15 @@ using TheBuryProject.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// LOG-D-001: la consola incluye scopes (TraceId/SpanId del request) y hora UTC, de modo que el Request ID que ve el usuario
+// en la página de error pueda buscarse en los logs.
+builder.Logging.AddSimpleConsole(o =>
+{
+    o.IncludeScopes = true;
+    o.UseUtcTimestamp = true;
+    o.TimestampFormat = "yyyy-MM-ddTHH:mm:ssZ ";
+});
+
 // 0. Alícuota general de IVA (fallback interno, no visible en UI). Configurable por
 // appsettings "Iva:PorcentajeDefault"; si no está definida se mantiene 21.
 ProductoIvaResolver.Configurar(builder.Configuration.GetValue<decimal?>("Iva:PorcentajeDefault"));
