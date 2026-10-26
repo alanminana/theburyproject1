@@ -488,7 +488,6 @@ namespace TheBuryProject.Controllers
                 ["CambiosPreciosController"] = new { Modulo = "precios", Accion = "view", Estado = "✅" },
                 ["CatalogoController"] = new { Modulo = "productos", Accion = "view", Estado = "✅ CORREGIDO - Era \"cotizaciones\" por error; ahora productos.view (+ precios.* en acciones de precio)" },
                 ["CategoriaController"] = new { Modulo = "categorias", Accion = "view", Estado = "✅" },
-                ["ChequeController"] = new { Modulo = "cheques", Accion = "view", Estado = "✅" },
                 ["ClienteController"] = new { Modulo = "clientes", Accion = "view", Estado = "✅" },
                 ["ConfiguracionMoraController"] = new { Modulo = "configuracion", Accion = "managepunitorio", Estado = "✅ CORREGIDO - Módulo/acción inexistentes (\"configuraciones.managemora\") reemplazados por el permiso real \"configuracion.managepunitorio\"" },
                 ["ConfiguracionContratoCreditoController"] = new { Modulo = "configuracion", Accion = "view/update", Estado = "✅ CORREGIDO - Módulo \"configuraciones\" (plural, inexistente) corregido a \"configuracion\"" },

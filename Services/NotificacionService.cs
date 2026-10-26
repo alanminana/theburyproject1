@@ -127,6 +127,9 @@ namespace TheBuryProject.Services
             bool soloNoLeidas = false,
             int limite = 50)
         {
+            // COM-S-017: el limite viene del cliente; se acota para que un valor negativo o enorme no rompa ni cargue la consulta.
+            limite = Math.Clamp(limite, 1, 100);
+
             var query = _context.Notificaciones
                 .AsNoTracking()
                 .Where(n => n.UsuarioDestino == usuario && !n.IsDeleted);
