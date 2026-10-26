@@ -26,6 +26,18 @@ namespace TheBuryProject.Controllers
             return View();
         }
 
+        // Destino de UseStatusCodePagesWithReExecute: conserva el código original de la respuesta.
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Estado(int code)
+        {
+            Response.StatusCode = code is >= 400 and <= 599 ? code : 404;
+            if (code != 404)
+            {
+                return new EmptyResult();
+            }
+            return View("NoEncontrado");
+        }
+
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

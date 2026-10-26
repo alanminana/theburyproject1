@@ -70,8 +70,8 @@
                     @if (ViewBag.PuedeVerTodasComisiones != false)
                     {
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Vendedor</label>
-                        <select asp-for="Filtros.VendedorUserId" name="VendedorUserId" asp-items="Model.Vendedores"
+                        <label for="f-VendedorUserId" class="text-xs font-medium text-slate-400">Vendedor</label>
+                        <select id="f-VendedorUserId" asp-for="Filtros.VendedorUserId" name="VendedorUserId" asp-items="Model.Vendedores"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                         </select>
@@ -79,44 +79,44 @@
                     }
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Desde</label>
-                        <input type="date" name="FechaDesde" value="@f.FechaDesde?.ToString("yyyy-MM-dd")"
+                        <label for="f-FechaDesde" class="text-xs font-medium text-slate-400">Desde</label>
+                        <input id="f-FechaDesde" type="date" name="FechaDesde" value="@f.FechaDesde?.ToString("yyyy-MM-dd")"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Hasta</label>
-                        <input type="date" name="FechaHasta" value="@f.FechaHasta?.ToString("yyyy-MM-dd")"
+                        <label for="f-FechaHasta" class="text-xs font-medium text-slate-400">Hasta</label>
+                        <input id="f-FechaHasta" type="date" name="FechaHasta" value="@f.FechaHasta?.ToString("yyyy-MM-dd")"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Tipo de pago</label>
-                        <select asp-for="Filtros.TipoPago" name="TipoPago" asp-items="Model.TiposPago"
+                        <label for="f-TipoPago" class="text-xs font-medium text-slate-400">Tipo de pago</label>
+                        <select id="f-TipoPago" asp-for="Filtros.TipoPago" name="TipoPago" asp-items="Model.TiposPago"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                         </select>
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Estado venta</label>
-                        <select asp-for="Filtros.EstadoVenta" name="EstadoVenta" asp-items="Model.EstadosVenta"
+                        <label for="f-EstadoVenta" class="text-xs font-medium text-slate-400">Estado venta</label>
+                        <select id="f-EstadoVenta" asp-for="Filtros.EstadoVenta" name="EstadoVenta" asp-items="Model.EstadosVenta"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Confirmadas, facturadas y entregadas</option>
                         </select>
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Producto</label>
-                        <select asp-for="Filtros.ProductoId" name="ProductoId" asp-items="Model.Productos"
+                        <label for="f-ProductoId" class="text-xs font-medium text-slate-400">Producto</label>
+                        <select id="f-ProductoId" asp-for="Filtros.ProductoId" name="ProductoId" asp-items="Model.Productos"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                         </select>
                     </div>
 
                     <div class="space-y-1 xl:col-span-2">
-                        <label class="text-xs font-medium text-slate-400">Buscar</label>
-                        <input type="search" name="ClienteTexto" value="@f.ClienteTexto"
+                        <label for="f-ClienteTexto" class="text-xs font-medium text-slate-400">Buscar</label>
+                        <input id="f-ClienteTexto" type="search" name="ClienteTexto" value="@f.ClienteTexto"
                                placeholder="Cliente, DNI, venta o producto"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>

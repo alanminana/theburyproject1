@@ -126,13 +126,13 @@
                                             <input type="hidden" name="clienteId" value="@Model.ClienteId" />
                                             <div>
                                                 <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Monto a aplicar</label>
-                                                <input type="number" name="monto" required step="0.01" min="0.01" max="@nc.MontoDisponible.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                <input type="number" name="monto" aria-label="Monto a aplicar" required step="0.01" min="0.01" max="@nc.MontoDisponible.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                                        placeholder="0,00"
                                                        class="w-36 rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
                                             </div>
                                             <div class="flex-1 min-w-[14rem]">
                                                 <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Referencia (venta, comprobante...)</label>
-                                                <input type="text" name="referencia"
+                                                <input type="text" name="referencia" aria-label="Referencia"
                                                        placeholder="Ej: aplicada en venta V-000123"
                                                        class="w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
                                             </div>
