@@ -556,6 +556,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             }
             venta.Total = venta.Subtotal;
 
+            // Efectivo / Transferencia: el cotizador muestra el descuento o recargo del plan general del medio
+            // ("Total a cobrar"); la venta debe quedar por ese mismo importe. Tarjeta/débito/digital lo aplican
+            // en GuardarDatosTarjetaAsync, y el crédito personal no lleva ajuste de medio.
+            if (tipoPago is TipoPago.Efectivo or TipoPago.Transferencia)
+            {
+                var ajuste = await ResolverAjusteMedioUnPagoAsync(tipoPago, venta.Total, cancellationToken);
+                if (ajuste != null)
+                {
+                    venta.Total = ajuste.TotalFinal;
+                    advertencias.Add(ajuste.PorcentajeAjuste < 0m
+                        ? $"Se aplicó el descuento de {Math.Abs(ajuste.PorcentajeAjuste):0.##}% por pago en {tipoPago}."
+                        : $"Se aplicó el recargo de {ajuste.PorcentajeAjuste:0.##}% por pago en {tipoPago}.");
+                }
+            }
+
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
 
@@ -837,6 +852,35 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
     private static bool EsVencida(Cotizacion cotizacion) =>
         cotizacion.FechaVencimiento.HasValue && cotizacion.FechaVencimiento.Value < DateTime.UtcNow;
+
+    // Misma regla que CotizacionPagoCalculator.CrearOpcionUnPago: plan general de 1 pago del medio activo
+    // (o, si no existe, cualquier plan general). Sin plan/ajuste 0 no hay nada que aplicar.
+    private async Task<AjustePagoGlobalResultado?> ResolverAjusteMedioUnPagoAsync(
+        TipoPago tipoPago, decimal baseVenta, CancellationToken cancellationToken)
+    {
+        var planes = await _context.ConfiguracionPagoPlanes
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Activo && p.TipoPago == tipoPago && p.ConfiguracionTarjetaId == null
+                && p.ConfiguracionPago.Activo && !p.ConfiguracionPago.IsDeleted)
+            .OrderBy(p => p.Orden)
+            .ThenBy(p => p.CantidadCuotas)
+            .ToListAsync(cancellationToken);
+
+        var plan = planes.FirstOrDefault(p => p.CantidadCuotas == 1) ?? planes.FirstOrDefault();
+        if (plan == null || plan.AjustePorcentaje == 0m)
+            return null;
+
+        var calculo = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+        {
+            BaseVenta = baseVenta,
+            PorcentajeAjuste = plan.AjustePorcentaje,
+            CantidadCuotas = 1,
+            MedioActivo = true,
+            PlanActivo = plan.Activo
+        });
+
+        return calculo.EsValido ? calculo : null;
+    }
 
     private async Task<string?> AplicarDatosTarjetaDesdeCotizacionAsync(
         Venta venta,
