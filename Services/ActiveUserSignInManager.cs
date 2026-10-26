@@ -68,10 +68,15 @@ public static class ActiveUserCookieValidator
             var actual = await db.Users
                 .AsNoTracking()
                 .Where(u => u.Id == userId)
-                .Select(u => new { u.Activo, u.SecurityStamp })
+                .Select(u => new { u.Activo, u.SecurityStamp, u.LockoutEnabled, u.LockoutEnd })
                 .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
+            // SEC-S-005: un usuario bloqueado (LockoutEnd vigente) pierde la sesión viva en el siguiente request, no solo el login.
+            var bloqueado = actual is { LockoutEnabled: true, LockoutEnd: not null }
+                && actual.LockoutEnd > DateTimeOffset.UtcNow;
+
             vigente = actual is { Activo: true }
+                && !bloqueado
                 && !string.IsNullOrEmpty(stampDeLaSesion)
                 && string.Equals(actual.SecurityStamp, stampDeLaSesion, StringComparison.Ordinal);
         }
