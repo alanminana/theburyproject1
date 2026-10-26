@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
@@ -19,6 +21,20 @@ namespace TheBuryProject.Services
 
         public async Task<string> GenerarNumeroAsync(EstadoVenta estado)
         {
+            // FS2-NUM: en SQL Server el número sale de un contador atómico (una sola sentencia), sin carreras entre altas
+            // simultáneas. El camino "máximo + 1" bajo semáforo queda para los proveedores de prueba (SQLite).
+            if (_context.Database.IsSqlServer())
+            {
+                var prefijoVenta = estado == EstadoVenta.Cotizacion
+                    ? VentaConstants.PREFIJO_COTIZACION
+                    : VentaConstants.PREFIJO_VENTA;
+                var periodoVenta = DateTime.UtcNow.ToString(VentaConstants.FORMATO_PERIODO);
+                var siguienteAtomico = await SiguienteAtomicoAsync($"{prefijoVenta}-{periodoVenta}");
+                var numeroAtomico = string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijoVenta, periodoVenta, siguienteAtomico);
+                _logger.LogDebug("Número generado (contador atómico): {Numero}", numeroAtomico);
+                return numeroAtomico;
+            }
+
             await _semaphore.WaitAsync();
             try
             {
@@ -53,6 +69,59 @@ namespace TheBuryProject.Services
             finally
             {
                 _semaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Entrega el próximo número del prefijo/período con UNA sentencia sobre <c>NumeracionVentaContadores</c>: incrementa
+        /// la fila de <paramref name="prefijoCompleto"/> y devuelve el valor. Si la fila no existe (primer uso, o numeración
+        /// previa a la tabla) se crea partiendo del mayor sufijo NUMÉRICO ya presente en <c>Ventas</c> (no del orden de texto, que
+        /// falla pasados 999999); ante una creación simultánea gana una sola y la otra reintenta el incremento.
+        /// </summary>
+        private async Task<int> SiguienteAtomicoAsync(string prefijoCompleto)
+        {
+            const string sql = @"
+SET NOCOUNT ON;
+DECLARE @v int;
+UPDATE [NumeracionVentaContadores] SET @v = [Valor] = [Valor] + 1 WHERE [Clave] = @clave;
+IF @@ROWCOUNT = 0
+BEGIN
+    DECLARE @semilla int = ISNULL((
+        SELECT MAX(TRY_CAST(SUBSTRING([Numero], LEN(@clave) + 2, 20) AS int))
+          FROM [Ventas]
+         WHERE [Numero] LIKE @clave + N'-%'), 0);
+    BEGIN TRY
+        INSERT INTO [NumeracionVentaContadores] ([Clave], [Valor]) VALUES (@clave, @semilla + 1);
+        SET @v = @semilla + 1;
+    END TRY
+    BEGIN CATCH
+        IF ERROR_NUMBER() NOT IN (2601, 2627) THROW;
+        UPDATE [NumeracionVentaContadores] SET @v = [Valor] = [Valor] + 1 WHERE [Clave] = @clave;
+    END CATCH
+END
+SELECT @v;";
+
+            var conexion = _context.Database.GetDbConnection();
+            var abrirYCerrar = conexion.State != ConnectionState.Open;
+            if (abrirYCerrar) await _context.Database.OpenConnectionAsync();
+            try
+            {
+                await using var comando = conexion.CreateCommand();
+                comando.CommandText = sql;
+                comando.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
+
+                var pClave = comando.CreateParameter();
+                pClave.ParameterName = "@clave";
+                pClave.DbType = DbType.String;
+                pClave.Size = 40;
+                pClave.Value = prefijoCompleto;
+                comando.Parameters.Add(pClave);
+
+                return Convert.ToInt32(await comando.ExecuteScalarAsync());
+            }
+            finally
+            {
+                if (abrirYCerrar) await _context.Database.CloseConnectionAsync();
             }
         }
 
