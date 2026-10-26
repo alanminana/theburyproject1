@@ -35,6 +35,11 @@
         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">contact_phone</span>
         Datos de cliente
     </a>
+    <a asp-controller="PrefijosNumeracion" asp-action="Index"
+       class="cfgpago-tab" aria-current="@(activa == "prefijos" ? "page" : null)">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">tag</span>
+        Prefijos
+    </a>
     @if (User.TieneCualquierPermiso(("documentos", "managetemplates"), ("documentos", "managerules"), ("documentos", "managetypes")))
     {
         <a asp-controller="DocumentosConfig" asp-action="Index"

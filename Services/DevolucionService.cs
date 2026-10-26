@@ -274,7 +274,7 @@ public class DevolucionService : IDevolucionService
 
             // Número definitivo derivado del Id real: el MAX(Id)+1 provisorio puede
             // colisionar entre creaciones concurrentes y no hay índice único que lo frene.
-            devolucion.NumeroDevolucion = FormatearNumero("DEV", devolucion.Id);
+            devolucion.NumeroDevolucion = await FormatearNumeroAsync(TipoPrefijoNumeracion.Devolucion, devolucion.Id);
             await _context.SaveChangesAsync();
 
             if (transaction != null)
@@ -393,7 +393,7 @@ public class DevolucionService : IDevolucionService
                 // Número definitivo desde el Id real (ver FormatearNumero) y columna
                 // denormalizada: la FK del vínculo vive en NotaCredito.DevolucionId,
                 // por lo que NotaCreditoId no se completa solo.
-                notaCredito.NumeroNotaCredito = FormatearNumero("NC", notaCredito.Id);
+                notaCredito.NumeroNotaCredito = await FormatearNumeroAsync(TipoPrefijoNumeracion.NotaCreditoDevolucion, notaCredito.Id);
                 devolucion.NotaCreditoId = notaCredito.Id;
                 await _context.SaveChangesAsync();
             }
@@ -702,12 +702,15 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync();
 
         int siguiente = (ultimaDevolucion?.Id ?? 0) + 1;
-        return FormatearNumero("DEV", siguiente);
+        return await FormatearNumeroAsync(TipoPrefijoNumeracion.Devolucion, siguiente);
     }
 
     // Los números definitivos se derivan del Id real después del insert; los
     // generadores MAX(Id)+1 solo dan un valor provisorio (dos creaciones
     // concurrentes leen el mismo MAX y no hay índice único que lo frene).
+    private async Task<string> FormatearNumeroAsync(TipoPrefijoNumeracion tipo, int id) =>
+        FormatearNumero(await PrefijosNumeracion.ObtenerAsync(_context, tipo), id);
+
     private static string FormatearNumero(string prefijo, int id) =>
         $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{id:D6}";
 
@@ -978,7 +981,7 @@ public class DevolucionService : IDevolucionService
         _context.Garantias.Add(garantia);
         await _context.SaveChangesAsync();
 
-        garantia.NumeroGarantia = FormatearNumero("GAR", garantia.Id);
+        garantia.NumeroGarantia = await FormatearNumeroAsync(TipoPrefijoNumeracion.Garantia, garantia.Id);
         await _context.SaveChangesAsync();
         return garantia;
     }
@@ -1391,7 +1394,7 @@ public class DevolucionService : IDevolucionService
         _context.NotasCredito.Add(notaCredito);
         await _context.SaveChangesAsync();
 
-        notaCredito.NumeroNotaCredito = FormatearNumero("NC", notaCredito.Id);
+        notaCredito.NumeroNotaCredito = await FormatearNumeroAsync(TipoPrefijoNumeracion.NotaCreditoDevolucion, notaCredito.Id);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation(
@@ -1483,7 +1486,7 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync();
 
         int siguiente = (ultimaNotaCredito?.Id ?? 0) + 1;
-        return $"NC-{DateTime.UtcNow:yyyyMM}-{siguiente:D6}";
+        return await FormatearNumeroAsync(TipoPrefijoNumeracion.NotaCreditoDevolucion, siguiente);
     }
 
     #endregion
