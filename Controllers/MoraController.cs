@@ -58,7 +58,7 @@ namespace TheBuryProject.Controllers
                     TotalAlertas = alertas.Count,
                     AlertasPendientes = alertas.Count(a => !a.Resuelta),
                     AlertasResueltas = alertas.Count(a => a.Resuelta),
-                    MontoTotalVencido = alertas.Sum(a => a.MontoVencido)
+                    MontoTotalVencido = alertas.Where(a => a.Tipo != TipoAlertaCobranza.ProximoVencimiento).Sum(a => a.MontoVencido)
                 };
 
                 return View(viewModel);
