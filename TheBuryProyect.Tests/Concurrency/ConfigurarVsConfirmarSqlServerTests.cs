@@ -485,6 +485,27 @@ public class ConfigurarVsConfirmarSqlServerTests : IClassFixture<ConfigurarConfi
         await AssertReintentoDelPerdedorAsync(s, d);
     }
 
+    [SqlServerConcFact(DisplayName = "QA-RONDA [CV-10] Confirmar con la venta ya rastreada en el contexto (Edit + confirmar en la misma request): no falla por RowVersion obsoleto")]
+    public async Task CV10_ConfirmarConLaVentaYaRastreadaEnElContexto()
+    {
+        var s = await SembrarAsync();
+
+        // Edit (POST) guarda la venta y encadena la confirmación en la misma request/contexto: la venta ya está rastreada
+        // cuando Confirmar toma su lock de fila (ExecuteUpdate), que cambia el RowVersion en la base.
+        var resultado = await EjecutarAsync(null, async sp =>
+        {
+            var ctx = sp.GetRequiredService<AppDbContext>();
+            await ctx.Ventas.FirstAsync(v => v.Id == s.VentaId);
+            return await sp.GetRequiredService<IVentaService>().ConfirmarVentaCreditoAsync(s.VentaId);
+        });
+
+        Assert.StartsWith("OK", resultado);
+        var final = await LeerAsync(s);
+        Assert.Equal(EstadoVenta.Confirmada, final.Venta.Estado);
+        Assert.Equal(CuotasA, final.Cuotas.Count);
+        Assert.Equal(9m, final.Stock);
+    }
+
     [SqlServerConcFact(DisplayName = "PROMPT 96 [CV-09] conflictos y reintentos: rechazo controlado, sin parciales y reintento legítimo seguro")]
     public async Task CV09_ConflictosYReintentos()
     {

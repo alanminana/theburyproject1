@@ -185,7 +185,8 @@ namespace TheBuryProject.Controllers
                     DiasAtraso = ficha.Resumen.DiasMaxAtraso
                 };
 
-                return View(vm);
+                TempData["Warning"] = "Esta gestión todavía no está disponible en pantalla.";
+                return RedirectToAction(nameof(FichaCliente), new { id = clienteId });
             }
             catch (Exception ex)
             {
@@ -205,7 +206,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["Error"] = "Datos inválidos";
-                    return View(model);
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
                 var gestorId = _currentUser.GetUserId();
@@ -218,7 +219,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al registrar contacto");
                 TempData["Error"] = "Error al registrar contacto: " + ex.Message;
-                return View(model);
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
             }
         }
 
@@ -251,7 +252,8 @@ namespace TheBuryProject.Controllers
                     MontoPromesa = alerta.MontoVencido
                 };
 
-                return View(vm);
+                TempData["Warning"] = "Esta gestión todavía no está disponible en pantalla.";
+                return RedirectToAction(nameof(FichaCliente), new { id = clienteId });
             }
             catch (Exception ex)
             {
@@ -271,7 +273,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["Error"] = "Datos inválidos";
-                    return View(model);
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
                 var gestorId = _currentUser.GetUserId();
@@ -284,7 +286,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al registrar promesa");
                 TempData["Error"] = "Error al registrar promesa: " + ex.Message;
-                return View(model);
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
             }
         }
 
@@ -363,7 +365,8 @@ namespace TheBuryProject.Controllers
                     CantidadCuotas = 6
                 };
 
-                return View(vm);
+                TempData["Warning"] = "Esta gestión todavía no está disponible en pantalla.";
+                return RedirectToAction(nameof(FichaCliente), new { id = clienteId });
             }
             catch (Exception ex)
             {
@@ -383,7 +386,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["Error"] = "Datos inválidos";
-                    return View(model);
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
                 var gestorId = _currentUser.GetUserId();
@@ -395,13 +398,13 @@ namespace TheBuryProject.Controllers
             catch (InvalidOperationException ex)
             {
                 TempData["Error"] = ex.Message;
-                return View(model);
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear acuerdo");
                 TempData["Error"] = "Error al crear acuerdo: " + ex.Message;
-                return View(model);
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
             }
         }
 

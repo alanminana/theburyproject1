@@ -101,7 +101,7 @@
                         <div class="flex justify-between"><dt class="text-slate-400">Total de IVA de venta</dt><dd class="text-slate-100 font-medium">$ @Model.VentasIva.ToString("N2")</dd></div>
                         <div class="flex justify-between border-t border-slate-800 pt-2"><dt class="text-slate-300 font-semibold">Total vendido con IVA</dt><dd class="text-white font-bold">$ @Model.VentasTotal.ToString("N2")</dd></div>
                     </dl>
-                    <p class="text-[11px] text-slate-500">Ventas confirmadas, facturadas o entregadas. Una venta cuenta una sola vez aunque tenga varios cobros en Caja.</p>
+                    <p class="text-[11px] text-slate-500">Ventas facturadas o entregadas: las confirmadas sin facturar no discriminan IVA. Una venta cuenta una sola vez aunque tenga varios cobros en Caja.</p>
                 </section>
             }
 
