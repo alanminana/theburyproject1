@@ -60,6 +60,7 @@ namespace TheBuryProject.Data
         public DbSet<DocumentoCliente> DocumentosCliente { get; set; }
 
         public DbSet<Venta> Ventas { get; set; }
+        public DbSet<NumeracionVentaContador> NumeracionVentaContadores { get; set; }
         public DbSet<VentaDetalle> VentaDetalles { get; set; }
         public DbSet<Cotizacion> Cotizaciones { get; set; }
         public DbSet<CotizacionDetalle> CotizacionDetalles { get; set; }
@@ -170,6 +171,13 @@ namespace TheBuryProject.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<NumeracionVentaContador>(entity =>
+            {
+                entity.ToTable("NumeracionVentaContadores");
+                entity.HasKey(e => e.Clave);
+                entity.Property(e => e.Clave).HasMaxLength(40);
+            });
 
             // ==========================================================
             // Provider compatibility: RowVersion
