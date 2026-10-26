@@ -34,7 +34,7 @@
             </h2>
             <form asp-action="Historial" method="get" class="flex items-center gap-2">
                 <input type="hidden" name="productoId" value="@Model.ProductoId" />
-                <select name="listaId"
+                <select name="listaId" aria-label="Lista de precios"
                         class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                     <option value="">Todas las listas</option>
                     @foreach (var item in listas)

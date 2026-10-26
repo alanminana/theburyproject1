@@ -35,18 +35,18 @@
             <form asp-action="Iva" method="get">
                 <div class="flex flex-wrap gap-4 items-end">
                     <div class="space-y-1 w-44">
-                        <label class="text-xs font-medium text-slate-400">Fecha desde</label>
-                        <input type="date" name="FechaDesde" value="@(filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                        <label for="f-FechaDesde" class="text-xs font-medium text-slate-400">Fecha desde</label>
+                        <input id="f-FechaDesde" type="date" name="FechaDesde" value="@(filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
                     <div class="space-y-1 w-44">
-                        <label class="text-xs font-medium text-slate-400">Fecha hasta</label>
-                        <input type="date" name="FechaHasta" value="@(filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                        <label for="f-FechaHasta" class="text-xs font-medium text-slate-400">Fecha hasta</label>
+                        <input id="f-FechaHasta" type="date" name="FechaHasta" value="@(filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
                     <div class="space-y-1 w-44">
-                        <label class="text-xs font-medium text-slate-400">Tipo de operación</label>
-                        <select name="Tipo"
+                        <label for="f-Tipo" class="text-xs font-medium text-slate-400">Tipo de operación</label>
+                        <select id="f-Tipo" name="Tipo"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="ambas" selected="@(tipo == "ambas" ? "selected" : null)">Compras y ventas</option>
                             <option value="compras" selected="@(tipo == "compras" ? "selected" : null)">Solo compras</option>
@@ -54,8 +54,8 @@
                         </select>
                     </div>
                     <div class="space-y-1 w-36">
-                        <label class="text-xs font-medium text-slate-400">Alícuota (%)</label>
-                        <input type="number" name="Alicuota" step="0.01" min="0" placeholder="Todas"
+                        <label for="f-Alicuota" class="text-xs font-medium text-slate-400">Alícuota (%)</label>
+                        <input id="f-Alicuota" type="number" name="Alicuota" step="0.01" min="0" placeholder="Todas"
                                value="@(filtro.Alicuota?.ToString(System.Globalization.CultureInfo.InvariantCulture))"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>

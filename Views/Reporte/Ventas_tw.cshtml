@@ -50,22 +50,22 @@
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Desde</label>
-                        <input type="date" name="FechaDesde"
+                        <label for="f-FechaDesde" class="text-xs font-medium text-slate-400">Desde</label>
+                        <input id="f-FechaDesde" type="date" name="FechaDesde"
                                value="@filtro.FechaDesde?.ToString("yyyy-MM-dd")"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Hasta</label>
-                        <input type="date" name="FechaHasta"
+                        <label for="f-FechaHasta" class="text-xs font-medium text-slate-400">Hasta</label>
+                        <input id="f-FechaHasta" type="date" name="FechaHasta"
                                value="@filtro.FechaHasta?.ToString("yyyy-MM-dd")"
                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Cliente</label>
-                        <select name="ClienteId"
+                        <label for="f-ClienteId" class="text-xs font-medium text-slate-400">Cliente</label>
+                        <select id="f-ClienteId" name="ClienteId"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                             @foreach (var item in clientes)
@@ -76,8 +76,8 @@
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Producto</label>
-                        <select name="ProductoId"
+                        <label for="f-ProductoId" class="text-xs font-medium text-slate-400">Producto</label>
+                        <select id="f-ProductoId" name="ProductoId"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                             @foreach (var item in productos)
@@ -88,8 +88,8 @@
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Categoría</label>
-                        <select name="CategoriaId"
+                        <label for="f-CategoriaId" class="text-xs font-medium text-slate-400">Categoría</label>
+                        <select id="f-CategoriaId" name="CategoriaId"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todas</option>
                             @foreach (var item in categorias)
@@ -100,8 +100,8 @@
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Tipo de pago</label>
-                        <select name="TipoPago"
+                        <label for="f-TipoPago" class="text-xs font-medium text-slate-400">Tipo de pago</label>
+                        <select id="f-TipoPago" name="TipoPago"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                             <option value="0" selected="@(filtro.TipoPago == TipoPago.Efectivo       ? "selected" : null)">Efectivo</option>
@@ -114,8 +114,8 @@
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-400">Vendedor</label>
-                        <select name="VendedorId"
+                        <label for="f-VendedorId" class="text-xs font-medium text-slate-400">Vendedor</label>
+                        <select id="f-VendedorId" name="VendedorId"
                                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
                             <option value="">Todos</option>
                             @foreach (var item in vendedores)

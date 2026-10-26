@@ -383,6 +383,15 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
+// 404 sin cuerpo en navegación HTML (FE-D-002): se muestra una página con el layout del sistema. Las llamadas
+// AJAX/fetch y /api conservan su 404 vacío; el código de estado HTTP se mantiene (re-ejecución, no redirección).
+app.UseWhen(
+    ctx => HttpMethods.IsGet(ctx.Request.Method)
+        && !ctx.Request.Path.StartsWithSegments("/api")
+        && !string.Equals(ctx.Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+        && ctx.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseStatusCodePagesWithReExecute("/Home/Estado", "?code={0}"));
+
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
 {
     app.UseHsts();
