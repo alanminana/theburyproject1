@@ -703,6 +703,52 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_DeudaImpagaDentroDeGraciaAmpliada_NoResuelveLaAlertaNiPierdePromesa()
+    {
+        _context.Set<ConfiguracionMora>().Add(new ConfiguracionMora
+        {
+            TasaMoraBase = 1m,
+            DiasGracia = 30,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        });
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // Capital impago vencido hace 10 días: queda dentro de los 30 días de gracia ampliados.
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        alerta.FechaPromesaPago = DateTime.Today.AddDays(2);
+        alerta.EstadoGestion = EstadoGestionCobranza.PromesaPago;
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.False(recargada.Resuelta);
+        Assert.Equal(EstadoGestionCobranza.PromesaPago, recargada.EstadoGestion);
+    }
+
+    [Fact]
+    public async Task Kpis_PromesaSobreAlertaPreventiva_SigueContandoEnIndicadoresDePromesas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var preventiva = await SeedAlertaAsync(cliente.Id, credito.Id);
+        preventiva.Tipo = TipoAlertaCobranza.ProximoVencimiento;
+        preventiva.FechaPromesaPago = _reloj.InicioDiaComercial;
+        preventiva.MontoPromesaPago = 700m;
+        await _context.SaveChangesAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(1, kpis.PromesasVencenHoy);
+        Assert.Equal(700m, kpis.MontoPromesasHoy);
+        Assert.Equal(0, kpis.TotalClientesMora);
+    }
+
+    [Fact]
     public async Task ProcesarMora_NoResuelveAlertasPreventivasDeOtroCredito()
     {
         var cliente = await SeedClienteAsync();
