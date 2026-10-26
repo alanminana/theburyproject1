@@ -909,6 +909,14 @@ namespace TheBuryProject.Services
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
+            // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
+            // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
+            if (venta.CotizacionOrigenId.HasValue && AjusteMedioUnPago.Aplica(viewModel.TipoPago))
+            {
+                var ajusteMedio = await AjusteMedioUnPago.ResolverAsync(_context, viewModel.TipoPago, venta.Total);
+                if (ajusteMedio != null)
+                    venta.Total = ajusteMedio.TotalFinal;
+            }
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
 
@@ -1032,6 +1040,13 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException(
                         $"No se puede confirmar la venta: el medio de pago '{venta.TipoPago}' requiere datos de tarjeta y no han sido completados.");
+                }
+
+                // Un cheque sin sus datos (banco, número, importe, vencimiento) no es trazable en caja ni en cartera.
+                if (venta.TipoPago == TipoPago.Cheque && venta.DatosCheque == null)
+                {
+                    throw new InvalidOperationException(
+                        "No se puede confirmar la venta: el medio de pago 'Cheque' requiere los datos del cheque y no han sido completados.");
                 }
 
                 // Validación previa del estado
