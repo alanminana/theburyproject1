@@ -317,6 +317,100 @@ public class MoraServiceTests : IDisposable
     }
 
     // Gestión desde la ficha (contacto / promesa / acuerdo): la alerta debe existir, estar activa y ser del cliente.
+    // Codex #142: la promesa a marcar debe ser de una alerta del cliente y existir; un reenvío no vuelve a escalar.
+    [Fact]
+    public async Task MarcarPromesaIncumplida_AlertaDeOtroCliente_SeRechazaYNoTocaNada()
+    {
+        var dueno = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(dueno.Id);
+        var alerta = await SeedAlertaAsync(dueno.Id, credito.Id);
+        alerta.FechaPromesaPago = DateTime.Today.AddDays(3);
+        alerta.MontoPromesaPago = 100m;
+        await _context.SaveChangesAsync();
+        var prioridadOriginal = alerta.Prioridad;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, otro.Id, "x"));
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.NotNull(recargada.FechaPromesaPago);
+        Assert.Equal(prioridadOriginal, recargada.Prioridad);
+    }
+
+    [Fact]
+    public async Task MarcarPromesaIncumplida_ReenviarElMismoPost_NoVuelveAEscalarLaPrioridad()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id, PrioridadAlerta.Baja);
+        alerta.FechaPromesaPago = DateTime.Today.AddDays(3);
+        await _context.SaveChangesAsync();
+
+        Assert.True(await _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, cliente.Id, "no pagó"));
+        _context.ChangeTracker.Clear();
+        var escalada = (await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Prioridad;
+        Assert.True(escalada > PrioridadAlerta.Baja);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, cliente.Id, "no pagó"));
+        Assert.Equal(escalada, (await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Prioridad);
+    }
+
+    [Fact]
+    public async Task MarcarPromesaIncumplida_AlertaSinPromesa_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, cliente.Id, null));
+    }
+
+    [Fact]
+    public async Task ActivarAcuerdo_GeneraElCalendarioDeCuotasYLaSumaCierraExacto()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-C",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10_000m, MontoEntregaInicial = 1_000m,
+            CantidadCuotas = 3, FechaPrimeraCuota = new DateTime(2026, 11, 30)
+        };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+
+        await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, EstadoAcuerdo.Activo);
+
+        var cuotas = await _context.Set<CuotaAcuerdo>().AsNoTracking().Where(c => c.AcuerdoPagoId == acuerdo.Id).OrderBy(c => c.NumeroCuota).ToListAsync();
+        Assert.Equal(3, cuotas.Count);
+        Assert.Equal(9_000m, cuotas.Sum(c => c.MontoTotal));
+        Assert.Equal(new DateTime(2026, 11, 30), cuotas[0].FechaVencimiento);
+        Assert.Equal(new DateTime(2026, 12, 30), cuotas[1].FechaVencimiento);
+        Assert.All(cuotas, c => Assert.Equal(EstadoCuotaAcuerdo.Pendiente, c.Estado));
+    }
+
+    [Fact]
+    public async Task ActivarAcuerdo_ConUnaCuotaRedondeaConLaUltimaCuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-R",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 100m, MontoEntregaInicial = 0m,
+            CantidadCuotas = 3, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+
+        await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, EstadoAcuerdo.Activo);
+
+        var cuotas = await _context.Set<CuotaAcuerdo>().AsNoTracking().Where(c => c.AcuerdoPagoId == acuerdo.Id).OrderBy(c => c.NumeroCuota).ToListAsync();
+        Assert.Equal(new[] { 33.33m, 33.33m, 33.34m }, cuotas.Select(c => c.MontoTotal).ToArray());
+    }
+
     [Fact]
     public async Task RegistrarContacto_SinAlerta_SeRechaza()
     {

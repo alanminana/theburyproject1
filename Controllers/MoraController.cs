@@ -303,7 +303,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                await _moraService.MarcarPromesaCumplidaAsync(alertaId);
+                await _moraService.MarcarPromesaCumplidaDelClienteAsync(alertaId, clienteId);
                 TempData["Success"] = "Promesa marcada como cumplida";
             }
             catch (Exception ex)
@@ -322,7 +322,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                await _moraService.MarcarPromesaIncumplidaAsync(alertaId, observaciones);
+                await _moraService.MarcarPromesaIncumplidaDelClienteAsync(alertaId, clienteId, observaciones);
                 TempData["Success"] = "Promesa marcada como incumplida";
             }
             catch (Exception ex)

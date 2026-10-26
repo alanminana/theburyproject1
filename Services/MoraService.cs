@@ -1443,6 +1443,51 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<bool> MarcarPromesaIncumplidaDelClienteAsync(int alertaId, int clienteId, string? observaciones)
+        {
+            var alerta = await ValidarAlertaDelClienteAsync(alertaId, clienteId);
+            if (alerta.FechaPromesaPago == null)
+                throw new InvalidOperationException("La alerta no tiene una promesa de pago vigente.");
+            return await MarcarPromesaIncumplidaAsync(alertaId, observaciones);
+        }
+
+        public async Task<bool> MarcarPromesaCumplidaDelClienteAsync(int alertaId, int clienteId)
+        {
+            var alerta = await ValidarAlertaDelClienteAsync(alertaId, clienteId);
+            if (alerta.FechaPromesaPago == null)
+                throw new InvalidOperationException("La alerta no tiene una promesa de pago vigente.");
+            return await MarcarPromesaCumplidaAsync(alertaId);
+        }
+
+        // El acuerdo se activa con su calendario: (total − entrega inicial) en CantidadCuotas cuotas mensuales desde la
+        // fecha de la primera; la última absorbe el redondeo para que la suma cierre exacto.
+        private static void GenerarCalendarioDeCuotas(AcuerdoPago acuerdo)
+        {
+            if (acuerdo.Cuotas != null && acuerdo.Cuotas.Any(c => !c.IsDeleted))
+                return;
+
+            var n = acuerdo.CantidadCuotas;
+            if (n <= 0)
+                throw new InvalidOperationException("El acuerdo no tiene cantidad de cuotas.");
+
+            var restante = acuerdo.MontoTotalAcuerdo - acuerdo.MontoEntregaInicial;
+            var monto = Math.Round(restante / n, 2, MidpointRounding.AwayFromZero);
+            acuerdo.Cuotas ??= new List<CuotaAcuerdo>();
+            for (var i = 1; i <= n; i++)
+            {
+                var importe = i == n ? restante - monto * (n - 1) : monto;
+                acuerdo.Cuotas.Add(new CuotaAcuerdo
+                {
+                    NumeroCuota = i,
+                    MontoCapital = importe,
+                    MontoMora = 0m,
+                    MontoTotal = importe,
+                    FechaVencimiento = acuerdo.FechaPrimeraCuota.AddMonths(i - 1),
+                    Estado = EstadoCuotaAcuerdo.Pendiente
+                });
+            }
+        }
+
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
             _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted
                 && a.CreditoId == creditoId
@@ -1464,6 +1509,7 @@ namespace TheBuryProject.Services
         public async Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado)
         {
             var acuerdo = await _context.AcuerdosPago
+                .Include(a => a.Cuotas)
                 .FirstOrDefaultAsync(a => a.Id == acuerdoId && !a.IsDeleted && a.ClienteId == clienteId);
             if (acuerdo == null)
                 throw new InvalidOperationException("El acuerdo no existe o no pertenece a este cliente.");
@@ -1482,7 +1528,10 @@ namespace TheBuryProject.Services
 
             acuerdo.Estado = nuevoEstado;
             if (nuevoEstado == EstadoAcuerdo.Activo)
+            {
                 acuerdo.FechaActivacion = DateTime.UtcNow;
+                GenerarCalendarioDeCuotas(acuerdo);
+            }
             acuerdo.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
