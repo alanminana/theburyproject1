@@ -66,8 +66,8 @@ public class CajaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationF
     }
 
     [Theory]
-    [InlineData("A B")]
-    [InlineData("CAJA 01")]
+    [InlineData("A  B")]       // doble espacio
+    [InlineData("CAJA--01")]
     [InlineData("<script>")]
     [InlineData("caja/01")]
     [InlineData("-CAJA")]
@@ -85,6 +85,8 @@ public class CajaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationF
     [InlineData("CAJA-01")]
     [InlineData("caja_02")]
     [InlineData("C3")]
+    [InlineData("CAJA 6")]     // códigos reales ya existentes en la base
+    [InlineData("caja 01")]
     public async Task Create_Codigo_Valido_SeAcepta(string codigo)
     {
         codigo = $"{codigo}-{Interlocked.Increment(ref _counter)}";

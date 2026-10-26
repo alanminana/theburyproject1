@@ -1,6 +1,6 @@
 // Reglas de entrada comunes (Argentina): filtran lo que el usuario puede tipear.
 // Solo ayudan a la UX: la autoridad es la validacion del servidor (Validation/ArgentinaValidationAttributes.cs).
-// Uso: data-rule="nombre" | "dni" | "documento" | "telefono" | "monto" | "none" en el input.
+// Uso: data-rule="nombre" | "lugar" (como nombre pero admite digitos: "9 de Julio") | "dni" | "documento" | "telefono" | "monto" | "none" en el input.
 // nombre acepta data-max-words (default 3) y data-max-word (letras por palabra, default 10);
 // documento filtra como DNI solo si el select data-tipo="#Selector" vale DNI.
 // Los montos tambien se detectan por nombre de campo (precio, costo, monto, sueldo, anticipo, importe,
@@ -30,13 +30,13 @@
         return null;
     }
 
-    function sanitizeNombre(value, maxWords, maxWord) {
+    function sanitizeNombre(value, maxWords, maxWord, conDigitos) {
         var v = String(value || '')
-            .replace(/[^\p{L}\p{M}\s'’.\-]/gu, '')
+            .replace(conDigitos ? /[^\p{L}\p{M}\d\s'’.\-]/gu : /[^\p{L}\p{M}\s'’.\-]/gu, '')
             .replace(/^[\s'’.\-]+/, '')
             .replace(/\s{2,}/g, ' ');
-        // Un tramo = letras seguidas; se recorta cada uno al maximo por palabra.
-        v = v.replace(/[\p{L}\p{M}]+/gu, function (t) { return limitarLetras(t, maxWord); });
+        // Un tramo = letras seguidas (y digitos si se admiten); se recorta cada uno al maximo de letras por palabra.
+        v = v.replace(conDigitos ? /[\p{L}\p{M}\d]+/gu : /[\p{L}\p{M}]+/gu, function (t) { return limitarLetras(t, maxWord); });
         var parts = v.split(' ');
         if (parts.length > maxWords) {
             // Un unico espacio final se tolera (el usuario esta por escribir); lo que siga se descarta.
@@ -49,7 +49,7 @@
     function limitarLetras(token, max) {
         var count = 0, out = '';
         for (var i = 0; i < token.length; i++) {
-            if (/\p{M}/u.test(token[i])) { out += token[i]; continue; }
+            if (/[\p{M}\d]/u.test(token[i])) { out += token[i]; continue; }
             if (count >= max) break;
             count++;
             out += token[i];
@@ -111,10 +111,10 @@
         var rule = ruleOf(el);
         if (!rule) return;
 
-        if (rule === 'nombre') {
+        if (rule === 'nombre' || rule === 'lugar') {
             var words = parseInt(el.getAttribute('data-max-words'), 10) || NOMBRE_MAX_PALABRAS;
             var maxWord = parseInt(el.getAttribute('data-max-word'), 10) || NOMBRE_MAX_PALABRA;
-            apply(el, sanitizeNombre(el.value, words, maxWord));
+            apply(el, sanitizeNombre(el.value, words, maxWord, rule === 'lugar'));
         } else if (rule === 'dni') {
             apply(el, sanitizeDni(el.value));
         } else if (rule === 'documento') {
@@ -138,7 +138,7 @@
         var rule = ruleOf(el);
         if (!rule || el._irReady) return;
         el._irReady = true;
-        if (rule === 'nombre') {
+        if (rule === 'nombre' || rule === 'lugar') {
             el.setAttribute('autocapitalize', 'words');
         } else if (rule === 'dni' || rule === 'documento') {
             if (rule === 'dni' || esTipoDni(el)) el.setAttribute('maxlength', String(DNI_MAX));
@@ -166,7 +166,8 @@
     // Al salir del campo se quitan espacios sobrantes en los nombres.
     document.addEventListener('focusout', function (e) {
         var el = e.target;
-        if (ruleOf(el) === 'nombre' && el.value !== el.value.trim()) {
+        var r = ruleOf(el);
+        if ((r === 'nombre' || r === 'lugar') && el.value !== el.value.trim()) {
             el.value = el.value.trim();
             el.dispatchEvent(new Event('change', { bubbles: true }));
         }

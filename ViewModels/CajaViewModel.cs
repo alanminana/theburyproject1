@@ -27,7 +27,7 @@ public class CajaViewModel
 
     [Required(ErrorMessage = "El código es obligatorio")]
     [StringLength(50)]
-    [RegularExpression(@"^[A-Za-z0-9][A-Za-z0-9_-]*$", ErrorMessage = "El código solo puede contener letras sin tilde, números, guion y guion bajo, sin espacios.")]
+    [RegularExpression(@"^[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$", ErrorMessage = "El código solo puede contener letras sin tilde, números, espacios simples, guion y guion bajo (ej. CAJA-01 o Caja 6).")]
     [Display(Name = "Código")]
     public string Codigo { get; set; } = string.Empty;
 

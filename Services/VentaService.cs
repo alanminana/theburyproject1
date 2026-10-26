@@ -24,9 +24,8 @@ namespace TheBuryProject.Services
         private const int MaxLongitudMotivoAutorizacion = 1000;
 
         // VALID-L1: tope de los motivos que escribe el usuario, alineado con las columnas (Venta.MotivoCancelacion y
-        // Factura.MotivoAnulacion = 500; Venta.MotivoRechazo = 1000). Cancelar deja 17 caracteres de margen porque el
-        // motivo también se copia a la factura como "Venta cancelada: {motivo}".
-        private const int MaxLongitudMotivoCancelacion = 480;
+        // Factura.MotivoAnulacion = 500; Venta.MotivoRechazo = 1000).
+        private const int MaxLongitudMotivoCancelacion = 500;
         private const int MaxLongitudMotivoAnulacionFactura = 500;
         private const int MaxLongitudMotivoRechazo = 1000;
 
@@ -1492,7 +1491,13 @@ namespace TheBuryProject.Services
                         .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted && !f.Anulada);
 
                     if (factura != null)
-                        MarcarFacturaAnulada(factura, $"Venta cancelada: {motivo}");
+                    {
+                        // El motivo se copia a la factura con un prefijo: se recorta para no pasar el límite de su columna.
+                        var motivoFactura = $"Venta cancelada: {motivo.Trim()}";
+                        MarcarFacturaAnulada(factura, motivoFactura.Length > MaxLongitudMotivoAnulacionFactura
+                            ? motivoFactura[..MaxLongitudMotivoAnulacionFactura]
+                            : motivoFactura);
+                    }
                     else
                         _logger.LogWarning("Venta {Id} está Facturada pero no tiene factura activa al cancelar.", id);
                 }

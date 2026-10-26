@@ -341,7 +341,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     {
         var (ventaId, _) = await CrearVentaAsync();
 
-        await PostMotivoAsync("Cancelar", ventaId, new string('m', 481));
+        await PostMotivoAsync("Cancelar", ventaId, new string('m', 501));
 
         await using var ctx = await NuevoContextoAsync();
         var venta = await ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId);
@@ -354,7 +354,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     {
         var (ventaId, _) = await CrearVentaAsync();
 
-        await PostMotivoAsync("Cancelar", ventaId, new string('m', 480));
+        await PostMotivoAsync("Cancelar", ventaId, new string('m', 500));
 
         await using var ctx = await NuevoContextoAsync();
         var venta = await ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId);
