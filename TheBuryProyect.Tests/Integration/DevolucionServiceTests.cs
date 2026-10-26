@@ -147,6 +147,94 @@ public class DevolucionServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Estado de la venta: solo se devuelve lo vendido (hallazgo del QA en clon: se podía devolver una cotización)
+    // -------------------------------------------------------------------------
+
+    private async Task<(Cliente Cliente, Producto Producto, Venta Venta)> SeedVentaEnEstadoAsync(EstadoVenta estado)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        venta.Estado = estado;
+        await _context.SaveChangesAsync();
+        return (cliente, producto, venta);
+    }
+
+    private static Devolucion NuevaDevolucion(Venta venta, Cliente cliente) => new()
+    {
+        VentaId = venta.Id, ClienteId = cliente.Id, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Test"
+    };
+
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion)]
+    [InlineData(EstadoVenta.Presupuesto)]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
+    public async Task Crear_VentaNoConcretada_LanzaYNoPersiste(EstadoVenta estado)
+    {
+        var (cliente, producto, venta) = await SeedVentaEnEstadoAsync(estado);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } }));
+
+        Assert.Contains("confirmadas, facturadas o entregadas", ex.Message);
+        Assert.Empty(await _context.Devoluciones.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Confirmada)]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    public async Task Crear_VentaConcretada_Permite(EstadoVenta estado)
+    {
+        var (cliente, producto, venta) = await SeedVentaEnEstadoAsync(estado);
+
+        var creada = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } });
+
+        Assert.True(creada.Id > 0);
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion, true)]
+    [InlineData(EstadoVenta.PendienteFinanciacion, true)]
+    [InlineData(EstadoVenta.Confirmada, false)]
+    [InlineData(EstadoVenta.Entregada, false)]
+    public async Task PuedeDevolver_DependeDelEstadoDeLaVenta(EstadoVenta estado, bool esperadoBloqueada)
+    {
+        var (_, _, venta) = await SeedVentaEnEstadoAsync(estado);
+
+        Assert.Equal(!esperadoBloqueada, await _service.PuedeDevolverVentaAsync(venta.Id));
+    }
+
+    [Fact]
+    public async Task Aprobar_DevolucionPendienteSobreVentaNoConcretada_Lanza()
+    {
+        // Devolución pendiente histórica creada cuando la venta aún era una cotización.
+        var (cliente, _, venta) = await SeedVentaEnEstadoAsync(EstadoVenta.Cotizacion);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion));
+
+        Assert.Contains("confirmadas, facturadas o entregadas", ex.Message);
+    }
+
+    [Fact]
+    public async Task Completar_DevolucionAprobadaSobreVentaNoConcretada_Lanza_YNoMueveStock()
+    {
+        var (cliente, producto, venta) = await SeedVentaEnEstadoAsync(EstadoVenta.Presupuesto);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Aprobada);
+        var stockAntes = (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion));
+
+        Assert.Contains("confirmadas, facturadas o entregadas", ex.Message);
+        Assert.Equal(stockAntes, (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual);
+    }
+
+    // -------------------------------------------------------------------------
     // CrearDevolucionAsync — validaciones
     // -------------------------------------------------------------------------
 
