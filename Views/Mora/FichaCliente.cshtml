@@ -15,6 +15,7 @@
     var acuerdos = Model.Acuerdos ?? new List<AcuerdoPagoResumenViewModel>();
 
     var puedeVerCliente = User.TienePermiso("clientes", "view");
+    var puedeGestionar = User.TienePermiso("mora", "manage");
     var urlActual = Context.Request.Path + Context.Request.QueryString;
     var volverUrl = ViewData["ReturnUrl"] as string;
 
@@ -400,6 +401,15 @@
                                     <span class="badge-erp whitespace-nowrap @(p.Vencida ? "badge-erp-danger" : "badge-erp-info")">@p.EstadoPromesa</span>
                                 </div>
                                 <p class="mt-1 text-xs text-slate-400">Para el @p.FechaPromesa.ToString("dd/MM/yyyy") · registrada @p.FechaRegistro.ToString("dd/MM/yyyy")</p>
+                                @if (puedeGestionar)
+                                {
+                                    <form method="post" asp-controller="Mora" asp-action="MarcarPromesaIncumplida" asp-route-returnUrl="@volverUrl" class="mt-2" data-mora-promesa-incumplida>
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="alertaId" value="@p.AlertaId" />
+                                        <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                        <button type="submit" class="btn-erp-ghost">Marcar incumplida</button>
+                                    </form>
+                                }
                             </li>
                         }
                     </ul>
@@ -433,35 +443,174 @@
                                 {
                                     <p class="text-xs text-slate-500">Próximo vencimiento @ac.ProximaFechaVencimiento.Value.ToString("dd/MM/yyyy")</p>
                                 }
+                                @if (puedeGestionar && (ac.Estado == EstadoAcuerdo.Borrador || ac.Estado == EstadoAcuerdo.Activo))
+                                {
+                                    <div class="mt-2 flex flex-wrap gap-2" data-mora-acuerdo-acciones>
+                                        @if (ac.Estado == EstadoAcuerdo.Borrador)
+                                        {
+                                            <form method="post" asp-controller="Mora" asp-action="CambiarEstadoAcuerdo" asp-route-returnUrl="@volverUrl">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
+                                                <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                                <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Activo)" />
+                                                <button type="submit" class="btn-erp-secondary">Activar</button>
+                                            </form>
+                                        }
+                                        @if (ac.Estado == EstadoAcuerdo.Activo)
+                                        {
+                                            <form method="post" asp-controller="Mora" asp-action="CambiarEstadoAcuerdo" asp-route-returnUrl="@volverUrl">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
+                                                <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                                <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Cumplido)" />
+                                                <button type="submit" class="btn-erp-secondary">Marcar cumplido</button>
+                                            </form>
+                                            <form method="post" asp-controller="Mora" asp-action="CambiarEstadoAcuerdo" asp-route-returnUrl="@volverUrl">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
+                                                <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                                <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Incumplido)" />
+                                                <button type="submit" class="btn-erp-ghost">Marcar incumplido</button>
+                                            </form>
+                                        }
+                                        <form method="post" asp-controller="Mora" asp-action="CambiarEstadoAcuerdo" asp-route-returnUrl="@volverUrl">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
+                                            <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                            <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Cancelado)" />
+                                            <button type="submit" class="btn-erp-ghost">Cancelar</button>
+                                        </form>
+                                    </div>
+                                }
                             </li>
                         }
                     </ul>
                 }
             </section>
 
-            <!-- ============ Gestión (formularios todavía no disponibles) ============ -->
+            <!-- ============ Gestión ============ -->
             <section class="card-erp-panel-padded" aria-labelledby="mc-gestion-titulo" data-mora-ficha-gestion>
                 <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
                     <span class="material-symbols-outlined text-primary">edit_note</span>
                     <h2 id="mc-gestion-titulo" class="text-xl font-bold text-white">Registrar gestión</h2>
                 </div>
-                <p class="mb-3 text-sm text-slate-400">
-                    Los formularios para registrar gestiones todavía no están disponibles en esta pantalla.
-                </p>
-                <div class="flex flex-col gap-2">
-                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="contacto">
-                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">call</span> Registrar contacto</span>
-                        <span class="text-xs">Próximamente</span>
+                @if (!puedeGestionar)
+                {
+                    <p class="text-sm text-slate-400" data-mora-estado="gestion-sin-permiso">Tu rol puede consultar la mora pero no registrar gestiones.</p>
+                }
+                else if (!alertas.Any())
+                {
+                    <p class="text-sm text-slate-400" data-mora-estado="gestion-sin-alerta">
+                        Para registrar una gestión el cliente necesita una alerta de mora activa.
+                    </p>
+                }
+                else
+                {
+                    <div class="flex flex-col gap-3">
+                        <!-- Contacto -->
+                        <details class="mc-gestion" data-mora-gestion="contacto">
+                            <summary><span class="material-symbols-outlined text-[20px]" aria-hidden="true">call</span> Registrar contacto</summary>
+                            <form method="post" asp-controller="Mora" asp-action="RegistrarContacto" asp-route-returnUrl="@volverUrl" class="mc-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
+                                <label for="ct-alerta">Alerta</label>
+                                <select id="ct-alerta" name="AlertaId" class="select-erp" required>
+                                    @foreach (var a in alertas)
+                                    {
+                                        <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                    }
+                                </select>
+                                <label for="ct-tipo">Medio</label>
+                                <select id="ct-tipo" name="TipoContacto" class="select-erp" required>
+                                    <option value="1">Llamada telefónica</option>
+                                    <option value="2">WhatsApp</option>
+                                    <option value="3">Email</option>
+                                    <option value="4">Visita presencial</option>
+                                    <option value="5">SMS</option>
+                                </select>
+                                <label for="ct-resultado">Resultado</label>
+                                <select id="ct-resultado" name="Resultado" class="select-erp" required>
+                                    <option value="1">Contacto exitoso</option>
+                                    <option value="2">No contesta</option>
+                                    <option value="3">Número equivocado</option>
+                                    <option value="5">Rechaza pagar</option>
+                                    <option value="6">Solicita acuerdo</option>
+                                    <option value="7">Mensaje dejado</option>
+                                </select>
+                                <label for="ct-obs">Observaciones</label>
+                                <textarea id="ct-obs" name="Observaciones" rows="3" maxlength="2000" class="input-erp"></textarea>
+                                <label for="ct-prox">Próximo contacto (opcional)</label>
+                                <input id="ct-prox" name="ProximoContacto" type="date" class="input-erp" />
+                                <button type="submit" class="btn-erp-primary">Guardar contacto</button>
+                            </form>
+                        </details>
+
+                        <!-- Promesa -->
+                        <details class="mc-gestion" data-mora-gestion="promesa">
+                            <summary><span class="material-symbols-outlined text-[20px]" aria-hidden="true">handshake</span> Registrar promesa</summary>
+                            <form method="post" asp-controller="Mora" asp-action="RegistrarPromesa" asp-route-returnUrl="@volverUrl" class="mc-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
+                                <label for="pr-alerta">Alerta</label>
+                                <select id="pr-alerta" name="AlertaId" class="select-erp" required>
+                                    @foreach (var a in alertas)
+                                    {
+                                        <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                    }
+                                </select>
+                                <label for="pr-fecha">Fecha prometida</label>
+                                <input id="pr-fecha" name="FechaPromesa" type="date" class="input-erp" required min="@DateTime.Today.ToString("yyyy-MM-dd")" value="@DateTime.Today.AddDays(7).ToString("yyyy-MM-dd")" />
+                                <label for="pr-monto">Monto prometido</label>
+                                <input id="pr-monto" name="MontoPromesa" type="number" step="0.01" min="0.01" class="input-erp" required value="@resumen.MontoTotal.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" />
+                                <label for="pr-obs">Observaciones</label>
+                                <textarea id="pr-obs" name="Observaciones" rows="2" maxlength="1000" class="input-erp"></textarea>
+                                <button type="submit" class="btn-erp-primary">Guardar promesa</button>
+                            </form>
+                        </details>
+
+                        <!-- Acuerdo -->
+                        <details class="mc-gestion" data-mora-gestion="acuerdo">
+                            <summary><span class="material-symbols-outlined text-[20px]" aria-hidden="true">description</span> Crear acuerdo</summary>
+                            @if (!creditos.Any())
+                            {
+                                <p class="mt-2 text-sm text-slate-400">Ningún crédito del cliente tiene deuda vencida para refinanciar.</p>
+                            }
+                            else
+                            {
+                                <form method="post" asp-controller="Mora" asp-action="CrearAcuerdo" asp-route-returnUrl="@volverUrl" class="mc-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
+                                    <p class="text-xs text-slate-400">La deuda y la mora del acuerdo se toman de las cuotas vencidas del crédito elegido.</p>
+                                    <label for="ac-credito">Crédito</label>
+                                    <select id="ac-credito" name="CreditoId" class="select-erp" required>
+                                        @foreach (var c in creditos)
+                                        {
+                                            <option value="@c.CreditoId">@c.NumeroCredito · deuda @c.MontoCuotasVencidas.ToString("C2") + mora @c.MontoMora.ToString("C2")</option>
+                                        }
+                                    </select>
+                                    <label for="ac-alerta">Alerta</label>
+                                    <select id="ac-alerta" name="AlertaId" class="select-erp" required>
+                                        @foreach (var a in alertas)
+                                        {
+                                            <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                        }
+                                    </select>
+                                    <label for="ac-entrega">Entrega inicial</label>
+                                    <input id="ac-entrega" name="MontoEntregaInicial" type="number" step="0.01" min="0" class="input-erp" required value="0" />
+                                    <label for="ac-cuotas">Cantidad de cuotas</label>
+                                    <input id="ac-cuotas" name="CantidadCuotas" type="number" min="1" max="60" class="input-erp" required value="6" />
+                                    <label for="ac-primera">Fecha de la primera cuota</label>
+                                    <input id="ac-primera" name="FechaPrimeraCuota" type="date" class="input-erp" required value="@DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")" />
+                                    <label for="ac-condonar">Mora a condonar (si la configuración lo permite)</label>
+                                    <input id="ac-condonar" name="MontoCondonar" type="number" step="0.01" min="0" class="input-erp" value="0" />
+                                    <label for="ac-obs">Observaciones</label>
+                                    <textarea id="ac-obs" name="Observaciones" rows="2" maxlength="2000" class="input-erp"></textarea>
+                                    <button type="submit" class="btn-erp-primary">Crear acuerdo</button>
+                                </form>
+                            }
+                        </details>
                     </div>
-                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="promesa">
-                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">handshake</span> Registrar promesa</span>
-                        <span class="text-xs">Próximamente</span>
-                    </div>
-                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="acuerdo">
-                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">description</span> Crear acuerdo</span>
-                        <span class="text-xs">Próximamente</span>
-                    </div>
-                </div>
+                }
             </section>
         </aside>
     </div>

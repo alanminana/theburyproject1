@@ -276,6 +276,12 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
+                if (model.FechaPromesa.Date < DateTime.Today)
+                {
+                    TempData["Error"] = "La fecha de la promesa no puede ser anterior a hoy.";
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
+                }
+
                 var gestorId = _currentUser.GetUserId();
                 await _moraService.RegistrarPromesaPagoAsync(model, gestorId);
                 
@@ -389,6 +395,23 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
+                // Deuda y mora salen de la ficha vigente del cliente, nunca del formulario: un importe enviado a mano
+                // abarataría el acuerdo (o lo inflaría) sin respaldo en las cuotas reales.
+                var ficha = await _moraService.GetFichaClienteAsync(model.ClienteId);
+                var creditoEnMora = ficha?.Creditos?.FirstOrDefault(c => c.CreditoId == model.CreditoId);
+                if (creditoEnMora == null)
+                {
+                    TempData["Error"] = "El crédito elegido no tiene deuda vencida para este cliente.";
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
+                }
+                if (await _moraService.ExisteAcuerdoVigenteAsync(model.CreditoId))
+                {
+                    TempData["Error"] = "Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.";
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
+                }
+                model.MontoDeudaOriginal = creditoEnMora.MontoCuotasVencidas;
+                model.MontoMoraOriginal = creditoEnMora.MontoMora;
+
                 var gestorId = _currentUser.GetUserId();
                 var acuerdoId = await _moraService.CrearAcuerdoPagoAsync(model, gestorId);
                 
@@ -409,6 +432,30 @@ namespace TheBuryProject.Controllers
         }
 
         #endregion
+
+        [PermisoRequerido(Modulo = "mora", Accion = "manage")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CambiarEstadoAcuerdo(int acuerdoId, int clienteId, EstadoAcuerdo estado, string? returnUrl = null)
+        {
+            try
+            {
+                await _moraService.CambiarEstadoAcuerdoAsync(acuerdoId, clienteId, estado);
+                TempData["Success"] = estado == EstadoAcuerdo.Activo ? "Acuerdo activado" : $"Acuerdo marcado como {estado}";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cambiar el estado del acuerdo {AcuerdoId}", acuerdoId);
+                TempData["Error"] = "No se pudo cambiar el estado del acuerdo.";
+            }
+
+            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+        }
+
 
         #region Configuración
 

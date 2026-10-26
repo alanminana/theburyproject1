@@ -1,3 +1,4 @@
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
@@ -118,6 +119,14 @@ namespace TheBuryProject.Services.Interfaces
         /// Obtiene el detalle de un acuerdo de pago
         /// </summary>
         Task<AcuerdoPago?> GetAcuerdoPagoDetalleAsync(int acuerdoId);
+
+        /// <summary>
+        /// Cambia el estado de un acuerdo del cliente: Borrador→Activo/Cancelado, Activo→Cumplido/Incumplido/Cancelado.
+        /// Lanza InvalidOperationException ante una transición no permitida o un acuerdo ajeno al cliente.
+        /// </summary>
+        Task<bool> ExisteAcuerdoVigenteAsync(int creditoId);
+
+        Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado);
         
         #endregion
 

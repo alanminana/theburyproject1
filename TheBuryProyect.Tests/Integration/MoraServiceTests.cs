@@ -316,6 +316,129 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(ResultadoContacto.PromesaPago, historial[0].Resultado);
     }
 
+    // Gestión desde la ficha (contacto / promesa / acuerdo): la alerta debe existir, estar activa y ser del cliente.
+    [Fact]
+    public async Task RegistrarContacto_SinAlerta_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarContactoAsync(
+            new RegistrarContactoViewModel { ClienteId = cliente.Id, TipoContacto = TipoContacto.WhatsApp, Resultado = ResultadoContacto.NoContesta }, "g"));
+
+        Assert.Contains("alerta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_context.HistorialContactos);
+    }
+
+    [Fact]
+    public async Task RegistrarContacto_AlertaDeOtroCliente_SeRechazaYNoGuardaNada()
+    {
+        var dueno = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(dueno.Id);
+        var alerta = await SeedAlertaAsync(dueno.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarContactoAsync(
+            new RegistrarContactoViewModel { ClienteId = otro.Id, AlertaId = alerta.Id, TipoContacto = TipoContacto.WhatsApp, Resultado = ResultadoContacto.NoContesta }, "g"));
+
+        Assert.Empty(_context.HistorialContactos);
+    }
+
+    [Fact]
+    public async Task RegistrarContacto_AlertaDelCliente_GuardaElHistorial()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var ok = await _service.RegistrarContactoAsync(
+            new RegistrarContactoViewModel { ClienteId = cliente.Id, AlertaId = alerta.Id, TipoContacto = TipoContacto.LlamadaTelefonica, Resultado = ResultadoContacto.ContactoExitoso, Observaciones = "Atendió" }, "g");
+
+        Assert.True(ok);
+        var h = Assert.Single(_context.HistorialContactos);
+        Assert.Equal(alerta.Id, h.AlertaCobranzaId);
+        Assert.Equal("Atendió", h.Observaciones);
+    }
+
+    [Fact]
+    public async Task RegistrarPromesa_AlertaDeOtroCliente_SeRechaza()
+    {
+        var dueno = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(dueno.Id);
+        var alerta = await SeedAlertaAsync(dueno.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarPromesaPagoAsync(
+            new RegistrarPromesaViewModel { AlertaId = alerta.Id, ClienteId = otro.Id, FechaPromesa = DateTime.Today.AddDays(3), MontoPromesa = 100m }, "g"));
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.Null(recargada.FechaPromesaPago);
+    }
+
+    [Theory]
+    [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Activo, true)]
+    [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Cancelado, true)]
+    [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Cumplido, false)]
+    [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Cumplido, true)]
+    [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Incumplido, true)]
+    [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Borrador, false)]
+    [InlineData(EstadoAcuerdo.Cumplido, EstadoAcuerdo.Activo, false)]
+    [InlineData(EstadoAcuerdo.Cancelado, EstadoAcuerdo.Activo, false)]
+    public async Task CambiarEstadoAcuerdo_SoloPermiteLasTransicionesDelCircuito(EstadoAcuerdo desde, EstadoAcuerdo hacia, bool permitido)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-T",
+            Estado = desde, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 2, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+
+        if (permitido)
+        {
+            Assert.True(await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia));
+            var guardado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
+            Assert.Equal(hacia, guardado.Estado);
+            Assert.Equal(hacia == EstadoAcuerdo.Activo, guardado.FechaActivacion.HasValue);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia));
+        }
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAcuerdo_AcuerdoDeOtroCliente_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-X", Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, otro.Id, EstadoAcuerdo.Activo));
+    }
+
+    [Fact]
+    public async Task ExisteAcuerdoVigente_SoloCuentaBorradorYActivo()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-V", Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+        Assert.False(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
+
+        acuerdo.Estado = EstadoAcuerdo.Borrador;
+        await _context.SaveChangesAsync();
+        Assert.True(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
+    }
+
     [Fact]
     public async Task RegistrarPromesa_AlertaNoExiste_RetornaFalse()
     {

@@ -1134,10 +1134,15 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // El historial cuelga de una alerta (FK obligatoria): sin alerta del cliente no hay a qué asociarlo.
+                if (!contacto.AlertaId.HasValue)
+                    throw new InvalidOperationException("Elegí la alerta de mora a la que corresponde el contacto.");
+                await ValidarAlertaDelClienteAsync(contacto.AlertaId.Value, contacto.ClienteId);
+
                 var historial = new HistorialContacto
                 {
                     ClienteId = contacto.ClienteId,
-                    AlertaCobranzaId = contacto.AlertaId ?? 0,
+                    AlertaCobranzaId = contacto.AlertaId.Value,
                     GestorId = gestorId,
                     FechaContacto = DateTime.UtcNow,
                     TipoContacto = contacto.TipoContacto,
@@ -1222,10 +1227,10 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var alerta = await _context.AlertasCobranza
-                    .FirstOrDefaultAsync(a => a.Id == promesa.AlertaId && !a.IsDeleted);
-                if (alerta == null)
+                var existe = await _context.AlertasCobranza.AnyAsync(a => a.Id == promesa.AlertaId && !a.IsDeleted);
+                if (!existe)
                     return false;
+                var alerta = await ValidarAlertaDelClienteAsync(promesa.AlertaId, promesa.ClienteId);
 
                 alerta.EstadoGestion = EstadoGestionCobranza.PromesaPago;
                 alerta.FechaPromesaPago = promesa.FechaPromesa;
@@ -1363,6 +1368,8 @@ namespace TheBuryProject.Services
             {
                 var config = await GetConfiguracionAsync();
 
+                await ValidarAlertaDelClienteAsync(acuerdo.AlertaId, acuerdo.ClienteId);
+
                 // Importes y cuotas coherentes antes de cualquier división o comparación con la configuración.
                 if (acuerdo.CantidadCuotas <= 0)
                     throw new InvalidOperationException("La cantidad de cuotas debe ser mayor a cero");
@@ -1434,6 +1441,53 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al crear acuerdo de pago");
                 throw;
             }
+        }
+
+        public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
+            _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted
+                && a.CreditoId == creditoId
+                && (a.Estado == EstadoAcuerdo.Borrador || a.Estado == EstadoAcuerdo.Activo));
+
+        private async Task<AlertaCobranza> ValidarAlertaDelClienteAsync(int alertaId, int clienteId)
+        {
+            var alerta = await _context.AlertasCobranza
+                .FirstOrDefaultAsync(a => a.Id == alertaId && !a.IsDeleted);
+            if (alerta == null)
+                throw new InvalidOperationException("La alerta no existe.");
+            if (alerta.ClienteId != clienteId)
+                throw new InvalidOperationException("La alerta no pertenece a este cliente.");
+            if (alerta.Resuelta)
+                throw new InvalidOperationException("La alerta ya está resuelta.");
+            return alerta;
+        }
+
+        public async Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado)
+        {
+            var acuerdo = await _context.AcuerdosPago
+                .FirstOrDefaultAsync(a => a.Id == acuerdoId && !a.IsDeleted && a.ClienteId == clienteId);
+            if (acuerdo == null)
+                throw new InvalidOperationException("El acuerdo no existe o no pertenece a este cliente.");
+
+            var permitido = (acuerdo.Estado, nuevoEstado) switch
+            {
+                (EstadoAcuerdo.Borrador, EstadoAcuerdo.Activo) => true,
+                (EstadoAcuerdo.Borrador, EstadoAcuerdo.Cancelado) => true,
+                (EstadoAcuerdo.Activo, EstadoAcuerdo.Cumplido) => true,
+                (EstadoAcuerdo.Activo, EstadoAcuerdo.Incumplido) => true,
+                (EstadoAcuerdo.Activo, EstadoAcuerdo.Cancelado) => true,
+                _ => false
+            };
+            if (!permitido)
+                throw new InvalidOperationException($"Un acuerdo {acuerdo.Estado} no puede pasar a {nuevoEstado}.");
+
+            acuerdo.Estado = nuevoEstado;
+            if (nuevoEstado == EstadoAcuerdo.Activo)
+                acuerdo.FechaActivacion = DateTime.UtcNow;
+            acuerdo.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Acuerdo {Numero} pasó a {Estado}", acuerdo.NumeroAcuerdo, nuevoEstado);
+            return true;
         }
 
         public async Task<List<AcuerdoPagoResumenViewModel>> GetAcuerdosPagoAsync(int clienteId)
