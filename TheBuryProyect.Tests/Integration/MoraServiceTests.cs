@@ -749,6 +749,33 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_AcuerdoActivoSinDeudaVencida_ConservaLaAlerta()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id, estado: EstadoGestionCobranza.AcuerdoActivo);
+        // El acuerdo reprogramó los vencimientos: el crédito ya no tiene cuotas vencidas, pero el acuerdo sigue activo.
+        _context.AcuerdosPago.Add(new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id,
+            ClienteId = cliente.Id,
+            CreditoId = credito.Id,
+            NumeroAcuerdo = "AC-TEST-1",
+            Estado = EstadoAcuerdo.Activo,
+            MontoDeudaOriginal = 1_000m,
+            MontoTotalAcuerdo = 1_000m,
+            CantidadCuotas = 2
+        });
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
+        Assert.False(recargada.Resuelta);
+        Assert.Equal(EstadoGestionCobranza.AcuerdoActivo, recargada.EstadoGestion);
+    }
+
+    [Fact]
     public async Task ProcesarMora_NoResuelveAlertasPreventivasDeOtroCredito()
     {
         var cliente = await SeedClienteAsync();

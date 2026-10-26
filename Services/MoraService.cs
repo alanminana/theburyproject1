@@ -362,7 +362,17 @@ namespace TheBuryProject.Services
                 .Distinct()
                 .ToListAsync(ct))
                 .ToHashSet();
-            var regularizadas = candidatas.Where(a => !creditosConDeudaVencida.Contains(a.CreditoId)).ToList();
+            // Un acuerdo de pago activo puede haber reprogramado los vencimientos: mientras siga activo, la gestión
+            // de cobranza (y su visibilidad en la bandeja) se conserva; el acuerdo es la autoridad.
+            var creditosConAcuerdoActivo = (await _context.AcuerdosPago
+                .Where(ac => !ac.IsDeleted && ac.Estado == EstadoAcuerdo.Activo && idsCandidatos.Contains(ac.CreditoId))
+                .Select(ac => ac.CreditoId)
+                .Distinct()
+                .ToListAsync(ct))
+                .ToHashSet();
+            var regularizadas = candidatas
+                .Where(a => !creditosConDeudaVencida.Contains(a.CreditoId) && !creditosConAcuerdoActivo.Contains(a.CreditoId))
+                .ToList();
 
             foreach (var alerta in regularizadas)
             {
