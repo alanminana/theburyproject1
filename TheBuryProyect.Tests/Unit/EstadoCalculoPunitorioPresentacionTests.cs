@@ -23,7 +23,17 @@ public class EstadoCalculoPunitorioPresentacionTests
     [Fact]
     public void Etiqueta_EntradaInvalida_ExplicaQueLaCuotaNoVencio()
     {
-        Assert.Contains("no venció", EstadoCalculoPunitorioDetalle.EntradaInvalida.Etiqueta());
+        Assert.Contains("no venció", EstadoCalculoPunitorioDetalle.EntradaInvalida.Etiqueta(cuotaNoVencida: true));
+    }
+
+    [Fact]
+    public void Etiqueta_EntradaInvalidaConCuotaVencida_NoDiceQueNoVencio()
+    {
+        // Configuración o pagos inconsistentes en una cuota ya vencida: es un error real, no "todavía no venció".
+        var etiqueta = EstadoCalculoPunitorioDetalle.EntradaInvalida.Etiqueta(cuotaNoVencida: false);
+
+        Assert.DoesNotContain("no venció", etiqueta);
+        Assert.Contains("inconsistentes", etiqueta);
     }
 
     public static IEnumerable<object[]> Estados() =>

@@ -98,8 +98,8 @@
                             <dt>Punitorio calculado <span class="muted-2">(informativo)</span></dt>
                             <dd class="num">@DineroOpcional(contexto.PunitorioCalculadoInformativo)</dd>
                         </div>
-                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio.Etiqueta()</dd></div>
-                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio) && contexto.EstadoCalculoPunitorio != EstadoCalculoPunitorioDetalle.EntradaInvalida)
+                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio.Etiqueta(contexto.CuotaNoVencida)</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio) && !(contexto.EstadoCalculoPunitorio == EstadoCalculoPunitorioDetalle.EntradaInvalida && contexto.CuotaNoVencida))
                         {
                             <div class="kv-row"><dt>Detalle del cálculo</dt><dd>@contexto.MotivoNoCalculoPunitorio</dd></div>
                         }

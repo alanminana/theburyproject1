@@ -69,6 +69,9 @@ public sealed class PagoCuotaContextoViewModel
     public string? MotivoHistorialIncompleto { get; init; }
     public required string CuotaRowVersionBase64 { get; init; }
     public bool PuedeConfirmar => TotalCobrableActual is > 0m && PunitorioAplicadoPendiente.HasValue;
+
+    /// <summary>La cuota todavía no venció: el cálculo de punitorios no aplica (no es un error del cálculo).</summary>
+    public bool CuotaNoVencida => FechaComercial < FechaVencimiento;
 }
 
 public sealed class PagoCuotaPreviewViewModel
@@ -108,7 +111,7 @@ public sealed class PagoCuotaResultadoViewModel
 /// <summary>Texto para el operador del estado técnico del cálculo de punitorios (nunca el nombre del enum).</summary>
 public static class EstadoCalculoPunitorioPresentacion
 {
-    public static string Etiqueta(this EstadoCalculoPunitorioDetalle estado) => estado switch
+    public static string Etiqueta(this EstadoCalculoPunitorioDetalle estado, bool cuotaNoVencida = false) => estado switch
     {
         EstadoCalculoPunitorioDetalle.Calculado => "Calculado",
         EstadoCalculoPunitorioDetalle.TasaCero => "Tasa 0%: sin punitorio",
@@ -117,7 +120,10 @@ public static class EstadoCalculoPunitorioPresentacion
         EstadoCalculoPunitorioDetalle.DentroDeGracia => "Dentro del período de gracia",
         EstadoCalculoPunitorioDetalle.HistorialIncompleto => "Historial incompleto",
         EstadoCalculoPunitorioDetalle.SinSaldo => "Sin saldo de capital pendiente",
-        EstadoCalculoPunitorioDetalle.EntradaInvalida => "No aplica (la cuota todavía no venció)",
+        // EntradaInvalida también cubre configuraciones o pagos inconsistentes: solo es "no aplica" si la cuota no venció.
+        EstadoCalculoPunitorioDetalle.EntradaInvalida => cuotaNoVencida
+            ? "No aplica (la cuota todavía no venció)"
+            : "Cálculo no disponible: datos inconsistentes (ver detalle)",
         _ => "No disponible"
     };
 }
