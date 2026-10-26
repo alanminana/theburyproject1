@@ -59,6 +59,9 @@ public class CambiosPreciosController : Controller
     {
         try
         {
+            // FE-D-007: page/pageSize vienen del cliente; un valor negativo o enorme produciría OFFSET/FETCH inválidos.
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
             var skip = (page - 1) * pageSize;
             var batches = await _precioService.GetBatchesAsync(
                 estado: estado,
@@ -821,6 +824,9 @@ public class CambiosPreciosController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
+            // FE-D-007: page/pageSize vienen del cliente; un valor negativo o enorme produciría OFFSET/FETCH inválidos.
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
             var skip = (page - 1) * pageSize;
             var items = await _precioService.GetItemsSimulacionAsync(id, skip, pageSize);
 
