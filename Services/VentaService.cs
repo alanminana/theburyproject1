@@ -1043,7 +1043,7 @@ namespace TheBuryProject.Services
                 }
 
                 // Un cheque sin sus datos (banco, número, importe, vencimiento) no es trazable en caja ni en cartera.
-                if (venta.TipoPago == TipoPago.Cheque && venta.DatosCheque == null)
+                if (venta.TipoPago == TipoPago.Cheque && (venta.DatosCheque == null || venta.DatosCheque.IsDeleted))
                 {
                     throw new InvalidOperationException(
                         "No se puede confirmar la venta: el medio de pago 'Cheque' requiere los datos del cheque y no han sido completados.");
@@ -3093,6 +3093,7 @@ namespace TheBuryProject.Services
             return await _context.Ventas
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
                 .Include(v => v.DatosTarjeta)
+                .Include(v => v.DatosCheque)
                 .Include(v => v.Envio)
                 .Include(v => v.Credito)
                 .Include(v => v.Cliente)

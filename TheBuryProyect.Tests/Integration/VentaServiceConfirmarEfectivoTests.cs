@@ -382,6 +382,21 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVenta_Cheque_ConDatosPersistidos_ConfirmaConContextoNuevo()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Cheque);
+        _context.DatosCheque.Add(new DatosCheque
+        {
+            VentaId = venta.Id, NumeroCheque = "0001", Banco = "Banco X", Titular = "Ana",
+            FechaVencimiento = DateTime.UtcNow.AddDays(30), Monto = venta.Total
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        Assert.True(await _service.ConfirmarVentaAsync(venta.Id));
+    }
+
+    [Fact]
     public async Task ConfirmarVenta_ContactoLibreValido_MedioDistintoDeCreditoPersonal_Confirma()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);
