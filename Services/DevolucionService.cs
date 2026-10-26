@@ -1412,6 +1412,21 @@ public class DevolucionService : IDevolucionService
         if (monto <= 0)
             throw new InvalidOperationException("El monto a utilizar debe ser mayor a cero");
 
+        // Una NC emitida por una devolución sobre una venta que nunca se concretó (dato histórico anterior a la regla de
+        // estado) no representa dinero real del cliente: no puede consumirse.
+        if (notaCredito.DevolucionId > 0)
+        {
+            var estadoVentaOrigen = await _context.Devoluciones
+                .AsNoTracking()
+                .Where(d => d.Id == notaCredito.DevolucionId)
+                .Select(d => (EstadoVenta?)d.Venta.Estado)
+                .FirstOrDefaultAsync();
+            if (estadoVentaOrigen is EstadoVenta.Cotizacion or EstadoVenta.Presupuesto
+                or EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion)
+                throw new InvalidOperationException(
+                    "La nota de crédito proviene de una devolución sobre una venta que no se concretó y no puede utilizarse.");
+        }
+
         if (notaCredito.Estado != EstadoNotaCredito.Vigente &&
             notaCredito.Estado != EstadoNotaCredito.UtilizadaParcialmente)
             throw new InvalidOperationException($"La nota de crédito no admite usos en estado {notaCredito.Estado.GetDisplayName()}");

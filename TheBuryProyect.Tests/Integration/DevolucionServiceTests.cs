@@ -234,6 +234,31 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(stockAntes, (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual);
     }
 
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion, false)]
+    [InlineData(EstadoVenta.PendienteFinanciacion, false)]
+    [InlineData(EstadoVenta.Confirmada, true)]
+    [InlineData(EstadoVenta.Entregada, true)]
+    public async Task Utilizar_NotaCreditoDeDevolucion_SoloSiLaVentaSeConcreto(EstadoVenta estado, bool permitido)
+    {
+        // NC histórica emitida por una devolución cuando la venta aún no se había concretado.
+        var (cliente, _, venta) = await SeedVentaEnEstadoAsync(estado);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Aprobada);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, devolucionId: dev.Id);
+
+        if (permitido)
+        {
+            var usada = await _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA");
+            Assert.Equal(10m, usada.MontoUtilizado);
+        }
+        else
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA"));
+            Assert.Contains("no se concretó", ex.Message);
+            Assert.Equal(0m, (await _context.NotasCredito.AsNoTracking().FirstAsync(n => n.Id == nc.Id)).MontoUtilizado);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // CrearDevolucionAsync — validaciones
     // -------------------------------------------------------------------------
