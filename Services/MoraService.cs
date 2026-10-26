@@ -1518,13 +1518,19 @@ namespace TheBuryProject.Services
             {
                 (EstadoAcuerdo.Borrador, EstadoAcuerdo.Activo) => true,
                 (EstadoAcuerdo.Borrador, EstadoAcuerdo.Cancelado) => true,
-                (EstadoAcuerdo.Activo, EstadoAcuerdo.Cumplido) => true,
                 (EstadoAcuerdo.Activo, EstadoAcuerdo.Incumplido) => true,
                 (EstadoAcuerdo.Activo, EstadoAcuerdo.Cancelado) => true,
                 _ => false
             };
             if (!permitido)
-                throw new InvalidOperationException($"Un acuerdo {acuerdo.Estado} no puede pasar a {nuevoEstado}.");
+                throw new InvalidOperationException(nuevoEstado == EstadoAcuerdo.Cumplido
+                    ? "El cumplimiento de un acuerdo se registra con el pago de sus cuotas; todavía no se puede marcar a mano."
+                    : $"Un acuerdo {acuerdo.Estado} no puede pasar a {nuevoEstado}.");
+
+            if (nuevoEstado == EstadoAcuerdo.Activo
+                && await _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted && a.Id != acuerdo.Id
+                    && a.CreditoId == acuerdo.CreditoId && a.Estado == EstadoAcuerdo.Activo))
+                throw new InvalidOperationException("Ese crédito ya tiene otro acuerdo activo.");
 
             acuerdo.Estado = nuevoEstado;
             if (nuevoEstado == EstadoAcuerdo.Activo)

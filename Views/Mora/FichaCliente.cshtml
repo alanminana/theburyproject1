@@ -462,13 +462,6 @@
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
                                                 <input type="hidden" name="clienteId" value="@Model.ClienteId" />
-                                                <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Cumplido)" />
-                                                <button type="submit" class="btn-erp-secondary">Marcar cumplido</button>
-                                            </form>
-                                            <form method="post" asp-controller="Mora" asp-action="CambiarEstadoAcuerdo" asp-route-returnUrl="@volverUrl">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
-                                                <input type="hidden" name="clienteId" value="@Model.ClienteId" />
                                                 <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Incumplido)" />
                                                 <button type="submit" class="btn-erp-ghost">Marcar incumplido</button>
                                             </form>

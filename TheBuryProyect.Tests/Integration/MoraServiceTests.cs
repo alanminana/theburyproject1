@@ -412,6 +412,25 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ActivarAcuerdo_ConOtroAcuerdoActivoDelMismoCredito_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        AcuerdoPago Nuevo(string n, EstadoAcuerdo e) => new()
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = n,
+            Estado = e, MontoTotalAcuerdo = 100m, CantidadCuotas = 2, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        };
+        var activo = Nuevo("ACU-A1", EstadoAcuerdo.Activo);
+        var borrador = Nuevo("ACU-A2", EstadoAcuerdo.Borrador);
+        _context.AcuerdosPago.AddRange(activo, borrador);
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(borrador.Id, cliente.Id, EstadoAcuerdo.Activo));
+    }
+
+    [Fact]
     public async Task RegistrarContacto_SinAlerta_SeRechaza()
     {
         var cliente = await SeedClienteAsync();
@@ -472,7 +491,7 @@ public class MoraServiceTests : IDisposable
     [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Activo, true)]
     [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Cancelado, true)]
     [InlineData(EstadoAcuerdo.Borrador, EstadoAcuerdo.Cumplido, false)]
-    [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Cumplido, true)]
+    [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Cumplido, false)]
     [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Incumplido, true)]
     [InlineData(EstadoAcuerdo.Activo, EstadoAcuerdo.Borrador, false)]
     [InlineData(EstadoAcuerdo.Cumplido, EstadoAcuerdo.Activo, false)]
