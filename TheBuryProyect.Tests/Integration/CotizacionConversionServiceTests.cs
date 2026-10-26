@@ -1591,6 +1591,20 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Convertir_LaVentaLlevaNumeracionDeVenta_NoDeCotizacion()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.StartsWith("VTA-", venta.Numero);
+    }
+
+    [Fact]
     public async Task Convertir_PermiteEncontrarVentaPorCotizacionOrigen()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);

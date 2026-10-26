@@ -512,7 +512,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             if (clienteId is null && ErrorContactoLibre(cotizacionEnTx) is { } errorContactoEnTx)
                 return CotizacionConversionResultado.Fallido(cotizacionId, [errorContactoEnTx]);
 
-            var numero = await _numberGenerator.GenerarNumeroAsync(EstadoVenta.Cotizacion);
+            var numero = await _numberGenerator.GenerarNumeroAsync(EstadoVenta.Confirmada);
 
             var tipoPago = MapearTipoPago(cotizacionEnTx.MedioPagoSeleccionado);
 
