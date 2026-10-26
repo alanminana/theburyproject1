@@ -468,7 +468,9 @@ namespace TheBuryProject.Services
 
         private async Task GuardarVentaConReintentoNumeroAsync(Venta venta, EstadoVenta estado)
         {
-            const int maxIntentos = 5;
+            // Con altas simultáneas el número "máximo + 1" colisiona (el anterior todavía no está confirmado). El índice único
+            // impide el duplicado; para que no se agoten los reintentos se escalona cada uno con una espera aleatoria creciente.
+            const int maxIntentos = 10;
 
             for (var intento = 1; intento <= maxIntentos; intento++)
             {
@@ -480,6 +482,7 @@ namespace TheBuryProject.Services
                 catch (DbUpdateException ex) when (!EsViolacionIndiceIdempotenciaVenta(ex) && EsErrorNumeroVentaDuplicado(ex) && intento < maxIntentos)
                 {
                     var numeroAnterior = venta.Numero;
+                    await Task.Delay(Random.Shared.Next(5, 25 * intento + 10));
                     venta.Numero = await _numberGenerator.GenerarNumeroAsync(estado);
 
                     _logger.LogWarning(
