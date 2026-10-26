@@ -104,3 +104,20 @@ public sealed class PagoCuotaResultadoViewModel
     public required int PagoCuotaId { get; init; }
     public required string MedioPago { get; init; }
 }
+
+/// <summary>Texto para el operador del estado técnico del cálculo de punitorios (nunca el nombre del enum).</summary>
+public static class EstadoCalculoPunitorioPresentacion
+{
+    public static string Etiqueta(this EstadoCalculoPunitorioDetalle estado) => estado switch
+    {
+        EstadoCalculoPunitorioDetalle.Calculado => "Calculado",
+        EstadoCalculoPunitorioDetalle.TasaCero => "Tasa 0%: sin punitorio",
+        EstadoCalculoPunitorioDetalle.SinConfiguracion => "Sin configuración de punitorios vigente",
+        EstadoCalculoPunitorioDetalle.ConfiguracionInactiva => "Configuración de punitorios inactiva",
+        EstadoCalculoPunitorioDetalle.DentroDeGracia => "Dentro del período de gracia",
+        EstadoCalculoPunitorioDetalle.HistorialIncompleto => "Historial incompleto",
+        EstadoCalculoPunitorioDetalle.SinSaldo => "Sin saldo de capital pendiente",
+        EstadoCalculoPunitorioDetalle.EntradaInvalida => "No aplica (la cuota todavía no venció)",
+        _ => "No disponible"
+    };
+}

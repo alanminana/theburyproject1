@@ -1,5 +1,6 @@
 @using System.Globalization
 @using TheBuryProject.ViewModels.PagoCuota
+@using TheBuryProject.Services.Models
 @model PagarCuotaPageViewModel
 @{
     ViewData["Title"] = "Registrar pago de cuota";
@@ -97,8 +98,8 @@
                             <dt>Punitorio calculado <span class="muted-2">(informativo)</span></dt>
                             <dd class="num">@DineroOpcional(contexto.PunitorioCalculadoInformativo)</dd>
                         </div>
-                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio</dd></div>
-                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio))
+                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio.Etiqueta()</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio) && contexto.EstadoCalculoPunitorio != EstadoCalculoPunitorioDetalle.EntradaInvalida)
                         {
                             <div class="kv-row"><dt>Detalle del cálculo</dt><dd>@contexto.MotivoNoCalculoPunitorio</dd></div>
                         }

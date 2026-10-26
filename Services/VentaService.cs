@@ -1163,6 +1163,7 @@ namespace TheBuryProject.Services
                 await _context.Ventas
                     .Where(v => v.Id == id && !v.IsDeleted)
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
+                await RefrescarVentaRastreadaTrasLockAsync(id);
 
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
@@ -1419,6 +1420,7 @@ namespace TheBuryProject.Services
                 var reclamada = await _context.Ventas
                     .Where(v => v.Id == id && !v.IsDeleted && v.Estado != EstadoVenta.Cancelada)
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
+                await RefrescarVentaRastreadaTrasLockAsync(id);
 
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
@@ -3055,6 +3057,20 @@ namespace TheBuryProject.Services
                 query = query.Where(v => v.Envio != null && v.Envio.Estado == filter.EstadoEnvio.Value);
 
             return query;
+        }
+
+        /// <summary>
+        /// El lock de fila de la venta (ExecuteUpdate de UpdatedAt) cambia su RowVersion en la base sin pasar por el
+        /// change tracker. Si la venta ya estaba rastreada en este contexto (p. ej. Edit la actualiza y luego confirma en
+        /// la misma request), CargarVentaCompleta devolvería esa instancia con el RowVersion viejo y el siguiente
+        /// SaveChanges fallaría con DbUpdateConcurrencyException ("el stock fue modificado por otro usuario").
+        /// Recargar la instancia rastreada deja su RowVersion alineado con el lock recién tomado.
+        /// </summary>
+        private async Task RefrescarVentaRastreadaTrasLockAsync(int ventaId)
+        {
+            var rastreada = _context.ChangeTracker.Entries<Venta>().FirstOrDefault(e => e.Entity.Id == ventaId);
+            if (rastreada != null)
+                await rastreada.ReloadAsync();
         }
 
         private async Task<Venta?> CargarVentaCompleta(int id)

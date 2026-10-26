@@ -36,6 +36,18 @@ public class RutasSinVistaRetiradasHttpTests : IClassFixture<CustomWebApplicatio
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/Mora/RegistrarContacto?clienteId=1")]
+    [InlineData("/Mora/RegistrarPromesa?alertaId=1&clienteId=1")]
+    [InlineData("/Mora/CrearAcuerdo?alertaId=1&clienteId=1&creditoId=1")]
+    public async Task MoraGestionSinPantalla_RedirigeALaFicha_NoUn500(string url)
+    {
+        var respuesta = await (await ClienteAsync()).GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Contains("/Mora", respuesta.Headers.Location?.ToString());
+    }
+
     [Fact]
     public async Task MoraConfiguracion_RedirigeALaPantallaVigente()
     {
