@@ -128,6 +128,7 @@
         if (!panel) return;
         panel.classList.remove('translate-x-full');
         panel.removeAttribute('aria-hidden');
+        panel.inert = false;
         if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('flex'); }
         document.body.style.overflow = 'hidden';
 
@@ -143,6 +144,7 @@
         if (!panel) return;
         panel.classList.add('translate-x-full');
         panel.setAttribute('aria-hidden', 'true');
+        panel.inert = true;
         if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('flex'); }
         document.body.style.overflow = '';
 
