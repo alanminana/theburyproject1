@@ -556,6 +556,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             }
             venta.Total = venta.Subtotal;
 
+            // Efectivo / Transferencia: el cotizador muestra el descuento o recargo del plan general del medio
+            // ("Total a cobrar"); la venta debe quedar por ese mismo importe. Tarjeta/débito/digital lo aplican
+            // en GuardarDatosTarjetaAsync, y el crédito personal no lleva ajuste de medio.
+            if (AjusteMedioUnPago.Aplica(tipoPago))
+            {
+                var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, venta.Total, cancellationToken);
+                if (ajuste != null)
+                {
+                    venta.Total = ajuste.TotalFinal;
+                    advertencias.Add(ajuste.PorcentajeAjuste < 0m
+                        ? $"Se aplicó el descuento de {Math.Abs(ajuste.PorcentajeAjuste):0.##}% por pago en {tipoPago}."
+                        : $"Se aplicó el recargo de {ajuste.PorcentajeAjuste:0.##}% por pago en {tipoPago}.");
+                }
+            }
+
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
 

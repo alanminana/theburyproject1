@@ -387,6 +387,39 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.Null(detalle.MontoAjustePlanAplicado);
     }
 
+    // Codex #139: CalcularTotales vuelve a la base de lista; una venta nacida del cotizador debe reaplicar el
+    // descuento de Efectivo cotizado, y una venta sin cotización de origen no debe cambiar de precio.
+    [Theory]
+    [InlineData(true, 950)]
+    [InlineData(false, 1_000)]
+    [Trait("Category", "PagosAbm")]
+    public async Task UpdateAsync_Efectivo_ReaplicaElDescuentoCotizadoSoloSiVieneDelCotizador(bool deCotizacion, int totalEsperado)
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        await SeedPlanGlobalAsync(TipoPago.Efectivo, ajustePorcentaje: -5m, cantidadCuotas: 1);
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        if (deCotizacion)
+        {
+            var cotizacion = new Cotizacion { Numero = $"COT-{Guid.NewGuid():N}"[..20], Estado = EstadoCotizacion.ConvertidaAVenta, Fecha = DateTime.UtcNow };
+            _context.Cotizaciones.Add(cotizacion);
+            await _context.SaveChangesAsync();
+            venta.CotizacionOrigenId = cotizacion.Id;
+        }
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(ventaOriginal, cliente.Id, producto.Id, TipoPago.Efectivo, null);
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal((decimal)totalEsperado, resultado!.Total);
+    }
+
     [Fact]
     [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_EfectivoAMercadoPagoConPlanGlobal_PersisteDatosTarjeta()

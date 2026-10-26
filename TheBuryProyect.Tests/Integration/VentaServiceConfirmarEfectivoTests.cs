@@ -369,6 +369,34 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVenta_Cheque_SinDatosDelCheque_NoCobra()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Cheque);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("cheque", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(_cajaStub.UltimoMontoVenta);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Presupuesto, (await _context.Ventas.FindAsync(venta.Id))!.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_Cheque_ConDatosPersistidos_ConfirmaConContextoNuevo()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Cheque);
+        _context.DatosCheque.Add(new DatosCheque
+        {
+            VentaId = venta.Id, NumeroCheque = "0001", Banco = "Banco X", Titular = "Ana",
+            FechaVencimiento = DateTime.UtcNow.AddDays(30), Monto = venta.Total
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        Assert.True(await _service.ConfirmarVentaAsync(venta.Id));
+    }
+
+    [Fact]
     public async Task ConfirmarVenta_ContactoLibreValido_MedioDistintoDeCreditoPersonal_Confirma()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);

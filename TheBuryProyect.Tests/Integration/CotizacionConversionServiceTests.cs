@@ -1824,6 +1824,50 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(0m, venta!.Descuento); // descuento general no propagado
     }
 
+    // Efectivo −5% / Transferencia +3%: el cotizador muestra ese "Total a cobrar", la venta debe coincidir.
+    [Theory]
+    [InlineData(CotizacionMedioPagoTipo.Efectivo, TipoPago.Efectivo, -5.0, 0.95)]
+    [InlineData(CotizacionMedioPagoTipo.Transferencia, TipoPago.Transferencia, 3.0, 1.03)]
+    public async Task Convertir_EfectivoOTransferencia_AplicaElAjusteDelPlanGeneralDelMedio(
+        CotizacionMedioPagoTipo medioCotizado, TipoPago tipoPago, double ajuste, double factor)
+    {
+        var medio = new ConfiguracionPago { TipoPago = tipoPago, Nombre = tipoPago.ToString(), Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = tipoPago, CantidadCuotas = 1,
+            AjustePorcentaje = (decimal)ajuste, Activo = true
+        });
+
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = medioCotizado;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(Math.Round(venta.Subtotal * (decimal)factor, 2, MidpointRounding.AwayFromZero), venta.Total);
+        Assert.NotEqual(venta.Subtotal, venta.Total);
+    }
+
+    [Fact]
+    public async Task Convertir_Efectivo_SinPlanConfigurado_NoAjustaElTotal()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(venta.Subtotal, venta.Total);
+    }
+
     // ─── HELPERS ─────────────────────────────────────────────────────────
 
     // Ticket #22 (Mi Venta con tarjeta): la cotización sólo guarda el texto del plan ("Visa · 3 cuotas");
