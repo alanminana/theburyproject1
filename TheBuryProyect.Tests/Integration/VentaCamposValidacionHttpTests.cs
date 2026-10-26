@@ -315,6 +315,52 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     public Task Cheque_Cuit_ConVerificadorInvalido_SeRechaza() =>
         AssertChequeRechazadoAsync("DatosCheque.CUIT", "20-12345678-0");
 
+    private async Task<(int VentaId, int ClienteId)> CrearVentaAsync()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), Form(clienteId, productoId));
+        Assert.True(success, cuerpo);
+        await using var ctx = await NuevoContextoAsync();
+        return ((await ctx.Ventas.AsNoTracking().SingleAsync(v => v.ClienteId == clienteId)).Id, clienteId);
+    }
+
+    private async Task PostMotivoAsync(string accion, int ventaId, string motivo)
+    {
+        var client = _factory.CreateAuthenticatedClient();
+        var login = await client.GetAsync("/Identity/Account/Login");
+        var token = Regex.Match(await login.Content.ReadAsStringAsync(), "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value;
+        await client.PostAsync($"/Venta/{accion}/{ventaId}", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token),
+            ["motivo"] = motivo,
+        }));
+    }
+
+    [Fact]
+    public async Task Cancelar_MotivoDemasiadoLargo_NoCancelaLaVenta()
+    {
+        var (ventaId, _) = await CrearVentaAsync();
+
+        await PostMotivoAsync("Cancelar", ventaId, new string('m', 481));
+
+        await using var ctx = await NuevoContextoAsync();
+        var venta = await ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId);
+        Assert.NotEqual(EstadoVenta.Cancelada, venta.Estado);
+        Assert.Null(venta.MotivoCancelacion);
+    }
+
+    [Fact]
+    public async Task Cancelar_MotivoEnElLimite_CancelaLaVenta()
+    {
+        var (ventaId, _) = await CrearVentaAsync();
+
+        await PostMotivoAsync("Cancelar", ventaId, new string('m', 480));
+
+        await using var ctx = await NuevoContextoAsync();
+        var venta = await ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaId);
+        Assert.Equal(EstadoVenta.Cancelada, venta.Estado);
+    }
+
     [Fact]
     public async Task VentaValidaDeBorde_SeAcepta()
     {
