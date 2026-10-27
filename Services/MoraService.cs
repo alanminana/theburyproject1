@@ -1480,6 +1480,10 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("El acuerdo no tiene cantidad de cuotas.");
 
             var restante = acuerdo.MontoTotalAcuerdo - acuerdo.MontoEntregaInicial;
+            // Entrega por el total: no hay saldo que financiar, no se generan cuotas de importe cero.
+            if (restante <= 0m)
+                return;
+
             var monto = Math.Round(restante / n, 2, MidpointRounding.AwayFromZero);
             acuerdo.Cuotas ??= new List<CuotaAcuerdo>();
             for (var i = 1; i <= n; i++)

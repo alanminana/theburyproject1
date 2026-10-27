@@ -613,6 +613,23 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PagoAcuerdo_EntregaPorElTotal_NoGeneraCuotasYSeCumpleAlPagarla()
+    {
+        var (cliente, credito, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 3, totalAcuerdo: 2_000m);
+
+        Assert.Empty(await _context.Set<CuotaAcuerdo>().AsNoTracking().Where(c => c.AcuerdoPagoId == acuerdo.Id).ToListAsync());
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.True(r.AcuerdoCumplido);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).Estado);
+        // Quedó una cuota vencida sin pagar: la alerta sigue (el acuerdo no cubría esa deuda).
+        Assert.False((await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Resuelta);
+        Assert.False(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
+    }
+
+    [Fact]
     public async Task RegistrarContacto_SinAlerta_SeRechaza()
     {
         var cliente = await SeedClienteAsync();

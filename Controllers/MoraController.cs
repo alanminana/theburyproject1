@@ -417,7 +417,8 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
                 model.MontoDeudaOriginal = await _moraService.CalcularDeudaCobrableCreditoAsync(model.CreditoId);
-                model.MontoMoraOriginal = creditoEnMora.MontoMora;
+                // El punitorio ya viaja dentro de la deuda cobrable: sumar además la mora legacy lo contaría dos veces.
+                model.MontoMoraOriginal = 0m;
 
                 var gestorId = _currentUser.GetUserId();
                 var acuerdoId = await _moraService.CrearAcuerdoPagoAsync(model, gestorId);
