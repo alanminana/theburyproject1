@@ -20,6 +20,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Punto de Venta")]
         [StringLength(50)]
+        [RegularExpression(@"^\d{1,5}$", ErrorMessage = "El punto de venta debe tener de 1 a 5 dígitos.")]
         public string? PuntoVenta { get; set; }
 
         [Display(Name = "Fecha de Emisión")]

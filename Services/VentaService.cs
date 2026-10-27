@@ -23,6 +23,20 @@ namespace TheBuryProject.Services
         /// <summary>Longitud máxima del campo MotivoAutorizacion en la entidad Venta.</summary>
         private const int MaxLongitudMotivoAutorizacion = 1000;
 
+        // VALID-L1: tope de los motivos que escribe el usuario, alineado con las columnas (Venta.MotivoCancelacion y
+        // Factura.MotivoAnulacion = 500; Venta.MotivoRechazo = 1000).
+        private const int MaxLongitudMotivoCancelacion = 500;
+        private const int MaxLongitudMotivoAnulacionFactura = 500;
+        private const int MaxLongitudMotivoRechazo = 1000;
+
+        private static void ValidarLongitudMotivo(string? motivo, int maximo)
+        {
+            if (motivo != null && motivo.Trim().Length > maximo)
+            {
+                throw new InvalidOperationException($"El motivo no puede superar los {maximo} caracteres.");
+            }
+        }
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<VentaService> _logger;
@@ -1414,6 +1428,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> CancelarVentaAsync(int id, string motivo)
         {
+            ValidarLongitudMotivo(motivo, MaxLongitudMotivoCancelacion);
+
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -1491,7 +1507,13 @@ namespace TheBuryProject.Services
                         .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted && !f.Anulada);
 
                     if (factura != null)
-                        MarcarFacturaAnulada(factura, $"Venta cancelada: {motivo}");
+                    {
+                        // El motivo se copia a la factura con un prefijo: se recorta para no pasar el límite de su columna.
+                        var motivoFactura = $"Venta cancelada: {motivo.Trim()}";
+                        MarcarFacturaAnulada(factura, motivoFactura.Length > MaxLongitudMotivoAnulacionFactura
+                            ? motivoFactura[..MaxLongitudMotivoAnulacionFactura]
+                            : motivoFactura);
+                    }
                     else
                         _logger.LogWarning("Venta {Id} está Facturada pero no tiene factura activa al cancelar.", id);
                 }
@@ -1860,6 +1882,17 @@ namespace TheBuryProject.Services
 
             venta.AperturaCajaId = aperturaActiva.Id;
 
+            // VALID-L1: la fecha de emisión la tipea el usuario. No puede ser futura (se tolera un día por huso
+            // horario) ni anterior a la venta que se factura: una factura no precede a la operación que comprueba.
+            var hoyUtc = DateTime.UtcNow.Date;
+            var emision = facturaViewModel.FechaEmision.Date;
+            var desde = venta.FechaVenta.Date > hoyUtc ? hoyUtc : venta.FechaVenta.Date;
+            if (emision > hoyUtc.AddDays(1) || emision < desde)
+            {
+                throw new InvalidOperationException(
+                    $"La fecha de emisión debe estar entre el {desde:dd/MM/yyyy} (fecha de la venta) y hoy.");
+            }
+
             var factura = _mapper.Map<Factura>(facturaViewModel);
             factura.VentaId = venta.Id;
             factura.Numero = await _numberGenerator.GenerarNumeroFacturaAsync(factura.Tipo);
@@ -2127,6 +2160,8 @@ namespace TheBuryProject.Services
                 throw new ArgumentException("Debe indicar el motivo de anulación.", nameof(motivo));
             }
 
+            ValidarLongitudMotivo(motivo, MaxLongitudMotivoAnulacionFactura);
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -2190,6 +2225,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo)
         {
+            ValidarLongitudMotivo(motivo, MaxLongitudMotivoAutorizacion);
+
             // E3: Motivo/observación es obligatorio
             if (string.IsNullOrWhiteSpace(motivo))
             {
@@ -2229,6 +2266,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo)
         {
+            ValidarLongitudMotivo(motivo, MaxLongitudMotivoRechazo);
+
             var venta = await ObtenerVentaPendienteAutorizacionAsync(id);
             if (venta == null)
                 return false;
@@ -3597,6 +3636,16 @@ namespace TheBuryProject.Services
 
             var totalConCentavos = detallesList.Sum(d => d.SubtotalFinal) + servicios;
             venta.Total = TruncarAPesos(totalConCentavos);
+
+            // VALID-L1: el total no puede superar el tope de monto del ERP (el mismo de [MontoArgentino]). Sin tope,
+            // una cantidad absurda (p. ej. int.MaxValue) producía una venta de billones. Se valida el total y no la
+            // cantidad: no inventa un límite de unidades y cubre cualquier combinación cantidad x precio.
+            if (venta.Total > Validation.MontoArgentinoAttribute.Maximo)
+            {
+                throw new InvalidOperationException(
+                    $"El total de la venta no puede superar ${Validation.MontoArgentinoAttribute.Maximo:N0}. Revise cantidades y precios.");
+            }
+
             (venta.Subtotal, venta.IVA) = AbsorberTruncadoEnNetoEIva(
                 detallesList.Sum(d => d.SubtotalFinalNeto) + serviciosNeto,
                 detallesList.Sum(d => d.SubtotalFinalIVA) + serviciosIva,

@@ -47,7 +47,7 @@ namespace TheBuryProject.ViewModels
 
         [StringLength(100, ErrorMessage = "La ciudad no puede tener más de 100 caracteres")]
         [Display(Name = "Ciudad")]
-        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6, PermitirDigitos = true)]
         public string? Ciudad { get; set; }
 
         [StringLength(100, ErrorMessage = "La provincia no puede tener más de 100 caracteres")]

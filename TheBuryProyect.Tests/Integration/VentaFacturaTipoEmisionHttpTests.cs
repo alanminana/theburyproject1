@@ -214,6 +214,75 @@ public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicati
         Assert.Equal(esperado, factura.Tipo);
     }
 
+    // VALID-L1: PuntoVenta (1 a 5 dígitos) y FechaEmision (ni futura ni anterior a la venta) se validan en el servidor.
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("<script>")]
+    [InlineData("123456")]
+    [InlineData("00 1")]
+    public async Task FacturarPost_PuntoVentaInvalido_RechazaSinEfectos(string puntoVenta)
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var seed = await SeedVentaAsync(EstadoVenta.Confirmada);
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await GetTokenAsync(client, seed.VentaId);
+
+        var response = await PostFacturarAsync(client, token, seed.VentaId, "B", puntoVenta);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(0, (await LeerAsync(seed)).Facturas);
+    }
+
+    [Theory]
+    [InlineData("0001")]
+    [InlineData("1")]
+    [InlineData("99999")]
+    public async Task FacturarPost_PuntoVentaValido_Factura(string puntoVenta)
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var seed = await SeedVentaAsync(EstadoVenta.Confirmada);
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await GetTokenAsync(client, seed.VentaId);
+
+        var response = await PostFacturarAsync(client, token, seed.VentaId, "B", puntoVenta);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(1, (await LeerAsync(seed)).Facturas);
+    }
+
+    [Theory]
+    [InlineData("1900-01-01")]
+    [InlineData("2999-12-31")]
+    [InlineData("2026-10-01")]   // anterior a la venta (19/10/2026)
+    public async Task FacturarPost_FechaEmisionFueraDeRango_RechazaSinEfectos(string fecha)
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var seed = await SeedVentaAsync(EstadoVenta.Confirmada);
+        var antes = await LeerAsync(seed);
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await GetTokenAsync(client, seed.VentaId);
+
+        var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/Venta/Facturar")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["VentaId"] = seed.VentaId.ToString(),
+                ["Tipo"] = "B",
+                ["FechaEmision"] = fecha,
+            })
+        });
+
+        Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Redirect);
+        var despues = await LeerAsync(seed);
+        Assert.Equal(EstadoVenta.Confirmada, despues.Estado);
+        Assert.Equal(0, despues.Facturas);
+        Assert.Equal(antes.Movimientos, despues.Movimientos);
+    }
+
     // FIN-S-002 (O2): un rechazo de negocio al facturar debe llegar visible al usuario (antes se perdía en el redirect).
     [Fact]
     public async Task FacturarPost_RechazoDeNegocio_MuestraMensajeEnDetailsSinFiltrarInterno()
