@@ -71,6 +71,12 @@ namespace TheBuryProject.ViewModels.Mora
         public int DiasAtraso { get; set; }
         public decimal MontoCuotasVencidas { get; set; }
         public decimal MontoMora { get; set; }
+
+        /// <summary>Capital pendiente de las cuotas en mora (lo que financiaría un acuerdo); null si no se pudo determinar.</summary>
+        public decimal? DeudaCapitalAFinanciar { get; set; }
+
+        /// <summary>Punitorio aplicado pendiente de esas cuotas; null si no se pudo determinar.</summary>
+        public decimal? DeudaPunitorioAFinanciar { get; set; }
         public List<CuotaVencidaViewModel> CuotasDetalle { get; set; } = new();
     }
 
