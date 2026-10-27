@@ -714,7 +714,8 @@ namespace TheBuryProject.Services
                 // B3: se compara contra el código normalizado de ambos lados, así los registros
                 // preexistentes con espacios de borde también colisionan.
                 var normalizado = NormalizarCodigo(codigo);
-                var query = _context.Productos.Where(p => p.Codigo.Trim() == normalizado && !p.IsDeleted);
+                // Sin distinguir mayúsculas, sin depender del collation del motor (SQLite distingue, SQL Server no).
+                var query = _context.Productos.Where(p => p.Codigo.Trim().ToLower() == normalizado.ToLower() && !p.IsDeleted);
 
                 if (excludeId.HasValue)
                     query = query.Where(p => p.Id != excludeId.Value);

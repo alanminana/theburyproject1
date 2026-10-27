@@ -119,7 +119,7 @@
                 if (input) input.classList.add('border-red-500');
             }
         });
-        if (messages.length) showValidation(messages.join('. '));
+        if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
     }
 
     function initSubmit() {

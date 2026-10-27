@@ -15,6 +15,7 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "El código es obligatorio")]
         [Display(Name = "Código")]
         [StringLength(50, ErrorMessage = "El código no puede superar 50 caracteres")]
+        [RegularExpression(@"^[A-Za-z0-9]+(?:[ _.-][A-Za-z0-9]+)*$", ErrorMessage = "El código solo puede contener letras sin tilde, números, espacios simples, punto, guion y guion bajo (ej. CAT-01 o 001002).")]
         public string Codigo { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El nombre es obligatorio")]
@@ -64,29 +65,29 @@ namespace TheBuryProject.ViewModels
         public decimal CostoEnvio { get; set; }
 
         [Display(Name = "Percepciones")]
-        [Range(0, double.MaxValue, ErrorMessage = "Las percepciones deben ser mayores o iguales a 0")]
+        [MontoArgentino]
         public decimal PercepcionesCompra { get; set; }
 
         [Display(Name = "Otros gastos")]
-        [Range(0, double.MaxValue, ErrorMessage = "Los otros gastos deben ser mayores o iguales a 0")]
+        [MontoArgentino]
         public decimal OtrosCostosCompra { get; set; }
 
         [Required(ErrorMessage = "El precio de venta es obligatorio")]
         [Display(Name = "Precio de Venta")]
         [ModelBinder(typeof(DecimalModelBinder))]
-        [MontoArgentino]
+        [MontoArgentino(Minimo = 0.01)]
         [DisplayFormat(DataFormatString = "{0:C2}", ApplyFormatInEditMode = false)]
         public decimal PrecioVenta { get; set; }
 
         [Required(ErrorMessage = "El porcentaje de IVA es obligatorio")]
         [Display(Name = "IVA (%)")]
         [ModelBinder(typeof(DecimalModelBinder))]
-        [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100")]
+        [AlicuotaIvaArgentina]
         public decimal PorcentajeIVA { get; set; } = 21m;
 
         [Display(Name = "IVA incluido en la compra (%)")]
         [ModelBinder(typeof(DecimalModelBinder))]
-        [Range(0, 100, ErrorMessage = "El IVA de compra debe estar entre 0 y 100")]
+        [AlicuotaIvaArgentina]
         public decimal? PorcentajeIVACompra { get; set; }
 
         [Display(Name = "Alícuota IVA")]
@@ -110,11 +111,11 @@ namespace TheBuryProject.ViewModels
         public ProductoCreditoPersonalConfigViewModel CreditoPersonal { get; set; } = new();
 
         [Display(Name = "Stock Mínimo")]
-        [Range(0, double.MaxValue, ErrorMessage = "El stock mínimo debe ser mayor o igual a 0")]
+        [Range(0, 999999.99, ErrorMessage = "El stock mínimo debe estar entre 0 y 999999.99")]
         public decimal StockMinimo { get; set; } = 0;
 
         [Display(Name = "Stock Actual")]
-        [Range(0, double.MaxValue, ErrorMessage = "El stock actual debe ser mayor o igual a 0")]
+        [Range(0, 999999.99, ErrorMessage = "El stock actual debe estar entre 0 y 999999.99")]
         public decimal StockActual { get; set; } = 0;
 
         [Display(Name = "Activo")]

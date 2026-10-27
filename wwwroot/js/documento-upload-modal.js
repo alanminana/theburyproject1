@@ -153,7 +153,7 @@
 
         if (errors.length) {
             e.preventDefault();
-            showValidation(errors.join('. '));
+            showValidation(errors.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
             return;
         }
 

@@ -11,6 +11,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El código es obligatorio")]
         [StringLength(20, ErrorMessage = "El código no puede tener más de 20 caracteres")]
+        [RegularExpression(@"^[A-Za-z0-9]+(?:[ _.-][A-Za-z0-9]+)*$", ErrorMessage = "El código solo puede contener letras sin tilde, números, espacios simples, punto, guion y guion bajo (ej. CAT-01 o 001002).")]
         [Display(Name = "Código")]
         public string Codigo { get; set; } = string.Empty;
 

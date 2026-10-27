@@ -238,7 +238,7 @@ namespace TheBuryProject.Services
             {
                 var query = _context.Categorias
                     .AsNoTracking()
-                    .Where(c => c.Codigo == codigo && !c.IsDeleted);
+                    .Where(c => c.Codigo.ToLower() == codigo.ToLower() && !c.IsDeleted);
 
                 if (excludeId.HasValue)
                     query = query.Where(c => c.Id != excludeId.Value);
