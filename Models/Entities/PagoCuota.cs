@@ -82,6 +82,12 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public int? PunitorioAplicadoId { get; set; }
 
+        /// <summary>
+        /// Identidad de la operación externa que originó el cobro (p. ej. la intención de un pago de acuerdo de mora): permite
+        /// reconocer el pago sin adivinar por importe y fecha. Null en cobros manuales.
+        /// </summary>
+        public Guid? OperacionExternaId { get; set; }
+
         public virtual Cuota Cuota { get; set; } = null!;
         public virtual MovimientoCaja? MovimientoCaja { get; set; }
         public virtual PagoCuota? PagoCuotaOrigen { get; set; }
