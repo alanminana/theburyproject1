@@ -1,3 +1,4 @@
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
@@ -118,6 +119,24 @@ namespace TheBuryProject.Services.Interfaces
         /// Obtiene el detalle de un acuerdo de pago
         /// </summary>
         Task<AcuerdoPago?> GetAcuerdoPagoDetalleAsync(int acuerdoId);
+
+        /// <summary>
+        /// Cambia el estado de un acuerdo del cliente: Borrador→Activo/Cancelado, Activo→Cumplido/Incumplido/Cancelado.
+        /// Lanza InvalidOperationException ante una transición no permitida o un acuerdo ajeno al cliente.
+        /// </summary>
+        Task<bool> ExisteAcuerdoVigenteAsync(int creditoId);
+
+        /// <summary>
+        /// Marca incumplida la promesa de una alerta del cliente (limpia la promesa y escala la prioridad).
+        /// Lanza InvalidOperationException si la alerta es ajena, está resuelta o no tiene una promesa vigente
+        /// (por eso un reenvío del mismo POST no vuelve a escalar).
+        /// </summary>
+        Task<bool> MarcarPromesaIncumplidaDelClienteAsync(int alertaId, int clienteId, string? observaciones);
+
+        /// <summary>Igual que <see cref="MarcarPromesaCumplidaAsync"/> pero validando que la alerta sea del cliente y tenga promesa.</summary>
+        Task<bool> MarcarPromesaCumplidaDelClienteAsync(int alertaId, int clienteId);
+
+        Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado);
         
         #endregion
 
