@@ -179,6 +179,9 @@ namespace TheBuryProject.ViewModels.Mora
         /// <summary>Próximo pago a registrar ("Entrega inicial", "Cuota 2 del acuerdo") y lo que falta de él; null si no hay.</summary>
         public string? ProximoPagoConcepto { get; set; }
         public decimal ProximoPagoPendiente { get; set; }
+
+        /// <summary>Cantidad de pagos del acuerdo ya completos (entrega inicial + cuotas): ata el formulario de pago al avance del acuerdo.</summary>
+        public int ProximoPagoPaso { get; set; }
         
         public string EstadoNombre => Estado switch
         {

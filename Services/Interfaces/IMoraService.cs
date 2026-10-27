@@ -141,7 +141,7 @@ namespace TheBuryProject.Services.Interfaces
         /// circuito de cobro de cuotas (caja, recibo, punitorio). Al completar todos los pagos el acuerdo pasa a
         /// Cumplido y se resuelve la alerta si ya no queda deuda vencida.
         /// </summary>
-        Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId = null);
+        Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null);
 
         /// <summary>
         /// Marca incumplida la promesa de una alerta del cliente (limpia la promesa y escala la prioridad).

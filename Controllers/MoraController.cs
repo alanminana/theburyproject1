@@ -444,7 +444,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RegistrarPagoAcuerdo(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId = null, string? returnUrl = null)
+        public async Task<IActionResult> RegistrarPagoAcuerdo(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null, string? returnUrl = null)
         {
             if (!User.TienePermiso("cobranzas", "payinstallment"))
             {
@@ -454,7 +454,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante, operacionId);
+                var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante, pasoEsperado);
                 TempData["Success"] = resultado.AcuerdoCumplido
                     ? $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}). El acuerdo quedó cumplido."
                     : $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}).";

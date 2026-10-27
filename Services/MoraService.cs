@@ -1536,13 +1536,13 @@ namespace TheBuryProject.Services
         // (la app corre en un solo proceso) para que la segunda lea el pendiente ya actualizado por la primera.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _bloqueosPagoAcuerdo = new();
 
-        public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId = null)
+        public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null)
         {
             var bloqueo = _bloqueosPagoAcuerdo.GetOrAdd(acuerdoId, _ => new SemaphoreSlim(1, 1));
             await bloqueo.WaitAsync();
             try
             {
-                return await RegistrarPagoAcuerdoSerializadoAsync(acuerdoId, clienteId, medioPago, comprobante, operacionId);
+                return await RegistrarPagoAcuerdoSerializadoAsync(acuerdoId, clienteId, medioPago, comprobante, pasoEsperado);
             }
             finally
             {
@@ -1550,7 +1550,12 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoSerializadoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId)
+        // Pagos completos del acuerdo: la entrega inicial (si la hay) más las cuotas pagadas.
+        private static int PagosCompletos(AcuerdoPago acuerdo) =>
+            ((acuerdo.EntregaInicialPagada || acuerdo.MontoEntregaInicial <= 0m) ? 1 : 0)
+            + acuerdo.Cuotas.Count(c => !c.IsDeleted && c.Estado == EstadoCuotaAcuerdo.Pagada);
+
+        private async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoSerializadoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado)
         {
             var acuerdo = await _context.AcuerdosPago
                 .Include(a => a.Cuotas)
@@ -1559,9 +1564,10 @@ namespace TheBuryProject.Services
             if (acuerdo.Estado != EstadoAcuerdo.Activo)
                 throw new InvalidOperationException("Solo se pueden registrar pagos en un acuerdo activo.");
 
-            // Reenvío del mismo formulario (doble clic, recarga del POST): ya se procesó, no se cobra de nuevo.
-            if (operacionId.HasValue && acuerdo.UltimaOperacionPagoId == operacionId)
-                throw new InvalidOperationException("Ese pago ya se registró. Actualizá la ficha para ver el próximo pago.");
+            // El formulario viaja atado al avance del acuerdo: un reenvío (doble clic, recarga del POST, un formulario viejo
+            // abierto en otra pestaña) trae un paso que ya pasó y se rechaza sin cobrar.
+            if (pasoEsperado.HasValue && pasoEsperado.Value != PagosCompletos(acuerdo))
+                throw new InvalidOperationException("Ese pago ya se registró o el acuerdo avanzó. Actualizá la ficha para ver el próximo pago.");
 
             // Próximo pago: primero la entrega inicial, después las cuotas en orden. No se elige: así el calendario no se salta.
             CuotaAcuerdo? cuotaDelAcuerdo = null;
@@ -1586,12 +1592,6 @@ namespace TheBuryProject.Services
             var cuotasEnMora = await CuotasEnMoraDelCreditoAsync(acuerdo.CreditoId);
             if (cuotasEnMora.Count == 0)
                 throw new InvalidOperationException("El crédito ya no tiene deuda vencida para imputar el pago.");
-
-            if (operacionId.HasValue)
-            {
-                acuerdo.UltimaOperacionPagoId = operacionId;
-                await _context.SaveChangesAsync();
-            }
 
             // Cada imputación es un cobro de cuota confirmado por separado (el cobro abre su propia transacción serializable):
             // el progreso se guarda después de cada una, así un corte a mitad de camino se reanuda sin cobrar dos veces.
@@ -1784,7 +1784,8 @@ namespace TheBuryProject.Services
                         CuotasPagadas = cuotasPagadas,
                         ProximaFechaVencimiento = proximaCuota?.FechaVencimiento,
                         ProximoPagoConcepto = siguiente?.Concepto,
-                        ProximoPagoPendiente = siguiente?.Pendiente ?? 0m
+                        ProximoPagoPendiente = siguiente?.Pendiente ?? 0m,
+                        ProximoPagoPaso = PagosCompletos(a)
                     };
                 }).ToList();
             }

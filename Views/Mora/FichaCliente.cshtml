@@ -450,7 +450,7 @@
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
                                         <input type="hidden" name="clienteId" value="@Model.ClienteId" />
-                                        <input type="hidden" name="operacionId" value="@Guid.NewGuid()" />
+                                        <input type="hidden" name="pasoEsperado" value="@ac.ProximoPagoPaso" />
                                         <div class="w-full text-sm text-slate-200">Próximo pago: <strong>@ac.ProximoPagoConcepto</strong> · @ac.ProximoPagoPendiente.ToString("C2")</div>
                                         <div>
                                             <label class="sr-only" for="pago-medio-@ac.AcuerdoId">Medio de pago</label>
