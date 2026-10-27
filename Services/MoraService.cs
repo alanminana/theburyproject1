@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
 
@@ -1505,6 +1506,140 @@ namespace TheBuryProject.Services
                 || mensaje.Contains("AcuerdosPago.CreditoId", StringComparison.OrdinalIgnoreCase);
         }
 
+        // Cuotas del crédito en mora de capital hoy, de la más vieja a la más nueva (orden de imputación).
+        private async Task<List<Cuota>> CuotasEnMoraDelCreditoAsync(int creditoId)
+        {
+            var hoy = _reloj.HoyComercial;
+            var cuotas = await _context.Cuotas
+                .AsNoTracking()
+                .Where(c => c.CreditoId == creditoId && !c.IsDeleted)
+                .ToListAsync();
+            return cuotas
+                .Where(c => EstadoCuotaResolver.EstaEnMoraCapitalDerivado(c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, hoy))
+                .OrderBy(c => c.FechaVencimiento)
+                .ThenBy(c => c.NumeroCuota)
+                .ToList();
+        }
+
+        public async Task<decimal> CalcularDeudaCobrableCreditoAsync(int creditoId)
+        {
+            decimal total = 0m;
+            foreach (var cuota in await CuotasEnMoraDelCreditoAsync(creditoId))
+            {
+                var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuota.Id);
+                total += contexto?.TotalCobrableActual ?? (cuota.MontoTotal - cuota.MontoPagado);
+            }
+            return total;
+        }
+
+        public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante)
+        {
+            var acuerdo = await _context.AcuerdosPago
+                .Include(a => a.Cuotas)
+                .FirstOrDefaultAsync(a => a.Id == acuerdoId && !a.IsDeleted && a.ClienteId == clienteId)
+                ?? throw new InvalidOperationException("El acuerdo no existe o no pertenece a este cliente.");
+            if (acuerdo.Estado != EstadoAcuerdo.Activo)
+                throw new InvalidOperationException("Solo se pueden registrar pagos en un acuerdo activo.");
+
+            // Próximo pago: primero la entrega inicial, después las cuotas en orden. No se elige: así el calendario no se salta.
+            CuotaAcuerdo? cuotaDelAcuerdo = null;
+            string concepto;
+            decimal pendiente;
+            if (!acuerdo.EntregaInicialPagada && acuerdo.MontoEntregaInicial - acuerdo.MontoEntregaPagada > 0m)
+            {
+                concepto = "Entrega inicial";
+                pendiente = acuerdo.MontoEntregaInicial - acuerdo.MontoEntregaPagada;
+            }
+            else
+            {
+                cuotaDelAcuerdo = acuerdo.Cuotas
+                    .Where(c => !c.IsDeleted && c.Estado != EstadoCuotaAcuerdo.Pagada)
+                    .OrderBy(c => c.NumeroCuota)
+                    .FirstOrDefault()
+                    ?? throw new InvalidOperationException("El acuerdo no tiene pagos pendientes.");
+                concepto = $"Cuota {cuotaDelAcuerdo.NumeroCuota} del acuerdo";
+                pendiente = cuotaDelAcuerdo.MontoTotal - cuotaDelAcuerdo.MontoPagado;
+            }
+
+            var cuotasEnMora = await CuotasEnMoraDelCreditoAsync(acuerdo.CreditoId);
+            if (cuotasEnMora.Count == 0)
+                throw new InvalidOperationException("El crédito ya no tiene deuda vencida para imputar el pago.");
+
+            // Cada imputación es un cobro de cuota confirmado por separado (el cobro abre su propia transacción serializable):
+            // el progreso se guarda después de cada una, así un corte a mitad de camino se reanuda sin cobrar dos veces.
+            var restante = pendiente;
+            decimal imputado = 0m;
+            foreach (var cuota in cuotasEnMora)
+            {
+                if (restante <= 0.004m)
+                    break;
+
+                var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuota.Id);
+                var cobrable = contexto?.TotalCobrableActual ?? contexto?.CapitalPendiente ?? 0m;
+                if (contexto == null || cobrable <= 0m)
+                    continue;
+
+                var monto = Math.Round(Math.Min(restante, cobrable), 2, MidpointRounding.AwayFromZero);
+                var cobro = await _creditoService.RegistrarPagoCuotaIndividualAsync(new PagoCuotaIndividualComando(
+                    cuota.Id,
+                    monto,
+                    medioPago,
+                    comprobante,
+                    $"Acuerdo {acuerdo.NumeroAcuerdo}: {concepto}",
+                    Convert.FromBase64String(contexto.CuotaRowVersionBase64)))
+                    ?? throw new InvalidOperationException("No se pudo registrar el cobro de la cuota vencida.");
+
+                var aplicado = cobro.ImporteRecibido;
+                restante -= aplicado;
+                imputado += aplicado;
+
+                if (cuotaDelAcuerdo == null)
+                {
+                    acuerdo.MontoEntregaPagada += aplicado;
+                    if (acuerdo.MontoEntregaPagada >= acuerdo.MontoEntregaInicial - 0.004m)
+                    {
+                        acuerdo.EntregaInicialPagada = true;
+                        acuerdo.FechaPagoEntrega = DateTime.UtcNow;
+                    }
+                }
+                else
+                {
+                    cuotaDelAcuerdo.MontoPagado += aplicado;
+                    cuotaDelAcuerdo.MedioPago = medioPago;
+                    cuotaDelAcuerdo.ComprobantePago = comprobante;
+                    if (cuotaDelAcuerdo.MontoPagado >= cuotaDelAcuerdo.MontoTotal - 0.004m)
+                    {
+                        cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Pagada;
+                        cuotaDelAcuerdo.FechaPago = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Parcial;
+                    }
+                }
+                acuerdo.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            if (restante > 0.004m)
+                throw new InvalidOperationException(
+                    $"Se imputaron {imputado:C2} de {pendiente:C2}: la deuda vencida del crédito no alcanza para el resto. Revisá el acuerdo.");
+
+            var todoPagado = acuerdo.EntregaInicialPagada || acuerdo.MontoEntregaInicial <= 0m;
+            todoPagado = todoPagado && acuerdo.Cuotas.Where(c => !c.IsDeleted).All(c => c.Estado == EstadoCuotaAcuerdo.Pagada);
+            if (todoPagado)
+            {
+                acuerdo.Estado = EstadoAcuerdo.Cumplido;
+                acuerdo.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                await ResolverAlertasMoraRegularizadasAsync(new List<int>(), _reloj.InicioDiaComercial, CancellationToken.None);
+                await _context.SaveChangesAsync();
+            }
+
+            _logger.LogInformation("Pago de acuerdo {Numero}: {Concepto} por {Importe}", acuerdo.NumeroAcuerdo, concepto, imputado);
+            return new ResultadoPagoAcuerdo(concepto, imputado, todoPagado);
+        }
+
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
             _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted
                 && a.CreditoId == creditoId
@@ -1587,8 +1722,22 @@ namespace TheBuryProject.Services
                 return acuerdos.Select(a =>
                 {
                     var cuotasPagadas = a.Cuotas?.Count(c => c.Estado == EstadoCuotaAcuerdo.Pagada) ?? 0;
-                    var montoPagado = (a.Cuotas?.Where(c => c.Estado == EstadoCuotaAcuerdo.Pagada).Sum(c => c.MontoTotal) ?? 0) +
-                                     (a.EntregaInicialPagada ? a.MontoEntregaInicial : 0);
+                    var montoPagado = (a.Cuotas?.Where(c => !c.IsDeleted).Sum(c => c.MontoPagado) ?? 0) + a.MontoEntregaPagada;
+                    (string Concepto, decimal Pendiente)? siguiente = null;
+                    if (a.Estado == EstadoAcuerdo.Activo)
+                    {
+                        if (!a.EntregaInicialPagada && a.MontoEntregaInicial - a.MontoEntregaPagada > 0m)
+                        {
+                            siguiente = ("Entrega inicial", a.MontoEntregaInicial - a.MontoEntregaPagada);
+                        }
+                        else
+                        {
+                            var proxima = a.Cuotas?.Where(c => !c.IsDeleted && c.Estado != EstadoCuotaAcuerdo.Pagada)
+                                .OrderBy(c => c.NumeroCuota).FirstOrDefault();
+                            if (proxima != null)
+                                siguiente = ($"Cuota {proxima.NumeroCuota} del acuerdo", proxima.MontoTotal - proxima.MontoPagado);
+                        }
+                    }
                     var proximaCuota = a.Cuotas?
                         .Where(c => c.Estado != EstadoCuotaAcuerdo.Pagada && c.FechaVencimiento >= hoy)
                         .OrderBy(c => c.FechaVencimiento)
@@ -1605,7 +1754,9 @@ namespace TheBuryProject.Services
                         MontoCondonado = a.MontoCondonado,
                         TotalCuotas = a.CantidadCuotas,
                         CuotasPagadas = cuotasPagadas,
-                        ProximaFechaVencimiento = proximaCuota?.FechaVencimiento
+                        ProximaFechaVencimiento = proximaCuota?.FechaVencimiento,
+                        ProximoPagoConcepto = siguiente?.Concepto,
+                        ProximoPagoPendiente = siguiente?.Pendiente ?? 0m
                     };
                 }).ToList();
             }
@@ -1692,8 +1843,7 @@ namespace TheBuryProject.Services
                     .ToListAsync();
                 var acuerdosActivos = acuerdos.Count;
                 var montoAcuerdosActivos = acuerdos.Sum(a => 
-                    a.MontoTotalAcuerdo - (a.Cuotas?.Where(c => c.Estado == EstadoCuotaAcuerdo.Pagada).Sum(c => c.MontoTotal) ?? 0) - 
-                    (a.EntregaInicialPagada ? a.MontoEntregaInicial : 0));
+                    a.MontoTotalAcuerdo - (a.Cuotas?.Where(c => !c.IsDeleted).Sum(c => c.MontoPagado) ?? 0) - a.MontoEntregaPagada);
 
                 // Contactos hoy y semana
                 var contactosHoy = await _context.HistorialContactos

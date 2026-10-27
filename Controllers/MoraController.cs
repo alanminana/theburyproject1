@@ -409,7 +409,7 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.";
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
-                model.MontoDeudaOriginal = creditoEnMora.MontoCuotasVencidas;
+                model.MontoDeudaOriginal = await _moraService.CalcularDeudaCobrableCreditoAsync(model.CreditoId);
                 model.MontoMoraOriginal = creditoEnMora.MontoMora;
 
                 var gestorId = _currentUser.GetUserId();
@@ -432,6 +432,38 @@ namespace TheBuryProject.Controllers
         }
 
         #endregion
+
+        // Cobrar exige gestionar mora Y poder cobrar cuotas: el dinero entra a caja por el circuito de cuotas.
+        [PermisoRequerido(Modulo = "mora", Accion = "manage")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RegistrarPagoAcuerdo(int acuerdoId, int clienteId, string medioPago, string? comprobante, string? returnUrl = null)
+        {
+            if (!User.TienePermiso("cobranzas", "payinstallment"))
+            {
+                TempData["Error"] = "No tenés permiso para cobrar cuotas.";
+                return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+
+            try
+            {
+                var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante);
+                TempData["Success"] = resultado.AcuerdoCumplido
+                    ? $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}). El acuerdo quedó cumplido."
+                    : $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}).";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar el pago del acuerdo {AcuerdoId}", acuerdoId);
+                TempData["Error"] = "No se pudo registrar el pago del acuerdo.";
+            }
+
+            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+        }
 
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
         [HttpPost]

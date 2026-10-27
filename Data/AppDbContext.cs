@@ -2073,6 +2073,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoCondonado).HasPrecision(18, 2);
                 entity.Property(e => e.MontoTotalAcuerdo).HasPrecision(18, 2);
                 entity.Property(e => e.MontoEntregaInicial).HasPrecision(18, 2);
+                entity.Property(e => e.MontoEntregaPagada).HasPrecision(18, 2);
                 entity.Property(e => e.MontoCuotaAcuerdo).HasPrecision(18, 2);
 
                 entity.HasOne(e => e.AlertaCobranza)
