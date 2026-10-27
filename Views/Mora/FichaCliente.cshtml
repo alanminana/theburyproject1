@@ -599,12 +599,12 @@
                                 <form method="post" asp-controller="Mora" asp-action="CrearAcuerdo" asp-route-returnUrl="@volverUrl" class="mc-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
-                                    <p class="text-xs text-slate-400">La deuda y la mora del acuerdo se toman de las cuotas vencidas del crédito elegido.</p>
+                                    <p class="text-xs text-slate-400">El acuerdo financia la deuda completa en cuotas (capital más punitorio aplicado), sin descuentos ni condonaciones. El importe sale de las cuotas vencidas del crédito elegido.</p>
                                     <label for="ac-credito">Crédito</label>
                                     <select id="ac-credito" name="CreditoId" class="select-erp" required>
                                         @foreach (var c in creditos)
                                         {
-                                            <option value="@c.CreditoId">@c.NumeroCredito · deuda @c.MontoCuotasVencidas.ToString("C2") + mora @c.MontoMora.ToString("C2")</option>
+                                            <option value="@c.CreditoId">@c.NumeroCredito · @(c.DeudaCapitalAFinanciar.HasValue ? $"a financiar {(c.DeudaCapitalAFinanciar.Value + c.DeudaPunitorioAFinanciar!.Value):C2} (capital {c.DeudaCapitalAFinanciar.Value:C2} + punitorio {c.DeudaPunitorioAFinanciar.Value:C2})" : "deuda a conciliar")</option>
                                         }
                                     </select>
                                     <label for="ac-alerta">Alerta</label>
