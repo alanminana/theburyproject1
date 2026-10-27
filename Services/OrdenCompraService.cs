@@ -557,6 +557,15 @@ namespace TheBuryProject.Services
             }
 
             ordenCompra.Subtotal = detalles.Sum(d => d.Subtotal);
+
+            // VALID-L4: una cantidad absurda (p. ej. int.MaxValue) producía una orden de billones; el subtotal respeta
+            // el mismo tope de monto del ERP que el resto de los importes.
+            if (ordenCompra.Subtotal > Validation.MontoArgentinoAttribute.Maximo)
+            {
+                throw new InvalidOperationException(
+                    $"El subtotal de la orden no puede superar ${Validation.MontoArgentinoAttribute.Maximo:N0}. Revise cantidades y precios.");
+            }
+
             var total = Math.Max(0m, ordenCompra.Subtotal - ordenCompra.Descuento);
             ordenCompra.Total = total;
 
