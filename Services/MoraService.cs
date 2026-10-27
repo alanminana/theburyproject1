@@ -1628,25 +1628,17 @@ namespace TheBuryProject.Services
             var reflejado = false;
             foreach (var intencion in pendientes)
             {
-                var candidatos = await _context.PagosCuota
-                    .Where(p => p.CuotaId == intencion.CuotaCreditoId
-                                && p.Estado == EstadoPagoCuota.Aplicado
-                                && p.ImporteTotal == intencion.Monto
-                                && p.CreatedAt >= intencion.CreatedAt.AddSeconds(-1)
-                                && !yaRespaldados.Contains(p.Id))
-                    .ToListAsync();
+                // Por identidad, no por importe y fecha: el pago lleva la OperacionId de la intención. Esta conciliación corre
+                // serializada por acuerdo y sin cobros del mismo acuerdo en vuelo, así que un pago ausente = cobro no confirmado.
+                var pago = await _context.PagosCuota
+                    .FirstOrDefaultAsync(p => p.OperacionExternaId == intencion.OperacionId);
 
-                if (candidatos.Count > 1)
-                    throw new InvalidOperationException(
-                        "Hay un pago del acuerdo sin conciliar con más de un cobro posible. Revisá los pagos de la cuota antes de seguir.");
-
-                if (candidatos.Count == 0)
+                if (pago == null || pago.Estado != EstadoPagoCuota.Aplicado || yaRespaldados.Contains(pago.Id))
                 {
                     intencion.Estado = EstadoImputacionAcuerdo.Descartada;
                     continue;
                 }
 
-                var pago = candidatos[0];
                 var cuotaDelAcuerdo = intencion.CuotaAcuerdoId.HasValue
                     ? acuerdo.Cuotas.FirstOrDefault(c => c.Id == intencion.CuotaAcuerdoId.Value)
                     : null;
@@ -1739,14 +1731,26 @@ namespace TheBuryProject.Services
                 _context.AcuerdoPagoImputaciones.Add(intencion);
                 await _context.SaveChangesAsync();
 
-                var cobro = await _creditoService.RegistrarPagoCuotaIndividualAsync(new PagoCuotaIndividualComando(
-                    cuota.Id,
-                    monto,
-                    medioPago,
-                    comprobante,
-                    $"Acuerdo {acuerdo.NumeroAcuerdo}: {concepto}",
-                    Convert.FromBase64String(contexto.CuotaRowVersionBase64)))
-                    ?? throw new InvalidOperationException("No se pudo registrar el cobro de la cuota vencida.");
+                PagoCuotaResultado cobro;
+                try
+                {
+                    cobro = await _creditoService.RegistrarPagoCuotaIndividualAsync(new PagoCuotaIndividualComando(
+                        cuota.Id,
+                        monto,
+                        medioPago,
+                        comprobante,
+                        $"Acuerdo {acuerdo.NumeroAcuerdo}: {concepto}",
+                        Convert.FromBase64String(contexto.CuotaRowVersionBase64),
+                        intencion.OperacionId))
+                        ?? throw new InvalidOperationException("No se pudo registrar el cobro de la cuota vencida.");
+                }
+                catch
+                {
+                    // Un error no dice si el cobro llegó a confirmarse: se verifica contra el libro por la identidad de la
+                    // operación. Si el pago existe se refleja en el acuerdo; si no, la intención se descarta.
+                    await ConciliarImputacionesPendientesAsync(acuerdo);
+                    throw;
+                }
 
                 var aplicado = cobro.ImporteRecibido;
                 restante -= aplicado;

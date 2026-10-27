@@ -12,7 +12,8 @@ public sealed record PagoCuotaIndividualComando(
     string MedioPago,
     string? Comprobante,
     string? Observaciones,
-    byte[] CuotaRowVersionEsperada);
+    byte[] CuotaRowVersionEsperada,
+    Guid? OperacionExternaId = null);
 
 /// <summary>Lectura autoritativa necesaria para renderizar el pago de una cuota.</summary>
 public sealed record PagoCuotaContextoResultado(

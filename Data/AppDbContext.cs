@@ -1978,9 +1978,15 @@ namespace TheBuryProject.Data
             // =======================
             // AcuerdoPagoImputacion (intención de imputar un pago de acuerdo a una cuota vencida)
             // =======================
+            modelBuilder.Entity<PagoCuota>()
+                .HasIndex(p => p.OperacionExternaId)
+                .IsUnique()
+                .HasFilter("[OperacionExternaId] IS NOT NULL");
+
             modelBuilder.Entity<AcuerdoPagoImputacion>(entity =>
             {
                 entity.ToTable("AcuerdoPagoImputaciones");
+                entity.HasIndex(e => e.OperacionId).IsUnique();
                 entity.Property(e => e.Monto).HasPrecision(18, 2);
                 entity.Property(e => e.MontoAplicado).HasPrecision(18, 2);
                 entity.Property(e => e.MedioPago).HasMaxLength(50);

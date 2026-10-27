@@ -12,7 +12,7 @@ using TheBuryProject.Data;
 namespace TheBuryProyect.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261027031917_AcuerdoPagoImputaciones")]
+    [Migration("20261027032606_AcuerdoPagoImputaciones")]
     partial class AcuerdoPagoImputaciones
     {
         /// <inheritdoc />
@@ -399,6 +399,9 @@ namespace TheBuryProyect.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("OperacionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("PagoCuotaId")
                         .HasColumnType("int");
 
@@ -415,6 +418,9 @@ namespace TheBuryProyect.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperacionId")
+                        .IsUnique();
 
                     b.HasIndex("PagoCuotaId")
                         .IsUnique()
@@ -7490,6 +7496,9 @@ namespace TheBuryProyect.Migrations
                     b.Property<int?>("MovimientoCajaId")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("OperacionExternaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Origen")
                         .HasColumnType("int");
 
@@ -7520,6 +7529,10 @@ namespace TheBuryProyect.Migrations
                     b.HasIndex("MovimientoCajaId")
                         .IsUnique()
                         .HasFilter("[MovimientoCajaId] IS NOT NULL");
+
+                    b.HasIndex("OperacionExternaId")
+                        .IsUnique()
+                        .HasFilter("[OperacionExternaId] IS NOT NULL");
 
                     b.HasIndex("PagoCuotaOrigenId");
 

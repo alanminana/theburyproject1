@@ -11,6 +11,12 @@ namespace TheBuryProyect.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<Guid>(
+                name: "OperacionExternaId",
+                table: "PagosCuota",
+                type: "uniqueidentifier",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "AcuerdoPagoImputaciones",
                 columns: table => new
@@ -18,6 +24,7 @@ namespace TheBuryProyect.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     AcuerdoPagoId = table.Column<int>(type: "int", nullable: false),
+                    OperacionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CuotaAcuerdoId = table.Column<int>(type: "int", nullable: true),
                     CuotaCreditoId = table.Column<int>(type: "int", nullable: false),
                     Monto = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
@@ -45,9 +52,22 @@ namespace TheBuryProyect.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_PagosCuota_OperacionExternaId",
+                table: "PagosCuota",
+                column: "OperacionExternaId",
+                unique: true,
+                filter: "[OperacionExternaId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AcuerdoPagoImputaciones_AcuerdoPagoId_Estado",
                 table: "AcuerdoPagoImputaciones",
                 columns: new[] { "AcuerdoPagoId", "Estado" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AcuerdoPagoImputaciones_OperacionId",
+                table: "AcuerdoPagoImputaciones",
+                column: "OperacionId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AcuerdoPagoImputaciones_PagoCuotaId",
@@ -62,6 +82,14 @@ namespace TheBuryProyect.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AcuerdoPagoImputaciones");
+
+            migrationBuilder.DropIndex(
+                name: "IX_PagosCuota_OperacionExternaId",
+                table: "PagosCuota");
+
+            migrationBuilder.DropColumn(
+                name: "OperacionExternaId",
+                table: "PagosCuota");
         }
     }
 }

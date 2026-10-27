@@ -396,6 +396,9 @@ namespace TheBuryProject.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("OperacionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("PagoCuotaId")
                         .HasColumnType("int");
 
@@ -412,6 +415,9 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperacionId")
+                        .IsUnique();
 
                     b.HasIndex("PagoCuotaId")
                         .IsUnique()
@@ -7487,6 +7493,9 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("MovimientoCajaId")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("OperacionExternaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Origen")
                         .HasColumnType("int");
 
@@ -7517,6 +7526,10 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("MovimientoCajaId")
                         .IsUnique()
                         .HasFilter("[MovimientoCajaId] IS NOT NULL");
+
+                    b.HasIndex("OperacionExternaId")
+                        .IsUnique()
+                        .HasFilter("[OperacionExternaId] IS NOT NULL");
 
                     b.HasIndex("PagoCuotaOrigenId");
 

@@ -25,6 +25,9 @@ namespace TheBuryProject.Models.Entities
         public int AcuerdoPagoId { get; set; }
         public virtual AcuerdoPago? AcuerdoPago { get; set; }
 
+        /// <summary>Identidad de la operación: viaja al cobro y queda en PagoCuota.OperacionExternaId.</summary>
+        public Guid OperacionId { get; set; } = Guid.NewGuid();
+
         /// <summary>Cuota del acuerdo a la que se imputa; null = entrega inicial.</summary>
         public int? CuotaAcuerdoId { get; set; }
 
