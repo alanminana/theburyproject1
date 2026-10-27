@@ -754,6 +754,61 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(500m, ultimo.DeudaVencidaRestante);
     }
 
+    // Una cuota de capital saldado que conserva un punitorio aplicado pendiente también es deuda exigible.
+    private async Task<Cuota> SeedCuotaConCapitalSaldadoYPunitorioPendienteAsync(int creditoId)
+    {
+        var cuota = await SeedCuotaVencidaAsync(creditoId, diasVencido: 40, montoTotal: 1_000m);
+        cuota.MontoPagado = 1_000m;
+        cuota.Estado = EstadoCuota.Vencida;
+        _context.PunitoriosAplicados.Add(new PunitorioAplicado
+        {
+            CuotaId = cuota.Id, FechaCalculo = DateOnly.FromDateTime(DateTime.Today), SaldoBase = 1_000m, DiasComputados = 40, Importe = 100m,
+            Estado = EstadoPunitorioAplicado.Aplicado, DesgloseSnapshotJson = "{}", MotivoAplicacion = "test",
+            FechaAplicacion = DateTime.UtcNow, UsuarioAplicacion = "test"
+        });
+        await _context.SaveChangesAsync();
+        return cuota;
+    }
+
+    [Fact]
+    public async Task DeudaCobrable_IncluyeElPunitorioPendienteDeUnaCuotaConCapitalSaldado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
+        await SeedCuotaConCapitalSaldadoYPunitorioPendienteAsync(credito.Id);
+        _creditoServiceFake.Db = _context;
+        _creditoServiceFake.PunitorioPorCuota = 100m;
+
+        var deuda = await _service.CalcularDesgloseDeudaCobrableCreditoAsync(credito.Id);
+
+        Assert.Equal(1_000m, deuda.Capital);   // solo la cuota con capital pendiente
+        Assert.Equal(200m, deuda.Punitorio);   // 100 de cada cuota: la de capital saldado también cuenta
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_ImputaAlPunitorioPendienteDeUnaCuotaConCapitalSaldado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuotaSaldada = await SeedCuotaConCapitalSaldadoYPunitorioPendienteAsync(credito.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        _creditoServiceFake.PunitorioPorCuota = 100m;
+        var id = await _service.CrearAcuerdoPagoParaCreditoAsync(new CrearAcuerdoViewModel
+        {
+            AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, MontoEntregaInicial = 100m,
+            CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        }, "g");
+        Assert.Equal(100m, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id)).MontoTotalAcuerdo);
+        await _service.CambiarEstadoAcuerdoAsync(id, cliente.Id, EstadoAcuerdo.Activo);
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.True(r.AcuerdoCumplido);
+        Assert.Equal(cuotaSaldada.Id, Assert.Single(_creditoServiceFake.Cobros).CuotaId);
+    }
+
     [Fact]
     public async Task CalcularDeudaCobrable_SumaLoCobrableDeLasCuotasEnMora()
     {

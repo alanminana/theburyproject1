@@ -1539,16 +1539,27 @@ namespace TheBuryProject.Services
                 || mensaje.Contains("AcuerdosPago.CreditoId", StringComparison.OrdinalIgnoreCase);
         }
 
-        // Cuotas del crédito en mora de capital hoy, de la más vieja a la más nueva (orden de imputación).
-        private async Task<List<Cuota>> CuotasEnMoraDelCreditoAsync(int creditoId)
+        // Cuotas del crédito con deuda cobrable vencida, de la más vieja a la más nueva (orden de imputación): las que están en
+        // mora de capital y también las de capital saldado que conservan un punitorio aplicado pendiente (esa deuda es
+        // exigible y el cobro de cuotas la cobra igual). Dejarlas afuera haría que el acuerdo financie menos que la deuda.
+        private async Task<List<Cuota>> CuotasConDeudaCobrableDelCreditoAsync(int creditoId)
         {
             var hoy = _reloj.HoyComercial;
             var cuotas = await _context.Cuotas
                 .AsNoTracking()
                 .Where(c => c.CreditoId == creditoId && !c.IsDeleted)
                 .ToListAsync();
+            var ids = cuotas.Select(c => c.Id).ToList();
+            var conPunitorioPendiente = (await _context.PunitoriosAplicados
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Estado == EstadoPunitorioAplicado.Aplicado && ids.Contains(p.CuotaId))
+                .Select(p => p.CuotaId)
+                .Distinct()
+                .ToListAsync())
+                .ToHashSet();
             return cuotas
-                .Where(c => EstadoCuotaResolver.EstaEnMoraCapitalDerivado(c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, hoy))
+                .Where(c => EstadoCuotaResolver.EstaEnMoraCapitalDerivado(c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, hoy)
+                            || (conPunitorioPendiente.Contains(c.Id) && c.Estado != EstadoCuota.Cancelada))
                 .OrderBy(c => c.FechaVencimiento)
                 .ThenBy(c => c.NumeroCuota)
                 .ToList();
@@ -1561,7 +1572,7 @@ namespace TheBuryProject.Services
         {
             decimal capital = 0m;
             decimal punitorio = 0m;
-            foreach (var cuota in await CuotasEnMoraDelCreditoAsync(creditoId))
+            foreach (var cuota in await CuotasConDeudaCobrableDelCreditoAsync(creditoId))
             {
                 var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuota.Id);
                 // Sin el total cobrable autoritativo (p. ej. historial de punitorios incompleto) no se puede fijar la
@@ -1735,7 +1746,7 @@ namespace TheBuryProject.Services
                 pendiente = cuotaDelAcuerdo.MontoTotal - cuotaDelAcuerdo.MontoPagado;
             }
 
-            var cuotasEnMora = await CuotasEnMoraDelCreditoAsync(acuerdo.CreditoId);
+            var cuotasEnMora = await CuotasConDeudaCobrableDelCreditoAsync(acuerdo.CreditoId);
             if (cuotasEnMora.Count == 0)
                 throw new InvalidOperationException("El crédito ya no tiene deuda vencida para imputar el pago.");
 
