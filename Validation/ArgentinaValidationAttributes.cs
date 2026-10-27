@@ -52,9 +52,17 @@ namespace TheBuryProject.Validation
         /// <summary>Máximo de palabras separadas por espacio (nombres compuestos).</summary>
         public int MaxWords { get; set; } = 3;
 
+        /// <summary>Permite dígitos (ej. localidad "9 de Julio"); por defecto solo letras.</summary>
+        public bool PermitirDigitos { get; set; }
+
         // \p{L} = letra Unicode (incluye acentos y ñ), \p{M} = marcas diacríticas combinantes.
         private static readonly Regex Pattern = new(
             @"^\p{L}[\p{L}\p{M}\s'’.\-]*\p{L}$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        // Con dígitos: puede empezar o terminar con número ("9 de Julio", "Ruta 8"), pero debe tener al menos una letra.
+        private static readonly Regex PatternConDigitos = new(
+            @"^[\p{L}\d][\p{L}\p{M}\d\s'’.\-]*[\p{L}\d]$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         public SoloLetrasAttribute()
@@ -68,7 +76,8 @@ namespace TheBuryProject.Validation
                 return ValidationResult.Success;
 
             var s = raw.Trim();
-            if (s.Length < MinLength || !Pattern.IsMatch(s) || ExcedeLimites(s))
+            var formato = PermitirDigitos ? PatternConDigitos.IsMatch(s) && s.Any(char.IsLetter) : Pattern.IsMatch(s);
+            if (s.Length < MinLength || !formato || ExcedeLimites(s))
                 return ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
 
             return ValidationResult.Success;
@@ -85,7 +94,9 @@ namespace TheBuryProject.Validation
         }
 
         public override string FormatErrorMessage(string name) =>
-            string.Format(ErrorMessageString, name, MinLength, MaxWordLength, MaxWords);
+            PermitirDigitos
+                ? $"El campo {name} solo puede contener letras y números (hasta {MaxWordLength} por palabra y hasta {MaxWords} palabras) y debe tener al menos {MinLength} caracteres."
+                : string.Format(ErrorMessageString, name, MinLength, MaxWordLength, MaxWords);
     }
 
     /// <summary>

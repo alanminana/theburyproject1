@@ -42,6 +42,33 @@ public class ArgentinaValidationAttributesTests
     }
 
     [Theory]
+    [InlineData("9 de Julio")]
+    [InlineData("Ruta 8")]
+    [InlineData("Villa 25 de Mayo")]
+    [InlineData("San Martín")]
+    public void SoloLetras_PermitirDigitos_AceptaLocalidadesConNumeros(string value)
+    {
+        Assert.Null(Run(new SoloLetrasAttribute { MinLength = 2, MaxWordLength = 20, MaxWords = 6, PermitirDigitos = true }, value));
+    }
+
+    [Theory]
+    [InlineData("123")]       // sin ninguna letra
+    [InlineData("9")]         // menos de 2
+    [InlineData("<script>")]  // símbolos
+    [InlineData("Calle_8")]   // guion bajo
+    [InlineData("@9 de Julio")]
+    public void SoloLetras_PermitirDigitos_SigueRechazandoSimbolosYSoloNumeros(string value)
+    {
+        Assert.NotNull(Run(new SoloLetrasAttribute { MinLength = 2, MaxWordLength = 20, MaxWords = 6, PermitirDigitos = true }, value));
+    }
+
+    [Fact]
+    public void SoloLetras_SinPermitirDigitos_SigueRechazandoNumeros()
+    {
+        Assert.NotNull(Run(new SoloLetrasAttribute { MinLength = 2, MaxWordLength = 20, MaxWords = 6 }, "9 de Julio"));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]

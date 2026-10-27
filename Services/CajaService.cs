@@ -209,7 +209,9 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var query = _context.Cajas.Where(c => c.Codigo == codigo && !c.IsDeleted);
+                // El código identifica a la caja: "CAJA-01" y "caja-01" son la misma, sin depender del collation del motor.
+                var codigoNormalizado = (codigo ?? string.Empty).Trim().ToLower();
+                var query = _context.Cajas.Where(c => c.Codigo.ToLower() == codigoNormalizado && !c.IsDeleted);
 
                 if (cajaIdExcluir.HasValue)
                 {

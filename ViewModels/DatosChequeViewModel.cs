@@ -3,7 +3,7 @@ using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
-    public class DatosChequeViewModel
+    public class DatosChequeViewModel : IValidatableObject
     {
         public int Id { get; set; }
 
@@ -12,6 +12,7 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Número de Cheque")]
         [Required(ErrorMessage = "El número de cheque es requerido")]
         [StringLength(50)]
+        [RegularExpression(@"^\d{1,12}$", ErrorMessage = "El número de cheque debe contener solo dígitos.")]
         public string NumeroCheque { get; set; } = string.Empty;
 
         [Display(Name = "Banco")]
@@ -41,11 +42,30 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Monto")]
         [Required(ErrorMessage = "El monto es requerido")]
+        [MontoArgentino(Minimo = 0.01)]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal Monto { get; set; }
 
         [Display(Name = "Observaciones")]
         [StringLength(500)]
         public string? Observaciones { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // Un cheque no puede vencer antes de su fecha de emisión.
+            if (FechaVencimiento.Date < FechaEmision.Date)
+            {
+                yield return new ValidationResult(
+                    "La fecha de vencimiento no puede ser anterior a la fecha de emisión.",
+                    new[] { nameof(FechaVencimiento) });
+            }
+            // Cheque de pago diferido: el plazo máximo entre emisión y vencimiento es de 360 días.
+            else if ((FechaVencimiento.Date - FechaEmision.Date).TotalDays > 360)
+            {
+                yield return new ValidationResult(
+                    "El cheque no puede vencer más de 360 días después de su emisión.",
+                    new[] { nameof(FechaVencimiento) });
+            }
+        }
     }
 }
