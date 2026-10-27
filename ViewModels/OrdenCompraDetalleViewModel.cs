@@ -22,7 +22,7 @@ namespace TheBuryProject.ViewModels
 
         [Required]
         [Display(Name = "Precio Unitario")]
-        [MontoArgentino]
+        [MontoArgentino(Minimo = 0.01)]
         public decimal PrecioUnitario { get; set; }
 
         [Display(Name = "Subtotal")]

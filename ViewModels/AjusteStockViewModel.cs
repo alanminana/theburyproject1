@@ -15,6 +15,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "La cantidad es requerida")]
         [Range(0, 999999.99, ErrorMessage = "La cantidad debe estar entre 0 y 999999.99")]
+        [TheBuryProject.Validation.MontoSinAmbiguedad]
         [Display(Name = "Cantidad")]
         public decimal Cantidad { get; set; }
 
