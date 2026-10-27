@@ -258,7 +258,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var query = _context.Marcas.Where(m => m.Codigo == codigo && !m.IsDeleted);
+                var query = _context.Marcas.Where(m => m.Codigo.ToLower() == codigo.ToLower() && !m.IsDeleted);
 
                 if (excludeId.HasValue)
                 {

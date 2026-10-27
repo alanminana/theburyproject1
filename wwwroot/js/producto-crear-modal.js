@@ -642,7 +642,7 @@ const ProductoModal = (() => {
             // Validación básica client-side
             const errors = validateForm(form);
             if (errors.length > 0) {
-                showValidation(errors.join('. '));
+                showValidation(errors.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
                 return;
             }
 

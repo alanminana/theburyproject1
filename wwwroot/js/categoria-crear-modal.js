@@ -103,7 +103,7 @@ const CategoriaModal = (() => {
                 if (!firstField) firstField = field;
             }
         }
-        if (messages.length) showValidation(messages.join('. '));
+        if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
         const target = firstField && fieldInput(firstField);
         if (target) target.focus();
     }

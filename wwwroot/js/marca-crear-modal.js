@@ -122,7 +122,7 @@ const MarcaModal = (() => {
 
             const errors = validateForm(form);
             if (errors.length > 0) {
-                showValidation(errors.join('. '));
+                showValidation(errors.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
                 return;
             }
 
@@ -175,7 +175,7 @@ const MarcaModal = (() => {
                 if (input) input.classList.add('border-red-500');
             }
         }
-        if (messages.length) showValidation(messages.join('. '));
+        if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
     }
 
     function showValidation(text) {

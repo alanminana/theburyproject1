@@ -3,6 +3,7 @@
     /// Actualiza Producto.PrecioVenta, crea historial y permite revertir.
     /// </summary>
 
+using TheBuryProject.Validation;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -178,6 +179,9 @@ public class PrecioService : IPrecioService
     public async Task<ResultadoAplicacionPrecios> AplicarCambioPrecioDirectoAsync(
         AplicarCambioPrecioDirectoViewModel model)
     {
+        if (model?.Motivo != null && model.Motivo.Trim().Length > 1000)
+            return new ResultadoAplicacionPrecios { Exitoso = false, Mensaje = "El motivo no puede superar los 1000 caracteres." };
+
         if (model == null)
         {
             return new ResultadoAplicacionPrecios
@@ -400,6 +404,16 @@ public class PrecioService : IPrecioService
                 {
                     Exitoso = false,
                     Mensaje = $"El cambio genera precios en cero o negativos (Producto {producto.Codigo})."
+                };
+            }
+
+            // VALID-L3: un porcentaje absurdo (p. ej. +2.000.000 %) produciría un precio por encima del tope de monto del ERP.
+            if (precioVentaNuevo > Validation.MontoArgentinoAttribute.Maximo)
+            {
+                return new ResultadoAplicacionPrecios
+                {
+                    Exitoso = false,
+                    Mensaje = $"El cambio genera precios mayores a {Validation.MontoArgentinoAttribute.Maximo:N0} (Producto {producto.Codigo})."
                 };
             }
 
@@ -1216,6 +1230,11 @@ public class PrecioService : IPrecioService
                     item.TieneAdvertencia = true;
                     item.MensajeAdvertencia = "Precio resultante es cero o negativo: no se podrá aplicar";
                 }
+                else if (precioNuevo > Validation.MontoArgentinoAttribute.Maximo)
+                {
+                    item.TieneAdvertencia = true;
+                    item.MensajeAdvertencia = $"Precio resultante mayor a {Validation.MontoArgentinoAttribute.Maximo:N0}: no se podrá aplicar";
+                }
                 else if (margenNuevo < 0)
                 {
                     item.TieneAdvertencia = true;
@@ -1357,6 +1376,7 @@ public class PrecioService : IPrecioService
         byte[] rowVersion,
         string? notas = null)
     {
+        LongitudTexto.Validar(notas, 1000, "Las notas");
         var batch = await _context.PriceChangeBatches
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
         if (batch == null)
@@ -1393,6 +1413,7 @@ public class PrecioService : IPrecioService
         byte[] rowVersion,
         string motivo)
     {
+        LongitudTexto.Validar(motivo, 500, "El motivo del rechazo");
         var batch = await _context.PriceChangeBatches
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
         if (batch == null)
@@ -1427,6 +1448,7 @@ public class PrecioService : IPrecioService
         byte[] rowVersion,
         string? motivo = null)
     {
+        LongitudTexto.Validar(motivo, 500, "El motivo de la cancelación");
         var batch = await _context.PriceChangeBatches
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
         if (batch == null)
@@ -1501,6 +1523,15 @@ public class PrecioService : IPrecioService
             var ejemplo = preciosInvalidos[0];
             throw new InvalidOperationException(
                 $"El lote tiene {preciosInvalidos.Count} precio(s) resultantes en cero o negativos " +
+                $"(por ejemplo {ejemplo.ProductoCodigo}: {ejemplo.PrecioNuevo:N2}). Corregí el porcentaje o el valor antes de aplicar.");
+        }
+
+        var preciosExcesivos = batch.Items.Where(i => i.PrecioNuevo > Validation.MontoArgentinoAttribute.Maximo).ToList();
+        if (preciosExcesivos.Count > 0)
+        {
+            var ejemplo = preciosExcesivos[0];
+            throw new InvalidOperationException(
+                $"El lote tiene {preciosExcesivos.Count} precio(s) mayores a {Validation.MontoArgentinoAttribute.Maximo:N0} " +
                 $"(por ejemplo {ejemplo.ProductoCodigo}: {ejemplo.PrecioNuevo:N2}). Corregí el porcentaje o el valor antes de aplicar.");
         }
 
@@ -1581,6 +1612,7 @@ public class PrecioService : IPrecioService
         byte[] rowVersion,
         string motivo)
     {
+        LongitudTexto.Validar(motivo, 500, "El motivo de la reversión");
         var batch = await _context.PriceChangeBatches
             .Include(b => b.Items.Where(i => !i.IsDeleted))
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
