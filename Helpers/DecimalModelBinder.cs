@@ -35,7 +35,7 @@ public class DecimalModelBinder : IModelBinder
         {
             bindingContext.ModelState.AddModelError(
                 bindingContext.ModelName,
-                $"El monto \"{raw.Trim()}\" es ambiguo: puede leerse como {raw.Trim().Replace(',', '.')} o como miles. " +
+                $"El valor \"{raw.Trim()}\" es ambiguo: puede leerse como {raw.Trim().Replace(',', '.')} o como miles. " +
                 "Escribilo sin separador de miles (por ejemplo 1500 o 1500,00) o con ambos (1.500,00).");
             return Task.CompletedTask;
         }
