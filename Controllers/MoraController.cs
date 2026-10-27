@@ -409,6 +409,13 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.";
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
+                // La condonación se aplicaría sobre el punitorio, que el cobro de cuotas descuenta primero: hasta que se
+                // anule por el circuito de punitorios, un acuerdo no condona (quedaría capital vencido sin cobrar).
+                if (model.MontoCondonar > 0m)
+                {
+                    TempData["Error"] = "La condonación todavía no está disponible en los acuerdos.";
+                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
+                }
                 model.MontoDeudaOriginal = await _moraService.CalcularDeudaCobrableCreditoAsync(model.CreditoId);
                 model.MontoMoraOriginal = creditoEnMora.MontoMora;
 
@@ -437,7 +444,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RegistrarPagoAcuerdo(int acuerdoId, int clienteId, string medioPago, string? comprobante, string? returnUrl = null)
+        public async Task<IActionResult> RegistrarPagoAcuerdo(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId = null, string? returnUrl = null)
         {
             if (!User.TienePermiso("cobranzas", "payinstallment"))
             {
@@ -447,7 +454,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante);
+                var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante, operacionId);
                 TempData["Success"] = resultado.AcuerdoCumplido
                     ? $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}). El acuerdo quedó cumplido."
                     : $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}).";

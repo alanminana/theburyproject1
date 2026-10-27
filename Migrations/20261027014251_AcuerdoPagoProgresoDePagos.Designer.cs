@@ -12,8 +12,8 @@ using TheBuryProject.Data;
 namespace TheBuryProyect.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261027012701_AcuerdoPagoMontoEntregaPagada")]
-    partial class AcuerdoPagoMontoEntregaPagada
+    [Migration("20261027014251_AcuerdoPagoProgresoDePagos")]
+    partial class AcuerdoPagoProgresoDePagos
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -326,6 +326,9 @@ namespace TheBuryProyect.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("UltimaOperacionPagoId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

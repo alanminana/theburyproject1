@@ -82,6 +82,9 @@ namespace TheBuryProject.Models.Entities
         /// <summary>Parte de la entrega inicial ya imputada a las cuotas vencidas del crédito (progreso de un pago interrumpido).</summary>
         public decimal MontoEntregaPagada { get; set; }
 
+        /// <summary>Clave de la última operación de pago aceptada: un reenvío del mismo formulario no cobra dos veces.</summary>
+        public Guid? UltimaOperacionPagoId { get; set; }
+
         /// <summary>
         /// Fecha en que se pagó la entrega inicial
         /// </summary>

@@ -450,6 +450,7 @@
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
                                         <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                        <input type="hidden" name="operacionId" value="@Guid.NewGuid()" />
                                         <div class="w-full text-sm text-slate-200">Próximo pago: <strong>@ac.ProximoPagoConcepto</strong> · @ac.ProximoPagoPendiente.ToString("C2")</div>
                                         <div>
                                             <label class="sr-only" for="pago-medio-@ac.AcuerdoId">Medio de pago</label>
@@ -619,8 +620,6 @@
                                     <input id="ac-cuotas" name="CantidadCuotas" type="number" min="1" max="60" class="input-erp" required value="6" />
                                     <label for="ac-primera">Fecha de la primera cuota</label>
                                     <input id="ac-primera" name="FechaPrimeraCuota" type="date" class="input-erp" required value="@DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")" />
-                                    <label for="ac-condonar">Mora a condonar (si la configuración lo permite)</label>
-                                    <input id="ac-condonar" name="MontoCondonar" type="number" step="0.01" min="0" class="input-erp" value="0" />
                                     <label for="ac-obs">Observaciones</label>
                                     <textarea id="ac-obs" name="Observaciones" rows="2" maxlength="2000" class="input-erp"></textarea>
                                     <button type="submit" class="btn-erp-primary">Crear acuerdo</button>

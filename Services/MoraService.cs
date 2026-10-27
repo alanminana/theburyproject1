@@ -1532,7 +1532,25 @@ namespace TheBuryProject.Services
             return total;
         }
 
-        public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante)
+        // Un pago de acuerdo son varios cobros independientes: dos solicitudes simultáneas sobre el mismo acuerdo se serializan
+        // (la app corre en un solo proceso) para que la segunda lea el pendiente ya actualizado por la primera.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _bloqueosPagoAcuerdo = new();
+
+        public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId = null)
+        {
+            var bloqueo = _bloqueosPagoAcuerdo.GetOrAdd(acuerdoId, _ => new SemaphoreSlim(1, 1));
+            await bloqueo.WaitAsync();
+            try
+            {
+                return await RegistrarPagoAcuerdoSerializadoAsync(acuerdoId, clienteId, medioPago, comprobante, operacionId);
+            }
+            finally
+            {
+                bloqueo.Release();
+            }
+        }
+
+        private async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoSerializadoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, Guid? operacionId)
         {
             var acuerdo = await _context.AcuerdosPago
                 .Include(a => a.Cuotas)
@@ -1540,6 +1558,10 @@ namespace TheBuryProject.Services
                 ?? throw new InvalidOperationException("El acuerdo no existe o no pertenece a este cliente.");
             if (acuerdo.Estado != EstadoAcuerdo.Activo)
                 throw new InvalidOperationException("Solo se pueden registrar pagos en un acuerdo activo.");
+
+            // Reenvío del mismo formulario (doble clic, recarga del POST): ya se procesó, no se cobra de nuevo.
+            if (operacionId.HasValue && acuerdo.UltimaOperacionPagoId == operacionId)
+                throw new InvalidOperationException("Ese pago ya se registró. Actualizá la ficha para ver el próximo pago.");
 
             // Próximo pago: primero la entrega inicial, después las cuotas en orden. No se elige: así el calendario no se salta.
             CuotaAcuerdo? cuotaDelAcuerdo = null;
@@ -1564,6 +1586,12 @@ namespace TheBuryProject.Services
             var cuotasEnMora = await CuotasEnMoraDelCreditoAsync(acuerdo.CreditoId);
             if (cuotasEnMora.Count == 0)
                 throw new InvalidOperationException("El crédito ya no tiene deuda vencida para imputar el pago.");
+
+            if (operacionId.HasValue)
+            {
+                acuerdo.UltimaOperacionPagoId = operacionId;
+                await _context.SaveChangesAsync();
+            }
 
             // Cada imputación es un cobro de cuota confirmado por separado (el cobro abre su propia transacción serializable):
             // el progreso se guarda después de cada una, así un corte a mitad de camino se reanuda sin cobrar dos veces.

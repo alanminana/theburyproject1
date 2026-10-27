@@ -591,6 +591,24 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PagoAcuerdo_ReenvioDelMismoFormulario_NoCobraDosVeces()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var operacion = Guid.NewGuid();
+
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, operacion);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, operacion));
+
+        Assert.Contains("ya se registró", ex.Message);
+        Assert.Single(_creditoServiceFake.Cobros);
+
+        // Un formulario nuevo (otra clave) sí registra el pago siguiente.
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, Guid.NewGuid());
+        Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+    }
+
+    [Fact]
     public async Task RegistrarContacto_SinAlerta_SeRechaza()
     {
         var cliente = await SeedClienteAsync();
