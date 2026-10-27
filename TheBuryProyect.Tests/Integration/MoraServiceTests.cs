@@ -640,6 +640,126 @@ public class MoraServiceTests : IDisposable
         Assert.False(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
     }
 
+    // Corte entre el cobro confirmado y su reflejo en el acuerdo.
+    [Fact]
+    public async Task PagoAcuerdo_ErrorDespuesDeConfirmarElCobro_SeReflejaEnElActoYNoCobraDeNuevo()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        _creditoServiceFake.FallarDespuesDelCobroNumero = 1; // el cobro de la entrega se confirma y luego falla
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", "R-9", pasoEsperado: 0));
+
+        _context.ChangeTracker.Clear();
+        var conciliado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
+        Assert.True(conciliado.EntregaInicialPagada);
+        Assert.Equal(500m, conciliado.MontoEntregaPagada);
+        var intencion = await _context.AcuerdoPagoImputaciones.AsNoTracking().SingleAsync();
+        Assert.Equal(EstadoImputacionAcuerdo.Aplicada, intencion.Estado);
+        Assert.NotNull(intencion.PagoCuotaId);
+
+        // Reintentar el mismo formulario no cobra otra vez.
+        _creditoServiceFake.FallarDespuesDelCobroNumero = null;
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", "R-9", pasoEsperado: 0));
+        Assert.Contains("ya se registró", ex.Message);
+        Assert.Single(_creditoServiceFake.Cobros);
+        Assert.Equal(500m, (await _context.Cuotas.AsNoTracking().OrderBy(c => c.FechaVencimiento).FirstAsync()).MontoPagado);
+    }
+
+    // El proceso se cayó entre el cobro y su reflejo: no hubo catch. Estado en la base: intención Pendiente + pago en el libro.
+    [Fact]
+    public async Task PagoAcuerdo_ProcesoCaidoDespuesDeCobrar_LaSiguienteOperacionConcilia()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var cuotaCredito = await _context.Cuotas.OrderBy(c => c.FechaVencimiento).FirstAsync();
+        cuotaCredito.MontoPagado = 500m;
+        var operacion = Guid.NewGuid();
+        _context.PagosCuota.Add(new PagoCuota
+        {
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = operacion
+        });
+        _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
+        {
+            AcuerdoPagoId = acuerdo.Id, CuotaAcuerdoId = null, CuotaCreditoId = cuotaCredito.Id, Monto = 500m, MedioPago = "Efectivo",
+            Estado = EstadoImputacionAcuerdo.Pendiente, OperacionId = operacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+
+        Assert.Contains("ya se registró", ex.Message);
+        _context.ChangeTracker.Clear();
+        Assert.True((await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).EntregaInicialPagada);
+        Assert.Empty(_creditoServiceFake.Cobros); // la conciliación no cobra
+    }
+
+    // Un pago manual cualquiera sobre la misma cuota (mismo importe, sin la identidad de la intención) NO se atribuye al acuerdo.
+    [Fact]
+    public async Task PagoAcuerdo_PagoManualDeIgualImporte_NoSeAtribuyeAlAcuerdo()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var cuotaCredito = await _context.Cuotas.OrderBy(c => c.FechaVencimiento).FirstAsync();
+        cuotaCredito.MontoPagado = 500m;
+        _context.PagosCuota.Add(new PagoCuota
+        {
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado // sin OperacionExternaId: pago manual
+        });
+        _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
+        {
+            AcuerdoPagoId = acuerdo.Id, CuotaAcuerdoId = null, CuotaCreditoId = cuotaCredito.Id, Monto = 500m, MedioPago = "Efectivo",
+            Estado = EstadoImputacionAcuerdo.Pendiente
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.Equal(500m, r.ImportePagado); // el acuerdo cobró SU entrega: el pago manual no contó
+        var estados = await _context.AcuerdoPagoImputaciones.AsNoTracking().OrderBy(i => i.Id).Select(i => i.Estado).ToListAsync();
+        Assert.Equal(new[] { EstadoImputacionAcuerdo.Descartada, EstadoImputacionAcuerdo.Aplicada }, estados.ToArray());
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_ErrorDespuesDelUltimoCobro_ElAcuerdoQuedaCumplidoYLaAlertaResuelta()
+    {
+        var (cliente, _, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 1, totalAcuerdo: 2_000m);
+        _creditoServiceFake.FallarDespuesDelCobroNumero = 2; // la entrega son 2 cobros (1.000 + 1.000): falla después del último
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).Estado);
+        Assert.Equal(2, _creditoServiceFake.Cobros.Count);
+        // Quedó la tercera cuota vencida sin pagar: la alerta sigue (el acuerdo no cubría esa deuda).
+        Assert.False((await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Resuelta);
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_CobroRechazado_DescartaLaIntencionYElReintentoCobra()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        _creditoServiceFake.FallarEnElCobroNumero = 1; // el cobro NUNCA se confirma
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoImputacionAcuerdo.Descartada, (await _context.AcuerdoPagoImputaciones.AsNoTracking().SingleAsync()).Estado);
+
+        _creditoServiceFake.FallarEnElCobroNumero = null;
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.Equal(500m, r.ImportePagado);
+        _context.ChangeTracker.Clear();
+        var estados = await _context.AcuerdoPagoImputaciones.AsNoTracking().OrderBy(i => i.Id).Select(i => i.Estado).ToListAsync();
+        Assert.Equal(new[] { EstadoImputacionAcuerdo.Descartada, EstadoImputacionAcuerdo.Aplicada }, estados.ToArray());
+    }
+
     [Fact]
     public async Task RegistrarContacto_SinAlerta_SeRechaza()
     {
@@ -2883,6 +3003,8 @@ public class MoraServiceTests : IDisposable
         public decimal PunitorioPorCuota { get; set; }
         public bool TotalCobrableIndeterminado { get; set; }
         public int? FallarEnElCobroNumero { get; set; }
+        /// <summary>Simula un corte: el cobro SE CONFIRMA (cuota + libro) y recién después falla, antes de que el acuerdo lo refleje.</summary>
+        public int? FallarDespuesDelCobroNumero { get; set; }
         public List<PagoCuotaIndividualComando> Cobros { get; } = new();
 
         public async Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default)
@@ -2906,9 +3028,18 @@ public class MoraServiceTests : IDisposable
             c.MontoPagado += comando.MontoIngresado;
             if (c.MontoPagado >= c.MontoTotal)
                 c.Estado = EstadoCuota.Pagada;
+            var libro = new PagoCuota
+            {
+                CuotaId = c.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = comando.MontoIngresado,
+                ImporteAplicadoCuota = comando.MontoIngresado, MedioPago = comando.MedioPago, Origen = OrigenPagoCuota.RegistradoPorSistema,
+                Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = comando.OperacionExternaId
+            };
+            Db.PagosCuota.Add(libro);
             await Db.SaveChangesAsync(cancellationToken);
+            if (FallarDespuesDelCobroNumero == Cobros.Count)
+                throw new InvalidOperationException("Corte simulado después de confirmar el cobro.");
             return new PagoCuotaResultado(c.Id, c.CreditoId, c.NumeroCuota, comando.MontoIngresado, 0m, comando.MontoIngresado, 0m,
-                comando.MontoIngresado, 0m, c.MontoTotal - c.MontoPagado, c.Estado, DateOnly.FromDateTime(DateTime.Today), 1, 1, comando.MedioPago,
+                comando.MontoIngresado, 0m, c.MontoTotal - c.MontoPagado, c.Estado, DateOnly.FromDateTime(DateTime.Today), 1, libro.Id, comando.MedioPago,
                 Convert.ToBase64String(new byte[] { 1 }));
         }
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();

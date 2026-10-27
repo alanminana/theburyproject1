@@ -709,7 +709,8 @@ namespace TheBuryProject.Services
                     MontoPagado = comando.MontoIngresado,
                     MedioPago = comando.MedioPago,
                     ComprobantePago = comando.Comprobante,
-                    Observaciones = comando.Observaciones
+                    Observaciones = comando.Observaciones,
+                    OperacionExternaId = comando.OperacionExternaId
                 },
                 ModoCobroCuota.PagoManual,
                 comando.CuotaRowVersionEsperada,
@@ -1052,7 +1053,8 @@ namespace TheBuryProject.Services
                     // Con la prioridad punitorio→cuota decidida (PUN-ML6) la composición de un pago
                     // nuevo siempre es evidencia exacta: ya no existe el caso ambiguo de PUN-ML2.
                     HistorialCompleto = true,
-                    MotivoIncompleto = null
+                    MotivoIncompleto = null,
+                    OperacionExternaId = pago.OperacionExternaId
                 };
                 _context.PagosCuota.Add(pagoCuota);
                 await _context.SaveChangesAsync();
