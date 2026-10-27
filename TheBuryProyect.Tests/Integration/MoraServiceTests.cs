@@ -371,6 +371,8 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 10_000m);
         var acuerdo = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-C",
@@ -396,6 +398,8 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 100m);
         var acuerdo = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-R",
@@ -469,17 +473,38 @@ public class MoraServiceTests : IDisposable
         await SeedCuotaVencidaAsync(credito.Id, diasVencido: 20, montoTotal: 1_000m);
         await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        // La activación exige que el total acordado sea la deuda real (3.000): se activa así y después se ajustan los
+        // importes del escenario para cubrir entregas, cuotas y totales distintos sin tocar el resto del flujo.
         var acuerdo = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-P",
-            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = totalAcuerdo, MontoEntregaInicial = entrega,
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 3_000m, MontoEntregaInicial = entrega,
             CantidadCuotas = cuotasAcuerdo, FechaPrimeraCuota = DateTime.Today.AddDays(30)
         };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
         await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, EstadoAcuerdo.Activo);
+        if (totalAcuerdo != 3_000m)
+        {
+            var activo = await _context.AcuerdosPago.Include(a => a.Cuotas).SingleAsync(a => a.Id == acuerdo.Id);
+            _context.RemoveRange(activo.Cuotas);
+            activo.MontoTotalAcuerdo = totalAcuerdo;
+            var restante = totalAcuerdo - entrega;
+            var monto = Math.Round(restante / cuotasAcuerdo, 2, MidpointRounding.AwayFromZero);
+            // Entrega por el total: no hay saldo que financiar, no hay cuotas (igual que la activación real).
+            for (var i = 1; restante > 0m && i <= cuotasAcuerdo; i++)
+            {
+                var importe = i == cuotasAcuerdo ? restante - monto * (cuotasAcuerdo - 1) : monto;
+                activo.Cuotas.Add(new CuotaAcuerdo
+                {
+                    NumeroCuota = i, MontoCapital = importe, MontoMora = 0m, MontoTotal = importe,
+                    FechaVencimiento = activo.FechaPrimeraCuota.AddMonths(i - 1), Estado = EstadoCuotaAcuerdo.Pendiente
+                });
+            }
+            await _context.SaveChangesAsync();
+        }
         _context.ChangeTracker.Clear();
-        _creditoServiceFake.Db = _context;
         return (cliente, credito, alerta, acuerdo);
     }
 
@@ -588,6 +613,145 @@ public class MoraServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CalcularDeudaCobrableCreditoAsync(credito.Id));
 
         Assert.Contains("historial de punitorios", ex.Message);
+    }
+
+    // ---- Un acuerdo financia la deuda completa: sin condonación, sin descuentos, importes del servidor ----
+
+    private async Task<(Cliente cliente, Credito credito, AlertaCobranza alerta)> SeedCreditoConDeudaAsync(decimal punitorioPorCuota = 0m)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 30, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 20, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        _creditoServiceFake.PunitorioPorCuota = punitorioPorCuota;
+        return (cliente, credito, alerta);
+    }
+
+    private static CrearAcuerdoViewModel Solicitud(Cliente cl, Credito cr, AlertaCobranza al, decimal entrega = 300m, decimal condonar = 0m) => new()
+    {
+        AlertaId = al.Id, ClienteId = cl.Id, CreditoId = cr.Id, MontoEntregaInicial = entrega, MontoCondonar = condonar,
+        CantidadCuotas = 3, FechaPrimeraCuota = DateTime.Today.AddDays(30),
+        // Lo que un cliente HTTP podría mandar para abaratar el acuerdo: el servidor lo ignora.
+        MontoDeudaOriginal = 1m, MontoMoraOriginal = 0m
+    };
+
+    [Fact]
+    public async Task CrearAcuerdoParaCredito_TomaCapitalYPunitorioDeLasCuotas_IgnoraLosImportesEnviados()
+    {
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync(punitorioPorCuota: 50m);
+
+        var id = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al), "g");
+
+        _context.ChangeTracker.Clear();
+        var acuerdo = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id);
+        Assert.Equal(3_000m, acuerdo.MontoDeudaOriginal);
+        Assert.Equal(150m, acuerdo.MontoMoraOriginal);
+        Assert.Equal(0m, acuerdo.MontoCondonado);
+        Assert.Equal(3_150m, acuerdo.MontoTotalAcuerdo); // capital + punitorio exigible completos
+    }
+
+    [Fact]
+    public async Task CrearAcuerdoParaCredito_ConCondonacion_SeRechazaSinPersistir_AunqueLaConfiguracionLaPermita()
+    {
+        _context.ConfiguracionesMora.Add(new ConfiguracionMora { PermitirCondonacionMora = true, PorcentajeMaximoCondonacion = 100m });
+        await _context.SaveChangesAsync();
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync(punitorioPorCuota: 50m);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al, condonar: 10m), "g"));
+        Assert.Contains("condonación", ex.Message);
+        // El método de bajo nivel tampoco la admite: no depende de la configuración.
+        var solicitudBaja = Solicitud(cl, cr, al, condonar: 10m);
+        solicitudBaja.MontoDeudaOriginal = 3_000m; solicitudBaja.MontoMoraOriginal = 150m;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoAsync(solicitudBaja, "g"));
+
+        Assert.Equal(0, await _context.AcuerdosPago.CountAsync());
+    }
+
+    [Fact]
+    public async Task CrearAcuerdoParaCredito_PrimeraCuotaEnElPasado_SeRechaza()
+    {
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync();
+        var solicitud = Solicitud(cl, cr, al);
+        solicitud.FechaPrimeraCuota = DateTime.Today.AddDays(-1);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoParaCreditoAsync(solicitud, "g"));
+
+        Assert.Contains("pasado", ex.Message);
+        Assert.Equal(0, await _context.AcuerdosPago.CountAsync());
+    }
+
+    [Fact]
+    public async Task CrearAcuerdoParaCredito_CreditoDeOtroCliente_SeRechaza()
+    {
+        var (_, cr, al) = await SeedCreditoConDeudaAsync();
+        var otro = await SeedClienteAsync();
+        var solicitud = Solicitud(otro, cr, al);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoParaCreditoAsync(solicitud, "g"));
+
+        Assert.Contains("no pertenece", ex.Message);
+        Assert.Equal(0, await _context.AcuerdosPago.CountAsync());
+    }
+
+    [Fact]
+    public async Task CrearAcuerdoParaCredito_SinDeudaVencida_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cliente, credito, alerta), "g"));
+
+        Assert.Contains("no tiene deuda vencida", ex.Message);
+    }
+
+    [Fact]
+    public async Task ActivarAcuerdo_SiLaDeudaCambioDesdeQueSeCreo_SeRechazaYNoGeneraCalendario()
+    {
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync();
+        var id = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al), "g");
+        // Mientras estaba en borrador se cobró parte de la deuda por fuera del acuerdo.
+        var cuota = await _context.Cuotas.OrderBy(c => c.FechaVencimiento).FirstAsync();
+        cuota.MontoPagado = 400m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(id, cl.Id, EstadoAcuerdo.Activo));
+
+        Assert.Contains("cambió", ex.Message);
+        _context.ChangeTracker.Clear();
+        var guardado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id);
+        Assert.Equal(EstadoAcuerdo.Borrador, guardado.Estado);
+        Assert.Empty(await _context.Set<CuotaAcuerdo>().Where(c => c.AcuerdoPagoId == id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ActivarAcuerdo_ConLaDeudaIntacta_Activa()
+    {
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync(punitorioPorCuota: 50m);
+        var id = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al), "g");
+
+        Assert.True(await _service.CambiarEstadoAcuerdoAsync(id, cl.Id, EstadoAcuerdo.Activo));
+    }
+
+    // El acuerdo cumplido cubre la deuda que se fijó al crearlo; si el crédito conserva otra, el cobro lo informa.
+    [Fact]
+    public async Task PagoAcuerdo_AlCumplirse_InformaLaDeudaVencidaQueElCreditoTodaviaTiene()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(); // acuerdo por 2.500 sobre una deuda de 3.000
+
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 1);
+        var ultimo = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 2);
+
+        Assert.True(ultimo.AcuerdoCumplido);
+        Assert.Equal(500m, ultimo.DeudaVencidaRestante);
     }
 
     [Fact]
@@ -831,6 +995,8 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _creditoServiceFake.Db = _context;
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
         var acuerdo = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-T",

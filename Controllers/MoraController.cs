@@ -409,19 +409,10 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.";
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
-                // La condonación se aplicaría sobre el punitorio, que el cobro de cuotas descuenta primero: hasta que se
-                // anule por el circuito de punitorios, un acuerdo no condona (quedaría capital vencido sin cobrar).
-                if (model.MontoCondonar > 0m)
-                {
-                    TempData["Error"] = "La condonación todavía no está disponible en los acuerdos.";
-                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
-                }
-                model.MontoDeudaOriginal = await _moraService.CalcularDeudaCobrableCreditoAsync(model.CreditoId);
-                // El punitorio ya viaja dentro de la deuda cobrable: sumar además la mora legacy lo contaría dos veces.
-                model.MontoMoraOriginal = 0m;
-
+                // Un acuerdo financia la deuda completa: no condona ni descuenta. El servicio toma capital y punitorio de
+                // las cuotas reales del crédito y rechaza cualquier condonación enviada.
                 var gestorId = _currentUser.GetUserId();
-                var acuerdoId = await _moraService.CrearAcuerdoPagoAsync(model, gestorId);
+                var acuerdoId = await _moraService.CrearAcuerdoPagoParaCreditoAsync(model, gestorId);
                 
                 TempData["Success"] = "Acuerdo de pago creado correctamente";
                 return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
@@ -458,6 +449,7 @@ namespace TheBuryProject.Controllers
                 var resultado = await _moraService.RegistrarPagoAcuerdoAsync(acuerdoId, clienteId, medioPago, comprobante, pasoEsperado);
                 TempData["Success"] = resultado.AcuerdoCumplido
                     ? $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}). El acuerdo quedó cumplido."
+                      + (resultado.DeudaVencidaRestante is > 0m ? $" Ojo: el crédito todavía tiene {resultado.DeudaVencidaRestante:C2} de deuda vencida fuera del acuerdo." : "")
                     : $"Pago registrado ({resultado.Concepto}: {resultado.ImportePagado:C2}).";
             }
             catch (InvalidOperationException ex)

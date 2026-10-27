@@ -1101,6 +1101,18 @@ namespace TheBuryProject.Services
                     }).ToList();
 
                     var cuotasPagadas = credito.Cuotas?.Count(c => c.Estado == EstadoCuota.Pagada) ?? 0;
+
+                    // Lo que financiaría un acuerdo hoy: la misma cifra autoritativa que usa su creación.
+                    DeudaCobrableCredito? deudaCobrable = null;
+                    try
+                    {
+                        deudaCobrable = await CalcularDesgloseDeudaCobrableCreditoAsync(credito.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "No se pudo determinar la deuda cobrable del crédito {CreditoId}", credito.Id);
+                    }
+
                     resultado.Add(new CreditoMoraViewModel
                     {
                         CreditoId = credito.Id,
@@ -1114,6 +1126,8 @@ namespace TheBuryProject.Services
                         DiasAtraso = cuotasVencidas.Max(c => EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial)),
                         MontoCuotasVencidas = cuotasVencidas.Sum(c => c.MontoTotal - c.MontoPagado),
                         MontoMora = cuotasVencidas.Sum(c => c.MontoPunitorio),
+                        DeudaCapitalAFinanciar = deudaCobrable?.Capital,
+                        DeudaPunitorioAFinanciar = deudaCobrable?.Punitorio,
                         CuotasDetalle = cuotasDetalle
                     });
                 }
@@ -1379,8 +1393,10 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("Los importes del acuerdo no pueden ser negativos");
                 if (acuerdo.MontoTotalAcuerdo <= 0)
                     throw new InvalidOperationException("El total del acuerdo debe ser mayor a cero");
-                if (acuerdo.MontoCondonar > acuerdo.MontoMoraOriginal)
-                    throw new InvalidOperationException("No se puede condonar más que la mora original");
+                // Regla de negocio: un acuerdo financia la deuda completa (capital + punitorio exigible) en cuotas; nunca la
+                // perdona ni la descuenta. No depende de ninguna configuración.
+                if (acuerdo.MontoCondonar > 0)
+                    throw new InvalidOperationException("Los acuerdos de pago no admiten condonación ni descuentos: la deuda se financia completa.");
                 if (acuerdo.MontoEntregaInicial > acuerdo.MontoTotalAcuerdo)
                     throw new InvalidOperationException("La entrega inicial no puede superar el total del acuerdo");
 
@@ -1394,20 +1410,6 @@ namespace TheBuryProject.Services
                     var porcentajeEntrega = (acuerdo.MontoEntregaInicial / acuerdo.MontoTotalAcuerdo) * 100;
                     if (porcentajeEntrega < config.PorcentajeMinimoEntrega.Value)
                         throw new InvalidOperationException($"La entrega inicial debe ser al menos {config.PorcentajeMinimoEntrega.Value}% del total");
-                }
-
-                // Validar condonación
-                if (acuerdo.MontoCondonar > 0 && !config.PermitirCondonacionMora)
-                    throw new InvalidOperationException("No está permitida la condonación de mora");
-
-                // El tope es un porcentaje de la mora original; sin mora no hay nada que condonar.
-                if (acuerdo.MontoCondonar > 0 && config.PorcentajeMaximoCondonacion.HasValue)
-                {
-                    var porcentajeCondonado = acuerdo.MontoMoraOriginal > 0
-                        ? acuerdo.MontoCondonar / acuerdo.MontoMoraOriginal * 100
-                        : decimal.MaxValue;
-                    if (porcentajeCondonado > config.PorcentajeMaximoCondonacion.Value)
-                        throw new InvalidOperationException($"La condonación no puede superar el {config.PorcentajeMaximoCondonacion.Value}% de la mora");
                 }
 
                 var nuevoAcuerdo = new AcuerdoPago
@@ -1450,6 +1452,33 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al crear acuerdo de pago");
                 throw;
             }
+        }
+
+        public async Task<int> CrearAcuerdoPagoParaCreditoAsync(CrearAcuerdoViewModel solicitud, string gestorId)
+        {
+            ArgumentNullException.ThrowIfNull(solicitud);
+
+            // Los importes salen de las cuotas reales del crédito, nunca de la solicitud: un importe enviado a mano
+            // abarataría el acuerdo (o lo inflaría) sin respaldo en la deuda.
+            if (solicitud.MontoCondonar != 0m)
+                throw new InvalidOperationException("Los acuerdos de pago no admiten condonación ni descuentos: la deuda se financia completa.");
+
+            var creditoDelCliente = await _context.Creditos
+                .AsNoTracking()
+                .AnyAsync(c => c.Id == solicitud.CreditoId && c.ClienteId == solicitud.ClienteId && !c.IsDeleted);
+            if (!creditoDelCliente)
+                throw new InvalidOperationException("El crédito no existe o no pertenece a este cliente.");
+
+            if (solicitud.FechaPrimeraCuota.Date < _reloj.InicioDiaComercial.Date)
+                throw new InvalidOperationException("La fecha de la primera cuota no puede estar en el pasado.");
+
+            var deuda = await CalcularDesgloseDeudaCobrableCreditoAsync(solicitud.CreditoId);
+            if (deuda.Total <= 0m)
+                throw new InvalidOperationException("El crédito no tiene deuda vencida para financiar.");
+
+            solicitud.MontoDeudaOriginal = deuda.Capital;
+            solicitud.MontoMoraOriginal = deuda.Punitorio;
+            return await CrearAcuerdoPagoAsync(solicitud, gestorId);
         }
 
         public async Task<bool> MarcarPromesaIncumplidaDelClienteAsync(int alertaId, int clienteId, string? observaciones)
@@ -1525,9 +1554,13 @@ namespace TheBuryProject.Services
                 .ToList();
         }
 
-        public async Task<decimal> CalcularDeudaCobrableCreditoAsync(int creditoId)
+        public async Task<decimal> CalcularDeudaCobrableCreditoAsync(int creditoId) =>
+            (await CalcularDesgloseDeudaCobrableCreditoAsync(creditoId)).Total;
+
+        public async Task<DeudaCobrableCredito> CalcularDesgloseDeudaCobrableCreditoAsync(int creditoId)
         {
-            decimal total = 0m;
+            decimal capital = 0m;
+            decimal punitorio = 0m;
             foreach (var cuota in await CuotasEnMoraDelCreditoAsync(creditoId))
             {
                 var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuota.Id);
@@ -1536,9 +1569,10 @@ namespace TheBuryProject.Services
                 if (contexto?.TotalCobrableActual == null)
                     throw new InvalidOperationException(
                         $"No se puede calcular la deuda de la cuota {cuota.NumeroCuota}: el historial de punitorios está incompleto. Conciliá el crédito antes de crear el acuerdo.");
-                total += contexto.TotalCobrableActual.Value;
+                capital += contexto.CapitalPendiente;
+                punitorio += contexto.TotalCobrableActual.Value - contexto.CapitalPendiente;
             }
-            return total;
+            return new DeudaCobrableCredito(capital, punitorio);
         }
 
         // Un pago de acuerdo son varios cobros independientes: dos solicitudes simultáneas sobre el mismo acuerdo se serializan
@@ -1773,8 +1807,25 @@ namespace TheBuryProject.Services
 
             var todoPagado = await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
 
+            // El acuerdo cumplido cubre la deuda que se fijó al crearlo; si después se aplicó un punitorio o venció otra
+            // cuota, el crédito conserva deuda propia que se informa para que no se dé por saldado.
+            decimal? deudaRestante = null;
+            if (todoPagado)
+            {
+                try
+                {
+                    var restanteCredito = await CalcularDeudaCobrableCreditoAsync(acuerdo.CreditoId);
+                    if (restanteCredito > 0m)
+                        deudaRestante = restanteCredito;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogWarning(ex, "Acuerdo {Numero}: no se pudo verificar la deuda restante del crédito", acuerdo.NumeroAcuerdo);
+                }
+            }
+
             _logger.LogInformation("Pago de acuerdo {Numero}: {Concepto} por {Importe}", acuerdo.NumeroAcuerdo, concepto, imputado);
-            return new ResultadoPagoAcuerdo(concepto, imputado, todoPagado);
+            return new ResultadoPagoAcuerdo(concepto, imputado, todoPagado, deudaRestante);
         }
 
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
@@ -1820,6 +1871,16 @@ namespace TheBuryProject.Services
                 && await _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted && a.Id != acuerdo.Id
                     && a.CreditoId == acuerdo.CreditoId && a.Estado == EstadoAcuerdo.Activo))
                 throw new InvalidOperationException("Ese crédito ya tiene otro acuerdo activo.");
+
+            // El total del acuerdo se fijó al crearlo: si la deuda vencida cambió desde entonces (un cobro, un punitorio
+            // aplicado) el acuerdo ya no financia la deuda real, ni de más ni de menos. Se rehace en vez de activarlo.
+            if (nuevoEstado == EstadoAcuerdo.Activo)
+            {
+                var deudaHoy = await CalcularDeudaCobrableCreditoAsync(acuerdo.CreditoId);
+                if (Math.Abs(deudaHoy - acuerdo.MontoTotalAcuerdo) > 0.01m)
+                    throw new InvalidOperationException(
+                        $"La deuda del crédito cambió desde que se creó el acuerdo (acordada {acuerdo.MontoTotalAcuerdo:C2}, hoy {deudaHoy:C2}). Cancelalo y creá uno nuevo.");
+            }
 
             acuerdo.Estado = nuevoEstado;
             if (nuevoEstado == EstadoAcuerdo.Activo)

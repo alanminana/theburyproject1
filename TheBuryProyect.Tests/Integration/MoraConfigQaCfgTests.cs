@@ -498,15 +498,18 @@ public class MoraConfigQaCfgServiceTests : IDisposable
         Assert.NotNull(ex);
     }
 
+    // Decisión de negocio: los acuerdos no condonan. Ni el tope configurado ni PermitirCondonacionMora habilitan una quita.
     [Fact]
-    public async Task CFG08b_Acuerdo_CondonacionExactaAlTope_Pasa_UnCentavoMasRechaza()
+    public async Task CFG08b_Acuerdo_NuncaCondona_NiDentroDelTopeConfigurado()
     {
         await ConfigAsync(c => { c.PermitirCondonacionMora = true; c.PorcentajeMaximoCondonacion = 40m; });
         var (cl, cr, al) = await EscenarioAlertaAsync();
-        // mora 500, 40% = 200
-        Assert.True(await NuevoServicio().CrearAcuerdoPagoAsync(Acuerdo(cl, cr, al, condonar: 200m), "g") > 0);
+        // mora 500, 40% = 200: antes pasaba; ahora cualquier condonación se rechaza.
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            NuevoServicio().CrearAcuerdoPagoAsync(Acuerdo(cl, cr, al, condonar: 200.01m), "g"));
+            NuevoServicio().CrearAcuerdoPagoAsync(Acuerdo(cl, cr, al, condonar: 200m), "g"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            NuevoServicio().CrearAcuerdoPagoAsync(Acuerdo(cl, cr, al, condonar: 0.01m), "g"));
+        Assert.Equal(0, await _context.AcuerdosPago.CountAsync());
     }
 
     // CFG-08c — integridad de importes: negativos, cuotas <= 0 y totales en cero no deben llegar a dividir ni persistir.

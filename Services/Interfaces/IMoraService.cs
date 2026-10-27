@@ -10,7 +10,13 @@ namespace TheBuryProject.Services.Interfaces
     /// Consolida cálculo de mora, generación de alertas y auditoría
     /// </summary>
     /// <summary>Resultado de registrar un pago de acuerdo.</summary>
-    public sealed record ResultadoPagoAcuerdo(string Concepto, decimal ImportePagado, bool AcuerdoCumplido);
+    public sealed record ResultadoPagoAcuerdo(string Concepto, decimal ImportePagado, bool AcuerdoCumplido, decimal? DeudaVencidaRestante = null);
+
+    /// <summary>Deuda vencida cobrable de un crédito: capital pendiente y punitorio aplicado pendiente de sus cuotas en mora.</summary>
+    public sealed record DeudaCobrableCredito(decimal Capital, decimal Punitorio)
+    {
+        public decimal Total => Capital + Punitorio;
+    }
 
     public interface IMoraService
     {
@@ -112,6 +118,13 @@ namespace TheBuryProject.Services.Interfaces
         /// Crea un nuevo acuerdo de pago
         /// </summary>
         Task<int> CrearAcuerdoPagoAsync(CrearAcuerdoViewModel acuerdo, string gestorId);
+
+        /// <summary>
+        /// Crea un acuerdo de pago para un crédito del cliente con los importes tomados de la deuda cobrable real: lo que
+        /// venga en el modelo (deuda, mora, condonación) se ignora o se rechaza. Un acuerdo financia la deuda completa en
+        /// cuotas: no condona, no descuenta y no reduce nada. Es la entrada que usa la pantalla.
+        /// </summary>
+        Task<int> CrearAcuerdoPagoParaCreditoAsync(CrearAcuerdoViewModel solicitud, string gestorId);
         
         /// <summary>
         /// Obtiene los acuerdos de pago de un cliente
@@ -134,6 +147,9 @@ namespace TheBuryProject.Services.Interfaces
         /// aplicado pendiente (la misma cifra que muestra el cobro de cuotas). Base de la deuda de un acuerdo nuevo.
         /// </summary>
         Task<decimal> CalcularDeudaCobrableCreditoAsync(int creditoId);
+
+        /// <summary>La misma deuda cobrable de <see cref="CalcularDeudaCobrableCreditoAsync"/>, separada en capital y punitorio.</summary>
+        Task<DeudaCobrableCredito> CalcularDesgloseDeudaCobrableCreditoAsync(int creditoId);
 
         /// <summary>
         /// Registra el próximo pago pendiente de un acuerdo activo (primero la entrega inicial, después las cuotas en
