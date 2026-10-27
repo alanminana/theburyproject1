@@ -275,6 +275,25 @@ var mvcBuilder = builder.Services.AddControllersWithViews(options =>
     options.ModelBinderProviders.Insert(0, new DateOnlyModelBinderProvider());
     // Abre como PDF los documentos emitidos por cualquier acción que termine redirigiendo (cobro, confirmación, entrega…).
     options.Filters.Add<TheBuryProject.Filters.DocumentosEmitidosFilter>();
+
+    // Mensajes de binding en español: sin esto un campo vacío o un valor de otro tipo mostraba "The value '' is invalid."
+    // en inglés (p. ej. proveedor sin elegir en una orden de compra, o un valor de enum inexistente).
+    var mensajes = options.ModelBindingMessageProvider;
+    mensajes.SetValueMustNotBeNullAccessor(_ => "Este campo es obligatorio");
+    mensajes.SetMissingBindRequiredValueAccessor(campo => $"Falta completar {campo}");
+    mensajes.SetMissingKeyOrValueAccessor(() => "Falta completar un valor obligatorio");
+    mensajes.SetMissingRequestBodyRequiredValueAccessor(() => "La solicitud llegó vacía");
+    mensajes.SetValueIsInvalidAccessor(valor => string.IsNullOrWhiteSpace(valor)
+        ? "Falta completar un campo obligatorio"
+        : $"El valor '{valor}' no es válido");
+    mensajes.SetAttemptedValueIsInvalidAccessor((valor, campo) => string.IsNullOrWhiteSpace(valor)
+        ? $"{campo} es obligatorio"
+        : $"El valor '{valor}' no es válido para {campo}");
+    mensajes.SetUnknownValueIsInvalidAccessor(campo => $"El valor ingresado no es válido para {campo}");
+    mensajes.SetValueMustBeANumberAccessor(campo => $"{campo} debe ser un número");
+    mensajes.SetNonPropertyValueMustBeANumberAccessor(() => "El valor debe ser un número");
+    mensajes.SetNonPropertyAttemptedValueIsInvalidAccessor(valor => $"El valor '{valor}' no es válido");
+    mensajes.SetNonPropertyUnknownValueIsInvalidAccessor(() => "El valor ingresado no es válido");
 });
 if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();

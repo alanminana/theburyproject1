@@ -174,6 +174,25 @@ public class ComprasStockCamposValidacionHttpTests : IClassFixture<CustomWebAppl
     [InlineData("Detalles[0].ProductoId", "99999999")]
     public Task Oc_ProveedorOProductoInexistente_SeRechaza(string campo, string valor) => AssertOcRechazadaAsync(campo, valor);
 
+    [Theory]
+    [InlineData("ProveedorId", "")]
+    [InlineData("Estado", "NoExiste")]
+    [InlineData("Detalles[0].Cantidad", "abc")]
+    public async Task Oc_ErroresDeBinding_SeMuestranEnEspanol(string campo, string valor)
+    {
+        var numero = NuevoNumeroOc();
+        var form = FormOc(numero);
+        form[campo] = valor;
+
+        var resp = await PostOcAsync(form);
+        var html = WebUtility.HtmlDecode(await resp.Content.ReadAsStringAsync());
+
+        Assert.DoesNotContain("The value", html);
+        Assert.DoesNotContain("is invalid", html);
+        Assert.DoesNotContain("is not valid for", html);
+        Assert.Equal(0, await OrdenesConNumeroAsync(numero));
+    }
+
     [Fact]
     public Task Oc_Observaciones_MasDe1000_SeRechaza() => AssertOcRechazadaAsync("Observaciones", new string('x', 1001));
 
@@ -238,10 +257,18 @@ public class ComprasStockCamposValidacionHttpTests : IClassFixture<CustomWebAppl
         Assert.Equal(1, await ProveedoresConCuitAsync(cuit));
     }
 
+    // El dígito verificador del CUIT es una ADVERTENCIA en el formulario ("Podés guardarlo igual", proveedor-modal-base.js),
+    // no un bloqueo: lo decidió el producto y el test unitario Cuit_OnceDigitos_NoExigeDigitoVerificadorAfip lo fija.
+    [Fact]
+    public async Task Proveedor_CuitConVerificadorIncorrecto_SeAcepta_PorqueEsSoloUnaAdvertencia()
+    {
+        var cuit = "30502680479";   // el verificador válido sería 8
+        if (await ProveedoresConCuitAsync(cuit) > 0) return;
+
+        Assert.True(await CrearProveedorAsync(FormProveedor(cuit)));
+    }
+
     [Theory]
-    [InlineData("30502680479")]      // verificador incorrecto (el válido termina en 8)
-    [InlineData("12212121222")]      // verificador incorrecto (el válido es 1)
-    [InlineData("99999999999")]
     [InlineData("1234567890")]       // 10 dígitos
     [InlineData("123456789012")]     // 12 dígitos
     [InlineData("30-50268047-8")]    // con guiones: el formulario exige solo dígitos
