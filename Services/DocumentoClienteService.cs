@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using TheBuryProject.Validation;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using TheBuryProject.Data;
@@ -76,6 +77,13 @@ namespace TheBuryProject.Services
 
         public async Task<DocumentoClienteViewModel> UploadAsync(DocumentoClienteViewModel viewModel)
         {
+            LongitudTexto.Validar(viewModel.Observaciones, 1000, "Las observaciones");
+            if (viewModel.FechaVencimiento.HasValue
+                && (viewModel.FechaVencimiento.Value.Date < new DateTime(1900, 1, 1) || viewModel.FechaVencimiento.Value.Date > new DateTime(2100, 12, 31)))
+            {
+                throw new InvalidOperationException("La fecha de vencimiento del documento no es válida.");
+            }
+
             try
             {
                 if (viewModel.Archivo == null || viewModel.Archivo.Length == 0)
@@ -208,6 +216,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> VerificarAsync(int id, string verificadoPor, string? observaciones = null)
         {
+            LongitudTexto.Validar(observaciones, 1000, "Las observaciones");
+
             try
             {
                 var documento = await _context.Set<DocumentoCliente>()
@@ -237,6 +247,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> RechazarAsync(int id, string motivo, string rechazadoPor)
         {
+            LongitudTexto.Validar(motivo, 500, "El motivo del rechazo");
+
             try
             {
                 var documento = await _context.Set<DocumentoCliente>()
@@ -427,6 +439,8 @@ namespace TheBuryProject.Services
 
         public async Task<int> VerificarTodosAsync(int clienteId, string verificadoPor, string? observaciones = null)
         {
+            LongitudTexto.Validar(observaciones, 1000, "Las observaciones");
+
             try
             {
                 var documentosPendientes = await _context.Set<DocumentoCliente>()
