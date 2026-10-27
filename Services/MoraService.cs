@@ -1414,7 +1414,7 @@ namespace TheBuryProject.Services
                     AlertaCobranzaId = acuerdo.AlertaId,
                     ClienteId = acuerdo.ClienteId,
                     CreditoId = acuerdo.CreditoId,
-                    NumeroAcuerdo = $"ACU-{DateTime.UtcNow:yyyyMMddHHmmss}-{acuerdo.ClienteId}",
+                    NumeroAcuerdo = $"ACU-{DateTime.UtcNow:yyyyMMddHHmmss}-{acuerdo.ClienteId}-{acuerdo.CreditoId}",
                     FechaCreacion = DateTime.UtcNow,
                     Estado = EstadoAcuerdo.Borrador,
                     MontoDeudaOriginal = acuerdo.MontoDeudaOriginal,
@@ -1433,7 +1433,7 @@ namespace TheBuryProject.Services
                 {
                     await _context.SaveChangesAsync();
                 }
-                catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+                catch (DbUpdateException ex) when (EsViolacionAcuerdoVigente(ex))
                 {
                     _context.Entry(nuevoAcuerdo).State = EntityState.Detached;
                     throw new InvalidOperationException("Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.");
@@ -1496,13 +1496,13 @@ namespace TheBuryProject.Services
             }
         }
 
-        // SQL Server: 2601 (índice único) / 2627 (restricción única); SQLite (tests): "UNIQUE constraint failed".
-        private static bool EsViolacionDeUnicidad(DbUpdateException ex)
+        // Solo el índice del crédito vigente: una colisión de NumeroAcuerdo u otro error se propaga tal cual.
+        // SQL Server nombra el índice en el mensaje; SQLite (tests) nombra la columna.
+        private static bool EsViolacionAcuerdoVigente(DbUpdateException ex)
         {
             var mensaje = ex.InnerException?.Message ?? ex.Message;
-            return mensaje.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
-                || mensaje.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
-                || mensaje.Contains("duplicada", StringComparison.OrdinalIgnoreCase);
+            return mensaje.Contains("UX_AcuerdosPago_CreditoVigente", StringComparison.OrdinalIgnoreCase)
+                || mensaje.Contains("AcuerdosPago.CreditoId", StringComparison.OrdinalIgnoreCase);
         }
 
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
@@ -1561,7 +1561,7 @@ namespace TheBuryProject.Services
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            catch (DbUpdateException ex) when (EsViolacionAcuerdoVigente(ex))
             {
                 throw new InvalidOperationException("Ese crédito ya tiene otro acuerdo vigente.");
             }
