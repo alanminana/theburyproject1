@@ -1670,8 +1670,11 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("Solo se pueden registrar pagos en un acuerdo activo.");
 
             // Un corte entre un cobro confirmado y su reflejo en el acuerdo se cierra acá, antes de decidir qué se cobra.
-            if (await ConciliarImputacionesPendientesAsync(acuerdo))
-                await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
+            await ConciliarImputacionesPendientesAsync(acuerdo);
+            // Un acuerdo con todos los pagos completos que quedó Activo (corte después del último cobro) se cumple acá.
+            await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
+            if (acuerdo.Estado != EstadoAcuerdo.Activo)
+                throw new InvalidOperationException("El acuerdo ya está cumplido: el último pago ya estaba registrado.");
 
             // El formulario viaja atado al avance del acuerdo: un reenvío (doble clic, recarga del POST, un formulario viejo
             // abierto en otra pestaña) trae un paso que ya pasó y se rechaza sin cobrar.
@@ -1748,7 +1751,8 @@ namespace TheBuryProject.Services
                 {
                     // Un error no dice si el cobro llegó a confirmarse: se verifica contra el libro por la identidad de la
                     // operación. Si el pago existe se refleja en el acuerdo; si no, la intención se descarta.
-                    await ConciliarImputacionesPendientesAsync(acuerdo);
+                    if (await ConciliarImputacionesPendientesAsync(acuerdo))
+                        await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
                     throw;
                 }
 

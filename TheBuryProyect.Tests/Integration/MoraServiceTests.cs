@@ -725,6 +725,22 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PagoAcuerdo_ErrorDespuesDelUltimoCobro_ElAcuerdoQuedaCumplidoYLaAlertaResuelta()
+    {
+        var (cliente, _, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 1, totalAcuerdo: 2_000m);
+        _creditoServiceFake.FallarDespuesDelCobroNumero = 2; // la entrega son 2 cobros (1.000 + 1.000): falla después del último
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).Estado);
+        Assert.Equal(2, _creditoServiceFake.Cobros.Count);
+        // Quedó la tercera cuota vencida sin pagar: la alerta sigue (el acuerdo no cubría esa deuda).
+        Assert.False((await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Resuelta);
+    }
+
+    [Fact]
     public async Task PagoAcuerdo_CobroRechazado_DescartaLaIntencionYElReintentoCobra()
     {
         var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
