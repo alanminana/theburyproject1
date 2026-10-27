@@ -54,4 +54,35 @@ public class AlicuotaIvaYCodigosValidacionTests
         var vm = new MercadoLibreCrearProductoViewModel { PrecioVenta = (decimal)precio };
         Assert.Equal(invalido, Falla(vm, nameof(vm.PrecioVenta)));
     }
+
+    [Theory]
+    [InlineData("CAT-01", false)]
+    [InlineData("SINGER", false)]
+    [InlineData("001002", false)]
+    [InlineData("A/B", true)]
+    [InlineData("<b>", true)]
+    [InlineData("ñ", true)]
+    public void Categoria_Y_Marca_Codigo_Formato(string codigo, bool invalido)
+    {
+        Assert.Equal(invalido, Falla(new CategoriaViewModel { Codigo = codigo }, nameof(CategoriaViewModel.Codigo)));
+        Assert.Equal(invalido, Falla(new MarcaViewModel { Codigo = codigo }, nameof(MarcaViewModel.Codigo)));
+    }
+
+    [Fact]
+    public void MontoArgentino_ConMinimoFraccionario_MuestraElMinimoRealEnElMensaje()
+    {
+        var atributo = new TheBuryProject.Validation.MontoArgentinoAttribute { Minimo = 0.01 };
+
+        var mensaje = atributo.FormatErrorMessage("Precio");
+
+        Assert.Contains("0,01", mensaje);
+    }
+
+    [Fact]
+    public void MontoArgentino_ConMinimoEntero_SigueMostrandoCero()
+    {
+        var mensaje = new TheBuryProject.Validation.MontoArgentinoAttribute().FormatErrorMessage("Monto");
+
+        Assert.Contains("entre 0 y", mensaje);
+    }
 }

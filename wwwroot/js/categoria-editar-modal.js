@@ -123,7 +123,7 @@
                 }
             }
         });
-        if (messages.length) showValidation(messages.join('. '));
+        if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
         if (firstInput) firstInput.focus();
     }
 

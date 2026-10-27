@@ -362,7 +362,7 @@ namespace TheBuryProject.Validation
         }
 
         public override string FormatErrorMessage(string name) =>
-            string.Format(EsAr, ErrorMessageString, name, ((decimal)Minimo).ToString("N0", EsAr), Maximo.ToString("N0", EsAr));
+            string.Format(EsAr, ErrorMessageString, name, ((decimal)Minimo).ToString(Minimo % 1 == 0 ? "N0" : "N2", EsAr), Maximo.ToString("N0", EsAr));
     }
 
     /// <summary>

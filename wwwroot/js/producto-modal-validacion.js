@@ -67,7 +67,7 @@ window.ProductoModalFormUtils = (function () {
                 if (input) input.classList.add('border-red-500');
             }
         });
-        if (messages.length) showValidationFn(messages.join('. '));
+        if (messages.length) showValidationFn(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
     }
 
     return { bindValidation: bindValidation, handleServerErrors: handleServerErrors };
