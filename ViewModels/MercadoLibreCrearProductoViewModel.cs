@@ -13,6 +13,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El código es obligatorio")]
         [StringLength(50, ErrorMessage = "El código no puede superar 50 caracteres")]
+        [RegularExpression(@"^[A-Za-z0-9]+(?:[ _.-][A-Za-z0-9]+)*$", ErrorMessage = "El código solo puede contener letras sin tilde, números, espacios simples, punto, guion y guion bajo (ej. CAT-01 o 001002).")]
         public string Codigo { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El nombre es obligatorio")]
@@ -28,17 +29,17 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "La marca es obligatoria")]
         public int? MarcaId { get; set; }
 
-        [Range(0, 999999999, ErrorMessage = "El precio de costo no puede ser negativo")]
+        [TheBuryProject.Validation.MontoArgentino]
         public decimal PrecioCompra { get; set; }
 
-        [Range(0, 999999999, ErrorMessage = "El precio de venta no puede ser negativo")]
+        [TheBuryProject.Validation.MontoArgentino(Minimo = 0.01)]
         public decimal PrecioVenta { get; set; }
 
-        [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100")]
+        [TheBuryProject.Validation.AlicuotaIvaArgentina]
         public decimal PorcentajeIVA { get; set; } = 21m;
 
         /// <summary>Stock inicial del producto (genera movimiento de stock trazado).</summary>
-        [Range(0, 99999999, ErrorMessage = "El stock inicial no puede ser negativo")]
+        [Range(0, 999999.99, ErrorMessage = "El stock inicial debe estar entre 0 y 999999.99")]
         public decimal StockInicial { get; set; }
 
         public bool RequiereNumeroSerie { get; set; }

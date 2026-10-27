@@ -364,4 +364,35 @@ namespace TheBuryProject.Validation
         public override string FormatErrorMessage(string name) =>
             string.Format(EsAr, ErrorMessageString, name, ((decimal)Minimo).ToString("N0", EsAr), Maximo.ToString("N0", EsAr));
     }
+
+    /// <summary>
+    /// Alícuota de IVA argentina: 0, 2,5, 5, 10,5, 21 o 27 %. Null/vacío es válido (usar [Required] si es obligatoria).
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public sealed class AlicuotaIvaArgentinaAttribute : ValidationAttribute
+    {
+        private static readonly decimal[] Alicuotas = { 0m, 2.5m, 5m, 10.5m, 21m, 27m };
+
+        public AlicuotaIvaArgentinaAttribute()
+            : base("El campo {0} debe ser una alícuota de IVA válida en Argentina: 0, 2,5, 5, 10,5, 21 o 27 %.")
+        {
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value is null)
+                return ValidationResult.Success;
+
+            decimal alicuota;
+            try { alicuota = Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                return ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
+            }
+
+            return Alicuotas.Contains(alicuota)
+                ? ValidationResult.Success
+                : ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
+        }
+    }
 }
