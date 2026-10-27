@@ -6,7 +6,7 @@ namespace TheBuryProject.ViewModels.Mora
     /// <summary>
     /// ViewModel expandido para configuración completa del módulo de mora
     /// </summary>
-    public class ConfiguracionMoraExpandidaViewModel
+    public class ConfiguracionMoraExpandidaViewModel : IValidatableObject
     {
         public int Id { get; set; }
         public byte[]? RowVersion { get; set; }
@@ -49,11 +49,11 @@ namespace TheBuryProject.ViewModels.Mora
         public TipoTopeMora? TipoTopeMora { get; set; }
 
         [Display(Name = "Valor del Tope")]
-        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
+        [Range(typeof(decimal), "0", "20000000", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
         public decimal? ValorTopeMora { get; set; }
 
         [Display(Name = "Mora Mínima ($)")]
-        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
+        [Range(typeof(decimal), "0", "20000000", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
         public decimal? MoraMinima { get; set; }
 
         #endregion
@@ -73,15 +73,15 @@ namespace TheBuryProject.ViewModels.Mora
         public int? DiasParaPrioridadCritica { get; set; }
 
         [Display(Name = "Monto para Prioridad Media ($)")]
-        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "20000000", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadMedia { get; set; }
 
         [Display(Name = "Monto para Prioridad Alta ($)")]
-        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "20000000", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadAlta { get; set; }
 
         [Display(Name = "Monto para Prioridad Crítica ($)")]
-        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "20000000", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadCritica { get; set; }
 
         #endregion
@@ -273,5 +273,22 @@ namespace TheBuryProject.ViewModels.Mora
         public bool Tramo4BloqueoActivo { get; set; }
 
         #endregion
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // Las prioridades escalan: la crítica no puede exigir menos que la alta, ni la alta menos que la media.
+            if (DiasParaPrioridadMedia.HasValue && DiasParaPrioridadAlta.HasValue && DiasParaPrioridadAlta < DiasParaPrioridadMedia)
+                yield return new ValidationResult("Los días de prioridad alta no pueden ser menores a los de prioridad media",
+                    new[] { nameof(DiasParaPrioridadAlta) });
+            if (DiasParaPrioridadAlta.HasValue && DiasParaPrioridadCritica.HasValue && DiasParaPrioridadCritica < DiasParaPrioridadAlta)
+                yield return new ValidationResult("Los días de prioridad crítica no pueden ser menores a los de prioridad alta",
+                    new[] { nameof(DiasParaPrioridadCritica) });
+            if (MontoParaPrioridadMedia.HasValue && MontoParaPrioridadAlta.HasValue && MontoParaPrioridadAlta < MontoParaPrioridadMedia)
+                yield return new ValidationResult("El monto de prioridad alta no puede ser menor al de prioridad media",
+                    new[] { nameof(MontoParaPrioridadAlta) });
+            if (MontoParaPrioridadAlta.HasValue && MontoParaPrioridadCritica.HasValue && MontoParaPrioridadCritica < MontoParaPrioridadAlta)
+                yield return new ValidationResult("El monto de prioridad crítica no puede ser menor al de prioridad alta",
+                    new[] { nameof(MontoParaPrioridadCritica) });
+        }
     }
 }

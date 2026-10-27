@@ -50,7 +50,7 @@ namespace TheBuryProject.ViewModels.Mora
         public DateTime? FechaPromesaPago { get; set; }
         
         [Display(Name = "Monto Prometido")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [MontoArgentino]
         public decimal? MontoPromesaPago { get; set; }
         
         // Datos de contexto para la vista
@@ -63,7 +63,7 @@ namespace TheBuryProject.ViewModels.Mora
     /// <summary>
     /// ViewModel para registrar una promesa de pago
     /// </summary>
-    public class RegistrarPromesaViewModel
+    public class RegistrarPromesaViewModel : IValidatableObject
     {
         [Required(ErrorMessage = "La alerta es obligatoria")]
         public int AlertaId { get; set; }
@@ -78,7 +78,7 @@ namespace TheBuryProject.ViewModels.Mora
         
         [Required(ErrorMessage = "El monto es obligatorio")]
         [Display(Name = "Monto Prometido")]
-        [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a 0")]
+        [MontoArgentino(Minimo = 0.01)]
         public decimal MontoPromesa { get; set; }
         
         [Display(Name = "Observaciones")]
@@ -88,12 +88,24 @@ namespace TheBuryProject.ViewModels.Mora
         // Datos de contexto
         public string? NombreCliente { get; set; }
         public decimal? MontoVencidoTotal { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // Una promesa es para cobrar de hoy en adelante (se tolera un día por el huso horario) y no más allá de un año.
+            var hoy = DateTime.UtcNow.Date;
+            if (FechaPromesa.Date < hoy.AddDays(-1) || FechaPromesa.Date > hoy.AddYears(1))
+            {
+                yield return new ValidationResult(
+                    "La fecha de pago prometida debe ser de hoy en adelante y no superar un año",
+                    new[] { nameof(FechaPromesa) });
+            }
+        }
     }
 
     /// <summary>
     /// ViewModel para crear un acuerdo de pago
     /// </summary>
-    public class CrearAcuerdoViewModel
+    public class CrearAcuerdoViewModel : IValidatableObject
     {
         [Required(ErrorMessage = "La alerta es obligatoria")]
         public int AlertaId { get; set; }
@@ -111,7 +123,7 @@ namespace TheBuryProject.ViewModels.Mora
         public decimal MontoMoraOriginal { get; set; }
         
         [Display(Name = "Monto a Condonar")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [MontoArgentino]
         public decimal MontoCondonar { get; set; }
         
         [Display(Name = "Total a Pagar")]
@@ -119,7 +131,7 @@ namespace TheBuryProject.ViewModels.Mora
         
         [Required(ErrorMessage = "La entrega inicial es obligatoria")]
         [Display(Name = "Entrega Inicial")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [MontoArgentino]
         public decimal MontoEntregaInicial { get; set; }
         
         [Required(ErrorMessage = "La cantidad de cuotas es obligatoria")]
@@ -142,5 +154,17 @@ namespace TheBuryProject.ViewModels.Mora
         public decimal? PorcentajeMinEntrega { get; set; }
         public bool PermiteCondonacion { get; set; }
         public decimal? MaximoCondonacionPermitido { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // La primera cuota es de hoy en adelante (se tolera un día por el huso horario) y no más allá de un año.
+            var hoy = DateTime.UtcNow.Date;
+            if (FechaPrimeraCuota.Date < hoy.AddDays(-1) || FechaPrimeraCuota.Date > hoy.AddYears(1))
+            {
+                yield return new ValidationResult(
+                    "La fecha de la primera cuota debe ser de hoy en adelante y no superar un año",
+                    new[] { nameof(FechaPrimeraCuota) });
+            }
+        }
     }
 }

@@ -36,6 +36,13 @@ namespace TheBuryProject.Services.Documentos
 
         private static DocumentoException Invalido(string mensaje) => new(DocumentoErrores.Operacion, mensaje);
 
+        // VALID-L5: tope de longitud alineado con la columna. SQLite no lo hace cumplir; SQL Server falla al guardar por truncamiento.
+        private static void Largo(string? valor, int maximo, string campo)
+        {
+            if (valor != null && valor.Trim().Length > maximo)
+                throw Invalido($"{campo} no puede superar los {maximo} caracteres.");
+        }
+
         // ------------------------------------------------------------------ Empresa
 
         private static readonly Regex IdentificadorFiscalRegex = new(@"^[0-9\-\.]{0,20}$", RegexOptions.Compiled);
@@ -65,6 +72,25 @@ namespace TheBuryProject.Services.Documentos
 
             if ((cuit != null && !IdentificadorFiscalRegex.IsMatch(cuit)) || (dni != null && !IdentificadorFiscalRegex.IsMatch(dni)))
                 throw Invalido("El CUIT y el DNI solo admiten números, puntos y guiones.");
+
+            // Forma del CUIT (11 dígitos, se admiten guiones) y del DNI (7 u 8 dígitos, se admiten puntos de miles).
+            static int Digitos(string valor) => valor.Count(char.IsDigit);
+            if (cuit != null && Digitos(cuit) != 11)
+                throw Invalido("El CUIT debe tener 11 dígitos (se admiten guiones).");
+            if (dni != null && Digitos(dni) is < 7 or > 8)
+                throw Invalido("El DNI debe tener 7 u 8 dígitos (se admiten puntos).");
+            // Se guarda solo con dígitos: se copia a la plantilla de contrato, cuyo DNI exige 7 u 8 dígitos numéricos
+            // (con "37.898.524" la plantilla no se podía volver a editar).
+            if (dni != null)
+                dni = new string(dni.Where(char.IsDigit).ToArray());
+
+            Largo(nombre, 200, "El nombre o razón social");
+            Largo(domicilio, 300, "El domicilio");
+            Largo(ciudad, 120, "La ciudad de firma");
+            Largo(jurisdiccion, 200, "La jurisdicción");
+            Largo(input.NombreComercial, 200, "El nombre comercial");
+            Largo(input.DomicilioCompleto, 300, "El domicilio completo");
+            Largo(input.CondicionFiscalClientePorDefecto, 60, "La condición fiscal");
 
             string? Opcional(string? valor) => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
             var modoPagare = Opcional(input.PagareVencimientoModo);
@@ -140,6 +166,8 @@ namespace TheBuryProject.Services.Documentos
 
             if (string.IsNullOrWhiteSpace(input.Nombre))
                 throw Invalido("El nombre del tipo es obligatorio.");
+            Largo(input.Nombre, 150, "El nombre del tipo");
+            Largo(input.Descripcion, 500, "La descripción");
             if (!PrefijoRegex.IsMatch(prefijo))
                 throw Invalido("El prefijo debe tener entre 2 y 10 letras o números (ej. REC).");
 
@@ -206,6 +234,11 @@ namespace TheBuryProject.Services.Documentos
 
             if (string.IsNullOrWhiteSpace(input.Nombre))
                 throw Invalido("El nombre de la plantilla es obligatorio.");
+            Largo(input.Nombre, 150, "El nombre de la plantilla");
+            Largo(input.Descripcion, 500, "La descripción");
+            Largo(input.FirmantesRequeridos, 200, "Los firmantes requeridos");
+            Largo(input.VariablesRequeridas, 1000, "Las variables requeridas");
+            Largo(input.ComentarioVersion, 300, "El comentario de versión");
             if (input.Copias is < 1 or > 5)
                 throw Invalido("Las copias deben estar entre 1 y 5.");
             if (input.VigenteHasta.HasValue && input.VigenteHasta.Value.Date < input.VigenteDesde.Date)
@@ -387,6 +420,9 @@ namespace TheBuryProject.Services.Documentos
         {
             if (string.IsNullOrWhiteSpace(input.Nombre))
                 throw Invalido("El nombre de la regla es obligatorio.");
+            Largo(input.Nombre, 150, "El nombre de la regla");
+            Largo(input.EventoCodigo, 50, "El evento");
+            Largo(input.GrupoExclusion, 50, "El grupo de exclusión");
 
             var evento = EventosDocumentales.Obtener(input.EventoCodigo)
                 ?? throw Invalido("El evento indicado no existe.");
@@ -498,6 +534,8 @@ namespace TheBuryProject.Services.Documentos
             var codigo = (input.Codigo ?? string.Empty).Trim().ToUpperInvariant();
             if (string.IsNullOrWhiteSpace(input.Nombre))
                 throw Invalido("El nombre del paquete es obligatorio.");
+            Largo(input.Nombre, 150, "El nombre del paquete");
+            Largo(input.Descripcion, 500, "La descripción");
 
             var ids = input.PlantillaIds.Distinct().ToList();
             if (ids.Count == 0)
