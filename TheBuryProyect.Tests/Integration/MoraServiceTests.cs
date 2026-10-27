@@ -580,6 +580,17 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CalcularDeudaCobrable_ConTotalCobrableIndeterminado_NoPermiteFijarLaDeuda()
+    {
+        var (_, credito, _, _) = await SeedAcuerdoActivoConDeudaAsync();
+        _creditoServiceFake.TotalCobrableIndeterminado = true;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CalcularDeudaCobrableCreditoAsync(credito.Id));
+
+        Assert.Contains("historial de punitorios", ex.Message);
+    }
+
+    [Fact]
     public async Task CalcularDeudaCobrable_SumaLoCobrableDeLasCuotasEnMora()
     {
         var (_, credito, _, _) = await SeedAcuerdoActivoConDeudaAsync();
@@ -2870,6 +2881,7 @@ public class MoraServiceTests : IDisposable
         // Simula el cobro de cuotas: lee la cuota de la base de pruebas y, al cobrar, le suma lo pagado (como el cobro real).
         public AppDbContext? Db { get; set; }
         public decimal PunitorioPorCuota { get; set; }
+        public bool TotalCobrableIndeterminado { get; set; }
         public int? FallarEnElCobroNumero { get; set; }
         public List<PagoCuotaIndividualComando> Cobros { get; } = new();
 
@@ -2879,7 +2891,8 @@ public class MoraServiceTests : IDisposable
             var capital = c.MontoTotal - c.MontoPagado;
             return new PagoCuotaContextoResultado(
                 c.Id, c.CreditoId, c.NumeroCuota, "CRE", "Cliente", DateOnly.FromDateTime(c.FechaVencimiento), DateOnly.FromDateTime(DateTime.Today),
-                c.Estado, 0, capital, null, EstadoCalculoPunitorioDetalle.Calculado, null, PunitorioPorCuota, capital + PunitorioPorCuota, true, null,
+                c.Estado, 0, capital, null, EstadoCalculoPunitorioDetalle.Calculado, null, PunitorioPorCuota,
+                TotalCobrableIndeterminado ? null : capital + PunitorioPorCuota, true, null,
                 Convert.ToBase64String(new byte[] { 1 }));
         }
         public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();

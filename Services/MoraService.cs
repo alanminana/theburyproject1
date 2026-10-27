@@ -1531,7 +1531,12 @@ namespace TheBuryProject.Services
             foreach (var cuota in await CuotasEnMoraDelCreditoAsync(creditoId))
             {
                 var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuota.Id);
-                total += contexto?.TotalCobrableActual ?? (cuota.MontoTotal - cuota.MontoPagado);
+                // Sin el total cobrable autoritativo (p. ej. historial de punitorios incompleto) no se puede fijar la
+                // deuda de un acuerdo: quedaría un total que omite un punitorio desconocido.
+                if (contexto?.TotalCobrableActual == null)
+                    throw new InvalidOperationException(
+                        $"No se puede calcular la deuda de la cuota {cuota.NumeroCuota}: el historial de punitorios está incompleto. Conciliá el crédito antes de crear el acuerdo.");
+                total += contexto.TotalCobrableActual.Value;
             }
             return total;
         }
