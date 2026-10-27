@@ -1888,20 +1888,17 @@ namespace TheBuryProject.Services
 
             venta.AperturaCajaId = aperturaActiva.Id;
 
-            // VALID-L1: la fecha de emisión la tipea el usuario. No puede ser futura (se tolera un día por huso
-            // horario) ni anterior a la venta que se factura: una factura no precede a la operación que comprueba.
+            // VALID-L1: la fecha de emisión la tipea el usuario. No puede ser futura ni anterior a la venta que se
+            // factura: una factura no precede a la operación que comprueba. Se tolera un día en ambos extremos por el
+            // huso horario: FechaVenta se guarda en UTC y el formulario de facturación propone DateTime.Today (hora
+            // local), así que entre las 21:00 y las 24:00 de Argentina el día UTC ya es el siguiente.
             var hoyUtc = DateTime.UtcNow.Date;
             var emision = facturaViewModel.FechaEmision.Date;
-            // FechaVenta se guarda en UTC: una venta hecha a las 22:00 en Argentina ya cae "mañana" en UTC y
-            // rechazaría la factura emitida con la fecha comercial de hoy. Se toma el menor de los dos días.
-            var fechaVentaComercial = TimeZoneInfo.ConvertTimeFromUtc(
-                DateTime.SpecifyKind(venta.FechaVenta, DateTimeKind.Utc), _reloj.ZonaComercial).Date;
-            var diaVenta = venta.FechaVenta.Date < fechaVentaComercial ? venta.FechaVenta.Date : fechaVentaComercial;
-            var desde = diaVenta > hoyUtc ? hoyUtc : diaVenta;
+            var desde = (venta.FechaVenta.Date > hoyUtc ? hoyUtc : venta.FechaVenta.Date).AddDays(-1);
             if (emision > hoyUtc.AddDays(1) || emision < desde)
             {
                 throw new InvalidOperationException(
-                    $"La fecha de emisión debe estar entre el {desde:dd/MM/yyyy} (fecha de la venta) y hoy.");
+                    $"La fecha de emisión debe estar entre el {desde:dd/MM/yyyy} y hoy (la factura no puede ser anterior a la venta).");
             }
 
             var factura = _mapper.Map<Factura>(facturaViewModel);

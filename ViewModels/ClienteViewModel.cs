@@ -11,7 +11,7 @@ namespace TheBuryProject.ViewModels
     /// NOTA: Los checkboxes de documentación fueron eliminados
     /// La documentación se sube a través de la sección de Documentación
     /// </summary>
-    public class ClienteViewModel
+    public class ClienteViewModel : IValidatableObject
     {
         private string? _cuilPrefijo;
         private string? _cuilVerificador;
@@ -269,6 +269,51 @@ namespace TheBuryProject.ViewModels
         // permite avisar en Cliente/Index que un cupo "Disponible" no implica poder operar a
         // crédito. El mapeo inverso ViewModel→Cliente la ignora (no se edita desde formularios).
         public EstadoCrediticioCliente EstadoCrediticio { get; set; } = EstadoCrediticioCliente.NoEvaluado;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // Fecha de nacimiento: una fecha imposible (año 1233, futura) rompe la edad y las reglas de crédito.
+            if (FechaNacimiento.HasValue)
+            {
+                var hoy = DateTime.UtcNow.Date;
+                if (FechaNacimiento.Value.Date < new DateTime(1900, 1, 1) || FechaNacimiento.Value.Date > hoy)
+                {
+                    yield return new ValidationResult(
+                        "La fecha de nacimiento debe estar entre el 01/01/1900 y hoy.",
+                        new[] { nameof(FechaNacimiento) });
+                }
+            }
+
+            // CUIL/CUIT por partes: vacío (o el 00…0 con que se guarda "sin cargar") no se valida; si se cargó algo,
+            // el CUIL completo (prefijo + DNI + verificador) debe ser válido.
+            var cuilVacio = (string.IsNullOrEmpty(_cuilPrefijo) || _cuilPrefijo is "0" or "00")
+                            && (string.IsNullOrEmpty(_cuilVerificador) || _cuilVerificador == "0");
+            var cuil = CuilHelper.Componer(_cuilPrefijo, NumeroDocumento, _cuilVerificador);
+            if (!cuilVacio && cuil != null && TipoDocumento == "DNI")
+            {
+                if (!CuilCuitArgentinoAttribute.PrefijoValido(cuil[..2]))
+                {
+                    yield return new ValidationResult(
+                        "El prefijo del CUIL debe ser 20, 23, 24 o 27 (persona física).",
+                        new[] { nameof(CuilPrefijo) });
+                }
+                else if (!CuilCuitArgentinoAttribute.EsValido(cuil))
+                {
+                    var correcto = CuilCuitArgentinoAttribute.CalcularVerificador(cuil[..10]);
+                    yield return new ValidationResult(
+                        $"El dígito verificador del CUIL no es válido para este DNI y prefijo (debería ser {correcto}).",
+                        new[] { nameof(CuilVerificador) });
+                }
+            }
+
+            if (MontoMinimoPersonalizado.HasValue && MontoMaximoPersonalizado.HasValue
+                && MontoMinimoPersonalizado.Value > MontoMaximoPersonalizado.Value)
+            {
+                yield return new ValidationResult(
+                    "El monto mínimo no puede ser mayor al monto máximo.",
+                    new[] { nameof(MontoMinimoPersonalizado) });
+            }
+        }
 
         private static string? NormalizeDigitsOrNull(string? value)
         {

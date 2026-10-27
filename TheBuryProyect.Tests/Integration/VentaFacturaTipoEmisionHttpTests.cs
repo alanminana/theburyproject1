@@ -283,6 +283,32 @@ public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicati
         Assert.Equal(antes.Movimientos, despues.Movimientos);
     }
 
+    // La venta del seed es del 19/10/2026 (UTC). El formulario propone DateTime.Today (hora local): entre las 21:00 y
+    // las 24:00 de Argentina el día UTC ya es el siguiente, así que una emisión un día anterior a la venta debe aceptarse.
+    [Fact]
+    public async Task FacturarPost_EmisionUnDiaAntesDeLaVenta_SeAcepta_PorElHusoHorario()
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var seed = await SeedVentaAsync(EstadoVenta.Confirmada);
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await GetTokenAsync(client, seed.VentaId);
+
+        var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/Venta/Facturar")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["VentaId"] = seed.VentaId.ToString(),
+                ["Tipo"] = "B",
+                ["FechaEmision"] = "2026-10-18",
+            })
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(1, (await LeerAsync(seed)).Facturas);
+    }
+
     // FIN-S-002 (O2): un rechazo de negocio al facturar debe llegar visible al usuario (antes se perdía en el redirect).
     [Fact]
     public async Task FacturarPost_RechazoDeNegocio_MuestraMensajeEnDetailsSinFiltrarInterno()

@@ -157,16 +157,23 @@ namespace TheBuryProject.Validation
             if (!PrefijosValidos.Contains(soloDigitos.Substring(0, 2)))
                 return false;
 
+            return CalcularVerificador(soloDigitos) == (soloDigitos[10] - '0');
+        }
+
+        public static bool PrefijoValido(string? prefijo) =>
+            prefijo != null && PrefijosValidos.Contains(prefijo);
+
+        /// <summary>Dígito verificador (módulo 11) a partir de los primeros 10 dígitos del CUIL/CUIT.</summary>
+        public static int CalcularVerificador(string primerosDiez)
+        {
             int suma = 0;
             for (int i = 0; i < 10; i++)
-                suma += (soloDigitos[i] - '0') * Multiplicadores[i];
+                suma += (primerosDiez[i] - '0') * Multiplicadores[i];
 
-            int resto = suma % 11;
-            int verificador = 11 - resto;
+            int verificador = 11 - (suma % 11);
             if (verificador == 11) verificador = 0;
             else if (verificador == 10) verificador = 9;
-
-            return verificador == (soloDigitos[10] - '0');
+            return verificador;
         }
     }
 
@@ -322,7 +329,7 @@ namespace TheBuryProject.Validation
     /// con hasta 2 decimales. Acepta decimal/double/int y sus nullable.
     /// Null se considera válido (usar [Required] si el campo es obligatorio).
     /// </summary>
-    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false)]
     public sealed class MontoArgentinoAttribute : ValidationAttribute
     {
         public const decimal Maximo = 20_000_000m;

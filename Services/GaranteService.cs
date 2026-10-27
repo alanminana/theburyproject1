@@ -1,3 +1,4 @@
+using TheBuryProject.Validation;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
@@ -77,6 +78,9 @@ namespace TheBuryProject.Services
             string? observacion,
             string usuario)
         {
+            if (observacion != null && observacion.Trim().Length > 500)
+                return (false, "La observación no puede superar los 500 caracteres.");
+
             var (ok, errores) = await ValidarGaranteAsync(clienteId, garanteClienteId);
             if (!ok)
                 return (false, string.Join(" ", errores));

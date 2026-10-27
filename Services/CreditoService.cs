@@ -1,3 +1,4 @@
+using TheBuryProject.Validation;
 using AutoMapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -464,6 +465,9 @@ namespace TheBuryProject.Services
 
         public async Task<bool> RechazarCreditoAsync(int creditoId, string motivo)
         {
+            // VALID-L2: el motivo se guarda como "Rechazado: {motivo}" en Observaciones (1000).
+            LongitudTexto.Validar(motivo, 980, "El motivo");
+
             try
             {
                 var credito = await _context.Creditos
@@ -494,6 +498,9 @@ namespace TheBuryProject.Services
 
         public async Task<bool> CancelarCreditoAsync(int creditoId, string motivo)
         {
+            // VALID-L2: el motivo se guarda como "Cancelado: {motivo}" en Observaciones (1000).
+            LongitudTexto.Validar(motivo, 980, "El motivo");
+
             // QA-FIN-CONC-P0: misma serialización que la cancelación de venta y los cobros (lock de la fila
             // del crédito durante toda la transacción): un pago no puede confirmar entre la comprobación de
             // "cuotas parciales" y la escritura de Cancelado.

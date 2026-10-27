@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using TheBuryProject.Validation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
@@ -407,6 +408,13 @@ namespace TheBuryProject.Services
             string motivo,
             string usuario)
         {
+            // VALID-L2: NivelCreditoManual es un puntaje de 0 a 5 (ver ClienteCreditoConfiguracion).
+            if (nivel < 0 || nivel > 5)
+            {
+                throw new InvalidOperationException("El puntaje crediticio manual debe estar entre 0 y 5.");
+            }
+            LongitudTexto.Validar(motivo, 1000, "El motivo");
+
             var cliente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
 
@@ -460,6 +468,8 @@ namespace TheBuryProject.Services
 
         public async Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario)
         {
+            LongitudTexto.Validar(motivo, 1000, "El motivo");
+
             var cliente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
 
