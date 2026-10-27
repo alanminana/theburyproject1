@@ -7,6 +7,61 @@ namespace TheBuryProject.Tests.Unit;
 public class FacturaComprobanteBuilderTests
 {
     [Fact]
+    public void Build_EfectivoConDescuentoDeMedio_ExplicaElAjusteEnLosTotales()
+    {
+        var factura = new Factura
+        {
+            Numero = "FC-EF", Tipo = TipoFactura.B, FechaEmision = new DateTime(2026, 10, 26), Total = 950m,
+            Venta = new Venta
+            {
+                Numero = "V-EF", TipoPago = TipoPago.Efectivo, Total = 950m,
+                AjusteMedioPagoPorcentaje = -5m, AjusteMedioPagoMonto = -50m,
+                Cliente = new Cliente { Nombre = "Ana", Apellido = "C", NumeroDocumento = "1" },
+                Detalles = new List<VentaDetalle>
+                {
+                    new()
+                    {
+                        Producto = new Producto { Codigo = "P1", Nombre = "P1" }, Cantidad = 1, PrecioUnitario = 1_000m,
+                        Subtotal = 1_000m, SubtotalNeto = 826.45m, SubtotalIVA = 173.55m, PorcentajeIVA = 21m
+                    }
+                }
+            }
+        };
+        factura.Venta.Facturas.Add(factura);
+
+        var comprobante = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Equal(-50m, comprobante.Totales.MontoAjustePlanAplicado);
+        Assert.Equal(-5m, comprobante.Totales.PorcentajeAjustePlanAplicado);
+        Assert.Equal("Efectivo", comprobante.Totales.NombrePlanPagoSnapshot);
+        Assert.Equal(1_000m, comprobante.Totales.TotalProductos);
+        Assert.Equal(950m, comprobante.Totales.Total);
+    }
+
+    [Fact]
+    public void Build_EfectivoSinAjusteDeMedio_NoInventaAjuste()
+    {
+        var factura = new Factura
+        {
+            Numero = "FC-EF2", Tipo = TipoFactura.B, FechaEmision = new DateTime(2026, 10, 26), Total = 1_000m,
+            Venta = new Venta
+            {
+                Numero = "V-EF2", TipoPago = TipoPago.Efectivo, Total = 1_000m,
+                Cliente = new Cliente { Nombre = "Ana", Apellido = "C", NumeroDocumento = "1" },
+                Detalles = new List<VentaDetalle>
+                {
+                    new() { Producto = new Producto { Codigo = "P1", Nombre = "P1" }, Cantidad = 1, PrecioUnitario = 1_000m, Subtotal = 1_000m }
+                }
+            }
+        };
+        factura.Venta.Facturas.Add(factura);
+
+        var comprobante = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Null(comprobante.Totales.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
     public void Build_ConDescuentoGeneralProrrateado_UsaSubtotalFinal()
     {
         var factura = new Factura

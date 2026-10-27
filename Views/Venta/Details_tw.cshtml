@@ -78,8 +78,11 @@
     var turnoVencido = ViewBag.TurnoVencido as string;
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
     var datosTarjeta = Model.DatosTarjeta;
-    var ajustePlanMonto = datosTarjeta?.MontoAjustePagoAplicado ?? datosTarjeta?.MontoAjustePlanAplicado;
-    var ajustePlanPct = datosTarjeta?.PorcentajeAjustePagoAplicado ?? datosTarjeta?.PorcentajeAjustePlanAplicado;
+    var ajusteMedioEfectivo = datosTarjeta == null && Model.AjusteMedioPagoMonto.HasValue;
+    var ajustePlanMonto = datosTarjeta?.MontoAjustePagoAplicado ?? datosTarjeta?.MontoAjustePlanAplicado
+        ?? (ajusteMedioEfectivo ? Model.AjusteMedioPagoMonto : null);
+    var ajustePlanPct = datosTarjeta?.PorcentajeAjustePagoAplicado ?? datosTarjeta?.PorcentajeAjustePlanAplicado
+        ?? (ajusteMedioEfectivo ? Model.AjusteMedioPagoPorcentaje : null);
     var nombrePlanPago = datosTarjeta?.NombrePlanPagoSnapshot;
     var cuotasPlanPago = datosTarjeta?.CantidadCuotas;
     var heroDescripcion = Model.Estado switch

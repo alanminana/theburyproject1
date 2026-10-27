@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Unit;
 public class MoraClientesFichaUiContractTests
 {
     // GET de Mora a los que estas vistas pueden enlazar. Index/Alertas/Logs llegan por otra rama (micro-lotes 1-2).
-    private static readonly string[] AccionesPermitidasComoEnlace = { "Index", "Alertas", "Logs", "ClientesMora", "FichaCliente", "RegistrarContacto", "RegistrarPromesa", "CrearAcuerdo", "MarcarPromesaIncumplida", "CambiarEstadoAcuerdo" };
+    private static readonly string[] AccionesPermitidasComoEnlace = { "Index", "Alertas", "Logs", "ClientesMora", "FichaCliente", "RegistrarContacto", "RegistrarPromesa", "CrearAcuerdo", "MarcarPromesaIncumplida", "CambiarEstadoAcuerdo", "RegistrarPagoAcuerdo" };
 
     private static readonly string[] AccionesSinVista = { "Configuracion" };
 

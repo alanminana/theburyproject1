@@ -348,6 +348,23 @@ public class VentaServiceCancelarCajaTests : IDisposable
         Assert.Equal(TipoMovimientoCaja.Ingreso, ingresoAfter.Tipo);
     }
 
+    // Una venta hecha de noche en Argentina ya cae "mañana" en UTC: facturarla con la fecha comercial de hoy
+    // (el día anterior en UTC) no debe rechazarse como "anterior a la venta".
+    [Fact]
+    public async Task FacturarVenta_VentaFechadaAlDiaSiguienteEnUtc_AceptaLaFechaComercialDeEmision()
+    {
+        var (producto, cliente) = await SeedBaseAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto.Id);
+        await _ventaService.ConfirmarVentaAsync(venta.Id);
+        var enBase = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        enBase.FechaVenta = DateTime.UtcNow.Date.AddHours(1); // 01:00 UTC = 22:00 del día anterior en Argentina
+        await _context.SaveChangesAsync();
+
+        await _ventaService.FacturarVentaAsync(venta.Id, new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow.Date.AddDays(-1) });
+
+        Assert.Equal(EstadoVenta.Facturada, (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).Estado);
+    }
+
     // -------------------------------------------------------------------------
     // 4. Venta Facturada: contramovimiento creado + factura anulada
     // -------------------------------------------------------------------------

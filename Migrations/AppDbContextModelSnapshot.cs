@@ -289,6 +289,10 @@ namespace TheBuryProject.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("MontoEntregaPagada")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("MontoMoraOriginal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -332,7 +336,10 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("CreditoId");
+                    b.HasIndex("CreditoId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AcuerdosPago_CreditoVigente")
+                        .HasFilter("IsDeleted = 0 AND Estado IN (1, 2)");
 
                     b.HasIndex("Estado");
 
@@ -10426,6 +10433,12 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("AjusteMedioPagoMonto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("AjusteMedioPagoPorcentaje")
+                        .HasColumnType("decimal(9,4)");
 
                     b.Property<int?>("AperturaCajaId")
                         .HasColumnType("int");

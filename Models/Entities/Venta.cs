@@ -119,6 +119,17 @@ namespace TheBuryProject.Models.Entities
         // Trazabilidad: cotización origen (nullable — solo ventas generadas por conversión)
         public int? CotizacionOrigenId { get; set; }
 
+        /// <summary>
+        /// Descuento (negativo) o recargo (positivo) del medio de pago Efectivo/Transferencia que el cotizador mostró y
+        /// la venta cobró: porcentaje y monto aplicados sobre el total de lista. Null = sin ajuste. Tarjeta/débito/digital
+        /// lo guardan en <see cref="DatosTarjeta"/>.
+        /// </summary>
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "decimal(9,4)")]
+        public decimal? AjusteMedioPagoPorcentaje { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "decimal(18,2)")]
+        public decimal? AjusteMedioPagoMonto { get; set; }
+
         // Navigation properties
         public virtual Cliente? Cliente { get; set; }
         public virtual Cotizacion? CotizacionOrigen { get; set; }

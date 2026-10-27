@@ -564,6 +564,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, venta.Total, cancellationToken);
                 if (ajuste != null)
                 {
+                    venta.AjusteMedioPagoPorcentaje = ajuste.PorcentajeAjuste;
+                    venta.AjusteMedioPagoMonto = ajuste.MontoAjuste;
                     venta.Total = ajuste.TotalFinal;
                     advertencias.Add(ajuste.PorcentajeAjuste < 0m
                         ? $"Se aplicó el descuento de {Math.Abs(ajuste.PorcentajeAjuste):0.##}% por pago en {tipoPago}."

@@ -79,6 +79,9 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public bool EntregaInicialPagada { get; set; }
 
+        /// <summary>Parte de la entrega inicial ya imputada a las cuotas vencidas del crédito (progreso de un pago interrumpido).</summary>
+        public decimal MontoEntregaPagada { get; set; }
+
         /// <summary>
         /// Fecha en que se pagó la entrega inicial
         /// </summary>
