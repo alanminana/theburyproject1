@@ -6,7 +6,7 @@ namespace TheBuryProject.ViewModels
     /// <summary>
     /// ViewModel para crear y editar proveedores
     /// </summary>
-    public class ProveedorViewModel
+    public class ProveedorViewModel : IValidatableObject
     {
         public int Id { get; set; }
 
@@ -99,6 +99,20 @@ namespace TheBuryProject.ViewModels
 
         // JSON enriquecido (id, código, nombre, marca, categoría) para el picker de productos del drawer de edición
         public string ProductosPickerJson { get; set; } = "[]";
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            // CUIT: el formato (11 dígitos) lo validan los atributos; acá se verifica el dígito verificador (módulo 11),
+            // que cumple todo CUIT real. No se restringe el prefijo: los proveedores del exterior usan prefijos propios.
+            if (!string.IsNullOrEmpty(Cuit) && Cuit.Length == 11 && Cuit.All(char.IsDigit)
+                && CuilCuitArgentinoAttribute.CalcularVerificador(Cuit[..10]) != Cuit[10] - '0')
+            {
+                var correcto = CuilCuitArgentinoAttribute.CalcularVerificador(Cuit[..10]);
+                yield return new ValidationResult(
+                    $"El dígito verificador del CUIT no es válido (debería terminar en {correcto})",
+                    new[] { nameof(Cuit) });
+            }
+        }
     }
 
     /// <summary>
