@@ -2,7 +2,7 @@
  * Reglas globales para inputs de fecha, declaradas con data-fecha:
  *   hoy        -> min = hoy y, si está vacío, se completa con la fecha de hoy.
  *   futura     -> min = hoy, sin completar (campos opcionales como "vence" o "hasta").
- *   nacimiento -> max = hoy, min = hoy - 80 años.
+ *   nacimiento -> max = hoy, min = 01/01/1900 (el mismo piso que valida el servidor).
  * Si el input ya trae un valor pasado (edición de un registro histórico) no se impone
  * min, para no bloquear el submit de datos existentes.
  * Aplica a input[type=date] y [type=datetime-local], también a los insertados luego en el DOM.
@@ -28,9 +28,9 @@
         if (valor.indexOf('0001') === 0) { valor = ''; input.value = ''; }
 
         if (regla === 'nacimiento') {
-            var limite = new Date(ahora.getFullYear() - 80, ahora.getMonth(), ahora.getDate());
+            // Un piso de "hoy - 80 años" impedía cargar clientes mayores; coincide con ClienteViewModel (1900).
             input.max = hoy;
-            input.min = hoyIso(limite);
+            input.min = '1900-01-01';
             return;
         }
 

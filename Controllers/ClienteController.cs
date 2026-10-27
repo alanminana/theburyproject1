@@ -1,4 +1,5 @@
 using AutoMapper;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -10,6 +11,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Validation;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
@@ -496,13 +498,20 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
-        public async Task<IActionResult> AsignarLimiteCredito(int clienteId, decimal limiteCredito, string? motivo = null, string? returnUrl = null)
+        public async Task<IActionResult> AsignarLimiteCredito(
+            int clienteId,
+            [MontoArgentino] decimal limiteCredito,
+            [StringLength(1000, ErrorMessage = "El motivo no puede superar los 1000 caracteres.")] string? motivo = null,
+            string? returnUrl = null)
         {
             try
             {
-                if (limiteCredito < 0)
+                // VALID-L2: el límite es un importe tipeado a mano; un valor ambiguo, mal formado o fuera de rango
+                // (la regla de montos del ERP: 0 a 20.000.000, 2 decimales) llega con el ModelState inválido.
+                if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "El límite de crédito no puede ser negativo";
+                    TempData["Error"] = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                        .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m)) ?? "El límite de crédito no es válido.";
                     return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 

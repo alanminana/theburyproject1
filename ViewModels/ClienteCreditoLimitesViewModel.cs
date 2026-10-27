@@ -17,6 +17,7 @@ namespace TheBuryProject.ViewModels
         public int Puntaje { get; set; }
 
         [Range(0, 999999999999.99, ErrorMessage = "El límite debe ser mayor o igual a 0")]
+        [TheBuryProject.Validation.MontoArgentino]
         [Display(Name = "Límite")]
         public decimal LimiteMonto { get; set; }
 
