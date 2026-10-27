@@ -412,22 +412,51 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ActivarAcuerdo_ConOtroAcuerdoActivoDelMismoCredito_SeRechaza()
+    public async Task CrearAcuerdo_OtroVigenteDelMismoCredito_LoFrenaElIndiceUnicoConMensajeClaro()
     {
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        AcuerdoPago Nuevo(string n, EstadoAcuerdo e) => new()
+        _context.AcuerdosPago.Add(new AcuerdoPago
         {
-            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = n,
-            Estado = e, MontoTotalAcuerdo = 100m, CantidadCuotas = 2, FechaPrimeraCuota = DateTime.Today.AddDays(30)
-        };
-        var activo = Nuevo("ACU-A1", EstadoAcuerdo.Activo);
-        var borrador = Nuevo("ACU-A2", EstadoAcuerdo.Borrador);
-        _context.AcuerdosPago.AddRange(activo, borrador);
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U1",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        });
         await _context.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(borrador.Id, cliente.Id, EstadoAcuerdo.Activo));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            }, "g"));
+
+        Assert.Contains("vigente", ex.Message);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(1, await _context.AcuerdosPago.CountAsync(a => a.CreditoId == credito.Id));
+    }
+
+    [Fact]
+    public async Task AcuerdoCancelado_NoImpideCrearOtroDelMismoCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _context.AcuerdosPago.Add(new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U2",
+            Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        });
+        await _context.SaveChangesAsync();
+
+        var id = await _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            }, "g");
+
+        Assert.True(id > 0);
     }
 
     [Fact]

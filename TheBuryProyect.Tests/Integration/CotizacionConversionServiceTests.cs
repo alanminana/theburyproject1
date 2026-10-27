@@ -1865,6 +1865,9 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
         Assert.Equal(Math.Round(venta.Subtotal * (decimal)factor, 2, MidpointRounding.AwayFromZero), venta.Total);
         Assert.NotEqual(venta.Subtotal, venta.Total);
+        // El ajuste queda guardado para explicar el total en Details y en el comprobante.
+        Assert.Equal((decimal)ajuste, venta.AjusteMedioPagoPorcentaje);
+        Assert.Equal(venta.Total - venta.Subtotal, venta.AjusteMedioPagoMonto);
     }
 
     [Fact]
@@ -1880,6 +1883,8 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.True(resultado.Exitoso);
         var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
         Assert.Equal(venta.Subtotal, venta.Total);
+        Assert.Null(venta.AjusteMedioPagoPorcentaje);
+        Assert.Null(venta.AjusteMedioPagoMonto);
     }
 
     // ─── HELPERS ─────────────────────────────────────────────────────────

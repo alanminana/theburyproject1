@@ -1429,7 +1429,15 @@ namespace TheBuryProject.Services
                 };
 
                 _context.AcuerdosPago.Add(nuevoAcuerdo);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+                {
+                    _context.Entry(nuevoAcuerdo).State = EntityState.Detached;
+                    throw new InvalidOperationException("Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.");
+                }
 
                 _logger.LogInformation("Acuerdo de pago creado - {NumeroAcuerdo} para cliente {ClienteId}",
                     nuevoAcuerdo.NumeroAcuerdo, acuerdo.ClienteId);
@@ -1488,6 +1496,15 @@ namespace TheBuryProject.Services
             }
         }
 
+        // SQL Server: 2601 (índice único) / 2627 (restricción única); SQLite (tests): "UNIQUE constraint failed".
+        private static bool EsViolacionDeUnicidad(DbUpdateException ex)
+        {
+            var mensaje = ex.InnerException?.Message ?? ex.Message;
+            return mensaje.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+                || mensaje.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                || mensaje.Contains("duplicada", StringComparison.OrdinalIgnoreCase);
+        }
+
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
             _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted
                 && a.CreditoId == creditoId
@@ -1540,7 +1557,14 @@ namespace TheBuryProject.Services
             }
             acuerdo.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                throw new InvalidOperationException("Ese crédito ya tiene otro acuerdo vigente.");
+            }
             _logger.LogInformation("Acuerdo {Numero} pasó a {Estado}", acuerdo.NumeroAcuerdo, nuevoEstado);
             return true;
         }

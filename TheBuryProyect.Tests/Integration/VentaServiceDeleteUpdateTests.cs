@@ -418,6 +418,10 @@ public class VentaServiceDeleteUpdateTests : IDisposable
 
         Assert.NotNull(resultado);
         Assert.Equal((decimal)totalEsperado, resultado!.Total);
+
+        var guardada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaOriginal.Id);
+        Assert.Equal(deCotizacion ? -5m : null, guardada.AjusteMedioPagoPorcentaje);
+        Assert.Equal(deCotizacion ? -50m : null, guardada.AjusteMedioPagoMonto);
     }
 
     [Fact]

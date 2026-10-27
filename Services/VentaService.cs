@@ -926,11 +926,17 @@ namespace TheBuryProject.Services
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
             // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
+            venta.AjusteMedioPagoPorcentaje = null;
+            venta.AjusteMedioPagoMonto = null;
             if (venta.CotizacionOrigenId.HasValue && AjusteMedioUnPago.Aplica(viewModel.TipoPago))
             {
                 var ajusteMedio = await AjusteMedioUnPago.ResolverAsync(_context, viewModel.TipoPago, venta.Total);
                 if (ajusteMedio != null)
+                {
+                    venta.AjusteMedioPagoPorcentaje = ajusteMedio.PorcentajeAjuste;
+                    venta.AjusteMedioPagoMonto = ajusteMedio.MontoAjuste;
                     venta.Total = ajusteMedio.TotalFinal;
+                }
             }
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
@@ -1886,7 +1892,12 @@ namespace TheBuryProject.Services
             // horario) ni anterior a la venta que se factura: una factura no precede a la operación que comprueba.
             var hoyUtc = DateTime.UtcNow.Date;
             var emision = facturaViewModel.FechaEmision.Date;
-            var desde = venta.FechaVenta.Date > hoyUtc ? hoyUtc : venta.FechaVenta.Date;
+            // FechaVenta se guarda en UTC: una venta hecha a las 22:00 en Argentina ya cae "mañana" en UTC y
+            // rechazaría la factura emitida con la fecha comercial de hoy. Se toma el menor de los dos días.
+            var fechaVentaComercial = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.SpecifyKind(venta.FechaVenta, DateTimeKind.Utc), _reloj.ZonaComercial).Date;
+            var diaVenta = venta.FechaVenta.Date < fechaVentaComercial ? venta.FechaVenta.Date : fechaVentaComercial;
+            var desde = diaVenta > hoyUtc ? hoyUtc : diaVenta;
             if (emision > hoyUtc.AddDays(1) || emision < desde)
             {
                 throw new InvalidOperationException(
