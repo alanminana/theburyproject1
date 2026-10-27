@@ -143,7 +143,7 @@ public class MoraClientesFichaHttpTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
-    public async Task FichaCliente_AccionesDeGestionSonInactivas_YNoHayEnlacesARutasSinVista()
+    public async Task FichaCliente_AdminVeLosFormulariosDeGestion()
     {
         var s = await SembrarClienteEnMoraAsync(PrioridadAlerta.Media);
         using var client = await CrearClienteAdminAsync();
@@ -153,11 +153,10 @@ public class MoraClientesFichaHttpTests : IClassFixture<CustomWebApplicationFact
         Assert.Contains("data-mora-gestion=\"contacto\"", html);
         Assert.Contains("data-mora-gestion=\"promesa\"", html);
         Assert.Contains("data-mora-gestion=\"acuerdo\"", html);
-        Assert.Contains("Próximamente", html);
-        Assert.DoesNotContain("/Mora/RegistrarContacto", html);
-        Assert.DoesNotContain("/Mora/RegistrarPromesa", html);
-        Assert.DoesNotContain("/Mora/CrearAcuerdo", html);
-        Assert.DoesNotContain("method=\"post\"", html.Split("data-mora-ficha-page")[1]);
+        Assert.DoesNotContain("Próximamente", html);
+        Assert.Contains("action=\"/Mora/RegistrarContacto", html);
+        Assert.Contains("action=\"/Mora/RegistrarPromesa", html);
+        Assert.Contains("name=\"__RequestVerificationToken\"", html);
     }
 
     [Fact]

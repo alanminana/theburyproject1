@@ -250,6 +250,8 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("id=\"cotizacion-guardar\" type=\"button\" class=\"btn btn-soft\"", partial);
         Assert.Contains("id=\"cotizacion-continuar\" type=\"button\" class=\"btn btn-primary\"", partial);
         Assert.DoesNotContain("btn-success", partial);
+        // El wizard ya no se usa: el botón "Continuar con wizard" no vuelve a la pantalla única.
+        Assert.DoesNotContain("cotizacion-continuar-wizard", partial);
     }
 
     [Fact]

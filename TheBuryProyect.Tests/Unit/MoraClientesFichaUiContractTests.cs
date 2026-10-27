@@ -16,9 +16,9 @@ namespace TheBuryProject.Tests.Unit;
 public class MoraClientesFichaUiContractTests
 {
     // GET de Mora a los que estas vistas pueden enlazar. Index/Alertas/Logs llegan por otra rama (micro-lotes 1-2).
-    private static readonly string[] AccionesPermitidasComoEnlace = { "Index", "Alertas", "Logs", "ClientesMora", "FichaCliente" };
+    private static readonly string[] AccionesPermitidasComoEnlace = { "Index", "Alertas", "Logs", "ClientesMora", "FichaCliente", "RegistrarContacto", "RegistrarPromesa", "CrearAcuerdo", "MarcarPromesaIncumplida", "CambiarEstadoAcuerdo" };
 
-    private static readonly string[] AccionesSinVista = { "RegistrarContacto", "RegistrarPromesa", "CrearAcuerdo", "Configuracion" };
+    private static readonly string[] AccionesSinVista = { "Configuracion" };
 
     private static string RutaVista(string nombre) =>
         Path.Combine(FindRepoRoot(), "Views", "Mora", nombre + ".cshtml");
@@ -120,28 +120,32 @@ public class MoraClientesFichaUiContractTests
             Assert.DoesNotContain($"asp-action=\"{sinVista}\"", view);
     }
 
-    [Theory]
-    [InlineData("ClientesMora")]
-    [InlineData("FichaCliente")]
-    public void Vista_NoOfreceEscrituraNiFormulariosPost(string vista)
+    [Fact]
+    public void ClientesMora_NoOfreceEscrituraNiFormulariosPost()
     {
-        var view = LeerVista(vista);
+        var view = LeerVista("ClientesMora");
 
         Assert.DoesNotContain("method=\"post\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("AntiForgeryToken", view);
     }
 
     [Fact]
-    public void FichaCliente_AccionesDeGestionSonInactivasYExplicitas()
+    public void FichaCliente_GestionTieneFormulariosPostConAntiforgeryYPermisoDeGestion()
     {
         var view = LeerVista("FichaCliente");
 
         foreach (var clave in new[] { "contacto", "promesa", "acuerdo" })
             Assert.Contains($"data-mora-gestion=\"{clave}\"", view);
 
-        Assert.Equal(3, Regex.Matches(view, "aria-disabled=\"true\"").Count);
-        Assert.Contains("Próximamente", view);
+        Assert.DoesNotContain("Próximamente", view);
+        Assert.DoesNotContain("aria-disabled=\"true\"", view);
+        Assert.Contains("User.TienePermiso(\"mora\", \"manage\")", view);
         Assert.Contains("User.TienePermiso(\"clientes\", \"view\")", view);
+
+        // Todo formulario POST de la ficha lleva su token anti-falsificación.
+        var forms = Regex.Matches(view, "<form[^>]*method=\"post\"", RegexOptions.IgnoreCase).Count;
+        Assert.True(forms >= 3);
+        Assert.Equal(forms, Regex.Matches(view, @"Html\.AntiForgeryToken\(\)").Count);
     }
 
     [Fact]

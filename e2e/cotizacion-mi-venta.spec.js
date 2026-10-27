@@ -11,7 +11,7 @@
  *      Venta/Details, Views/Venta/_FacturaCamposEmision.cshtml) en vez de un select A/B/C
  *      inline — el preview de Subtotal/IVA/alícuotas viene de /conversion/factura-preview
  *      (mismo cálculo que usará la Venta real, nunca recalculado en JS).
- *   3. Botón "Continuar con wizard" — cubierto en cotizacion-continuar-wizard.spec.js.
+ *   3. (Botón "Continuar con wizard" retirado: el wizard ya no se usa desde esta pantalla.)
  *
  * Este spec cubre el CAMINO MI VENTA completo: cliente nuevo, producto, envío (modal real),
  * facturación (modal real reutilizado de Details), Confirmar Mi Venta. El resultado final

@@ -187,3 +187,10 @@
     .mc-table[data-erp-cards] > thead,
     .mc-credit-table[data-erp-cards] > thead { display: none; }
 }
+
+/* Formularios de gestión (contacto / promesa / acuerdo) de la ficha. */
+.mc-gestion { border: 1px solid var(--pal-neutral-800); border-radius: 0.75rem; padding: 0.25rem 0.75rem; }
+.mc-gestion > summary { display: flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; cursor: pointer; font-weight: 600; color: var(--pal-neutral-100); }
+.mc-gestion[open] { background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent); }
+.mc-form { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem 0 0.75rem; }
+.mc-form label { font-size: 0.8125rem; font-weight: 600; color: var(--pal-neutral-300); margin-top: 0.35rem; }
