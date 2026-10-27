@@ -590,22 +590,26 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(3_150m, deuda); // 3 cuotas de 1.000 + 50 de punitorio aplicado en cada una
     }
 
+    // El formulario viaja atado al paso del acuerdo (pagos completos): reenviar uno viejo no cobra, aunque ya haya avanzado.
     [Fact]
-    public async Task PagoAcuerdo_ReenvioDelMismoFormulario_NoCobraDosVeces()
+    public async Task PagoAcuerdo_FormularioViejoReenviadoDespuesDeAvanzar_NoCobra()
     {
         var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
-        var operacion = Guid.NewGuid();
 
-        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, operacion);
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, operacion));
-
-        Assert.Contains("ya se registró", ex.Message);
-        Assert.Single(_creditoServiceFake.Cobros);
-
-        // Un formulario nuevo (otra clave) sí registra el pago siguiente.
-        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, Guid.NewGuid());
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);    // A: entrega
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 1);    // B: cuota 1
         Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+
+        foreach (var viejo in new[] { 0, 1 })
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: viejo));
+            Assert.Contains("ya se registró", ex.Message);
+        }
+
+        Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado)); // nada nuevo
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 2);   // el vigente sí
+        Assert.Equal(2_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
     }
 
     [Fact]
