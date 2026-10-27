@@ -92,6 +92,7 @@ namespace TheBuryProject.Data
         public DbSet<VentaEnvio> VentaEnvios { get; set; }
         public DbSet<ServicioVentaPrecio> ServiciosVentaPrecios { get; set; }
         public DbSet<PrefijoNumeracion> PrefijosNumeracion { get; set; }
+        public DbSet<AcuerdoPagoImputacion> AcuerdoPagoImputaciones { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
         public DbSet<AlertaMora> AlertasMora { get; set; }
@@ -1972,6 +1973,27 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.Tipo)
                     .IsUnique()
                     .HasFilter("IsDeleted = 0");
+            });
+
+            // =======================
+            // AcuerdoPagoImputacion (intención de imputar un pago de acuerdo a una cuota vencida)
+            // =======================
+            modelBuilder.Entity<AcuerdoPagoImputacion>(entity =>
+            {
+                entity.ToTable("AcuerdoPagoImputaciones");
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+                entity.Property(e => e.MontoAplicado).HasPrecision(18, 2);
+                entity.Property(e => e.MedioPago).HasMaxLength(50);
+                entity.Property(e => e.Comprobante).HasMaxLength(100);
+                entity.HasIndex(e => new { e.AcuerdoPagoId, e.Estado });
+                // Un pago del libro respalda una sola imputación: nunca se cuenta dos veces.
+                entity.HasIndex(e => e.PagoCuotaId)
+                    .IsUnique()
+                    .HasFilter("[PagoCuotaId] IS NOT NULL");
+                entity.HasOne(e => e.AcuerdoPago)
+                    .WithMany()
+                    .HasForeignKey(e => e.AcuerdoPagoId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // =======================

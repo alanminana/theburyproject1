@@ -1559,6 +1559,110 @@ namespace TheBuryProject.Services
             }
         }
 
+        // Refleja un importe ya cobrado en el acuerdo (entrega inicial o la cuota indicada).
+        private static void AplicarImputacionAlAcuerdo(AcuerdoPago acuerdo, CuotaAcuerdo? cuotaDelAcuerdo, decimal aplicado, string? medioPago, string? comprobante)
+        {
+            if (cuotaDelAcuerdo == null)
+            {
+                acuerdo.MontoEntregaPagada += aplicado;
+                if (acuerdo.MontoEntregaPagada >= acuerdo.MontoEntregaInicial - 0.004m)
+                {
+                    acuerdo.EntregaInicialPagada = true;
+                    acuerdo.FechaPagoEntrega = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                cuotaDelAcuerdo.MontoPagado += aplicado;
+                cuotaDelAcuerdo.MedioPago = medioPago;
+                cuotaDelAcuerdo.ComprobantePago = comprobante;
+                if (cuotaDelAcuerdo.MontoPagado >= cuotaDelAcuerdo.MontoTotal - 0.004m)
+                {
+                    cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Pagada;
+                    cuotaDelAcuerdo.FechaPago = DateTime.UtcNow;
+                }
+                else
+                {
+                    cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Parcial;
+                }
+            }
+            acuerdo.UpdatedAt = DateTime.UtcNow;
+        }
+
+        // Con todos los pagos completos el acuerdo pasa a Cumplido y se resuelve la alerta si ya no queda deuda vencida.
+        private async Task<bool> CompletarAcuerdoSiCorrespondeAsync(AcuerdoPago acuerdo)
+        {
+            var todoPagado = acuerdo.EntregaInicialPagada || acuerdo.MontoEntregaInicial <= 0m;
+            todoPagado = todoPagado && acuerdo.Cuotas.Where(c => !c.IsDeleted).All(c => c.Estado == EstadoCuotaAcuerdo.Pagada);
+            if (!todoPagado || acuerdo.Estado != EstadoAcuerdo.Activo)
+                return todoPagado;
+
+            acuerdo.Estado = EstadoAcuerdo.Cumplido;
+            acuerdo.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            await ResolverAlertasMoraRegularizadasAsync(new List<int>(), _reloj.InicioDiaComercial, CancellationToken.None);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>
+        /// Resuelve las intenciones que quedaron Pendientes (corte entre el cobro y su reflejo): busca el pago en el libro
+        /// por cuota, importe y fecha; si existe y no respalda otra imputación, lo refleja en el acuerdo; si no existe, el
+        /// cobro nunca se confirmó y la intención se descarta. Más de un candidato = ambiguo: se frena para revisión manual.
+        /// Devuelve true si reflejó algún cobro.
+        /// </summary>
+        private async Task<bool> ConciliarImputacionesPendientesAsync(AcuerdoPago acuerdo)
+        {
+            var pendientes = await _context.AcuerdoPagoImputaciones
+                .Where(i => i.AcuerdoPagoId == acuerdo.Id && i.Estado == EstadoImputacionAcuerdo.Pendiente)
+                .OrderBy(i => i.Id)
+                .ToListAsync();
+            if (pendientes.Count == 0)
+                return false;
+
+            var yaRespaldados = await _context.AcuerdoPagoImputaciones
+                .Where(i => i.PagoCuotaId != null)
+                .Select(i => i.PagoCuotaId!.Value)
+                .ToListAsync();
+
+            var reflejado = false;
+            foreach (var intencion in pendientes)
+            {
+                var candidatos = await _context.PagosCuota
+                    .Where(p => p.CuotaId == intencion.CuotaCreditoId
+                                && p.Estado == EstadoPagoCuota.Aplicado
+                                && p.ImporteTotal == intencion.Monto
+                                && p.CreatedAt >= intencion.CreatedAt.AddSeconds(-1)
+                                && !yaRespaldados.Contains(p.Id))
+                    .ToListAsync();
+
+                if (candidatos.Count > 1)
+                    throw new InvalidOperationException(
+                        "Hay un pago del acuerdo sin conciliar con más de un cobro posible. Revisá los pagos de la cuota antes de seguir.");
+
+                if (candidatos.Count == 0)
+                {
+                    intencion.Estado = EstadoImputacionAcuerdo.Descartada;
+                    continue;
+                }
+
+                var pago = candidatos[0];
+                var cuotaDelAcuerdo = intencion.CuotaAcuerdoId.HasValue
+                    ? acuerdo.Cuotas.FirstOrDefault(c => c.Id == intencion.CuotaAcuerdoId.Value)
+                    : null;
+                AplicarImputacionAlAcuerdo(acuerdo, cuotaDelAcuerdo, pago.ImporteTotal, intencion.MedioPago, intencion.Comprobante);
+                intencion.Estado = EstadoImputacionAcuerdo.Aplicada;
+                intencion.PagoCuotaId = pago.Id;
+                intencion.MontoAplicado = pago.ImporteTotal;
+                yaRespaldados.Add(pago.Id);
+                reflejado = true;
+                _logger.LogWarning("Acuerdo {Numero}: se concilió el pago {PagoId} que había quedado sin reflejar", acuerdo.NumeroAcuerdo, pago.Id);
+            }
+
+            await _context.SaveChangesAsync();
+            return reflejado;
+        }
+
         // Pagos completos del acuerdo: la entrega inicial (si la hay) más las cuotas pagadas.
         private static int PagosCompletos(AcuerdoPago acuerdo) =>
             ((acuerdo.EntregaInicialPagada || acuerdo.MontoEntregaInicial <= 0m) ? 1 : 0)
@@ -1572,6 +1676,10 @@ namespace TheBuryProject.Services
                 ?? throw new InvalidOperationException("El acuerdo no existe o no pertenece a este cliente.");
             if (acuerdo.Estado != EstadoAcuerdo.Activo)
                 throw new InvalidOperationException("Solo se pueden registrar pagos en un acuerdo activo.");
+
+            // Un corte entre un cobro confirmado y su reflejo en el acuerdo se cierra acá, antes de decidir qué se cobra.
+            if (await ConciliarImputacionesPendientesAsync(acuerdo))
+                await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
 
             // El formulario viaja atado al avance del acuerdo: un reenvío (doble clic, recarga del POST, un formulario viejo
             // abierto en otra pestaña) trae un paso que ya pasó y se rechaza sin cobrar.
@@ -1602,8 +1710,9 @@ namespace TheBuryProject.Services
             if (cuotasEnMora.Count == 0)
                 throw new InvalidOperationException("El crédito ya no tiene deuda vencida para imputar el pago.");
 
-            // Cada imputación es un cobro de cuota confirmado por separado (el cobro abre su propia transacción serializable):
-            // el progreso se guarda después de cada una, así un corte a mitad de camino se reanuda sin cobrar dos veces.
+            // Cada imputación es un cobro de cuota confirmado por separado (el cobro abre su propia transacción serializable).
+            // Antes de cobrar se guarda la intención; al confirmarse, el reflejo en el acuerdo y el cierre de la intención van
+            // juntos. Si el proceso se cae en el medio, la intención queda Pendiente y la conciliación la resuelve contra el libro.
             var restante = pendiente;
             decimal imputado = 0m;
             foreach (var cuota in cuotasEnMora)
@@ -1617,6 +1726,19 @@ namespace TheBuryProject.Services
                     continue;
 
                 var monto = Math.Round(Math.Min(restante, cobrable), 2, MidpointRounding.AwayFromZero);
+                var intencion = new AcuerdoPagoImputacion
+                {
+                    AcuerdoPagoId = acuerdo.Id,
+                    CuotaAcuerdoId = cuotaDelAcuerdo?.Id,
+                    CuotaCreditoId = cuota.Id,
+                    Monto = monto,
+                    MedioPago = medioPago,
+                    Comprobante = comprobante,
+                    Estado = EstadoImputacionAcuerdo.Pendiente
+                };
+                _context.AcuerdoPagoImputaciones.Add(intencion);
+                await _context.SaveChangesAsync();
+
                 var cobro = await _creditoService.RegistrarPagoCuotaIndividualAsync(new PagoCuotaIndividualComando(
                     cuota.Id,
                     monto,
@@ -1630,31 +1752,10 @@ namespace TheBuryProject.Services
                 restante -= aplicado;
                 imputado += aplicado;
 
-                if (cuotaDelAcuerdo == null)
-                {
-                    acuerdo.MontoEntregaPagada += aplicado;
-                    if (acuerdo.MontoEntregaPagada >= acuerdo.MontoEntregaInicial - 0.004m)
-                    {
-                        acuerdo.EntregaInicialPagada = true;
-                        acuerdo.FechaPagoEntrega = DateTime.UtcNow;
-                    }
-                }
-                else
-                {
-                    cuotaDelAcuerdo.MontoPagado += aplicado;
-                    cuotaDelAcuerdo.MedioPago = medioPago;
-                    cuotaDelAcuerdo.ComprobantePago = comprobante;
-                    if (cuotaDelAcuerdo.MontoPagado >= cuotaDelAcuerdo.MontoTotal - 0.004m)
-                    {
-                        cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Pagada;
-                        cuotaDelAcuerdo.FechaPago = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        cuotaDelAcuerdo.Estado = EstadoCuotaAcuerdo.Parcial;
-                    }
-                }
-                acuerdo.UpdatedAt = DateTime.UtcNow;
+                AplicarImputacionAlAcuerdo(acuerdo, cuotaDelAcuerdo, aplicado, medioPago, comprobante);
+                intencion.Estado = EstadoImputacionAcuerdo.Aplicada;
+                intencion.PagoCuotaId = cobro.PagoCuotaId;
+                intencion.MontoAplicado = aplicado;
                 await _context.SaveChangesAsync();
             }
 
@@ -1662,16 +1763,7 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException(
                     $"Se imputaron {imputado:C2} de {pendiente:C2}: la deuda vencida del crédito no alcanza para el resto. Revisá el acuerdo.");
 
-            var todoPagado = acuerdo.EntregaInicialPagada || acuerdo.MontoEntregaInicial <= 0m;
-            todoPagado = todoPagado && acuerdo.Cuotas.Where(c => !c.IsDeleted).All(c => c.Estado == EstadoCuotaAcuerdo.Pagada);
-            if (todoPagado)
-            {
-                acuerdo.Estado = EstadoAcuerdo.Cumplido;
-                acuerdo.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-                await ResolverAlertasMoraRegularizadasAsync(new List<int>(), _reloj.InicioDiaComercial, CancellationToken.None);
-                await _context.SaveChangesAsync();
-            }
+            var todoPagado = await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
 
             _logger.LogInformation("Pago de acuerdo {Numero}: {Concepto} por {Importe}", acuerdo.NumeroAcuerdo, concepto, imputado);
             return new ResultadoPagoAcuerdo(concepto, imputado, todoPagado);
