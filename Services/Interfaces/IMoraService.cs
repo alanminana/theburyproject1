@@ -9,6 +9,9 @@ namespace TheBuryProject.Services.Interfaces
     /// Servicio centralizado para gestión de mora, alertas y cobranzas
     /// Consolida cálculo de mora, generación de alertas y auditoría
     /// </summary>
+    /// <summary>Resultado de registrar un pago de acuerdo.</summary>
+    public sealed record ResultadoPagoAcuerdo(string Concepto, decimal ImportePagado, bool AcuerdoCumplido);
+
     public interface IMoraService
     {
         #region Configuración
@@ -125,6 +128,20 @@ namespace TheBuryProject.Services.Interfaces
         /// Lanza InvalidOperationException ante una transición no permitida o un acuerdo ajeno al cliente.
         /// </summary>
         Task<bool> ExisteAcuerdoVigenteAsync(int creditoId);
+
+        /// <summary>
+        /// Deuda vencida del crédito que se puede cobrar hoy: por cada cuota en mora, capital pendiente más punitorio
+        /// aplicado pendiente (la misma cifra que muestra el cobro de cuotas). Base de la deuda de un acuerdo nuevo.
+        /// </summary>
+        Task<decimal> CalcularDeudaCobrableCreditoAsync(int creditoId);
+
+        /// <summary>
+        /// Registra el próximo pago pendiente de un acuerdo activo (primero la entrega inicial, después las cuotas en
+        /// orden). El dinero se imputa a las cuotas vencidas del crédito, de la más vieja a la más nueva, con el
+        /// circuito de cobro de cuotas (caja, recibo, punitorio). Al completar todos los pagos el acuerdo pasa a
+        /// Cumplido y se resuelve la alerta si ya no queda deuda vencida.
+        /// </summary>
+        Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null);
 
         /// <summary>
         /// Marca incumplida la promesa de una alerta del cliente (limpia la promesa y escala la prioridad).

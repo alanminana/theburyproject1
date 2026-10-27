@@ -2073,6 +2073,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoCondonado).HasPrecision(18, 2);
                 entity.Property(e => e.MontoTotalAcuerdo).HasPrecision(18, 2);
                 entity.Property(e => e.MontoEntregaInicial).HasPrecision(18, 2);
+                entity.Property(e => e.MontoEntregaPagada).HasPrecision(18, 2);
                 entity.Property(e => e.MontoCuotaAcuerdo).HasPrecision(18, 2);
 
                 entity.HasOne(e => e.AlertaCobranza)
@@ -2091,6 +2092,12 @@ namespace TheBuryProject.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.NumeroAcuerdo).IsUnique();
+                // Un solo acuerdo vigente (Borrador=1 / Activo=2) por crédito: la regla no depende de que dos operadores
+                // no confirmen a la vez.
+                entity.HasIndex(e => e.CreditoId)
+                    .IsUnique()
+                    .HasDatabaseName("UX_AcuerdosPago_CreditoVigente")
+                    .HasFilter("IsDeleted = 0 AND Estado IN (1, 2)");
                 entity.HasIndex(e => e.AlertaCobranzaId);
                 entity.HasIndex(e => e.ClienteId);
                 entity.HasIndex(e => e.Estado);

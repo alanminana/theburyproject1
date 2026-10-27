@@ -30,13 +30,20 @@ namespace TheBuryProject.Helpers
 
             // Fase 16.6: cuando hay TipoPago por ítem, el ajuste global de DatosTarjeta queda subordinado.
             var hasPagoPorItem = detalleViewModels.Any(d => d.TipoPago.HasValue);
+            // Efectivo/Transferencia no tienen DatosTarjeta: su descuento/recargo vive en la propia venta.
+            var ajusteMedio = !hasPagoPorItem && venta.DatosTarjeta == null && venta.AjusteMedioPagoMonto.HasValue;
             var ajustePlanMonto = hasPagoPorItem
                 ? null
-                : venta.DatosTarjeta?.MontoAjustePagoAplicado ?? venta.DatosTarjeta?.MontoAjustePlanAplicado;
+                : venta.DatosTarjeta?.MontoAjustePagoAplicado ?? venta.DatosTarjeta?.MontoAjustePlanAplicado
+                    ?? (ajusteMedio ? venta.AjusteMedioPagoMonto : null);
             var ajustePlanPct = hasPagoPorItem
                 ? null
-                : venta.DatosTarjeta?.PorcentajeAjustePagoAplicado ?? venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
-            var nombrePlanPagoSnapshot = hasPagoPorItem ? null : venta.DatosTarjeta?.NombrePlanPagoSnapshot;
+                : venta.DatosTarjeta?.PorcentajeAjustePagoAplicado ?? venta.DatosTarjeta?.PorcentajeAjustePlanAplicado
+                    ?? (ajusteMedio ? venta.AjusteMedioPagoPorcentaje : null);
+            var nombrePlanPagoSnapshot = hasPagoPorItem
+                ? null
+                : venta.DatosTarjeta?.NombrePlanPagoSnapshot
+                    ?? (ajusteMedio ? ResolverLabelTipoPago(venta.TipoPago) : null);
             var cantidadCuotas = hasPagoPorItem ? null : venta.DatosTarjeta?.CantidadCuotas;
             var gruposPago = hasPagoPorItem
                 ? BuildGruposPagoPorItem(detalleViewModels, venta.TipoPago)

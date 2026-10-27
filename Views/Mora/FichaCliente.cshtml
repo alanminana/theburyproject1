@@ -16,6 +16,7 @@
 
     var puedeVerCliente = User.TienePermiso("clientes", "view");
     var puedeGestionar = User.TienePermiso("mora", "manage");
+    var puedeCobrar = User.TienePermiso("cobranzas", "payinstallment");
     var urlActual = Context.Request.Path + Context.Request.QueryString;
     var volverUrl = ViewData["ReturnUrl"] as string;
 
@@ -443,6 +444,31 @@
                                 {
                                     <p class="text-xs text-slate-500">Próximo vencimiento @ac.ProximaFechaVencimiento.Value.ToString("dd/MM/yyyy")</p>
                                 }
+                                @if (puedeGestionar && puedeCobrar && ac.Estado == EstadoAcuerdo.Activo && !string.IsNullOrEmpty(ac.ProximoPagoConcepto))
+                                {
+                                    <form method="post" asp-controller="Mora" asp-action="RegistrarPagoAcuerdo" asp-route-returnUrl="@volverUrl" class="mt-2 flex flex-wrap items-end gap-2" data-mora-acuerdo-pago>
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
+                                        <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                        <input type="hidden" name="pasoEsperado" value="@ac.ProximoPagoPaso" />
+                                        <div class="w-full text-sm text-slate-200">Próximo pago: <strong>@ac.ProximoPagoConcepto</strong> · @ac.ProximoPagoPendiente.ToString("C2")</div>
+                                        <div>
+                                            <label class="sr-only" for="pago-medio-@ac.AcuerdoId">Medio de pago</label>
+                                            <select id="pago-medio-@ac.AcuerdoId" name="medioPago" class="select-erp" required>
+                                                <option value="Efectivo">Efectivo</option>
+                                                <option value="Transferencia">Transferencia</option>
+                                                <option value="Tarjeta Débito">Tarjeta Débito</option>
+                                                <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                                                <option value="Cheque">Cheque</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="sr-only" for="pago-comp-@ac.AcuerdoId">Comprobante</label>
+                                            <input id="pago-comp-@ac.AcuerdoId" name="comprobante" type="text" maxlength="100" class="input-erp" placeholder="Comprobante (opcional)" />
+                                        </div>
+                                        <button type="submit" class="btn-erp-primary">Registrar pago</button>
+                                    </form>
+                                }
                                 @if (puedeGestionar && (ac.Estado == EstadoAcuerdo.Borrador || ac.Estado == EstadoAcuerdo.Activo))
                                 {
                                     <div class="mt-2 flex flex-wrap gap-2" data-mora-acuerdo-acciones>
@@ -594,8 +620,6 @@
                                     <input id="ac-cuotas" name="CantidadCuotas" type="number" min="1" max="60" class="input-erp" required value="6" />
                                     <label for="ac-primera">Fecha de la primera cuota</label>
                                     <input id="ac-primera" name="FechaPrimeraCuota" type="date" class="input-erp" required value="@DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")" />
-                                    <label for="ac-condonar">Mora a condonar (si la configuración lo permite)</label>
-                                    <input id="ac-condonar" name="MontoCondonar" type="number" step="0.01" min="0" class="input-erp" value="0" />
                                     <label for="ac-obs">Observaciones</label>
                                     <textarea id="ac-obs" name="Observaciones" rows="2" maxlength="2000" class="input-erp"></textarea>
                                     <button type="submit" class="btn-erp-primary">Crear acuerdo</button>

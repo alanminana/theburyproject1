@@ -163,6 +163,10 @@ namespace TheBuryProject.ViewModels
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal RecargoDebitoAplicado { get; set; }
 
+        /// <summary>Descuento/recargo de Efectivo/Transferencia aplicado (ver Venta.AjusteMedioPagoMonto).</summary>
+        public decimal? AjusteMedioPagoPorcentaje { get; set; }
+        public decimal? AjusteMedioPagoMonto { get; set; }
+
         // Datos de financiamiento
         [Display(Name = "Anticipo"), DataType(DataType.Currency)]
         [MontoArgentino]

@@ -412,22 +412,232 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ActivarAcuerdo_ConOtroAcuerdoActivoDelMismoCredito_SeRechaza()
+    public async Task CrearAcuerdo_OtroVigenteDelMismoCredito_LoFrenaElIndiceUnicoConMensajeClaro()
     {
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        AcuerdoPago Nuevo(string n, EstadoAcuerdo e) => new()
+        _context.AcuerdosPago.Add(new AcuerdoPago
         {
-            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = n,
-            Estado = e, MontoTotalAcuerdo = 100m, CantidadCuotas = 2, FechaPrimeraCuota = DateTime.Today.AddDays(30)
-        };
-        var activo = Nuevo("ACU-A1", EstadoAcuerdo.Activo);
-        var borrador = Nuevo("ACU-A2", EstadoAcuerdo.Borrador);
-        _context.AcuerdosPago.AddRange(activo, borrador);
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U1",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        });
         await _context.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAcuerdoAsync(borrador.Id, cliente.Id, EstadoAcuerdo.Activo));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            }, "g"));
+
+        Assert.Contains("vigente", ex.Message);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(1, await _context.AcuerdosPago.CountAsync(a => a.CreditoId == credito.Id));
+    }
+
+    [Fact]
+    public async Task AcuerdoCancelado_NoImpideCrearOtroDelMismoCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        _context.AcuerdosPago.Add(new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U2",
+            Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        });
+        await _context.SaveChangesAsync();
+
+        var id = await _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            }, "g");
+
+        Assert.True(id > 0);
+    }
+
+    // Pago de acuerdos: el dinero se imputa a las cuotas vencidas del crédito (más vieja primero), con el cobro de cuotas.
+    private async Task<(Cliente cliente, Credito credito, AlertaCobranza alerta, AcuerdoPago acuerdo)> SeedAcuerdoActivoConDeudaAsync(
+        decimal entrega = 500m, int cuotasAcuerdo = 2, decimal totalAcuerdo = 2_500m)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 30, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 20, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var acuerdo = new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-P",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = totalAcuerdo, MontoEntregaInicial = entrega,
+            CantidadCuotas = cuotasAcuerdo, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+        };
+        _context.AcuerdosPago.Add(acuerdo);
+        await _context.SaveChangesAsync();
+        await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, EstadoAcuerdo.Activo);
+        _context.ChangeTracker.Clear();
+        _creditoServiceFake.Db = _context;
+        return (cliente, credito, alerta, acuerdo);
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_Entrega_ImputaALaCuotaVencidaMasVieja()
+    {
+        var (cliente, credito, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", "R-1");
+
+        Assert.Equal("Entrega inicial", r.Concepto);
+        Assert.Equal(500m, r.ImportePagado);
+        Assert.False(r.AcuerdoCumplido);
+        var cobro = Assert.Single(_creditoServiceFake.Cobros);
+        Assert.Equal(500m, cobro.MontoIngresado);
+        var cuotas = await _context.Cuotas.AsNoTracking().Where(c => c.CreditoId == credito.Id).OrderBy(c => c.FechaVencimiento).ToListAsync();
+        Assert.Equal(cuotas[0].Id, cobro.CuotaId);
+        Assert.Equal(500m, cuotas[0].MontoPagado);
+        Assert.Equal(0m, cuotas[1].MontoPagado);
+        var guardado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
+        Assert.True(guardado.EntregaInicialPagada);
+        Assert.Equal(500m, guardado.MontoEntregaPagada);
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_CuotaQueCubreVariasCuotasVencidas_LasCancelaEnOrden()
+    {
+        var (cliente, credito, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null); // entrega 500 → cuota1: 500
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null); // cuota 1 del acuerdo: 1000
+
+        Assert.Equal("Cuota 1 del acuerdo", r.Concepto);
+        var cuotas = await _context.Cuotas.AsNoTracking().Where(c => c.CreditoId == credito.Id).OrderBy(c => c.FechaVencimiento).ToListAsync();
+        Assert.Equal(1_000m, cuotas[0].MontoPagado);  // se completó la primera (500 + 500)
+        Assert.Equal(500m, cuotas[1].MontoPagado);    // el resto va a la segunda
+        var acuerdoCuota = await _context.Set<CuotaAcuerdo>().AsNoTracking().SingleAsync(c => c.AcuerdoPagoId == acuerdo.Id && c.NumeroCuota == 1);
+        Assert.Equal(EstadoCuotaAcuerdo.Pagada, acuerdoCuota.Estado);
+        Assert.Equal("Efectivo", acuerdoCuota.MedioPago);
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_TodosLosPagos_CumplenElAcuerdoYResuelvenLaAlerta()
+    {
+        var (cliente, credito, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 1_000m, cuotasAcuerdo: 2, totalAcuerdo: 3_000m);
+
+        ResultadoPagoAcuerdo? ultimo = null;
+        for (var i = 0; i < 3; i++)
+            ultimo = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Transferencia", null);
+
+        Assert.True(ultimo!.AcuerdoCumplido);
+        Assert.Equal(3_000m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).Estado);
+        Assert.True((await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Resuelta);
+        Assert.All(await _context.Cuotas.AsNoTracking().Where(c => c.CreditoId == credito.Id).ToListAsync(), c => Assert.Equal(1_000m, c.MontoPagado));
+        // Un pago más ya no tiene a qué aplicarse.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null));
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_CobroInterrumpido_GuardaElProgresoYElReintentoNoCobraDeMas()
+    {
+        var (cliente, credito, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 1_500m, cuotasAcuerdo: 1, totalAcuerdo: 2_500m);
+        _creditoServiceFake.FallarEnElCobroNumero = 2; // 1.500 = 1.000 (cuota 1) + 500 (cuota 2): el segundo cobro falla
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null));
+
+        _context.ChangeTracker.Clear();
+        var intermedio = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
+        Assert.Equal(1_000m, intermedio.MontoEntregaPagada);
+        Assert.False(intermedio.EntregaInicialPagada);
+
+        _creditoServiceFake.FallarEnElCobroNumero = null;
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null);
+
+        Assert.Equal(500m, r.ImportePagado); // solo lo que faltaba
+        Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+        _context.ChangeTracker.Clear();
+        Assert.True((await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).EntregaInicialPagada);
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_AcuerdoBorradorOAjeno_SeRechaza()
+    {
+        var (cliente, _, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var otro = await SeedClienteAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, otro.Id, "Efectivo", null));
+
+        var borrador = new AcuerdoPago
+        {
+            AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = (await _context.Creditos.FirstAsync()).Id + 1000, NumeroAcuerdo = "ACU-B",
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today
+        };
+        Assert.Empty(_creditoServiceFake.Cobros);
+        Assert.NotNull(borrador);
+    }
+
+    [Fact]
+    public async Task CalcularDeudaCobrable_ConTotalCobrableIndeterminado_NoPermiteFijarLaDeuda()
+    {
+        var (_, credito, _, _) = await SeedAcuerdoActivoConDeudaAsync();
+        _creditoServiceFake.TotalCobrableIndeterminado = true;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CalcularDeudaCobrableCreditoAsync(credito.Id));
+
+        Assert.Contains("historial de punitorios", ex.Message);
+    }
+
+    [Fact]
+    public async Task CalcularDeudaCobrable_SumaLoCobrableDeLasCuotasEnMora()
+    {
+        var (_, credito, _, _) = await SeedAcuerdoActivoConDeudaAsync();
+        _creditoServiceFake.PunitorioPorCuota = 50m;
+
+        var deuda = await _service.CalcularDeudaCobrableCreditoAsync(credito.Id);
+
+        Assert.Equal(3_150m, deuda); // 3 cuotas de 1.000 + 50 de punitorio aplicado en cada una
+    }
+
+    // El formulario viaja atado al paso del acuerdo (pagos completos): reenviar uno viejo no cobra, aunque ya haya avanzado.
+    [Fact]
+    public async Task PagoAcuerdo_FormularioViejoReenviadoDespuesDeAvanzar_NoCobra()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);    // A: entrega
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 1);    // B: cuota 1
+        Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+
+        foreach (var viejo in new[] { 0, 1 })
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: viejo));
+            Assert.Contains("ya se registró", ex.Message);
+        }
+
+        Assert.Equal(1_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado)); // nada nuevo
+        await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 2);   // el vigente sí
+        Assert.Equal(2_500m, _creditoServiceFake.Cobros.Sum(c => c.MontoIngresado));
+    }
+
+    [Fact]
+    public async Task PagoAcuerdo_EntregaPorElTotal_NoGeneraCuotasYSeCumpleAlPagarla()
+    {
+        var (cliente, credito, alerta, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 3, totalAcuerdo: 2_000m);
+
+        Assert.Empty(await _context.Set<CuotaAcuerdo>().AsNoTracking().Where(c => c.AcuerdoPagoId == acuerdo.Id).ToListAsync());
+
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.True(r.AcuerdoCumplido);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id)).Estado);
+        // Quedó una cuota vencida sin pagar: la alerta sigue (el acuerdo no cubría esa deuda).
+        Assert.False((await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id)).Resuelta);
+        Assert.False(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
     }
 
     [Fact]
@@ -2668,9 +2878,39 @@ public class MoraServiceTests : IDisposable
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
-        public Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        // Simula el cobro de cuotas: lee la cuota de la base de pruebas y, al cobrar, le suma lo pagado (como el cobro real).
+        public AppDbContext? Db { get; set; }
+        public decimal PunitorioPorCuota { get; set; }
+        public bool TotalCobrableIndeterminado { get; set; }
+        public int? FallarEnElCobroNumero { get; set; }
+        public List<PagoCuotaIndividualComando> Cobros { get; } = new();
+
+        public async Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default)
+        {
+            var c = await Db!.Cuotas.AsNoTracking().FirstAsync(x => x.Id == cuotaId, cancellationToken);
+            var capital = c.MontoTotal - c.MontoPagado;
+            return new PagoCuotaContextoResultado(
+                c.Id, c.CreditoId, c.NumeroCuota, "CRE", "Cliente", DateOnly.FromDateTime(c.FechaVencimiento), DateOnly.FromDateTime(DateTime.Today),
+                c.Estado, 0, capital, null, EstadoCalculoPunitorioDetalle.Calculado, null, PunitorioPorCuota,
+                TotalCobrableIndeterminado ? null : capital + PunitorioPorCuota, true, null,
+                Convert.ToBase64String(new byte[] { 1 }));
+        }
         public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public async Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default)
+        {
+            if (FallarEnElCobroNumero == Cobros.Count + 1)
+                throw new InvalidOperationException("Cobro rechazado (simulado).");
+
+            Cobros.Add(comando);
+            var c = await Db!.Cuotas.FirstAsync(x => x.Id == comando.CuotaId, cancellationToken);
+            c.MontoPagado += comando.MontoIngresado;
+            if (c.MontoPagado >= c.MontoTotal)
+                c.Estado = EstadoCuota.Pagada;
+            await Db.SaveChangesAsync(cancellationToken);
+            return new PagoCuotaResultado(c.Id, c.CreditoId, c.NumeroCuota, comando.MontoIngresado, 0m, comando.MontoIngresado, 0m,
+                comando.MontoIngresado, 0m, c.MontoTotal - c.MontoPagado, c.Estado, DateOnly.FromDateTime(DateTime.Today), 1, 1, comando.MedioPago,
+                Convert.ToBase64String(new byte[] { 1 }));
+        }
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<TheBuryProject.Services.Models.CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(int creditoId, string medioPago, string? comprobante = null, string? observaciones = null) => throw new NotImplementedException();
         public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();

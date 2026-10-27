@@ -926,11 +926,17 @@ namespace TheBuryProject.Services
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
             // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
+            venta.AjusteMedioPagoPorcentaje = null;
+            venta.AjusteMedioPagoMonto = null;
             if (venta.CotizacionOrigenId.HasValue && AjusteMedioUnPago.Aplica(viewModel.TipoPago))
             {
                 var ajusteMedio = await AjusteMedioUnPago.ResolverAsync(_context, viewModel.TipoPago, venta.Total);
                 if (ajusteMedio != null)
+                {
+                    venta.AjusteMedioPagoPorcentaje = ajusteMedio.PorcentajeAjuste;
+                    venta.AjusteMedioPagoMonto = ajusteMedio.MontoAjuste;
                     venta.Total = ajusteMedio.TotalFinal;
+                }
             }
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
