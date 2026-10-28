@@ -1052,6 +1052,103 @@ public class MoraServiceTests : IDisposable
     }
 
     // Falla la auditoría solo para un acuerdo; para el resto delega en la auditoría real.
+    // ---- Promesas vencidas: DiasParaCumplirPromesa = días de espera tras la fecha prometida ----
+
+    private async Task<AlertaCobranza> SeedPromesaAsync(DateTime fecha, int? dias,
+        EstadoGestionCobranza estado = EstadoGestionCobranza.PromesaPago)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id, estado: estado);
+        alerta.FechaPromesaPago = fecha;
+        alerta.MontoPromesaPago = 700m;
+        var cfg = await _context.ConfiguracionesMora.FirstOrDefaultAsync() ?? _context.ConfiguracionesMora.Add(new ConfiguracionMora()).Entity;
+        cfg.DiasParaCumplirPromesa = dias;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return alerta;
+    }
+
+    private async Task<AlertaCobranza> LeerAlertaAsync(int id) =>
+        await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == id);
+
+    [Fact]
+    public async Task Promesas_LimiteExacto_UltimoDiaDeEsperaNoIncumple_ElSiguienteSi()
+    {
+        var prometida = new DateTime(2026, 10, 10);
+        var alerta = await SeedPromesaAsync(prometida, dias: 3);
+        var auditoria = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var reloj = new RelojComercialFake(new DateOnly(2026, 10, 13)); // prometida + 3: aún vale
+        var servicio = ServicioConFecha(reloj, auditoria);
+
+        Assert.Equal(0, (await servicio.VerificarPromesasVencidasAsync()).Marcadas);
+        Assert.Equal(EstadoGestionCobranza.PromesaPago, (await LeerAlertaAsync(alerta.Id)).EstadoGestion);
+
+        reloj.HoyComercial = new DateOnly(2026, 10, 14); // prometida + 4
+        var servicio2 = ServicioConFecha(reloj, auditoria);
+        var prioridadAntes = (await LeerAlertaAsync(alerta.Id)).Prioridad;
+        Assert.Equal(1, (await servicio2.VerificarPromesasVencidasAsync()).Marcadas);
+
+        var despues = await LeerAlertaAsync(alerta.Id);
+        Assert.Equal(EstadoGestionCobranza.EnGestion, despues.EstadoGestion);
+        Assert.Null(despues.FechaPromesaPago);
+        Assert.Equal((int)prioridadAntes + 1, (int)despues.Prioridad);
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking()
+            .Where(e => e.Accion == "PromesaIncumplidaAutomatica" && e.Entidad == $"AlertaCobranza:{alerta.Id}").ToListAsync();
+        Assert.Single(eventos);
+    }
+
+    [Fact]
+    public async Task Promesas_Idempotente_UnaSegundaCorridaNoRepiteNiAuditaDeNuevo()
+    {
+        var alerta = await SeedPromesaAsync(new DateTime(2026, 10, 1), dias: 1);
+        var auditoria = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(new RelojComercialFake(new DateOnly(2026, 10, 20)), auditoria);
+
+        Assert.Equal(1, (await servicio.VerificarPromesasVencidasAsync()).Marcadas);
+        var primera = await LeerAlertaAsync(alerta.Id);
+        Assert.Equal(0, (await servicio.VerificarPromesasVencidasAsync()).Marcadas);
+        var segunda = await LeerAlertaAsync(alerta.Id);
+
+        Assert.Equal(primera.Prioridad, segunda.Prioridad);
+        Assert.Equal(primera.Observaciones, segunda.Observaciones);
+        Assert.Equal(1, await _context.SeguridadEventosAuditoria.CountAsync(e => e.Accion == "PromesaIncumplidaAutomatica"));
+    }
+
+    [Fact]
+    public async Task Promesas_NoTocaCumplidasNiOtrosEstadosNiSinConfiguracion()
+    {
+        var vieja = new DateTime(2026, 1, 1);
+        var reloj = new RelojComercialFake(new DateOnly(2026, 10, 20));
+
+        // Cumplida (Regularizado) y otros estados con fecha vieja: no se tocan.
+        var cumplida = await SeedPromesaAsync(vieja, dias: 2, estado: EstadoGestionCobranza.Regularizado);
+        var enGestion = await SeedPromesaAsync(vieja, dias: 2, estado: EstadoGestionCobranza.EnGestion);
+        var acuerdo = await SeedPromesaAsync(vieja, dias: 2, estado: EstadoGestionCobranza.AcuerdoActivo);
+        Assert.Equal(0, (await ServicioConFecha(reloj).VerificarPromesasVencidasAsync()).Marcadas);
+        foreach (var a in new[] { cumplida, enGestion, acuerdo })
+            Assert.Equal(a.EstadoGestion, (await LeerAlertaAsync(a.Id)).EstadoGestion);
+
+        // Promesa activa vencida pero sin DiasParaCumplirPromesa configurado: no se toca.
+        var activa = await SeedPromesaAsync(vieja, dias: null);
+        Assert.Equal(0, (await ServicioConFecha(reloj).VerificarPromesasVencidasAsync()).Marcadas);
+        Assert.Equal(EstadoGestionCobranza.PromesaPago, (await LeerAlertaAsync(activa.Id)).EstadoGestion);
+    }
+
+    [Fact]
+    public async Task Promesas_NoTocaDineroCuotasNiAcuerdos()
+    {
+        var alerta = await SeedPromesaAsync(new DateTime(2026, 10, 1), dias: 1);
+        string Huella() => string.Join("|",
+            _context.Cuotas.AsNoTracking().OrderBy(c => c.Id).Select(c => $"{c.Id}:{c.Estado}:{c.MontoPunitorio}:{c.MontoPagado}").ToList()
+            .Concat(_context.Creditos.AsNoTracking().OrderBy(c => c.Id).Select(c => $"{c.Id}:{c.SaldoPendiente}").ToList())
+            .Append($"acuerdos:{_context.AcuerdosPago.Count()}"));
+        var antes = Huella();
+        await ServicioConFecha(new RelojComercialFake(new DateOnly(2026, 10, 20))).VerificarPromesasVencidasAsync();
+        Assert.Equal(antes, Huella());
+        Assert.Equal((decimal)1000m, (await LeerAlertaAsync(alerta.Id)).MontoVencido);
+    }
+
     private sealed class AuditoriaQueFallaParaUno(ISeguridadAuditoriaService real, string entidadQueFalla) : ISeguridadAuditoriaService
     {
         public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) =>
