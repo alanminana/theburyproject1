@@ -74,6 +74,9 @@ namespace TheBuryProyect.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Revertir borra la deuda congelada: se frena si hay coberturas de acuerdos Activos o Cumplidos (protegen cobros y punitorios).
+            migrationBuilder.Sql("IF EXISTS (SELECT 1 FROM [AcuerdoPagoCuotasCubiertas] c INNER JOIN [AcuerdosPago] a ON a.[Id] = c.[AcuerdoPagoId] WHERE a.[Estado] IN (2, 3)) THROW 50002, 'No se puede revertir: hay acuerdos de pago Activos o Cumplidos con deuda congelada.', 1;");
+
             // No se inventa una alerta para volver a NOT NULL: si hay acuerdos sin alerta (deuda solo punitoria), la reversión se frena.
             migrationBuilder.Sql("IF EXISTS (SELECT 1 FROM [AcuerdosPago] WHERE [AlertaCobranzaId] IS NULL) THROW 50000, 'No se puede revertir: hay acuerdos de pago sin alerta de cobranza.', 1;");
 
