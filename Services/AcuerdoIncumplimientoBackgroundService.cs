@@ -54,10 +54,14 @@ namespace TheBuryProject.Services
                 if (_ultimaFechaEjecutada == hoy)
                     return false;
 
-                var marcados = await scope.ServiceProvider.GetRequiredService<IMoraService>()
+                var resultado = await scope.ServiceProvider.GetRequiredService<IMoraService>()
                     .VerificarIncumplimientoAcuerdosAsync(cancellationToken);
-                _ultimaFechaEjecutada = hoy;
-                _logger.LogInformation("Verificación de incumplimiento de acuerdos {Fecha}: {Marcados} marcados", hoy, marcados);
+                // Con acuerdos que fallaron no se da el día por cumplido: se reintenta en la próxima revisión (cada hora).
+                if (resultado.Fallidos == 0)
+                    _ultimaFechaEjecutada = hoy;
+                _logger.LogInformation(
+                    "Verificación de incumplimiento de acuerdos {Fecha}: {Marcados} marcados, {Fallidos} con error",
+                    hoy, resultado.Marcados, resultado.Fallidos);
                 return true;
             }
             catch (OperationCanceledException)

@@ -828,9 +828,9 @@ public class MoraServiceTests : IDisposable
     private async Task<int> VerificarAsync(MoraService servicio)
     {
         _context.ChangeTracker.Clear();
-        var marcados = await servicio.VerificarIncumplimientoAcuerdosAsync();
+        var resultado = await servicio.VerificarIncumplimientoAcuerdosAsync();
         _context.ChangeTracker.Clear();
-        return marcados;
+        return resultado.Marcados;
     }
 
     private async Task<AcuerdoPago> LeerAcuerdoAsync(int id)
@@ -1050,26 +1050,50 @@ public class MoraServiceTests : IDisposable
         Assert.Equal("Sistema", evento.UsuarioNombre);
     }
 
-    private sealed class AuditoriaQueFalla : ISeguridadAuditoriaService
+    // Falla la auditoría solo para un acuerdo; para el resto delega en la auditoría real.
+    private sealed class AuditoriaQueFallaParaUno(ISeguridadAuditoriaService real, string entidadQueFalla) : ISeguridadAuditoriaService
     {
-        public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) => Task.CompletedTask;
-        public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) =>
-            throw new InvalidOperationException("No se pudo escribir el evento de auditoría.");
+        public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) =>
+            real.RegistrarEventoAsync(modulo, accion, entidad, detalle);
+
+        public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null)
+        {
+            if (entidad == entidadQueFalla)
+                throw new InvalidOperationException("No se pudo escribir el evento de auditoría.");
+            real.AgregarEvento(modulo, accion, entidad, detalle);
+        }
+
         public Task<AuditoriaQueryResult> ConsultarEventosAsync(string? usuario = null, string? modulo = null, string? accion = null,
-            DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) => throw new NotImplementedException();
+            DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) =>
+            real.ConsultarEventosAsync(usuario, modulo, accion, desde, hasta, skip, take);
     }
 
-    // El cambio de estado y su auditoría se confirman juntos: si la auditoría no se puede escribir, el acuerdo NO queda Incumplido.
+    // El cambio de estado y su auditoría se confirman juntos, y un acuerdo que falla no arrastra sus cambios pendientes al
+    // siguiente: el primero queda Activo (se reintenta), el segundo se marca Incumplido con su evento.
     [Fact]
-    public async Task Incumplimiento_SiLaAuditoriaFalla_ElAcuerdoNoQuedaIncumplidoSinRastro()
+    public async Task Incumplimiento_SiFallaUnAcuerdo_NoArrastraSusCambiosYElSiguienteSeMarcaConSuEvento()
     {
-        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
-        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
-        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(10)), new AuditoriaQueFalla());
+        var (cl1, cr1, al1) = await SeedCreditoConDeudaAsync();
+        var (cl2, cr2, al2) = await SeedCreditoConDeudaAsync();
+        var id1 = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl1, cr1, al1), "g");
+        await _service.CambiarEstadoAcuerdoAsync(id1, cl1.Id, EstadoAcuerdo.Activo);
+        var id2 = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl2, cr2, al2), "g");
+        await _service.CambiarEstadoAcuerdoAsync(id2, cl2.Id, EstadoAcuerdo.Activo);
+        var d0 = (await LeerAcuerdoAsync(id1)).FechaActivacionComercial!.Value;
 
-        Assert.Equal(0, await VerificarAsync(servicio)); // el error se registra y el acuerdo queda para la próxima corrida
+        var real = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(10)), new AuditoriaQueFallaParaUno(real, $"AcuerdoPago:{id1}"));
 
-        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+        _context.ChangeTracker.Clear();
+        var resultado = await servicio.VerificarIncumplimientoAcuerdosAsync();
+        _context.ChangeTracker.Clear();
+
+        Assert.Equal(1, resultado.Marcados);
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(id1)).Estado);       // el que falló no quedó a medias
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(id2)).Estado);   // el siguiente sí
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking().Where(e => e.Accion == "IncumplimientoAutomatico").ToListAsync();
+        Assert.Equal($"AcuerdoPago:{id2}", Assert.Single(eventos).Entidad);
     }
 
     [Fact]

@@ -1988,7 +1988,7 @@ namespace TheBuryProject.Services
             return true;
         }
 
-        public async Task<int> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default)
+        public async Task<ResultadoVerificacionIncumplimiento> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default)
         {
             var ids = await _context.AcuerdosPago
                 .AsNoTracking()
@@ -1997,6 +1997,7 @@ namespace TheBuryProject.Services
                 .ToListAsync(cancellationToken);
 
             var marcados = 0;
+            var fallidos = 0;
             foreach (var id in ids)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -2007,6 +2008,8 @@ namespace TheBuryProject.Services
                 await bloqueo.WaitAsync(cancellationToken);
                 try
                 {
+                    // Cada acuerdo parte de un contexto limpio y de lo que hay en la base: nada pendiente de otro acuerdo.
+                    _context.ChangeTracker.Clear();
                     var acuerdo = await _context.AcuerdosPago
                         .Include(a => a.Cuotas)
                         .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted, cancellationToken);
@@ -2021,7 +2024,10 @@ namespace TheBuryProject.Services
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    // Un acuerdo con problemas no frena la verificación de los demás; se reintenta en la próxima corrida.
+                    // Un acuerdo con problemas no frena la verificación de los demás ni arrastra sus cambios a los siguientes
+                    // (estado y evento de auditoría sin confirmar se descartan); se reintenta en la próxima corrida.
+                    _context.ChangeTracker.Clear();
+                    fallidos++;
                     _logger.LogError(ex, "No se pudo verificar el incumplimiento del acuerdo {AcuerdoId}", id);
                 }
                 finally
@@ -2030,7 +2036,7 @@ namespace TheBuryProject.Services
                 }
             }
 
-            return marcados;
+            return new ResultadoVerificacionIncumplimiento(marcados, fallidos);
         }
 
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
