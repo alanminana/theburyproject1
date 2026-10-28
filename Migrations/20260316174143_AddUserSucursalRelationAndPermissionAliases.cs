@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 
 #nullable disable
 
@@ -47,7 +48,7 @@ namespace TheBuryProject.Migrations
                     table.PrimaryKey("PK_Sucursales", x => x.Id);
                 });
 
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 """
                 INSERT INTO [Sucursales] ([Nombre], [Activa], [CreatedAt], [CreatedBy], [IsDeleted])
                 SELECT DISTINCT LEFT(LTRIM(RTRIM([Sucursal])), 120), 1, SYSUTCDATETIME(), N'Migration', 0
