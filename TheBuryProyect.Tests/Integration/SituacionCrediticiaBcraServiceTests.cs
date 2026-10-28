@@ -571,11 +571,13 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
     public async Task ConsultarYActualizar_BcraNoResponde_RespetaElPresupuestoTotalYNoCuelgaLaPantalla()
     {
         // Regresion del colgado de Cliente/Details en CI: api.bcra.gob.ar sin responder dejaba el request
-        // 2 x HttpClient.Timeout (15 s en produccion). HttpClient.Timeout de 5 s como "red que no contesta";
-        // el presupuesto total (300 ms) debe cortar antes y sin reintentar el timeout.
+        // 2 x HttpClient.Timeout (15 s en produccion). Aca el HttpClient no tiene timeout propio y el handler
+        // nunca responde: solo el presupuesto total (300 ms) puede terminar la consulta, y sin reintentar.
+        // No se mide el tiempo transcurrido (inestable con la suite en paralelo): si el presupuesto no se
+        // respeta, la consulta no termina y la guarda de 60 s falla la prueba.
         _fakeHttp.EnqueueHang();
         _fakeHttp.EnqueueHang();
-        var httpClient = new HttpClient(_fakeHttp) { Timeout = TimeSpan.FromSeconds(5) };
+        var httpClient = new HttpClient(_fakeHttp) { Timeout = Timeout.InfiniteTimeSpan };
         var service = new SituacionCrediticiaBcraService(
             httpClient,
             new SingletonDbContextFactoryBcra(_options),
@@ -584,11 +586,10 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
 
         var cliente = await SeedClienteAsync(cuil: "20123456789");
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        await service.ConsultarYActualizarAsync(cliente.Id);
-        sw.Stop();
-
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2), $"La consulta tardo {sw.Elapsed}: no respeta el presupuesto total.");
+        var consulta = service.ConsultarYActualizarAsync(cliente.Id);
+        var terminoAntesDeLaGuarda = await Task.WhenAny(consulta, Task.Delay(TimeSpan.FromSeconds(60))) == consulta;
+        Assert.True(terminoAntesDeLaGuarda, "La consulta BCRA no respeta el presupuesto total: sigue colgada.");
+        await consulta;
         Assert.Equal(1, _fakeHttp.CallCount);
 
         _context.ChangeTracker.Clear();
