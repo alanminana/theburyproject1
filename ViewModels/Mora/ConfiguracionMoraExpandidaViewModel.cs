@@ -179,6 +179,10 @@ namespace TheBuryProject.ViewModels.Mora
         [Range(1, 60, ErrorMessage = "El máximo debe estar entre 1 y 60 cuotas")]
         public int? MaximoCuotasAcuerdo { get; set; }
 
+        [Display(Name = "Días de gracia para marcar un acuerdo incumplido")]
+        [Range(0, 60, ErrorMessage = "Los días deben estar entre 0 y 60")]
+        public int? DiasGraciaIncumplimientoAcuerdo { get; set; }
+
         [Display(Name = "Porcentaje Mínimo Entrega (%)")]
         [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
         public decimal? PorcentajeMinimoEntrega { get; set; }

@@ -340,11 +340,34 @@ namespace TheBuryProject.Services
                     MotivoRechazoPunitorioAplicado.SolicitudInvalida,
                     "El motivo es obligatorio para aplicar un punitorio.");
 
+            // El crédito se resuelve ANTES de abrir la transacción (sin locks retenidos): el lock del crédito es lo primero
+            // que se toma adentro, igual que en el cobro y en la activación de un acuerdo (orden de locks de CreditoConcurrencia).
+            var creditoIdDeLaCuota = await _context.Cuotas.AsNoTracking()
+                .Where(c => c.Id == cuotaId && !c.IsDeleted)
+                .Select(c => (int?)c.CreditoId)
+                .FirstOrDefaultAsync(cancellationToken);
+
             await using var transaction =
                 await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
             try
             {
+                if (creditoIdDeLaCuota.HasValue)
+                    await CreditoConcurrencia.BloquearAsync(_context, creditoIdDeLaCuota.Value, cancellationToken);
+
+                // Cuota cubierta por un acuerdo: el total acordado no puede cambiar mientras está Activo, y una vez Cumplido
+                // no se aplica el devengado retroactivo (reabriría una deuda recién saldada).
+                var acuerdoActivo = await AcuerdoPagoCobertura.ActivoQueCubreAsync(_context, cuotaId, cancellationToken);
+                if (acuerdoActivo is not null)
+                    throw new PunitorioAplicadoRechazadoException(
+                        MotivoRechazoPunitorioAplicado.Conflicto,
+                        $"La cuota está cubierta por el acuerdo {acuerdoActivo.NumeroAcuerdo}, que está activo: no se pueden aplicar punitorios hasta que se cumpla o se cancele.");
+                var acuerdoCumplido = await AcuerdoPagoCobertura.CumplidoQueCubreAsync(_context, cuotaId, cancellationToken);
+                if (acuerdoCumplido is not null)
+                    throw new PunitorioAplicadoRechazadoException(
+                        MotivoRechazoPunitorioAplicado.Conflicto,
+                        $"La cuota quedó saldada por el acuerdo cumplido {acuerdoCumplido.NumeroAcuerdo}: no se aplican punitorios retroactivos sobre ella.");
+
                 var cuota = await _context.Cuotas
                     .Include(c => c.Pagos)
                     .FirstOrDefaultAsync(c => c.Id == cuotaId && !c.IsDeleted, cancellationToken);
@@ -522,17 +545,32 @@ namespace TheBuryProject.Services
                     MotivoRechazoPunitorioAplicado.SolicitudInvalida,
                     "El motivo es obligatorio para anular una aplicación de punitorio.");
 
+            var creditoIdDelPunitorio = await _context.PunitoriosAplicados.AsNoTracking()
+                .Where(p => p.Id == punitorioAplicadoId)
+                .Select(p => (int?)p.Cuota.CreditoId)
+                .FirstOrDefaultAsync(cancellationToken);
+
             await using var transaction =
                 await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
             try
             {
+                if (creditoIdDelPunitorio.HasValue)
+                    await CreditoConcurrencia.BloquearAsync(_context, creditoIdDelPunitorio.Value, cancellationToken);
+
                 var aplicado = await _context.PunitoriosAplicados
                     .Include(p => p.Cuota)
                     .FirstOrDefaultAsync(p => p.Id == punitorioAplicadoId, cancellationToken);
 
                 if (aplicado is null)
                     throw new KeyNotFoundException($"Punitorio aplicado #{punitorioAplicadoId} no encontrado.");
+
+                // Anular baja la deuda que el acuerdo activo tiene congelada: primero hay que cancelar el acuerdo.
+                var acuerdoActivoQueLoCubre = await AcuerdoPagoCobertura.ActivoQueCubreAsync(_context, aplicado.CuotaId, cancellationToken);
+                if (acuerdoActivoQueLoCubre is not null)
+                    throw new PunitorioAplicadoRechazadoException(
+                        MotivoRechazoPunitorioAplicado.Conflicto,
+                        $"La cuota está cubierta por el acuerdo {acuerdoActivoQueLoCubre.NumeroAcuerdo}, que está activo: cancelalo antes de anular el punitorio.");
 
                 if (comando.RowVersionEsperado is { Length: > 0 } esperado)
                     _context.Entry(aplicado).Property(a => a.RowVersion).OriginalValue = esperado;
