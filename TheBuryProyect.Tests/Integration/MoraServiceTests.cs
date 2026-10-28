@@ -1050,6 +1050,28 @@ public class MoraServiceTests : IDisposable
         Assert.Equal("Sistema", evento.UsuarioNombre);
     }
 
+    private sealed class AuditoriaQueFalla : ISeguridadAuditoriaService
+    {
+        public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) => Task.CompletedTask;
+        public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) =>
+            throw new InvalidOperationException("No se pudo escribir el evento de auditoría.");
+        public Task<AuditoriaQueryResult> ConsultarEventosAsync(string? usuario = null, string? modulo = null, string? accion = null,
+            DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) => throw new NotImplementedException();
+    }
+
+    // El cambio de estado y su auditoría se confirman juntos: si la auditoría no se puede escribir, el acuerdo NO queda Incumplido.
+    [Fact]
+    public async Task Incumplimiento_SiLaAuditoriaFalla_ElAcuerdoNoQuedaIncumplidoSinRastro()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(10)), new AuditoriaQueFalla());
+
+        Assert.Equal(0, await VerificarAsync(servicio)); // el error se registra y el acuerdo queda para la próxima corrida
+
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+    }
+
     [Fact]
     public void Incumplimiento_LaFronteraEsD_MasGracia_Inclusive()
     {

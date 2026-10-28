@@ -32,6 +32,9 @@ internal sealed class DocAuditoriaStub : ISeguridadAuditoriaService
         return Task.CompletedTask;
     }
 
+    public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) =>
+        Eventos.Add((modulo, accion, entidad, detalle));
+
     public Task<AuditoriaQueryResult> ConsultarEventosAsync(string? usuario = null, string? modulo = null, string? accion = null,
         DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null)
         => Task.FromResult(new AuditoriaQueryResult());

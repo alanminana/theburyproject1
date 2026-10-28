@@ -1980,10 +1980,11 @@ namespace TheBuryProject.Services
             acuerdo.Estado = EstadoAcuerdo.Incumplido;
             acuerdo.MotivoIncumplimiento = motivo;
             acuerdo.UpdatedAt = DateTime.UtcNow;
+            // El cambio de estado y su auditoría se confirman juntos: no puede quedar un Incumplido sin rastro.
+            AgregarAuditoria("IncumplimientoAutomatico", acuerdo.Id, $"{acuerdo.NumeroAcuerdo}: Activo -> Incumplido. {motivo}");
             await _context.SaveChangesAsync();
 
             _logger.LogWarning("Acuerdo {Numero} pasó a Incumplido automáticamente: {Motivo}", acuerdo.NumeroAcuerdo, motivo);
-            await AuditarAsync("IncumplimientoAutomatico", acuerdo.Id, $"{acuerdo.NumeroAcuerdo}: Activo -> Incumplido. {motivo}");
             return true;
         }
 
@@ -2079,9 +2080,10 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("Indicá el motivo para cancelar o marcar incumplido el acuerdo.");
 
             var estadoAnterior = acuerdo.Estado;
+            var detalleAuditoria = $"{acuerdo.NumeroAcuerdo}: {estadoAnterior} -> {nuevoEstado}." + (string.IsNullOrWhiteSpace(motivo) ? "" : $" Motivo: {motivo}");
             if (nuevoEstado == EstadoAcuerdo.Activo)
             {
-                await ActivarAcuerdoAsync(acuerdo);
+                await ActivarAcuerdoAsync(acuerdo, detalleAuditoria);
             }
             else
             {
@@ -2091,19 +2093,18 @@ namespace TheBuryProject.Services
                 else if (nuevoEstado == EstadoAcuerdo.Incumplido)
                     acuerdo.MotivoIncumplimiento = motivo;
                 acuerdo.UpdatedAt = DateTime.UtcNow;
+                AgregarAuditoria("CambiarEstadoAcuerdo", acuerdo.Id, detalleAuditoria); // se confirma con el cambio de estado
                 await _context.SaveChangesAsync();
             }
 
             _logger.LogInformation("Acuerdo {Numero} pasó a {Estado}", acuerdo.NumeroAcuerdo, nuevoEstado);
-            await AuditarAsync("CambiarEstadoAcuerdo", acuerdo.Id,
-                $"{acuerdo.NumeroAcuerdo}: {estadoAnterior} -> {nuevoEstado}." + (string.IsNullOrWhiteSpace(motivo) ? "" : $" Motivo: {motivo}"));
             return true;
         }
 
         // Activar congela la deuda: bajo el lock del crédito (el mismo que usan cobros y cancelaciones) se re-valida que la
         // deuda real coincida con el total acordado y se guarda la composición por cuota junto con el calendario y el estado,
         // todo en una transacción. Después, nada de lo que cubre el acuerdo cambia por otro circuito.
-        private async Task ActivarAcuerdoAsync(AcuerdoPago acuerdo)
+        private async Task ActivarAcuerdoAsync(AcuerdoPago acuerdo, string detalleAuditoria)
         {
             var restanteAFinanciar = acuerdo.MontoTotalAcuerdo - acuerdo.MontoEntregaInicial;
             if (restanteAFinanciar > 0m && acuerdo.FechaPrimeraCuota.Date < _reloj.InicioDiaComercial.Date)
@@ -2147,6 +2148,7 @@ namespace TheBuryProject.Services
                 acuerdo.DiasGraciaIncumplimiento = diasGracia;
                 GenerarCalendarioDeCuotas(acuerdo);
                 acuerdo.UpdatedAt = DateTime.UtcNow;
+                AgregarAuditoria("CambiarEstadoAcuerdo", acuerdo.Id, detalleAuditoria); // misma transacción que la activación
 
                 try
                 {
@@ -2169,6 +2171,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        // Agrega el evento al contexto sin guardar: se confirma con el SaveChanges del cambio auditado (atómico).
+        private void AgregarAuditoria(string accion, int acuerdoId, string detalle) =>
+            _auditoria?.AgregarEvento("Mora", accion, $"AcuerdoPago:{acuerdoId}", detalle);
 
         private async Task AuditarAsync(string accion, int acuerdoId, string detalle)
         {
