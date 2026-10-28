@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using TheBuryProject.Data;
 
@@ -34,7 +35,7 @@ namespace TheBuryProject.Migrations
 
             // Backfill legacy estimado: no reconstruye costo histórico real.
             // Usa el PrecioCompra actual del producto para evitar nulos en reportes existentes.
-            migrationBuilder.Sql("""
+            migrationBuilder.SqlDiferido("""
                 UPDATE vd
                 SET
                     vd.CostoUnitarioAlMomento = p.PrecioCompra,
