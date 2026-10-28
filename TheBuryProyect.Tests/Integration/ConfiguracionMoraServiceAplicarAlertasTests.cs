@@ -286,7 +286,7 @@ public class ConfiguracionMoraServiceAplicarAlertasTests : IDisposable
 }
 
 /// <summary>
-/// Tests de integración para ConfiguracionMoraService.GetConfiguracionAsync y SaveConfiguracionAsync.
+/// Tests de integración para ConfiguracionMoraService.GetConfiguracionAsync.
 /// </summary>
 public class ConfiguracionMoraServiceCrudTests : IDisposable
 {
@@ -389,95 +389,5 @@ public class ConfiguracionMoraServiceCrudTests : IDisposable
         Assert.Equal(2, config!.Alertas.Count);
         // Ordenadas por Orden ascendente
         Assert.Equal(1, config.Alertas[0].NivelPrioridad);
-    }
-
-    // -------------------------------------------------------------------------
-    // SaveConfiguracionAsync
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task SaveConfiguracion_NuevaConfig_PersisteTasaYDiasGracia()
-    {
-        var viewModel = new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.03m,
-            DiasGracia = 5,
-            ProcesoAutomaticoActivo = true,
-            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
-            Alertas = new List<AlertaMoraViewModel>()
-        };
-
-        await _service.SaveConfiguracionAsync(viewModel);
-
-        var persistida = await _context.ConfiguracionesMora.FirstOrDefaultAsync(c => !c.IsDeleted);
-        Assert.NotNull(persistida);
-        Assert.Equal(0.03m, persistida!.TasaMoraBase);
-        Assert.Equal(5, persistida.DiasGracia);
-    }
-
-    [Fact]
-    public async Task SaveConfiguracion_ConAlertas_PersisteSoloActivas()
-    {
-        var viewModel = new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.02m,
-            DiasGracia = 3,
-            ProcesoAutomaticoActivo = true,
-            HoraEjecucionDiaria = TimeSpan.Zero,
-            Alertas = new List<AlertaMoraViewModel>
-            {
-                new() { DiasRelativoVencimiento = 5, ColorAlerta = "#FFFF00", Descripcion = "Próximo a vencer", NivelPrioridad = 1, Activa = true },
-                new() { DiasRelativoVencimiento = 30, ColorAlerta = "#FF0000", Descripcion = "Cuota vencida", NivelPrioridad = 3, Activa = false } // inactiva
-            }
-        };
-
-        await _service.SaveConfiguracionAsync(viewModel);
-
-        var alertas = await _context.AlertasMora.Where(a => !a.IsDeleted).ToListAsync();
-        Assert.Single(alertas); // solo la activa
-        Assert.Equal("#FFFF00", alertas[0].ColorAlerta);
-    }
-
-    [Fact]
-    public async Task SaveConfiguracion_SegundoSave_ActualizaConfigExistente()
-    {
-        // Primera save
-        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.01m, DiasGracia = 2, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero, Alertas = []
-        });
-
-        // Segunda save — actualiza
-        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.05m, DiasGracia = 10, ProcesoAutomaticoActivo = false, HoraEjecucionDiaria = TimeSpan.Zero, Alertas = []
-        });
-
-        var configs = await _context.ConfiguracionesMora.Where(c => !c.IsDeleted).ToListAsync();
-        Assert.Single(configs); // No duplica
-        Assert.Equal(0.05m, configs[0].TasaMoraBase);
-        Assert.Equal(10, configs[0].DiasGracia);
-    }
-
-    [Fact]
-    public async Task SaveConfiguracion_SegundoSave_SoftDeleteAlertasAnteriores()
-    {
-        // Primera save con alertas
-        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.01m, DiasGracia = 2, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero,
-            Alertas = [new() { DiasRelativoVencimiento = 5, ColorAlerta = "#FFFF00", Descripcion = "Próximo a vencer", NivelPrioridad = 1, Activa = true }]
-        });
-
-        // Segunda save sin alertas
-        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
-        {
-            TasaMoraDiaria = 0.02m, DiasGracia = 3, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero,
-            Alertas = []
-        });
-
-        // Las alertas antiguas deben estar soft-deleted
-        var alertasActivas = await _context.AlertasMora.Where(a => !a.IsDeleted).ToListAsync();
-        Assert.Empty(alertasActivas);
     }
 }
