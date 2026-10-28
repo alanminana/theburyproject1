@@ -436,6 +436,13 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> ListingEditar(
             int id, string? titulo, decimal? precio, int? stock, string? sellerSku, bool confirmarReal = false)
         {
+            var errorEdicion = ValidarEdicionListing(titulo, precio, stock, sellerSku);
+            if (errorEdicion != null)
+            {
+                TempData["Error"] = errorEdicion;
+                return RedirectToAction(nameof(Listing), new { id });
+            }
+
             var (ok, mensaje) = await _listingAdminService.EditarAsync(
                 id, titulo, precio, stock, sellerSku, confirmarReal, User.Identity?.Name ?? "Sistema");
 
@@ -452,6 +459,12 @@ namespace TheBuryProject.Controllers
             if (string.IsNullOrWhiteSpace(descripcion))
             {
                 TempData["Error"] = "La descripción no puede estar vacía.";
+                return RedirectToAction(nameof(Listing), new { id });
+            }
+
+            if (descripcion.Trim().Length > 50000)
+            {
+                TempData["Error"] = "La descripción no puede superar los 50.000 caracteres.";
                 return RedirectToAction(nameof(Listing), new { id });
             }
 
@@ -548,6 +561,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
         public async Task<IActionResult> AumentoRevertir(int id, string? motivo, bool confirmarReal = false)
         {
+            if (motivo != null && motivo.Trim().Length > 500)
+            {
+                TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Aumento), new { id });
+            }
+
             var (ok, mensaje) = await _priceBatchService.RevertirAsync(id, motivo, confirmarReal, User.Identity?.Name ?? "Sistema");
             TempData[ok ? "Success" : "Error"] = mensaje;
             return RedirectToAction(nameof(Aumento), new { id });
@@ -716,6 +735,13 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> OrdenLiquidar(int id, decimal netoReal)
         {
+            var errorNeto = ValidarNetoLiquidacion(netoReal);
+            if (errorNeto != null)
+            {
+                TempData["Error"] = errorNeto;
+                return RedirectToAction(nameof(Orden), new { id });
+            }
+
             try
             {
                 await _orderService.RegistrarLiquidacionAsync(id, netoReal, User.Identity?.Name ?? "Sistema");
@@ -735,6 +761,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> OrdenDevolucion(int id, TheBuryProject.Models.Entities.MercadoLibreDevolucionEstado decision, string? nota)
         {
+            if (nota != null && nota.Trim().Length > 500)
+            {
+                TempData["Error"] = "La nota no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Orden), new { id });
+            }
+
             try
             {
                 await _orderService.DecidirDevolucionAsync(id, decision, nota, User.Identity?.Name ?? "Sistema");
@@ -757,6 +789,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> OrdenSimularClaim(int id, TheBuryProject.Models.Entities.MercadoLibreClaimTipo tipo, string? motivo)
         {
+            if (motivo != null && motivo.Trim().Length > 500)
+            {
+                TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Orden), new { id });
+            }
+
             var config = await _configuracionService.GetAsync();
             var permitirPorDevelopment = _hostEnvironment.IsDevelopment();
 
@@ -797,6 +835,18 @@ namespace TheBuryProject.Controllers
             string? resolucionManual,
             string? observaciones)
         {
+            if (resolucionManual != null && resolucionManual.Trim().Length > 500)
+            {
+                TempData["Error"] = "La resolución manual no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Orden), new { id });
+            }
+
+            if (observaciones != null && observaciones.Trim().Length > 1000)
+            {
+                TempData["Error"] = "Las observaciones no pueden superar los 1000 caracteres.";
+                return RedirectToAction(nameof(Orden), new { id });
+            }
+
             try
             {
                 await _orderService.ResolverClaimAsync(
@@ -1414,12 +1464,41 @@ namespace TheBuryProject.Controllers
             return View(pregunta);
         }
 
+        // Los servicios cortaban en silencio a 2000 (columna): una respuesta al comprador no puede salir recortada.
+        private const int TextoMaximoMl = 2000;
+
+        internal static string? ValidarNetoLiquidacion(decimal netoReal)
+            => netoReal <= 0 || netoReal > Validation.MontoArgentinoAttribute.Maximo || decimal.Round(netoReal, 2) != netoReal
+                ? "El neto liquidado debe ser mayor a 0, con hasta 2 decimales y no superar 20.000.000."
+                : null;
+
+        // Mercado Libre limita el título a 60; las ediciones inválidas se rechazan en vez de ignorarse en silencio.
+        internal static string? ValidarEdicionListing(string? titulo, decimal? precio, int? stock, string? sellerSku)
+        {
+            if (titulo != null && titulo.Trim().Length > 60)
+                return "Mercado Libre limita el título a 60 caracteres.";
+            if (precio.HasValue && (precio.Value <= 0 || precio.Value > Validation.MontoArgentinoAttribute.Maximo
+                                    || decimal.Round(precio.Value, 2) != precio.Value))
+                return "El precio debe ser mayor a 0, con hasta 2 decimales y no superar 20.000.000.";
+            if (stock.HasValue && (stock.Value < 0 || stock.Value > 999999))
+                return "El stock debe estar entre 0 y 999.999.";
+            if (sellerSku != null && sellerSku.Trim().Length > 100)
+                return "El SKU no puede superar los 100 caracteres.";
+            return null;
+        }
+
         // POST: /MercadoLibre/PreguntaSimular — crea una pregunta QA sobre una publicación.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> PreguntaSimular(int listingId, string texto, string? returnUrl = null)
         {
+            if ((texto ?? string.Empty).Trim().Length > TextoMaximoMl)
+            {
+                TempData["Error"] = $"El texto no puede superar los {TextoMaximoMl} caracteres.";
+                return RedirectToAction(nameof(Listing), new { id = listingId });
+            }
+
             var resultado = await _questionService.SimularPreguntaAsync(
                 listingId, texto ?? string.Empty, User.Identity?.Name ?? "Sistema", _hostEnvironment.IsDevelopment());
 
@@ -1437,6 +1516,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> PreguntaResponder(int id, string respuesta, bool confirmarReal = false)
         {
+            if ((respuesta ?? string.Empty).Trim().Length > TextoMaximoMl)
+            {
+                TempData["Error"] = $"La respuesta no puede superar los {TextoMaximoMl} caracteres.";
+                return RedirectToAction(nameof(Pregunta), new { id });
+            }
+
             var resultado = await _questionService.ResponderPreguntaAsync(
                 id, respuesta ?? string.Empty, confirmarReal, User.Identity?.Name ?? "Sistema");
 
@@ -1466,6 +1551,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> MensajeSimular(int orderId, string texto)
         {
+            if ((texto ?? string.Empty).Trim().Length > TextoMaximoMl)
+            {
+                TempData["Error"] = $"El mensaje no puede superar los {TextoMaximoMl} caracteres.";
+                return RedirectToAction(nameof(Orden), new { id = orderId });
+            }
+
             var resultado = await _messageService.SimularMensajeAsync(
                 orderId, texto ?? string.Empty, User.Identity?.Name ?? "Sistema", _hostEnvironment.IsDevelopment());
 
@@ -1479,6 +1570,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mercadolibre", Accion = "orders")]
         public async Task<IActionResult> MensajeResponder(int orderId, string texto, bool confirmarReal = false)
         {
+            if ((texto ?? string.Empty).Trim().Length > TextoMaximoMl)
+            {
+                TempData["Error"] = $"El mensaje no puede superar los {TextoMaximoMl} caracteres.";
+                return RedirectToAction(nameof(Orden), new { id = orderId });
+            }
+
             var resultado = await _messageService.ResponderMensajeAsync(
                 orderId, texto ?? string.Empty, confirmarReal, User.Identity?.Name ?? "Sistema");
 
