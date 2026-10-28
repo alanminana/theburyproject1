@@ -133,7 +133,7 @@ public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
 
     public int? ConfiguracionTarjetaId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "La cantidad de cuotas debe ser al menos 1.")]
+    [Range(1, 60, ErrorMessage = "La cantidad de cuotas debe estar entre 1 y 60.")]
     public int CantidadCuotas { get; set; } = 1;
 
     public bool Activo { get; set; } = true;
@@ -154,10 +154,11 @@ public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (AjustePorcentaje < AjustePorcentajeMinimo || AjustePorcentaje > AjustePorcentajeMaximo)
+        // -100 % dejaría el total en cero: el descuento máximo es el mayor valor por encima de -100.
+        if (AjustePorcentaje <= AjustePorcentajeMinimo || AjustePorcentaje > AjustePorcentajeMaximo)
         {
             yield return new ValidationResult(
-                "El porcentaje debe estar entre -100.0000 y 999.9999.",
+                "El porcentaje debe ser mayor a -100 y no superar 999.9999.",
                 new[] { nameof(AjustePorcentaje) });
         }
     }

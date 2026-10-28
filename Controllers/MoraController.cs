@@ -205,7 +205,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "Datos inválidos";
+                    TempData["Error"] = MensajeDeValidacion();
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
@@ -272,7 +272,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "Datos inválidos";
+                    TempData["Error"] = MensajeDeValidacion();
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
@@ -391,7 +391,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "Datos inválidos";
+                    TempData["Error"] = MensajeDeValidacion();
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
@@ -521,7 +521,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "Datos inválidos";
+                    TempData["Error"] = MensajeDeValidacion();
                     return RedirectToAction(nameof(Configuracion), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
@@ -546,7 +546,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    TempData["Error"] = "Datos inválidos";
+                    TempData["Error"] = MensajeDeValidacion();
                     return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
@@ -758,5 +758,15 @@ namespace TheBuryProject.Controllers
         }
 
         #endregion
+    
+        // VALID-L5: "Datos inválidos" sin más no le dice a quien carga la promesa o el acuerdo qué corregir.
+        private string MensajeDeValidacion()
+        {
+            var motivo = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m));
+            return string.IsNullOrWhiteSpace(motivo) ? "Datos inválidos" : $"Datos inválidos: {motivo.TrimEnd('.')}";
+        }
     }
 }
