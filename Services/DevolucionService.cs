@@ -1710,7 +1710,19 @@ public class DevolucionService : IDevolucionService
 
     private static string EscapeCsv(string? value)
     {
-        var sanitized = (value ?? string.Empty).Replace("\"", "\"\"");
+        var texto = value ?? string.Empty;
+
+        // Inyección de fórmulas (CWE-1236): Excel/LibreOffice evalúan una celda que empieza con = + - @ (o tab/CR)
+        // aunque venga entre comillas. El texto libre (nombre de producto, observaciones) se neutraliza con un
+        // apóstrofo inicial; los importes numéricos legítimos (p. ej. "-15.50") no se alteran.
+        if (texto.Length > 0
+            && texto[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            && !decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        {
+            texto = "'" + texto;
+        }
+
+        var sanitized = texto.Replace("\"", "\"\"");
         return $"\"{sanitized}\"";
     }
 
