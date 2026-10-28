@@ -144,6 +144,7 @@ namespace TheBuryProject.Controllers
         // POST: AlertaStock/Resolver/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "stock", Accion = "adjust")]
         public async Task<IActionResult> Resolver(int id, string? observaciones, byte[]? rowVersion, string? returnUrl)
         {
             return await ProcesarAccionAlerta(
@@ -160,6 +161,7 @@ namespace TheBuryProject.Controllers
         // POST: AlertaStock/Ignorar/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "stock", Accion = "adjust")]
         public async Task<IActionResult> Ignorar(int id, string? observaciones, byte[]? rowVersion, string? returnUrl)
         {
             return await ProcesarAccionAlerta(
@@ -176,6 +178,7 @@ namespace TheBuryProject.Controllers
         // POST: AlertaStock/MarcarEnProceso/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "stock", Accion = "adjust")]
         public async Task<IActionResult> MarcarEnProceso(int id, string? observaciones, byte[]? rowVersion, string? returnUrl)
         {
             return await ProcesarAccionAlerta(
@@ -192,6 +195,7 @@ namespace TheBuryProject.Controllers
         // POST: AlertaStock/GenerarAlertas
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "stock", Accion = "adjust")]
         public async Task<IActionResult> GenerarAlertas()
         {
             try
