@@ -75,17 +75,23 @@ public class AccionesMutantesTodosLosControllersContractTests
     public void SoloLosEndpointsDeclaradosPuedenCarecerDeAntiforgery()
     {
         // Mutantes sin ValidateAntiForgeryToken/AutoValidateAntiforgeryToken en método o clase: solo webhook externo,
-        // utilitarios de Diagnostico (dev) y SaveConfiguracion (JSON; ver informe H2-B2).
+        // utilitarios de Diagnostico (dev).
         var permitidos = new HashSet<string>
         {
             "MercadoLibreWebhookController.Recibir", "DiagnosticoController.CrearUsuarioPrueba",
             "DiagnosticoController.ResetPassword", "DiagnosticoController.TestLogin",
-            "ConfiguracionMoraController.SaveConfiguracion",
         };
         var sinAf = Mutantes()
             .Where(x => !x.Metodo.GetCustomAttributes(true).Concat(x.Tipo.GetCustomAttributes(true))
                 .Any(a => a is ValidateAntiForgeryTokenAttribute or AutoValidateAntiforgeryTokenAttribute))
             .Select(x => $"{x.Tipo.Name}.{x.Metodo.Name}").Distinct().Where(n => !permitidos.Contains(n)).ToList();
         Assert.True(sinAf.Count == 0, "Mutantes sin antiforgery: " + string.Join(", ", sinAf));
+    }
+
+    [Fact]
+    public void ConfiguracionMora_SaveConfiguracionRetirado()
+    {
+        // H2-D: endpoint JSON huerfano (sin llamadores) retirado; la configuracion vigente es Mora/GuardarConfiguracionExpandida.
+        Assert.Null(typeof(TheBuryProject.Controllers.ConfiguracionMoraController).GetMethod("SaveConfiguracion"));
     }
 }

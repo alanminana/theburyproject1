@@ -78,69 +78,6 @@ namespace TheBuryProject.Services
             return viewModel;
         }
 
-        public async Task<ConfiguracionMoraCompletaViewModel> SaveConfiguracionAsync(ConfiguracionMoraCompletaViewModel viewModel)
-        {
-            try
-            {
-                // Obtener o crear configuración principal
-                var config = await _context.ConfiguracionesMora
-                    .FirstOrDefaultAsync(c => !c.IsDeleted);
-
-                if (config == null)
-                {
-                    config = new ConfiguracionMora();
-                    _context.ConfiguracionesMora.Add(config);
-                }
-
-                // Actualizar configuración principal
-                config.TasaMoraBase = viewModel.TasaMoraDiaria;
-                config.DiasGracia = viewModel.DiasGracia;
-                config.ProcesoAutomaticoActivo = viewModel.ProcesoAutomaticoActivo;
-                config.HoraEjecucionDiaria = viewModel.HoraEjecucionDiaria;
-
-                // Persistir config primero para obtener su Id si es nueva
-                await _context.SaveChangesAsync();
-
-                // Eliminar alertas existentes
-                var alertasExistentes = await _context.Set<AlertaMora>()
-                    .Where(a => !a.IsDeleted)
-                    .ToListAsync();
-
-                foreach (var alerta in alertasExistentes)
-                {
-                    alerta.IsDeleted = true;
-                }
-
-                // Agregar nuevas alertas
-                var orden = 1;
-                foreach (var alertaVm in viewModel.Alertas.Where(a => a.Activa))
-                {
-                    var alerta = new AlertaMora
-                    {
-                        ConfiguracionMoraId = config.Id,
-                        DiasRelativoVencimiento = alertaVm.DiasRelativoVencimiento,
-                        ColorAlerta = alertaVm.ColorAlerta,
-                        Descripcion = alertaVm.Descripcion,
-                        NivelPrioridad = alertaVm.NivelPrioridad,
-                        Activa = true,
-                        Orden = orden++
-                    };
-                    _context.Set<AlertaMora>().Add(alerta);
-                }
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Configuración de mora guardada exitosamente");
-
-                return await GetConfiguracionAsync() ?? viewModel;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al guardar configuración de mora");
-                throw;
-            }
-        }
-
         public async Task AplicarAlertasMoraAsync(IList<CuotaViewModel> cuotas)
         {
             if (cuotas.Count == 0) return;
