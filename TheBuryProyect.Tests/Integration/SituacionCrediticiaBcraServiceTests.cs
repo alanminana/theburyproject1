@@ -567,6 +567,36 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         Assert.Equal(2, _fakeHttp.CallCount);
     }
 
+    [Fact]
+    public async Task ConsultarYActualizar_BcraNoResponde_RespetaElPresupuestoTotalYNoCuelgaLaPantalla()
+    {
+        // Regresion del colgado de Cliente/Details en CI: api.bcra.gob.ar sin responder dejaba el request
+        // 2 x HttpClient.Timeout (15 s en produccion). HttpClient.Timeout de 5 s como "red que no contesta";
+        // el presupuesto total (300 ms) debe cortar antes y sin reintentar el timeout.
+        _fakeHttp.EnqueueHang();
+        _fakeHttp.EnqueueHang();
+        var httpClient = new HttpClient(_fakeHttp) { Timeout = TimeSpan.FromSeconds(5) };
+        var service = new SituacionCrediticiaBcraService(
+            httpClient,
+            new SingletonDbContextFactoryBcra(_options),
+            NullLogger<SituacionCrediticiaBcraService>.Instance,
+            TimeSpan.FromMilliseconds(300));
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await service.ConsultarYActualizarAsync(cliente.Id);
+        sw.Stop();
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2), $"La consulta tardo {sw.Elapsed}: no respeta el presupuesto total.");
+        Assert.Equal(1, _fakeHttp.CallCount);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal("Timeout al consultar BCRA", bd.SituacionCrediticiaDescripcion);
+    }
+
     // -------------------------------------------------------------------------
     // Cliente inexistente — no lanza
     // -------------------------------------------------------------------------
@@ -606,6 +636,14 @@ internal sealed class FakeHttpHandlerBcra : HttpMessageHandler
         _queue.Enqueue(exception);
     }
 
+    /// <summary>Simula un servidor que acepta la conexion y nunca responde (solo termina por cancelacion).</summary>
+    public void EnqueueHang()
+    {
+        _queue.Enqueue(HangMarker);
+    }
+
+    private static readonly object HangMarker = new();
+
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -614,6 +652,9 @@ internal sealed class FakeHttpHandlerBcra : HttpMessageHandler
         if (_queue.Count > 0)
         {
             var next = _queue.Dequeue();
+            if (ReferenceEquals(next, HangMarker))
+                return HangAsync(cancellationToken);
+
             if (next is Exception exception)
                 return Task.FromException<HttpResponseMessage>(exception);
 
@@ -622,6 +663,12 @@ internal sealed class FakeHttpHandlerBcra : HttpMessageHandler
         }
 
         return Task.FromResult(CreateResponse(_statusCode, _content));
+    }
+
+    private static async Task<HttpResponseMessage> HangAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(Timeout.Infinite, cancellationToken);
+        throw new InvalidOperationException("inalcanzable");
     }
 
     private static HttpResponseMessage CreateResponse(HttpStatusCode statusCode, string content)
