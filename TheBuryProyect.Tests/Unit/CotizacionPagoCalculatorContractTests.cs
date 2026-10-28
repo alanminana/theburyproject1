@@ -315,6 +315,38 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Contains(tarjeta.Planes, p => p.CantidadCuotas == 3);
     }
 
+    // H2-C1: tarjeta/debito/MercadoPago muestran el total truncado a pesos enteros (el que registra la venta);
+    // Efectivo/Transferencia conservan los centavos.
+    [Fact]
+    public async Task Simular_Tarjeta_TruncaTotalAPesosYEfectivoTransferenciaConservanCentavos()
+    {
+        var precios = new Dictionary<int, ProductoPrecioVentaResultado?>
+        {
+            [1] = new ProductoPrecioVentaResultado
+            {
+                ProductoId = 1,
+                Codigo = "P-1",
+                Nombre = "Producto 1",
+                PrecioVenta = 217_499.99m,
+                FuentePrecio = FuentePrecioVigente.ProductoPrecioBase,
+                StockActual = 10
+            }
+        };
+
+        var resultado = await CreateCalculator(precios: precios).SimularAsync(DefaultRequest(cantidad: 1));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.TarjetaCredito);
+        Assert.Equal(239_249m, Assert.Single(credito.Planes, p => p.CantidadCuotas == 3).Total);      // 239.249,99 -> 239.249
+        var debito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.TarjetaDebito);
+        Assert.Equal(221_849m, Assert.Single(debito.Planes).Total);       // 221.849,99 -> 221.849
+        var mp = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.MercadoPago);
+        Assert.Equal(224_024m, Assert.Single(mp.Planes).Total);           // 224.024,99 -> 224.024
+        var efectivo = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Efectivo);
+        Assert.Equal(206_624.99m, Assert.Single(efectivo.Planes).Total);  // -5%: conserva centavos
+        var transferencia = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Transferencia);
+        Assert.Equal(217_499.99m, Assert.Single(transferencia.Planes).Total);
+    }
+
     [Fact]
     public async Task Simular_Tarjeta_UsaPlanesActivosAunquePermiteCuotasLegacyEsteApagado()
     {
