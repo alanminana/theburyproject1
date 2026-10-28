@@ -530,6 +530,62 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         Assert.Equal(50m, detalles.Sum(d => d.ComisionMonto));
     }
 
+    /// <summary>
+    /// H2-C2 (numeracion COT/VTA, solo caracteriza el comportamiento actual): una venta creada desde Venta/Create nace
+    /// como Cotizacion y por eso recibe el prefijo COT de la serie de ventas (COT-yyyyMM-NNNNNN); Confirmar NO
+    /// renumera, la venta conserva ese numero. Solo las ventas convertidas desde una Cotizacion reciben VTA
+    /// (ver Convertir_LaVentaLlevaNumeracionDeVenta_NoDeCotizacion). Ver docs/numeracion-cotizacion-venta.md.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_VentaNaceConPrefijoCot_YConfirmarConservaElNumero()
+    {
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+        var cliente = new Cliente
+        {
+            Nombre = "Cliente",
+            Apellido = "Numeracion",
+            NumeroDocumento = $"8{suffix}",
+            NivelRiesgo = NivelRiesgoCredito.AprobadoTotal,
+            IsDeleted = false
+        };
+        var producto = new Producto
+        {
+            Codigo = $"PNUM{suffix}",
+            Nombre = $"Producto Numeracion {suffix}",
+            PrecioVenta = 100m,
+            StockActual = 10,
+            Categoria = new Categoria { Nombre = $"CatNum{suffix}" },
+            Marca = new Marca { Nombre = $"MarcaNum{suffix}" },
+            IsDeleted = false
+        };
+        _context.Clientes.Add(cliente);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var creada = await _service.CreateAsync(new VentaViewModel
+        {
+            ClienteId = cliente.Id,
+            FechaVenta = DateTime.UtcNow,
+            Estado = EstadoVenta.Presupuesto,
+            TipoPago = TipoPago.Efectivo,
+            Detalles = new List<VentaDetalleViewModel>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 100m }
+            }
+        });
+
+        var periodo = DateTime.UtcNow.ToString("yyyyMM");
+        Assert.StartsWith($"COT-{periodo}-", creada.Numero);
+        Assert.DoesNotMatch("^VTA-", creada.Numero);
+
+        Assert.True(await _service.ConfirmarVentaAsync(creada.Id));
+
+        var confirmada = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id);
+        Assert.Equal(EstadoVenta.Confirmada, confirmada.Estado);
+        Assert.Equal(creada.Numero, confirmada.Numero);
+        Assert.StartsWith($"COT-{periodo}-", confirmada.Numero);
+    }
+
     [Fact]
     public async Task CreateAsync_TipoPagoTarjetaHistorico_RechazaVentaNueva()
     {
