@@ -1415,6 +1415,72 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <summary>
+        /// Semántica (conservadora) de <c>DiasParaCumplirPromesa</c>: días de espera DESPUÉS de la fecha prometida ("días máximos
+        /// para esperar cumplimiento"). La promesa incumple cuando hoyComercial &gt; fechaPrometida + días (el último día de
+        /// espera todavía vale). Sin el valor configurado no se hace nada.
+        /// </summary>
+        internal static bool PromesaVencidaParaIncumplir(DateTime fechaPromesa, int? diasParaCumplir, DateOnly hoyComercial) =>
+            diasParaCumplir.HasValue && diasParaCumplir.Value >= 0
+            && hoyComercial > DateOnly.FromDateTime(fechaPromesa).AddDays(diasParaCumplir.Value);
+
+        public async Task<ResultadoVerificacionPromesas> VerificarPromesasVencidasAsync(CancellationToken cancellationToken = default)
+        {
+            var dias = (await GetConfiguracionAsync()).DiasParaCumplirPromesa;
+            if (!dias.HasValue)
+                return new ResultadoVerificacionPromesas(0, 0);
+
+            var hoy = _reloj.HoyComercial;
+            var candidatas = await _context.AlertasCobranza
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted && a.EstadoGestion == EstadoGestionCobranza.PromesaPago && a.FechaPromesaPago != null)
+                .Select(a => new { a.Id, Fecha = a.FechaPromesaPago!.Value })
+                .ToListAsync(cancellationToken);
+
+            var marcadas = 0;
+            var fallidas = 0;
+            foreach (var c in candidatas.Where(c => PromesaVencidaParaIncumplir(c.Fecha, dias, hoy)))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    _context.ChangeTracker.Clear();
+                    var alerta = await _context.AlertasCobranza
+                        .FirstOrDefaultAsync(a => a.Id == c.Id && !a.IsDeleted, cancellationToken);
+                    // Relectura: si ya se cumplió o cerró entre la consulta y ahora, no se toca.
+                    if (alerta == null || alerta.EstadoGestion != EstadoGestionCobranza.PromesaPago
+                        || alerta.FechaPromesaPago == null
+                        || !PromesaVencidaParaIncumplir(alerta.FechaPromesaPago.Value, dias, hoy))
+                        continue;
+
+                    var fechaPrometida = alerta.FechaPromesaPago.Value;
+                    alerta.EstadoGestion = EstadoGestionCobranza.EnGestion;
+                    alerta.FechaPromesaPago = null;
+                    alerta.MontoPromesaPago = null;
+                    alerta.Observaciones = (alerta.Observaciones ?? "")
+                        + $" | Promesa incumplida automáticamente (prometida {fechaPrometida:dd/MM/yyyy}, {dias} días de espera)";
+                    alerta.UpdatedAt = DateTime.UtcNow;
+                    if (alerta.Prioridad < PrioridadAlerta.Critica)
+                        alerta.Prioridad++;
+
+                    // Estado y auditoría se confirman juntos.
+                    _auditoria?.AgregarEvento("Mora", "PromesaIncumplidaAutomatica", $"AlertaCobranza:{alerta.Id}",
+                        $"PromesaPago -> EnGestion. Prometida {fechaPrometida:dd/MM/yyyy}; {dias} días de espera vencidos al {hoy:dd/MM/yyyy}.");
+                    await _context.SaveChangesAsync(cancellationToken);
+                    marcadas++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _context.ChangeTracker.Clear();
+                    fallidas++;
+                    _logger.LogError(ex, "No se pudo marcar la promesa vencida de la alerta {AlertaId}", c.Id);
+                }
+            }
+
+            _context.ChangeTracker.Clear();
+            return new ResultadoVerificacionPromesas(marcadas, fallidas);
+        }
+
         #endregion
 
         #region Acuerdos de Pago

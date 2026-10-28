@@ -3,7 +3,7 @@ using TheBuryProject.Services.Interfaces;
 namespace TheBuryProject.Services
 {
     /// <summary>
-    /// Verificación diaria del incumplimiento de acuerdos de pago. Corre independientemente de la configuración del proceso
+    /// Verificación diaria del incumplimiento de acuerdos de pago y de promesas de pago vencidas. Corre independientemente de la configuración del proceso
     /// automático de mora (<c>ProcesoAutomaticoActivo</c>): el incumplimiento de un acuerdo no depende de que esté encendido
     /// el cálculo de alertas. Usa la fecha comercial de Argentina para decidir si ya hay que ejecutarla.
     /// </summary>
@@ -54,14 +54,18 @@ namespace TheBuryProject.Services
                 if (_ultimaFechaEjecutada == hoy)
                     return false;
 
-                var resultado = await scope.ServiceProvider.GetRequiredService<IMoraService>()
-                    .VerificarIncumplimientoAcuerdosAsync(cancellationToken);
+                var mora = scope.ServiceProvider.GetRequiredService<IMoraService>();
+                var resultado = await mora.VerificarIncumplimientoAcuerdosAsync(cancellationToken);
+                var promesas = await mora.VerificarPromesasVencidasAsync(cancellationToken);
                 // Con acuerdos que fallaron no se da el día por cumplido: se reintenta en la próxima revisión (cada hora).
-                if (resultado.Fallidos == 0)
+                if (resultado.Fallidos == 0 && promesas.Fallidas == 0)
                     _ultimaFechaEjecutada = hoy;
                 _logger.LogInformation(
                     "Verificación de incumplimiento de acuerdos {Fecha}: {Marcados} marcados, {Fallidos} con error",
                     hoy, resultado.Marcados, resultado.Fallidos);
+                _logger.LogInformation(
+                    "Verificación de promesas de pago vencidas {Fecha}: {Marcadas} incumplidas, {Fallidas} con error",
+                    hoy, promesas.Marcadas, promesas.Fallidas);
                 return true;
             }
             catch (OperationCanceledException)
