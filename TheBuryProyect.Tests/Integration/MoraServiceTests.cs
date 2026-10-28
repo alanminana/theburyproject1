@@ -676,7 +676,8 @@ public class MoraServiceTests : IDisposable
     {
         var (cl, cr, al) = await SeedCreditoConDeudaAsync();
         var solicitud = Solicitud(cl, cr, al);
-        solicitud.FechaPrimeraCuota = DateTime.Today.AddDays(-1);
+        // Fecha comercial (Argentina), no DateTime.Today: en un runner en UTC difieren entre las 00:00 y las 03:00.
+        solicitud.FechaPrimeraCuota = _reloj.InicioDiaComercial.AddDays(-1);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoParaCreditoAsync(solicitud, "g"));
 
@@ -1062,7 +1063,7 @@ public class MoraServiceTests : IDisposable
 
         if (permitido)
         {
-            Assert.True(await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia));
+            Assert.True(await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia, "motivo de prueba"));
             var guardado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
             Assert.Equal(hacia, guardado.Estado);
             Assert.Equal(hacia == EstadoAcuerdo.Activo, guardado.FechaActivacion.HasValue);

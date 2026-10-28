@@ -10,9 +10,10 @@ namespace TheBuryProject.Models.Entities
     public class AcuerdoPago : AuditableEntity
     {
         /// <summary>
-        /// Alerta de cobranza que originó el acuerdo
+        /// Alerta de cobranza que originó el acuerdo; null cuando la deuda es solo de punitorio aplicado (sin mora de capital,
+        /// el crédito no tiene alerta de cobranza y no se inventa una).
         /// </summary>
-        public int AlertaCobranzaId { get; set; }
+        public int? AlertaCobranzaId { get; set; }
         public virtual AlertaCobranza? AlertaCobranza { get; set; }
 
         /// <summary>
@@ -134,5 +135,8 @@ namespace TheBuryProject.Models.Entities
 
         // Navigation Properties
         public virtual ICollection<CuotaAcuerdo> Cuotas { get; set; } = new List<CuotaAcuerdo>();
+
+        /// <summary>Cuotas originales cubiertas y su deuda congelada al activar; vacío mientras es borrador.</summary>
+        public virtual ICollection<AcuerdoPagoCuotaCubierta> CuotasCubiertas { get; set; } = new List<AcuerdoPagoCuotaCubierta>();
     }
 }
