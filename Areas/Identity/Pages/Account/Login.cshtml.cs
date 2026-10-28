@@ -56,9 +56,11 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
         public class InputModel
         {
             [Display(Name = "Usuario")]
+            [StringLength(256)]
             public string UserName { get; set; }
 
             [DataType(DataType.Password)]
+            [StringLength(256)]
             public string Password { get; set; }
 
             [Display(Name = "Recordarme")]
