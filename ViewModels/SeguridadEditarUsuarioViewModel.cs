@@ -10,10 +10,12 @@ public class SeguridadEditarUsuarioViewModel
 
     [Required(ErrorMessage = "El nombre de usuario es requerido")]
     [StringLength(50, ErrorMessage = "El nombre de usuario no puede exceder 50 caracteres")]
+    [RegularExpression(@"^[A-Za-z0-9._@+-]{3,50}$", ErrorMessage = "El nombre de usuario debe tener entre 3 y 50 caracteres: letras sin tildes, números y . _ - @ + (sin espacios).")]
     [Display(Name = "Username")]
     public string UserName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El email es requerido")]
+    [StringLength(256, ErrorMessage = "El email no puede exceder 256 caracteres")]
     [EmailAddress(ErrorMessage = "Email inválido")]
     [Display(Name = "Email")]
     public string Email { get; set; } = string.Empty;

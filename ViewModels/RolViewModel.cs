@@ -38,6 +38,7 @@ public class CrearRolViewModel
 {
     [Required(ErrorMessage = "El nombre del rol es requerido")]
     [StringLength(100, ErrorMessage = "El nombre no puede exceder 100 caracteres")]
+    [RegularExpression(@"^\s*[\p{L}\p{N}]+(?:[ _.-][\p{L}\p{N}]+)*\s*$", ErrorMessage = "El nombre del rol solo admite letras, números y separadores simples (espacio, punto, guion o guion bajo).")]
     [Display(Name = "Nombre del Rol")]
     public string Nombre { get; set; } = string.Empty;
 
@@ -59,6 +60,7 @@ public class EditarRolViewModel
 
     [Required(ErrorMessage = "El nombre del rol es requerido")]
     [StringLength(100, ErrorMessage = "El nombre no puede exceder 100 caracteres")]
+    [RegularExpression(@"^\s*[\p{L}\p{N}]+(?:[ _.-][\p{L}\p{N}]+)*\s*$", ErrorMessage = "El nombre del rol solo admite letras, números y separadores simples (espacio, punto, guion o guion bajo).")]
     [Display(Name = "Nombre del Rol")]
     public string Nombre { get; set; } = string.Empty;
 
@@ -82,6 +84,7 @@ public class DuplicarRolViewModel
 
     [Required(ErrorMessage = "El nombre del rol es requerido")]
     [StringLength(100, ErrorMessage = "El nombre no puede exceder 100 caracteres")]
+    [RegularExpression(@"^\s*[\p{L}\p{N}]+(?:[ _.-][\p{L}\p{N}]+)*\s*$", ErrorMessage = "El nombre del rol solo admite letras, números y separadores simples (espacio, punto, guion o guion bajo).")]
     [Display(Name = "Nombre del Rol")]
     public string Nombre { get; set; } = string.Empty;
 

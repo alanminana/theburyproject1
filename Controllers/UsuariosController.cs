@@ -353,6 +353,13 @@ public class UsuariosController : Controller
     [PermisoRequerido(Modulo = "usuarios", Accion = "delete")]
     public async Task<IActionResult> DeleteConfirmed(string id, string? returnUrl, string? motivo)
     {
+        motivo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
+        if (motivo != null && motivo.Length > 500)
+        {
+            TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+            return RedirectToReturnUrlOrIndex(returnUrl);
+        }
+
         try
         {
             var user = await _userManager.FindByIdAsync(id);
@@ -697,9 +704,14 @@ public class UsuariosController : Controller
     [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
     public async Task<IActionResult> Bloquear([FromForm] BloquearUsuarioViewModel model)
     {
-        if (model.BloqueadoHasta.HasValue && model.BloqueadoHasta.Value <= DateTime.UtcNow)
+        if (model.BloqueadoHasta.HasValue)
         {
-            ModelState.AddModelError(nameof(model.BloqueadoHasta), "La fecha de bloqueo debe ser posterior a la fecha actual.");
+            // El input datetime-local llega sin zona: es hora local del servidor (así se aplica abajo).
+            var hasta = model.BloqueadoHasta.Value;
+            if (hasta <= DateTime.Now)
+                ModelState.AddModelError(nameof(model.BloqueadoHasta), "La fecha de bloqueo debe ser posterior a la fecha actual.");
+            else if (hasta > DateTime.Now.AddYears(10))
+                ModelState.AddModelError(nameof(model.BloqueadoHasta), "La fecha de bloqueo no puede superar los 10 años. Para un bloqueo sin fecha dejá el campo vacío.");
         }
 
         if (!ModelState.IsValid)
