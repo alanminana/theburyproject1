@@ -11,6 +11,11 @@ namespace TheBuryProyect.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Un acuerdo Activo anterior no tiene deuda congelada y no se reconstruye desde el saldo actual (no acredita su composición
+            // original): la actualización se frena hasta que se cancelen o completen. Cumplidos, Incumplidos, Cancelados y borradores
+            // no necesitan nada: un borrador congela al activarse y los cerrados quedan fuera de la garantía nueva.
+            migrationBuilder.Sql("IF EXISTS (SELECT 1 FROM [AcuerdosPago] WHERE [Estado] = 2 AND [IsDeleted] = 0) THROW 50001, 'Hay acuerdos de pago Activos sin deuda congelada. Cancelalos o completalos antes de aplicar esta migracion.', 1;");
+
             migrationBuilder.AlterColumn<int>(
                 name: "AlertaCobranzaId",
                 table: "AcuerdosPago",
