@@ -378,7 +378,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             medio.NombreVisible,
             medio,
             totalBase,
-            mostrarDisponibleSinConfiguracion: false));
+            mostrarDisponibleSinConfiguracion: false,
+            truncarAPesos: true));
     }
 
     private async Task AgregarCreditoPersonalAsync(
@@ -587,7 +588,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         string nombre,
         MedioPagoGlobalDto? medio,
         decimal totalBase,
-        bool mostrarDisponibleSinConfiguracion)
+        bool mostrarDisponibleSinConfiguracion,
+        bool truncarAPesos = false)
     {
         if (medio == null && !mostrarDisponibleSinConfiguracion)
         {
@@ -619,7 +621,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             Estado = CotizacionOpcionPagoEstado.Disponible,
             Planes =
             {
-                CrearPlanResultado(plan?.Etiqueta ?? "1 pago", calculo)
+                CrearPlanResultado(plan?.Etiqueta ?? "1 pago", calculo, truncarAPesos)
             }
         };
     }
@@ -680,7 +682,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                     var etiqueta = string.IsNullOrWhiteSpace(plan.Etiqueta)
                         ? $"{tarjeta.Nombre} · {cuotasTexto}"
                         : $"{tarjeta.Nombre} · {plan.Etiqueta}";
-                    planes.Add(CrearPlanResultado(etiqueta, calculo));
+                    planes.Add(CrearPlanResultado(etiqueta, calculo, truncarAPesos: true));
                 }
             }
         }
@@ -702,7 +704,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
     private static CotizacionPlanPagoResultado CrearPlanResultado(
         string plan,
-        AjustePagoGlobalResultado calculo) =>
+        AjustePagoGlobalResultado calculo,
+        bool truncarAPesos = false) =>
         new()
         {
             Plan = plan,
@@ -710,7 +713,10 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             RecargoPorcentaje = calculo.PorcentajeAjuste > 0m ? calculo.PorcentajeAjuste : 0m,
             DescuentoPorcentaje = calculo.PorcentajeAjuste < 0m ? Math.Abs(calculo.PorcentajeAjuste) : 0m,
             InteresPorcentaje = calculo.PorcentajeAjuste > 0m ? calculo.PorcentajeAjuste : 0m,
-            Total = calculo.TotalFinal,
+            // Tarjeta/débito/digital: la venta registra Venta.Total truncado a pesos enteros
+            // (VentaService.TruncarAPesos). El cotizador muestra y persiste ese mismo total para que
+            // cotización -> venta -> caja -> factura den un único importe. Efectivo/Transferencia conservan centavos.
+            Total = truncarAPesos ? Math.Floor(calculo.TotalFinal) : calculo.TotalFinal,
             ValorCuota = calculo.ValorCuota,
             Recomendado = calculo.CantidadCuotas == 1 && calculo.PorcentajeAjuste <= 0m
         };
