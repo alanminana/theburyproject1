@@ -676,7 +676,8 @@ public class MoraServiceTests : IDisposable
     {
         var (cl, cr, al) = await SeedCreditoConDeudaAsync();
         var solicitud = Solicitud(cl, cr, al);
-        solicitud.FechaPrimeraCuota = DateTime.Today.AddDays(-1);
+        // Fecha comercial (Argentina), no DateTime.Today: en un runner en UTC difieren entre las 00:00 y las 03:00.
+        solicitud.FechaPrimeraCuota = _reloj.InicioDiaComercial.AddDays(-1);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoParaCreditoAsync(solicitud, "g"));
 
