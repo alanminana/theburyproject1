@@ -211,6 +211,7 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.ProductosAsociados, o => o.Ignore());
 
             CreateMap<CreditoViewModel, Credito>()
+                .ForMember(d => d.GastosAdministrativos, o => o.Ignore())
                 .ForMember(d => d.Cliente, o => o.Ignore())
                 .ForMember(d => d.Garante, o => o.Ignore())
                 .ForMember(d => d.Cuotas, o => o.Ignore());
