@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using TheBuryProject.Data;
 
@@ -40,7 +41,7 @@ namespace TheBuryProject.Migrations
                 nullable: false,
                 defaultValue: "NoInformado");
 
-            migrationBuilder.Sql("""
+            migrationBuilder.SqlDiferido("""
                 UPDATE m
                 SET
                     m.CostoUnitarioAlMomento = p.PrecioCompra,

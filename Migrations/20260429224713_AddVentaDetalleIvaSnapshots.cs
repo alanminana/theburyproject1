@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 
 #nullable disable
 
@@ -68,7 +69,7 @@ namespace TheBuryProject.Migrations
                 nullable: false,
                 defaultValue: 0m);
 
-            migrationBuilder.Sql("""
+            migrationBuilder.SqlDiferido("""
                 UPDATE [VentaDetalles]
                 SET
                     [PorcentajeIVA] = 21,
