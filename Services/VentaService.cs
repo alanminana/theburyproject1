@@ -924,6 +924,7 @@ namespace TheBuryProject.Services
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
+            await SincronizarDatosChequeEdicionAsync(venta, viewModel);
             // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
             // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
             venta.AjusteMedioPagoPorcentaje = null;
@@ -2703,6 +2704,51 @@ namespace TheBuryProject.Services
             }
 
             await AplicarSnapshotDatosTarjetaAsync(venta, datosTarjeta, viewModel.DatosTarjeta);
+        }
+
+        /// <summary>
+        /// H2-B2 P4: alta/edición/baja del snapshot del cheque al editar la venta (mismo criterio que tarjeta).
+        /// Antes UpdateAsync lo ignoraba: cambiar el medio a Cheque en Venta/Edit no guardaba los datos y
+        /// Confirmar quedaba sin salida ("requiere los datos del cheque"). No toca montos ni caja.
+        /// </summary>
+        private async Task SincronizarDatosChequeEdicionAsync(Venta venta, VentaViewModel viewModel)
+        {
+            // IgnoreQueryFilters: la relación es 1:1 con índice único por VentaId; una fila dada de baja se reutiliza.
+            var existente = await _context.DatosCheque.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.VentaId == venta.Id);
+
+            if (viewModel.TipoPago != TipoPago.Cheque)
+            {
+                if (existente != null)
+                    _context.DatosCheque.Remove(existente);
+                return;
+            }
+
+            if (viewModel.DatosCheque == null)
+            {
+                throw new InvalidOperationException(
+                    "El medio de pago 'Cheque' requiere los datos del cheque (número, banco, titular, fechas e importe).");
+            }
+
+            var origen = viewModel.DatosCheque;
+            if (existente == null)
+            {
+                var nuevo = _mapper.Map<DatosCheque>(origen);
+                nuevo.Id = 0;
+                nuevo.VentaId = venta.Id;
+                _context.DatosCheque.Add(nuevo);
+                return;
+            }
+
+            existente.IsDeleted = false;
+            existente.NumeroCheque = origen.NumeroCheque;
+            existente.Banco = origen.Banco;
+            existente.Titular = origen.Titular;
+            existente.CUIT = origen.CUIT;
+            existente.FechaEmision = origen.FechaEmision;
+            existente.FechaVencimiento = origen.FechaVencimiento;
+            existente.Monto = origen.Monto;
+            existente.Observaciones = origen.Observaciones;
         }
 
         /// <summary>

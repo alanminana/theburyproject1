@@ -114,7 +114,7 @@
                                            class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors" title="Ver detalle">
                                             <span class="material-symbols-outlined text-[14px]">visibility</span>
                                         </a>
-                                        @if (estaActiva)
+                                        @if (estaActiva && User.TienePermiso("stock", "adjust"))
                                         {
                                             <form asp-action="Resolver" method="post" class="inline"
                                                   data-alerta-confirm-note="Marcar esta alerta como resuelta?"
