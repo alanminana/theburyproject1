@@ -13,9 +13,15 @@ Sin aplicarlas, activar un acuerdo falla en esa base.
 - Restaurado como `TheBuryProjectDb_qa_migacuerdos` y migrado con `dotnet ef database update`.
 - Conteos antes/después idénticos (ventas 61, créditos 34, cuotas 61, movimientos de caja 42); `DBCC CHECKDB` OK; columnas, índices (PK + 2) y 2 FK verificados; `DiasGracia` = 3 en `ConfiguracionesMora`.
 
-## No usar el script idempotente
+## Script idempotente (corregido 2026-10-28)
 
-`dotnet ef migrations script ... --idempotent` falla en la segunda migración: el `UPDATE` del backfill queda en el mismo batch que el `ALTER TABLE ... ADD` (`Invalid column name 'FechaActivacionComercial'`). Aplicar siempre con `dotnet ef database update` (cada comando va en su propio batch) o con el servicio `migrate` de Docker.
+`dotnet ef migrations script <from> <to> --idempotent` emite cada migracion en un unico batch `IF NOT EXISTS (...) BEGIN ... END`. Dos patrones fallaban ahi y ya estan corregidos con `migrationBuilder.SqlDiferido(...)` (`Migrations/MigrationBuilderSqlExtensions.cs`, envuelve el SQL en `EXEC(N'...')`; mismo efecto, no cambia IDs ni snapshot, no re-ejecuta migraciones aplicadas):
+
+- backfill/seed que usa una columna agregada en la misma migracion (`Invalid column name`): `AcuerdoPagoIncumplimientoAutomatico`, `AddVentaDetalleIvaSnapshots`, `AddVentaDetalleDescuentoGeneralProrrateado`, `AddVentaDetalleCostoSnapshots`, `AddMovimientoStockCostoSnapshots`, `VentaDetalleSnapshotProducto`, `AddUserSucursalRelationAndPermissionAliases`;
+- SQL que referencia columnas que una migracion posterior elimina (falla al **re-ejecutar** el script sobre una base ya migrada): `AddClienteAptitudCredito` (seed), `DropVentaCreditoCuotasLegacy` y `DropColumnasCreditoSinUso` (guardas `THROW`; siguen frenando el batch);
+- `AddDefaultsMarcaProducto`: tres `DECLARE @df` en el mismo batch (`The variable name '@df' has already been declared`); variables renombradas.
+
+Verificado contra bases descartables: el script completo (desde cero, y desde `AcuerdoPagoImputaciones`) aplica sin errores, se puede re-ejecutar sin errores, y deja esquema (columnas, indices, FK) y filas semilla identicos a `dotnet ef database update`. Backfill probado: activacion `2026-10-28 02:30 UTC` -> `FechaActivacionComercial` `2026-10-27`.
 
 ## Aplicación a la base real (requiere autorización)
 
