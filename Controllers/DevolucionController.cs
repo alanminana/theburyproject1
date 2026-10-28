@@ -382,6 +382,12 @@ public class DevolucionController : Controller
             return RedirectToAction(nameof(Detalles), new { id });
         }
 
+        if (motivo.Trim().Length > 500)
+        {
+            TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
         if (rowVersion is null || rowVersion.Length == 0)
         {
             TempData["Error"] = "Falta información de concurrencia (RowVersion). Recargá la página e intentá nuevamente.";
@@ -496,6 +502,12 @@ public class DevolucionController : Controller
     [PermisoRequerido(Modulo = "rmas", Accion = "create")]
     public async Task<IActionResult> CrearRMA(int devolucionId, int proveedorId, string motivoSolicitud, byte[]? devolucionRowVersion)
     {
+        if (string.IsNullOrWhiteSpace(motivoSolicitud) || motivoSolicitud.Trim().Length > 1000)
+        {
+            TempData["Error"] = "El motivo de la solicitud es obligatorio y no puede superar los 1000 caracteres.";
+            return RedirectToAction(nameof(Detalles), new { id = devolucionId });
+        }
+
         try
         {
             if (devolucionRowVersion is null || devolucionRowVersion.Length == 0)
@@ -570,6 +582,13 @@ public class DevolucionController : Controller
     [PermisoRequerido(Modulo = "notascredito", Accion = "apply")]
     public async Task<IActionResult> UtilizarNotaCredito(int id, int clienteId, decimal monto, string? referencia)
     {
+        var errorUso = ValidarUsoNotaCredito(monto, referencia);
+        if (errorUso != null)
+        {
+            TempData["Error"] = errorUso;
+            return RedirectToAction(nameof(NotasCredito), new { clienteId });
+        }
+
         try
         {
             var notaCredito = await _devolucionService.UtilizarNotaCreditoAsync(id, monto, referencia);
@@ -584,6 +603,15 @@ public class DevolucionController : Controller
     }
 
     #endregion
+
+    internal static string? ValidarUsoNotaCredito(decimal monto, string? referencia)
+    {
+        if (monto <= 0 || monto > Validation.MontoArgentinoAttribute.Maximo || decimal.Round(monto, 2) != monto)
+            return "El monto debe ser mayor a 0, con hasta 2 decimales y no superar 20.000.000.";
+        if (referencia != null && referencia.Trim().Length > 200)
+            return "La referencia no puede superar los 200 caracteres.";
+        return null;
+    }
 
     #region Estadísticas
 

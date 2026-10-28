@@ -249,6 +249,10 @@ namespace TheBuryProject.Controllers
 
         #region Métodos auxiliares
 
+        // Columna Observaciones: StringLength(1000).
+        internal static bool ObservacionesExcedidas(string? observaciones)
+            => observaciones != null && observaciones.Trim().Length > 1000;
+
         private async Task<IActionResult> ProcesarAccionAlerta(
             int id,
             string? observaciones,
@@ -259,6 +263,12 @@ namespace TheBuryProject.Controllers
             string accionLog,
             string? returnUrl)
         {
+            if (ObservacionesExcedidas(observaciones))
+            {
+                TempData["Error"] = "Las observaciones no pueden superar los 1000 caracteres.";
+                return RedirectToAction(nameof(Index));
+            }
+
             try
             {
                 var exito = await accion(id, _currentUser.GetUsername(), observaciones, rowVersion);
