@@ -142,7 +142,7 @@
             </section>
         </div>
 
-        @if (estaActiva)
+        @if (estaActiva && User.TienePermiso("stock", "adjust"))
         {
             <div class="space-y-4">
                 @if (Model.Estado == EstadoAlerta.Pendiente)

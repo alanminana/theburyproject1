@@ -1173,4 +1173,86 @@ public class VentaServiceDeleteUpdateTests : IDisposable
 
         Assert.Equal(0m, resultado);
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // H2-B2 P4: Venta/Edit debe persistir los datos del cheque (antes UpdateAsync los ignoraba: el cambio de medio
+    // a Cheque no guardaba nada y Confirmar fallaba con "requiere los datos del cheque" sin forma de cargarlos).
+    // ---------------------------------------------------------------------------------------------
+    private static DatosChequeViewModel ChequeVm(string numero, string banco) => new()
+    {
+        NumeroCheque = numero, Banco = banco, Titular = "Titular Test", Monto = 1_000m,
+        FechaEmision = DateTime.UtcNow.Date, FechaVencimiento = DateTime.UtcNow.Date.AddDays(30),
+    };
+
+    private async Task<(Venta Original, Cliente Cliente, Producto Producto)> PrepararVentaEditableAsync()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return (await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id), cliente, producto);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_EfectivoACheque_PersisteLosDatosDelCheque()
+    {
+        var (original, cliente, producto) = await PrepararVentaEditableAsync();
+        var vm = CrearVentaUpdateVm(original, cliente.Id, producto.Id, TipoPago.Cheque, null);
+        vm.DatosCheque = ChequeVm("12345", "Banco Uno");
+
+        var resultado = await _service.UpdateAsync(original.Id, vm);
+
+        Assert.NotNull(resultado);
+        var cheque = await _context.DatosCheque.AsNoTracking().SingleAsync(d => d.VentaId == original.Id && !d.IsDeleted);
+        Assert.Equal("12345", cheque.NumeroCheque);
+        Assert.Equal("Banco Uno", cheque.Banco);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChequeConDatosModificados_ActualizaElSnapshotSinDuplicarlo()
+    {
+        var (original, cliente, producto) = await PrepararVentaEditableAsync();
+        var vm = CrearVentaUpdateVm(original, cliente.Id, producto.Id, TipoPago.Cheque, null);
+        vm.DatosCheque = ChequeVm("111", "Banco Uno");
+        var primera = await _service.UpdateAsync(original.Id, vm);
+        Assert.NotNull(primera);
+
+        _context.ChangeTracker.Clear();
+        var tras = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == original.Id);
+        var vm2 = CrearVentaUpdateVm(tras, cliente.Id, producto.Id, TipoPago.Cheque, null);
+        vm2.DatosCheque = ChequeVm("222", "Banco Dos");
+        Assert.NotNull(await _service.UpdateAsync(original.Id, vm2));
+
+        var cheques = await _context.DatosCheque.AsNoTracking().Where(d => d.VentaId == original.Id && !d.IsDeleted).ToListAsync();
+        var unico = Assert.Single(cheques);
+        Assert.Equal("222", unico.NumeroCheque);
+        Assert.Equal("Banco Dos", unico.Banco);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChequeSinDatos_Rechaza()
+    {
+        var (original, cliente, producto) = await PrepararVentaEditableAsync();
+        var vm = CrearVentaUpdateVm(original, cliente.Id, producto.Id, TipoPago.Cheque, null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(original.Id, vm));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChequeAEfectivo_QuitaLosDatosDelCheque()
+    {
+        var (original, cliente, producto) = await PrepararVentaEditableAsync();
+        var vm = CrearVentaUpdateVm(original, cliente.Id, producto.Id, TipoPago.Cheque, null);
+        vm.DatosCheque = ChequeVm("333", "Banco Tres");
+        Assert.NotNull(await _service.UpdateAsync(original.Id, vm));
+
+        _context.ChangeTracker.Clear();
+        var tras = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == original.Id);
+        var vm2 = CrearVentaUpdateVm(tras, cliente.Id, producto.Id, TipoPago.Efectivo, null);
+        Assert.NotNull(await _service.UpdateAsync(original.Id, vm2));
+
+        Assert.False(await _context.DatosCheque.AsNoTracking().AnyAsync(d => d.VentaId == original.Id && !d.IsDeleted));
+    }
 }

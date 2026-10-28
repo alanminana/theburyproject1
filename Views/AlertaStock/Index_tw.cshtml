@@ -41,6 +41,8 @@
                     <span class="material-symbols-outlined text-base">bar_chart</span>
                     Estadísticas
                 </a>
+                @if (User.TienePermiso("stock", "adjust"))
+                {
                 <form asp-action="GenerarAlertas" method="post" class="inline" data-alerta-confirm="Generar alertas de stock ahora?">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="btn-erp-secondary">
@@ -48,6 +50,7 @@
                         Generar alertas
                     </button>
                 </form>
+                }
             </div>
         </div>
     </div>
