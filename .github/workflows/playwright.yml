@@ -21,7 +21,7 @@ env:
 
 jobs:
   test:
-    timeout-minutes: 60
+    timeout-minutes: 90
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +110,28 @@ jobs:
             exit 1
           fi
           echo "App ready (200) en http://127.0.0.1:${APP_PORT_CI}/health/ready"
+
+      # Los seeders abren cajas con la fecha comercial del momento (RelojComercial = America/Argentina/Buenos_Aires,
+      # UTC-3 fijo). Si el suite cruza la medianoche comercial (03:00 UTC), esas aperturas pasan a "turno vencido"
+      # (CajaService.EsAperturaVencida): Venta/Create redirige a /Venta y TODOS los specs de venta siguientes fallan
+      # con '#venta-form' no visible (run 40622998655: seed 23:55 ART, fallos desde 00:00 ART). Ademas de ser
+      # deterministico, solo ocurre ~40 min por dia. Si el suite no cabe antes de la medianoche, se espera a que
+      # pase y recien ahi se siembra, de modo que todas las aperturas y todos los tests compartan el mismo dia.
+      - name: Evitar que el suite cruce la medianoche comercial (03:00 UTC)
+        run: |
+          set -euo pipefail
+          VENTANA_SEG=2400   # el suite completo (seed + 1366x768) dura ~25-30 min
+          now=$(date -u +%s)
+          next=$(date -u -d "today 03:00:00" +%s)
+          if [ "$now" -ge "$next" ]; then next=$((next + 86400)); fi
+          restante=$((next - now))
+          if [ "$restante" -lt "$VENTANA_SEG" ]; then
+            espera=$((restante + 90))
+            echo "Faltan ${restante}s para la medianoche comercial: espero ${espera}s para no sembrar cajas que venzan a mitad del suite."
+            sleep "$espera"
+          else
+            echo "Faltan ${restante}s para la medianoche comercial: el suite cabe en el mismo dia comercial."
+          fi
 
       # dataset E2E: sin esto la base queda vacia (sin clientes/productos/config de punitorio) y la
       # mayoria de los specs de Cotizacion/Venta hacen test.skip por falta de datos, no por ningun

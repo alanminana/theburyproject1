@@ -15,6 +15,12 @@ namespace TheBuryProject.Services
         // Máximo 2 intentos totales (1 retry) tanto para errores de red como para timeout.
         private const int MaxNetworkAttempts = 2;
 
+        // Presupuesto TOTAL (todos los intentos juntos) de una consulta. La consulta corre dentro del request
+        // de Cliente/Details y de la validación de venta: sin tope, un api.bcra.gob.ar que no responde dejaba
+        // la pantalla colgada hasta 2 x HttpClient.Timeout (~30 s). Al agotarse se marca "Timeout al consultar BCRA"
+        // (error transitorio con cooldown de 1 h) y la pantalla se renderiza con el último dato conocido.
+        internal static readonly TimeSpan PresupuestoTotalConsultaPorDefecto = TimeSpan.FromSeconds(6);
+
         private const string DescripcionCuilNoCargado = "CUIL/CUIT no cargado";
         private const string DescripcionSinRegistro = "Sin registro en BCRA (no encontrado)";
         private const string DescripcionSinDeudas = "Sin deudas registradas";
@@ -36,15 +42,27 @@ namespace TheBuryProject.Services
         private readonly HttpClient _http;
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly ILogger<SituacionCrediticiaBcraService> _logger;
+        private readonly TimeSpan _presupuestoTotalConsulta;
 
         public SituacionCrediticiaBcraService(
             HttpClient http,
             IDbContextFactory<AppDbContext> contextFactory,
             ILogger<SituacionCrediticiaBcraService> logger)
+            : this(http, contextFactory, logger, PresupuestoTotalConsultaPorDefecto)
+        {
+        }
+
+        // internal: la DI usa solo el constructor público; los tests fijan un presupuesto corto.
+        internal SituacionCrediticiaBcraService(
+            HttpClient http,
+            IDbContextFactory<AppDbContext> contextFactory,
+            ILogger<SituacionCrediticiaBcraService> logger,
+            TimeSpan presupuestoTotalConsulta)
         {
             _http = http;
             _contextFactory = contextFactory;
             _logger = logger;
+            _presupuestoTotalConsulta = presupuestoTotalConsulta;
         }
 
         public async Task ConsultarYActualizarAsync(int clienteId, int cacheDias = 7)
@@ -238,17 +256,19 @@ namespace TheBuryProject.Services
 
         private async Task<HttpResponseMessage> GetWithNetworkRetryAsync(Uri requestUri)
         {
+            using var presupuesto = new CancellationTokenSource(_presupuestoTotalConsulta);
+
             for (var attempt = 1; ; attempt++)
             {
                 try
                 {
-                    return await _http.GetAsync(requestUri);
+                    return await _http.GetAsync(requestUri, presupuesto.Token);
                 }
-                catch (HttpRequestException) when (attempt < MaxNetworkAttempts)
+                catch (HttpRequestException) when (attempt < MaxNetworkAttempts && !presupuesto.IsCancellationRequested)
                 {
                     await Task.Delay(NetworkRetryBaseDelay);
                 }
-                catch (TaskCanceledException) when (attempt < MaxNetworkAttempts)
+                catch (TaskCanceledException) when (attempt < MaxNetworkAttempts && !presupuesto.IsCancellationRequested)
                 {
                     await Task.Delay(NetworkRetryBaseDelay);
                 }
