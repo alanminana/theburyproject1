@@ -3,7 +3,7 @@ using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
-    public class PlantillaContratoCreditoViewModel
+    public class PlantillaContratoCreditoViewModel : IValidatableObject
     {
         public int Id { get; set; }
 
@@ -71,5 +71,29 @@ namespace TheBuryProject.ViewModels
         public string? UpdatedBy { get; set; }
 
         public bool EsNueva => Id == 0;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (!string.IsNullOrWhiteSpace(CuitVendedor) && CuitVendedor.Count(char.IsDigit) != 11)
+            {
+                yield return new ValidationResult(
+                    "El CUIT del vendedor debe tener 11 dígitos (se admiten guiones)",
+                    new[] { nameof(CuitVendedor) });
+            }
+
+            if (VigenteHasta.HasValue && VigenteHasta.Value.Date < VigenteDesde.Date)
+            {
+                yield return new ValidationResult(
+                    "La vigencia hasta no puede ser anterior a la vigencia desde",
+                    new[] { nameof(VigenteHasta) });
+            }
+
+            if (VigenteDesde.Date < new DateTime(2000, 1, 1) || VigenteDesde.Date > new DateTime(2100, 12, 31))
+            {
+                yield return new ValidationResult(
+                    "La vigencia desde no es una fecha válida",
+                    new[] { nameof(VigenteDesde) });
+            }
+        }
     }
 }
