@@ -764,14 +764,21 @@ namespace TheBuryProject.Controllers
                 // Intención conservada de una cotización convertida (mismo patrón que
                 // CantidadCuotas abajo). No es autoridad: el operador puede modificarla y el
                 // servidor revalida contra el total real al confirmar.
-                Anticipo = credito.AnticipoPreseleccionado,
+                // Crédito ya configurado: se reabre con lo persistido (anticipo = total de la venta - monto
+                // financiado, mismo cálculo que usa la confirmación para asentarlo en caja). Antes volvía a 0 y un
+                // nuevo "Guardar" financiaba el anticipo sin que el operador lo notara.
+                Anticipo = credito.Estado == EstadoCredito.Configurado
+                    ? Math.Max(0m, montoVenta - credito.MontoAprobado)
+                    : credito.AnticipoPreseleccionado,
                 MontoFinanciado = montoVenta,
                 CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
                 // ML6: ya no se precarga la tasa/perfil/cliente como si fuera el porcentaje
                 // financiero. La UI la muestra sólo de forma read-only, resuelta por el servidor
                 // desde el plan de cuotas (SimularPlanVenta), nunca desde ParametrosCreditoCliente.
                 TasaMensual = null,
-                GastosAdministrativos = parametrosCliente.GastosAdministrativos,
+                GastosAdministrativos = credito.Estado == EstadoCredito.Configurado
+                    ? credito.GastosAdministrativos
+                    : parametrosCliente.GastosAdministrativos,
                 FechaPrimeraCuota = credito.FechaPrimeraCuota,
                 // F2: reabrir la configuración muestra la decisión ya persistida.
                 CobrarPrimeraCuota = credito.CobrarPrimeraCuotaSolicitada,

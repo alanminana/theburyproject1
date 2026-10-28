@@ -47,6 +47,26 @@ public class CreditoControllerConfigurarVentaTests
     }
 
     [Fact]
+    public async Task ConfigurarVentaGet_CreditoYaConfigurado_ReabreConAnticipoYGastosPersistidos()
+    {
+        // Total de la venta 15.500; plan guardado con anticipo 3.500 => monto financiado 12.000 y gastos 6.
+        var credito = CreditoBase(montoAprobado: 12_000m, montoSolicitado: 12_000m);
+        credito.Estado = EstadoCredito.Configurado;
+        credito.GastosAdministrativos = 6m;
+
+        var resultado = await CrearController(
+            new RecordingCreditoService(credito),
+            ConfigService(tasaGlobal: 4m),
+            ventaService: new StubVentaService(totalVenta: 15_500m))
+            .ConfigurarVenta(id: 10, ventaId: 99);
+
+        var modelo = AssertViewModel(resultado);
+        Assert.True(modelo.CreditoEstaConfigurado);
+        Assert.Equal(3_500m, modelo.Anticipo);
+        Assert.Equal(6m, modelo.GastosAdministrativos);
+    }
+
+    [Fact]
     public async Task ConfigurarVentaGet_ConservaClienteConfigPersonalizadaYPerfilesActivosTipados()
     {
         var configService = ConfigService(
