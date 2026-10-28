@@ -45,6 +45,15 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public DateTime? FechaActivacion { get; set; }
 
+        /// <summary>Fecha comercial (Argentina) de la activación: la entrega inicial vence ese día.</summary>
+        public DateOnly? FechaActivacionComercial { get; set; }
+
+        /// <summary>
+        /// Días corridos de gracia con los que se activó el acuerdo (valor de la configuración en ese momento): pasado el
+        /// vencimiento más esta gracia sin pagar, el acuerdo se marca Incumplido. Cambios futuros de la configuración no lo afectan.
+        /// </summary>
+        public int DiasGraciaIncumplimiento { get; set; } = 3;
+
         /// <summary>
         /// Estado actual del acuerdo
         /// </summary>

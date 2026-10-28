@@ -137,6 +137,14 @@
                     <span asp-validation-for="TasaMoraBase" class="text-xs text-red-500"></span>
                     <p class="text-xs text-slate-500">Tasa base de mora. Vacío o 0 no calcula mora.</p>
                 </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="DiasGraciaIncumplimientoAcuerdo" class="text-sm font-semibold text-slate-300"></label>
+                    <input asp-for="DiasGraciaIncumplimientoAcuerdo" type="number" min="0" max="60"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <span asp-validation-for="DiasGraciaIncumplimientoAcuerdo" class="text-xs text-red-500"></span>
+                    <p class="text-xs text-slate-500">Días corridos después del vencimiento de un pago del acuerdo antes de marcarlo incumplido. Cada acuerdo conserva el valor con el que se activó. Es independiente de los días de gracia de la mora.</p>
+                </div>
             </div>
         </section>
 

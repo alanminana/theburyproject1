@@ -5,6 +5,13 @@ public interface ISeguridadAuditoriaService
     Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null);
 
     /// <summary>
+    /// Agrega el evento al contexto SIN guardar: se persiste con el SaveChanges de quien lo llama, en la misma operación que
+    /// el cambio auditado (si ese guardado falla, tampoco queda el evento ni el cambio). Para cambios que no pueden quedar
+    /// confirmados sin su auditoría.
+    /// </summary>
+    void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null);
+
+    /// <summary>
     /// Consulta registros de auditoría con filtros opcionales.
     /// Devuelve los registros filtrados y las listas de valores distintos para los dropdowns.
     /// <paramref name="take"/> null (default) devuelve todos los registros; con valor se pagina

@@ -21,23 +21,26 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
         _logger = logger;
     }
 
+    private SeguridadEventoAuditoria CrearEvento(string modulo, string accion, string entidad, string? detalle) => new()
+    {
+        FechaEvento = DateTime.UtcNow,
+        UsuarioId = _currentUserService.GetUserId(),
+        UsuarioNombre = _currentUserService.GetUsername(),
+        Modulo = string.IsNullOrWhiteSpace(modulo) ? "Seguridad" : modulo.Trim(),
+        Accion = accion.Trim(),
+        Entidad = entidad.Trim(),
+        Detalle = string.IsNullOrWhiteSpace(detalle) ? null : detalle.Trim(),
+        DireccionIp = _currentUserService.GetIpAddress()
+    };
+
+    public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) =>
+        _context.Set<SeguridadEventoAuditoria>().Add(CrearEvento(modulo, accion, entidad, detalle));
+
     public async Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null)
     {
         try
         {
-            var evento = new SeguridadEventoAuditoria
-            {
-                FechaEvento = DateTime.UtcNow,
-                UsuarioId = _currentUserService.GetUserId(),
-                UsuarioNombre = _currentUserService.GetUsername(),
-                Modulo = string.IsNullOrWhiteSpace(modulo) ? "Seguridad" : modulo.Trim(),
-                Accion = accion.Trim(),
-                Entidad = entidad.Trim(),
-                Detalle = string.IsNullOrWhiteSpace(detalle) ? null : detalle.Trim(),
-                DireccionIp = _currentUserService.GetIpAddress()
-            };
-
-            _context.Set<SeguridadEventoAuditoria>().Add(evento);
+            _context.Set<SeguridadEventoAuditoria>().Add(CrearEvento(modulo, accion, entidad, detalle));
             await _context.SaveChangesAsync();
         }
         catch (Exception ex)

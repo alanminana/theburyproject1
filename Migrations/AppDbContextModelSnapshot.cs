@@ -252,6 +252,11 @@ namespace TheBuryProject.Migrations
                     b.Property<int>("CreditoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("DiasGraciaIncumplimiento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
+
                     b.Property<bool>("EntregaInicialPagada")
                         .HasColumnType("bit");
 
@@ -260,6 +265,9 @@ namespace TheBuryProject.Migrations
 
                     b.Property<DateTime?>("FechaActivacion")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("FechaActivacionComercial")
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
@@ -2441,6 +2449,11 @@ namespace TheBuryProject.Migrations
 
                     b.Property<int?>("DiasGracia")
                         .HasColumnType("int");
+
+                    b.Property<int>("DiasGraciaIncumplimientoAcuerdo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
 
                     b.Property<int?>("DiasMaximosSinGestion")
                         .HasColumnType("int");

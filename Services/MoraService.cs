@@ -738,6 +738,7 @@ namespace TheBuryProject.Services
             (nameof(ConfiguracionMoraExpandidaViewModel.DiasMaximosSinGestion), (c, v) => c.DiasMaximosSinGestion = v.DiasMaximosSinGestion),
             (nameof(ConfiguracionMoraExpandidaViewModel.DiasParaCumplirPromesa), (c, v) => c.DiasParaCumplirPromesa = v.DiasParaCumplirPromesa),
             (nameof(ConfiguracionMoraExpandidaViewModel.MaximoCuotasAcuerdo), (c, v) => c.MaximoCuotasAcuerdo = v.MaximoCuotasAcuerdo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasGraciaIncumplimientoAcuerdo), (c, v) => c.DiasGraciaIncumplimientoAcuerdo = v.DiasGraciaIncumplimientoAcuerdo ?? 3),
             (nameof(ConfiguracionMoraExpandidaViewModel.PorcentajeMinimoEntrega), (c, v) => c.PorcentajeMinimoEntrega = v.PorcentajeMinimoEntrega),
             (nameof(ConfiguracionMoraExpandidaViewModel.PermitirCondonacionMora), (c, v) => c.PermitirCondonacionMora = v.PermitirCondonacionMora),
             // Score por mora (FASE 12B): el flag controla si el proceso automático
@@ -1806,6 +1807,12 @@ namespace TheBuryProject.Services
             if (acuerdo.Estado != EstadoAcuerdo.Activo)
                 throw new InvalidOperationException("El acuerdo ya está cumplido: el último pago ya estaba registrado.");
 
+            // Con los cobros ya conciliados, un pago impago fuera de gracia pasa el acuerdo a Incumplido y este pago NO lo
+            // reactiva: lo que quede se cobra por el circuito normal de cuotas.
+            if (await MarcarIncumplidoSiCorrespondeAsync(acuerdo))
+                throw new InvalidOperationException(
+                    $"El acuerdo pasó a Incumplido. {acuerdo.MotivoIncumplimiento} Las cuotas se cobran ahora por el circuito normal de cuotas.");
+
             // El formulario viaja atado al avance del acuerdo: un reenvío (doble clic, recarga del POST, un formulario viejo
             // abierto en otra pestaña) trae un paso que ya pasó y se rechaza sin cobrar.
             if (pasoEsperado.HasValue && pasoEsperado.Value != PagosCompletos(acuerdo))
@@ -1936,6 +1943,102 @@ namespace TheBuryProject.Services
             return new ResultadoPagoAcuerdo(concepto, imputado, todoPagado, deudaRestante);
         }
 
+        // ¿Algún pago del acuerdo sigue impago pasada su gracia? Pura y sin escritura (la usan la verificación diaria y el pago).
+        // Vencimiento D con gracia G: dentro de la gracia hasta D+G inclusive; incumple desde D+G+1. Un pago parcial no evita el
+        // incumplimiento mientras quede saldo vencido. La entrega inicial vence el día de la activación; sin entrega inicial se
+        // evalúan solo las cuotas, y con la entrega por el total no hay cuotas (se cumple al pagarla).
+        internal static string? MotivoDeIncumplimiento(AcuerdoPago acuerdo, DateOnly hoyComercial)
+        {
+            var gracia = Math.Max(0, acuerdo.DiasGraciaIncumplimiento);
+
+            if (acuerdo.MontoEntregaInicial > 0m && !acuerdo.EntregaInicialPagada
+                && acuerdo.MontoEntregaInicial - acuerdo.MontoEntregaPagada > 0.004m
+                && acuerdo.FechaActivacionComercial is { } activacion
+                && hoyComercial > activacion.AddDays(gracia))
+                return $"La entrega inicial venció el {activacion:dd/MM/yyyy} y sigue impaga pasados {gracia} días de gracia.";
+
+            foreach (var cuota in acuerdo.Cuotas.Where(c => !c.IsDeleted && c.Estado != EstadoCuotaAcuerdo.Pagada).OrderBy(c => c.NumeroCuota))
+            {
+                var vencimiento = DateOnly.FromDateTime(cuota.FechaVencimiento);
+                if (cuota.MontoTotal - cuota.MontoPagado > 0.004m && hoyComercial > vencimiento.AddDays(gracia))
+                    return $"La cuota {cuota.NumeroCuota} del acuerdo venció el {vencimiento:dd/MM/yyyy} y sigue impaga pasados {gracia} días de gracia.";
+            }
+
+            return null;
+        }
+
+        // Marca Incumplido (y audita) si corresponde. Un acuerdo que no está Activo no se toca: un Incumplido nunca se reactiva solo.
+        private async Task<bool> MarcarIncumplidoSiCorrespondeAsync(AcuerdoPago acuerdo)
+        {
+            if (acuerdo.Estado != EstadoAcuerdo.Activo)
+                return false;
+
+            var motivo = MotivoDeIncumplimiento(acuerdo, _reloj.HoyComercial);
+            if (motivo == null)
+                return false;
+
+            acuerdo.Estado = EstadoAcuerdo.Incumplido;
+            acuerdo.MotivoIncumplimiento = motivo;
+            acuerdo.UpdatedAt = DateTime.UtcNow;
+            // El cambio de estado y su auditoría se confirman juntos: no puede quedar un Incumplido sin rastro.
+            AgregarAuditoria("IncumplimientoAutomatico", acuerdo.Id, $"{acuerdo.NumeroAcuerdo}: Activo -> Incumplido. {motivo}");
+            await _context.SaveChangesAsync();
+
+            _logger.LogWarning("Acuerdo {Numero} pasó a Incumplido automáticamente: {Motivo}", acuerdo.NumeroAcuerdo, motivo);
+            return true;
+        }
+
+        public async Task<ResultadoVerificacionIncumplimiento> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default)
+        {
+            var ids = await _context.AcuerdosPago
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted && a.Estado == EstadoAcuerdo.Activo)
+                .Select(a => a.Id)
+                .ToListAsync(cancellationToken);
+
+            var marcados = 0;
+            var fallidos = 0;
+            foreach (var id in ids)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // El mismo bloqueo que los pagos del acuerdo: un cobro en vuelo (intención Pendiente) no se concilia ni se
+                // descarta a mitad de camino.
+                var bloqueo = _bloqueosPagoAcuerdo.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+                await bloqueo.WaitAsync(cancellationToken);
+                try
+                {
+                    // Cada acuerdo parte de un contexto limpio y de lo que hay en la base: nada pendiente de otro acuerdo.
+                    _context.ChangeTracker.Clear();
+                    var acuerdo = await _context.AcuerdosPago
+                        .Include(a => a.Cuotas)
+                        .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted, cancellationToken);
+                    if (acuerdo == null || acuerdo.Estado != EstadoAcuerdo.Activo)
+                        continue;
+
+                    // Primero lo que ya se cobró: un pago confirmado que quedó sin reflejar no puede contar como impago.
+                    await ConciliarImputacionesPendientesAsync(acuerdo);
+                    await CompletarAcuerdoSiCorrespondeAsync(acuerdo);
+                    if (await MarcarIncumplidoSiCorrespondeAsync(acuerdo))
+                        marcados++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Un acuerdo con problemas no frena la verificación de los demás ni arrastra sus cambios a los siguientes
+                    // (estado y evento de auditoría sin confirmar se descartan); se reintenta en la próxima corrida.
+                    _context.ChangeTracker.Clear();
+                    fallidos++;
+                    _logger.LogError(ex, "No se pudo verificar el incumplimiento del acuerdo {AcuerdoId}", id);
+                }
+                finally
+                {
+                    bloqueo.Release();
+                }
+            }
+
+            return new ResultadoVerificacionIncumplimiento(marcados, fallidos);
+        }
+
         public Task<bool> ExisteAcuerdoVigenteAsync(int creditoId) =>
             _context.AcuerdosPago.AnyAsync(a => !a.IsDeleted
                 && a.CreditoId == creditoId
@@ -1983,9 +2086,10 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("Indicá el motivo para cancelar o marcar incumplido el acuerdo.");
 
             var estadoAnterior = acuerdo.Estado;
+            var detalleAuditoria = $"{acuerdo.NumeroAcuerdo}: {estadoAnterior} -> {nuevoEstado}." + (string.IsNullOrWhiteSpace(motivo) ? "" : $" Motivo: {motivo}");
             if (nuevoEstado == EstadoAcuerdo.Activo)
             {
-                await ActivarAcuerdoAsync(acuerdo);
+                await ActivarAcuerdoAsync(acuerdo, detalleAuditoria);
             }
             else
             {
@@ -1995,23 +2099,25 @@ namespace TheBuryProject.Services
                 else if (nuevoEstado == EstadoAcuerdo.Incumplido)
                     acuerdo.MotivoIncumplimiento = motivo;
                 acuerdo.UpdatedAt = DateTime.UtcNow;
+                AgregarAuditoria("CambiarEstadoAcuerdo", acuerdo.Id, detalleAuditoria); // se confirma con el cambio de estado
                 await _context.SaveChangesAsync();
             }
 
             _logger.LogInformation("Acuerdo {Numero} pasó a {Estado}", acuerdo.NumeroAcuerdo, nuevoEstado);
-            await AuditarAsync("CambiarEstadoAcuerdo", acuerdo.Id,
-                $"{acuerdo.NumeroAcuerdo}: {estadoAnterior} -> {nuevoEstado}." + (string.IsNullOrWhiteSpace(motivo) ? "" : $" Motivo: {motivo}"));
             return true;
         }
 
         // Activar congela la deuda: bajo el lock del crédito (el mismo que usan cobros y cancelaciones) se re-valida que la
         // deuda real coincida con el total acordado y se guarda la composición por cuota junto con el calendario y el estado,
         // todo en una transacción. Después, nada de lo que cubre el acuerdo cambia por otro circuito.
-        private async Task ActivarAcuerdoAsync(AcuerdoPago acuerdo)
+        private async Task ActivarAcuerdoAsync(AcuerdoPago acuerdo, string detalleAuditoria)
         {
             var restanteAFinanciar = acuerdo.MontoTotalAcuerdo - acuerdo.MontoEntregaInicial;
             if (restanteAFinanciar > 0m && acuerdo.FechaPrimeraCuota.Date < _reloj.InicioDiaComercial.Date)
                 throw new InvalidOperationException("La fecha de la primera cuota ya pasó. Cancelá el acuerdo y creá uno nuevo.");
+
+            // La gracia de incumplimiento queda fijada en el acuerdo: un cambio posterior de la configuración no lo afecta.
+            var diasGracia = (await GetConfiguracionAsync()).DiasGraciaIncumplimientoAcuerdo;
 
             await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
@@ -2044,8 +2150,11 @@ namespace TheBuryProject.Services
 
                 acuerdo.Estado = EstadoAcuerdo.Activo;
                 acuerdo.FechaActivacion = DateTime.UtcNow;
+                acuerdo.FechaActivacionComercial = _reloj.HoyComercial; // la entrega inicial vence este día
+                acuerdo.DiasGraciaIncumplimiento = diasGracia;
                 GenerarCalendarioDeCuotas(acuerdo);
                 acuerdo.UpdatedAt = DateTime.UtcNow;
+                AgregarAuditoria("CambiarEstadoAcuerdo", acuerdo.Id, detalleAuditoria); // misma transacción que la activación
 
                 try
                 {
@@ -2064,9 +2173,14 @@ namespace TheBuryProject.Services
                 // El estado en memoria no puede quedar Activo si la transacción se revirtió.
                 acuerdo.Estado = EstadoAcuerdo.Borrador;
                 acuerdo.FechaActivacion = null;
+                acuerdo.FechaActivacionComercial = null;
                 throw;
             }
         }
+
+        // Agrega el evento al contexto sin guardar: se confirma con el SaveChanges del cambio auditado (atómico).
+        private void AgregarAuditoria(string accion, int acuerdoId, string detalle) =>
+            _auditoria?.AgregarEvento("Mora", accion, $"AcuerdoPago:{acuerdoId}", detalle);
 
         private async Task AuditarAsync(string accion, int acuerdoId, string detalle)
         {
@@ -2128,7 +2242,9 @@ namespace TheBuryProject.Services
                         ProximaFechaVencimiento = proximaCuota?.FechaVencimiento,
                         ProximoPagoConcepto = siguiente?.Concepto,
                         ProximoPagoPendiente = siguiente?.Pendiente ?? 0m,
-                        ProximoPagoPaso = PagosCompletos(a)
+                        ProximoPagoPaso = PagosCompletos(a),
+                        DiasGraciaIncumplimiento = a.DiasGraciaIncumplimiento,
+                        MotivoIncumplimiento = a.Estado == EstadoAcuerdo.Incumplido ? a.MotivoIncumplimiento : null
                     };
                 }).ToList();
 

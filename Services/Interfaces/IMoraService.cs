@@ -12,6 +12,9 @@ namespace TheBuryProject.Services.Interfaces
     /// <summary>Resultado de registrar un pago de acuerdo.</summary>
     public sealed record ResultadoPagoAcuerdo(string Concepto, decimal ImportePagado, bool AcuerdoCumplido, decimal? DeudaVencidaRestante = null);
 
+    /// <summary>Resultado de la verificación de incumplimiento: acuerdos marcados y acuerdos que fallaron (se reintentan).</summary>
+    public sealed record ResultadoVerificacionIncumplimiento(int Marcados, int Fallidos);
+
     /// <summary>Deuda cobrable de una cuota original: capital pendiente y punitorio aplicado pendiente.</summary>
     public sealed record DeudaCobrableCuota(int CuotaId, int NumeroCuota, DateTime FechaVencimiento, decimal Capital, decimal Punitorio);
 
@@ -175,6 +178,15 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> MarcarPromesaCumplidaDelClienteAsync(int alertaId, int clienteId);
 
         Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado, string? motivo = null);
+
+        /// <summary>
+        /// Marca Incumplido los acuerdos Activos con un pago (entrega inicial o cuota) impago pasada su gracia, con la fecha
+        /// comercial de Argentina. Antes de decidir concilia los cobros que hubieran quedado sin reflejar. Corre a diario,
+        /// independiente de <c>ProcesoAutomaticoActivo</c>. Cada acuerdo se procesa aislado: si uno falla, sus cambios pendientes se
+        /// descartan y los demás siguen; el resultado informa cuántos fallaron para reintentar. Pensado para correr en un
+        /// scope propio (un job), dueño de su contexto.
+        /// </summary>
+        Task<ResultadoVerificacionIncumplimiento> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default);
         
         #endregion
 

@@ -810,6 +810,307 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(cuotaSaldada.Id, Assert.Single(_creditoServiceFake.Cobros).CuotaId);
     }
 
+    // ---- Incumplimiento automático: gracia en días corridos, fecha comercial, un Incumplido no se reactiva ----
+
+    private sealed class UsuarioAuditoria : ICurrentUserService
+    {
+        public string GetUsername() => "Sistema";
+        public string GetUserId() => "sistema";
+        public bool IsAuthenticated() => false;
+        public string? GetEmail() => null;
+        public bool IsInRole(string role) => false;
+        public bool HasPermission(string modulo, string accion) => false;
+        public string? GetIpAddress() => null;
+    }
+
+    private MoraService ServicioConFecha(RelojComercialFake reloj, ISeguridadAuditoriaService? auditoria = null) =>
+        new(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, reloj, auditoria);
+
+    private async Task<int> VerificarAsync(MoraService servicio)
+    {
+        _context.ChangeTracker.Clear();
+        var resultado = await servicio.VerificarIncumplimientoAcuerdosAsync();
+        _context.ChangeTracker.Clear();
+        return resultado.Marcados;
+    }
+
+    private async Task<AcuerdoPago> LeerAcuerdoAsync(int id)
+    {
+        _context.ChangeTracker.Clear();
+        return await _context.AcuerdosPago.AsNoTracking().Include(a => a.Cuotas).SingleAsync(a => a.Id == id);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_EntregaImpaga_DentroDeLaGraciaNoIncumple_YDesdeD4Si()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(); // entrega 500: vence el día de la activación
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        // El proceso diario es independiente de ProcesoAutomaticoActivo: se lo apaga y el incumplimiento igual se verifica.
+        (await _context.ConfiguracionesMora.FirstAsync()).ProcesoAutomaticoActivo = false;
+        await _context.SaveChangesAsync();
+        var reloj = new RelojComercialFake(d0);
+        var servicio = ServicioConFecha(reloj);
+        Assert.False((await servicio.GetConfiguracionAsync()).ProcesoAutomaticoActivo);
+
+        reloj.HoyComercial = d0.AddDays(3); // D+3 inclusive: todavía en gracia
+        Assert.Equal(0, await VerificarAsync(servicio));
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+
+        reloj.HoyComercial = d0.AddDays(4); // D+4: incumple
+        Assert.Equal(1, await VerificarAsync(servicio));
+        var incumplido = await LeerAcuerdoAsync(acuerdo.Id);
+        Assert.Equal(EstadoAcuerdo.Incumplido, incumplido.Estado);
+        Assert.Contains("entrega inicial", incumplido.MotivoIncumplimiento);
+        // Una segunda corrida no vuelve a tocarlo.
+        Assert.Equal(0, await VerificarAsync(servicio));
+    }
+
+    [Fact]
+    public async Task Incumplimiento_SinEntregaInicial_SoloEvaluaLasCuotasDelAcuerdo()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 0m, cuotasAcuerdo: 2, totalAcuerdo: 2_500m);
+        var cargado = await LeerAcuerdoAsync(acuerdo.Id);
+        var d0 = cargado.FechaActivacionComercial!.Value;
+        var primera = DateOnly.FromDateTime(cargado.Cuotas.OrderBy(c => c.NumeroCuota).First().FechaVencimiento);
+        var reloj = new RelojComercialFake(d0);
+        var servicio = ServicioConFecha(reloj);
+
+        reloj.HoyComercial = d0.AddDays(10); // sin entrega y sin cuotas vencidas: nada que evaluar
+        Assert.Equal(0, await VerificarAsync(servicio));
+        reloj.HoyComercial = primera.AddDays(3);
+        Assert.Equal(0, await VerificarAsync(servicio));
+        reloj.HoyComercial = primera.AddDays(4);
+        Assert.Equal(1, await VerificarAsync(servicio));
+        Assert.Contains("cuota 1", (await LeerAcuerdoAsync(acuerdo.Id)).MotivoIncumplimiento);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_PagoParcialNoEvitaElIncumplimientoSiQuedaSaldoVencido()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var enBase = await _context.AcuerdosPago.Include(a => a.Cuotas).SingleAsync(a => a.Id == acuerdo.Id);
+        enBase.EntregaInicialPagada = true;
+        enBase.MontoEntregaPagada = enBase.MontoEntregaInicial;
+        var cuota1 = enBase.Cuotas.OrderBy(c => c.NumeroCuota).First();
+        cuota1.MontoPagado = 100m; // parcial
+        cuota1.Estado = EstadoCuotaAcuerdo.Parcial;
+        await _context.SaveChangesAsync();
+        var vencimiento = DateOnly.FromDateTime(cuota1.FechaVencimiento);
+        var reloj = new RelojComercialFake(d0);
+        var servicio = ServicioConFecha(reloj);
+
+        reloj.HoyComercial = vencimiento.AddDays(3);
+        Assert.Equal(0, await VerificarAsync(servicio));
+        reloj.HoyComercial = vencimiento.AddDays(4);
+        Assert.Equal(1, await VerificarAsync(servicio));
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_EntregaPorElTotal_SeCumpleSinCuotasYNuncaSeMarcaIncumplido()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 3, totalAcuerdo: 2_000m);
+        Assert.Empty((await LeerAcuerdoAsync(acuerdo.Id)).Cuotas);
+        var r = await _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+        Assert.True(r.AcuerdoCumplido);
+
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var reloj = new RelojComercialFake(d0.AddDays(365));
+        Assert.Equal(0, await VerificarAsync(ServicioConFecha(reloj)));
+        Assert.Equal(EstadoAcuerdo.Cumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_UnBorradorNoSeEvalua()
+    {
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync();
+        var id = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al), "g");
+        var reloj = new RelojComercialFake(_reloj.HoyComercial.AddDays(400));
+
+        Assert.Equal(0, await VerificarAsync(ServicioConFecha(reloj)));
+        Assert.Equal(EstadoAcuerdo.Borrador, (await LeerAcuerdoAsync(id)).Estado);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_CadaAcuerdoConservaLaGraciaConLaQueSeActivo()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        Assert.Equal(3, (await LeerAcuerdoAsync(acuerdo.Id)).DiasGraciaIncumplimiento);
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+
+        // La configuración sube a 30 días: el acuerdo ya activo conserva 3; uno nuevo toma 30.
+        var config = await _context.ConfiguracionesMora.FirstAsync();
+        config.DiasGraciaIncumplimientoAcuerdo = 30;
+        await _context.SaveChangesAsync();
+        var (cl, cr, al) = await SeedCreditoConDeudaAsync();
+        var servicioNuevo = ServicioConFecha(new RelojComercialFake(_reloj.HoyComercial));
+        var idNuevo = await servicioNuevo.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl, cr, al), "g");
+        await servicioNuevo.CambiarEstadoAcuerdoAsync(idNuevo, cl.Id, EstadoAcuerdo.Activo);
+        Assert.Equal(30, (await LeerAcuerdoAsync(idNuevo)).DiasGraciaIncumplimiento);
+
+        var reloj = new RelojComercialFake(d0.AddDays(4));
+        Assert.Equal(1, await VerificarAsync(ServicioConFecha(reloj))); // solo el viejo (gracia 3)
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(idNuevo)).Estado);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_UnPagoTardioNoReactivaUnAcuerdoIncumplido()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        Assert.Equal(1, await VerificarAsync(ServicioConFecha(new RelojComercialFake(d0.AddDays(4)))));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+
+        Assert.Contains("acuerdo activo", ex.Message);
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+        Assert.Empty(_creditoServiceFake.Cobros);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_UnPagoConUnVencimientoFueraDeGraciaMarcaIncumplidoYNoCobra()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(4))); // el job todavía no corrió
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => servicio.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0));
+
+        Assert.Contains("Incumplido", ex.Message);
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+        Assert.Empty(_creditoServiceFake.Cobros);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_DentroDeLaGraciaElPagoSiSeCobra()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(3)));
+
+        var r = await servicio.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Efectivo", null, pasoEsperado: 0);
+
+        Assert.Equal(500m, r.ImportePagado);
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_ConcilialosCobrosSinReflejarAntesDeDecidir()
+    {
+        var (_, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        // Corte de proceso: la entrega se cobró (libro) pero el acuerdo no la reflejó; la intención quedó Pendiente.
+        var cuotaCredito = await _context.Cuotas.OrderBy(c => c.FechaVencimiento).FirstAsync();
+        cuotaCredito.MontoPagado = 500m;
+        var operacion = Guid.NewGuid();
+        _context.PagosCuota.Add(new PagoCuota
+        {
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = operacion
+        });
+        _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
+        {
+            AcuerdoPagoId = acuerdo.Id, CuotaAcuerdoId = null, CuotaCreditoId = cuotaCredito.Id, Monto = 500m, MedioPago = "Efectivo",
+            Estado = EstadoImputacionAcuerdo.Pendiente, OperacionId = operacion
+        });
+        await _context.SaveChangesAsync();
+
+        // D+4: sin conciliar, la entrega parecería impaga; conciliada, ya está pagada y no hay nada vencido.
+        Assert.Equal(0, await VerificarAsync(ServicioConFecha(new RelojComercialFake(d0.AddDays(4)))));
+        var guardado = await LeerAcuerdoAsync(acuerdo.Id);
+        Assert.Equal(EstadoAcuerdo.Activo, guardado.Estado);
+        Assert.True(guardado.EntregaInicialPagada);
+    }
+
+    [Fact]
+    public async Task Incumplimiento_QuedaAuditadoYLaLecturaDeLaFichaNoEscribe()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+        var d0 = (await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value;
+        var reloj = new RelojComercialFake(d0.AddDays(10));
+        var auditoria = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(reloj, auditoria);
+
+        // Leer la ficha con un vencimiento fuera de gracia NO cambia el estado (ni escribe nada).
+        var antes = await LeerAcuerdoAsync(acuerdo.Id);
+        var resumen = await servicio.GetAcuerdosPagoAsync(cliente.Id);
+        Assert.Equal(EstadoAcuerdo.Activo, Assert.Single(resumen).Estado);
+        var despues = await LeerAcuerdoAsync(acuerdo.Id);
+        Assert.Equal(EstadoAcuerdo.Activo, despues.Estado);
+        Assert.Equal(antes.UpdatedAt, despues.UpdatedAt);
+
+        Assert.Equal(1, await VerificarAsync(servicio));
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking()
+            .Where(e => e.Accion == "IncumplimientoAutomatico" && e.Entidad == $"AcuerdoPago:{acuerdo.Id}").ToListAsync();
+        var evento = Assert.Single(eventos);
+        Assert.Contains("Activo -> Incumplido", evento.Detalle);
+        Assert.Equal("Sistema", evento.UsuarioNombre);
+    }
+
+    // Falla la auditoría solo para un acuerdo; para el resto delega en la auditoría real.
+    private sealed class AuditoriaQueFallaParaUno(ISeguridadAuditoriaService real, string entidadQueFalla) : ISeguridadAuditoriaService
+    {
+        public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) =>
+            real.RegistrarEventoAsync(modulo, accion, entidad, detalle);
+
+        public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null)
+        {
+            if (entidad == entidadQueFalla)
+                throw new InvalidOperationException("No se pudo escribir el evento de auditoría.");
+            real.AgregarEvento(modulo, accion, entidad, detalle);
+        }
+
+        public Task<AuditoriaQueryResult> ConsultarEventosAsync(string? usuario = null, string? modulo = null, string? accion = null,
+            DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) =>
+            real.ConsultarEventosAsync(usuario, modulo, accion, desde, hasta, skip, take);
+    }
+
+    // El cambio de estado y su auditoría se confirman juntos, y un acuerdo que falla no arrastra sus cambios pendientes al
+    // siguiente: el primero queda Activo (se reintenta), el segundo se marca Incumplido con su evento.
+    [Fact]
+    public async Task Incumplimiento_SiFallaUnAcuerdo_NoArrastraSusCambiosYElSiguienteSeMarcaConSuEvento()
+    {
+        var (cl1, cr1, al1) = await SeedCreditoConDeudaAsync();
+        var (cl2, cr2, al2) = await SeedCreditoConDeudaAsync();
+        var id1 = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl1, cr1, al1), "g");
+        await _service.CambiarEstadoAcuerdoAsync(id1, cl1.Id, EstadoAcuerdo.Activo);
+        var id2 = await _service.CrearAcuerdoPagoParaCreditoAsync(Solicitud(cl2, cr2, al2), "g");
+        await _service.CambiarEstadoAcuerdoAsync(id2, cl2.Id, EstadoAcuerdo.Activo);
+        var d0 = (await LeerAcuerdoAsync(id1)).FechaActivacionComercial!.Value;
+
+        var real = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(new RelojComercialFake(d0.AddDays(10)), new AuditoriaQueFallaParaUno(real, $"AcuerdoPago:{id1}"));
+
+        _context.ChangeTracker.Clear();
+        var resultado = await servicio.VerificarIncumplimientoAcuerdosAsync();
+        _context.ChangeTracker.Clear();
+
+        Assert.Equal(1, resultado.Marcados);
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(id1)).Estado);       // el que falló no quedó a medias
+        Assert.Equal(EstadoAcuerdo.Incumplido, (await LeerAcuerdoAsync(id2)).Estado);   // el siguiente sí
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking().Where(e => e.Accion == "IncumplimientoAutomatico").ToListAsync();
+        Assert.Equal($"AcuerdoPago:{id2}", Assert.Single(eventos).Entidad);
+    }
+
+    [Fact]
+    public void Incumplimiento_LaFronteraEsD_MasGracia_Inclusive()
+    {
+        var acuerdo = new AcuerdoPago
+        {
+            Estado = EstadoAcuerdo.Activo, DiasGraciaIncumplimiento = 3, MontoEntregaInicial = 100m, FechaActivacionComercial = new DateOnly(2026, 3, 10)
+        };
+        Assert.Null(MoraService.MotivoDeIncumplimiento(acuerdo, new DateOnly(2026, 3, 13)));
+        Assert.NotNull(MoraService.MotivoDeIncumplimiento(acuerdo, new DateOnly(2026, 3, 14)));
+        acuerdo.DiasGraciaIncumplimiento = 0;
+        Assert.Null(MoraService.MotivoDeIncumplimiento(acuerdo, new DateOnly(2026, 3, 10)));
+        Assert.NotNull(MoraService.MotivoDeIncumplimiento(acuerdo, new DateOnly(2026, 3, 11)));
+    }
+
     [Fact]
     public async Task CalcularDeudaCobrable_SumaLoCobrableDeLasCuotasEnMora()
     {

@@ -496,6 +496,8 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
     {
         public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null) => Task.CompletedTask;
 
+        public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) { }
+
         public Task<AuditoriaQueryResult> ConsultarEventosAsync(
             string? usuario = null, string? modulo = null, string? accion = null,
             DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) =>

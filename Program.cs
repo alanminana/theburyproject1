@@ -260,6 +260,7 @@ builder.Services.Configure<HealthCheckServiceOptions>(options =>
 
 // 5.6 Background services (están bien: crean scope por iteración)
 builder.Services.AddHostedService<MoraBackgroundService>();
+builder.Services.AddHostedService<AcuerdoIncumplimientoBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
 builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();

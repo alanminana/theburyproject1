@@ -2122,6 +2122,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoEntregaInicial).HasPrecision(18, 2);
                 entity.Property(e => e.MontoEntregaPagada).HasPrecision(18, 2);
                 entity.Property(e => e.MontoCuotaAcuerdo).HasPrecision(18, 2);
+                entity.Property(e => e.DiasGraciaIncumplimiento).HasDefaultValue(3);
 
                 entity.HasOne(e => e.AlertaCobranza)
                     .WithMany(a => a.Acuerdos)
@@ -2244,6 +2245,7 @@ namespace TheBuryProject.Data
                 // Gestión
                 entity.Property(e => e.PorcentajeMinimoEntrega).HasPrecision(5, 2);
                 entity.Property(e => e.PorcentajeMaximoCondonacion).HasPrecision(5, 2);
+                entity.Property(e => e.DiasGraciaIncumplimientoAcuerdo).HasDefaultValue(3);
 
                 // Bloqueos
                 entity.Property(e => e.MontoMoraParaBloquear).HasPrecision(18, 2);
