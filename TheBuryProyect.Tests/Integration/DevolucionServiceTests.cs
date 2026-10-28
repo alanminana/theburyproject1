@@ -428,6 +428,37 @@ public class DevolucionServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // H3-Q2: el valor a devolver parte de lo REALMENTE cobrado por la línea (descuentos incluidos),
+    // nunca del precio de lista: de lo contrario el reembolso supera lo cobrado.
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    // Descuento de línea 50 %: lista 2 x 50 = 100, cobrado 50 (Subtotal = SubtotalFinal = 50) => 25 por unidad.
+    [InlineData(50.00, 50.00, 25.00)]
+    // Descuento general prorrateado: Subtotal de línea 100, SubtotalFinal 90 => 45 por unidad.
+    [InlineData(100.00, 90.00, 45.00)]
+    // Sin descuento (SubtotalFinal = Subtotal = lista) => 50 por unidad.
+    [InlineData(100.00, 100.00, 50.00)]
+    public async Task Crear_ValuaLaDevolucionConLoCobradoNoConElPrecioDeLista(
+        double subtotal, double subtotalFinal, double unitarioEsperado)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        var linea = await _context.VentaDetalles.SingleAsync(d => d.VentaId == venta.Id);
+        linea.PrecioUnitario = 50m;
+        linea.Subtotal = (decimal)subtotal;
+        linea.SubtotalFinal = (decimal)subtotalFinal;
+        await _context.SaveChangesAsync();
+
+        var detalles = new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } };
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        Assert.Equal((decimal)unitarioEsperado, detalles[0].PrecioUnitario);
+        Assert.Equal((decimal)unitarioEsperado, creada.TotalDevolucion);
+    }
+
+    // -------------------------------------------------------------------------
     // AprobarDevolucionAsync
     // -------------------------------------------------------------------------
 
