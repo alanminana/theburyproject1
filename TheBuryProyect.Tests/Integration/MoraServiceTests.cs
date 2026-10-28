@@ -1062,7 +1062,7 @@ public class MoraServiceTests : IDisposable
 
         if (permitido)
         {
-            Assert.True(await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia));
+            Assert.True(await _service.CambiarEstadoAcuerdoAsync(acuerdo.Id, cliente.Id, hacia, "motivo de prueba"));
             var guardado = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == acuerdo.Id);
             Assert.Equal(hacia, guardado.Estado);
             Assert.Equal(hacia == EstadoAcuerdo.Activo, guardado.FechaActivacion.HasValue);

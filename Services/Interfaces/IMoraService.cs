@@ -12,8 +12,11 @@ namespace TheBuryProject.Services.Interfaces
     /// <summary>Resultado de registrar un pago de acuerdo.</summary>
     public sealed record ResultadoPagoAcuerdo(string Concepto, decimal ImportePagado, bool AcuerdoCumplido, decimal? DeudaVencidaRestante = null);
 
-    /// <summary>Deuda vencida cobrable de un crédito: capital pendiente y punitorio aplicado pendiente de sus cuotas en mora.</summary>
-    public sealed record DeudaCobrableCredito(decimal Capital, decimal Punitorio)
+    /// <summary>Deuda cobrable de una cuota original: capital pendiente y punitorio aplicado pendiente.</summary>
+    public sealed record DeudaCobrableCuota(int CuotaId, int NumeroCuota, DateTime FechaVencimiento, decimal Capital, decimal Punitorio);
+
+    /// <summary>Deuda vencida cobrable de un crédito: capital pendiente y punitorio aplicado pendiente de sus cuotas con deuda.</summary>
+    public sealed record DeudaCobrableCredito(decimal Capital, decimal Punitorio, IReadOnlyList<DeudaCobrableCuota> Cuotas)
     {
         public decimal Total => Capital + Punitorio;
     }
@@ -115,14 +118,10 @@ namespace TheBuryProject.Services.Interfaces
         #region Acuerdos de pago
         
         /// <summary>
-        /// Crea un nuevo acuerdo de pago
-        /// </summary>
-        Task<int> CrearAcuerdoPagoAsync(CrearAcuerdoViewModel acuerdo, string gestorId);
-
-        /// <summary>
         /// Crea un acuerdo de pago para un crédito del cliente con los importes tomados de la deuda cobrable real: lo que
         /// venga en el modelo (deuda, mora, condonación) se ignora o se rechaza. Un acuerdo financia la deuda completa en
-        /// cuotas: no condona, no descuenta y no reduce nada. Es la entrada que usa la pantalla.
+        /// cuotas: no condona, no descuenta y no reduce nada. Es la única forma de crear un acuerdo: la alerta se deriva en el
+        /// servidor (puede no existir si la deuda es solo de punitorio aplicado).
         /// </summary>
         Task<int> CrearAcuerdoPagoParaCreditoAsync(CrearAcuerdoViewModel solicitud, string gestorId);
         
@@ -152,6 +151,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<DeudaCobrableCredito> CalcularDesgloseDeudaCobrableCreditoAsync(int creditoId);
 
         /// <summary>
+        /// Punitorio que el cálculo informa hoy pero que NO está aplicado (no es deuda exigible ni entra al acuerdo), sumado
+        /// sobre las cuotas con deuda del crédito. Es solo informativo: nunca se aplica automáticamente.
+        /// </summary>
+        Task<decimal> CalcularPunitorioCalculadoSinAplicarAsync(int creditoId);
+
+        /// <summary>
         /// Registra el próximo pago pendiente de un acuerdo activo (primero la entrega inicial, después las cuotas en
         /// orden). El dinero se imputa a las cuotas vencidas del crédito, de la más vieja a la más nueva, con el
         /// circuito de cobro de cuotas (caja, recibo, punitorio). Al completar todos los pagos el acuerdo pasa a
@@ -169,7 +174,7 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>Igual que <see cref="MarcarPromesaCumplidaAsync"/> pero validando que la alerta sea del cliente y tenga promesa.</summary>
         Task<bool> MarcarPromesaCumplidaDelClienteAsync(int alertaId, int clienteId);
 
-        Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado);
+        Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado, string? motivo = null);
         
         #endregion
 

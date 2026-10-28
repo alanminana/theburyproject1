@@ -10,6 +10,7 @@
     var resumen = Model.Resumen ?? new ResumenMoraViewModel();
     var creditos = Model.Creditos ?? new List<CreditoMoraViewModel>();
     var alertas = Model.AlertasActivas ?? new List<AlertaCobranzaViewModel>();
+    var creditosAcuerdo = Model.CreditosParaAcuerdo ?? new List<CreditoAcuerdoViewModel>();
     var contactos = Model.HistorialContactos ?? new List<HistorialContactoViewModel>();
     var promesas = Model.PromesasPago ?? new List<PromesaPagoViewModel>();
     var acuerdos = Model.Acuerdos ?? new List<AcuerdoPagoResumenViewModel>();
@@ -63,7 +64,7 @@
         _ => "badge-erp-neutral"
     };
 
-    var sinMora = creditos.Count == 0 && alertas.Count == 0;
+    var sinMora = creditos.Count == 0 && alertas.Count == 0 && creditosAcuerdo.Count == 0;
 }
 
 <div class="space-y-6" data-mora-ficha-page data-cliente-id="@Model.ClienteId">
@@ -444,6 +445,13 @@
                                 {
                                     <p class="text-xs text-slate-500">Próximo vencimiento @ac.ProximaFechaVencimiento.Value.ToString("dd/MM/yyyy")</p>
                                 }
+                                @if (ac.Estado == EstadoAcuerdo.Borrador && ac.PunitorioCalculadoSinAplicar is > 0m)
+                                {
+                                    <p class="mt-1 text-xs text-amber-300" data-mora-punitorio-sin-aplicar>
+                                        Punitorio calculado sin aplicar: <strong class="tabular-nums">@ac.PunitorioCalculadoSinAplicar.Value.ToString("C2")</strong>.
+                                        No está incluido en los @ac.MontoTotal.ToString("C2") del acuerdo ni se aplica solo. Si se aplica antes de activar, el acuerdo habrá que rehacerlo.
+                                    </p>
+                                }
                                 @if (puedeGestionar && puedeCobrar && ac.Estado == EstadoAcuerdo.Activo && !string.IsNullOrEmpty(ac.ProximoPagoConcepto))
                                 {
                                     <form method="post" asp-controller="Mora" asp-action="RegistrarPagoAcuerdo" asp-route-returnUrl="@volverUrl" class="mt-2 flex flex-wrap items-end gap-2" data-mora-acuerdo-pago>
@@ -489,6 +497,8 @@
                                                 <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
                                                 <input type="hidden" name="clienteId" value="@Model.ClienteId" />
                                                 <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Incumplido)" />
+                                                <label class="sr-only" for="inc-motivo-@ac.AcuerdoId">Motivo</label>
+                                                <input id="inc-motivo-@ac.AcuerdoId" name="motivo" type="text" maxlength="500" required class="input-erp" placeholder="Motivo" />
                                                 <button type="submit" class="btn-erp-ghost">Marcar incumplido</button>
                                             </form>
                                         }
@@ -497,6 +507,8 @@
                                             <input type="hidden" name="acuerdoId" value="@ac.AcuerdoId" />
                                             <input type="hidden" name="clienteId" value="@Model.ClienteId" />
                                             <input type="hidden" name="estado" value="@((int)EstadoAcuerdo.Cancelado)" />
+                                            <label class="sr-only" for="can-motivo-@ac.AcuerdoId">Motivo</label>
+                                            <input id="can-motivo-@ac.AcuerdoId" name="motivo" type="text" maxlength="500" required class="input-erp" placeholder="Motivo de la cancelación" />
                                             <button type="submit" class="btn-erp-ghost">Cancelar</button>
                                         </form>
                                     </div>
@@ -517,15 +529,17 @@
                 {
                     <p class="text-sm text-slate-400" data-mora-estado="gestion-sin-permiso">Tu rol puede consultar la mora pero no registrar gestiones.</p>
                 }
-                else if (!alertas.Any())
-                {
-                    <p class="text-sm text-slate-400" data-mora-estado="gestion-sin-alerta">
-                        Para registrar una gestión el cliente necesita una alerta de mora activa.
-                    </p>
-                }
                 else
                 {
                     <div class="flex flex-col gap-3">
+                        @if (!alertas.Any())
+                        {
+                            <p class="text-sm text-slate-400" data-mora-estado="gestion-sin-alerta">
+                                Para registrar un contacto o una promesa el cliente necesita una alerta de mora activa.
+                            </p>
+                        }
+                        else
+                        {
                         <!-- Contacto -->
                         <details class="mc-gestion" data-mora-gestion="contacto">
                             <summary><span class="material-symbols-outlined text-[20px]" aria-hidden="true">call</span> Registrar contacto</summary>
@@ -587,31 +601,62 @@
                             </form>
                         </details>
 
+                        }
                         <!-- Acuerdo -->
                         <details class="mc-gestion" data-mora-gestion="acuerdo">
                             <summary><span class="material-symbols-outlined text-[20px]" aria-hidden="true">description</span> Crear acuerdo</summary>
-                            @if (!creditos.Any())
+                            @if (!creditosAcuerdo.Any())
                             {
-                                <p class="mt-2 text-sm text-slate-400">Ningún crédito del cliente tiene deuda vencida para refinanciar.</p>
+                                <p class="mt-2 text-sm text-slate-400">Ningún crédito del cliente tiene deuda vencida ni punitorio aplicado para financiar.</p>
                             }
                             else
                             {
                                 <form method="post" asp-controller="Mora" asp-action="CrearAcuerdo" asp-route-returnUrl="@volverUrl" class="mc-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
-                                    <p class="text-xs text-slate-400">El acuerdo financia la deuda completa en cuotas (capital más punitorio aplicado), sin descuentos ni condonaciones. El importe sale de las cuotas vencidas del crédito elegido.</p>
+                                    <p class="text-xs text-slate-400">El acuerdo financia la deuda completa en cuotas (capital más punitorio aplicado), sin descuentos ni condonaciones. El importe sale de las cuotas del crédito elegido.</p>
+                                    <table class="w-full text-xs tabular-nums" data-mora-acuerdo-deuda>
+                                        <caption class="sr-only">Qué financiaría el acuerdo en cada crédito</caption>
+                                        <thead>
+                                            <tr class="text-left text-slate-400">
+                                                <th scope="col" class="py-1 pr-2">Crédito</th>
+                                                <th scope="col" class="py-1 pr-2 text-right">Capital</th>
+                                                <th scope="col" class="py-1 pr-2 text-right">Punitorio aplicado</th>
+                                                <th scope="col" class="py-1 text-right">A financiar</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var c in creditosAcuerdo)
+                                            {
+                                                <tr>
+                                                    <td class="py-1 pr-2">@c.NumeroCredito@(c.SoloPunitorio ? " · solo punitorio" : "")</td>
+                                                    @if (c.Total.HasValue)
+                                                    {
+                                                        <td class="py-1 pr-2 text-right">@c.Capital!.Value.ToString("C2")</td>
+                                                        <td class="py-1 pr-2 text-right">@c.Punitorio!.Value.ToString("C2")</td>
+                                                        <td class="py-1 text-right font-semibold">@c.Total.Value.ToString("C2")</td>
+                                                    }
+                                                    else
+                                                    {
+                                                        <td class="py-1 text-right text-amber-300" colspan="3">A conciliar (historial de punitorios incompleto)</td>
+                                                    }
+                                                </tr>
+                                                @if (c.PunitorioCalculadoSinAplicar > 0m)
+                                                {
+                                                    <tr data-mora-punitorio-sin-aplicar>
+                                                        <td class="pb-1 pr-2 text-amber-300" colspan="4">
+                                                            @c.NumeroCredito: punitorio calculado sin aplicar <strong>@c.PunitorioCalculadoSinAplicar.ToString("C2")</strong>. No está incluido en el acuerdo y no se aplica solo.
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            }
+                                        </tbody>
+                                    </table>
                                     <label for="ac-credito">Crédito</label>
                                     <select id="ac-credito" name="CreditoId" class="select-erp" required>
-                                        @foreach (var c in creditos)
+                                        @foreach (var c in creditosAcuerdo.Where(x => x.Total.HasValue))
                                         {
-                                            <option value="@c.CreditoId">@c.NumeroCredito · @(c.DeudaCapitalAFinanciar.HasValue ? $"a financiar {(c.DeudaCapitalAFinanciar.Value + c.DeudaPunitorioAFinanciar!.Value):C2} (capital {c.DeudaCapitalAFinanciar.Value:C2} + punitorio {c.DeudaPunitorioAFinanciar.Value:C2})" : "deuda a conciliar")</option>
-                                        }
-                                    </select>
-                                    <label for="ac-alerta">Alerta</label>
-                                    <select id="ac-alerta" name="AlertaId" class="select-erp" required>
-                                        @foreach (var a in alertas)
-                                        {
-                                            <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                            <option value="@c.CreditoId">@c.NumeroCredito · @c.Total!.Value.ToString("C2")</option>
                                         }
                                     </select>
                                     <label for="ac-entrega">Entrega inicial</label>
