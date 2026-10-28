@@ -135,12 +135,16 @@ public abstract class DocumentoTestBase : IDisposable
 
     // ------------------------------------------------------------------ Datos de prueba
 
+    // Único por proceso: antes se completaba con solo 2 caracteres aleatorios (256 valores) y dos clientes sembrados en la
+    // misma base podían colisionar en el índice único TipoDocumento+NumeroDocumento.
+    private static int _secuenciaDocumento;
+
     protected async Task<Venta> SembrarVentaAsync(
         TipoPago tipoPago = TipoPago.CreditoPersonal, bool conFiador = false, int cuotas = 3, string dni = "30111222")
     {
         var cliente = new Cliente
         {
-            Nombre = "Juan", Apellido = "Perez", TipoDocumento = "DNI", NumeroDocumento = $"{dni}{Guid.NewGuid():N}"[..10],
+            Nombre = "Juan", Apellido = "Perez", TipoDocumento = "DNI", NumeroDocumento = $"{dni[..4]}{Interlocked.Increment(ref _secuenciaDocumento):D6}",
             Domicilio = "Calle 123", Localidad = "Rosario", Telefono = "341555"
         };
         var categoria = new Categoria { Nombre = $"Cat {Guid.NewGuid():N}", Codigo = $"C{Guid.NewGuid():N}"[..8] };
