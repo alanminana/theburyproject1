@@ -395,15 +395,8 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
-                // Deuda y mora salen de la ficha vigente del cliente, nunca del formulario: un importe enviado a mano
-                // abarataría el acuerdo (o lo inflaría) sin respaldo en las cuotas reales.
-                var ficha = await _moraService.GetFichaClienteAsync(model.ClienteId);
-                var creditoEnMora = ficha?.Creditos?.FirstOrDefault(c => c.CreditoId == model.CreditoId);
-                if (creditoEnMora == null)
-                {
-                    TempData["Error"] = "El crédito elegido no tiene deuda vencida para este cliente.";
-                    return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
-                }
+                // Deuda, punitorio y alerta los resuelve el servicio desde las cuotas reales del crédito del cliente: nada de
+                // eso se toma del formulario, y el servicio rechaza un crédito ajeno o sin deuda.
                 if (await _moraService.ExisteAcuerdoVigenteAsync(model.CreditoId))
                 {
                     TempData["Error"] = "Ese crédito ya tiene un acuerdo vigente. Cancelalo antes de crear otro.";
@@ -468,11 +461,11 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CambiarEstadoAcuerdo(int acuerdoId, int clienteId, EstadoAcuerdo estado, string? returnUrl = null)
+        public async Task<IActionResult> CambiarEstadoAcuerdo(int acuerdoId, int clienteId, EstadoAcuerdo estado, string? motivo = null, string? returnUrl = null)
         {
             try
             {
-                await _moraService.CambiarEstadoAcuerdoAsync(acuerdoId, clienteId, estado);
+                await _moraService.CambiarEstadoAcuerdoAsync(acuerdoId, clienteId, estado, motivo);
                 TempData["Success"] = estado == EstadoAcuerdo.Activo ? "Acuerdo activado" : $"Acuerdo marcado como {estado}";
             }
             catch (InvalidOperationException ex)

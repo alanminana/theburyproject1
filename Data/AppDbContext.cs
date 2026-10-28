@@ -93,6 +93,7 @@ namespace TheBuryProject.Data
         public DbSet<ServicioVentaPrecio> ServiciosVentaPrecios { get; set; }
         public DbSet<PrefijoNumeracion> PrefijosNumeracion { get; set; }
         public DbSet<AcuerdoPagoImputacion> AcuerdoPagoImputaciones { get; set; }
+        public DbSet<AcuerdoPagoCuotaCubierta> AcuerdoPagoCuotasCubiertas { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
         public DbSet<AlertaMora> AlertasMora { get; set; }
@@ -1983,6 +1984,24 @@ namespace TheBuryProject.Data
                 .IsUnique()
                 .HasFilter("[OperacionExternaId] IS NOT NULL");
 
+            modelBuilder.Entity<AcuerdoPagoCuotaCubierta>(entity =>
+            {
+                entity.ToTable("AcuerdoPagoCuotasCubiertas");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.CapitalCubierto).HasPrecision(18, 2);
+                entity.Property(e => e.PunitorioCubierto).HasPrecision(18, 2);
+                entity.HasOne(e => e.AcuerdoPago)
+                    .WithMany(a => a.CuotasCubiertas)
+                    .HasForeignKey(e => e.AcuerdoPagoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<Cuota>()
+                    .WithMany()
+                    .HasForeignKey(e => e.CuotaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(e => new { e.AcuerdoPagoId, e.CuotaId }).IsUnique();
+                entity.HasIndex(e => e.CuotaId);
+            });
+
             modelBuilder.Entity<AcuerdoPagoImputacion>(entity =>
             {
                 entity.ToTable("AcuerdoPagoImputaciones");
@@ -2103,6 +2122,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoEntregaInicial).HasPrecision(18, 2);
                 entity.Property(e => e.MontoEntregaPagada).HasPrecision(18, 2);
                 entity.Property(e => e.MontoCuotaAcuerdo).HasPrecision(18, 2);
+                entity.Property(e => e.DiasGraciaIncumplimiento).HasDefaultValue(3);
 
                 entity.HasOne(e => e.AlertaCobranza)
                     .WithMany(a => a.Acuerdos)
@@ -2225,6 +2245,7 @@ namespace TheBuryProject.Data
                 // Gestión
                 entity.Property(e => e.PorcentajeMinimoEntrega).HasPrecision(5, 2);
                 entity.Property(e => e.PorcentajeMaximoCondonacion).HasPrecision(5, 2);
+                entity.Property(e => e.DiasGraciaIncumplimientoAcuerdo).HasDefaultValue(3);
 
                 // Bloqueos
                 entity.Property(e => e.MontoMoraParaBloquear).HasPrecision(18, 2);

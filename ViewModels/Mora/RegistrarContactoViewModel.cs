@@ -107,8 +107,8 @@ namespace TheBuryProject.ViewModels.Mora
     /// </summary>
     public class CrearAcuerdoViewModel : IValidatableObject
     {
-        [Required(ErrorMessage = "La alerta es obligatoria")]
-        public int AlertaId { get; set; }
+        /// <summary>La deriva el servidor (alerta de mora del mismo crédito y cliente); opcional si la deuda es solo punitorio.</summary>
+        public int? AlertaId { get; set; }
         
         [Required(ErrorMessage = "El cliente es obligatorio")]
         public int ClienteId { get; set; }

@@ -226,7 +226,7 @@ namespace TheBuryProject.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AlertaCobranzaId")
+                    b.Property<int?>("AlertaCobranzaId")
                         .HasColumnType("int");
 
                     b.Property<string>("AprobadoPor")
@@ -252,6 +252,11 @@ namespace TheBuryProject.Migrations
                     b.Property<int>("CreditoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("DiasGraciaIncumplimiento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
+
                     b.Property<bool>("EntregaInicialPagada")
                         .HasColumnType("bit");
 
@@ -260,6 +265,9 @@ namespace TheBuryProject.Migrations
 
                     b.Property<DateTime?>("FechaActivacion")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("FechaActivacionComercial")
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
@@ -349,6 +357,62 @@ namespace TheBuryProject.Migrations
                         .IsUnique();
 
                     b.ToTable("AcuerdosPago", (string)null);
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPagoCuotaCubierta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcuerdoPagoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CapitalCubierto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CuotaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PunitorioCubierto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CuotaId");
+
+                    b.HasIndex("AcuerdoPagoId", "CuotaId")
+                        .IsUnique();
+
+                    b.ToTable("AcuerdoPagoCuotasCubiertas", (string)null);
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPagoImputacion", b =>
@@ -2385,6 +2449,11 @@ namespace TheBuryProject.Migrations
 
                     b.Property<int?>("DiasGracia")
                         .HasColumnType("int");
+
+                    b.Property<int>("DiasGraciaIncumplimientoAcuerdo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
 
                     b.Property<int?>("DiasMaximosSinGestion")
                         .HasColumnType("int");
@@ -11100,8 +11169,7 @@ namespace TheBuryProject.Migrations
                     b.HasOne("TheBuryProject.Models.Entities.AlertaCobranza", "AlertaCobranza")
                         .WithMany("Acuerdos")
                         .HasForeignKey("AlertaCobranzaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("TheBuryProject.Models.Entities.Cliente", "Cliente")
                         .WithMany()
@@ -11120,6 +11188,23 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Cliente");
 
                     b.Navigation("Credito");
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPagoCuotaCubierta", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.AcuerdoPago", "AcuerdoPago")
+                        .WithMany("CuotasCubiertas")
+                        .HasForeignKey("AcuerdoPagoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TheBuryProject.Models.Entities.Cuota", null)
+                        .WithMany()
+                        .HasForeignKey("CuotaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcuerdoPago");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPagoImputacion", b =>
@@ -12639,6 +12724,8 @@ namespace TheBuryProject.Migrations
             modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPago", b =>
                 {
                     b.Navigation("Cuotas");
+
+                    b.Navigation("CuotasCubiertas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.AlertaCobranza", b =>

@@ -8,6 +8,7 @@ namespace TheBuryProject.ViewModels
     public class PagarCuotaViewModel
     {
         /// <summary>Identidad de la operación externa que origina el cobro (se guarda en PagoCuota.OperacionExternaId).</summary>
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
         public Guid? OperacionExternaId { get; set; }
 
         // NUEVA PROPIEDAD

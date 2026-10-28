@@ -21,6 +21,12 @@ namespace TheBuryProject.ViewModels.Mora
         
         // Créditos en mora
         public List<CreditoMoraViewModel> Creditos { get; set; } = new();
+
+        /// <summary>
+        /// Créditos con deuda cobrable para financiar en un acuerdo: mora de capital y también deuda solo de punitorio
+        /// aplicado. No cambia la clasificación de mora de capital (<see cref="Creditos"/>, PUN-ML7).
+        /// </summary>
+        public List<CreditoAcuerdoViewModel> CreditosParaAcuerdo { get; set; } = new();
         
         // Alertas activas
         public List<AlertaCobranzaViewModel> AlertasActivas { get; set; } = new();
@@ -72,11 +78,6 @@ namespace TheBuryProject.ViewModels.Mora
         public decimal MontoCuotasVencidas { get; set; }
         public decimal MontoMora { get; set; }
 
-        /// <summary>Capital pendiente de las cuotas en mora (lo que financiaría un acuerdo); null si no se pudo determinar.</summary>
-        public decimal? DeudaCapitalAFinanciar { get; set; }
-
-        /// <summary>Punitorio aplicado pendiente de esas cuotas; null si no se pudo determinar.</summary>
-        public decimal? DeudaPunitorioAFinanciar { get; set; }
         public List<CuotaVencidaViewModel> CuotasDetalle { get; set; } = new();
     }
 
@@ -169,6 +170,27 @@ namespace TheBuryProject.ViewModels.Mora
     /// <summary>
     /// Resumen de acuerdo de pago
     /// </summary>
+    /// <summary>Qué financiaría un acuerdo hoy sobre un crédito, y qué punitorio calculado queda afuera.</summary>
+    public class CreditoAcuerdoViewModel
+    {
+        public int CreditoId { get; set; }
+        public string NumeroCredito { get; set; } = string.Empty;
+
+        /// <summary>Capital pendiente a financiar; null si no se pudo determinar (historial de punitorios incompleto).</summary>
+        public decimal? Capital { get; set; }
+
+        /// <summary>Punitorio aplicado pendiente a financiar; null si no se pudo determinar.</summary>
+        public decimal? Punitorio { get; set; }
+
+        /// <summary>Punitorio calculado pero NO aplicado: informativo, no entra al acuerdo ni se aplica solo.</summary>
+        public decimal PunitorioCalculadoSinAplicar { get; set; }
+
+        public decimal? Total => Capital.HasValue && Punitorio.HasValue ? Capital + Punitorio : null;
+
+        /// <summary>Sin capital en mora: la deuda es solo punitorio aplicado.</summary>
+        public bool SoloPunitorio => Capital.HasValue && Capital.Value <= 0m;
+    }
+
     public class AcuerdoPagoResumenViewModel
     {
         public int AcuerdoId { get; set; }
@@ -181,6 +203,15 @@ namespace TheBuryProject.ViewModels.Mora
         public int TotalCuotas { get; set; }
         public int CuotasPagadas { get; set; }
         public DateTime? ProximaFechaVencimiento { get; set; }
+
+        /// <summary>Días corridos de gracia con los que se activó el acuerdo antes de marcarlo incumplido.</summary>
+        public int DiasGraciaIncumplimiento { get; set; }
+
+        /// <summary>Por qué quedó Incumplido (automático o manual); null si no lo está.</summary>
+        public string? MotivoIncumplimiento { get; set; }
+
+        /// <summary>Solo en borrador: punitorio calculado y no aplicado al día de hoy; no está incluido en el total del acuerdo.</summary>
+        public decimal? PunitorioCalculadoSinAplicar { get; set; }
 
         /// <summary>Próximo pago a registrar ("Entrega inicial", "Cuota 2 del acuerdo") y lo que falta de él; null si no hay.</summary>
         public string? ProximoPagoConcepto { get; set; }

@@ -950,6 +950,8 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
+                await AsegurarCuotaNoCubiertaPorAcuerdoAsync(cuota.Id, pago.OperacionExternaId);
+
                 if (cuotaRowVersionEsperada is not null)
                     VerificarRowVersion(cuota.RowVersion, cuotaRowVersionEsperada);
 
@@ -1139,6 +1141,26 @@ namespace TheBuryProject.Services
         /// Rechaza el cobro si el crédito ya no lo admite (cancelado, rechazado). Se lee de la
         /// BASE y debe invocarse con el lock del crédito tomado, para que el estado no cambie hasta el commit.
         /// </summary>
+        /// <summary>
+        /// Una cuota cubierta por un acuerdo ACTIVO solo se cobra por el circuito del acuerdo (su deuda está congelada y el
+        /// acuerdo imputa los pagos): cualquier otro cobro cambiaría la deuda acordada sin reflejarse en el acuerdo. Para cobrar
+        /// por otro circuito hay que cancelar el acuerdo antes. La excepción es una intención Pendiente del propio acuerdo,
+        /// identificada por una operación persistida en el servidor (nunca por un valor del cliente HTTP).
+        /// </summary>
+        private async Task AsegurarCuotaNoCubiertaPorAcuerdoAsync(int cuotaId, Guid? operacionExternaId, CancellationToken cancellationToken = default)
+        {
+            var acuerdo = await AcuerdoPagoCobertura.ActivoQueCubreAsync(_context, cuotaId, cancellationToken);
+            if (acuerdo is null)
+                return;
+            if (await AcuerdoPagoCobertura.EsCobroGestionadoPorElAcuerdoAsync(_context, acuerdo.Id, cuotaId, operacionExternaId, cancellationToken))
+                return;
+
+            _logger.LogWarning("Cobro rechazado: la cuota {CuotaId} está cubierta por el acuerdo activo {Acuerdo}.", cuotaId, acuerdo.NumeroAcuerdo);
+            throw new PagoCuotaRechazadoException(
+                MotivoRechazoPagoCuota.Conflicto,
+                $"La cuota está cubierta por el acuerdo {acuerdo.NumeroAcuerdo}: los pagos se registran desde el acuerdo (Mora) o hay que cancelarlo antes.");
+        }
+
         private async Task AsegurarCreditoAdmiteCobrosAsync(int creditoId, CancellationToken cancellationToken = default)
         {
             var estado = await CreditoConcurrencia.ObtenerEstadoAsync(_context, creditoId, cancellationToken);
@@ -1592,6 +1614,10 @@ namespace TheBuryProject.Services
                 await CreditoConcurrencia.BloquearOrdenadosAsync(_context, creditoIdsAfectados, cancellationToken);
                 foreach (var creditoIdAfectado in creditoIdsAfectados.OrderBy(x => x))
                     await AsegurarCreditoAdmiteCobrosAsync(creditoIdAfectado, cancellationToken);
+
+                // El pago múltiple nunca es un cobro del acuerdo: ninguna de sus cuotas puede estar cubierta por uno activo.
+                foreach (var cuotaIdSeleccionada in cuotaIds)
+                    await AsegurarCuotaNoCubiertaPorAcuerdoAsync(cuotaIdSeleccionada, null, cancellationToken);
 
                 // Una sola pasada de lectura+validación (incluye RowVersion) ANTES de tocar nada:
                 // si una sola cuota falla acá, no se mutó ninguna todavía (rollback total real).

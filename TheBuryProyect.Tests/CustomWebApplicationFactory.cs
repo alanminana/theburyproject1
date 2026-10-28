@@ -25,6 +25,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private static readonly Type[] BackgroundServicesToRemove =
     [
         typeof(MoraBackgroundService),
+        typeof(AcuerdoIncumplimientoBackgroundService),
         typeof(AlertaStockBackgroundService),
         typeof(DocumentoVencidoBackgroundService),
         typeof(CotizacionVencimientoBackgroundService),
