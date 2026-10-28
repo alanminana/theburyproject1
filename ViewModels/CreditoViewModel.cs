@@ -31,6 +31,9 @@ namespace TheBuryProject.ViewModels
         [Range(0, 10000000, ErrorMessage = "El monto debe estar entre $0 y $10.000.000")]
         public decimal MontoAprobado { get; set; }
 
+        /// <summary>Gastos administrativos fijados al configurar la venta (no se financian). Solo lectura: no se mapea de vuelta a la entidad.</summary>
+        public decimal GastosAdministrativos { get; set; }
+
         [Display(Name = "Tasa de Interés Mensual (%)")]
         [Required(ErrorMessage = "La tasa de interés es requerida")]
         [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0% y 100%")]
