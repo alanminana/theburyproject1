@@ -52,3 +52,23 @@ Datos temporales solo en el clon: vencimiento de la cuota 1035 (credito 1017) y 
 
 Fuera de alcance / no validado: pantalla (la vista no ofrece alta de acuerdo en esta version: `GET CrearAcuerdo` redirige con "todavia no esta disponible"), cobro con medios distintos de efectivo, acuerdo con punitorio > 0 (el clon tenia punitorio 0 en esos creditos).
 
+
+## Smoke funcional de acuerdos (2026-10-28, clon de la base real ya migrada)
+
+Clon `TheBuryProjectDb_qa_h2smoke` (eliminado), app contra el clon y endpoints reales de `MoraController` (`CrearAcuerdo`, `CambiarEstadoAcuerdo`, `RegistrarPagoAcuerdo`). Base real intacta.
+
+| Caso | Resultado |
+|---|---|
+| Crear (entrega 10.000 + 2 cuotas) y activar | Borrador → Activo; deuda de la cuota 1 congelada; `FechaActivacionComercial` = 2026-10-28; gracia 3 días |
+| Cobrar entrega y cuotas 1 y 2 | 3 pagos y 3 movimientos de caja; 3 imputaciones Aplicadas; cuota original Pagada; acuerdo Cumplido |
+| Entrega impaga, activado hace 3 días (límite de gracia) | Sigue Activo |
+| Mismo caso con 4 días | Incumplido automático (job); un pago posterior no reactiva |
+| Acuerdo sin entrega con cuota vencida | Incumplido automático por cuota |
+
+Auditoría: `CrearAcuerdoPago`, `CambiarEstadoAcuerdo` (usuario), `IncumplimientoAutomatico` (Sistema) y `DocumentoGenerado REC-*` por cada cobro.
+
+Operaciones ajenas: créditos, cuotas, pagos, ventas, movimientos de caja previos y aperturas idénticos (conteos, sumas y checksums). Únicos cambios fuera de los créditos del acuerdo, ambos disparados por el cobro: una alerta de mora resuelta y el scoring del cliente.
+
+Datos temporales solo en el clon: se adelantaron fechas de activación/vencimiento por UPDATE para forzar el incumplimiento.
+
+No validado: pantalla (se usó POST directo, sin capturas), cobros con medios distintos de efectivo y acuerdos con punitorio mayor que 0 (los créditos usados tenían punitorio 0).
