@@ -204,6 +204,12 @@ namespace TheBuryProject.ViewModels.Mora
         public int CuotasPagadas { get; set; }
         public DateTime? ProximaFechaVencimiento { get; set; }
 
+        /// <summary>Días corridos de gracia con los que se activó el acuerdo antes de marcarlo incumplido.</summary>
+        public int DiasGraciaIncumplimiento { get; set; }
+
+        /// <summary>Por qué quedó Incumplido (automático o manual); null si no lo está.</summary>
+        public string? MotivoIncumplimiento { get; set; }
+
         /// <summary>Solo en borrador: punitorio calculado y no aplicado al día de hoy; no está incluido en el total del acuerdo.</summary>
         public decimal? PunitorioCalculadoSinAplicar { get; set; }
 

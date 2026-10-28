@@ -445,6 +445,16 @@
                                 {
                                     <p class="text-xs text-slate-500">Próximo vencimiento @ac.ProximaFechaVencimiento.Value.ToString("dd/MM/yyyy")</p>
                                 }
+                                @if (ac.Estado == EstadoAcuerdo.Activo)
+                                {
+                                    <p class="text-xs text-slate-500" data-mora-gracia-incumplimiento>
+                                        Se marca incumplido si un pago sigue impago pasados @ac.DiasGraciaIncumplimiento días corridos de su vencimiento (la entrega inicial vence el día de la activación).
+                                    </p>
+                                }
+                                @if (ac.Estado == EstadoAcuerdo.Incumplido && !string.IsNullOrWhiteSpace(ac.MotivoIncumplimiento))
+                                {
+                                    <p class="mt-1 text-xs text-red-300" data-mora-motivo-incumplimiento>@ac.MotivoIncumplimiento</p>
+                                }
                                 @if (ac.Estado == EstadoAcuerdo.Borrador && ac.PunitorioCalculadoSinAplicar is > 0m)
                                 {
                                     <p class="mt-1 text-xs text-amber-300" data-mora-punitorio-sin-aplicar>

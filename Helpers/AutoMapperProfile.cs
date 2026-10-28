@@ -491,6 +491,7 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.DiasMaximosSinGestion,         o => o.Ignore())
                 .ForMember(d => d.DiasParaCumplirPromesa,        o => o.Ignore())
                 .ForMember(d => d.MaximoCuotasAcuerdo,           o => o.Ignore())
+                .ForMember(d => d.DiasGraciaIncumplimientoAcuerdo, o => o.Ignore())
                 .ForMember(d => d.PorcentajeMinimoEntrega,       o => o.Ignore())
                 .ForMember(d => d.PermitirCondonacionMora,       o => o.Ignore())
                 .ForMember(d => d.PorcentajeMaximoCondonacion,   o => o.Ignore())

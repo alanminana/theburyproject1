@@ -240,6 +240,13 @@ namespace TheBuryProject.Models.Entities
         public int? MaximoCuotasAcuerdo { get; set; }
 
         /// <summary>
+        /// Días corridos de gracia, desde el vencimiento de un pago de un acuerdo (entrega inicial o cuota), antes de marcar el
+        /// acuerdo como Incumplido. Independiente de <see cref="DiasGracia"/> (gracia de la mora). Cada acuerdo conserva el valor
+        /// vigente al activarse: un cambio solo afecta a los acuerdos nuevos.
+        /// </summary>
+        public int DiasGraciaIncumplimientoAcuerdo { get; set; } = 3;
+
+        /// <summary>
         /// Porcentaje mínimo requerido como entrega inicial en acuerdos
         /// </summary>
         public decimal? PorcentajeMinimoEntrega { get; set; }

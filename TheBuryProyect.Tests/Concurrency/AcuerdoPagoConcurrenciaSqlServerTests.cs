@@ -225,6 +225,72 @@ public class AcuerdoPagoConcurrenciaSqlServerTests : IClassFixture<AcuerdoSqlHos
         }
     }
 
+    private async Task RetrocederActivacionAsync(int acuerdoId, int dias)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var reloj = scope.ServiceProvider.GetRequiredService<IRelojComercial>();
+        var acuerdo = await ctx.AcuerdosPago.SingleAsync(a => a.Id == acuerdoId);
+        acuerdo.FechaActivacionComercial = reloj.HoyComercial.AddDays(-dias);
+        await ctx.SaveChangesAsync();
+    }
+
+    private Task<(bool Ok, string Detalle)> Verificar() =>
+        EjecutarAsync(_fx.Services, sp => sp.GetRequiredService<IMoraService>().VerificarIncumplimientoAcuerdosAsync());
+
+    // La entrega venció fuera de gracia: la verificación diaria y los pagos corren a la vez. Gane quien gane, el acuerdo queda
+    // Incumplido UNA vez y no se cobra nada por el acuerdo (un pago tardío no lo reactiva).
+    [SqlServerConcFact]
+    public async Task IncumplimientoVsPagos_ElAcuerdoQuedaIncumplidoYNoSeCobraNada()
+    {
+        for (var i = 0; i < Intentos; i++)
+        {
+            var s = await SembrarVencidoAsync();
+            var acuerdoId = await CrearBorradorAsync(s);
+            Assert.True((await Activar(acuerdoId, s.ClienteId)).Ok);
+            await RetrocederActivacionAsync(acuerdoId, 10);
+
+            Task<(bool Ok, string Detalle)> Pagar() => EjecutarAsync(_fx.Services, sp => sp.GetRequiredService<IMoraService>()
+                .RegistrarPagoAcuerdoAsync(acuerdoId, s.ClienteId, "Efectivo", null, pasoEsperado: 0));
+            var tareas = new[] { Verificar(), Pagar(), Pagar(), Verificar() };
+            await Task.WhenAll(tareas);
+            _out.WriteLine($"[{i}] " + string.Join(" | ", tareas.Select(t => t.Result.Detalle)));
+
+            var acuerdo = await LeerAcuerdoAsync(acuerdoId);
+            Assert.Equal(EstadoAcuerdo.Incumplido, acuerdo.Estado);
+            Assert.False(tareas[1].Result.Ok || tareas[2].Result.Ok, "Un pago tardío no puede registrarse ni reactivar el acuerdo.");
+            using var scope = _fx.Services.CreateScope();
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.Equal(0m, await ctx.Cuotas.AsNoTracking().Where(x => x.CreditoId == s.CreditoId).SumAsync(x => x.MontoPagado));
+            Assert.Equal(1, await ctx.SeguridadEventosAuditoria.CountAsync(e => e.Accion == "IncumplimientoAutomatico" && e.Entidad == $"AcuerdoPago:{acuerdoId}"));
+        }
+    }
+
+    // Dentro de la gracia la verificación no toca nada y el pago concurrente se cobra una sola vez.
+    [SqlServerConcFact]
+    public async Task VerificacionVsPagoDentroDeGracia_CobraUnaVezYNoIncumple()
+    {
+        for (var i = 0; i < Intentos; i++)
+        {
+            var s = await SembrarVencidoAsync();
+            var acuerdoId = await CrearBorradorAsync(s);
+            Assert.True((await Activar(acuerdoId, s.ClienteId)).Ok);
+            await RetrocederActivacionAsync(acuerdoId, 3); // D+3: todavía en gracia
+
+            Task<(bool Ok, string Detalle)> Pagar() => EjecutarAsync(_fx.Services, sp => sp.GetRequiredService<IMoraService>()
+                .RegistrarPagoAcuerdoAsync(acuerdoId, s.ClienteId, "Efectivo", null, pasoEsperado: 0));
+            var tareas = new[] { Verificar(), Pagar(), Pagar(), Verificar() };
+            await Task.WhenAll(tareas);
+            _out.WriteLine($"[{i}] " + string.Join(" | ", tareas.Select(t => t.Result.Detalle)));
+
+            Assert.Equal(EstadoAcuerdo.Activo, (await LeerAcuerdoAsync(acuerdoId)).Estado);
+            Assert.Equal(1, new[] { tareas[1], tareas[2] }.Count(t => t.Result.Ok));
+            using var scope = _fx.Services.CreateScope();
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.Equal(100m, await ctx.Cuotas.AsNoTracking().Where(x => x.CreditoId == s.CreditoId).SumAsync(x => x.MontoPagado));
+        }
+    }
+
     [SqlServerConcFact]
     public async Task DosActivacionesSimultaneas_CongelanLaDeudaUnaSolaVez()
     {

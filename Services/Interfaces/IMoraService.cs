@@ -175,6 +175,13 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> MarcarPromesaCumplidaDelClienteAsync(int alertaId, int clienteId);
 
         Task<bool> CambiarEstadoAcuerdoAsync(int acuerdoId, int clienteId, EstadoAcuerdo nuevoEstado, string? motivo = null);
+
+        /// <summary>
+        /// Marca Incumplido los acuerdos Activos con un pago (entrega inicial o cuota) impago pasada su gracia, con la fecha
+        /// comercial de Argentina. Antes de decidir concilia los cobros que hubieran quedado sin reflejar. Corre a diario,
+        /// independiente de <c>ProcesoAutomaticoActivo</c>. Devuelve cuántos acuerdos marcó.
+        /// </summary>
+        Task<int> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default);
         
         #endregion
 
