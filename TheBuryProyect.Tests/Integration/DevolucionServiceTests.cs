@@ -434,6 +434,83 @@ public class DevolucionServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // H5-I: el recargo del medio de pago (con su IVA) se devuelve proporcionalmente y la suma de devoluciones
+    // nunca excede lo cobrado.
+    // -------------------------------------------------------------------------
+
+    private async Task<(Cliente Cliente, Producto A, Producto B, Venta Venta)> SeedVentaConRecargoAsync()
+    {
+        var cliente = await SeedClienteAsync();
+        var a = await SeedProductoAsync();
+        var b = await SeedProductoAsync();
+        // Productos 7.000 (x3) + 5.752 (x1) = 12.752; débito +3% => total cobrado 13.134 (recargo 382).
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8], ClienteId = cliente.Id, Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.TarjetaDebito, FechaVenta = DateTime.UtcNow, Total = 13_134m,
+            Detalles = new List<VentaDetalle>
+            {
+                new() { ProductoId = a.Id, Cantidad = 3, PrecioUnitario = 2_333.34m, Subtotal = 7_000m, SubtotalFinal = 7_000m },
+                new() { ProductoId = b.Id, Cantidad = 1, PrecioUnitario = 5_752m, Subtotal = 5_752m, SubtotalFinal = 5_752m }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return (cliente, a, b, venta);
+    }
+
+    [Fact]
+    public async Task Crear_ConRecargoDelMedioDePago_DevolverTodasLasLineasReintegraExactamenteLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConRecargoAsync();
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = a.Id, Cantidad = 3 },
+            new() { ProductoId = b.Id, Cantidad = 1 }
+        };
+
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        Assert.Equal(13_134m, creada.TotalDevolucion);
+    }
+
+    [Fact]
+    public async Task Crear_ConRecargoDelMedioDePago_VariasDevolucionesParcialesNuncaExcedenLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConRecargoAsync();
+        decimal acumulado = 0m;
+
+        foreach (var cantidad in new[] { 1, 1, 1 })
+        {
+            var d = new List<DevolucionDetalle> { new() { ProductoId = a.Id, Cantidad = cantidad } };
+            var dev = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), d);
+            acumulado += dev.TotalDevolucion;
+            Assert.True(acumulado <= 7_000m + 382m * 7_000m / 12_752m + 0.01m);
+        }
+
+        var ultima = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = b.Id, Cantidad = 1 } });
+        acumulado += ultima.TotalDevolucion;
+
+        Assert.Equal(13_134m, acumulado);
+    }
+
+    [Fact]
+    public async Task Crear_SinRecargo_SigueValuandoConLoCobradoSinAgregarNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        venta.Total = 100m;
+        await _context.SaveChangesAsync();
+
+        var creada = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 2 } });
+
+        Assert.Equal(100m, creada.TotalDevolucion);
+    }
+
+    // -------------------------------------------------------------------------
     // AprobarDevolucionAsync
     // -------------------------------------------------------------------------
 

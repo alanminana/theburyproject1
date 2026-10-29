@@ -74,6 +74,10 @@ namespace TheBuryProject.ViewModels
         public decimal SubtotalNeto { get; set; }
         public decimal IVA { get; set; }
         public decimal TotalProductos { get; set; }
+        /// <summary>H5-I: recargo del medio de pago ya incluido en SubtotalNeto e IVA (0 si no hay).</summary>
+        public decimal RecargoIncluidoNeto { get; set; }
+        public decimal RecargoIncluidoIVA { get; set; }
+        public bool RecargoIncluido => RecargoIncluidoNeto + RecargoIncluidoIVA > 0m;
         public decimal RecargoDebitoAplicado { get; set; }
         public decimal? PorcentajeAjustePlanAplicado { get; set; }
         public decimal? MontoAjustePlanAplicado { get; set; }

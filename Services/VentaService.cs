@@ -941,6 +941,7 @@ namespace TheBuryProject.Services
                     venta.Total = ajusteMedio.TotalFinal;
                 }
             }
+            DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
             await NormalizarYValidarNotaCreditoAsync(venta);
@@ -1988,6 +1989,8 @@ namespace TheBuryProject.Services
             var factura = _mapper.Map<Factura>(facturaViewModel);
             factura.VentaId = venta.Id;
             factura.Numero = await _numberGenerator.GenerarNumeroFacturaAsync(factura.Tipo);
+            // H5-I: ventas confirmadas antes de discriminar el recargo: se completa aquí (idempotente) para que la factura cierre.
+            DiscriminarRecargoEnNetoEIva(venta, await _context.VentaDetalles.Where(d => d.VentaId == venta.Id && !d.IsDeleted).ToListAsync());
             factura.Subtotal = venta.Subtotal;
             factura.IVA = venta.IVA;
             // El comprobante cubre el total facturable (hoy = Venta.Total, sin envío): ver
@@ -2540,6 +2543,8 @@ namespace TheBuryProject.Services
             await AplicarSnapshotDatosTarjetaAsync(venta, datosTarjetaEntity, datosTarjeta);
 
             _context.DatosTarjeta.Add(datosTarjetaEntity);
+            var detallesVenta = await _context.VentaDetalles.Where(d => d.VentaId == ventaId && !d.IsDeleted).ToListAsync();
+            DiscriminarRecargoEnNetoEIva(venta, detallesVenta);
             await _context.SaveChangesAsync();
 
             return true;
@@ -3782,6 +3787,63 @@ namespace TheBuryProject.Services
         {
             var deIva = Math.Min(truncado, iva);
             return (subtotal - (truncado - deIva), iva - deIva);
+        }
+
+        /// <summary>
+        /// H5-I: el recargo del medio de pago (débito, tarjeta en cuotas con interés, recargo de Efectivo/Transferencia)
+        /// forma parte del total cobrado y se discrimina con IVA: Subtotal + IVA == Total. Detecta el recargo como
+        /// <c>Total - (Subtotal + IVA)</c> (CalcularTotales deja Subtotal + IVA == total de los ítems truncado) y lo reparte
+        /// entre alícuotas proporcionalmente al bruto de cada una (<see cref="RecargoMedioPagoIva"/>). Idempotente: tras
+        /// aplicarlo la diferencia es 0. No toca descuentos (diferencia negativa) ni ventas de cotización, que guardan
+        /// Subtotal con IVA incluido (convención distinta: Subtotal + IVA &gt; Total).
+        /// </summary>
+        internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles)
+        {
+            var lineas = detalles.Where(d => !d.IsDeleted).ToList();
+            var baseNetoIva = venta.Subtotal + venta.IVA;
+            var recargo = venta.Total - baseNetoIva;
+            if (recargo <= 0m || baseNetoIva <= 0m)
+                return;
+
+            // Convención de CalcularTotales: Subtotal = Σ neto final (+ neto de servicios). Si no coincide (cotización),
+            // no se reinterpreta el dato.
+            var brutoLineas = lineas.Sum(d => d.SubtotalFinal);
+            var servicios = Math.Max(0m, baseNetoIva - brutoLineas);
+            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(servicios);
+            var subtotalEsperado = lineas.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
+            if (Math.Abs(venta.Subtotal - subtotalEsperado) > 1m)
+                return;
+
+            var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
+            if (servicios > 0m)
+                bases.Add((ServiciosVentaIva.Porcentaje, servicios));
+
+            var partes = RecargoMedioPagoIva.Repartir(bases, recargo);
+            venta.Subtotal += partes.Sum(p => p.Neto);
+            venta.IVA += partes.Sum(p => p.Iva);
+        }
+
+        /// <summary>
+        /// H5-I: versión para ventas nacidas de una cotización, que guardan <c>Subtotal</c> con IVA incluido
+        /// (<c>Subtotal == Total</c> antes del recargo; <c>IVA</c> es solo el desglose). El recargo de la tarjeta
+        /// (<c>Total - Subtotal</c>) se suma al Subtotal y su IVA, prorrateado entre alícuotas, al IVA, de modo que
+        /// <c>Venta.IVA</c> (Caja, reportes, factura) lo incluya. Idempotente y sin efecto con descuentos.
+        /// </summary>
+        internal static void DiscriminarRecargoEnIvaVentaCotizacion(Venta venta, IEnumerable<VentaDetalle> detalles)
+        {
+            var lineas = detalles.Where(d => !d.IsDeleted).ToList();
+            var recargo = venta.Total - venta.Subtotal;
+            if (recargo <= 0m || venta.Subtotal <= 0m)
+                return;
+
+            var servicios = Math.Max(0m, venta.Subtotal - lineas.Sum(d => d.SubtotalFinal));
+            var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
+            if (servicios > 0m)
+                bases.Add((ServiciosVentaIva.Porcentaje, servicios));
+
+            var partes = RecargoMedioPagoIva.Repartir(bases, recargo);
+            venta.Subtotal += partes.Sum(p => p.Bruto);
+            venta.IVA += partes.Sum(p => p.Iva);
         }
 
         /// <summary>

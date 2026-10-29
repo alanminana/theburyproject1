@@ -183,15 +183,29 @@ public class DevolucionService : IDevolucionService
             // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
             var ventaDetallesRaw = await _context.VentaDetalles
                 .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ProductoUnidadId })
+                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ArmadoSubtotal, vd.ProductoUnidadId })
                 .ToListAsync();
 
+            // H5-I: lo cobrado por línea incluye su parte proporcional del recargo del medio de pago (con su IVA), de modo
+            // que devolver todas las líneas reintegre exactamente lo cobrado por los productos. Armados y envío no se
+            // devuelven (regla vigente): su parte del recargo tampoco.
+            var envioIncluido = await _context.VentaEnvios
+                .Where(e => e.VentaId == devolucion.VentaId && !e.IsDeleted && e.IncluidoEnTotal)
+                .Select(e => (decimal?)e.CostoEnvio)
+                .FirstOrDefaultAsync();
+            var cobradoPorLinea = ventaDetallesRaw
+                .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
+                .ToList();
+            var serviciosBruto = ventaDetallesRaw.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
+            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total);
+
             var vendidoPorProducto = ventaDetallesRaw
-                .GroupBy(vd => vd.ProductoId)
+                .Select((vd, i) => (Detalle: vd, Cobrado: cobradoPorLinea[i] + recargoPorLinea[i]))
+                .GroupBy(x => x.Detalle.ProductoId)
                 .ToDictionary(
                     g => g.Key,
-                    g => (CantidadVendida: g.Sum(x => x.Cantidad),
-                          TotalVendido: g.Sum(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))));
+                    g => (CantidadVendida: g.Sum(x => x.Detalle.Cantidad),
+                          TotalVendido: g.Sum(x => x.Cobrado)));
 
             if (vendidoPorProducto.Count == 0)
                 throw new InvalidOperationException("La venta no tiene detalles para devolver");
@@ -210,10 +224,10 @@ public class DevolucionService : IDevolucionService
                     _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId && d.Estado != EstadoDevolucion.Rechazada),
                     dd => dd.DevolucionId,
                     d => d.Id,
-                    (dd, d) => new { dd.ProductoId, dd.Cantidad })
+                    (dd, d) => new { dd.ProductoId, dd.Cantidad, dd.Subtotal })
                 .GroupBy(x => x.ProductoId)
-                .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
-                .ToDictionaryAsync(x => x.ProductoId, x => x.Cantidad);
+                .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad), Importe = g.Sum(x => x.Subtotal) })
+                .ToDictionaryAsync(x => x.ProductoId, x => (x.Cantidad, x.Importe));
 
             // Resolver ProductoUnidadId efectivo para cada detalle (explícito o auto-inferido)
             var unidadIdPorDetalle = detalles.ToDictionary(
@@ -264,9 +278,9 @@ public class DevolucionService : IDevolucionService
                 if (!vendidoPorProducto.TryGetValue(detalle.ProductoId, out var vendido))
                     throw new InvalidOperationException("El producto a devolver no pertenece a la venta");
 
-                var yaDevuelto = devueltoPorProducto.TryGetValue(detalle.ProductoId, out var cantDevuelta)
-                    ? cantDevuelta
-                    : 0;
+                var (yaDevuelto, importeYaDevuelto) = devueltoPorProducto.TryGetValue(detalle.ProductoId, out var previo)
+                    ? previo
+                    : (0, 0m);
 
                 var disponible = vendido.CantidadVendida - yaDevuelto;
                 if (detalle.Cantidad > disponible)
@@ -281,6 +295,14 @@ public class DevolucionService : IDevolucionService
 
                 detalle.PrecioUnitario = precioUnitario;
                 detalle.Subtotal = detalle.Cantidad * detalle.PrecioUnitario;
+
+                // H5-I: la suma de todas las devoluciones de un producto nunca excede lo cobrado por él. El precio
+                // unitario redondeado a 2 decimales podría pasarse (o quedarse corto) por centavos: la última
+                // devolución (la que agota las unidades) reintegra exactamente el remanente.
+                var remanente = Math.Max(0m, vendido.TotalVendido - importeYaDevuelto);
+                detalle.Subtotal = detalle.Cantidad == disponible
+                    ? remanente
+                    : Math.Min(detalle.Subtotal, remanente);
                 total += detalle.Subtotal;
 
                 // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
@@ -328,6 +350,25 @@ public class DevolucionService : IDevolucionService
     /// salvo descuento del 100 %. No incluye el recargo/ajuste del medio de pago, el envío ni los armados: eso es
     /// una regla de dinero aparte.
     /// </summary>
+    /// <summary>
+    /// H5-I: parte del recargo del medio de pago (IVA incluido) que corresponde a cada línea de producto: el recargo
+    /// (total cobrado - lo que suman los ítems, truncado a pesos) se prorratea entre producto y servicios y, dentro de los
+    /// productos, proporcionalmente a lo cobrado por línea (mayor resto en centavos: la suma es exacta).
+    /// </summary>
+    internal static decimal[] RecargoPorLinea(IReadOnlyList<decimal> cobradoPorLinea, decimal serviciosBruto, decimal totalVenta)
+    {
+        var productos = cobradoPorLinea.Sum();
+        var bruto = productos + serviciosBruto;
+        var recargo = RecargoMedioPagoIva.CalcularRecargo(totalVenta, bruto);
+        if (recargo <= 0m || productos <= 0m)
+            return new decimal[cobradoPorLinea.Count];
+
+        var parteProductos = serviciosBruto <= 0m
+            ? recargo
+            : Math.Round(recargo * productos / bruto, 2, MidpointRounding.AwayFromZero);
+        return RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+    }
+
     internal static decimal ImporteCobradoDeLinea(int cantidad, decimal precioUnitario, decimal descuento, decimal subtotal, decimal subtotalFinal)
     {
         if (subtotalFinal > 0m) return subtotalFinal;
