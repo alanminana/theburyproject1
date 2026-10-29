@@ -22,8 +22,14 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         UrlEncoder encoder)
         : base(options, logger, encoder) { }
 
+    // Header que fuerza una request anónima (flujos de login, que se comportan distinto si ya hay sesión).
+    public const string AnonimoHeader = "X-Test-Anonymous";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (Request.Headers.ContainsKey(AnonimoHeader))
+            return Task.FromResult(AuthenticateResult.NoResult());
+
         var userIdOverride = Request.Headers[UserIdHeader].FirstOrDefault();
         var userId = string.IsNullOrWhiteSpace(userIdOverride) ? UserId : userIdOverride;
 
