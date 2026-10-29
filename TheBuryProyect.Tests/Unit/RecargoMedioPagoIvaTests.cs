@@ -224,4 +224,34 @@ public class RecargoMedioPagoIvaTests
         venta.Facturas.Add(f);
         return FacturaComprobanteBuilder.Build(f);
     }
+
+    [Fact]
+    public void VentaDeCotizacion_DebitoConRecargo_SumaElIvaDelRecargoYMantieneSubtotalIgualTotal()
+    {
+        var detalles = new List<VentaDetalle> { Linea(8_000m, 21m), Linea(4_752m, 10.5m) };
+        var venta = new Venta { Subtotal = 12_752m, IVA = detalles.Sum(d => d.SubtotalFinalIVA), Total = 13_134m };
+        var ivaAntes = venta.IVA;
+
+        VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
+
+        Assert.Equal(13_134m, venta.Subtotal);
+        Assert.True(venta.IVA > ivaAntes);
+        var iva = venta.IVA;
+        VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
+        Assert.Equal(iva, venta.IVA);   // idempotente
+    }
+
+    [Fact]
+    public void VentaDeCotizacion_SinRecargoOConDescuento_NoCambia()
+    {
+        foreach (var total in new[] { 12_752m, 12_115m })
+        {
+            var detalles = new List<VentaDetalle> { Linea(12_752m, 21m) };
+            var venta = new Venta { Subtotal = 12_752m, IVA = 2_213.16m, Total = total };
+
+            VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
+
+            Assert.Equal((12_752m, 2_213.16m), (venta.Subtotal, venta.IVA));
+        }
+    }
 }

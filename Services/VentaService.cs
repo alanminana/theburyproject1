@@ -3824,6 +3824,29 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
+        /// H5-I: versión para ventas nacidas de una cotización, que guardan <c>Subtotal</c> con IVA incluido
+        /// (<c>Subtotal == Total</c> antes del recargo; <c>IVA</c> es solo el desglose). El recargo de la tarjeta
+        /// (<c>Total - Subtotal</c>) se suma al Subtotal y su IVA, prorrateado entre alícuotas, al IVA, de modo que
+        /// <c>Venta.IVA</c> (Caja, reportes, factura) lo incluya. Idempotente y sin efecto con descuentos.
+        /// </summary>
+        internal static void DiscriminarRecargoEnIvaVentaCotizacion(Venta venta, IEnumerable<VentaDetalle> detalles)
+        {
+            var lineas = detalles.Where(d => !d.IsDeleted).ToList();
+            var recargo = venta.Total - venta.Subtotal;
+            if (recargo <= 0m || venta.Subtotal <= 0m)
+                return;
+
+            var servicios = Math.Max(0m, venta.Subtotal - lineas.Sum(d => d.SubtotalFinal));
+            var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
+            if (servicios > 0m)
+                bases.Add((ServiciosVentaIva.Porcentaje, servicios));
+
+            var partes = RecargoMedioPagoIva.Repartir(bases, recargo);
+            venta.Subtotal += partes.Sum(p => p.Bruto);
+            venta.IVA += partes.Sum(p => p.Iva);
+        }
+
+        /// <summary>
         /// Total = productos (con descuentos) + armados + envío. Los servicios (armados y envío) son precios
         /// finales con IVA incluido a la alícuota por defecto, no reciben descuentos y quedan dentro de
         /// Total para que el recargo del medio de pago (que se aplica después sobre Total) los alcance.
