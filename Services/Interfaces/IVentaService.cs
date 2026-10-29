@@ -80,6 +80,15 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<bool> ConfirmarVentaCreditoAsync(int id);
         Task<bool> CancelarVentaAsync(int id, string motivo);
+        /// <summary>
+        /// H2-C2: cancela un borrador de crédito abandonado (PendienteFinanciacion + crédito PendienteConfiguracion sin
+        /// ninguna operación real y sin actividad desde <paramref name="limiteActividadUtc"/>), liberando su cupo con la
+        /// misma lógica que <see cref="CancelarVentaAsync"/>. Devuelve false, sin efectos, si no es (o ya no es) elegible.
+        /// </summary>
+        Task<bool> VencerBorradorCreditoAsync(int ventaId, DateTime limiteActividadUtc, string motivo)
+        {
+            throw new NotImplementedException();
+        }
         Task AsociarCreditoAVentaAsync(int ventaId, int creditoId);
         Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel);
         Task<int?> AnularFacturaAsync(int facturaId, string motivo);

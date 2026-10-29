@@ -1433,7 +1433,57 @@ namespace TheBuryProject.Services
             return true;
         }
 
-        public async Task<bool> CancelarVentaAsync(int id, string motivo)
+        public Task<bool> CancelarVentaAsync(int id, string motivo) =>
+            CancelarVentaCoreAsync(id, motivo, esElegible: null, limiteActividadUtc: null);
+
+        /// <summary>
+        /// H2-C2: vence un borrador de crédito abandonado reutilizando EXACTAMENTE la cancelación de venta (mismo lock
+        /// Crédito -> Venta, mismas guardias, misma liberación de cupo). Antes de tocar nada, con los locks tomados,
+        /// re-verifica que la venta siga siendo un borrador puro y que su última actividad sea anterior o igual al
+        /// límite; si dejó de serlo (alguien lo configuró, lo cobró o lo editó entre la consulta y el lock) no hace nada.
+        /// Devuelve true solo si canceló. Idempotente: un borrador ya cancelado devuelve false.
+        /// </summary>
+        public Task<bool> VencerBorradorCreditoAsync(int ventaId, DateTime limiteActividadUtc, string motivo) =>
+            CancelarVentaCoreAsync(ventaId, motivo, venta => EsBorradorCreditoVencidoAsync(venta, limiteActividadUtc), limiteActividadUtc);
+
+        private async Task<bool> EsBorradorCreditoVencidoAsync(Venta venta, DateTime limiteActividadUtc)
+        {
+            if (venta.IsDeleted
+                || venta.Estado != EstadoVenta.PendienteFinanciacion
+                || venta.TipoPago != TipoPago.CreditoPersonal
+                || !venta.CreditoId.HasValue
+                || venta.FechaConfiguracionCredito.HasValue
+                || venta.FechaConfirmacion.HasValue
+                || venta.FechaFacturacion.HasValue
+                || venta.FechaEntrega.HasValue
+                || venta.AperturaCajaId.HasValue)
+                return false;
+
+            var credito = venta.Credito;
+            if (credito == null || credito.IsDeleted || credito.Estado != EstadoCredito.PendienteConfiguracion)
+                return false;
+
+            // La actividad de la VENTA ya se verificó de forma atómica en el UPDATE del lock (el propio lock bumpea
+            // UpdatedAt, por eso no puede releerse acá); falta la del crédito, que el lock no modifica.
+            if ((credito.UpdatedAt ?? credito.CreatedAt) > limiteActividadUtc)
+                return false;
+
+            // Cualquier operación real descarta el borrador (se consulta con IgnoreQueryFilters: un registro dado de
+            // baja lógica igual prueba que hubo operación).
+            var tieneOperaciones =
+                await _context.Cuotas.IgnoreQueryFilters().AnyAsync(c => c.CreditoId == credito.Id)
+                || await _context.Facturas.IgnoreQueryFilters().AnyAsync(f => f.VentaId == venta.Id)
+                || await _context.MovimientosCaja.IgnoreQueryFilters().AnyAsync(m => m.VentaId == venta.Id)
+                || await _context.MovimientosCaja.IgnoreQueryFilters().AnyAsync(m =>
+                    m.Concepto == ConceptoMovimientoCaja.AnticipoCredito && m.ReferenciaId == credito.Id)
+                || await _context.ContratosVentaCredito.IgnoreQueryFilters().AnyAsync(c => c.VentaId == venta.Id)
+                || await _context.Devoluciones.IgnoreQueryFilters().AnyAsync(d => d.VentaId == venta.Id);
+
+            return !tieneOperaciones;
+        }
+
+        private async Task<bool> CancelarVentaCoreAsync(
+            int id, string motivo, Func<Venta, Task<bool>>? esElegible, DateTime? limiteActividadUtc)
         {
             ValidarLongitudMotivo(motivo, MaxLongitudMotivoCancelacion);
 
@@ -1456,13 +1506,30 @@ namespace TheBuryProject.Services
 
                 // Toma el lock de fila de la venta antes de leerla: dos cancelaciones simultáneas
                 // se serializan y la segunda ve el estado ya confirmado (no duplica stock ni caja).
-                var reclamada = await _context.Ventas
-                    .Where(v => v.Id == id && !v.IsDeleted && v.Estado != EstadoVenta.Cancelada)
+                var reclamables = _context.Ventas
+                    .Where(v => v.Id == id && !v.IsDeleted && v.Estado != EstadoVenta.Cancelada);
+                if (limiteActividadUtc.HasValue)
+                {
+                    // H2-C2: vencimiento de borradores. Estado y antigüedad se verifican en el mismo UPDATE que toma
+                    // el lock, de modo que una edición/configuración concurrente (que bumpea UpdatedAt) lo descarta.
+                    var limite = limiteActividadUtc.Value;
+                    reclamables = reclamables.Where(v =>
+                        v.Estado == EstadoVenta.PendienteFinanciacion && (v.UpdatedAt ?? v.CreatedAt) <= limite);
+                }
+
+                var reclamada = await reclamables
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
+                if (limiteActividadUtc.HasValue && reclamada == 0)
+                    return false;
                 await RefrescarVentaRastreadaTrasLockAsync(id);
 
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
+                    return false;
+
+                // H2-C2: con los locks ya tomados, la cancelación condicionada (vencimiento de borradores) se aborta
+                // sin efectos si la venta dejó de cumplir la condición. El rollback deshace el UPDATE del lock.
+                if (esElegible != null && !await esElegible(venta))
                     return false;
 
                 _validator.ValidarNoEstaCancelada(venta);
