@@ -66,6 +66,7 @@
         string? NavCurrent(bool active) => active ? "page" : null;
 
         var canViewNotifications = User.TienePermiso("notificaciones", "view");
+        var canUpdateNotifications = User.TienePermiso("notificaciones", "update");
         var canViewVentas = User.TienePermiso("ventas", "view");
         var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
         var canViewClientes = User.TienePermiso("clientes", "view");
@@ -313,6 +314,33 @@
 
 
 
+
+                    @if (canViewNotifications)
+                    {
+                        <!-- Notificaciones del usuario (API /api/Notificacion + hub SignalR). Lógica en wwwroot/js/notificaciones.js -->
+                        <div class="relative" data-notif-root data-notif-can-update="@(canUpdateNotifications ? "true" : "false")">
+                            <button id="btn-open-notificaciones" type="button"
+                                    class="p-2 text-slate-400 hover:text-white transition-colors" title="Notificaciones"
+                                    aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" aria-controls="notificacionesPanel">
+                                <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">notifications</span>
+                                <span id="notificacionesBadge" hidden aria-hidden="true" class="bg-primary">0</span>
+                            </button>
+                            <span id="notificacionesLive" class="sr-only" role="status" aria-live="polite"></span>
+                            <div id="notificacionesPanel" hidden role="region" aria-label="Notificaciones"
+                                 class="rounded-2xl border border-slate-700 shadow-2xl">
+                                <div class="notif-header">
+                                    <h2 class="notif-title">Notificaciones</h2>
+                                    @if (canUpdateNotifications)
+                                    {
+                                        <button id="marcarTodasLeidasBtn" type="button" class="notif-markall" disabled>Marcar todas como leídas</button>
+                                    }
+                                </div>
+                                <p id="noNotificacionesMsg" class="notif-state" hidden>No tenés notificaciones.</p>
+                                <p id="notificacionesEstado" class="notif-state" role="status" hidden></p>
+                                <ul id="notificacionesLista" class="notif-list"></ul>
+                            </div>
+                        </div>
+                    }
 
                     <!-- Notas rápidas (checklist personal, disponible en todas las pantallas) -->
                     <button id="btn-open-notas" type="button"

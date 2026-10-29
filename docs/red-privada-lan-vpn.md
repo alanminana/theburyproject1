@@ -77,6 +77,10 @@ Desde un navegador que confía en la CA: `https://tbp/health/live` y `https://tb
 
 **A. Linux + Docker Engine.** Docker Engine + plugin compose; `systemctl enable docker`; firewall `ufw allow from <LAN/VPN> to any port 443`;
 backups programados con `scripts/backup/install-schedule.sh --install` (cron) o timer systemd.
+**Importante:** Docker publica los puertos con sus propias reglas de iptables, que se evalúan antes que las de `ufw` (INPUT): una regla
+`ufw allow from ...` no restringe el 443 publicado por Caddy. Para limitarlo a la VPN/LAN definir `ERP_BIND_ADDRESS=<IP de la interfaz
+VPN/LAN del servidor>` en `.env` (por defecto `0.0.0.0`) y/o filtrar en la cadena `DOCKER-USER`. Verificar con `ss -ltn | grep <puerto>` y
+desde un equipo fuera de la VPN.
 
 **B. Windows 10/11 + Docker Desktop/WSL2.** Docker Desktop con backend WSL2, "Start Docker Desktop when you sign in" (o servicio equivalente)
 y ejecutar los scripts `.sh` desde WSL2 o Git Bash sobre el mismo repo; regla de Windows Defender Firewall solo para 443 entrante desde la

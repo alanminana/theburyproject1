@@ -50,6 +50,7 @@
         TipoPago.CreditoPersonal => "Crédito Personal",
         TipoPago.MercadoPago     => "Mercado Pago",
         TipoPago.CuentaCorriente => "Cuenta Corriente",
+        TipoPago.NotaCredito => "Nota de crédito",
         _                        => Model.TipoPago.ToString()
     };
 
@@ -63,6 +64,7 @@
         TipoPago.CreditoPersonal => "account_balance",
         TipoPago.MercadoPago     => "phone_iphone",
         TipoPago.CuentaCorriente => "account_balance_wallet",
+        TipoPago.NotaCredito     => "receipt_long",
         _                        => "payment"
     };
 
@@ -457,6 +459,7 @@
                                                 TipoPago.CreditoPersonal => "Crédito Personal",
                                                 TipoPago.MercadoPago     => "Mercado Pago",
                                                 TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                TipoPago.NotaCredito => "Nota de crédito",
                                                 null                     => null,
                                                 _                        => item.TipoPago?.ToString()
                                             };
@@ -578,6 +581,7 @@
                                         TipoPago.Cheque          => "Cheque",
                                         TipoPago.MercadoPago     => "Mercado Pago",
                                         TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                        TipoPago.NotaCredito => "Nota de crédito",
                                         _                        => grp.Key.TipoPago.ToString()
                                     };
                                     var grpSubtotal = grp.Sum(d => d.SubtotalFinal);

@@ -61,7 +61,6 @@ Administrador recibe todo menos `usuarios.delete, roles.delete, configuracion.up
 | CotizacionApi.Simular, VentaApi.CalcularTotalesVenta, Reporte.Ventas (POST) | solo `*.view`: cálculo/lectura, no persisten |
 | Credito.Create/Edit (POST) | retirados: solo redirigen |
 | MercadoLibre.ProbarConexion | sonda de cuenta ya vinculada |
-| ConfiguracionMora.SaveConfiguracion | `managepunitorio` + `[IgnoreAntiforgeryToken]`, JSON `[FromBody]`, sin ningún llamador en vistas/JS: endpoint huérfano (no explotable por CSRF clásico: exige `application/json`). Decisión pendiente: retirarlo |
 
 ## 4. Permisos del catálogo sin ningún uso en servidor ni en vistas
 
@@ -238,7 +237,6 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 | Acción | HTTP | Permisos | Auth |
 |---|---|---|---|
 | GetConfiguracion | GET | C:configuracion.managepunitorio | Authorize() |
-| SaveConfiguracion | POST | C:configuracion.managepunitorio | Authorize() |
 
 ### ConfiguracionPagoController
 
@@ -365,7 +363,6 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 | QuickCreate | POST | C:devoluciones.view & M:devoluciones.create | Authorize() |
 | Rechazar | POST | C:devoluciones.view & M:devoluciones.reject | Authorize() |
 | RMAs | GET* | C:devoluciones.view | Authorize() |
-| UtilizarNotaCredito | POST | C:devoluciones.view & M:notascredito.apply | Authorize() |
 
 ### DiagnosticoController
 
@@ -373,11 +370,11 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 |---|---|---|---|
 | AuditoriaPermisos | GET | - | Authorize(SuperAdmin) |
 | CrearUsuarioPrueba | POST | - | Authorize(SuperAdmin) |
-| ForcePasswordReset | GET | - | Authorize(SuperAdmin) |
+| ForcePasswordReset | POST | - | Authorize(SuperAdmin) |
 | Index | GET* | - | Authorize(SuperAdmin) |
 | MisPermisos | GET | - | Authorize(SuperAdmin) |
 | PermisosDelRol | GET | - | Authorize(SuperAdmin) |
-| RefreshPermisos | GET | - | Authorize(SuperAdmin) |
+| RefreshPermisos | POST | - | Authorize(SuperAdmin) |
 | ResetPassword | GET | - | Authorize(SuperAdmin) |
 | ResetPassword | POST | - | Authorize(SuperAdmin) |
 | TestLogin | POST | - | Authorize(SuperAdmin) |

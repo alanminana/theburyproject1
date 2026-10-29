@@ -501,6 +501,21 @@ namespace TheBuryProject.Services
             var todosRecibidos = orden.Detalles != null && orden.Detalles.Count > 0
                 && orden.Detalles.All(d => d.CantidadRecibida >= d.Cantidad);
 
+            // H3-Q1: una recepcion parcial sobre una orden que ya esta EnTransito solo modifica las lineas, no la cabecera:
+            // el RowVersion de la orden no cambiaba y el mismo formulario reenviado (doble envio, pestana vieja) volvia a
+            // ingresar la mercaderia. Tocar la cabecera fuerza el UPDATE con su RowVersion original: un formulario viejo
+            // choca (la orden ya fue modificada) y cada recepcion avanza el token que ve el siguiente formulario.
+            orden.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new InvalidOperationException(
+                    "La orden fue modificada por otro usuario. Recargá la página y volvé a intentar.");
+            }
+
             await _movimientoStockService.RegistrarEntradasAsync(
                 entradas,
                 "Recepción de mercadería",

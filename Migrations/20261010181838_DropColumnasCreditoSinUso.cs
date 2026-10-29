@@ -14,15 +14,15 @@ namespace TheBuryProyect.Migrations
             // Guarda anti pérdida de datos: estas columnas no tienen ningún consumidor en el código (nunca se
             // escriben ni se leen) y se verificaron sin datos en la base de desarrollo. Si alguna otra base
             // tiene valores, la migración aborta en vez de borrarlos en silencio.
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 "IF EXISTS (SELECT 1 FROM [ContratosVentaCredito] WHERE [FechaImpresionUtc] IS NOT NULL) " +
                 "THROW 51000, 'DropColumnasCreditoSinUso: ContratosVentaCredito.FechaImpresionUtc tiene valores; no se elimina para evitar perder datos.', 1;");
 
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 "IF EXISTS (SELECT 1 FROM [ClientesCreditoConfiguraciones] WHERE [AprobadoEnUtc] IS NOT NULL OR [OverrideAprobadoEnUtc] IS NOT NULL) " +
                 "THROW 51000, 'DropColumnasCreditoSinUso: ClientesCreditoConfiguraciones.AprobadoEnUtc/OverrideAprobadoEnUtc tienen valores; no se eliminan para evitar perder datos.', 1;");
 
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 "IF EXISTS (SELECT 1 FROM [ConfiguracionesCredito] WHERE [ModificadoPor] IS NOT NULL OR [NotificacionesCambioEstado] = 1 " +
                 "OR ([MensajeConfiguracionDeshabilitada] IS NOT NULL AND [MensajeConfiguracionDeshabilitada] <> N'La validación de aptitud crediticia no está configurada. Configure los parámetros en Administración.')) " +
                 "THROW 51000, 'DropColumnasCreditoSinUso: ConfiguracionesCredito tiene valores propios en ModificadoPor/NotificacionesCambioEstado/MensajeConfiguracionDeshabilitada; no se eliminan para evitar perder datos.', 1;");

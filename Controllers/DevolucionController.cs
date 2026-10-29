@@ -574,44 +574,7 @@ public class DevolucionController : Controller
         return View(viewModel);
     }
 
-    /// <summary>
-    /// Registrar un uso (aplicación) de una nota de crédito
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [PermisoRequerido(Modulo = "notascredito", Accion = "apply")]
-    public async Task<IActionResult> UtilizarNotaCredito(int id, int clienteId, decimal monto, string? referencia)
-    {
-        var errorUso = ValidarUsoNotaCredito(monto, referencia);
-        if (errorUso != null)
-        {
-            TempData["Error"] = errorUso;
-            return RedirectToAction(nameof(NotasCredito), new { clienteId });
-        }
-
-        try
-        {
-            var notaCredito = await _devolucionService.UtilizarNotaCreditoAsync(id, monto, referencia);
-            TempData["Success"] = $"Uso registrado por {monto:C2} en {notaCredito.NumeroNotaCredito}. Saldo disponible: {notaCredito.MontoDisponible:C2}";
-        }
-        catch (Exception ex)
-        {
-            TempData["Error"] = $"Error al registrar el uso: {ex.Message}";
-        }
-
-        return RedirectToAction(nameof(NotasCredito), new { clienteId });
-    }
-
     #endregion
-
-    internal static string? ValidarUsoNotaCredito(decimal monto, string? referencia)
-    {
-        if (monto <= 0 || monto > Validation.MontoArgentinoAttribute.Maximo || decimal.Round(monto, 2) != monto)
-            return "El monto debe ser mayor a 0, con hasta 2 decimales y no superar 20.000.000.";
-        if (referencia != null && referencia.Trim().Length > 200)
-            return "La referencia no puede superar los 200 caracteres.";
-        return null;
-    }
 
     #region Estadísticas
 
