@@ -197,6 +197,24 @@ namespace TheBuryProject.Models.Entities
 
         #endregion
 
+        #region Borradores de crédito abandonados
+
+        /// <summary>
+        /// Valor por defecto PROVISORIO (7 días) del plazo de vencimiento de borradores de crédito. Es una decisión
+        /// operativa pendiente de validación del negocio: el plazo real se ajusta en
+        /// <see cref="DiasVencimientoBorradorCredito"/>.
+        /// </summary>
+        public const int DiasVencimientoBorradorCreditoPorDefecto = 7;
+
+        /// <summary>
+        /// Días sin actividad tras los cuales un borrador de crédito (venta en PendienteFinanciacion con su crédito en
+        /// PendienteConfiguracion y sin ninguna operación real) se cancela automáticamente para liberar el cupo del
+        /// cliente. Provisorio: 7 días por defecto. Si es null o menor que 1, el vencimiento automático está desactivado.
+        /// </summary>
+        public int? DiasVencimientoBorradorCredito { get; set; } = DiasVencimientoBorradorCreditoPorDefecto;
+
+        #endregion
+
         #region Metadata
 
         /// <summary>

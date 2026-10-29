@@ -180,6 +180,7 @@ builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPa
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();
 builder.Services.AddScoped<ICotizacionPagoCalculator, CotizacionPagoCalculator>();
 builder.Services.AddScoped<ICotizacionService, CotizacionService>();
+builder.Services.AddScoped<IBorradorCreditoVencimientoService, BorradorCreditoVencimientoService>();
 builder.Services.AddScoped<ICotizacionConversionService, CotizacionConversionService>();
 builder.Services.AddSingleton<ICotizacionPdfService, CotizacionPdfService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
@@ -264,6 +265,7 @@ builder.Services.Configure<HealthCheckServiceOptions>(options =>
 // 5.6 Background services (están bien: crean scope por iteración)
 builder.Services.AddHostedService<MoraBackgroundService>();
 builder.Services.AddHostedService<AcuerdoIncumplimientoBackgroundService>();
+builder.Services.AddHostedService<BorradorCreditoVencimientoBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
 builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
