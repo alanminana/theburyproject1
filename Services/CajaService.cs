@@ -875,6 +875,11 @@ namespace TheBuryProject.Services
                         }
 
                         movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+
+                        // Mismo SaveChanges que la acreditación: no puede quedar acreditado sin su evento. Sin PII del cliente.
+                        _auditoria?.AgregarEvento("Caja", "AcreditarMovimiento", $"MovimientoCaja:{movimiento.Id}",
+                            $"Apertura={movimiento.AperturaCajaId}; Concepto={movimiento.Concepto}; Medio={movimiento.TipoPago}; Monto={movimiento.Monto:0.00}; Usuario={usuario}");
+
                         await _context.SaveChangesAsync();
                         return movimiento;
                     },
@@ -1363,6 +1368,18 @@ namespace TheBuryProject.Services
                         Observaciones = $"Contramovimiento del ingreso #{movimientoOriginal.Id}. Motivo: {motivo}",
                         CreatedAt = DateTime.UtcNow
                     };
+
+                    // Un ingreso todavía Pendiente (cheque, tarjeta, transferencia, MP) de una venta cancelada nunca se va a
+                    // acreditar: se anula para que no quede como "pendiente de acreditación" ni pueda acreditarse después.
+                    // El estado se relee bajo el lock (una acreditación concurrente ya confirmada se respeta). El saldo
+                    // total no cambia (el egreso Revertido sigue contrapesando) y el saldo real tampoco (ni el ingreso
+                    // Anulado ni su reversión cuentan como dinero cobrado).
+                    await _context.Entry(movimientoOriginal).ReloadAsync();
+                    if (movimientoOriginal.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
+                    {
+                        movimientoOriginal.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+                        movimientoOriginal.UpdatedAt = DateTime.UtcNow;
+                    }
 
                     _context.MovimientosCaja.Add(nuevo);
                     await _context.SaveChangesAsync();

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
@@ -96,6 +96,25 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
     }
 
     [Fact]
+    public async Task Edit_VentaConCheque_PrecargaLosDatosDelChequeEnElFormulario()
+    {
+        await _factory.SeedTestUserAsync();
+        await SeedCajaAbiertaAsync();
+        var (ventaId, _, _) = await SeedVentaEditableAsync(EstadoVenta.Presupuesto, conCheque: true);
+        var client = _factory.CreateAuthenticatedClient();
+
+        var html = await (await client.GetAsync($"/Venta/Edit/{ventaId}")).Content.ReadAsStringAsync();
+
+        Assert.Contains("value=\"00045678\"", html);
+        Assert.Contains("value=\"Banco Cheque QA\"", html);
+        Assert.Contains("value=\"Titular Cheque QA\"", html);
+        Assert.Contains("value=\"20-12345678-6\"", html);
+        Assert.Contains("value=\"2026-07-20\"", html);
+        Assert.Contains("value=\"2026-08-19\"", html);
+        Assert.Contains("value=\"121.00\"", html);
+    }
+
+    [Fact]
     public async Task CrearYEditar_RenderizanElMismoConjuntoDePasosYComponentes()
     {
         await _factory.SeedTestUserAsync();
@@ -179,7 +198,7 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
         await context.SaveChangesAsync();
     }
 
-    private async Task<(int VentaId, string ClienteNombre, string ProductoNombre)> SeedVentaEditableAsync(EstadoVenta estado)
+    private async Task<(int VentaId, string ClienteNombre, string ProductoNombre)> SeedVentaEditableAsync(EstadoVenta estado, bool conCheque = false)
     {
         var suffix = Interlocked.Increment(ref _counter);
 
@@ -225,7 +244,7 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
             Numero = $"VP-{suffix}",
             FechaVenta = new DateTime(2026, 7, 24, 10, 0, 0, DateTimeKind.Utc),
             Estado = estado,
-            TipoPago = TipoPago.Efectivo,
+            TipoPago = conCheque ? TipoPago.Cheque : TipoPago.Efectivo,
             Subtotal = 100m,
             IVA = 21m,
             Total = 121m,
@@ -243,6 +262,21 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
             SubtotalFinalIVA = 21m,
             SubtotalFinal = 121m
         });
+
+        if (conCheque)
+        {
+            venta.DatosCheque = new DatosCheque
+            {
+                NumeroCheque = "00045678",
+                Banco = "Banco Cheque QA",
+                Titular = "Titular Cheque QA",
+                CUIT = "20-12345678-6",
+                FechaEmision = new DateTime(2026, 7, 20, 0, 0, 0, DateTimeKind.Utc),
+                FechaVencimiento = new DateTime(2026, 8, 19, 0, 0, 0, DateTimeKind.Utc),
+                Monto = 121m,
+                Observaciones = "obs"
+            };
+        }
 
         context.Ventas.Add(venta);
         await context.SaveChangesAsync();
