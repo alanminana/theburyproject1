@@ -26,17 +26,17 @@ public sealed class AntiforgeryApiHandler : DelegatingHandler
         if (request.Headers.Contains(SinTokenHeader))
         {
             request.Headers.Remove(SinTokenHeader);
-            return await base.SendAsync(request, ct);
+            return await base.SendAsync(request, ct).ConfigureAwait(false);
         }
 
         if (EsMutante(request.Method) && ApuntaAApi(request.RequestUri) && !request.Headers.Contains(Header) && Cliente != null)
         {
-            var token = await ObtenerTokenAsync(ct);
+            var token = await ObtenerTokenAsync(ct).ConfigureAwait(false);
             if (token != null)
                 request.Headers.TryAddWithoutValidation(Header, token);
         }
 
-        return await base.SendAsync(request, ct);
+        return await base.SendAsync(request, ct).ConfigureAwait(false);
     }
 
     private static bool EsMutante(HttpMethod m) =>
@@ -55,8 +55,8 @@ public sealed class AntiforgeryApiHandler : DelegatingHandler
 
         foreach (var url in new[] { "/Identity/Account/Login", "/Identity/Account/AccessDenied" })
         {
-            using var respuesta = await Cliente!.GetAsync(url, ct);
-            var html = await respuesta.Content.ReadAsStringAsync(ct);
+            using var respuesta = await Cliente!.GetAsync(url, ct).ConfigureAwait(false);
+            var html = await respuesta.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             var m = Meta.Match(html);
             if (!m.Success) m = Input.Match(html);
             if (m.Success)
@@ -81,13 +81,16 @@ internal sealed class ClienteComoHandler(HttpClient cliente) : HttpMessageHandle
 
         if (request.Content != null)
         {
-            var bytes = await request.Content.ReadAsByteArrayAsync(ct);
+            var bytes = await request.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             var contenido = new ByteArrayContent(bytes);
             foreach (var h in request.Content.Headers)
                 contenido.Headers.TryAddWithoutValidation(h.Key, h.Value);
             copia.Content = contenido;
         }
 
-        return await cliente.SendAsync(copia, ct);
+        // Task.Run: la llamada interna no hereda el SynchronizationContext de quien llama. Bajo xunit ese contexto
+        // (MaxConcurrencySyncContext) está saturado por tests síncronos y las continuaciones de TestHost/HttpClient
+        // esperaban minutos en su cola, consumiendo el HttpClient.Timeout (ver ClienteDeTestSinContextoDeSincronizacionTests).
+        return await Task.Run(() => cliente.SendAsync(copia, ct), CancellationToken.None).ConfigureAwait(false);
     }
 }
