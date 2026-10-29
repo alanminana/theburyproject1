@@ -15,6 +15,8 @@ namespace TheBuryProject.Services.Interfaces
     /// <summary>Resultado de la verificación de incumplimiento: acuerdos marcados y acuerdos que fallaron (se reintentan).</summary>
     public sealed record ResultadoVerificacionIncumplimiento(int Marcados, int Fallidos);
 
+    public sealed record ResultadoVerificacionPromesas(int Marcadas, int Fallidas);
+
     /// <summary>Deuda cobrable de una cuota original: capital pendiente y punitorio aplicado pendiente.</summary>
     public sealed record DeudaCobrableCuota(int CuotaId, int NumeroCuota, DateTime FechaVencimiento, decimal Capital, decimal Punitorio);
 
@@ -187,6 +189,13 @@ namespace TheBuryProject.Services.Interfaces
         /// scope propio (un job), dueño de su contexto.
         /// </summary>
         Task<ResultadoVerificacionIncumplimiento> VerificarIncumplimientoAcuerdosAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Job diario: las promesas de pago ACTIVAS (alerta en PromesaPago) cuya fecha prometida + <c>DiasParaCumplirPromesa</c>
+        /// ya pasó (fecha comercial) vuelven a EnGestion como incumplidas, con auditoría. No toca cuotas, dinero, punitorios ni
+        /// acuerdos; idempotente; independiente de <c>ProcesoAutomaticoActivo</c>. Sin <c>DiasParaCumplirPromesa</c> no hace nada.
+        /// </summary>
+        Task<ResultadoVerificacionPromesas> VerificarPromesasVencidasAsync(CancellationToken cancellationToken = default);
         
         #endregion
 

@@ -1,6 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 using TheBuryProject.Data;
 
 #nullable disable
@@ -91,7 +92,7 @@ namespace TheBuryProject.Migrations
 
             // Insertar configuración por defecto.
             // Se usa SQL manual porque esta tabla legacy ya no está mapeada como entidad EF actual.
-            migrationBuilder.Sql(@"
+            migrationBuilder.SqlDiferido(@"
                 INSERT INTO [ConfiguracionesCredito]
                 (
                     [ValidarDocumentacion],

@@ -78,3 +78,7 @@ hay que agregarle `RowVersion`; si no, retirarlo.
 ## 4. Régimen de tasas (SIN CAMBIOS, decisión de negocio pendiente)
 
 Ver "Consecuencias financieras" en `docs/qa-cfg-resultados.md`. No se modificó ninguna fórmula.
+
+## DiasParaCumplirPromesa (H2-D)
+
+Lo lee el job diario (`AcuerdoIncumplimientoBackgroundService` -> `IMoraService.VerificarPromesasVencidasAsync`, fecha comercial, independiente de `ProcesoAutomaticoActivo`). Semantica conservadora (la ayuda de la entidad, "dias maximos para esperar cumplimiento", es ambigua): son dias de espera DESPUES de la fecha prometida; la promesa activa (alerta en `PromesaPago`) pasa a incumplida (`EnGestion`, fecha/monto de promesa limpios, prioridad +1, evento de auditoria `PromesaIncumplidaAutomatica`) cuando hoy comercial > prometida + dias. Sin valor configurado no hace nada. No toca cuotas, dinero, punitorios ni acuerdos; idempotente.

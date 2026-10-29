@@ -703,4 +703,155 @@ public class AjusteGlobalVentaCajaComprobanteTests : IDisposable
         // Sin grupos de pago por ítem (flujo global, no por producto)
         Assert.Empty(comprobante.GruposPagoPorItem);
     }
+
+    // ── H2-C1: total unico cotizacion -> venta -> caja -> factura (tarjeta) ─────────────────────
+
+    /// <summary>
+    /// DispatchProxy para las dependencias del calculador que este flujo no ejercita: solo el precio
+    /// vigente devuelve datos; el resto falla fuerte si se invoca.
+    /// </summary>
+    public class ProductoServiceProxyH2C1 : System.Reflection.DispatchProxy
+    {
+        public ProductoPrecioVentaResultado Precio { get; set; } = null!;
+
+        protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod!.Name == nameof(IProductoService.ObtenerPrecioVigenteParaVentaAsync))
+                return Task.FromResult<ProductoPrecioVentaResultado?>(Precio);
+            throw new NotSupportedException(targetMethod.Name);
+        }
+    }
+
+    public class InertProxyH2C1 : System.Reflection.DispatchProxy
+    {
+        protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args)
+            => throw new NotSupportedException(targetMethod!.Name);
+    }
+
+    private CotizacionPagoCalculator CrearCalculadorReal(ProductoPrecioVentaResultado precio)
+    {
+        var productos = System.Reflection.DispatchProxy.Create<IProductoService, ProductoServiceProxyH2C1>();
+        ((ProductoServiceProxyH2C1)(object)productos).Precio = precio;
+
+        return new CotizacionPagoCalculator(
+            productos,
+            new ConfiguracionPagoGlobalQueryService(_context),
+            System.Reflection.DispatchProxy.Create<ICreditoSimulacionVentaService, InertProxyH2C1>(),
+            System.Reflection.DispatchProxy.Create<IProductoCreditoRestriccionService, InertProxyH2C1>(),
+            System.Reflection.DispatchProxy.Create<IConfiguracionPagoService, InertProxyH2C1>(),
+            new Unit.FakeServicioVentaPrecioService(),
+            System.Reflection.DispatchProxy.Create<IProductoUnidadService, InertProxyH2C1>());
+    }
+
+    [Theory]
+    // Credito 3 cuotas +10% sobre 217.499,99 = 239.249,989 -> 239.249,99 con centavos; la venta trunca a 239.249.
+    [InlineData(TipoTarjeta.Credito, 10, 3, 239_249)]
+    // Debito +2% sobre 217.499,99 = 221.849,9898 -> 221.849,99 con centavos; la venta trunca a 221.849.
+    [InlineData(TipoTarjeta.Debito, 2, 1, 221_849)]
+    public async Task H2C1_Tarjeta_TotalCotizado_IgualVenta_Caja_Factura(
+        TipoTarjeta tipoTarjeta, int ajuste, int cuotas, int totalEsperadoPesos)
+    {
+        const decimal precioBase = 217_499.99m;
+        var totalEsperado = (decimal)totalEsperadoPesos;
+        var tipoPago = tipoTarjeta == TipoTarjeta.Credito ? TipoPago.TarjetaCredito : TipoPago.TarjetaDebito;
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+
+        var medio = new ConfiguracionPago { TipoPago = tipoPago, Nombre = $"Tarjeta H2C1-{suffix}", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = medio.Id,
+            NombreTarjeta = $"Visa H2C1-{suffix}",
+            TipoTarjeta = tipoTarjeta,
+            Activa = true,
+            PermiteCuotas = tipoTarjeta == TipoTarjeta.Credito,
+            CantidadMaximaCuotas = tipoTarjeta == TipoTarjeta.Credito ? 12 : null
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+        var plan = new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id,
+            ConfiguracionTarjetaId = tarjeta.Id,
+            TipoPago = tipoPago,
+            CantidadCuotas = cuotas,
+            AjustePorcentaje = ajuste,
+            Etiqueta = $"{cuotas} cuotas",
+            Activo = true
+        };
+        _context.ConfiguracionPagoPlanes.Add(plan);
+        await _context.SaveChangesAsync();
+
+        var categoria = new Categoria { Nombre = $"CatH2C1-{suffix}" };
+        var marca = new Marca { Nombre = $"MarcaH2C1-{suffix}" };
+        _context.Categorias.Add(categoria);
+        _context.Marcas.Add(marca);
+        var cliente = new Cliente
+        {
+            Nombre = "Test", Apellido = $"H2C1-{suffix}", NumeroDocumento = $"H2{suffix}",
+            NivelRiesgo = NivelRiesgoCredito.AprobadoTotal
+        };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        var producto = new Producto
+        {
+            Codigo = $"PH2C1-{suffix}", Nombre = $"Prod H2C1 {suffix}", PrecioVenta = precioBase,
+            StockActual = 10, CategoriaId = categoria.Id, MarcaId = marca.Id
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        // 1) Cotizador real: el total mostrado/persistido del plan.
+        var calculador = CrearCalculadorReal(new ProductoPrecioVentaResultado
+        {
+            ProductoId = producto.Id, Codigo = producto.Codigo, Nombre = producto.Nombre,
+            PrecioVenta = precioBase, FuentePrecio = FuentePrecioVigente.ProductoPrecioBase, StockActual = 10
+        });
+        var simulacion = await calculador.SimularAsync(new CotizacionSimulacionRequest
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            IncluirEfectivo = false, IncluirTransferencia = false, IncluirCreditoPersonal = false,
+            IncluirTarjetaCredito = tipoTarjeta == TipoTarjeta.Credito,
+            IncluirTarjetaDebito = tipoTarjeta == TipoTarjeta.Debito,
+            Productos = { new CotizacionProductoRequest { ProductoId = producto.Id, Cantidad = 1 } }
+        });
+        Assert.True(simulacion.Exitoso);
+        var opcion = Assert.Single(simulacion.OpcionesPago);
+        var planCotizado = Assert.Single(opcion.Planes, p => p.CantidadCuotas == cuotas);
+        Assert.Equal(totalEsperado, planCotizado.Total);
+
+        // 2) Venta con la misma base que produce la conversion (sin truncar) + plan -> confirmar -> facturar.
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id, Numero = $"VH2C1-{suffix}", Estado = EstadoVenta.Presupuesto, TipoPago = tipoPago,
+            Subtotal = precioBase, Total = precioBase, EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        _context.VentaDetalles.Add(new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = precioBase, Subtotal = precioBase
+        });
+        await _context.SaveChangesAsync();
+
+        Assert.True(await _ventaService.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+        {
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = tipoTarjeta,
+            ConfiguracionTarjetaId = tarjeta.Id,
+            ConfiguracionPagoPlanId = plan.Id
+        }));
+        Assert.Equal(planCotizado.Total,
+            (await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id)).Total);
+
+        Assert.True(await _ventaService.ConfirmarVentaAsync(venta.Id));
+        var movimiento = await _context.MovimientosCaja.AsNoTracking().SingleAsync(m => m.VentaId == venta.Id);
+        Assert.Equal(planCotizado.Total, movimiento.Monto);
+
+        Assert.True(await _ventaService.FacturarVentaAsync(venta.Id,
+            new FacturaViewModel { VentaId = venta.Id, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow }));
+        var factura = await _context.Facturas.AsNoTracking().SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(planCotizado.Total, factura.Total);
+    }
 }

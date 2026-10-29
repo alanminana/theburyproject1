@@ -157,7 +157,7 @@ public class DevolucionService : IDevolucionService
             // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
             var ventaDetallesRaw = await _context.VentaDetalles
                 .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.ProductoUnidadId })
+                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ProductoUnidadId })
                 .ToListAsync();
 
             var vendidoPorProducto = ventaDetallesRaw
@@ -165,7 +165,7 @@ public class DevolucionService : IDevolucionService
                 .ToDictionary(
                     g => g.Key,
                     g => (CantidadVendida: g.Sum(x => x.Cantidad),
-                          TotalVendido: g.Sum(x => x.Cantidad * x.PrecioUnitario)));
+                          TotalVendido: g.Sum(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))));
 
             if (vendidoPorProducto.Count == 0)
                 throw new InvalidOperationException("La venta no tiene detalles para devolver");
@@ -292,6 +292,21 @@ public class DevolucionService : IDevolucionService
                 await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    /// <summary>
+    /// H3-Q2: importe efectivamente cobrado por una línea de venta (producto), con los descuentos de línea y el
+    /// descuento general prorrateado ya aplicados: <c>SubtotalFinal</c>, o <c>Subtotal</c> en líneas anteriores al
+    /// prorrateo. Valuar la devolución con el precio de lista (<c>PrecioUnitario x Cantidad</c>) devolvía más de lo
+    /// cobrado cuando la línea tenía descuento. Sin ningún subtotal persistido (dato muy antiguo) se usa el bruto,
+    /// salvo descuento del 100 %. No incluye el recargo/ajuste del medio de pago, el envío ni los armados: eso es
+    /// una regla de dinero aparte.
+    /// </summary>
+    internal static decimal ImporteCobradoDeLinea(int cantidad, decimal precioUnitario, decimal descuento, decimal subtotal, decimal subtotalFinal)
+    {
+        if (subtotalFinal > 0m) return subtotalFinal;
+        if (subtotal > 0m) return subtotal;
+        return descuento >= 100m ? 0m : cantidad * precioUnitario;
     }
 
     public async Task<Devolucion> ActualizarDevolucionAsync(Devolucion devolucion)
@@ -1695,7 +1710,19 @@ public class DevolucionService : IDevolucionService
 
     private static string EscapeCsv(string? value)
     {
-        var sanitized = (value ?? string.Empty).Replace("\"", "\"\"");
+        var texto = value ?? string.Empty;
+
+        // Inyección de fórmulas (CWE-1236): Excel/LibreOffice evalúan una celda que empieza con = + - @ (o tab/CR)
+        // aunque venga entre comillas. El texto libre (nombre de producto, observaciones) se neutraliza con un
+        // apóstrofo inicial; los importes numéricos legítimos (p. ej. "-15.50") no se alteran.
+        if (texto.Length > 0
+            && texto[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            && !decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        {
+            texto = "'" + texto;
+        }
+
+        var sanitized = texto.Replace("\"", "\"\"");
         return $"\"{sanitized}\"";
     }
 
