@@ -362,4 +362,63 @@ public class DevolucionServiceFilterExportTests
         Assert.Contains("Si", csv); // GarantiaExtendida = true
         Assert.Contains("Test obs", csv);
     }
+
+    // ---------------------------------------------------------------
+    // Inyección de fórmulas en CSV (CWE-1236): el texto libre (nombre de producto, observaciones) no puede
+    // abrirse como fórmula en Excel/LibreOffice.
+    // ---------------------------------------------------------------
+
+    [Theory]
+    [InlineData("=HYPERLINK('http://evil.example','x')")]
+    [InlineData("+cmd|'/c calc'!A1")]
+    [InlineData("-2+3")]
+    [InlineData("@SUM(1+1)")]
+    public void GenerarCsvGarantias_TextoLibreConPrefijoDeFormula_SeNeutraliza(string textoMalicioso)
+    {
+        var garantias = new List<Garantia>
+        {
+            new()
+            {
+                NumeroGarantia = "GAR-X",
+                Estado = EstadoGarantia.Vigente,
+                FechaInicio = new DateTime(2026, 1, 1),
+                FechaVencimiento = new DateTime(2027, 1, 1),
+                MesesGarantia = 12,
+                ObservacionesActivacion = textoMalicioso,
+                Producto = new Producto { Codigo = "P-1", Nombre = textoMalicioso },
+                Cliente = new Cliente { Nombre = "Juan", Apellido = "Perez", NumeroDocumento = "12345678" }
+            }
+        };
+
+        var csv = System.Text.Encoding.UTF8.GetString(_sut.GenerarCsvGarantias(garantias));
+        var fila = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)[1].TrimEnd();
+        var celdas = fila.Split(';').Select(c => c.Trim('"')).ToList();
+
+        var prefijosDeFormula = new[] { '=', '+', '-', '@' };
+        Assert.All(celdas, celda =>
+            Assert.False(celda.Length > 0 && prefijosDeFormula.Contains(celda[0]),
+                $"La celda '{celda}' se interpretaría como fórmula."));
+        // El contenido original se conserva (solo se antepone un apóstrofo).
+        Assert.Contains(textoMalicioso.Replace("\"", "\"\""), csv);
+    }
+
+    [Fact]
+    public void GenerarCsvDevoluciones_ImporteNegativoLegitimo_NoSeAltera()
+    {
+        var devoluciones = new List<Devolucion>
+        {
+            new()
+            {
+                NumeroDevolucion = "DEV-N",
+                Estado = EstadoDevolucion.Pendiente,
+                FechaDevolucion = new DateTime(2026, 3, 20),
+                TotalDevolucion = -15.50m,
+                Cliente = new Cliente { Nombre = "Juan", Apellido = "Perez", NumeroDocumento = "12345678" }
+            }
+        };
+
+        var csv = System.Text.Encoding.UTF8.GetString(_sut.GenerarCsvDevoluciones(devoluciones));
+
+        Assert.Contains("\"-15.50\"", csv);
+    }
 }

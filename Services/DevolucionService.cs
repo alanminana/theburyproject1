@@ -102,6 +102,30 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync(d => d.NumeroDevolucion == numeroDevolucion && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);
     }
 
+    /// <summary>
+    /// HITO4-E1: una devolución no puede registrarse, aprobarse ni completarse mientras el crédito personal de la
+    /// venta siga vigente (el reintegro de stock dejaría crédito, cuotas y anticipo intactos y sin egreso).
+    /// Solo no bloquean los créditos Finalizado, Rechazado o Cancelado, o la ausencia de crédito.
+    /// </summary>
+    private async Task ValidarCreditoNoVigenteAsync(int ventaId, string accion)
+    {
+        var estadoCredito = await _context.Ventas
+            .AsNoTracking()
+            .Where(v => v.Id == ventaId && !v.IsDeleted && v.CreditoId != null)
+            .Select(v => v.Credito != null && !v.Credito.IsDeleted ? (EstadoCredito?)v.Credito.Estado : null)
+            .FirstOrDefaultAsync();
+
+        if (estadoCredito is null
+            or EstadoCredito.Finalizado
+            or EstadoCredito.Rechazado
+            or EstadoCredito.Cancelado)
+            return;
+
+        throw new InvalidOperationException(
+            $"No se puede {accion} la devolución: la venta tiene un crédito personal vigente ({estadoCredito}). " +
+            "Primero hay que resolver el crédito (cancelarlo o saldarlo) y luego gestionar la devolución.");
+    }
+
     public async Task<Devolucion> CrearDevolucionAsync(Devolucion devolucion, List<DevolucionDetalle> detalles)
     {
         if (detalles == null || detalles.Count == 0)
@@ -127,6 +151,8 @@ public class DevolucionService : IDevolucionService
 
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException(MensajeVentaNoDevolvible);
+
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "registrar");
 
             // Validar que la venta existe
             var venta = await _context.Ventas
@@ -157,15 +183,29 @@ public class DevolucionService : IDevolucionService
             // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
             var ventaDetallesRaw = await _context.VentaDetalles
                 .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.ProductoUnidadId })
+                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ArmadoSubtotal, vd.ProductoUnidadId })
                 .ToListAsync();
 
+            // H5-I: lo cobrado por línea incluye su parte proporcional del recargo del medio de pago (con su IVA), de modo
+            // que devolver todas las líneas reintegre exactamente lo cobrado por los productos. Armados y envío no se
+            // devuelven (regla vigente): su parte del recargo tampoco.
+            var envioIncluido = await _context.VentaEnvios
+                .Where(e => e.VentaId == devolucion.VentaId && !e.IsDeleted && e.IncluidoEnTotal)
+                .Select(e => (decimal?)e.CostoEnvio)
+                .FirstOrDefaultAsync();
+            var cobradoPorLinea = ventaDetallesRaw
+                .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
+                .ToList();
+            var serviciosBruto = ventaDetallesRaw.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
+            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total);
+
             var vendidoPorProducto = ventaDetallesRaw
-                .GroupBy(vd => vd.ProductoId)
+                .Select((vd, i) => (Detalle: vd, Cobrado: cobradoPorLinea[i] + recargoPorLinea[i]))
+                .GroupBy(x => x.Detalle.ProductoId)
                 .ToDictionary(
                     g => g.Key,
-                    g => (CantidadVendida: g.Sum(x => x.Cantidad),
-                          TotalVendido: g.Sum(x => x.Cantidad * x.PrecioUnitario)));
+                    g => (CantidadVendida: g.Sum(x => x.Detalle.Cantidad),
+                          TotalVendido: g.Sum(x => x.Cobrado)));
 
             if (vendidoPorProducto.Count == 0)
                 throw new InvalidOperationException("La venta no tiene detalles para devolver");
@@ -184,10 +224,10 @@ public class DevolucionService : IDevolucionService
                     _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId && d.Estado != EstadoDevolucion.Rechazada),
                     dd => dd.DevolucionId,
                     d => d.Id,
-                    (dd, d) => new { dd.ProductoId, dd.Cantidad })
+                    (dd, d) => new { dd.ProductoId, dd.Cantidad, dd.Subtotal })
                 .GroupBy(x => x.ProductoId)
-                .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
-                .ToDictionaryAsync(x => x.ProductoId, x => x.Cantidad);
+                .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad), Importe = g.Sum(x => x.Subtotal) })
+                .ToDictionaryAsync(x => x.ProductoId, x => (x.Cantidad, x.Importe));
 
             // Resolver ProductoUnidadId efectivo para cada detalle (explícito o auto-inferido)
             var unidadIdPorDetalle = detalles.ToDictionary(
@@ -238,9 +278,9 @@ public class DevolucionService : IDevolucionService
                 if (!vendidoPorProducto.TryGetValue(detalle.ProductoId, out var vendido))
                     throw new InvalidOperationException("El producto a devolver no pertenece a la venta");
 
-                var yaDevuelto = devueltoPorProducto.TryGetValue(detalle.ProductoId, out var cantDevuelta)
-                    ? cantDevuelta
-                    : 0;
+                var (yaDevuelto, importeYaDevuelto) = devueltoPorProducto.TryGetValue(detalle.ProductoId, out var previo)
+                    ? previo
+                    : (0, 0m);
 
                 var disponible = vendido.CantidadVendida - yaDevuelto;
                 if (detalle.Cantidad > disponible)
@@ -255,6 +295,14 @@ public class DevolucionService : IDevolucionService
 
                 detalle.PrecioUnitario = precioUnitario;
                 detalle.Subtotal = detalle.Cantidad * detalle.PrecioUnitario;
+
+                // H5-I: la suma de todas las devoluciones de un producto nunca excede lo cobrado por él. El precio
+                // unitario redondeado a 2 decimales podría pasarse (o quedarse corto) por centavos: la última
+                // devolución (la que agota las unidades) reintegra exactamente el remanente.
+                var remanente = Math.Max(0m, vendido.TotalVendido - importeYaDevuelto);
+                detalle.Subtotal = detalle.Cantidad == disponible
+                    ? remanente
+                    : Math.Min(detalle.Subtotal, remanente);
                 total += detalle.Subtotal;
 
                 // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
@@ -292,6 +340,40 @@ public class DevolucionService : IDevolucionService
                 await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    /// <summary>
+    /// H3-Q2: importe efectivamente cobrado por una línea de venta (producto), con los descuentos de línea y el
+    /// descuento general prorrateado ya aplicados: <c>SubtotalFinal</c>, o <c>Subtotal</c> en líneas anteriores al
+    /// prorrateo. Valuar la devolución con el precio de lista (<c>PrecioUnitario x Cantidad</c>) devolvía más de lo
+    /// cobrado cuando la línea tenía descuento. Sin ningún subtotal persistido (dato muy antiguo) se usa el bruto,
+    /// salvo descuento del 100 %. No incluye el recargo/ajuste del medio de pago, el envío ni los armados: eso es
+    /// una regla de dinero aparte.
+    /// </summary>
+    /// <summary>
+    /// H5-I: parte del recargo del medio de pago (IVA incluido) que corresponde a cada línea de producto: el recargo
+    /// (total cobrado - lo que suman los ítems, truncado a pesos) se prorratea entre producto y servicios y, dentro de los
+    /// productos, proporcionalmente a lo cobrado por línea (mayor resto en centavos: la suma es exacta).
+    /// </summary>
+    internal static decimal[] RecargoPorLinea(IReadOnlyList<decimal> cobradoPorLinea, decimal serviciosBruto, decimal totalVenta)
+    {
+        var productos = cobradoPorLinea.Sum();
+        var bruto = productos + serviciosBruto;
+        var recargo = RecargoMedioPagoIva.CalcularRecargo(totalVenta, bruto);
+        if (recargo <= 0m || productos <= 0m)
+            return new decimal[cobradoPorLinea.Count];
+
+        var parteProductos = serviciosBruto <= 0m
+            ? recargo
+            : Math.Round(recargo * productos / bruto, 2, MidpointRounding.AwayFromZero);
+        return RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+    }
+
+    internal static decimal ImporteCobradoDeLinea(int cantidad, decimal precioUnitario, decimal descuento, decimal subtotal, decimal subtotalFinal)
+    {
+        if (subtotalFinal > 0m) return subtotalFinal;
+        if (subtotal > 0m) return subtotal;
+        return descuento >= 100m ? 0m : cantidad * precioUnitario;
     }
 
     public async Task<Devolucion> ActualizarDevolucionAsync(Devolucion devolucion)
@@ -358,6 +440,8 @@ public class DevolucionService : IDevolucionService
 
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException($"No se puede aprobar la devolución. {MensajeVentaNoDevolvible}");
+
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "aprobar");
 
             devolucion.Estado = EstadoDevolucion.Aprobada;
             devolucion.AprobadoPor = aprobadoPor;
@@ -551,6 +635,8 @@ public class DevolucionService : IDevolucionService
 
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException($"No se puede completar la devolución. {MensajeVentaNoDevolvible}");
+
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "completar");
 
             // Marcar como completada primero (misma transacción) para evitar doble procesamiento
             devolucion.Estado = EstadoDevolucion.Completada;
@@ -1404,75 +1490,6 @@ public class DevolucionService : IDevolucionService
         return notaCredito;
     }
 
-    public async Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto, string? referencia = null)
-    {
-        var notaCredito = await ObtenerNotaCreditoAsync(notaCreditoId);
-        if (notaCredito == null)
-        {
-            throw new KeyNotFoundException($"Nota de crédito con ID {notaCreditoId} no encontrada");
-        }
-
-        if (monto <= 0)
-            throw new InvalidOperationException("El monto a utilizar debe ser mayor a cero");
-
-        // Una NC emitida por una devolución sobre una venta que nunca se concretó (dato histórico anterior a la regla de
-        // estado) no representa dinero real del cliente: no puede consumirse.
-        if (notaCredito.DevolucionId > 0)
-        {
-            var estadoVentaOrigen = await _context.Devoluciones
-                .AsNoTracking()
-                .Where(d => d.Id == notaCredito.DevolucionId)
-                .Select(d => (EstadoVenta?)d.Venta.Estado)
-                .FirstOrDefaultAsync();
-            if (estadoVentaOrigen is EstadoVenta.Cotizacion or EstadoVenta.Presupuesto
-                or EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion)
-                throw new InvalidOperationException(
-                    "La nota de crédito proviene de una devolución sobre una venta que no se concretó y no puede utilizarse.");
-        }
-
-        if (notaCredito.Estado != EstadoNotaCredito.Vigente &&
-            notaCredito.Estado != EstadoNotaCredito.UtilizadaParcialmente)
-            throw new InvalidOperationException($"La nota de crédito no admite usos en estado {notaCredito.Estado.GetDisplayName()}");
-
-        if (notaCredito.FechaVencimiento.HasValue && notaCredito.FechaVencimiento.Value < DateTime.UtcNow)
-            throw new InvalidOperationException($"La nota de crédito venció el {notaCredito.FechaVencimiento.Value:dd/MM/yyyy}");
-
-        if (notaCredito.MontoDisponible < monto)
-        {
-            throw new InvalidOperationException($"Saldo insuficiente. Disponible: ${notaCredito.MontoDisponible:N2}");
-        }
-
-        notaCredito.MontoUtilizado += monto;
-
-        if (notaCredito.MontoDisponible == 0)
-        {
-            notaCredito.Estado = EstadoNotaCredito.UtilizadaTotalmente;
-        }
-        else
-        {
-            notaCredito.Estado = EstadoNotaCredito.UtilizadaParcialmente;
-        }
-
-        if (!string.IsNullOrWhiteSpace(referencia))
-        {
-            var linea = $"[{DateTime.UtcNow:dd/MM/yyyy}] Uso {monto:C2} — {referencia.Trim()}";
-            var obs = string.IsNullOrWhiteSpace(notaCredito.Observaciones)
-                ? linea
-                : $"{notaCredito.Observaciones}\n{linea}";
-            // StringLength(500): ante desborde se conservan los usos más recientes
-            notaCredito.Observaciones = obs.Length <= 500 ? obs : obs[^500..];
-        }
-
-        notaCredito.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Nota de crédito utilizada - Id {NotaCreditoId} - MontoUtilizado {Monto} - EstadoResultante {Estado} - Referencia {Referencia}",
-            notaCreditoId, monto, notaCredito.Estado, referencia ?? "-");
-
-        return notaCredito;
-    }
-
     public async Task<decimal> ObtenerCreditoDisponibleClienteAsync(int clienteId)
     {
         var notasVigentes = await ObtenerNotasCreditoVigentesAsync(clienteId);
@@ -1695,7 +1712,19 @@ public class DevolucionService : IDevolucionService
 
     private static string EscapeCsv(string? value)
     {
-        var sanitized = (value ?? string.Empty).Replace("\"", "\"\"");
+        var texto = value ?? string.Empty;
+
+        // Inyección de fórmulas (CWE-1236): Excel/LibreOffice evalúan una celda que empieza con = + - @ (o tab/CR)
+        // aunque venga entre comillas. El texto libre (nombre de producto, observaciones) se neutraliza con un
+        // apóstrofo inicial; los importes numéricos legítimos (p. ej. "-15.50") no se alteran.
+        if (texto.Length > 0
+            && texto[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            && !decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        {
+            texto = "'" + texto;
+        }
+
+        var sanitized = texto.Replace("\"", "\"\"");
         return $"\"{sanitized}\"";
     }
 
@@ -1722,7 +1751,9 @@ public class DevolucionService : IDevolucionService
 
     public bool PermiteImpactoCaja(TipoPago tipoPago)
     {
-        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente;
+        // H4-E2: una venta pagada con nota de crédito no entró plata a caja: no se reembolsa en efectivo (el cliente conserva
+        // el saldo como nota de crédito).
+        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente && tipoPago != TipoPago.NotaCredito;
     }
 
     public string ConstruirObservacionesInternas(

@@ -11,6 +11,7 @@ using TheBuryProject.Models.Entities;
 namespace TheBuryProject.Controllers
 {
     [Authorize(Roles = Roles.SuperAdmin)]
+    [AutoValidateAntiforgeryToken]
     public class DiagnosticoController : Controller
     {
         private readonly AppDbContext _context;
@@ -86,6 +87,7 @@ namespace TheBuryProject.Controllers
         /// Crea un usuario de prueba para verificar persistencia
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CrearUsuarioPrueba()
         {
             var timestamp = DateTime.UtcNow.ToString("HHmmss");
@@ -136,6 +138,7 @@ namespace TheBuryProject.Controllers
         /// Resetea la contraseña de un usuario
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ResetPassword(string email, string newPassword)
         {
             try
@@ -205,7 +208,8 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Fuerza el cambio de password directamente (para casos problemáticos)
         /// </summary>
-        [HttpGet]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ForcePasswordReset(string email)
         {
             try
@@ -440,7 +444,8 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Fuerza el refresh de los permisos del usuario actual sin hacer logout
         /// </summary>
-        [HttpGet]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RefreshPermisos()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

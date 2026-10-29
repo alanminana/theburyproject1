@@ -31,11 +31,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         typeof(CotizacionVencimientoBackgroundService),
     ];
 
+    /// <summary>Activa el bloqueo total de TerminosCondicionesMiddleware (producción). Debe fijarse antes del primer uso.</summary>
+    public bool ExigirTerminosEnTodasLasPeticiones { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
 
         builder.UseEnvironment("Testing");
+
+        // SEG-BAJA: la suite usa usuarios que no aceptaron los términos; el bloqueo total de TerminosCondicionesMiddleware
+        // se prueba de forma explícita con ExigirTerminosEnTodasLasPeticiones = true.
+        builder.UseSetting(TheBuryProject.Middleware.TerminosCondicionesMiddleware.ClaveBloqueoTotal,
+            ExigirTerminosEnTodasLasPeticiones ? "true" : "false");
 
         builder.ConfigureServices(services =>
         {

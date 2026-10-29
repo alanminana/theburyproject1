@@ -1378,4 +1378,91 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         Assert.False(segunda);
         Assert.Equal(1, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
     }
+
+    // -------------------------------------------------------------------------
+    // H5-I: el recargo del medio de pago se discrimina con IVA en la venta (Subtotal + IVA == Total).
+    // -------------------------------------------------------------------------
+
+    private async Task<Venta> SeedVentaWizardAsync(decimal totalItems = 12_752m)
+    {
+        var venta = await SeedVenta(total: totalItems, tipoPago: TipoPago.TarjetaDebito);
+        var l1 = Unit.RecargoMedioPagoIvaTests.Linea(totalItems - 4_752m, 21m);
+        var l2 = Unit.RecargoMedioPagoIvaTests.Linea(4_752m, 10.5m);
+        l1.VentaId = l2.VentaId = venta.Id;
+        l1.ProductoId = l2.ProductoId = 0;
+        var cat = new Categoria { Codigo = "C" + venta.Id, Nombre = "C" + venta.Id, Activo = true };
+        var marca = new Marca { Codigo = "M" + venta.Id, Nombre = "M" + venta.Id, Activo = true };
+        _context.Categorias.Add(cat); _context.Marcas.Add(marca);
+        await _context.SaveChangesAsync();
+        foreach (var d in new[] { l1, l2 })
+        {
+            var p = new Producto { Codigo = Guid.NewGuid().ToString("N")[..8], Nombre = "P", CategoriaId = cat.Id, MarcaId = marca.Id, PrecioCompra = 1m, PrecioVenta = d.PrecioUnitario, PorcentajeIVA = d.PorcentajeIVA, Activo = true };
+            _context.Productos.Add(p);
+            await _context.SaveChangesAsync();
+            d.ProductoId = p.Id;
+            _context.VentaDetalles.Add(d);
+        }
+        venta.Subtotal = l1.SubtotalFinalNeto + l2.SubtotalFinalNeto;
+        venta.IVA = l1.SubtotalFinalIVA + l2.SubtotalFinalIVA;
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_DebitoConRecargo_DiscriminaElRecargoConIvaYCierraContraTotal()
+    {
+        var venta = await SeedVentaWizardAsync();
+        var ivaItems = venta.IVA;
+        var tarjeta = await SeedConfiguracionTarjeta(TipoTarjeta.Debito, nombre: "Debito 3", tieneRecargoDebito: true, porcentajeRecargoDebito: 3m);
+
+        var ok = await _service.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id, NombreTarjeta = tarjeta.NombreTarjeta, TipoTarjeta = TipoTarjeta.Debito
+        });
+
+        Assert.True(ok);
+        _context.ChangeTracker.Clear();
+        var guardada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(13_134m, guardada.Total);                      // total que paga el cliente: sin cambios
+        Assert.Equal(13_134m, guardada.Subtotal + guardada.IVA);    // el recargo (382) lleva su IVA
+        Assert.True(guardada.IVA > ivaItems);                       // el IVA subió respecto de los ítems solos
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalConInteres_DiscriminaElRecargoYCierraContraTotal()
+    {
+        var venta = await SeedVentaWizardAsync();
+        venta.TipoPago = TipoPago.MercadoPago;
+        await _context.SaveChangesAsync();
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 12m, cantidadCuotas: 6);
+
+        var ok = await _service.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+        {
+            CantidadCuotas = 6, ConfiguracionPagoPlanId = plan.Id
+        });
+
+        Assert.True(ok);
+        _context.ChangeTracker.Clear();
+        var guardada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(14_282m, guardada.Total);                       // 12.752 + 12 % (1.530,24) truncado a pesos
+        Assert.Equal(guardada.Total, guardada.Subtotal + guardada.IVA);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_DebitoSinRecargo_NoAlteraSubtotalNiIva()
+    {
+        var venta = await SeedVentaWizardAsync();
+        var antes = (venta.Subtotal, venta.IVA);
+        var tarjeta = await SeedConfiguracionTarjeta(TipoTarjeta.Debito, nombre: "Debito 0");
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id, NombreTarjeta = tarjeta.NombreTarjeta, TipoTarjeta = TipoTarjeta.Debito
+        });
+
+        _context.ChangeTracker.Clear();
+        var guardada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(12_752m, guardada.Total);
+        Assert.Equal(antes, (guardada.Subtotal, guardada.IVA));
+    }
 }

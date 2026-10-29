@@ -36,6 +36,34 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
     public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null) =>
         _context.Set<SeguridadEventoAuditoria>().Add(CrearEvento(modulo, accion, entidad, detalle));
 
+    public async Task<bool> RegistrarEventoAgrupadoAsync(string modulo, string accion, string entidad, string? detalle, TimeSpan ventana)
+    {
+        try
+        {
+            var ip = _currentUserService.GetIpAddress();
+            var desde = DateTime.UtcNow - ventana;
+            var moduloN = string.IsNullOrWhiteSpace(modulo) ? "Seguridad" : modulo.Trim();
+            var accionN = accion.Trim();
+            var entidadN = entidad.Trim();
+
+            var yaExiste = await _context.Set<SeguridadEventoAuditoria>()
+                .AsNoTracking()
+                .AnyAsync(e => e.Modulo == moduloN && e.Accion == accionN && e.Entidad == entidadN
+                               && e.DireccionIp == ip && e.FechaEvento >= desde);
+            if (yaExiste)
+                return false;
+
+            _context.Set<SeguridadEventoAuditoria>().Add(CrearEvento(modulo, accion, entidad, detalle));
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo registrar evento agrupado de auditoría {Modulo}/{Accion}", modulo, accion);
+            return false;
+        }
+    }
+
     public async Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null)
     {
         try

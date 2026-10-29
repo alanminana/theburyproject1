@@ -78,7 +78,6 @@ public interface IDevolucionService
     Task<NotaCredito?> ObtenerNotaCreditoAsync(int id);
     Task<NotaCredito?> ObtenerNotaCreditoPorNumeroAsync(string numeroNotaCredito);
     Task<NotaCredito> CrearNotaCreditoAsync(NotaCredito notaCredito);
-    Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto, string? referencia = null);
     Task<decimal> ObtenerCreditoDisponibleClienteAsync(int clienteId);
     Task<string> GenerarNumeroNotaCreditoAsync();
 

@@ -472,6 +472,46 @@ public class LayoutUiContractTests
         Assert.Contains(".skip-link", css);
     }
 
+    // ── Notificaciones (campana del header) ──────────────────────────────
+
+    [Theory]
+    [InlineData("notificacionesBadge")]
+    [InlineData("notificacionesPanel")]
+    [InlineData("marcarTodasLeidasBtn")]
+    [InlineData("noNotificacionesMsg")]
+    [InlineData("notificacionesLista")]
+    [InlineData("btn-open-notificaciones")]
+    public void Layout_TieneElementosQueExigeNotificacionesJs(string id)
+    {
+        // Contrato: notificaciones.js busca estos ids por getElementById; sin ellos nadie ve las notificaciones.
+        Assert.Contains($"id=\"{id}\"", ReadLayout());
+        Assert.Contains($"'{id}'", ReadJs("notificaciones.js"));
+    }
+
+    [Fact]
+    public void Layout_CampanaNotificacionesEsAccesibleYSeProtegePorPermiso()
+    {
+        var layout = ReadLayout();
+        var bell = layout.IndexOf("id=\"btn-open-notificaciones\"", StringComparison.Ordinal);
+        Assert.True(bell > 0);
+        var ventana = layout.Substring(bell, 500);
+        Assert.Contains("aria-label=\"Notificaciones\"", ventana);
+        Assert.Contains("aria-expanded=\"false\"", ventana);
+        Assert.Contains("aria-controls=\"notificacionesPanel\"", ventana);
+        var antes = layout.Substring(0, bell);
+        Assert.Contains("@if (canViewNotifications)", antes.Substring(antes.LastIndexOf("@if (", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void NotificacionesJs_InsertaContenidoConTextContentYValidaDestino()
+    {
+        var js = ReadJs("notificaciones.js");
+        Assert.DoesNotContain("innerHTML", js);
+        Assert.Contains("textContent", js);
+        Assert.Contains("window.location.origin", js);
+        Assert.Contains("NotificacionesActualizadas", js);   // evento real que emite NotificacionService
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private static string ReadLayout() =>

@@ -234,31 +234,6 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(stockAntes, (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual);
     }
 
-    [Theory]
-    [InlineData(EstadoVenta.Cotizacion, false)]
-    [InlineData(EstadoVenta.PendienteFinanciacion, false)]
-    [InlineData(EstadoVenta.Confirmada, true)]
-    [InlineData(EstadoVenta.Entregada, true)]
-    public async Task Utilizar_NotaCreditoDeDevolucion_SoloSiLaVentaSeConcreto(EstadoVenta estado, bool permitido)
-    {
-        // NC histórica emitida por una devolución cuando la venta aún no se había concretado.
-        var (cliente, _, venta) = await SeedVentaEnEstadoAsync(estado);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Aprobada);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, devolucionId: dev.Id);
-
-        if (permitido)
-        {
-            var usada = await _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA");
-            Assert.Equal(10m, usada.MontoUtilizado);
-        }
-        else
-        {
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA"));
-            Assert.Contains("no se concretó", ex.Message);
-            Assert.Equal(0m, (await _context.NotasCredito.AsNoTracking().FirstAsync(n => n.Id == nc.Id)).MontoUtilizado);
-        }
-    }
-
     // -------------------------------------------------------------------------
     // CrearDevolucionAsync — validaciones
     // -------------------------------------------------------------------------
@@ -428,6 +403,114 @@ public class DevolucionServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // H3-Q2: el valor a devolver parte de lo REALMENTE cobrado por la línea (descuentos incluidos),
+    // nunca del precio de lista: de lo contrario el reembolso supera lo cobrado.
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    // Descuento de línea 50 %: lista 2 x 50 = 100, cobrado 50 (Subtotal = SubtotalFinal = 50) => 25 por unidad.
+    [InlineData(50.00, 50.00, 25.00)]
+    // Descuento general prorrateado: Subtotal de línea 100, SubtotalFinal 90 => 45 por unidad.
+    [InlineData(100.00, 90.00, 45.00)]
+    // Sin descuento (SubtotalFinal = Subtotal = lista) => 50 por unidad.
+    [InlineData(100.00, 100.00, 50.00)]
+    public async Task Crear_ValuaLaDevolucionConLoCobradoNoConElPrecioDeLista(
+        double subtotal, double subtotalFinal, double unitarioEsperado)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        var linea = await _context.VentaDetalles.SingleAsync(d => d.VentaId == venta.Id);
+        linea.PrecioUnitario = 50m;
+        linea.Subtotal = (decimal)subtotal;
+        linea.SubtotalFinal = (decimal)subtotalFinal;
+        await _context.SaveChangesAsync();
+
+        var detalles = new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } };
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        Assert.Equal((decimal)unitarioEsperado, detalles[0].PrecioUnitario);
+        Assert.Equal((decimal)unitarioEsperado, creada.TotalDevolucion);
+    }
+
+    // -------------------------------------------------------------------------
+    // H5-I: el recargo del medio de pago (con su IVA) se devuelve proporcionalmente y la suma de devoluciones
+    // nunca excede lo cobrado.
+    // -------------------------------------------------------------------------
+
+    private async Task<(Cliente Cliente, Producto A, Producto B, Venta Venta)> SeedVentaConRecargoAsync()
+    {
+        var cliente = await SeedClienteAsync();
+        var a = await SeedProductoAsync();
+        var b = await SeedProductoAsync();
+        // Productos 7.000 (x3) + 5.752 (x1) = 12.752; débito +3% => total cobrado 13.134 (recargo 382).
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8], ClienteId = cliente.Id, Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.TarjetaDebito, FechaVenta = DateTime.UtcNow, Total = 13_134m,
+            Detalles = new List<VentaDetalle>
+            {
+                new() { ProductoId = a.Id, Cantidad = 3, PrecioUnitario = 2_333.34m, Subtotal = 7_000m, SubtotalFinal = 7_000m },
+                new() { ProductoId = b.Id, Cantidad = 1, PrecioUnitario = 5_752m, Subtotal = 5_752m, SubtotalFinal = 5_752m }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return (cliente, a, b, venta);
+    }
+
+    [Fact]
+    public async Task Crear_ConRecargoDelMedioDePago_DevolverTodasLasLineasReintegraExactamenteLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConRecargoAsync();
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = a.Id, Cantidad = 3 },
+            new() { ProductoId = b.Id, Cantidad = 1 }
+        };
+
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        Assert.Equal(13_134m, creada.TotalDevolucion);
+    }
+
+    [Fact]
+    public async Task Crear_ConRecargoDelMedioDePago_VariasDevolucionesParcialesNuncaExcedenLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConRecargoAsync();
+        decimal acumulado = 0m;
+
+        foreach (var cantidad in new[] { 1, 1, 1 })
+        {
+            var d = new List<DevolucionDetalle> { new() { ProductoId = a.Id, Cantidad = cantidad } };
+            var dev = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), d);
+            acumulado += dev.TotalDevolucion;
+            Assert.True(acumulado <= 7_000m + 382m * 7_000m / 12_752m + 0.01m);
+        }
+
+        var ultima = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = b.Id, Cantidad = 1 } });
+        acumulado += ultima.TotalDevolucion;
+
+        Assert.Equal(13_134m, acumulado);
+    }
+
+    [Fact]
+    public async Task Crear_SinRecargo_SigueValuandoConLoCobradoSinAgregarNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        venta.Total = 100m;
+        await _context.SaveChangesAsync();
+
+        var creada = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 2 } });
+
+        Assert.Equal(100m, creada.TotalDevolucion);
+    }
+
+    // -------------------------------------------------------------------------
     // AprobarDevolucionAsync
     // -------------------------------------------------------------------------
 
@@ -570,7 +653,9 @@ public class DevolucionServiceTests : IDisposable
 
         var aprobada = await _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion);
         var nc = await _context.NotasCredito.SingleAsync(n => n.DevolucionId == dev.Id);
-        await _service.UtilizarNotaCreditoAsync(nc.Id, 10m);
+        nc.MontoUtilizado = 10m;
+        nc.Estado = EstadoNotaCredito.UtilizadaParcialmente;
+        await _context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RechazarDevolucionAsync(dev.Id, "Motivo", aprobada.RowVersion));
@@ -1221,98 +1306,6 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal($"NC-{DateTime.UtcNow:yyyyMM}-{resultado.Id:D6}", resultado.NumeroNotaCredito);
         Assert.Equal(EstadoNotaCredito.Vigente, resultado.Estado);
         Assert.Equal(0m, resultado.MontoUtilizado);
-    }
-
-    // -------------------------------------------------------------------------
-    // UtilizarNotaCreditoAsync
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task Utilizar_Parcial_DescuentaSaldoYRegistraReferencia()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 40m, "aplicada en venta V-000123");
-
-        Assert.Equal(40m, resultado.MontoUtilizado);
-        Assert.Equal(60m, resultado.MontoDisponible);
-        Assert.Equal(EstadoNotaCredito.UtilizadaParcialmente, resultado.Estado);
-        Assert.Contains("V-000123", resultado.Observaciones);
-    }
-
-    [Fact]
-    public async Task Utilizar_TotalDelSaldo_MarcaUtilizadaTotalmente()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 100m);
-
-        Assert.Equal(0m, resultado.MontoDisponible);
-        Assert.Equal(EstadoNotaCredito.UtilizadaTotalmente, resultado.Estado);
-    }
-
-    [Fact]
-    public async Task Utilizar_MontoCeroONegativo_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 0m));
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, -5m));
-    }
-
-    [Fact]
-    public async Task Utilizar_SaldoInsuficiente_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 150m));
-    }
-
-    [Fact]
-    public async Task Utilizar_Vencida_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
-            vencimiento: DateTime.UtcNow.AddDays(-1));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
-    }
-
-    [Fact]
-    public async Task Utilizar_EstadoCancelada_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
-            estado: EstadoNotaCredito.Cancelada);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
     }
 
     // -------------------------------------------------------------------------

@@ -15,11 +15,11 @@ namespace TheBuryProyect.Migrations
             // el flujo legacy de crédito personal por JSON (reemplazado por Credito + Credito.Cuotas) y
             // se verificaron vacíos en la base de desarrollo. Si alguna otra base tiene datos, la
             // migración aborta en vez de borrarlos en silencio: migrarlos a Credito antes de reintentar.
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 "IF EXISTS (SELECT 1 FROM [VentaCreditoCuotas]) " +
                 "THROW 51000, 'DropVentaCreditoCuotasLegacy: VentaCreditoCuotas contiene filas; no se elimina para evitar perder datos.', 1;");
 
-            migrationBuilder.Sql(
+            migrationBuilder.SqlDiferido(
                 "IF EXISTS (SELECT 1 FROM [Ventas] WHERE [DatosCreditoPersonallJson] IS NOT NULL) " +
                 "THROW 51000, 'DropVentaCreditoCuotasLegacy: hay Ventas con DatosCreditoPersonallJson; no se elimina para evitar perder datos.', 1;");
 

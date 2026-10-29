@@ -141,6 +141,7 @@ namespace TheBuryProject.Services
                     ? $"Crédito personal, {cantidadCuotas.Value} cuotas"
                     : "Crédito personal",
                 TipoPago.CuentaCorriente => "Cuenta corriente",
+                TipoPago.NotaCredito => "Nota de crédito",
                 _ => tipoPago.ToString()
             };
         }

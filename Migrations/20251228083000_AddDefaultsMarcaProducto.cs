@@ -14,8 +14,8 @@ namespace TheBuryProject.Migrations
 				{
 						// Marca.Activo default = 1
 						migrationBuilder.Sql(@"
-DECLARE @df sysname;
-SELECT @df = [d].[name]
+DECLARE @dfMarcasActivo sysname;
+SELECT @dfMarcasActivo = [d].[name]
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c]
 		ON [d].[parent_object_id] = [c].[object_id]
@@ -23,7 +23,7 @@ INNER JOIN [sys].[columns] [c]
 WHERE [d].[parent_object_id] = OBJECT_ID(N'[dbo].[Marcas]')
 	AND [c].[name] = N'Activo';
 
-IF @df IS NULL
+IF @dfMarcasActivo IS NULL
 BEGIN
 		ALTER TABLE [dbo].[Marcas] ADD CONSTRAINT [DF_Marcas_Activo] DEFAULT ((1)) FOR [Activo];
 END
@@ -31,8 +31,8 @@ END
 
 						// Producto.UnidadMedida default = 'UN'
 						migrationBuilder.Sql(@"
-DECLARE @df sysname;
-SELECT @df = [d].[name]
+DECLARE @dfProductosUnidadMedida sysname;
+SELECT @dfProductosUnidadMedida = [d].[name]
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c]
 		ON [d].[parent_object_id] = [c].[object_id]
@@ -40,7 +40,7 @@ INNER JOIN [sys].[columns] [c]
 WHERE [d].[parent_object_id] = OBJECT_ID(N'[dbo].[Productos]')
 	AND [c].[name] = N'UnidadMedida';
 
-IF @df IS NULL
+IF @dfProductosUnidadMedida IS NULL
 BEGIN
 		ALTER TABLE [dbo].[Productos] ADD CONSTRAINT [DF_Productos_UnidadMedida] DEFAULT (N'UN') FOR [UnidadMedida];
 END
@@ -48,8 +48,8 @@ END
 
 						// Producto.Activo default = 1
 						migrationBuilder.Sql(@"
-DECLARE @df sysname;
-SELECT @df = [d].[name]
+DECLARE @dfProductosActivo sysname;
+SELECT @dfProductosActivo = [d].[name]
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c]
 		ON [d].[parent_object_id] = [c].[object_id]
@@ -57,7 +57,7 @@ INNER JOIN [sys].[columns] [c]
 WHERE [d].[parent_object_id] = OBJECT_ID(N'[dbo].[Productos]')
 	AND [c].[name] = N'Activo';
 
-IF @df IS NULL
+IF @dfProductosActivo IS NULL
 BEGIN
 		ALTER TABLE [dbo].[Productos] ADD CONSTRAINT [DF_Productos_Activo] DEFAULT ((1)) FOR [Activo];
 END
@@ -68,8 +68,8 @@ END
 				{
 						// Drop defaults if present (regardless of the constraint name)
 						migrationBuilder.Sql(@"
-DECLARE @df sysname;
-SELECT @df = [d].[name]
+DECLARE @dfDownMarcasActivo sysname;
+SELECT @dfDownMarcasActivo = [d].[name]
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c]
 		ON [d].[parent_object_id] = [c].[object_id]
@@ -77,7 +77,7 @@ INNER JOIN [sys].[columns] [c]
 WHERE [d].[parent_object_id] = OBJECT_ID(N'[dbo].[Marcas]')
 	AND [c].[name] = N'Activo';
 
-IF @df IS NOT NULL EXEC(N'ALTER TABLE [dbo].[Marcas] DROP CONSTRAINT [' + @df + '];');
+IF @dfDownMarcasActivo IS NOT NULL EXEC(N'ALTER TABLE [dbo].[Marcas] DROP CONSTRAINT [' + @dfDownMarcasActivo + '];');
 ");
 
 						migrationBuilder.Sql(@"
