@@ -67,6 +67,13 @@ public class SeguridadController : Controller
         if (string.IsNullOrEmpty(activeTab))
             return Forbid();
 
+        // Un rango invertido mostraba la auditoría vacía como si no hubiera eventos.
+        if (activeTab == "auditoria" && desde.HasValue && hasta.HasValue && desde.Value > hasta.Value)
+        {
+            TempData["Error"] = "La fecha desde no puede ser posterior a la fecha hasta.";
+            return RedirectToAction(nameof(Index), new { tab = "auditoria", usuario, modulo, accion });
+        }
+
         var roles = await _rolService.GetAllRolesAsync();
         var roleMetadata = await _rolService.GetAllRoleMetadataAsync();
         var stats = await _rolService.GetRoleAggregateStatsAsync();
@@ -856,6 +863,9 @@ public class SeguridadController : Controller
 
     #region Métodos privados
 
+    // (pagina - 1) * tamanoPagina desbordaba int con valores enormes (?pagina=2147483647) y daba un salto negativo.
+    internal const int PaginaAuditoriaMaxima = 1_000_000;
+
     private async Task<SeguridadAuditoriaViewModel> BuildAuditoriaViewModelAsync(
         string? usuario,
         string? modulo,
@@ -865,7 +875,7 @@ public class SeguridadController : Controller
         int pagina)
     {
         const int tamanoPagina = SeguridadAuditoriaViewModel.TamanoPaginaDefault;
-        pagina = Math.Max(1, pagina);
+        pagina = Math.Clamp(pagina, 1, PaginaAuditoriaMaxima);
 
         var result = await _seguridadAuditoria.ConsultarEventosAsync(
             usuario, modulo, accion, desde, hasta, (pagina - 1) * tamanoPagina, tamanoPagina);
