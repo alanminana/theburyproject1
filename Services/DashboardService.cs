@@ -10,6 +10,25 @@ namespace TheBuryProject.Services
 {
     public class DashboardService : IDashboardService
     {
+        /// <summary>
+        /// Ventas que cuentan como ventas en KPIs y gráficos: mismo criterio que <c>ReporteService</c>.
+        /// Cotizaciones, presupuestos, ventas canceladas y pendientes de requisitos/financiación no son ventas concretadas.
+        /// </summary>
+        private static readonly EstadoVenta[] EstadosVentaComerciales =
+        {
+            EstadoVenta.Confirmada,
+            EstadoVenta.Facturada,
+            EstadoVenta.Entregada
+        };
+
+        /// <summary>Cuotas con deuda: el job diario pasa Pendiente a Vencida y un pago parcial deja Parcial.</summary>
+        private static readonly EstadoCuota[] EstadosCuotaConDeuda =
+        {
+            EstadoCuota.Pendiente,
+            EstadoCuota.Vencida,
+            EstadoCuota.Parcial
+        };
+
         #region Constructor y dependencias
 
         private readonly AppDbContext _context;
@@ -47,7 +66,7 @@ namespace TheBuryProject.Services
 
             // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
             var ventasRaw = await _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta >= inicioAnio)
+                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioAnio)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
             var ventasHoy     = ventasRaw.Where(v => v.FechaVenta >= hoy && v.FechaVenta < manana).Sum(v => v.Total);
@@ -79,11 +98,11 @@ namespace TheBuryProject.Services
             var cuotasPendientesRaw = await _context.Cuotas
                 .Where(c => !c.IsDeleted && c.Credito != null && !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pendiente)
-                .Select(c => new { c.FechaVencimiento, c.MontoTotal })
+                            EstadosCuotaConDeuda.Contains(c.Estado))
+                .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.MontoPagado })
                 .ToListAsync();
             var cuotasVencidasCount = cuotasPendientesRaw.Count(c => c.FechaVencimiento < hoy);
-            var montoVencido        = cuotasPendientesRaw.Where(c => c.FechaVencimiento < hoy).Sum(c => c.MontoTotal);
+            var montoVencido        = cuotasPendientesRaw.Where(c => c.FechaVencimiento < hoy).Sum(c => c.MontoTotal - c.MontoPagado);
 
             // Cuotas pagadas: fetch raw para evitar .Value.Date
             var cuotasPagadasRaw = await _context.Cuotas
@@ -186,7 +205,7 @@ namespace TheBuryProject.Services
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var agregados = await _context.Ventas
                 .AsNoTracking()
-                .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
+                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioMes)
                 .Select(v => new { v.Total })
                 .ToListAsync();
 
@@ -203,7 +222,7 @@ namespace TheBuryProject.Services
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
                             !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pendiente)
+                            EstadosCuotaConDeuda.Contains(c.Estado))
                 .CountAsync();
 
             if (totalCuotas == 0) return 0;
@@ -214,7 +233,7 @@ namespace TheBuryProject.Services
                            !c.Credito.IsDeleted &&
                            c.Credito.Cliente != null &&
                            !c.Credito.Cliente.IsDeleted &&
-                           c.Estado == EstadoCuota.Pendiente &&
+                           EstadosCuotaConDeuda.Contains(c.Estado) &&
                            c.FechaVencimiento < _reloj.InicioDiaComercial);
 
             return ((decimal)cuotasVencidas / totalCuotas) * 100;
@@ -258,7 +277,7 @@ namespace TheBuryProject.Services
             var hace7Dias = hoy.AddDays(-7);
 
             var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta >= hace7Dias)
+                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace7Dias)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
 
@@ -288,7 +307,7 @@ namespace TheBuryProject.Services
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
             var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta >= hace12Meses)
+                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace12Meses)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
 
@@ -317,6 +336,7 @@ namespace TheBuryProject.Services
                              !vd.Producto.IsDeleted &&
                              vd.Venta != null &&
                              !vd.Venta.IsDeleted &&
+                             EstadosVentaComerciales.Contains(vd.Venta.Estado) &&
                              vd.Venta.FechaVenta >= inicioMes)
                 .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal, vd.SubtotalFinal })
                 .ToListAsync();
