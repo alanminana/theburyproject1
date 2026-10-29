@@ -725,7 +725,7 @@ namespace TheBuryProject.Services
 
             var ventas = await _context.Ventas
                 .AsNoTracking()
-                .Where(v => !v.IsDeleted)
+                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado))
                 .OrderByDescending(v => v.FechaVenta)
                 .Take(6)
                 .Select(v => new { v.Numero, v.Total, v.FechaVenta })

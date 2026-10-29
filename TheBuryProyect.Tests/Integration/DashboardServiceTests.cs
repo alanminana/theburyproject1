@@ -495,4 +495,22 @@ public class DashboardServiceTests : IDisposable
         Assert.Equal(2, r.CuotasVencidasLista.Count);
         Assert.Equal(2m / 3m * 100m, r.TasaMorosidad, 6);
     }
+
+    [Fact]
+    public async Task GetDashboard_ActividadReciente_NoMuestraCotizacionesNiCanceladasComoVentaRegistrada()
+    {
+        var cliente = await SeedClienteAsync();
+        var concretada = await SeedVentaAsync(cliente.Id, total: 100m);
+        var cotizacion = await SeedVentaAsync(cliente.Id, total: 200m);
+        var cancelada = await SeedVentaAsync(cliente.Id, total: 300m);
+        (await _context.Ventas.FindAsync(cotizacion.Id))!.Estado = EstadoVenta.Cotizacion;
+        (await _context.Ventas.FindAsync(cancelada.Id))!.Estado = EstadoVenta.Cancelada;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.GetDashboardDataAsync();
+
+        var ventas = r.ActividadReciente.Where(a => a.Tipo == "venta").ToList();
+        Assert.Single(ventas);
+        Assert.Contains(concretada.Numero, ventas[0].Detalle);
+    }
 }
