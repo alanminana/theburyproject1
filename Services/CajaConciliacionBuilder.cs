@@ -270,6 +270,7 @@ public static class CajaConciliacionBuilder
             case ConceptoMovimientoCaja.VentaCheque:
             case ConceptoMovimientoCaja.VentaTransferencia:
             case ConceptoMovimientoCaja.VentaMercadoPago:
+            case ConceptoMovimientoCaja.VentaNotaCredito:
             case ConceptoMovimientoCaja.LiquidacionMercadoLibre:
             case ConceptoMovimientoCaja.ReversionVenta:
                 var ventaId = m.VentaId ?? m.ReferenciaId;
@@ -523,6 +524,7 @@ public static class CajaConciliacionBuilder
             ConceptoMovimientoCaja.VentaCheque => "Cheque",
             ConceptoMovimientoCaja.VentaTransferencia => "Transferencia",
             ConceptoMovimientoCaja.VentaMercadoPago => "Mercado Pago",
+            ConceptoMovimientoCaja.VentaNotaCredito => "Nota de crédito",
             ConceptoMovimientoCaja.DepositoEfectivo => "Efectivo",
             ConceptoMovimientoCaja.ExtraccionEfectivo => "Efectivo",
             ConceptoMovimientoCaja.GastoOperativo => "Efectivo",
@@ -548,6 +550,7 @@ public static class CajaConciliacionBuilder
         TipoPago.Efectivo => "efectivo",
         TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "tarjeta",
         TipoPago.MercadoPago => "mercadopago",
+        TipoPago.NotaCredito => "notacredito",
         TipoPago.Transferencia => "transferencia",
         TipoPago.Cheque => "cheque",
         TipoPago.CreditoPersonal => "credito",
@@ -563,6 +566,7 @@ public static class CajaConciliacionBuilder
         if (medio.Contains("mercado")) return "mercadopago";
         if (medio.Contains("transferencia")) return "transferencia";
         if (medio.Contains("cheque")) return "cheque";
+        if (medio.Contains("nota de cr")) return "notacredito";
         if (medio.Contains("crédito") || medio.Contains("credito")) return "credito";
         if (medio.Contains("cuenta")) return "cuentacorriente";
         return "otro";
@@ -577,6 +581,7 @@ public static class CajaConciliacionBuilder
         "cheque" => "Cheque",
         "credito" => "Crédito personal",
         "cuentacorriente" => "Cuenta corriente",
+        "notacredito" => "Nota de crédito",
         _ => "Otro"
     };
 
@@ -591,6 +596,7 @@ public static class CajaConciliacionBuilder
         TipoPago.CreditoPersonal => "Crédito personal",
         TipoPago.CuentaCorriente => "Cuenta corriente",
         TipoPago.MercadoPago => "Mercado Pago",
+        TipoPago.NotaCredito => "Nota de crédito",
         _ => tipoPago.ToString()
     };
 
@@ -623,6 +629,7 @@ public static class CajaConciliacionBuilder
         ConceptoMovimientoCaja.VentaCheque => "Venta cheque",
         ConceptoMovimientoCaja.VentaTransferencia => "Venta transferencia",
         ConceptoMovimientoCaja.VentaMercadoPago => "Venta Mercado Pago",
+        ConceptoMovimientoCaja.VentaNotaCredito => "Venta con nota de crédito",
         ConceptoMovimientoCaja.LiquidacionMercadoLibre => "Liquidación Mercado Libre",
         ConceptoMovimientoCaja.CobroCuota => "Cobro cuota",
         ConceptoMovimientoCaja.CancelacionCredito => "Cancelación crédito",

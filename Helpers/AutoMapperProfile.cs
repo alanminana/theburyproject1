@@ -269,6 +269,7 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
                 .ForMember(dest => dest.Credito, opt => opt.Ignore())
+                .ForMember(dest => dest.NotaCredito, opt => opt.Ignore())
                 .ForMember(dest => dest.Detalles, opt => opt.Ignore())
                 .ForMember(dest => dest.Facturas, opt => opt.Ignore())
                 .ForMember(dest => dest.DatosCheque, opt => opt.Ignore())
@@ -694,6 +695,7 @@ namespace TheBuryProject.Helpers
                     TipoPago.CreditoPersonal => "Crédito Personal",
                     TipoPago.MercadoPago     => "Mercado Pago",
                     TipoPago.CuentaCorriente => "Cuenta Corriente",
+                    TipoPago.NotaCredito => "Nota de crédito",
                     _                        => tipoPago.Value.ToString()
                 });
             }

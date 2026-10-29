@@ -19,7 +19,8 @@ internal static class IngresoVentaCaja
         ConceptoMovimientoCaja.VentaTarjeta,
         ConceptoMovimientoCaja.VentaCheque,
         ConceptoMovimientoCaja.VentaTransferencia,
-        ConceptoMovimientoCaja.VentaMercadoPago
+        ConceptoMovimientoCaja.VentaMercadoPago,
+        ConceptoMovimientoCaja.VentaNotaCredito
     };
 
     /// <summary>Ingreso vinculado directamente a la venta (<c>VentaId</c>) con concepto de cobro de venta.</summary>
