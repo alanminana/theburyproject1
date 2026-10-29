@@ -34,9 +34,10 @@ namespace TheBuryProject.ViewModels
         [StringLength(60, ErrorMessage = "Mercado Libre limita el título a 60 caracteres")]
         public string Titulo { get; set; } = string.Empty;
 
+        [StringLength(50000, ErrorMessage = "La descripción no puede superar los 50.000 caracteres")]
         public string? Descripcion { get; set; }
 
-        [Range(0.01, 999999999, ErrorMessage = "El precio debe ser mayor a 0")]
+        [TheBuryProject.Validation.MontoArgentino(Minimo = 0.01)]
         public decimal Precio { get; set; }
 
         [Range(0, 99999, ErrorMessage = "El stock no puede ser negativo")]
