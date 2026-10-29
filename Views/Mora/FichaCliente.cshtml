@@ -560,7 +560,7 @@
                                 <select id="ct-alerta" name="AlertaId" class="select-erp" required>
                                     @foreach (var a in alertas)
                                     {
-                                        <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                        <option value="@a.Id">@a.MontoVencido.ToString("C2") · @NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy")</option>
                                     }
                                 </select>
                                 <label for="ct-tipo">Medio</label>
@@ -598,7 +598,7 @@
                                 <select id="pr-alerta" name="AlertaId" class="select-erp" required>
                                     @foreach (var a in alertas)
                                     {
-                                        <option value="@a.Id">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy") · @a.MontoVencido.ToString("C2")</option>
+                                        <option value="@a.Id">@a.MontoVencido.ToString("C2") · @NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy")</option>
                                     }
                                 </select>
                                 <label for="pr-fecha">Fecha prometida</label>

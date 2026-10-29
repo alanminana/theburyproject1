@@ -7,14 +7,14 @@
    pixel-idénticos en ambos. "Marca Padre" queda fuera a propósito — su layout (span, label,
    texto de ayuda) difiere entre alta y edición, así que no es una duplicación real. *@
 <div class="flex flex-col gap-2">
-    <label class="text-sm font-semibold text-slate-300">Código</label>
+    <label for="@(p)-codigo" class="text-sm font-semibold text-slate-300">Código</label>
     <input name="Codigo" id="@(p)-codigo" type="text"
            class="catalogo-input"
            placeholder="Ej: SAM" />
     <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
 </div>
 <div class="flex flex-col gap-2">
-    <label class="text-sm font-semibold text-slate-300">Nombre</label>
+    <label for="@(p)-nombre" class="text-sm font-semibold text-slate-300">Nombre</label>
     <input name="Nombre" id="@(p)-nombre" type="text"
            class="catalogo-input"
            placeholder="Nombre de la marca" />

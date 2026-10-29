@@ -2616,3 +2616,15 @@ Estado: pantalla global `_Layout` reabierta solo para este alcance (conectar el 
 - **Trampa:** `shared-ui.js` frena en captura todo clic dentro de `[id$="Menu"]`; por eso el panel se llama `notificacionesPanel` y no `notificacionesMenu`.
 - **Validado en vivo (clon descartada):** 1366x768, 1024x768 y 390x844; abrir/cerrar, ESC con foco al botón, clic fuera, lista, estados cargando/error/vacío (mock de red), marcar una (con y sin URL), marcar todas, XSS en título/mensaje, URL externa ignorada, `#sidebar` inert en mobile, sin overflow, sin errores de consola en Venta/Cliente/Caja/Producto/Ticket.
 - **NO VALIDADO:** usuario sin permiso `notificaciones.view` (cubierto solo por test de contrato del Razor); llegada en vivo por SignalR de una notificación nueva.
+
+## Hito 8 L-responsive: pendientes de baja complejidad de la revisión UX, 2026-10-29
+
+Estado: pantallas cerradas reabiertas solo para el defecto puntual de cada una (sin rediseño ni cambios funcionales).
+
+- **Devoluciones/Index:** el panel "Radar" se apila bajo la tabla hasta 1536px y las columnas secundarias se ocultan por breakpoint (Motivo < 1536px; Venta e Impacto < 1280px, con el número de venta bajo el ID). Estado y Monto visibles sin scroll a 1366 y 1024 (`wwwroot/css/devolucion-module.css`). A 390 sigue el scroll interno con aviso.
+- **Venta/Details:** el aviso de scroll horizontal de "Detalle de productos" usa el mismo recuadro con ícono que OrdenCompra/Details (a 1024 la tabla sigue con scroll interno: 394 de 631px).
+- **Mora/FichaCliente:** la opción del select de alerta muestra el monto primero (Contacto y Promesa).
+- **Modal de devolución:** encabezado compacto a < 640px (chips en una fila, tipografías y padding menores): 336px a 203px, el área de scroll pasa de 230px a 363px a 390x844.
+- **Labels:** campos calculados y filtro de precios/movimientos del Catálogo, Marca Código/Nombre (partial), input de archivo de Cliente/Details.
+- **Validado en vivo (clon descartada):** 1366x768, 1024x768 y 390x844 antes y después; sin overflow de página ni errores de consola; abrir detalle/garantías, guardar contacto de mora, carga del modal de devolución y modal Nuevo producto.
+- **NO VALIDADO:** envío real del formulario de devolución desde el modal; Venta/Details con descuentos (9 columnas) a 1024.
