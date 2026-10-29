@@ -370,11 +370,11 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 |---|---|---|---|
 | AuditoriaPermisos | GET | - | Authorize(SuperAdmin) |
 | CrearUsuarioPrueba | POST | - | Authorize(SuperAdmin) |
-| ForcePasswordReset | GET | - | Authorize(SuperAdmin) |
+| ForcePasswordReset | POST | - | Authorize(SuperAdmin) |
 | Index | GET* | - | Authorize(SuperAdmin) |
 | MisPermisos | GET | - | Authorize(SuperAdmin) |
 | PermisosDelRol | GET | - | Authorize(SuperAdmin) |
-| RefreshPermisos | GET | - | Authorize(SuperAdmin) |
+| RefreshPermisos | POST | - | Authorize(SuperAdmin) |
 | ResetPassword | GET | - | Authorize(SuperAdmin) |
 | ResetPassword | POST | - | Authorize(SuperAdmin) |
 | TestLogin | POST | - | Authorize(SuperAdmin) |
