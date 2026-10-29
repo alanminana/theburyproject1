@@ -2050,6 +2050,9 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("DiasValidezEvaluacion")
                         .HasColumnType("int");
 
+                    b.Property<int?>("DiasVencimientoBorradorCredito")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("FechaUltimaModificacion")
                         .HasColumnType("datetime2");
 
