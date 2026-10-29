@@ -137,5 +137,12 @@ namespace TheBuryProject.Services.Interfaces
         /// Devuelve null si la venta no existe.
         /// </summary>
         Task<decimal?> GetTotalVentaAsync(int ventaId);
+
+        /// <summary>
+        /// H4-E2: notas de crédito del cliente que hoy podrían pagar una venta (vigentes o parcialmente usadas, con saldo
+        /// y no vencidas). La elegibilidad definitiva con el total de la venta la decide el backend al guardar/confirmar.
+        /// </summary>
+        Task<IReadOnlyList<Models.NotaCreditoDisponibleDto>> ObtenerNotasCreditoDisponiblesAsync(int clienteId)
+            => Task.FromResult<IReadOnlyList<Models.NotaCreditoDisponibleDto>>(Array.Empty<Models.NotaCreditoDisponibleDto>());
     }
 }

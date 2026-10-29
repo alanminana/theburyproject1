@@ -1011,6 +1011,8 @@ namespace TheBuryProject.Services
                     TipoPago.MercadoPago => (ConceptoMovimientoCaja.VentaMercadoPago, EstadoAcreditacionMovimientoCaja.Pendiente),
                     TipoPago.TarjetaDebito or TipoPago.TarjetaCredito or TipoPago.Tarjeta => (ConceptoMovimientoCaja.VentaTarjeta, EstadoAcreditacionMovimientoCaja.Pendiente),
                     TipoPago.Cheque => (ConceptoMovimientoCaja.VentaCheque, EstadoAcreditacionMovimientoCaja.Pendiente),
+                    // Canje de nota de crédito: no entra efectivo ni hay nada que acreditar (NoAplica: nunca suma al saldo real).
+                    TipoPago.NotaCredito => (ConceptoMovimientoCaja.VentaNotaCredito, EstadoAcreditacionMovimientoCaja.NoAplica),
                     TipoPago.CreditoPersonal or TipoPago.CuentaCorriente => throw new InvalidOperationException(
                         $"Los pagos a crédito no deben llegar aquí, fueron filtrados previamente: {tipoPago}"),
                     _ => throw new NotSupportedException($"Tipo de pago no soportado para movimiento de caja: {tipoPago}")
@@ -1691,6 +1693,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
                     TipoPago.Cheque => "Cheque",
                     TipoPago.CreditoPersonal => "Crédito Personal",
                     TipoPago.CuentaCorriente => "Cuenta Corriente",
+                    TipoPago.NotaCredito => "Nota de crédito",
                     _ => g.Key.ToString()
                 },
                 Total = g.Sum(v => v.Total),
@@ -1947,6 +1950,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 TipoPago.MercadoPago => "MercadoPago",
                 TipoPago.CreditoPersonal => "Crédito Personal",
                 TipoPago.CuentaCorriente => "Cuenta Corriente",
+                TipoPago.NotaCredito => "Nota de crédito",
                 _ => tipoPago.ToString()
             };
         }
@@ -1963,6 +1967,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 TipoPago.MercadoPago => "Mercado Pago",
                 TipoPago.CreditoPersonal => "Crédito Personal",
                 TipoPago.CuentaCorriente => "Cuenta Corriente",
+                TipoPago.NotaCredito => "Nota de crédito",
                 _ => tipoPago.ToString()
             };
         }

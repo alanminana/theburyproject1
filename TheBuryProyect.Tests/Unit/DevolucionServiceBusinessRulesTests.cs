@@ -63,6 +63,7 @@ public class DevolucionServiceBusinessRulesTests
     [InlineData(TipoPago.Tarjeta, true)]
     [InlineData(TipoPago.CreditoPersonal, false)]
     [InlineData(TipoPago.CuentaCorriente, false)]
+    [InlineData(TipoPago.NotaCredito, false)]
     public void PermiteImpactoCaja_DevuelveValorCorrecto(TipoPago tipoPago, bool esperado)
     {
         var resultado = _sut.PermiteImpactoCaja(tipoPago);

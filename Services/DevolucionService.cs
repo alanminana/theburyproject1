@@ -1749,7 +1749,9 @@ public class DevolucionService : IDevolucionService
 
     public bool PermiteImpactoCaja(TipoPago tipoPago)
     {
-        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente;
+        // H4-E2: una venta pagada con nota de crédito no entró plata a caja: no se reembolsa en efectivo (el cliente conserva
+        // el saldo como nota de crédito).
+        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente && tipoPago != TipoPago.NotaCredito;
     }
 
     public string ConstruirObservacionesInternas(

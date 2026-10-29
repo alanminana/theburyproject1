@@ -90,6 +90,12 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public string? RequisitosPendientesJson { get; set; }
 
+        /// <summary>
+        /// H4-E2: nota de crédito del cliente con la que se paga la venta (TipoPago = NotaCredito). Es la selección del
+        /// operador; el consumo real del saldo ocurre al confirmar y queda en <see cref="NotaCreditoUso"/>.
+        /// </summary>
+        public int? NotaCreditoId { get; set; }
+
         // Información adicional
         public int? AperturaCajaId { get; set; }
 
@@ -134,6 +140,7 @@ namespace TheBuryProject.Models.Entities
         public virtual Cliente? Cliente { get; set; }
         public virtual Cotizacion? CotizacionOrigen { get; set; }
         public virtual Credito? Credito { get; set; }
+        public virtual NotaCredito? NotaCredito { get; set; }
         public virtual AperturaCaja? AperturaCaja { get; set; }
         public virtual ApplicationUser? VendedorUser { get; set; }
         public virtual ICollection<VentaDetalle> Detalles { get; set; } = new List<VentaDetalle>();

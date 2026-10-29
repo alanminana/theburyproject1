@@ -7157,6 +7157,70 @@ namespace TheBuryProject.Migrations
                     b.ToTable("NotasCredito", (string)null);
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.NotaCreditoUso", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FechaReversion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaUso")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoReversion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("NotaCreditoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("VentaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotaCreditoId");
+
+                    b.HasIndex("VentaId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_NotasCreditoUso_VentaId");
+
+                    b.ToTable("NotasCreditoUso", (string)null);
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.NotaRapida", b =>
                 {
                     b.Property<int>("Id")
@@ -10690,6 +10754,9 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("NotaCreditoId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Numero")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -10780,6 +10847,8 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("IdempotencyKey")
                         .IsUnique()
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("NotaCreditoId");
 
                     b.HasIndex("Numero")
                         .IsUnique();
@@ -12108,6 +12177,25 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Devolucion");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.NotaCreditoUso", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.NotaCredito", "NotaCredito")
+                        .WithMany()
+                        .HasForeignKey("NotaCreditoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TheBuryProject.Models.Entities.Venta", "Venta")
+                        .WithMany()
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("NotaCredito");
+
+                    b.Navigation("Venta");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.NotaRapidaItem", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.NotaRapida", "NotaRapida")
@@ -12654,6 +12742,11 @@ namespace TheBuryProject.Migrations
                         .HasForeignKey("CreditoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("TheBuryProject.Models.Entities.NotaCredito", "NotaCredito")
+                        .WithMany()
+                        .HasForeignKey("NotaCreditoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("TheBuryProject.Models.Entities.PuntajeCreditoLimite", null)
                         .WithMany()
                         .HasForeignKey("PresetIdAlMomento")
@@ -12671,6 +12764,8 @@ namespace TheBuryProject.Migrations
                     b.Navigation("CotizacionOrigen");
 
                     b.Navigation("Credito");
+
+                    b.Navigation("NotaCredito");
 
                     b.Navigation("VendedorUser");
                 });

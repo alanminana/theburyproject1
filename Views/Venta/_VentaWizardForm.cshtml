@@ -840,6 +840,20 @@
                                                                                             </div>
                                                                                         </div>
 
+                                                                                        @* Nota de crédito (H4-E2): canje total de una NC vigente del cliente. El backend revalida cliente, estado, vencimiento y saldo. *@
+                                                                                        <div id="panel-nota-credito" class="venta-sub-panel hidden">
+                                                                                            <h4 class="text-sm font-bold mb-4 flex items-center gap-2 text-white">
+                                                                                                <span class="material-symbols-outlined text-sm">receipt_long</span> Nota de crédito
+                                                                                            </h4>
+                                                                                            <label for="select-nota-credito" class="block text-xs font-bold text-slate-500 uppercase mb-1">Nota de crédito del cliente</label>
+                                                                                            <select id="select-nota-credito" name="NotaCreditoId" class="venta-input"
+                                                                                                    data-valor-inicial="@(Model.NotaCreditoId)">
+                                                                                                <option value="">Seleccioná una nota de crédito...</option>
+                                                                                            </select>
+                                                                                            <p id="nota-credito-ayuda" class="mt-2 text-xs text-slate-300">La nota cubre el total a cobrar de la venta. Si vale más, el saldo restante queda en la nota para otra compra.</p>
+                                                                                            <p id="nota-credito-aviso" class="mt-2 text-xs text-amber-400 hidden" role="status" aria-live="polite"></p>
+                                                                                        </div>
+
                                                                                         @* Cheque *@
                                                                                         <div id="panel-cheque" class="venta-sub-panel hidden">
                                                                                             <h4 class="text-sm font-bold mb-4 flex items-center gap-2 text-white">
