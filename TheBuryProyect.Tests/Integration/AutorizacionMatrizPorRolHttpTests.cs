@@ -117,6 +117,26 @@ public class AutorizacionMatrizPorRolHttpTests : IClassFixture<CustomWebApplicat
         Assert.Contains(acciones, a => a.Nombre == "Caja.Abrir" && a.Permisos.Count == 2);
     }
 
+    [Fact]
+    public void ElDescubrimiento_IncluyeLasAccionesConActionNameDistintoDelMetodo()
+    {
+        // H9-M6: la matriz documentada se genera por NOMBRE DE MÉTODO (DeleteConfirmed, AutorizarConfirmed...), pero la ruta
+        // real usa [ActionName]. El barrido parte de los descriptores del runtime, así que esas acciones SÍ se prueban.
+        var provider = _factory.Services.GetRequiredService<IActionDescriptorCollectionProvider>();
+        var alias = provider.ActionDescriptors.Items.OfType<ControllerActionDescriptor>()
+            .Where(d => d.MethodInfo.Name != d.ActionName)
+            .Select(d => $"{d.ControllerName}.{d.ActionName}").ToHashSet();
+        Assert.Contains("Venta.Delete", alias);
+        Assert.Contains("Venta.Autorizar", alias);
+        Assert.Contains("Venta.Cancelar", alias);
+        Assert.Contains("Venta.Rechazar", alias);
+        Assert.Contains("OrdenCompra.Delete", alias);
+        Assert.Contains("Catalogo.AplicarCambioPrecioDirecto", alias);
+
+        var acciones = DescubrirAcciones();
+        Assert.All(alias, nombre => Assert.Contains(acciones, a => a.Nombre == nombre));
+    }
+
     [Theory]
     [MemberData(nameof(RolesAProbar))]
     public async Task ElRol_NoPuedeEjecutarNingunaAccionQueSusPermisosNoCubren(string rol)
