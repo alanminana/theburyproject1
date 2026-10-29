@@ -11,6 +11,29 @@ namespace TheBuryProject.Helpers
 
         private const long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+        /// <summary>
+        /// Nombre original del archivo para mostrar (columna de 200). El archivo se guarda con un nombre generado, así que
+        /// un nombre muy largo se recorta conservando la extensión en lugar de fallar al guardar.
+        /// </summary>
+        public static string NombreParaMostrar(string? fileName, int maximo = 200)
+        {
+            var nombre = Path.GetFileName(fileName ?? string.Empty).Trim();
+            if (nombre.Length <= maximo)
+                return nombre;
+
+            var ext = Path.GetExtension(nombre);
+            if (ext.Length >= maximo)
+                return nombre[..maximo];
+
+            return nombre[..(maximo - ext.Length)] + ext;
+        }
+
+        /// <summary>Tipo MIME informado por el cliente (columna de 100): lo envía el navegador, no es confiable ni acotado.</summary>
+        public static string? MimeAcotado(string? contentType, int maximo = 100)
+            => string.IsNullOrWhiteSpace(contentType)
+                ? null
+                : (contentType.Length <= maximo ? contentType : contentType[..maximo]);
+
         public static (bool IsValid, string ErrorMessage) ValidateFile(IFormFile file)
         {
             if (file == null || file.Length == 0)
