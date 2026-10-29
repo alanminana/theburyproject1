@@ -1969,6 +1969,9 @@ namespace TheBuryProject.Controllers
         #region Cuotas vencidas
 
         // GET: Credito/CuotasVencidas
+        // SEG-BAJA: lectura pura. AplicarAlertasMoraAsync solo decora el view model (color/prioridad según la
+        // configuración de mora); no persiste nada. Contrato fijado por CuotasVencidas_Get_NoEscribeEnBaseDeDatos.
+        [HttpGet]
         public async Task<IActionResult> CuotasVencidas(string? returnUrl = null)
         {
             try

@@ -111,7 +111,10 @@ namespace TheBuryProject.Controllers
         }
 
         /// <summary>Reimpresión: mismo contenido histórico, registrada y auditada. ids = lista separada por comas.</summary>
-        [HttpGet]
+        // SEG-BAJA: la reimpresión cuenta y audita (efecto lateral), por lo que es POST con antiforgery: un enlace
+        // externo (cookie SameSite=Lax) ya no puede dispararla con un GET.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "reprint")]
         public async Task<IActionResult> Reimprimir(string ids)
         {

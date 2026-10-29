@@ -46,11 +46,14 @@
                     </a>
                     @if (Model.PuedeReimprimir)
                     {
-                        <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@ids"
-                           title="Reimprime el conjunto y deja registrada la reimpresión">
-                            <span class="material-symbols-outlined" aria-hidden="true">print_connect</span>
-                            Reimprimir juntos
-                        </a>
+                        <form method="post" class="doc-inline-form" target="_blank" asp-controller="Documento" asp-action="Reimprimir">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="ids" value="@ids" />
+                            <button type="submit" class="doc-btn" title="Reimprime el conjunto y deja registrada la reimpresión">
+                                <span class="material-symbols-outlined" aria-hidden="true">print_connect</span>
+                                Reimprimir juntos
+                            </button>
+                        </form>
                     }
                 }
                 @if (Model.PuedeGenerar && Model.OfrecerPresupuesto)
@@ -136,10 +139,14 @@
                                 </a>
                                 @if (Model.PuedeReimprimir)
                                 {
-                                    <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@d.Id">
-                                        <span class="material-symbols-outlined" aria-hidden="true">print</span>
-                                        Imprimir
-                                    </a>
+                                    <form method="post" class="doc-inline-form" target="_blank" asp-controller="Documento" asp-action="Reimprimir">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="ids" value="@d.Id" />
+                                        <button type="submit" class="doc-btn">
+                                            <span class="material-symbols-outlined" aria-hidden="true">print</span>
+                                            Imprimir
+                                        </button>
+                                    </form>
                                 }
                             }
                         </div>
