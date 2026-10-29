@@ -74,12 +74,10 @@ public class AccionesMutantesTodosLosControllersContractTests
     [Fact]
     public void SoloLosEndpointsDeclaradosPuedenCarecerDeAntiforgery()
     {
-        // Mutantes sin ValidateAntiForgeryToken/AutoValidateAntiforgeryToken en método o clase: solo webhook externo,
-        // utilitarios de Diagnostico (dev).
+        // Mutantes sin ValidateAntiForgeryToken/AutoValidateAntiforgeryToken en método o clase: solo el webhook externo.
         var permitidos = new HashSet<string>
         {
-            "MercadoLibreWebhookController.Recibir", "DiagnosticoController.CrearUsuarioPrueba",
-            "DiagnosticoController.ResetPassword", "DiagnosticoController.TestLogin",
+            "MercadoLibreWebhookController.Recibir",
         };
         var sinAf = Mutantes()
             .Where(x => !x.Metodo.GetCustomAttributes(true).Concat(x.Tipo.GetCustomAttributes(true))
@@ -93,5 +91,20 @@ public class AccionesMutantesTodosLosControllersContractTests
     {
         // H2-D: endpoint JSON huerfano (sin llamadores) retirado; la configuracion vigente es Mora/GuardarConfiguracionExpandida.
         Assert.Null(typeof(TheBuryProject.Controllers.ConfiguracionMoraController).GetMethod("SaveConfiguracion"));
+    }
+
+    [Theory]
+    [InlineData("ForcePasswordReset")]
+    [InlineData("RefreshPermisos")]
+    [InlineData("CrearUsuarioPrueba")]
+    public void Diagnostico_AccionesConEfectos_SonPostConAntiforgery(string accion)
+    {
+        // SEG-BAJA: nada que resetee contraseñas o refresque la sesión puede colgar de un GET.
+        var t = typeof(TheBuryProject.Controllers.DiagnosticoController);
+        Assert.NotNull(t.GetCustomAttribute<AutoValidateAntiforgeryTokenAttribute>());
+        var m = t.GetMethod(accion)!;
+        Assert.NotNull(m.GetCustomAttribute<HttpPostAttribute>());
+        Assert.Null(m.GetCustomAttribute<HttpGetAttribute>());
+        Assert.NotNull(m.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
     }
 }
