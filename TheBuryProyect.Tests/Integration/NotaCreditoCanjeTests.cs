@@ -415,6 +415,37 @@ public sealed class NotaCreditoCanjeTests : IClassFixture<CustomWebApplicationFa
         Assert.Equal(0m, (await NotaAsync(nc)).MontoUtilizado);
     }
 
+    [Fact(DisplayName = "SEG-BAJA: canje, cancelación y restitución de nota de crédito dejan eventos de auditoría de seguridad")]
+    public async Task Canje_Cancelacion_Restitucion_RegistranEventosDeAuditoria()
+    {
+        var e = await SembrarAsync();
+        var nc = await SembrarNotaAsync(e, monto: 100m);
+        var venta = await SembrarVentaAsync(e, nc);
+        Assert.True(await ConfirmarAsync(venta));
+
+        var uso = Assert.Single(await EventosAsync("NotaCredito:" + nc));
+        Assert.Equal("UsarNotaCredito", uso.Accion);
+        Assert.Equal("NotasCredito", uso.Modulo);
+        Assert.Contains("Monto=100", uso.Detalle);
+
+        using (var scope = _factory.Services.CreateScope())
+            Assert.True(await Servicio(scope).CancelarVentaAsync(venta, "arrepentimiento"));
+
+        var eventosNota = await EventosAsync("NotaCredito:" + nc);
+        Assert.Contains(eventosNota, x => x.Accion == "RestituirNotaCredito" && x.Detalle!.Contains("Monto=100"));
+        var cancelacion = Assert.Single(await EventosAsync("Venta:" + venta));
+        Assert.Equal("CancelarVenta", cancelacion.Accion);
+        Assert.Contains("arrepentimiento", cancelacion.Detalle);
+        Assert.Contains("EstadoPrevio=Confirmada", cancelacion.Detalle);
+    }
+
+    private async Task<List<SeguridadEventoAuditoria>> EventosAsync(string entidad)
+    {
+        using var scope = _factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().SeguridadEventosAuditoria
+            .AsNoTracking().Where(x => x.Entidad == entidad).OrderBy(x => x.Id).ToListAsync();
+    }
+
     [Fact(DisplayName = "H4-E2 [NC-11] cancelar tras un uso parcial restituye solo lo canjeado")]
     public async Task Cancelar_NotaConRemanente_RestituyeSoloLoCanjeado()
     {

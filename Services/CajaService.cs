@@ -18,6 +18,7 @@ namespace TheBuryProject.Services
     /// </summary>
     public class CajaService : ICajaService
     {
+        private readonly ISeguridadAuditoriaService? _auditoria;
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<CajaService> _logger;
@@ -38,8 +39,10 @@ namespace TheBuryProject.Services
             IMapper mapper,
             ILogger<CajaService> logger,
             INotificacionService notificacionService,
-            IRelojComercial? relojComercial = null)
+            IRelojComercial? relojComercial = null,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _context = context;
             _mapper = mapper;
             _logger = logger;
@@ -1503,6 +1506,11 @@ namespace TheBuryProject.Services
                 };
 
                 _context.CierresCaja.Add(cierre);
+
+                // SEG-BAJA: el evento se confirma en la misma transacción/SaveChanges que el cierre. Sin PII ni importes
+                // de clientes: solo caja, usuario y resultado del arqueo.
+                _auditoria?.AgregarEvento("Caja", "CerrarCaja", $"AperturaCaja:{model.AperturaCajaId}",
+                    $"Caja={apertura.Caja?.Codigo}; Esperado={montoEsperado:0.00}; Real={montoReal:0.00}; Diferencia={diferencia:0.00}; Usuario={usuario}");
 
                 // Marcar apertura como cerrada
                 apertura.Cerrada = true;

@@ -56,6 +56,7 @@ namespace TheBuryProject.Services
         private readonly IProductoUnidadService? _productoUnidadService;
         private readonly IRelojComercial _reloj;
         private readonly IDocumentoService? _documentoService;
+        private readonly ISeguridadAuditoriaService? _auditoria;
 
         public VentaService(
             AppDbContext context,
@@ -76,8 +77,10 @@ namespace TheBuryProject.Services
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
             IProductoUnidadService? productoUnidadService = null,
             IRelojComercial? reloj = null,
-            IDocumentoService? documentoService = null)
+            IDocumentoService? documentoService = null,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _context = context;
             _mapper = mapper;
             _logger = logger;
@@ -397,6 +400,9 @@ namespace TheBuryProject.Services
         }
 
         // La del formulario completo (la fija el controlador) tiene prioridad; sin ella, la derivada del modelo.
+        private static string Recortar(string? valor, int max) =>
+            string.IsNullOrEmpty(valor) ? string.Empty : (valor.Length <= max ? valor : valor[..max]);
+
         private static string HuellaEfectiva(VentaViewModel vm) =>
             string.IsNullOrEmpty(vm.HuellaSolicitud) ? HuellaDeSolicitud(vm) : vm.HuellaSolicitud;
 
@@ -1137,7 +1143,7 @@ namespace TheBuryProject.Services
                 // H4-E2: canje de la nota de crédito en la MISMA transacción que la confirmación (stock, estado y caja):
                 // si el saldo ya no alcanza (otra venta la consumió), se revierte todo.
                 if (venta.TipoPago == TipoPago.NotaCredito)
-                    await NotaCreditoCanje.ConsumirAsync(_context, venta, _currentUserService.GetUsername());
+                    await NotaCreditoCanje.ConsumirAsync(_context, venta, _currentUserService.GetUsername(), _auditoria);
 
                 // Registrar movimiento de caja al confirmar para ventas con cobro inmediato
                 // (Efectivo, Tarjeta, Cheque, Transferencia, MercadoPago).
@@ -1610,6 +1616,10 @@ namespace TheBuryProject.Services
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
 
+                // SEG-BAJA: el evento viaja en el mismo SaveChanges/transacción que la cancelación.
+                _auditoria?.AgregarEvento("Ventas", "CancelarVenta", $"Venta:{venta.Id}",
+                    $"Numero={venta.Numero}; EstadoPrevio={estadoOriginal}; Usuario={_currentUserService.GetUsername()}; Motivo={Recortar(motivo, 500)}");
+
                 // Defensa en profundidad: se repite la guardia inmediatamente antes de persistir (consulta
                 // sin tracking: ve la base, no el change tracker). Con el lock del crédito no debería
                 // cambiar nada; si algún escritor ajeno al lock introdujo un pago, no se cancela.
@@ -1635,7 +1645,7 @@ namespace TheBuryProject.Services
                     var usuario = _currentUserService.GetUsername();
                     // H4-E2: la nota de crédito canjeada recupera su saldo (idempotente por venta).
                     if (venta.TipoPago == TipoPago.NotaCredito)
-                        await NotaCreditoCanje.RevertirAsync(_context, venta, motivo, usuario);
+                        await NotaCreditoCanje.RevertirAsync(_context, venta, motivo, usuario, _auditoria);
                     await _cajaService.RegistrarContramovimientoVentaAsync(
                         venta.Id,
                         venta.Numero,
