@@ -611,6 +611,19 @@ namespace TheBuryProject.Services
                     return false;
                 }
 
+                if (producto.StockActual > 0)
+                    throw new InvalidOperationException(
+                        $"No se puede dar de baja el producto '{producto.Nombre}': tiene {producto.StockActual:0.##} unidades en stock. Dalo de baja cuando el stock sea cero.");
+
+                var tieneOcAbierta = await _context.OrdenCompraDetalles.AnyAsync(d =>
+                    d.ProductoId == id && !d.IsDeleted && !d.OrdenCompra.IsDeleted &&
+                    d.Cantidad > d.CantidadRecibida &&
+                    d.OrdenCompra.Estado != EstadoOrdenCompra.Recibida &&
+                    d.OrdenCompra.Estado != EstadoOrdenCompra.Cancelada);
+                if (tieneOcAbierta)
+                    throw new InvalidOperationException(
+                        $"No se puede dar de baja el producto '{producto.Nombre}': tiene órdenes de compra abiertas con cantidad pendiente de recibir. Recibí o cancelá esas órdenes primero.");
+
                 producto.IsDeleted = true;
                 producto.UpdatedAt = DateTime.UtcNow;
 
