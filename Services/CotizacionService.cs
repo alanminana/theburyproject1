@@ -8,6 +8,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.Services;
 
@@ -77,12 +78,17 @@ public sealed class CotizacionService : ICotizacionService
         if (dniLibre?.Length > 8)
             throw new InvalidOperationException("El DNI debe tener como máximo 8 dígitos.");
 
+        ValidarCamposLibres(request);
+
         var simulacion = await _calculator.SimularAsync(request.Simulacion, cancellationToken);
         if (!simulacion.Exitoso)
         {
             var error = simulacion.Errores.FirstOrDefault() ?? "La cotizacion no pudo ser recalculada.";
             throw new InvalidOperationException(error);
         }
+
+        if (simulacion.TotalBase > MontoArgentinoAttribute.Maximo)
+            throw new InvalidOperationException("El total de la cotización no puede superar $20.000.000.");
 
         var seleccion = ResolverSeleccion(simulacion, request.OpcionSeleccionada);
         var cotizacion = new Cotizacion
@@ -563,6 +569,34 @@ public sealed class CotizacionService : ICotizacionService
                 })
                 .ToList()
         };
+    }
+
+    // Texto libre que se recortaba en silencio al guardar (observaciones 1000, nombre 200, teléfono 30) y una
+    // fecha de vencimiento sin ningún control (pasada, o en el año 9999).
+    internal static void ValidarCamposLibres(CotizacionCrearRequest request, DateTime? ahoraUtc = null)
+    {
+        if (request.Observaciones?.Trim().Length > 1000)
+            throw new InvalidOperationException("Las observaciones no pueden superar los 1000 caracteres.");
+
+        var nombre = request.NombreClienteLibre ?? request.Simulacion.NombreClienteLibre;
+        if (nombre?.Trim().Length > 200)
+            throw new InvalidOperationException("El nombre del cliente no puede superar los 200 caracteres.");
+
+        var telefono = request.TelefonoClienteLibre?.Trim();
+        if (!string.IsNullOrEmpty(telefono))
+        {
+            if (telefono.Length > 30 || !telefono.Any(char.IsDigit) || telefono.Any(c => !(char.IsDigit(c) || "+()- .".Contains(c))))
+                throw new InvalidOperationException("El teléfono solo admite números, espacios y + ( ) - . (hasta 30 caracteres).");
+        }
+
+        if (request.FechaVencimiento.HasValue)
+        {
+            var hoy = (ahoraUtc ?? DateTime.UtcNow).Date;
+            var vence = request.FechaVencimiento.Value.Date;
+            // -1 día: la fecha cargada es local (UTC-3) y "hoy" se calcula en UTC.
+            if (vence < hoy.AddDays(-1) || vence > hoy.AddYears(2))
+                throw new InvalidOperationException("La fecha de vencimiento debe estar entre hoy y los próximos 2 años.");
+        }
     }
 
     private static string? NormalizarTexto(string? value, int maxLength)
