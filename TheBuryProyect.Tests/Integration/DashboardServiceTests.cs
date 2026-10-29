@@ -423,4 +423,94 @@ public class DashboardServiceTests : IDisposable
         Assert.Single(resultado.ProductosMasVendidos);
         Assert.Equal(200m, resultado.ProductosMasVendidos[0].TotalVendido);
     }
+
+    // -------------------------------------------------------------------------
+    // H4-F1: el dashboard solo cuenta ventas concretadas (mismo criterio que ReporteService)
+    // y las cuotas vencidas incluyen los estados que fija el job diario (Vencida/Parcial).
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(EstadoVenta.Cotizacion)]
+    [InlineData(EstadoVenta.Presupuesto)]
+    [InlineData(EstadoVenta.Cancelada)]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
+    public async Task GetDashboard_VentaNoConcretada_NoSumaEnKpisNiGraficos(EstadoVenta estado)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var concretada = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 1, subtotal: 100m);
+        var otra = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 5, subtotal: 900m);
+        var venta = await _context.Ventas.FindAsync(otra.VentaId);
+        venta!.Estado = estado;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.GetDashboardDataAsync();
+
+        Assert.Equal(100m, r.VentasTotalesHoy);
+        Assert.Equal(100m, r.VentasTotalesMes);
+        Assert.Equal(100m, r.VentasTotalesAnio);
+        Assert.Equal(1, r.CantidadVentasMes);
+        Assert.Equal(100m, r.TicketPromedio);
+        Assert.Equal(100m, r.VentasUltimos7Dias.Sum(d => d.Total));
+        Assert.Equal(100m, r.VentasUltimos12Meses.Sum(m => m.Total));
+        Assert.Equal(1, r.ProductosMasVendidos.Sum(p => p.Cantidad));
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    public async Task GetDashboard_VentaFacturadaOEntregada_SiSuma(EstadoVenta estado)
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, total: 250m);
+        venta.Estado = estado;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.GetDashboardDataAsync();
+
+        Assert.Equal(250m, r.VentasTotalesHoy);
+        Assert.Equal(1, r.CantidadVentasMes);
+    }
+
+    [Fact]
+    public async Task GetDashboard_CuotasVencidasYParciales_CuentanEnKpiYTasaDeMorosidad()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoActivoAsync(cliente.Id);
+        var hoy = _reloj.InicioDiaComercial;
+
+        // Estado que deja el job diario (ActualizarEstadoCuotasAsync) y cuota con pago parcial vencida.
+        await SeedCuotaAsync(credito.Id, EstadoCuota.Vencida, hoy.AddDays(-10), montoTotal: 200m);
+        await SeedCuotaAsync(credito.Id, EstadoCuota.Parcial, hoy.AddDays(-3), montoTotal: 300m, montoPagado: 100m);
+        await SeedCuotaAsync(credito.Id, EstadoCuota.Pendiente, hoy.AddDays(5), montoTotal: 400m);
+        // Pagada y cancelada no son deuda.
+        await SeedCuotaAsync(credito.Id, EstadoCuota.Pagada, hoy.AddDays(-20), montoTotal: 500m, montoPagado: 500m, fechaPago: hoy.AddDays(-19));
+        await SeedCuotaAsync(credito.Id, EstadoCuota.Cancelada, hoy.AddDays(-20), montoTotal: 600m);
+
+        var r = await _service.GetDashboardDataAsync();
+
+        Assert.Equal(2, r.CuotasVencidasTotal);
+        Assert.Equal(400m, r.MontoVencidoTotal); // 200 + (300 - 100 ya pagado)
+        Assert.Equal(2, r.CuotasVencidasLista.Count);
+        Assert.Equal(2m / 3m * 100m, r.TasaMorosidad, 6);
+    }
+
+    [Fact]
+    public async Task GetDashboard_ActividadReciente_NoMuestraCotizacionesNiCanceladasComoVentaRegistrada()
+    {
+        var cliente = await SeedClienteAsync();
+        var concretada = await SeedVentaAsync(cliente.Id, total: 100m);
+        var cotizacion = await SeedVentaAsync(cliente.Id, total: 200m);
+        var cancelada = await SeedVentaAsync(cliente.Id, total: 300m);
+        (await _context.Ventas.FindAsync(cotizacion.Id))!.Estado = EstadoVenta.Cotizacion;
+        (await _context.Ventas.FindAsync(cancelada.Id))!.Estado = EstadoVenta.Cancelada;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.GetDashboardDataAsync();
+
+        var ventas = r.ActividadReciente.Where(a => a.Tipo == "venta").ToList();
+        Assert.Single(ventas);
+        Assert.Contains(concretada.Numero, ventas[0].Detalle);
+    }
 }
