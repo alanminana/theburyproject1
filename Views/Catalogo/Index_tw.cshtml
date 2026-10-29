@@ -1494,7 +1494,7 @@
 
                             <div class="space-y-3">
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
+                                    <label for="modal-precioCompraSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-precioCompraSinIva" type="text" readonly value="0.00"
@@ -1502,7 +1502,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
+                                    <label for="modal-ivaCompraImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-ivaCompraImporte" type="text" readonly value="0.00"
@@ -1552,7 +1552,7 @@
                             </div>
 
                             <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
+                                <label for="modal-costoRealFinal" class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input data-rule="monto" id="modal-costoRealFinal" type="text" readonly value="0.00"
@@ -1590,7 +1590,7 @@
                             </div>
 
                             <div class="space-y-1 catalogo-precio-final">
-                                <label class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                                <label for="modal-precioFinal" class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
                                     <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input name="PrecioVenta" id="modal-precioFinal" type="number" step="0.01" min="0"
@@ -1619,7 +1619,7 @@
 
                             <div class="space-y-3">
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
+                                    <label for="modal-ventaSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="modal-ventaSinIva" type="text" readonly value="0.00"
@@ -1627,7 +1627,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
+                                    <label for="modal-ivaVentaImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-ivaVentaImporte" type="text" readonly value="0.00"
@@ -1741,12 +1741,12 @@
                                         <tfoot>
                                             <tr class="/30 bg-slate-900/30">
                                                 <td class="px-2 py-2">
-                                                    <input id="modal-caract-nombre" type="text"
+                                                    <input id="modal-caract-nombre" aria-label="Nombre de la característica" type="text"
                                                            class="w-full border-none bg-transparent text-xs placeholder-slate-500 focus:ring-0"
                                                            placeholder="Ej: Material" />
                                                 </td>
                                                 <td class="px-2 py-2">
-                                                    <input id="modal-caract-valor" type="text"
+                                                    <input id="modal-caract-valor" aria-label="Valor de la característica" type="text"
                                                            class="w-full border-none bg-transparent text-xs placeholder-slate-500 focus:ring-0"
                                                            placeholder="Ej: Acero" />
                                                 </td>
@@ -2856,7 +2856,7 @@
                     </label>
                     <!-- Category Dropdown (hidden by default) -->
                     <div id="precio-cat-select-wrapper" class="hidden pl-14">
-                        <select id="precio-categoria-id"
+                        <select id="precio-categoria-id" aria-label="Categoría a ajustar"
                                 class="w-full catalogo-input text-sm">
                             <option value="">Seleccionar categoría...</option>
                             @if (Model.CategoriasFiltro != null)
@@ -2885,7 +2885,7 @@
                     </label>
                     <!-- Brand Dropdown (hidden by default) -->
                     <div id="precio-marca-select-wrapper" class="hidden pl-14">
-                        <select id="precio-marca-id"
+                        <select id="precio-marca-id" aria-label="Marca a ajustar"
                                 class="w-full catalogo-input text-sm">
                             <option value="">Seleccionar marca...</option>
                             @if (Model.MarcasFiltro != null)
@@ -2937,7 +2937,7 @@
                             </div>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Valor</label>
+                            <label for="precio-valor" class="text-sm font-semibold text-slate-300">Valor</label>
                             <div class="relative">
                                 <span id="precio-valor-prefix" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
                                 <input type="number" id="precio-valor" step="0.01" min="0" style="padding-left:2rem"
@@ -3130,9 +3130,9 @@
                     <div class="flex flex-col gap-1.5">
                         <label for="mov-fecha-desde" class="text-sm font-medium text-slate-400">Rango de Fechas</label>
                         <div class="flex items-center gap-2">
-                            <input id="mov-fecha-desde" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
+                            <input id="mov-fecha-desde" aria-label="Fecha desde" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
                             <span class="text-slate-400">-</span>
-                            <input id="mov-fecha-hasta" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
+                            <input id="mov-fecha-hasta" aria-label="Fecha hasta" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5">
@@ -3223,7 +3223,7 @@
             <div class="flex items-center justify-between border-t border-slate-800 pt-6">
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-slate-400">Filas por página:</span>
-                    <select id="mov-page-size" class="bg-transparent border-none text-sm font-bold focus:ring-0 text-white">
+                    <select id="mov-page-size" aria-label="Filas por página" class="bg-transparent border-none text-sm font-bold focus:ring-0 text-white">
                         <option>25</option>
                         <option>50</option>
                         <option>100</option>
