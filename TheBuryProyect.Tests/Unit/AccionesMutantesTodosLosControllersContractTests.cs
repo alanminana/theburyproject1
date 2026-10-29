@@ -93,6 +93,16 @@ public class AccionesMutantesTodosLosControllersContractTests
         Assert.Null(typeof(TheBuryProject.Controllers.ConfiguracionMoraController).GetMethod("SaveConfiguracion"));
     }
 
+    [Fact]
+    public void Reimprimir_EsPostConAntiforgery()
+    {
+        // SEG-BAJA: la reimpresión cuenta y audita; no puede colgar de un GET.
+        var m = typeof(TheBuryProject.Controllers.DocumentoController).GetMethod("Reimprimir")!;
+        Assert.NotNull(m.GetCustomAttribute<HttpPostAttribute>());
+        Assert.Null(m.GetCustomAttribute<HttpGetAttribute>());
+        Assert.NotNull(m.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
+    }
+
     [Theory]
     [InlineData("ForcePasswordReset")]
     [InlineData("RefreshPermisos")]

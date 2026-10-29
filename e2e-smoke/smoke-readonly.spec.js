@@ -5,7 +5,7 @@
  * Contrato de seguridad:
  *  - Solo page.goto (GET). Ningún click, fill, submit ni request de escritura.
  *  - Toda ruta incluida fue revisada en su controller: sus GET no llaman métodos que persistan
- *    (excluida a propósito: /Credito/CuotasVencidas, cuyo GET llama AplicarAlertasMoraAsync).
+ *    (/Credito/CuotasVencidas es solo lectura: AplicarAlertasMoraAsync solo decora el view model).
  *  - Los IDs de detalle se toman de los propios índices, nunca hardcodeados.
  *
  * Por ruta valida: status HTTP del documento, que no redirija a login, título de error,
