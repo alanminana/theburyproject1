@@ -5,7 +5,6 @@
     ViewData["Title"] = $"Notas de crédito — {Model.ClienteNombre}";
 
     var indexUrl = Url.Action("Index", "Devolucion");
-    var puedeAplicar = User.TienePermiso("notascredito", "apply");
 
     string EstadoNCClass(EstadoNotaCredito e) => e switch
     {
@@ -78,10 +77,6 @@
                             <th class="px-4 py-2.5 text-right sm:px-5">Monto</th>
                             <th class="px-4 py-2.5 text-right sm:px-5">Disponible</th>
                             <th class="px-4 py-2.5 sm:px-5">Estado</th>
-                            @if (puedeAplicar)
-                            {
-                                <th class="px-4 py-2.5 text-right sm:px-5">Acciones</th>
-                            }
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-800">
@@ -104,50 +99,7 @@
                                         @nc.Estado.GetDisplayName()
                                     </span>
                                 </td>
-                                @if (puedeAplicar)
-                                {
-                                    <td class="px-4 py-3 text-right sm:px-5">
-                                        <button type="button"
-                                                onclick="document.getElementById('uso-nc-@nc.Id').classList.toggle('hidden')"
-                                                class="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300 transition-colors hover:bg-amber-500/20">
-                                            <span class="material-symbols-outlined text-[14px]">price_check</span>
-                                            Registrar uso
-                                        </button>
-                                    </td>
-                                }
                             </tr>
-                            @if (puedeAplicar)
-                            {
-                                <tr id="uso-nc-@nc.Id" class="hidden bg-slate-950/40">
-                                    <td colspan="8" class="px-4 py-3 sm:px-5">
-                                        <form asp-action="UtilizarNotaCredito" method="post" class="flex flex-wrap items-end gap-2">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@nc.Id" />
-                                            <input type="hidden" name="clienteId" value="@Model.ClienteId" />
-                                            <div>
-                                                <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Monto a aplicar</label>
-                                                <input type="number" name="monto" aria-label="Monto a aplicar" required step="0.01" min="0.01" max="@nc.MontoDisponible.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                       placeholder="0,00"
-                                                       class="w-36 rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
-                                            </div>
-                                            <div class="flex-1 min-w-[14rem]">
-                                                <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Referencia (venta, comprobante...)</label>
-                                                <input type="text" name="referencia" aria-label="Referencia"
-                                                       placeholder="Ej: aplicada en venta V-000123"
-                                                       class="w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
-                                            </div>
-                                            <button type="submit"
-                                                    class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-amber-500">
-                                                Confirmar uso
-                                            </button>
-                                        </form>
-                                        <p class="mt-2 text-[11px] text-slate-500">
-                                            El uso descuenta saldo de la nota de crédito y queda auditado en sus observaciones.
-                                            El descuento en la venta se aplica por el circuito habitual.
-                                        </p>
-                                    </td>
-                                </tr>
-                            }
                         }
                     </tbody>
                 </table>
