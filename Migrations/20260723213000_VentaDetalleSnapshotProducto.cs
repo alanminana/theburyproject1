@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProyect.Migrations;
 
 #nullable disable
 
@@ -32,7 +33,7 @@ namespace TheBuryProject.Migrations
             // vigente al momento de la venta (para ventas anteriores a esta migración esa información
             // histórica no existía). Si el producto relacionado ya no existe, se usa "Producto #<id>"
             // como último recurso estable para el nombre y NULL para el código (no se inventan datos).
-            migrationBuilder.Sql(@"
+            migrationBuilder.SqlDiferido(@"
                 UPDATE vd
                 SET
                     vd.ProductoNombreAlMomento = COALESCE(

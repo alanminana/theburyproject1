@@ -1,6 +1,7 @@
 @model TheBuryProject.ViewModels.AlertaStockListadoPartialViewModel
 @using TheBuryProject.Models.Enums
 @{
+    var puedeGestionarAlertas = User.TienePermiso("stock", "adjust");
     var filtro = Model.Filtro;
     var alertas = Model.Resultado.Items?.ToList() ?? new List<TheBuryProject.ViewModels.AlertaStockViewModel>();
     var tiposAlerta = Model.TiposAlerta;
@@ -267,7 +268,7 @@
                                             <span class="material-symbols-outlined">receipt_long</span>
                                             <span class="row-action__label">Kardex</span>
                                         </a>
-                                        @if (a.Estado == EstadoAlerta.Pendiente)
+                                        @if (puedeGestionarAlertas && a.Estado == EstadoAlerta.Pendiente)
                                         {
                                             <form asp-controller="AlertaStock" asp-action="MarcarEnProceso" method="post" class="inline"
                                                   data-alerta-confirm="Marcar esta alerta como en proceso? Deja de contar como urgente hasta que la resuelvas o la ignores.">
@@ -286,7 +287,7 @@
                                                 </button>
                                             </form>
                                         }
-                                        @if (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso)
+                                        @if (puedeGestionarAlertas && (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso))
                                         {
                                             <form asp-controller="AlertaStock" asp-action="Resolver" method="post" class="inline"
                                                   data-alerta-confirm-note="Marcar esta alerta como resuelta?"

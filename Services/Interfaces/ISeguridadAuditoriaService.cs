@@ -12,6 +12,19 @@ public interface ISeguridadAuditoriaService
     void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null);
 
     /// <summary>
+    /// Para eventos que un tercero puede generar en volumen (login fallido, bloqueo): guarda el evento salvo que ya exista
+    /// uno igual (módulo + acción + entidad + IP de origen) dentro de <paramref name="ventana"/>. Acota el crecimiento de la
+    /// tabla sin rate-limiting. Devuelve true si registró un evento nuevo. Nunca lanza: un fallo de auditoría no debe
+    /// impedir la respuesta de autenticación.
+    /// </summary>
+    async Task<bool> RegistrarEventoAgrupadoAsync(string modulo, string accion, string entidad, string? detalle, TimeSpan ventana)
+    {
+        // Implementación por defecto (dobles de prueba): sin agrupación. SeguridadAuditoriaService la reemplaza.
+        await RegistrarEventoAsync(modulo, accion, entidad, detalle);
+        return true;
+    }
+
+    /// <summary>
     /// Consulta registros de auditoría con filtros opcionales.
     /// Devuelve los registros filtrados y las listas de valores distintos para los dropdowns.
     /// <paramref name="take"/> null (default) devuelve todos los registros; con valor se pagina

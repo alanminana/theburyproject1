@@ -135,7 +135,10 @@ builder.Services.AddSingleton<IMapper>(sp =>
 
 // Fuente temporal única para reglas de negocio (Micro-lote 6). TimeProvider.System en producción;
 // RelojComercial resuelve la fecha comercial de Argentina de forma portable.
-builder.Services.AddSingleton(TimeProvider.System);
+// E2E/CI: con E2E:AcotarDiaComercial=true (solo docker-compose.ci.yml) el reloj no cruza la medianoche comercial del
+// dia de arranque; sin esa clave es TimeProvider.System (ver TimeProviderDiaComercialAcotado).
+var timeProviderApp = TimeProviderDiaComercialAcotado.Resolver(builder.Configuration, TimeProvider.System);
+builder.Services.AddSingleton(timeProviderApp);
 builder.Services.AddSingleton<IRelojComercial, RelojComercial>();
 
 // 5. Servicios (DI)
@@ -177,6 +180,7 @@ builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPa
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();
 builder.Services.AddScoped<ICotizacionPagoCalculator, CotizacionPagoCalculator>();
 builder.Services.AddScoped<ICotizacionService, CotizacionService>();
+builder.Services.AddScoped<IBorradorCreditoVencimientoService, BorradorCreditoVencimientoService>();
 builder.Services.AddScoped<ICotizacionConversionService, CotizacionConversionService>();
 builder.Services.AddSingleton<ICotizacionPdfService, CotizacionPdfService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
@@ -261,6 +265,7 @@ builder.Services.Configure<HealthCheckServiceOptions>(options =>
 // 5.6 Background services (están bien: crean scope por iteración)
 builder.Services.AddHostedService<MoraBackgroundService>();
 builder.Services.AddHostedService<AcuerdoIncumplimientoBackgroundService>();
+builder.Services.AddHostedService<BorradorCreditoVencimientoBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
 builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
@@ -361,6 +366,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+if (timeProviderApp is TimeProviderDiaComercialAcotado acotado)
+{
+    app.Logger.LogWarning("E2E:AcotarDiaComercial activo: el reloj comercial no pasa de {LimiteUtc:O}. Solo para el stack de CI.", acotado.LimiteUtc);
+}
 
 // 7.2 Modo `--migrate` (servicio one-shot `migrate` de docker-compose): aplica migraciones + seeds con el usuario de migracion
 // (ErpDb:User = ERP_MIGRATION_USER, con DDL) y termina SIN levantar Kestrel ni background services. Exit 0 = OK, 1 = fallo.

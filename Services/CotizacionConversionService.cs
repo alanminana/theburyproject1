@@ -689,6 +689,12 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 var avisoTarjeta = await AplicarDatosTarjetaDesdeCotizacionAsync(venta, cotizacionEnTx, tipoPago, cancellationToken);
                 if (avisoTarjeta != null)
                     advertencias.Add(avisoTarjeta);
+                else
+                {
+                    // H5-I: el recargo/interés de la tarjeta (ya sumado a Total) lleva su IVA en Venta.IVA.
+                    VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, venta.Detalles);
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
             }
 
             // Igual que CreateAsync: el Credito real recién puede crearse con venta.Id ya

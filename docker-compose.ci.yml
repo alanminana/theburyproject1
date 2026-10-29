@@ -21,3 +21,7 @@ services:
   app:
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
+    environment:
+      # E2E/CI: el reloj de la app no cruza la medianoche comercial del dia de arranque (TimeProviderDiaComercialAcotado).
+      # Evita que las aperturas de caja sembradas pasen a "turno vencido" a mitad del suite. NO definir en produccion.
+      E2E__AcotarDiaComercial: "true"

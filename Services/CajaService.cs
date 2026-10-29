@@ -18,6 +18,7 @@ namespace TheBuryProject.Services
     /// </summary>
     public class CajaService : ICajaService
     {
+        private readonly ISeguridadAuditoriaService? _auditoria;
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<CajaService> _logger;
@@ -38,8 +39,10 @@ namespace TheBuryProject.Services
             IMapper mapper,
             ILogger<CajaService> logger,
             INotificacionService notificacionService,
-            IRelojComercial? relojComercial = null)
+            IRelojComercial? relojComercial = null,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _context = context;
             _mapper = mapper;
             _logger = logger;
@@ -1011,6 +1014,8 @@ namespace TheBuryProject.Services
                     TipoPago.MercadoPago => (ConceptoMovimientoCaja.VentaMercadoPago, EstadoAcreditacionMovimientoCaja.Pendiente),
                     TipoPago.TarjetaDebito or TipoPago.TarjetaCredito or TipoPago.Tarjeta => (ConceptoMovimientoCaja.VentaTarjeta, EstadoAcreditacionMovimientoCaja.Pendiente),
                     TipoPago.Cheque => (ConceptoMovimientoCaja.VentaCheque, EstadoAcreditacionMovimientoCaja.Pendiente),
+                    // Canje de nota de crédito: no entra efectivo ni hay nada que acreditar (NoAplica: nunca suma al saldo real).
+                    TipoPago.NotaCredito => (ConceptoMovimientoCaja.VentaNotaCredito, EstadoAcreditacionMovimientoCaja.NoAplica),
                     TipoPago.CreditoPersonal or TipoPago.CuentaCorriente => throw new InvalidOperationException(
                         $"Los pagos a crédito no deben llegar aquí, fueron filtrados previamente: {tipoPago}"),
                     _ => throw new NotSupportedException($"Tipo de pago no soportado para movimiento de caja: {tipoPago}")
@@ -1502,6 +1507,11 @@ namespace TheBuryProject.Services
 
                 _context.CierresCaja.Add(cierre);
 
+                // SEG-BAJA: el evento se confirma en la misma transacción/SaveChanges que el cierre. Sin PII ni importes
+                // de clientes: solo caja, usuario y resultado del arqueo.
+                _auditoria?.AgregarEvento("Caja", "CerrarCaja", $"AperturaCaja:{model.AperturaCajaId}",
+                    $"Caja={apertura.Caja?.Codigo}; Esperado={montoEsperado:0.00}; Real={montoReal:0.00}; Diferencia={diferencia:0.00}; Usuario={usuario}");
+
                 // Marcar apertura como cerrada
                 apertura.Cerrada = true;
                 apertura.UpdatedAt = DateTime.UtcNow;
@@ -1691,6 +1701,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
                     TipoPago.Cheque => "Cheque",
                     TipoPago.CreditoPersonal => "Crédito Personal",
                     TipoPago.CuentaCorriente => "Cuenta Corriente",
+                    TipoPago.NotaCredito => "Nota de crédito",
                     _ => g.Key.ToString()
                 },
                 Total = g.Sum(v => v.Total),
@@ -1947,6 +1958,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 TipoPago.MercadoPago => "MercadoPago",
                 TipoPago.CreditoPersonal => "Crédito Personal",
                 TipoPago.CuentaCorriente => "Cuenta Corriente",
+                TipoPago.NotaCredito => "Nota de crédito",
                 _ => tipoPago.ToString()
             };
         }
@@ -1963,6 +1975,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 TipoPago.MercadoPago => "Mercado Pago",
                 TipoPago.CreditoPersonal => "Crédito Personal",
                 TipoPago.CuentaCorriente => "Cuenta Corriente",
+                TipoPago.NotaCredito => "Nota de crédito",
                 _ => tipoPago.ToString()
             };
         }
