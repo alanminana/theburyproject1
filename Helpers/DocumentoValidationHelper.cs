@@ -17,7 +17,9 @@ namespace TheBuryProject.Helpers
         /// </summary>
         public static string NombreParaMostrar(string? fileName, int maximo = 200)
         {
-            var nombre = Path.GetFileName(fileName ?? string.Empty).Trim();
+            // Ambos separadores a mano: Path.GetFileName en Linux no corta por '' (algunos clientes envían la ruta completa).
+            var crudo = fileName ?? string.Empty;
+            var nombre = crudo[(crudo.LastIndexOfAny(new[] { '/', '\\' }) + 1)..].Trim();
             if (nombre.Length <= maximo)
                 return nombre;
 
