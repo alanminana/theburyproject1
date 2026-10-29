@@ -1377,27 +1377,27 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Código</label>
-                            <input name="Codigo" type="text"
+                            <label for="prod-create-Codigo" class="text-sm font-medium text-slate-300">Código</label>
+                            <input id="prod-create-Codigo" name="Codigo" type="text"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
                                    placeholder="Ej: PROD-001" />
                             <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Nombre</label>
-                            <input name="Nombre" type="text"
+                            <label for="prod-create-Nombre" class="text-sm font-medium text-slate-300">Nombre</label>
+                            <input id="prod-create-Nombre" name="Nombre" type="text"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
                                    placeholder="Nombre comercial del producto" />
                             <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="md:col-span-2 space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Descripción</label>
-                            <textarea name="Descripcion" rows="3"
+                            <label for="prod-create-Descripcion" class="text-sm font-medium text-slate-300">Descripción</label>
+                            <textarea id="prod-create-Descripcion" name="Descripcion" rows="3"
                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
                                       placeholder="Detalles técnicos o comerciales..."></textarea>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Categoría</label>
+                            <label for="ac-categoria-input" class="text-sm font-medium text-slate-300">Categoría</label>
                             <div class="autocomplete-erp" id="ac-categoria">
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">search</span>
@@ -1414,14 +1414,14 @@
                             <span data-valmsg-for="CategoriaId" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Subcategoría</label>
+                            <label for="modal-subcategoriaId" class="text-sm font-medium text-slate-300">Subcategoría</label>
                             <select name="SubcategoriaId" id="modal-subcategoriaId"
                                     class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors">
                                 <option value="">Seleccionar subcategoría</option>
                             </select>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Marca</label>
+                            <label for="ac-marca-input" class="text-sm font-medium text-slate-300">Marca</label>
                             <div class="autocomplete-erp" id="ac-marca">
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">search</span>
@@ -1438,7 +1438,7 @@
                             <span data-valmsg-for="MarcaId" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Submarca</label>
+                            <label for="modal-submarcaId" class="text-sm font-medium text-slate-300">Submarca</label>
                             <select name="SubmarcaId" id="modal-submarcaId"
                                     class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors">
                                 <option value="">Seleccionar submarca</option>
@@ -1471,7 +1471,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
+                                <label for="modal-precioCompra" class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-slate-500">$</span>
                                     <input name="PrecioCompraTotalConIva" id="modal-precioCompra" type="number" step="0.01" min="0"
@@ -1482,7 +1482,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
+                                <label for="modal-porcentajeIVACompra" class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
                                 <select name="PorcentajeIVACompra" id="modal-porcentajeIVACompra"
                                         class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
                                     <option value="21" selected>21%</option>
@@ -1521,7 +1521,7 @@
 
                             <div class="catalogo-costos-grid">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Envío</label>
+                                    <label for="modal-costoEnvio" class="text-sm font-medium text-slate-300">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input name="CostoEnvio" id="modal-costoEnvio" type="number" step="0.01" min="0" value="0"
@@ -1534,7 +1534,7 @@
                                     }
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Percepciones</label>
+                                    <label for="modal-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" name="PercepcionesCompra" id="modal-percepcionesCompra" type="number" step="0.01" min="0" value="0"
@@ -1542,7 +1542,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Otros gastos</label>
+                                    <label for="modal-otrosCostosCompra" class="text-sm font-medium text-slate-300">Otros gastos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input name="OtrosCostosCompra" id="modal-otrosCostosCompra" type="number" step="0.01" min="0" value="0"
@@ -1572,7 +1572,7 @@
 
                             <div class="catalogo-ganancia-grid">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Ganancia %</label>
+                                    <label for="modal-margenPorcentaje" class="text-sm font-medium text-slate-300">Ganancia %</label>
                                     <div class="relative">
                                         <input name="MargenPorcentaje" id="modal-margenPorcentaje" type="number" step="0.01" min="0" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 pr-8 py-2 focus:ring-2 focus:ring-primary outline-none" />
@@ -1580,7 +1580,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
+                                    <label for="modal-montoGanancia" class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="none" id="modal-montoGanancia" type="number" step="0.01" value="0"
@@ -1601,7 +1601,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
+                                <label for="modal-alicuotaIVAId" class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
                                 <select name="AlicuotaIVAId" id="modal-alicuotaIVAId"
                                         class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
                                     <option value="">— Alícuota general (21%) —</option>
@@ -1640,7 +1640,7 @@
 
                     <div class="mt-4">
                         <div class="space-y-1 max-w-xs">
-                            <label class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
+                            <label for="modal-maxCuotasSinInteres" class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
                             <input name="MaxCuotasSinInteresPermitidas" id="modal-maxCuotasSinInteres" type="number" min="1" max="60"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
                                    placeholder="Sin restricción" />
@@ -1687,8 +1687,8 @@
                         </label>
                     </div>
                     <div class="space-y-1" data-cp-maxcuotas-wrap>
-                        <label class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
-                        <input name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
+                        <label for="prod-create-CreditoPersonal-MaxCuotasCredito" class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
+                        <input id="prod-create-CreditoPersonal-MaxCuotasCredito" name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
                                class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
                                placeholder="Sin restricción" />
                         <span data-valmsg-for="CreditoPersonal.MaxCuotasCredito" class="text-xs text-red-500 hidden"></span>
@@ -1779,13 +1779,13 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Stock Actual</label>
-                                <input name="StockActual" type="number" min="0" step="1" value="0"
+                                <label for="prod-create-StockActual" class="text-sm font-medium text-slate-300">Stock Actual</label>
+                                <input id="prod-create-StockActual" name="StockActual" type="number" min="0" step="1" value="0"
                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                             </div>
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Stock Mínimo</label>
-                                <input name="StockMinimo" type="number" min="0" step="1" value="0"
+                                <label for="prod-create-StockMinimo" class="text-sm font-medium text-slate-300">Stock Mínimo</label>
+                                <input id="prod-create-StockMinimo" name="StockMinimo" type="number" min="0" step="1" value="0"
                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                             </div>
                         </div>
@@ -2441,7 +2441,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-modal")
                         <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Marca Padre (Submarca de)</label>
+                            <label for="marca-modal-parentId" class="text-sm font-semibold text-slate-300">Marca Padre (Submarca de)</label>
                             <select name="ParentId" id="marca-modal-parentId"
                                     class="catalogo-input">
                                 <option value="">Ninguna (Marca Principal)</option>
@@ -2512,15 +2512,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-edit")
                         <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Descripción</label>
+                            <label for="marca-edit-descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
                             <textarea name="Descripcion" id="marca-edit-descripcion" rows="2" class="catalogo-input"></textarea>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">País de Origen</label>
+                            <label for="marca-edit-paisOrigen" class="text-sm font-semibold text-slate-300">País de Origen</label>
                             <input name="PaisOrigen" id="marca-edit-paisOrigen" type="text" class="catalogo-input" placeholder="Ej: Argentina" />
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Marca Padre</label>
+                            <label for="marca-edit-parentId" class="text-sm font-semibold text-slate-300">Marca Padre</label>
                             <select name="ParentId" id="marca-edit-parentId" class="catalogo-input">
                                 <option value="">Ninguna (Marca Principal)</option>
                             </select>
@@ -2910,7 +2910,7 @@
 
                     <!-- Motivo -->
                     <div class="flex flex-col gap-2">
-                        <label class="text-sm font-semibold text-slate-300">Motivo del ajuste</label>
+                        <label for="precio-motivo" class="text-sm font-semibold text-slate-300">Motivo del ajuste</label>
                         <select id="precio-motivo"
                                 class="catalogo-input text-sm">
                             <option value="Ajuste por inflación">Ajuste por inflación</option>

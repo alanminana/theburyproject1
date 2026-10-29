@@ -16,7 +16,7 @@
         ? (int)Math.Round((double)totalRecibidas / totalUnidades * 100d, MidpointRounding.AwayFromZero)
         : 0;
     var hayPendientes = Model.Detalles.Any(d => d.CantidadRecibida < d.Cantidad);
-    var scrollMinWidth = puedeRecepcionar ? "44rem" : "40rem";
+    var scrollMinWidth = "40rem";
 
     var estadoOptions = new[]
     {
@@ -155,7 +155,7 @@
     </div>
 </section>
 
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+<div class="oc-details-grid grid grid-cols-1 gap-4 lg:grid-cols-3">
     <!-- Products Table Section -->
     <section class="lg:col-span-2 card-erp-panel flex flex-col"
              data-oc-scroll
@@ -184,7 +184,7 @@
             </div>
         </div>
         <div data-oc-scroll-hint
-             class="mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
+             class="mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs border-slate-700 bg-slate-800/60 text-slate-300"
              hidden>
             <div class="flex items-center gap-2 font-semibold">
                 <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
@@ -327,7 +327,7 @@
         }
     </section>
 
-    <aside class="flex h-fit flex-col gap-4 lg:sticky lg:top-4">
+    <aside class="oc-details-aside flex h-fit flex-col gap-4 lg:sticky lg:top-4">
     @if (puedeRecepcionar)
     {
         <!-- Recepción de mercadería (los inputs de la tabla se asocian con form="form-recepcionar") -->

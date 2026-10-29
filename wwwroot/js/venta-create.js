@@ -827,6 +827,48 @@
         } catch { hide(dropdownClientes); }
     }, 300));
 
+    // Teclado de los buscadores (cliente / producto): las opciones son <div data-id> sin foco, así
+    // que Enter elige la resaltada (o la primera) y las flechas mueven el resaltado. Enter nunca
+    // debe llegar al atajo del wizard (avanzar de paso) mientras hay una lista abierta.
+    function bindTecladoBuscador(input, dropdown) {
+        if (!input || !dropdown) return;
+        const opciones = () => Array.from(dropdown.querySelectorAll('[data-id]'));
+        const abierto = () => !dropdown.classList.contains('hidden') && opciones().length > 0;
+        const resaltar = (lista, i) => {
+            lista.forEach((el, n) => {
+                el.style.background = n === i ? 'rgba(148, 163, 184, 0.18)' : '';
+                el.setAttribute('aria-selected', n === i ? 'true' : 'false');
+                if (n === i) el.scrollIntoView({ block: 'nearest' });
+            });
+        };
+        input.addEventListener('keydown', event => {
+            if (event.isComposing) return;
+            if (event.key === 'Enter' && !dropdown.classList.contains('hidden') && opciones().length === 0) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            if (!abierto()) return;
+            const lista = opciones();
+            const actual = lista.findIndex(el => el.getAttribute('aria-selected') === 'true');
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                resaltar(lista, Math.min(actual + 1, lista.length - 1));
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                resaltar(lista, Math.max(actual - 1, 0));
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                (lista[actual >= 0 ? actual : 0]).click();
+            } else if (event.key === 'Escape') {
+                hide(dropdown);
+            }
+        });
+    }
+    bindTecladoBuscador(inputBuscarCliente, dropdownClientes);
+    bindTecladoBuscador(inputBuscarProducto, dropdownProductos);
+
     dropdownClientes?.addEventListener('click', function (e) {
         const item = e.target.closest('[data-id]');
         if (!item) return;

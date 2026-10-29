@@ -144,40 +144,40 @@
                     <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Productos devueltos</p>
                 </div>
 
-                <div class="overflow-x-auto overscroll-x-contain">
-                    <table class="min-w-[52rem] w-full text-left">
+                <div class="overflow-x-auto overscroll-x-contain" role="region" aria-label="Productos devueltos" tabindex="0">
+                    <table class="min-w-[40rem] w-full text-left">
                         <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
                             <tr>
-                                <th class="px-4 py-2.5 sm:px-5">Producto</th>
-                                <th class="px-4 py-2.5 text-center sm:px-5">Cant.</th>
-                                <th class="px-4 py-2.5 sm:px-5">Estado producto</th>
-                                <th class="px-4 py-2.5 sm:px-5">Acción</th>
-                                <th class="px-4 py-2.5 sm:px-5">Unidad física</th>
-                                <th class="px-4 py-2.5 text-right sm:px-5">Subtotal</th>
+                                <th class="px-4 py-2.5">Producto</th>
+                                <th class="px-4 py-2.5 text-center">Cant.</th>
+                                <th class="px-4 py-2.5">Estado producto</th>
+                                <th class="px-4 py-2.5">Acción</th>
+                                <th class="px-4 py-2.5">Unidad física</th>
+                                <th class="px-4 py-2.5 text-right">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800">
                             @foreach (var det in Model.Detalles)
                             {
                                 <tr class="transition-colors hover:bg-slate-900/40">
-                                    <td class="px-4 py-3 sm:px-5">
+                                    <td class="px-4 py-3">
                                         <div class="flex flex-col">
                                             <span class="text-sm font-bold text-white">@det.Producto?.Nombre</span>
                                             <span class="text-xs text-slate-400">@det.Producto?.Codigo</span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 text-center text-sm font-bold tabular-nums text-slate-200 sm:px-5">@det.Cantidad</td>
-                                    <td class="px-4 py-3 sm:px-5">
+                                    <td class="px-4 py-3 text-center text-sm font-bold tabular-nums text-slate-200">@det.Cantidad</td>
+                                    <td class="px-4 py-3">
                                         <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] @EstadoProdClass(det.EstadoProducto)">
                                             @det.EstadoProducto.GetDisplayName()
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 sm:px-5">
+                                    <td class="px-4 py-3">
                                         <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] @AccionClass(det.AccionRecomendada)">
                                             @det.AccionRecomendada.GetDisplayName()
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 sm:px-5">
+                                    <td class="px-4 py-3">
                                         @if (det.ProductoUnidad != null)
                                         {
                                             <div class="flex flex-col gap-0.5">
@@ -194,14 +194,14 @@
                                             <span class="text-[11px] text-slate-500">Sin unidad física</span>
                                         }
                                     </td>
-                                    <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-white sm:px-5">@det.Subtotal.ToString("C2")</td>
+                                    <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-white">@det.Subtotal.ToString("C2")</td>
                                 </tr>
                             }
                         </tbody>
                         <tfoot class="border-t border-slate-700 bg-slate-950/40">
                             <tr>
-                                <td colspan="5" class="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 sm:px-5">Total devolución</td>
-                                <td class="px-4 py-2.5 text-right text-sm font-black tabular-nums text-white sm:px-5">@dev.TotalDevolucion.ToString("C2")</td>
+                                <td colspan="5" class="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Total devolución</td>
+                                <td class="px-4 py-2.5 text-right text-sm font-black tabular-nums text-white">@dev.TotalDevolucion.ToString("C2")</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -327,8 +327,8 @@
                                 <input type="hidden" name="id" value="@dev.Id" />
                                 <input type="hidden" name="rowVersion" value="@rowVersionBase64" />
                                 <div class="flex-1 min-w-[14rem]">
-                                    <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Motivo de cancelación</label>
-                                    <input type="text" name="motivo" aria-label="Motivo" required
+                                    <label for="devolucion-cancelar-motivo" class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Motivo de cancelación</label>
+                                    <input type="text" id="devolucion-cancelar-motivo" name="motivo" required
                                            placeholder="Indicá el motivo..."
                                            class="w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
                                 </div>

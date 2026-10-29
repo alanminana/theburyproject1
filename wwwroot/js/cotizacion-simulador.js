@@ -3230,9 +3230,50 @@
     /* ---------------------------------------------------------------------
        Eventos
     --------------------------------------------------------------------- */
+    /* Teclado de los buscadores (combobox): Enter elige el primer resultado (nunca debe
+       disparar el submit implícito del formulario contenedor); flechas recorren las
+       opciones; Escape cierra la lista. Las opciones son <button> dentro del listbox. */
+    function bindTecladoBuscador(input, dropdown) {
+        if (!input || !dropdown) return;
+        const opciones = () => [...dropdown.querySelectorAll('button.dropdown-item')];
+        const abierto = () => !dropdown.classList.contains('hidden');
+        input.addEventListener('keydown', event => {
+            if (event.isComposing) return;
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (abierto()) opciones()[0]?.click();
+            } else if (event.key === 'ArrowDown' && abierto()) {
+                event.preventDefault();
+                opciones()[0]?.focus();
+            } else if (event.key === 'Escape' && abierto()) {
+                hide(dropdown);
+                input.setAttribute('aria-expanded', 'false');
+            }
+        });
+        dropdown.addEventListener('keydown', event => {
+            const lista = opciones();
+            const i = lista.indexOf(document.activeElement);
+            if (i < 0) return;
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                lista[Math.min(i + 1, lista.length - 1)]?.focus();
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (i === 0) input.focus(); else lista[i - 1].focus();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                hide(dropdown);
+                input.setAttribute('aria-expanded', 'false');
+                input.focus();
+            }
+        });
+    }
+
     function bindEvents() {
         els.productoBuscar?.addEventListener('input', debounce(buscarProductos, 220));
         els.clienteBuscar?.addEventListener('input', debounce(buscarClientes, 220));
+        bindTecladoBuscador(els.productoBuscar, els.productosDropdown);
+        bindTecladoBuscador(els.clienteBuscar, els.clientesDropdown);
 
         els.simular?.addEventListener('click', () => simular());
         els.guardar?.addEventListener('click', guardarSolo);
