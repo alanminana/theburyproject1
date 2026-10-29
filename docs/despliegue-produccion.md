@@ -110,6 +110,13 @@ scripts/backup/restore-test.sh                         # prueba de restore no de
   estilos/scripts inline y SignalR; requiere QA visual antes de activar.
 - **Endpoints de diagnóstico** (`/Diagnostico/*`): ahora solo responden en Development
   (404 en producción). No reactivar sin necesidad.
+- **Una sola instancia de la aplicación (verificado 2026-10-29)**: el compose corre una única instancia de `app` y es la
+  configuración soportada. Con dos instancias contra la misma base: el job de incumplimiento de acuerdos usa un
+  `SemaphoreSlim` por proceso (el segundo marcado choca con `RowVersion`, cuenta un fallo y reintenta: seguro); el
+  vencimiento de borradores de crédito se serializa con el lock de crédito en base (seguro); **`MoraBackgroundService`
+  guarda su última ejecución solo en memoria y no hay índice único de alerta activa por crédito**, así que dos corridas
+  verdaderamente simultáneas podrían duplicar alertas (la repetición secuencial es idempotente). Para escalar a más de una
+  instancia primero hace falta un `sp_getapplock` alrededor de cada job y ese índice único.
 - **Webhook ML** (`/api/mercadolibre/webhook`): anónimo por contrato de ML, protegido con
   rate limiting (1000/min). Evaluar validación adicional por `user_id`/IP si ML lo permite.
 
