@@ -23,13 +23,19 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ITerminosCondicionesService _terminosCondicionesService;
         private readonly ILogger<LoginModel> _logger;
+        private readonly ISeguridadAuditoriaService? _auditoria;
+
+        /// <summary>SEG-BAJA: un evento de login fallido/bloqueo por usuario+IP cada esta ventana (acota el volumen de la tabla).</summary>
+        internal static readonly TimeSpan VentanaAuditoriaAcceso = TimeSpan.FromMinutes(5);
 
         public LoginModel(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
             ITerminosCondicionesService terminosCondicionesService,
-            ILogger<LoginModel> logger)
+            ILogger<LoginModel> logger,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _signInManager = signInManager;
             _userManager = userManager;
             _terminosCondicionesService = terminosCondicionesService;
@@ -210,14 +216,27 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                 if (result.IsLockedOut)
                 {
                     _logger.LogWarning("Cuenta bloqueada: {UserId}", idUsuario);
+                    await RegistrarAccesoAsync("Bloqueo", idUsuario, "Cuenta bloqueada por intentos fallidos");
                     return RedirectToPage("./Lockout");
                 }
 
                 _logger.LogWarning("Intento de acceso fallido para {UserId}", idUsuario);
+                await RegistrarAccesoAsync("LoginFallido", idUsuario, "Credenciales inválidas");
                 ModelState.AddModelError(string.Empty, "Usuario o contraseña incorrectos.");
             }
 
             return Page();
+        }
+
+        /// <summary>
+        /// SEG-BAJA: auditoría de acceso. La entidad es el id interno del usuario ("desconocido" si el nombre no existe):
+        /// nunca el nombre tipeado (LOG-D-002: puede ser una contraseña pegada por error). La IP la agrega el servicio.
+        /// </summary>
+        private async Task RegistrarAccesoAsync(string accion, string idUsuario, string detalle)
+        {
+            if (_auditoria == null)
+                return;
+            await _auditoria.RegistrarEventoAgrupadoAsync("Seguridad", accion, $"Usuario:{idUsuario}", detalle, VentanaAuditoriaAcceso);
         }
 
         /// <summary>

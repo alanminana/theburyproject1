@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services;
 
@@ -74,7 +75,7 @@ internal static class NotaCreditoCanje
     /// Consume el saldo de la nota por <c>venta.TotalACobrar</c> y registra el uso. Idempotente por venta: si el uso ya existe
     /// (reintento) no vuelve a descontar. Lanza <see cref="InvalidOperationException"/> si la nota ya no alcanza.
     /// </summary>
-    internal static async Task ConsumirAsync(AppDbContext ctx, Venta venta, string usuario)
+    internal static async Task ConsumirAsync(AppDbContext ctx, Venta venta, string usuario, ISeguridadAuditoriaService? auditoria = null)
     {
         var notaCreditoId = venta.NotaCreditoId
             ?? throw new InvalidOperationException("La venta se paga con nota de crédito pero no tiene ninguna asociada.");
@@ -131,6 +132,10 @@ internal static class NotaCreditoCanje
         // Traza legible en la propia nota (mismo formato que el uso manual); StringLength(500): se conservan los más recientes.
         await AgregarObservacionAsync(ctx, notaCreditoId, $"[{ahora:dd/MM/yyyy}] Canje {monto:N2} en venta {venta.Numero}");
 
+        // SEG-BAJA: auditoría de seguridad en el mismo SaveChanges que el registro del uso.
+        auditoria?.AgregarEvento("NotasCredito", "UsarNotaCredito", $"NotaCredito:{notaCreditoId}",
+            $"Venta={venta.Numero}; Monto={monto:0.00}; Usuario={usuario}");
+
         await ctx.SaveChangesAsync();
     }
 
@@ -139,7 +144,7 @@ internal static class NotaCreditoCanje
     /// UPDATE condicional (<c>FechaReversion IS NULL</c>); solo quien lo marca restituye el saldo. Devuelve el monto restituido
     /// (0 si la venta no tenía canje o ya estaba revertido).
     /// </summary>
-    internal static async Task<decimal> RevertirAsync(AppDbContext ctx, Venta venta, string motivo, string usuario)
+    internal static async Task<decimal> RevertirAsync(AppDbContext ctx, Venta venta, string motivo, string usuario, ISeguridadAuditoriaService? auditoria = null)
     {
         var uso = await ctx.NotasCreditoUso.AsNoTracking()
             .FirstOrDefaultAsync(u => u.VentaId == venta.Id && !u.IsDeleted);
@@ -173,6 +178,15 @@ internal static class NotaCreditoCanje
 
         await AgregarObservacionAsync(ctx, uso.NotaCreditoId,
             $"[{ahora:dd/MM/yyyy}] Restituido {monto:N2} por cancelación de la venta {venta.Numero}");
+
+        if (auditoria != null)
+        {
+            // SEG-BAJA: el saldo se restituye con ExecuteUpdate; el evento se guarda acá mismo (dentro de la transacción de
+            // la cancelación, que todavía no se confirmó).
+            auditoria.AgregarEvento("NotasCredito", "RestituirNotaCredito", $"NotaCredito:{uso.NotaCreditoId}",
+                $"Venta={venta.Numero}; Monto={monto:0.00}; Usuario={usuario}");
+            await ctx.SaveChangesAsync();
+        }
 
         return monto;
     }
