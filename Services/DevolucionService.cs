@@ -102,6 +102,30 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync(d => d.NumeroDevolucion == numeroDevolucion && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);
     }
 
+    /// <summary>
+    /// HITO4-E1: una devolución no puede registrarse, aprobarse ni completarse mientras el crédito personal de la
+    /// venta siga vigente (el reintegro de stock dejaría crédito, cuotas y anticipo intactos y sin egreso).
+    /// Solo no bloquean los créditos Finalizado, Rechazado o Cancelado, o la ausencia de crédito.
+    /// </summary>
+    private async Task ValidarCreditoNoVigenteAsync(int ventaId, string accion)
+    {
+        var estadoCredito = await _context.Ventas
+            .AsNoTracking()
+            .Where(v => v.Id == ventaId && !v.IsDeleted && v.CreditoId != null)
+            .Select(v => v.Credito != null && !v.Credito.IsDeleted ? (EstadoCredito?)v.Credito.Estado : null)
+            .FirstOrDefaultAsync();
+
+        if (estadoCredito is null
+            or EstadoCredito.Finalizado
+            or EstadoCredito.Rechazado
+            or EstadoCredito.Cancelado)
+            return;
+
+        throw new InvalidOperationException(
+            $"No se puede {accion} la devolución: la venta tiene un crédito personal vigente ({estadoCredito}). " +
+            "Primero hay que resolver el crédito (cancelarlo o saldarlo) y luego gestionar la devolución.");
+    }
+
     public async Task<Devolucion> CrearDevolucionAsync(Devolucion devolucion, List<DevolucionDetalle> detalles)
     {
         if (detalles == null || detalles.Count == 0)
@@ -127,6 +151,8 @@ public class DevolucionService : IDevolucionService
 
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException(MensajeVentaNoDevolvible);
+
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "registrar");
 
             // Validar que la venta existe
             var venta = await _context.Ventas
@@ -374,6 +400,8 @@ public class DevolucionService : IDevolucionService
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException($"No se puede aprobar la devolución. {MensajeVentaNoDevolvible}");
 
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "aprobar");
+
             devolucion.Estado = EstadoDevolucion.Aprobada;
             devolucion.AprobadoPor = aprobadoPor;
             devolucion.FechaAprobacion = DateTime.UtcNow;
@@ -566,6 +594,8 @@ public class DevolucionService : IDevolucionService
 
             if (!EstadoPermiteDevolucion(estadoVenta.Value))
                 throw new InvalidOperationException($"No se puede completar la devolución. {MensajeVentaNoDevolvible}");
+
+            await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "completar");
 
             // Marcar como completada primero (misma transacción) para evitar doble procesamiento
             devolucion.Estado = EstadoDevolucion.Completada;
