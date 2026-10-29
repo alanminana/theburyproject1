@@ -36,7 +36,7 @@ internal static class NotaCreditoCanje
         EstadoVenta.Cotizacion, EstadoVenta.Presupuesto, EstadoVenta.PendienteRequisitos, EstadoVenta.PendienteFinanciacion
     };
 
-    /// <summary>Misma regla que el uso manual (<c>UtilizarNotaCreditoAsync</c>): no se canjea una nota cuyo origen es una venta que nunca se concretó.</summary>
+    /// <summary>No se canjea una nota cuyo origen es una venta que nunca se concretó.</summary>
     private static async Task AsegurarOrigenConcretadoAsync(AppDbContext ctx, NotaCredito nc)
     {
         if (nc.DevolucionId <= 0) return;

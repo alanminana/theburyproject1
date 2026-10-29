@@ -562,27 +562,6 @@ public class DevolucionController : Controller
         return View(viewModel);
     }
 
-    /// <summary>
-    /// Registrar un uso (aplicación) de una nota de crédito
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [PermisoRequerido(Modulo = "notascredito", Accion = "apply")]
-    public async Task<IActionResult> UtilizarNotaCredito(int id, int clienteId, decimal monto, string? referencia)
-    {
-        try
-        {
-            var notaCredito = await _devolucionService.UtilizarNotaCreditoAsync(id, monto, referencia);
-            TempData["Success"] = $"Uso registrado por {monto:C2} en {notaCredito.NumeroNotaCredito}. Saldo disponible: {notaCredito.MontoDisponible:C2}";
-        }
-        catch (Exception ex)
-        {
-            TempData["Error"] = $"Error al registrar el uso: {ex.Message}";
-        }
-
-        return RedirectToAction(nameof(NotasCredito), new { clienteId });
-    }
-
     #endregion
 
     #region Estadísticas
