@@ -59,6 +59,12 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "El tipo de pago es requerido")]
         public TipoPago TipoPago { get; set; } = TipoPago.Efectivo;
 
+        /// <summary>
+        /// H4-E2: nota de crédito del cliente que paga la venta. Solo aplica con TipoPago = NotaCredito; con cualquier
+        /// otro medio el servidor la descarta. El backend revalida cliente, estado, vencimiento y saldo.
+        /// </summary>
+        public int? NotaCreditoId { get; set; }
+
         [Display(Name = "Subtotal")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal Subtotal { get; set; }

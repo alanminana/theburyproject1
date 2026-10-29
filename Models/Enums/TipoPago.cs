@@ -39,6 +39,13 @@ namespace TheBuryProject.Models.Enums
         CuentaCorriente = 7,
 
         [Display(Name = "Tarjeta")]
-        Tarjeta = 8
+        Tarjeta = 8,
+
+        /// <summary>
+        /// Canje de una nota de crédito del cliente (de una devolución). Cubre el total a cobrar de la venta; no es
+        /// ingreso de efectivo ni requiere acreditación bancaria.
+        /// </summary>
+        [Display(Name = "Nota de crédito")]
+        NotaCredito = 9
     }
 }

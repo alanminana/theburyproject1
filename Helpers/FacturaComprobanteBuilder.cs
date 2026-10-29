@@ -215,6 +215,7 @@ namespace TheBuryProject.Helpers
             TipoPago.Cheque => "Cheque",
             TipoPago.MercadoPago => "Mercado Pago",
             TipoPago.CuentaCorriente => "Cuenta Corriente",
+            TipoPago.NotaCredito => "Nota de crédito",
             _ => tipoPago.ToString()
         };
 

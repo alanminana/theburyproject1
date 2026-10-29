@@ -55,6 +55,8 @@
     let configuracionPagosGlobal = null;
     let configuracionPagosGlobalDisponible = false;
     const condicionesProductoCache = new Map();
+    // H4-E2: notas de crédito vigentes del cliente elegido (se declara arriba: se lee desde el resumen).
+    let notasCreditoCliente = [];
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
@@ -66,7 +68,8 @@
         CreditoPersonal: '5',
         MercadoPago: '6',
         CuentaCorriente: '7',
-        Tarjeta: '8'
+        Tarjeta: '8',
+        NotaCredito: '9'
     };
 
     const TIPO_CUOTA_TARJETA = {
@@ -131,6 +134,9 @@
     const selectTipoPago = $('#select-tipo-pago');
     const panelTarjeta = $('#panel-tarjeta');
     const panelCheque = $('#panel-cheque');
+    const panelNotaCredito = $('#panel-nota-credito');
+    const selectNotaCredito = $('#select-nota-credito');
+    const avisoNotaCredito = $('#nota-credito-aviso');
     const panelMercadoPago = $('#panel-mercadopago');
     const panelCreditoPersonal = $('#panel-credito-personal');
     const panelVerificacionCrediticia = $('#panel-verificacion-crediticia');
@@ -428,6 +434,7 @@
         const cantidadItems = detalles.reduce((acc, d) => acc + d.cantidad, 0);
         const detalleTexto = cantidadItems === 1 ? '1 producto' : `${cantidadItems} productos`;
         const tipoPagoTexto = selectTipoPago?.selectedOptions?.[0]?.textContent?.trim() || 'Sin definir';
+        if (selectTipoPago?.value === TIPO_PAGO.NotaCredito) actualizarAvisoNotaCredito();
 
         if (heroDetallesCount) {
             heroDetallesCount.textContent = detalleTexto;
@@ -564,6 +571,8 @@
 
         // Se llama únicamente desde el init (cargarConfiguracionPagosGlobal sólo se invoca
         // una vez, al cargar la página): no es un cambio del operador.
+        // El selector pudo reemplazarse por los medios configurados: la opción de nota de crédito se repone.
+        sincronizarOpcionNotaCredito();
         onTipoPagoChange(true);
     }
 
@@ -594,7 +603,15 @@
             selectTipoPago.appendChild(opt);
         });
 
-        const mantenerSeleccion = medios.some(m => m.tipoPago === selectedBefore);
+        // H4-E2: "Nota de crédito" no es un medio de la configuración global: si la venta ya la traía, se conserva.
+        if (selectedBefore === TIPO_PAGO.NotaCredito) {
+            const optNc = document.createElement('option');
+            optNc.value = TIPO_PAGO.NotaCredito;
+            optNc.textContent = 'Nota de crédito';
+            selectTipoPago.appendChild(optNc);
+        }
+
+        const mantenerSeleccion = medios.some(m => m.tipoPago === selectedBefore) || selectedBefore === TIPO_PAGO.NotaCredito;
         if (mantenerSeleccion) {
             selectTipoPago.value = selectedBefore;
         } else if (selectTipoPago.options.length > 0) {
@@ -828,6 +845,7 @@
         };
 
         hdnClienteId.value = clienteSeleccionado.id;
+        cargarNotasCreditoCliente();
         infoClienteNombre.textContent = `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`;
         infoClienteDoc.textContent = `${clienteSeleccionado.tipoDocumento}: ${clienteSeleccionado.numeroDocumento}`;
 
@@ -892,6 +910,7 @@
     btnLimpiarCliente?.addEventListener('click', function () {
         clienteSeleccionado = null;
         hdnClienteId.value = '';
+        cargarNotasCreditoCliente();
         infoClienteNombre.textContent = '';
         infoClienteDoc.textContent = '';
         hide(infoCliente);
@@ -1739,6 +1758,84 @@
         }
     }
 
+    // ── 5b. Nota de crédito como medio de pago (H4-E2) ─────────────────
+    // Notas vigentes del cliente elegido. El selector de "Forma de pago" ofrece "Nota de crédito" solo si el cliente
+    // tiene alguna; el backend revalida todo (cliente, estado, vencimiento, saldo >= total) al guardar y al confirmar.
+    function formatearMontoNc(valor) {
+        return Number(valor).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+    }
+
+    function sincronizarOpcionNotaCredito() {
+        if (!selectTipoPago) return;
+        const opcion = Array.from(selectTipoPago.options).find(o => o.value === TIPO_PAGO.NotaCredito);
+        const seleccionada = selectTipoPago.value === TIPO_PAGO.NotaCredito;
+        if (notasCreditoCliente.length > 0 || seleccionada) {
+            if (!opcion) {
+                const opt = document.createElement('option');
+                opt.value = TIPO_PAGO.NotaCredito;
+                opt.textContent = 'Nota de crédito';
+                selectTipoPago.appendChild(opt);
+            }
+        } else if (opcion) {
+            opcion.remove();
+        }
+    }
+
+    function actualizarAvisoNotaCredito() {
+        if (!selectNotaCredito || !avisoNotaCredito) return;
+        const total = parseFloat(hdnTotal?.value) || 0;
+        const id = parseInt(selectNotaCredito.value);
+        const nota = notasCreditoCliente.find(n => n.id === id);
+        let mensaje = '';
+        if (!hdnClienteId?.value) {
+            mensaje = 'Elegí primero un cliente: la nota de crédito debe ser suya.';
+        } else if (notasCreditoCliente.length === 0) {
+            mensaje = 'El cliente no tiene notas de crédito disponibles.';
+        } else if (nota && total > 0 && nota.montoDisponible + 0.005 < total) {
+            mensaje = `La nota tiene ${formatearMontoNc(nota.montoDisponible)} y la venta requiere ${formatearMontoNc(total)}: no alcanza. Elegí otra nota u otro medio.`;
+        }
+        avisoNotaCredito.textContent = mensaje;
+        mensaje ? show(avisoNotaCredito) : hide(avisoNotaCredito);
+    }
+
+    async function cargarNotasCreditoCliente() {
+        const clienteId = parseInt(hdnClienteId?.value);
+        const previa = selectNotaCredito?.value || selectNotaCredito?.dataset.valorInicial || '';
+        notasCreditoCliente = [];
+        if (clienteId > 0) {
+            try {
+                const data = await fetchJson('/api/ventas/NotasCreditoCliente?clienteId=' + encodeURIComponent(clienteId));
+                notasCreditoCliente = (Array.isArray(data) ? data : []).map(n => ({
+                    id: Number(getProp(n, 'id', 'Id')),
+                    numero: getProp(n, 'numero', 'Numero') || '',
+                    montoDisponible: Number(getProp(n, 'montoDisponible', 'MontoDisponible')) || 0
+                }));
+            } catch { notasCreditoCliente = []; }
+        }
+        if (selectNotaCredito) {
+            selectNotaCredito.replaceChildren();
+            const vacio = document.createElement('option');
+            vacio.value = '';
+            vacio.textContent = 'Seleccioná una nota de crédito...';
+            selectNotaCredito.appendChild(vacio);
+            notasCreditoCliente.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = String(n.id);
+                opt.textContent = `${n.numero} · disponible ${formatearMontoNc(n.montoDisponible)}`;
+                selectNotaCredito.appendChild(opt);
+            });
+            if (notasCreditoCliente.some(n => String(n.id) === String(previa))) {
+                selectNotaCredito.value = String(previa);
+            } else if (notasCreditoCliente.length === 1 && selectTipoPago?.value === TIPO_PAGO.NotaCredito) {
+                selectNotaCredito.value = String(notasCreditoCliente[0].id);
+            }
+        }
+        sincronizarOpcionNotaCredito();
+        actualizarAvisoNotaCredito();
+    }
+
+    selectNotaCredito?.addEventListener('change', actualizarAvisoNotaCredito);
+
     // ── 6. Payment Type Switch ────────────────────────────────────────
     selectTipoPago?.addEventListener('change', onTipoPagoChange);
 
@@ -1780,6 +1877,8 @@
         // Individual sub-panels toggle
         isTarjeta ? show(panelTarjeta) : hide(panelTarjeta);
         isCheque ? show(panelCheque) : hide(panelCheque);
+        val === TIPO_PAGO.NotaCredito ? show(panelNotaCredito) : hide(panelNotaCredito);
+        if (val === TIPO_PAGO.NotaCredito) actualizarAvisoNotaCredito();
         isMercadoPago ? show(panelMercadoPago) : hide(panelMercadoPago);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
         isCredito ? show(panelVerificacionCrediticia) : hide(panelVerificacionCrediticia);
@@ -3224,6 +3323,7 @@
             documentoTexto: ci.documento || ''
         };
         if (hdnClienteId) hdnClienteId.value = clienteSeleccionado.id;
+        cargarNotasCreditoCliente();
         if (infoClienteNombre) infoClienteNombre.textContent = clienteSeleccionado.display;
         if (infoClienteDoc) infoClienteDoc.textContent = clienteSeleccionado.documentoTexto;
         show(infoCliente);
