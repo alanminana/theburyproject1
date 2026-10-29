@@ -125,7 +125,7 @@ public class FacturaComprobanteBuilderTests
     }
 
     [Fact]
-    public void Build_DebitoConRecargo_UsaTotalPersistidoYNoCambiaResumenAlicuotas()
+    public void Build_DebitoConRecargo_UsaTotalPersistidoYDiscriminaElRecargoEnElResumen()
     {
         var factura = new Factura
         {
@@ -167,8 +167,11 @@ public class FacturaComprobanteBuilderTests
         Assert.Equal(121m, comprobante.Totales.TotalProductos);
         Assert.Equal(12.10m, comprobante.Totales.RecargoDebitoAplicado);
         Assert.Equal(133.10m, comprobante.Totales.Total);
+        // H5-I: el recargo se discrimina con IVA a la alícuota de los ítems: Neto + IVA == Total.
         var resumen = Assert.Single(comprobante.ResumenAlicuotas);
-        Assert.Equal(121m, resumen.Total);
+        Assert.Equal(133.10m, resumen.Total);
+        Assert.Equal(133.10m, resumen.BaseImponible + resumen.IVA);
+        Assert.Equal(133.10m, comprobante.Totales.SubtotalNeto + comprobante.Totales.IVA);
     }
 
     [Fact]

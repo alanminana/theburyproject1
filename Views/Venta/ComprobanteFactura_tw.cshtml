@@ -413,9 +413,13 @@
         <section class="totals">
             <div class="total-row"><span>Subtotal neto</span><strong>@Model.Totales.SubtotalNeto.ToString("C2")</strong></div>
             <div class="total-row"><span>IVA</span><strong>@Model.Totales.IVA.ToString("C2")</strong></div>
+            @if (Model.Totales.RecargoIncluido)
+            {
+                <div class="total-row"><span>Recargo del medio de pago incluido: neto @Model.Totales.RecargoIncluidoNeto.ToString("C2") + IVA @Model.Totales.RecargoIncluidoIVA.ToString("C2")</span><strong>@((Model.Totales.RecargoIncluidoNeto + Model.Totales.RecargoIncluidoIVA).ToString("C2"))</strong></div>
+            }
             @if (Model.Totales.RecargoDebitoAplicado > 0)
             {
-                <div class="total-row"><span>Recargo d&eacute;bito</span><strong>@Model.Totales.RecargoDebitoAplicado.ToString("C2")</strong></div>
+                <div class="total-row"><span>Recargo d&eacute;bito@(Model.Totales.RecargoIncluido ? " (incluido en subtotal e IVA)" : "")</span><strong>@Model.Totales.RecargoDebitoAplicado.ToString("C2")</strong></div>
             }
             @if (Model.Totales.MontoAjustePlanAplicado.HasValue)
             {
@@ -428,7 +432,7 @@
                 var nombrePlan = string.IsNullOrWhiteSpace(Model.Totales.NombrePlanPagoSnapshot)
                     ? ""
                     : $" - {Model.Totales.NombrePlanPagoSnapshot}";
-                <div class="total-row"><span>@etiqueta@sufijoPct</span><strong>@montoAjuste.ToString("C2")</strong></div>
+                <div class="total-row"><span>@etiqueta@sufijoPct@(Model.Totales.RecargoIncluido && montoAjuste > 0 ? " (incluido en subtotal e IVA)" : "")</span><strong>@montoAjuste.ToString("C2")</strong></div>
                 @if (!string.IsNullOrWhiteSpace(nombrePlan))
                 {
                     <div class="total-row"><span>Plan aplicado</span><strong>@Model.Totales.NombrePlanPagoSnapshot</strong></div>
