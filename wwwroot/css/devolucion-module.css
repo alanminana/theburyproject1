@@ -1,0 +1,25 @@
+/* Devoluciones/Index: la tabla de 8 columnas (~1120px) más el panel "Radar operativo" no entran
+   a 1366px (sidebar abierta) ni a 1024px y dejaban Estado/Monto fuera de vista.
+   - El panel pasa debajo de la tabla hasta 1536px (antes se ponía al lado desde 1280px).
+   - Columnas secundarias por breakpoint: Motivo solo desde 1536px; Venta e Impacto desde 1280px
+     (por debajo, el número de venta queda bajo el ID). Estado y Monto quedan siempre visibles. */
+.dev-venta-inline { display: block; }
+
+@media (max-width: 1535.98px) {
+    .dev-col-motivo { display: none; }
+}
+
+@media (max-width: 1279.98px) {
+    .dev-col-venta,
+    .dev-col-impacto { display: none; }
+}
+
+@media (min-width: 1280px) {
+    .dev-venta-inline { display: none; }
+}
+
+@media (min-width: 1536px) {
+    .dev-index-grid {
+        grid-template-columns: minmax(0, 1.7fr) minmax(17rem, 0.85fr);
+    }
+}

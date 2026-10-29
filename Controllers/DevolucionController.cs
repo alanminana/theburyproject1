@@ -382,6 +382,12 @@ public class DevolucionController : Controller
             return RedirectToAction(nameof(Detalles), new { id });
         }
 
+        if (motivo.Trim().Length > 500)
+        {
+            TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
         if (rowVersion is null || rowVersion.Length == 0)
         {
             TempData["Error"] = "Falta información de concurrencia (RowVersion). Recargá la página e intentá nuevamente.";
@@ -496,6 +502,12 @@ public class DevolucionController : Controller
     [PermisoRequerido(Modulo = "rmas", Accion = "create")]
     public async Task<IActionResult> CrearRMA(int devolucionId, int proveedorId, string motivoSolicitud, byte[]? devolucionRowVersion)
     {
+        if (string.IsNullOrWhiteSpace(motivoSolicitud) || motivoSolicitud.Trim().Length > 1000)
+        {
+            TempData["Error"] = "El motivo de la solicitud es obligatorio y no puede superar los 1000 caracteres.";
+            return RedirectToAction(nameof(Detalles), new { id = devolucionId });
+        }
+
         try
         {
             if (devolucionRowVersion is null || devolucionRowVersion.Length == 0)

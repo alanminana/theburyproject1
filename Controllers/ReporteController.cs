@@ -70,6 +70,10 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Ventas(ReporteVentasFiltroViewModel filtro)
         {
+            var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Ventas));
+            if (rechazo != null)
+                return rechazo;
+
             try
             {
                 await CargarFiltrosViewBagAsync();
@@ -94,6 +98,10 @@ namespace TheBuryProject.Controllers
             {
                 filtro.FechaDesde ??= DateTime.Today.AddMonths(-1);
                 filtro.FechaHasta ??= DateTime.Today;
+
+                var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Index));
+                if (rechazo != null)
+                    return rechazo;
 
                 var resultado = await _reporteService.GenerarReporteIvaAsync(filtro);
                 return View("Iva_tw", resultado);
@@ -153,6 +161,10 @@ namespace TheBuryProject.Controllers
                 filtro.FechaDesde ??= new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
                 filtro.FechaHasta ??= DateTime.Today;
 
+                var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Index));
+                if (rechazo != null)
+                    return rechazo;
+
                 // Sin reportes.viewallcommissions solo se ven las comisiones propias.
                 var verTodas = User.TienePermiso("reportes", "viewallcommissions");
                 if (!verTodas)
@@ -199,6 +211,10 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "reportes", Accion = "stock")]
         public async Task<IActionResult> MovimientosValorizados(ReporteMovimientosValorizadosFiltroViewModel filtro)
         {
+            var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(MovimientosValorizados));
+            if (rechazo != null)
+                return rechazo;
+
             try
             {
                 await CargarFiltrosMovimientosValorizadosAsync();
@@ -223,6 +239,10 @@ namespace TheBuryProject.Controllers
                 var desde = fechaDesde ?? DateTime.Today.AddMonths(-1);
                 var hasta = fechaHasta ?? DateTime.Today;
 
+                var errorRango = ErrorRango(desde, hasta);
+                if (errorRango != null)
+                    return BadRequest(errorRango);
+
                 var datos = await _reporteService.ObtenerVentasAgrupadasAsync(desde, hasta, agruparPor);
 
                 return Json(datos);
@@ -241,7 +261,7 @@ namespace TheBuryProject.Controllers
         // GET: Reporte/ExportarVentasExcel
         [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarVentasExcel([FromQuery] ReporteVentasFiltroViewModel filtro)
-            => await ExportarExcel(
+            => RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Ventas)) ?? await ExportarExcel(
                 () => _reporteService.ExportarVentasExcelAsync(filtro, User.PuedeAplicarDescuentos()),
                 "ReporteVentas",
                 nameof(Ventas));
@@ -265,7 +285,7 @@ namespace TheBuryProject.Controllers
         // GET: Reporte/ExportarMovimientosValorizadosExcel
         [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarMovimientosValorizadosExcel([FromQuery] ReporteMovimientosValorizadosFiltroViewModel filtro)
-            => await ExportarExcel(
+            => RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(MovimientosValorizados)) ?? await ExportarExcel(
                 () => _reporteService.ExportarMovimientosValorizadosExcelAsync(filtro),
                 "ReporteMovimientosValorizados",
                 nameof(MovimientosValorizados));
@@ -273,7 +293,7 @@ namespace TheBuryProject.Controllers
         // GET: Reporte/ExportarVentasPdf
         [PermisoRequerido(Modulo = "reportes", Accion = "export")]
         public async Task<IActionResult> ExportarVentasPdf([FromQuery] ReporteVentasFiltroViewModel filtro)
-            => await ExportarPdf(
+            => RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Ventas)) ?? await ExportarPdf(
                 () => _reporteService.GenerarVentasPdfAsync(filtro),
                 "ReporteVentas",
                 nameof(Ventas));
@@ -289,6 +309,32 @@ namespace TheBuryProject.Controllers
         #endregion
 
         #region Métodos auxiliares
+
+        private const int AnioMinimo = 2000;
+        private const int AnioMaximo = 2100;
+
+        // Un rango invertido devolvía un reporte vacío o en cero sin avisar, y fechas extremas terminaban en un error genérico.
+        internal static string? ErrorRango(DateTime? desde, DateTime? hasta)
+        {
+            if ((desde.HasValue && (desde.Value.Year < AnioMinimo || desde.Value.Year > AnioMaximo)) ||
+                (hasta.HasValue && (hasta.Value.Year < AnioMinimo || hasta.Value.Year > AnioMaximo)))
+                return $"Las fechas deben estar entre los años {AnioMinimo} y {AnioMaximo}.";
+
+            if (desde.HasValue && hasta.HasValue && desde.Value.Date > hasta.Value.Date)
+                return "La fecha desde no puede ser posterior a la fecha hasta.";
+
+            return null;
+        }
+
+        private IActionResult? RechazarRango(DateTime? desde, DateTime? hasta, string accion)
+        {
+            var error = ErrorRango(desde, hasta);
+            if (error == null)
+                return null;
+
+            TempData["Error"] = error;
+            return RedirectToAction(accion);
+        }
 
         private async Task<IActionResult> ExportarExcel(Func<Task<byte[]>> generarDatos, string nombreReporte, string accionFallback)
         {
