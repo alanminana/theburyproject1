@@ -296,6 +296,7 @@ namespace TheBuryProject.Services
                 var envioServicio = await AplicarServiciosAsync(venta, viewModel);
                 CalcularTotales(venta, envioServicio);
                 await CalcularComisionesAsync(venta);
+                await NormalizarYValidarNotaCreditoAsync(venta);
 
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
                 {
@@ -418,6 +419,7 @@ namespace TheBuryProject.Services
             var canonico = string.Join("\n", new[]
             {
                 vm.ClienteId.ToString(CultureInfo.InvariantCulture), vm.TipoPago.ToString(), N(vm.Descuento),
+                vm.TipoPago == TipoPago.NotaCredito ? vm.NotaCreditoId?.ToString(CultureInfo.InvariantCulture) ?? "-" : "-",
                 vm.Anticipo.HasValue ? N(vm.Anticipo.Value) : "-", vm.TieneEnvio ? "1" : "0", vm.Observaciones ?? string.Empty
             }.Concat(lineas));
 
@@ -941,6 +943,7 @@ namespace TheBuryProject.Services
             }
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
+            await NormalizarYValidarNotaCreditoAsync(venta);
 
             // Venta sin crédito asociado todavía (p.ej. convertida desde cotización): este
             // edit es la primera vez que se establece el crédito, así que corre la misma
@@ -1076,6 +1079,11 @@ namespace TheBuryProject.Services
                 _validator.ValidarEstadoParaConfirmacion(venta);
                 _validator.ValidarStock(venta);
 
+                // H4-E2: la nota de crédito se revalida con el estado y el total de HOY (pudo agotarse o vencer desde que se
+                // armó la venta). El descuento atómico del saldo ocurre abajo, con la venta ya confirmada.
+                if (venta.TipoPago == TipoPago.NotaCredito)
+                    await NotaCreditoCanje.ValidarSeleccionAsync(_context, venta.NotaCreditoId, venta.ClienteId, venta.TotalACobrar);
+
                 // Para crédito personal, re-validar requisitos antes de confirmar
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
                 {
@@ -1124,6 +1132,11 @@ namespace TheBuryProject.Services
                     id,
                     venta.Estado);
                 await _context.SaveChangesAsync();
+
+                // H4-E2: canje de la nota de crédito en la MISMA transacción que la confirmación (stock, estado y caja):
+                // si el saldo ya no alcanza (otra venta la consumió), se revierte todo.
+                if (venta.TipoPago == TipoPago.NotaCredito)
+                    await NotaCreditoCanje.ConsumirAsync(_context, venta, _currentUserService.GetUsername());
 
                 // Registrar movimiento de caja al confirmar para ventas con cobro inmediato
                 // (Efectivo, Tarjeta, Cheque, Transferencia, MercadoPago).
@@ -1619,6 +1632,9 @@ namespace TheBuryProject.Services
                 if (estadoOriginal == EstadoVenta.Confirmada || estadoOriginal == EstadoVenta.Facturada)
                 {
                     var usuario = _currentUserService.GetUsername();
+                    // H4-E2: la nota de crédito canjeada recupera su saldo (idempotente por venta).
+                    if (venta.TipoPago == TipoPago.NotaCredito)
+                        await NotaCreditoCanje.RevertirAsync(_context, venta, motivo, usuario);
                     await _cajaService.RegistrarContramovimientoVentaAsync(
                         venta.Id,
                         venta.Numero,
@@ -1988,8 +2004,11 @@ namespace TheBuryProject.Services
 
             // Fallback: si la venta se confirmó antes del fix que registra al confirmar,
             // registrar ahora para no perder el movimiento.
+            // H4-E2: el canje de nota de crédito solo se asienta al confirmar (consume saldo y movimiento juntos); el
+            // fallback no lo reproduce.
             if (venta.TipoPago != TipoPago.CreditoPersonal &&
-                venta.TipoPago != TipoPago.CuentaCorriente)
+                venta.TipoPago != TipoPago.CuentaCorriente &&
+                venta.TipoPago != TipoPago.NotaCredito)
             {
                 // Mismo criterio que la cancelación (IngresoVentaCaja): ReferenciaId es polimórfico, así que un
                 // ingreso ajeno (p. ej. el cobro de una cuota con id == id de la venta) no cuenta como el de la venta.
@@ -2010,6 +2029,21 @@ namespace TheBuryProject.Services
 
             _logger.LogInformation("Venta {Id} facturada con factura {NumeroFactura}", id, factura.Numero);
             return true;
+        }
+
+        /// <summary>
+        /// H4-E2. Con medio "Nota de crédito" exige una nota válida del cliente que cubra el total a cobrar; con cualquier
+        /// otro medio descarta la selección. Chequeo temprano de Crear/Editar: el consumo real se decide al confirmar.
+        /// </summary>
+        private async Task NormalizarYValidarNotaCreditoAsync(Venta venta)
+        {
+            if (venta.TipoPago != TipoPago.NotaCredito)
+            {
+                venta.NotaCreditoId = null;
+                return;
+            }
+
+            await NotaCreditoCanje.ValidarSeleccionAsync(_context, venta.NotaCreditoId, venta.ClienteId, venta.TotalACobrar);
         }
 
         private async Task<AperturaCaja> AsegurarCajaAbiertaParaUsuarioActualAsync(string mensajeError)
@@ -3249,6 +3283,24 @@ namespace TheBuryProject.Services
                 await rastreada.ReloadAsync();
         }
 
+        public async Task<IReadOnlyList<Models.NotaCreditoDisponibleDto>> ObtenerNotasCreditoDisponiblesAsync(int clienteId)
+        {
+            var ahora = DateTime.UtcNow;
+            return await _context.NotasCredito
+                .AsNoTracking()
+                .Where(nc => nc.ClienteId == clienteId
+                             && !nc.IsDeleted
+                             && (nc.MontoTotal - nc.MontoUtilizado) > 0m
+                             && (nc.FechaVencimiento == null || nc.FechaVencimiento >= ahora)
+                             && (nc.Estado == EstadoNotaCredito.Vigente || nc.Estado == EstadoNotaCredito.UtilizadaParcialmente)
+                             && !_context.Devoluciones.Any(d => d.Id == nc.DevolucionId
+                                 && NotaCreditoCanje.EstadosOrigenNoConcretados.Contains(d.Venta.Estado)))
+                .OrderBy(nc => nc.FechaEmision)
+                .Select(nc => new Models.NotaCreditoDisponibleDto(
+                    nc.Id, nc.NumeroNotaCredito, nc.MontoTotal - nc.MontoUtilizado, nc.FechaEmision, nc.FechaVencimiento))
+                .ToListAsync();
+        }
+
         private async Task<Venta?> CargarVentaCompleta(int id)
         {
             return await _context.Ventas
@@ -4339,6 +4391,8 @@ namespace TheBuryProject.Services
             // FIN-S-002 (F1): misma política que CreateAsync; fuera de rango se conserva la fecha persistida.
             venta.FechaVenta = ResolverFechaVenta(viewModel.FechaVenta, venta.FechaVenta, venta.FechaVenta);
             venta.TipoPago = viewModel.TipoPago;
+            // H4-E2: la nota de crédito solo acompaña al medio "Nota de crédito"; con otro medio se descarta.
+            venta.NotaCreditoId = viewModel.TipoPago == TipoPago.NotaCredito ? viewModel.NotaCreditoId : null;
             venta.Descuento = viewModel.Descuento;
             venta.Observaciones = viewModel.Observaciones;
             // CreditoId NO se copia del viewModel: es una asociación de sistema, gestionada

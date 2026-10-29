@@ -250,6 +250,33 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// H4-E2: notas de crédito del cliente utilizables como medio de pago (saldo, no vencidas). Solo lectura.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> NotasCreditoCliente(int clienteId)
+        {
+            if (clienteId <= 0)
+                return Ok(Array.Empty<object>());
+
+            try
+            {
+                var notas = await _ventaService.ObtenerNotasCreditoDisponiblesAsync(clienteId);
+                return Ok(notas.Select(n => new
+                {
+                    id = n.Id,
+                    numero = n.Numero,
+                    montoDisponible = n.MontoDisponible,
+                    fechaVencimiento = n.FechaVencimiento
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener notas de crédito del cliente {ClienteId}", clienteId);
+                return StatusCode(500, new { error = "No se pudieron obtener las notas de crédito del cliente" });
+            }
+        }
+
         [HttpGet("/api/ventas/configuracion-pagos-global")]
         public async Task<IActionResult> ConfiguracionPagosGlobal(CancellationToken cancellationToken = default)
         {
