@@ -68,6 +68,43 @@
     min-height: 2.75rem;
 }
 
+/* Mobile: el encabezado (badge + título + descripción + 3 chips) ocupaba ~43% de la altura y dejaba
+   ~230px de scroll a 390x844. Se compacta sin quitar contenido: chips en una sola fila con scroll
+   horizontal, título y descripción más chicos, menos padding y separación. */
+@media (max-width: 639.98px) {
+    #modal-devolucion-venta .devolucion-quick-modal__header {
+        padding-block: 0.75rem;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__intro {
+        min-width: 0;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__intro > * + * {
+        margin-top: 0.5rem;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__header h3 {
+        font-size: 1.125rem;
+        line-height: 1.5rem;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__header p {
+        font-size: 0.75rem;
+        line-height: 1.125rem;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__chips > * {
+        flex: none;
+    }
+}
+
 @media (min-width: 640px) {
     #modal-devolucion-venta .devolucion-quick-modal__footer {
         flex-direction: row;
