@@ -539,8 +539,8 @@
                 {
                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                 }
-                <label class="label">Motivo del rechazo <span class="req">*</span></label>
-                <textarea class="field" name="motivo" placeholder="Ej. relación cuota/ingreso excedida..." required></textarea>
+                <label class="label" for="credito-rechazar-motivo">Motivo del rechazo <span class="req">*</span></label>
+                <textarea class="field" id="credito-rechazar-motivo" name="motivo" placeholder="Ej. relación cuota/ingreso excedida..." required></textarea>
                 <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
                     <button type="button" class="btn btn-ghost" data-credito-modal-action="close">Cancelar</button>
                     <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">block</span>Rechazar</button>
@@ -565,8 +565,8 @@
                 {
                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                 }
-                <label class="label">Motivo de cancelación <span class="req">*</span></label>
-                <textarea class="field" name="motivo" placeholder="Ej. acuerdo de refinanciación..." required></textarea>
+                <label class="label" for="credito-cancelar-motivo">Motivo de cancelación <span class="req">*</span></label>
+                <textarea class="field" id="credito-cancelar-motivo" name="motivo" placeholder="Ej. acuerdo de refinanciación..." required></textarea>
                 <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
                     <button type="button" class="btn btn-ghost" data-credito-modal-action="close">Volver</button>
                     <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">cancel</span>Confirmar cancelación</button>

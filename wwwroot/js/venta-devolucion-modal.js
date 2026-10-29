@@ -40,6 +40,9 @@
     function showError(message) {
         errorBox.textContent = message;
         errorBox.classList.remove('hidden');
+        // El cuerpo del modal scrollea: sin esto el error quedaba fuera de vista y el operador no
+        // veía ninguna respuesta al presionar "Crear devolución".
+        errorBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     function clearError() {
@@ -116,11 +119,13 @@
                            max="${item.cantidadDisponible}"
                            value="0"
                            name="Items[${index}].CantidadDevolver"
+                           aria-label="Cantidad a devolver de ${escapeHtml(item.productoNombre)}"
                            class="devolucion-item-cantidad w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800"
                            disabled />
                 </td>
                 <td class="px-4 py-3">
                     <select name="Items[${index}].EstadoProducto"
+                            aria-label="Estado del producto devuelto: ${escapeHtml(item.productoNombre)}"
                             class="devolucion-item-estado w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800"
                             disabled>
                         ${buildEstadoOptions(0)}

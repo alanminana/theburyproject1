@@ -558,6 +558,20 @@ header a:focus:not(:focus-visible) {
     }
 }
 
+@media (max-width: 639.98px) {
+    [data-user-menu-toggle] {
+        gap: 0.125rem;
+    }
+}
+
+/* Con 390px el nombre de una pantalla de una sola palabra ("Dashboard") quedaba en "Dashb…": en
+   móvil angosto el chevron del menú de usuario se oculta (el avatar sigue siendo el botón). */
+@media (max-width: 430px) {
+    [data-user-menu-toggle] > .material-symbols-outlined {
+        display: none;
+    }
+}
+
 @media (max-width: 380px) {
     .header-title { font-size: 0.875rem; }
 }

@@ -36,8 +36,8 @@
             <input type="hidden" asp-for="Tipo" id="input-tipo" />
             <input type="hidden" asp-for="Observaciones" />
 
-            <label class="label">Tipo de movimiento <span class="req">*</span></label>
-            <div id="tipo-toggle" class="segment" role="group" aria-label="Tipo de movimiento">
+            <span id="tipo-toggle-label" class="label">Tipo de movimiento <span class="req">*</span></span>
+            <div id="tipo-toggle" class="segment" role="group" aria-labelledby="tipo-toggle-label">
                 <button type="button" data-tipo="0" data-tone="in" aria-pressed="@((!esEgreso).ToString().ToLowerInvariant())" class="tipo-btn">
                     <span class="material-symbols-outlined">south_west</span>Ingreso
                 </button>
@@ -52,7 +52,7 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" style="margin-top:1.25rem">
                 <div>
-                    <label asp-for="Concepto" class="label">Concepto <span class="req">*</span></label>
+                    <label for="select-concepto" class="label">Concepto <span class="req">*</span></label>
                     <select asp-for="Concepto" id="select-concepto" data-initial-value="@((int)Model.Concepto)" class="field" required></select>
                     <span asp-validation-for="Concepto" class="text-rose-500 text-xs"></span>
                 </div>

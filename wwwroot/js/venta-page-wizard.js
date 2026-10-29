@@ -758,7 +758,12 @@
         if (event.key !== 'Enter' || event.isComposing || event.target instanceof HTMLTextAreaElement) return;
         // Dentro del cotizador embebido, Enter pertenece a sus buscadores: no debe
         // avanzar el wizard ni tocar la venta.
-        if (event.target instanceof Element && event.target.closest(COTIZADOR_SELECTOR)) return;
+        // Tampoco debe disparar el submit implícito de #venta-form (el primer botón submit es
+        // "Confirmar venta"): Enter en un <input> del cotizador se neutraliza acá.
+        if (event.target instanceof Element && event.target.closest(COTIZADOR_SELECTOR)) {
+            if (event.target instanceof HTMLInputElement) event.preventDefault();
+            return;
+        }
         // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§16): Enter sobre un <summary> pertenece
         // a su propio <details> nativo (abrir/cerrar) — el handler global de avance no
         // debe interceptarlo. Espacio ya funcionaba porque el navegador lo resuelve antes
