@@ -320,7 +320,7 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 | ConfigurarVenta | POST | C:creditos.view & M:creditos.configure | Authorize() |
 | Create | GET | C:creditos.view | Authorize() |
 | Create | POST | C:creditos.view | Authorize() |
-| CuotasVencidas | GET* | C:creditos.view | Authorize() |
+| CuotasVencidas | GET | C:creditos.view | Authorize() |
 | Delete | GET* | C:creditos.view | Authorize() |
 | DeleteConfirmed | POST | C:creditos.view & M:creditos.delete | Authorize() |
 | Details | GET* | C:creditos.view | Authorize() |
@@ -407,7 +407,7 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 | GenerarPresupuesto | POST | M:documentos.generate | Authorize() |
 | Index | GET | M:documentos.view | Authorize() |
 | Regenerar | POST | M:documentos.generate | Authorize() |
-| Reimprimir | GET | M:documentos.reprint | Authorize() |
+| Reimprimir | POST | M:documentos.reprint | Authorize() |
 | Ver | GET | M:documentos.view | Authorize() |
 | VerGrupo | GET | M:documentos.view | Authorize() |
 | VerPorPago | GET | M:documentos.view | Authorize() |

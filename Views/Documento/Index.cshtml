@@ -187,7 +187,11 @@
                                         <a class="doc-btn" target="_blank" rel="noopener" asp-action="Ver" asp-route-id="@d.Id">Ver</a>
                                         @if (puedeReimprimir)
                                         {
-                                            <a class="doc-btn" target="_blank" rel="noopener" asp-action="Reimprimir" asp-route-ids="@d.Id">Imprimir</a>
+                                            <form method="post" class="doc-inline-form" target="_blank" asp-action="Reimprimir">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="ids" value="@d.Id" />
+                                                <button type="submit" class="doc-btn">Imprimir</button>
+                                            </form>
                                         }
                                     }
                                 </div>

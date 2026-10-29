@@ -137,13 +137,13 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
             {
                 $"/Documento/Ver/{docId}",
                 $"/Documento/VerVarios?ids={docId}",
-                $"/Documento/VerGrupo/{grupo}",
-                $"/Documento/Reimprimir?ids={docId}"
+                $"/Documento/VerGrupo/{grupo}"
             })
             {
                 var response = await sin.GetAsync(url);
                 Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"{url} => {(int)response.StatusCode}");
             }
+            Assert.Equal(HttpStatusCode.Forbidden, (await ReimprimirAsync(sin, docId)).StatusCode);
 
             var legado = await sin.GetAsync($"/Documento/Ver/{docLegado}");
             Assert.NotEqual(HttpStatusCode.Forbidden, legado.StatusCode);
@@ -169,14 +169,14 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
                 $"/Documento/Ver/{docId}",
                 $"/Documento/VerVarios?ids={docId}",
                 $"/Documento/VerGrupo/{grupo}",
-                $"/Documento/VerPorPago/{pagoId}",
-                $"/Documento/Reimprimir?ids={docId}"
+                $"/Documento/VerPorPago/{pagoId}"
             })
             {
                 var response = await sin.GetAsync(url);
                 Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"{url} -> {(int)response.StatusCode}");
                 Assert.DoesNotContain("1.800", await response.Content.ReadAsStringAsync());
             }
+            Assert.Equal(HttpStatusCode.Forbidden, (await ReimprimirAsync(sin, docId)).StatusCode);
         }
 
         Assert.Equal(0, await ContadorReimpresionesAsync(docId));
@@ -187,10 +187,42 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
             Assert.Equal(HttpStatusCode.OK, ver.StatusCode);
             Assert.Equal("application/pdf", ver.Content.Headers.ContentType?.MediaType);
 
-            var reimprimir = await con.GetAsync($"/Documento/Reimprimir?ids={docId}");
+            var reimprimir = await ReimprimirAsync(con, docId);
             Assert.Equal(HttpStatusCode.OK, reimprimir.StatusCode);
         }
         Assert.Equal(1, await ContadorReimpresionesAsync(docId));
+    }
+
+    [Fact]
+    public async Task Reimprimir_SoloPost_ConAntiforgery_YElGetNoCuentaNiAudita()
+    {
+        // SEG-BAJA: la reimpresión tiene efectos (contador + auditoría): un GET (enlace externo) no debe dispararla.
+        await PrepararUsuariosAsync();
+        var (ventaId, _) = await SeedVentaAsync(conDescuentos: false, conFactura: false);
+        var docId = await SeedDocumentoAsync(ventaId: ventaId);
+
+        using var con = Con();
+        var get = await con.GetAsync($"/Documento/Reimprimir?ids={docId}");
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, get.StatusCode);
+
+        var sinToken = await con.PostAsync("/Documento/Reimprimir", new FormUrlEncodedContent(new Dictionary<string, string> { ["ids"] = docId.ToString() }));
+        Assert.Equal(HttpStatusCode.BadRequest, sinToken.StatusCode);
+        Assert.Equal(0, await ContadorReimpresionesAsync(docId));
+
+        Assert.Equal(HttpStatusCode.OK, (await ReimprimirAsync(con, docId)).StatusCode);
+        Assert.Equal(1, await ContadorReimpresionesAsync(docId));
+    }
+
+    private static async Task<HttpResponseMessage> ReimprimirAsync(HttpClient client, int docId)
+    {
+        var html = await (await client.GetAsync("/Documento/Index")).Content.ReadAsStringAsync();
+        var m = System.Text.RegularExpressions.Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        Assert.True(m.Success, "No se encontro el token antiforgery en /Documento/Index.");
+        return await client.PostAsync("/Documento/Reimprimir", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(m.Groups[1].Value),
+            ["ids"] = docId.ToString()
+        }));
     }
 
     [Fact]
@@ -220,7 +252,7 @@ public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplic
         {
             var index = await (await sin.GetAsync("/Documento/Index")).Content.ReadAsStringAsync();
             Assert.DoesNotContain($"/Documento/Ver/{docRestringido}\"", index);
-            Assert.DoesNotContain($"/Documento/Reimprimir?ids={docRestringido}\"", index);
+            Assert.DoesNotContain($"name=\"ids\" value=\"{docRestringido}\"", index);
             Assert.Contains("data-doc-restringido", index);
             Assert.Contains($"/Documento/Ver/{docLibre}\"", index);   // sin descuentos: sigue accesible
 
