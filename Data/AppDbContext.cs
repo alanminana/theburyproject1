@@ -117,6 +117,7 @@ namespace TheBuryProject.Data
         public DbSet<Garantia> Garantias { get; set; }
         public DbSet<RMA> RMAs { get; set; }
         public DbSet<NotaCredito> NotasCredito { get; set; }
+        public DbSet<NotaCreditoUso> NotasCreditoUso { get; set; }
 
         public DbSet<Caja> Cajas { get; set; }
         public DbSet<AperturaCaja> AperturasCaja { get; set; }
@@ -1322,6 +1323,12 @@ namespace TheBuryProject.Data
                     .IsUnique()
                     .HasFilter("[IdempotencyKey] IS NOT NULL");
                 entity.Property(e => e.IdempotencyHuella).HasMaxLength(64);
+
+                entity.HasOne(e => e.NotaCredito)
+                    .WithMany()
+                    .HasForeignKey(e => e.NotaCreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(e => e.NotaCreditoId);
 
                 entity.Property(e => e.Numero)
                     .IsRequired()
@@ -2532,6 +2539,32 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.MontoTotal).HasPrecision(18, 2);
                 entity.Property(e => e.MontoUtilizado).HasPrecision(18, 2);
+            });
+
+            // NotaCreditoUso (H4-E2): canje de una nota de crédito como medio de pago de una venta
+            modelBuilder.Entity<NotaCreditoUso>(entity =>
+            {
+                entity.ToTable("NotasCreditoUso");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+                entity.Property(e => e.Usuario).HasMaxLength(256);
+                entity.Property(e => e.MotivoReversion).HasMaxLength(500);
+
+                // Una venta canjea una sola vez: garantía de última línea de la idempotencia.
+                entity.HasIndex(e => e.VentaId)
+                    .IsUnique()
+                    .HasDatabaseName("IX_NotasCreditoUso_VentaId");
+                entity.HasIndex(e => e.NotaCreditoId);
+
+                entity.HasOne(e => e.NotaCredito)
+                    .WithMany()
+                    .HasForeignKey(e => e.NotaCreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Venta)
+                    .WithMany()
+                    .HasForeignKey(e => e.VentaId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // RMA

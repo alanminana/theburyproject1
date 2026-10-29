@@ -603,3 +603,309 @@ file sealed class StubAlertaStockServiceCancelaCredito : IAlertaStockService
     public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();
 }
+
+/// <summary>
+/// H2-C2 - Vencimiento de borradores de credito abandonados: libera el cupo reutilizando la cancelacion de venta y
+/// solo alcanza borradores sin ninguna operacion real.
+/// </summary>
+public class BorradorCreditoVencimientoTests : IDisposable
+{
+    private const decimal LimitePuntaje5 = 100_000m;
+    private static readonly DateTime Ahora = new(2026, 10, 28, 12, 0, 0, DateTimeKind.Utc);
+
+    private readonly SqliteConnection _connection;
+    private readonly AppDbContext _context;
+    private readonly VentaService _ventaService;
+    private readonly BorradorCreditoVencimientoService _service;
+    private readonly CreditoDisponibleService _disponible;
+    private readonly AperturaCaja _apertura;
+
+    private static int _counter = 900;
+
+    public BorradorCreditoVencimientoTests()
+    {
+        _connection = new SqliteConnection($"DataSource={Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+        _connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options;
+        _context = new AppDbContext(options);
+        _context.Database.EnsureCreated();
+
+        var caja = new Caja { Codigo = "C09", Nombre = "Caja Test", IsDeleted = false, RowVersion = new byte[8] };
+        _context.Cajas.Add(caja);
+        _context.SaveChanges();
+        _apertura = new AperturaCaja { CajaId = caja.Id, UsuarioApertura = "u", MontoInicial = 0m, Cerrada = false, RowVersion = new byte[8] };
+        _context.AperturasCaja.Add(_apertura);
+        _context.SaveChanges();
+
+        var preset = _context.PuntajesCreditoLimite.First(p => p.Puntaje == 5);
+        preset.LimiteMonto = LimitePuntaje5;
+        _context.SaveChanges();
+
+        _disponible = new CreditoDisponibleService(_context, NullLogger<CreditoDisponibleService>.Instance);
+        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
+        _ventaService = new VentaService(
+            _context, mapper, NullLogger<VentaService>.Instance,
+            new StubAlertaStockServiceCancelaCredito(), new StubMovimientoStockServiceCancelaCredito(),
+            new FinancialCalculationService(), new VentaValidator(),
+            new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
+            new PrecioVigenteResolver(_context), new StubCurrentUserCancelaCredito(),
+            new StubValidacionVentaCancelaCredito(), new StubCajaServiceCancelaCredito(_apertura),
+            _disponible, new StubContratoVentaCreditoService(existeContratoGenerado: true),
+            new StubConfiguracionPagoServiceVenta());
+        _service = new BorradorCreditoVencimientoService(
+            _context, _ventaService, NullLogger<BorradorCreditoVencimientoService>.Instance);
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
+        _connection.Dispose();
+    }
+
+    private async Task<(Venta venta, Credito credito)> SeedBorradorAsync(
+        DateTime actividadUtc,
+        decimal total = 1_000m,
+        EstadoVenta estadoVenta = EstadoVenta.PendienteFinanciacion,
+        EstadoCredito estadoCredito = EstadoCredito.PendienteConfiguracion)
+    {
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+        var cliente = new Cliente
+        {
+            Nombre = "Test", Apellido = "Borrador", TipoDocumento = "DNI", NumeroDocumento = suffix,
+            PuntajeCliente = 5, NivelRiesgo = NivelRiesgoCredito.AprobadoTotal, IsDeleted = false
+        };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+
+        var credito = new Credito
+        {
+            ClienteId = cliente.Id, Numero = $"CRED{suffix}", Estado = estadoCredito,
+            MontoSolicitado = total, MontoAprobado = total, SaldoPendiente = total,
+            TasaInteres = 0, CantidadCuotas = 0, FechaSolicitud = actividadUtc, IsDeleted = false
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id, CreditoId = credito.Id, Numero = $"VTA{suffix}",
+            Estado = estadoVenta, TipoPago = TipoPago.CreditoPersonal, Total = total, IsDeleted = false,
+            CreatedAt = actividadUtc,
+            FechaConfiguracionCredito = estadoVenta == EstadoVenta.PendienteFinanciacion ? null : actividadUtc
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        // SaveChanges sella CreatedAt/UpdatedAt con la hora actual: se fija la ultima actividad con ExecuteUpdate.
+        await _context.Ventas.Where(v => v.Id == venta.Id).ExecuteUpdateAsync(s => s
+            .SetProperty(v => v.CreatedAt, actividadUtc).SetProperty(v => v.UpdatedAt, (DateTime?)null));
+        await _context.Creditos.Where(c => c.Id == credito.Id).ExecuteUpdateAsync(s => s
+            .SetProperty(c => c.CreatedAt, actividadUtc).SetProperty(c => c.UpdatedAt, (DateTime?)null));
+        _context.ChangeTracker.Clear();
+        return (venta, credito);
+    }
+
+    private async Task SetPlazoAsync(int? dias)
+    {
+        _context.ConfiguracionesCredito.RemoveRange(_context.ConfiguracionesCredito);
+        _context.ConfiguracionesCredito.Add(new ConfiguracionCredito { DiasVencimientoBorradorCredito = dias });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+    }
+
+    private async Task AssertSinCambiosAsync(Venta venta, Credito credito, EstadoVenta estadoVenta, EstadoCredito estadoCredito)
+    {
+        _context.ChangeTracker.Clear();
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == venta.Id);
+        var c = await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == credito.Id);
+        Assert.Equal(estadoVenta, v.Estado);
+        Assert.Equal(venta.CreditoId, v.CreditoId);
+        Assert.Equal(estadoCredito, c.Estado);
+        Assert.Equal(credito.SaldoPendiente, c.SaldoPendiente);
+    }
+
+    [Fact]
+    public async Task BorradorVencido_SeCancelaYLiberaCupo()
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-8), total: 4_000m);
+        Assert.Equal(4_000m, (await _disponible.CalcularDisponibleAsync(venta.ClienteId!.Value)).SaldoVigente);
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.True(resultado.Habilitado);
+        Assert.Equal(7, resultado.PlazoDias);
+        Assert.Equal(new[] { venta.Id }, resultado.VentasVencidasIds);
+        _context.ChangeTracker.Clear();
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == venta.Id);
+        var c = await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == credito.Id);
+        Assert.Equal(EstadoVenta.Cancelada, v.Estado);
+        Assert.NotNull(v.FechaCancelacion);
+        Assert.Contains("Borrador de crédito vencido", v.MotivoCancelacion);
+        Assert.Null(v.CreditoId);
+        Assert.Equal(EstadoCredito.Cancelado, c.Estado);
+        Assert.Equal(0m, c.SaldoPendiente);
+        var despues = await _disponible.CalcularDisponibleAsync(venta.ClienteId!.Value);
+        Assert.Equal(0m, despues.SaldoVigente);
+        Assert.Equal(LimitePuntaje5, despues.Disponible);
+    }
+
+    [Fact]
+    public async Task LimiteExactoDelPlazo_VenceUnSegundoAntesNo()
+    {
+        var (exacto, creditoExacto) = await SeedBorradorAsync(Ahora.AddDays(-7));
+        var (casi, creditoCasi) = await SeedBorradorAsync(Ahora.AddDays(-7).AddSeconds(1));
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Equal(new[] { exacto.Id }, resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(casi, creditoCasi, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Cancelada, (await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == exacto.Id)).Estado);
+        Assert.Equal(EstadoCredito.Cancelado, (await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == creditoExacto.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Idempotente_SegundaCorridaNoHaceNada()
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-10));
+
+        var primera = await _service.VencerBorradoresAsync(Ahora);
+        _context.ChangeTracker.Clear();
+        var tras1 = await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == credito.Id);
+        var ventaTras1 = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == venta.Id);
+        var segunda = await _service.VencerBorradoresAsync(Ahora);
+        _context.ChangeTracker.Clear();
+        var tras2 = await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == credito.Id);
+        var ventaTras2 = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == venta.Id);
+
+        Assert.Single(primera.VentasVencidasIds);
+        Assert.Empty(segunda.VentasVencidasIds);
+        Assert.Equal(0, segunda.Evaluados);
+        Assert.Equal(tras1.Observaciones, tras2.Observaciones);
+        Assert.Equal(ventaTras1.FechaCancelacion, ventaTras2.FechaCancelacion);
+        Assert.Equal(ventaTras1.MotivoCancelacion, ventaTras2.MotivoCancelacion);
+    }
+
+    [Fact]
+    public async Task SegundaInstanciaConCandidatoViejo_NoCancelaDosVeces()
+    {
+        // Simula dos instancias: la segunda evaluo al candidato antes de que la primera lo cancelara.
+        var (venta, _) = await SeedBorradorAsync(Ahora.AddDays(-10));
+        var limite = Ahora.AddDays(-7);
+
+        Assert.True(await _ventaService.VencerBorradorCreditoAsync(venta.Id, limite, "Primera"));
+        _context.ChangeTracker.Clear();
+        Assert.False(await _ventaService.VencerBorradorCreditoAsync(venta.Id, limite, "Segunda"));
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal("Primera", (await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == venta.Id)).MotivoCancelacion);
+    }
+
+    [Fact]
+    public async Task BorradorReciente_NoSeToca()
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-2));
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Empty(resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+    }
+
+    [Theory]
+    [InlineData(EstadoVenta.Presupuesto, EstadoCredito.Configurado)]
+    [InlineData(EstadoVenta.Confirmada, EstadoCredito.Generado)]
+    [InlineData(EstadoVenta.Facturada, EstadoCredito.Generado)]
+    [InlineData(EstadoVenta.Entregada, EstadoCredito.Activo)]
+    public async Task VentasConfiguradasOConfirmadas_NuncaSeTocan(EstadoVenta estadoVenta, EstadoCredito estadoCredito)
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-90), estadoVenta: estadoVenta, estadoCredito: estadoCredito);
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Empty(resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, estadoVenta, estadoCredito);
+    }
+
+    [Fact]
+    public async Task BorradorConCuotasGeneradas_NoSeToca()
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-30));
+        _context.Cuotas.Add(new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = 100m, MontoInteres = 0m, MontoTotal = 100m,
+            FechaVencimiento = Ahora.AddDays(30), Estado = EstadoCuota.Pendiente
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Empty(resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BorradorConMovimientoDeCaja_NoSeToca(bool esAnticipoPorCredito)
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-30));
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = _apertura.Id, FechaMovimiento = Ahora.AddDays(-29), Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.AnticipoCredito, Monto = 100m, Descripcion = "Anticipo",
+            Usuario = "u",
+            ReferenciaId = esAnticipoPorCredito ? credito.Id : null,
+            VentaId = esAnticipoPorCredito ? null : venta.Id
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Empty(resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+    }
+
+    [Fact]
+    public async Task BorradorConCreditoConfiguradoEnFecha_NoSeToca()
+    {
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-30));
+        await _context.Ventas.Where(v => v.Id == venta.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.FechaConfiguracionCredito, Ahora.AddDays(-29)));
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.Empty(resultado.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+    }
+
+    [Fact]
+    public async Task PlazoConfigurable_RespetaLaConfiguracion()
+    {
+        await SetPlazoAsync(30);
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-20));
+
+        var con30 = await _service.VencerBorradoresAsync(Ahora);
+        Assert.Equal(30, con30.PlazoDias);
+        Assert.Empty(con30.VentasVencidasIds);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+
+        await SetPlazoAsync(15);
+        var con15 = await _service.VencerBorradoresAsync(Ahora);
+        Assert.Equal(new[] { venta.Id }, con15.VentasVencidasIds);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public async Task PlazoNuloOCero_DesactivaElVencimiento(int? dias)
+    {
+        await SetPlazoAsync(dias);
+        var (venta, credito) = await SeedBorradorAsync(Ahora.AddDays(-365));
+
+        var resultado = await _service.VencerBorradoresAsync(Ahora);
+
+        Assert.False(resultado.Habilitado);
+        await AssertSinCambiosAsync(venta, credito, EstadoVenta.PendienteFinanciacion, EstadoCredito.PendienteConfiguracion);
+    }
+}

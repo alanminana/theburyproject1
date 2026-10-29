@@ -890,11 +890,19 @@ public class ProductoServiceTests : IDisposable
     // DeleteAsync
     // -------------------------------------------------------------------------
 
+    private async Task SinStockAsync(int productoId)
+    {
+        var p = await _context.Productos.FirstAsync(x => x.Id == productoId);
+        p.StockActual = 0m;
+        await _context.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Delete_ProductoExistente_SoftDelete()
     {
         var producto = await SeedProductoAsync();
 
+        await SinStockAsync(producto.Id);
         var resultado = await _service.DeleteAsync(producto.Id);
 
         Assert.True(resultado);
@@ -1075,6 +1083,7 @@ public class ProductoServiceTests : IDisposable
     public async Task GetAll_ExcluyeEliminados()
     {
         var producto = await SeedProductoAsync();
+        await SinStockAsync(producto.Id);
         await _service.DeleteAsync(producto.Id);
 
         var resultado = await _service.GetAllAsync();
@@ -1835,6 +1844,7 @@ public class ProductoServiceTests : IDisposable
         );
         await _context.SaveChangesAsync();
 
+        await SinStockAsync(producto.Id);
         await _service.DeleteAsync(producto.Id);
 
         _context.ChangeTracker.Clear();
@@ -1854,6 +1864,7 @@ public class ProductoServiceTests : IDisposable
         );
         await _context.SaveChangesAsync();
 
+        await SinStockAsync(producto.Id);
         await _service.DeleteAsync(producto.Id);
 
         _context.ChangeTracker.Clear();
@@ -1882,6 +1893,7 @@ public class ProductoServiceTests : IDisposable
     public async Task GetByIdParaHistorial_ProductoEliminado_RetornaProducto()
     {
         var producto = await SeedProductoAsync();
+        await SinStockAsync(producto.Id);
         await _service.DeleteAsync(producto.Id);
 
         var resultado = await _service.GetByIdParaHistorialAsync(producto.Id);

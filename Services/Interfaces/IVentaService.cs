@@ -80,6 +80,15 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<bool> ConfirmarVentaCreditoAsync(int id);
         Task<bool> CancelarVentaAsync(int id, string motivo);
+        /// <summary>
+        /// H2-C2: cancela un borrador de crédito abandonado (PendienteFinanciacion + crédito PendienteConfiguracion sin
+        /// ninguna operación real y sin actividad desde <paramref name="limiteActividadUtc"/>), liberando su cupo con la
+        /// misma lógica que <see cref="CancelarVentaAsync"/>. Devuelve false, sin efectos, si no es (o ya no es) elegible.
+        /// </summary>
+        Task<bool> VencerBorradorCreditoAsync(int ventaId, DateTime limiteActividadUtc, string motivo)
+        {
+            throw new NotImplementedException();
+        }
         Task AsociarCreditoAVentaAsync(int ventaId, int creditoId);
         Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel);
         Task<int?> AnularFacturaAsync(int facturaId, string motivo);
@@ -128,5 +137,12 @@ namespace TheBuryProject.Services.Interfaces
         /// Devuelve null si la venta no existe.
         /// </summary>
         Task<decimal?> GetTotalVentaAsync(int ventaId);
+
+        /// <summary>
+        /// H4-E2: notas de crédito del cliente que hoy podrían pagar una venta (vigentes o parcialmente usadas, con saldo
+        /// y no vencidas). La elegibilidad definitiva con el total de la venta la decide el backend al guardar/confirmar.
+        /// </summary>
+        Task<IReadOnlyList<Models.NotaCreditoDisponibleDto>> ObtenerNotasCreditoDisponiblesAsync(int clienteId)
+            => Task.FromResult<IReadOnlyList<Models.NotaCreditoDisponibleDto>>(Array.Empty<Models.NotaCreditoDisponibleDto>());
     }
 }
