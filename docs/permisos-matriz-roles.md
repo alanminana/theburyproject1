@@ -363,7 +363,6 @@ Sembrados y asignables desde Seguridad > Roles, pero ningún `[PermisoRequerido]
 | QuickCreate | POST | C:devoluciones.view & M:devoluciones.create | Authorize() |
 | Rechazar | POST | C:devoluciones.view & M:devoluciones.reject | Authorize() |
 | RMAs | GET* | C:devoluciones.view | Authorize() |
-| UtilizarNotaCredito | POST | C:devoluciones.view & M:notascredito.apply | Authorize() |
 
 ### DiagnosticoController
 

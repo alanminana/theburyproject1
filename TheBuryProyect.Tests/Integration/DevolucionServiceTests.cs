@@ -234,31 +234,6 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(stockAntes, (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).StockActual);
     }
 
-    [Theory]
-    [InlineData(EstadoVenta.Cotizacion, false)]
-    [InlineData(EstadoVenta.PendienteFinanciacion, false)]
-    [InlineData(EstadoVenta.Confirmada, true)]
-    [InlineData(EstadoVenta.Entregada, true)]
-    public async Task Utilizar_NotaCreditoDeDevolucion_SoloSiLaVentaSeConcreto(EstadoVenta estado, bool permitido)
-    {
-        // NC histórica emitida por una devolución cuando la venta aún no se había concretado.
-        var (cliente, _, venta) = await SeedVentaEnEstadoAsync(estado);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Aprobada);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, devolucionId: dev.Id);
-
-        if (permitido)
-        {
-            var usada = await _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA");
-            Assert.Equal(10m, usada.MontoUtilizado);
-        }
-        else
-        {
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UtilizarNotaCreditoAsync(nc.Id, 10m, "QA"));
-            Assert.Contains("no se concretó", ex.Message);
-            Assert.Equal(0m, (await _context.NotasCredito.AsNoTracking().FirstAsync(n => n.Id == nc.Id)).MontoUtilizado);
-        }
-    }
-
     // -------------------------------------------------------------------------
     // CrearDevolucionAsync — validaciones
     // -------------------------------------------------------------------------
@@ -601,7 +576,9 @@ public class DevolucionServiceTests : IDisposable
 
         var aprobada = await _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion);
         var nc = await _context.NotasCredito.SingleAsync(n => n.DevolucionId == dev.Id);
-        await _service.UtilizarNotaCreditoAsync(nc.Id, 10m);
+        nc.MontoUtilizado = 10m;
+        nc.Estado = EstadoNotaCredito.UtilizadaParcialmente;
+        await _context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RechazarDevolucionAsync(dev.Id, "Motivo", aprobada.RowVersion));
@@ -1252,98 +1229,6 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal($"NC-{DateTime.UtcNow:yyyyMM}-{resultado.Id:D6}", resultado.NumeroNotaCredito);
         Assert.Equal(EstadoNotaCredito.Vigente, resultado.Estado);
         Assert.Equal(0m, resultado.MontoUtilizado);
-    }
-
-    // -------------------------------------------------------------------------
-    // UtilizarNotaCreditoAsync
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task Utilizar_Parcial_DescuentaSaldoYRegistraReferencia()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 40m, "aplicada en venta V-000123");
-
-        Assert.Equal(40m, resultado.MontoUtilizado);
-        Assert.Equal(60m, resultado.MontoDisponible);
-        Assert.Equal(EstadoNotaCredito.UtilizadaParcialmente, resultado.Estado);
-        Assert.Contains("V-000123", resultado.Observaciones);
-    }
-
-    [Fact]
-    public async Task Utilizar_TotalDelSaldo_MarcaUtilizadaTotalmente()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 100m);
-
-        Assert.Equal(0m, resultado.MontoDisponible);
-        Assert.Equal(EstadoNotaCredito.UtilizadaTotalmente, resultado.Estado);
-    }
-
-    [Fact]
-    public async Task Utilizar_MontoCeroONegativo_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 0m));
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, -5m));
-    }
-
-    [Fact]
-    public async Task Utilizar_SaldoInsuficiente_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 150m));
-    }
-
-    [Fact]
-    public async Task Utilizar_Vencida_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
-            vencimiento: DateTime.UtcNow.AddDays(-1));
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
-    }
-
-    [Fact]
-    public async Task Utilizar_EstadoCancelada_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync();
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
-        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
-        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
-            estado: EstadoNotaCredito.Cancelada);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
     }
 
     // -------------------------------------------------------------------------
