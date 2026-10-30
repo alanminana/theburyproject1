@@ -298,6 +298,9 @@ namespace TheBuryProject.Services
 
                 var envioServicio = await AplicarServiciosAsync(venta, viewModel);
                 CalcularTotales(venta, envioServicio);
+                // H10 (D4): Efectivo/Transferencia cobran el plan de 1 pago configurado, igual que la venta del cotizador.
+                await AplicarAjusteMedioUnPagoAsync(venta);
+                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -933,20 +936,9 @@ namespace TheBuryProject.Services
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             await SincronizarDatosChequeEdicionAsync(venta, viewModel);
-            // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
-            // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
-            venta.AjusteMedioPagoPorcentaje = null;
-            venta.AjusteMedioPagoMonto = null;
-            if (venta.CotizacionOrigenId.HasValue && AjusteMedioUnPago.Aplica(viewModel.TipoPago))
-            {
-                var ajusteMedio = await AjusteMedioUnPago.ResolverAsync(_context, viewModel.TipoPago, venta.Total);
-                if (ajusteMedio != null)
-                {
-                    venta.AjusteMedioPagoPorcentaje = ajusteMedio.PorcentajeAjuste;
-                    venta.AjusteMedioPagoMonto = ajusteMedio.MontoAjuste;
-                    venta.Total = ajusteMedio.TotalFinal;
-                }
-            }
+            // CalcularTotales volvió a la base de lista, así que se reaplica (una sola vez) el descuento/recargo de
+            // Efectivo/Transferencia: la misma regla que Create y que la conversión de la cotización (H10, D4).
+            await AplicarAjusteMedioUnPagoAsync(venta);
             DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
             SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
@@ -2094,8 +2086,18 @@ namespace TheBuryProject.Services
 
             if (!await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(venta.Id))
             {
-                throw new InvalidOperationException(
-                    "Debe generar e imprimir el Contrato de Venta antes de continuar.");
+                // H10: contrato ya emitido (PDF verificado en la base) pero sin archivo en el servidor (copia restaurada sin
+                // App_Data, otro directorio de contenido). No es "falta generarlo": se regenera desde sus datos guardados.
+                var archivoPerdido = await _context.ContratosVentaCredito.AsNoTracking().AnyAsync(c =>
+                    c.VentaId == venta.Id
+                    && c.EstadoDocumento == EstadoDocumento.Verificado
+                    && c.RutaArchivo != null && c.RutaArchivo != string.Empty);
+
+                throw new InvalidOperationException(archivoPerdido
+                    ? "El contrato de esta venta figura emitido, pero su archivo PDF no está disponible en el servidor " +
+                      "(por ejemplo, tras restaurar una copia sin la carpeta de contratos). Abrí «Ver contrato» en " +
+                      "el detalle de la venta, generalo de nuevo y reintentá."
+                    : "Debe generar e imprimir el Contrato de Venta antes de continuar.");
             }
 
             // Reglas documentales que exigen firma para continuar (configurable por regla, apagado por defecto).
@@ -3136,7 +3138,31 @@ namespace TheBuryProject.Services
             var plan = await ValidarYObtenerPlanPagoGlobalAsync(configuracionPagoPlanId, tipoPago, configuracionTarjetaId);
 
             if (plan == null)
+            {
+                // H10 (D4): Efectivo/Transferencia no eligen plan; el servidor aplica el de 1 pago configurado (como Create).
+                var ajusteUnPago = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, response.Total);
+                if (ajusteUnPago != null)
+                {
+                    response.AjustePagoGlobalAplicado = ajusteUnPago.MontoAjuste;
+                    response.PorcentajeAjustePagoGlobalAplicado = ajusteUnPago.PorcentajeAjuste;
+                    response.TotalConAjustePagoGlobal = ajusteUnPago.TotalFinal;
+                    response.Total = ajusteUnPago.TotalFinal;
+
+                    // Misma discriminacion en neto e IVA que Create (DiscriminarRecargoEnNetoEIva): Subtotal + IVA = Total.
+                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total };
+                    DiscriminarRecargoEnNetoEIva(ventaPreview, response.Detalles.Select(d => new VentaDetalle
+                    {
+                        PorcentajeIVA = d.PorcentajeIVA,
+                        SubtotalFinal = d.SubtotalFinal,
+                        SubtotalFinalNeto = d.SubtotalFinalNeto,
+                        SubtotalFinalIVA = d.SubtotalFinalIVA
+                    }));
+                    response.Subtotal = ventaPreview.Subtotal;
+                    response.IVA = ventaPreview.IVA;
+                }
+
                 return response;
+            }
 
             var resultado = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
             {
@@ -3808,6 +3834,30 @@ namespace TheBuryProject.Services
         {
             var deIva = Math.Min(truncado, iva);
             return (subtotal - (truncado - deIva), iva - deIva);
+        }
+
+        /// <summary>
+        /// H10 (D4 de docs/iva-recargos-verificacion.md). Aplica sobre <see cref="Venta.Total"/> (base limpia, recién salida de
+        /// <c>CalcularTotales</c>) el descuento o recargo del plan general de 1 pago de Efectivo / Transferencia: misma fuente
+        /// (<see cref="AjusteMedioUnPago"/>) que usa la conversión de una cotización, de modo que una venta directa y una venta
+        /// cotizada con el mismo medio cobran el mismo importe. Deja el porcentaje y el monto persistidos (los lee la caja y el
+        /// comprobante) o ambos en null si no hay plan, el ajuste es 0 o el medio no es Efectivo/Transferencia. No es idempotente
+        /// sobre un Total ya ajustado: se llama una vez por operación, justo después de <c>CalcularTotales</c>.
+        /// </summary>
+        private async Task AplicarAjusteMedioUnPagoAsync(Venta venta)
+        {
+            venta.AjusteMedioPagoPorcentaje = null;
+            venta.AjusteMedioPagoMonto = null;
+            if (!AjusteMedioUnPago.Aplica(venta.TipoPago))
+                return;
+
+            var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, venta.TipoPago, venta.Total);
+            if (ajuste == null)
+                return;
+
+            venta.AjusteMedioPagoPorcentaje = ajuste.PorcentajeAjuste;
+            venta.AjusteMedioPagoMonto = ajuste.MontoAjuste;
+            venta.Total = ajuste.TotalFinal;
         }
 
         /// <summary>

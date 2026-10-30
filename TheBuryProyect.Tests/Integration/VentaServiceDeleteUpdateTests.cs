@@ -388,12 +388,13 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     // Codex #139: CalcularTotales vuelve a la base de lista; una venta nacida del cotizador debe reaplicar el
-    // descuento de Efectivo cotizado, y una venta sin cotización de origen no debe cambiar de precio.
+    // descuento de Efectivo cotizado. H10 (D4): la venta directa aplica el mismo plan (antes quedaba a precio de lista),
+    // así que ambos orígenes cobran lo mismo.
     [Theory]
     [InlineData(true, 950)]
-    [InlineData(false, 1_000)]
+    [InlineData(false, 950)]
     [Trait("Category", "PagosAbm")]
-    public async Task UpdateAsync_Efectivo_ReaplicaElDescuentoCotizadoSoloSiVieneDelCotizador(bool deCotizacion, int totalEsperado)
+    public async Task UpdateAsync_Efectivo_ReaplicaElDescuentoDelPlanSeaDeCotizacionODirecta(bool deCotizacion, int totalEsperado)
     {
         var cliente = await SeedClienteAsync();
         var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
@@ -420,8 +421,8 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.Equal((decimal)totalEsperado, resultado!.Total);
 
         var guardada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == ventaOriginal.Id);
-        Assert.Equal(deCotizacion ? -5m : null, guardada.AjusteMedioPagoPorcentaje);
-        Assert.Equal(deCotizacion ? -50m : null, guardada.AjusteMedioPagoMonto);
+        Assert.Equal(-5m, guardada.AjusteMedioPagoPorcentaje);
+        Assert.Equal(-50m, guardada.AjusteMedioPagoMonto);
     }
 
     [Fact]

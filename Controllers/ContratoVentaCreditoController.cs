@@ -153,6 +153,17 @@ namespace TheBuryProject.Controllers
             var archivo = await _contratoService.ObtenerPdfAsync(ventaId);
             if (archivo == null)
             {
+                // H10: el contrato figura emitido (PDF verificado en la base) pero el archivo no está en el servidor (copia
+                // restaurada sin App_Data). Sin esto el operador quedaba en Details sin ningún camino para regenerarlo, y
+                // la factura de la venta a crédito seguía bloqueada. Preparar ofrece "Generar PDF" (regenera desde el snapshot).
+                var registrado = await _contratoService.ObtenerContratoPorVentaAsync(ventaId);
+                if (registrado != null && !string.IsNullOrWhiteSpace(registrado.RutaArchivo))
+                {
+                    TempData["Error"] = "El contrato figura emitido, pero su archivo PDF no está disponible en el servidor. " +
+                                        "Generá el PDF de nuevo para poder verlo, confirmar o facturar la venta.";
+                    return RedirectToAction(nameof(Preparar), new { ventaId });
+                }
+
                 TempData["Error"] = "Contrato no encontrado. Genere el contrato antes de visualizarlo.";
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }

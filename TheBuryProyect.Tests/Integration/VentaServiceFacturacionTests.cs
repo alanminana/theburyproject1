@@ -209,6 +209,27 @@ public class VentaServiceFacturacionTests : IDisposable
         _context.ChangeTracker.Clear();
     }
 
+    private async Task SeedContratoRegistradoAsync(int ventaId, EstadoDocumento estado, string? ruta)
+    {
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var plantilla = new PlantillaContratoCredito
+        {
+            Nombre = "Plantilla " + ventaId, NombreVendedor = "V", DomicilioVendedor = "D", CiudadFirma = "C",
+            Jurisdiccion = "J", TextoContrato = "t", TextoPagare = "p"
+        };
+        _context.PlantillasContratoCredito.Add(plantilla);
+        await _context.SaveChangesAsync();
+        _context.ContratosVentaCredito.Add(new ContratoVentaCredito
+        {
+            VentaId = ventaId, CreditoId = v.CreditoId!.Value, ClienteId = v.ClienteId!.Value,
+            PlantillaContratoCreditoId = plantilla.Id, NumeroContrato = "CVC-" + ventaId, NumeroPagare = "PAG-" + ventaId,
+            UsuarioGeneracion = "testuser", EstadoDocumento = estado, RutaArchivo = ruta,
+            TextoContratoSnapshot = "t", TextoPagareSnapshot = "p", DatosSnapshotJson = "{}"
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+    }
+
     private async Task<Venta> SeedVentaConfirmada(
         TipoPago tipoPago = TipoPago.Efectivo,
         EstadoVenta estado = EstadoVenta.Confirmada,
@@ -348,6 +369,77 @@ public class VentaServiceFacturacionTests : IDisposable
 
         Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
         Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
+    }
+
+    // H10: el contrato figura generado en la base pero su PDF no está en el servidor (copia restaurada sin App_Data, otro
+    // contentRoot). Antes decía "Debe generar e imprimir el Contrato", como si nunca se hubiera generado, y nadie sabía
+    // que bastaba regenerar el archivo. Sigue bloqueando la factura, pero con la causa y el camino correctos.
+    [Fact]
+    public async Task Facturar_CreditoPersonalConContratoRegistradoSinArchivo_ExplicaQueFaltaElPdfYNoFactura()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id);
+        await SeedContratoRegistradoAsync(venta.Id, EstadoDocumento.Verificado, "App_Data/contratos-venta-credito/x/CVC-1.pdf");
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+        var serviceSinArchivo = CreateService(
+            new StubCajaServiceFacturacion(_context.AperturasCaja.First(), _movimientoCajaRegistrado),
+            existeContratoGenerado: false);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            serviceSinArchivo.FacturarVentaAsync(venta.Id, facturaVm));
+
+        Assert.Contains("archivo PDF", ex.Message);
+        Assert.Contains("Ver contrato", ex.Message);
+        Assert.NotEqual("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
+        Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
+        Assert.Equal(EstadoVenta.Confirmada, (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id)).Estado);
+    }
+
+    // Un contrato a medio generar (sin PDF verificado) mantiene el mensaje original: lo que falta es generarlo.
+    [Fact]
+    public async Task Facturar_CreditoPersonalConContratoPendienteSinPdf_MantieneElMensajeDeGenerar()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        await AdjuntarCreditoGeneradoAsync(venta.Id);
+        await SeedContratoRegistradoAsync(venta.Id, EstadoDocumento.Pendiente, null);
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+        var serviceSinArchivo = CreateService(
+            new StubCajaServiceFacturacion(_context.AperturasCaja.First(), _movimientoCajaRegistrado),
+            existeContratoGenerado: false);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            serviceSinArchivo.FacturarVentaAsync(venta.Id, facturaVm));
+
+        Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
+    }
+
+    // H10: la factura de una venta a crédito personal cubre solo los ítems (Venta.Total); el interés de financiación vive
+    // en Credito.TotalAPagar y queda fuera (criterio IVA D1 provisional). Con una venta de cotización antigua (Subtotal
+    // con IVA incluido) el comprobante igual cierra: neto + IVA == total.
+    [Fact]
+    public async Task Facturar_CreditoPersonalConInteres_FacturaSoloLosItemsYCierraNetoMasIva()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal, subtotal: 39_282m, iva: 6_817.53m, total: 39_282m);
+        var producto = await SeedProductoConComisionAsync(0m);
+        _context.VentaDetalles.Add(new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 39_282m, Subtotal = 39_282m,
+            SubtotalFinal = 39_282m, PorcentajeIVA = 21m, SubtotalFinalNeto = 32_464.46m, SubtotalFinalIVA = 6_817.54m
+        });
+        await _context.SaveChangesAsync();
+        await AdjuntarCreditoGeneradoAsync(venta.Id);
+        // Interés de financiación: 4 cuotas con 8 % sobre 39.282 => TotalAPagar 42.424,56 (fuera de la factura de venta).
+        await _context.Creditos.Where(c => c.Numero == "CRF" + venta.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.TotalAPagar, 42_424.56m));
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+        Assert.True(await _service.FacturarVentaAsync(venta.Id, facturaVm));
+
+        _context.ChangeTracker.Clear();
+        var factura = await _context.Facturas.AsNoTracking().SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(39_282m, factura.Total);
+        Assert.Equal(factura.Total, factura.Subtotal + factura.IVA);
+        Assert.True(factura.IVA > 0m && factura.Subtotal < factura.Total);
     }
 
     // FIN-S-002 (O1): lista explícita de estados de crédito facturables.
