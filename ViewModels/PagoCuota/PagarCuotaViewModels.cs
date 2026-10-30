@@ -16,9 +16,9 @@ public sealed class PagarCuotaInputModel
     // convertir a decimal y el tag helper de input revienta al generar los atributos de
     // validación cliente — la pantalla entera devuelve HTTP 500. Mismo patrón de defensa que
     // DecimalModelBinder / DateOnlyModelBinder.
-    [Range(typeof(decimal), "0.01", "79228162514264337593543950335",
+    [Range(typeof(decimal), "0.01", "20000000",
         ParseLimitsInInvariantCulture = true,
-        ErrorMessage = "El importe debe ser mayor a cero.")]
+        ErrorMessage = "El importe debe ser mayor a cero y no superar 20.000.000.")]
     [ModelBinder(typeof(DecimalModelBinder))]
     [TheBuryProject.Validation.MontoSinAmbiguedad]
     public decimal MontoIngresado { get; set; }

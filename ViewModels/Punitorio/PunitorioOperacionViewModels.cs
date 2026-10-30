@@ -12,6 +12,7 @@ namespace TheBuryProject.ViewModels.Punitorio
         private string? _motivo;
 
         [Required(ErrorMessage = "El motivo es obligatorio.")]
+        [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
         public string? Motivo
         {
             get => _motivo;
@@ -31,6 +32,7 @@ namespace TheBuryProject.ViewModels.Punitorio
         private string? _motivo;
 
         [Required(ErrorMessage = "El motivo es obligatorio.")]
+        [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
         public string? Motivo
         {
             get => _motivo;

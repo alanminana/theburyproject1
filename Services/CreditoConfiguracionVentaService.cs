@@ -230,6 +230,17 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     : MotivoRechazoConfiguracionCredito.SolicitudInvalida);
         }
 
+        // La 1ª cuota no puede vencer en el pasado (nacería vencida) ni a más de ~13 meses (error de tipeo de año).
+        var errorFechaPrimeraCuota = ErrorFechaPrimeraCuota(modelo.FechaPrimeraCuota, _reloj.HoyComercial);
+        if (errorFechaPrimeraCuota is not null)
+        {
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.FechaPrimeraCuota),
+                errorFechaPrimeraCuota,
+                rangoEfectivo,
+                MotivoRechazoConfiguracionCredito.SolicitudInvalida);
+        }
+
         // F2: la decisión de cobrar la primera cuota solo es legítima si la 1ª cuota vence en la
         // fecha comercial actual (Argentina) y el medio es válido. El servidor NO confía en el
         // payload: si no vence hoy o el medio es inválido, la opción se descarta (no se persiste).
@@ -299,6 +310,20 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
     /// <summary>
     /// Gates sobre el plan de la cantidad de cuotas pedida. Devuelve null si el plan es utilizable.
     /// </summary>
+    internal static string? ErrorFechaPrimeraCuota(DateTime? fecha, DateOnly hoyComercial)
+    {
+        if (!fecha.HasValue)
+            return "Debe indicar la fecha de la primera cuota.";
+
+        var dia = DateOnly.FromDateTime(fecha.Value);
+        if (dia < hoyComercial)
+            return "La fecha de la primera cuota no puede ser anterior a hoy.";
+        if (dia > hoyComercial.AddDays(400))
+            return "La fecha de la primera cuota no puede superar los 400 días desde hoy.";
+
+        return null;
+    }
+
     private static CreditoConfiguracionVentaResultado? ValidarPlanSeleccionado(
         ConfiguracionCreditoVentaViewModel modelo,
         PlanesCreditoPersonalResultado planesVenta,
