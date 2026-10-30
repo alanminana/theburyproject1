@@ -1074,4 +1074,59 @@ public class OrdenCompraServiceTests : IDisposable
         orden.Detalles!.First().Cantidad = 0;
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(orden));
     }
+
+    // -------------------------------------------------------------------------
+    // H9-M6: cancelación / baja de una orden con recepción parcial
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Cancelar_ConRecepcionParcial_ConservaStockYMovimientos()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, cantidad: 10, estado: EstadoOrdenCompra.Confirmada);
+        var detalleId = orden.Detalles.Single().Id;
+        await _service.RecepcionarAsync(orden.Id, orden.RowVersion,
+            new List<RecepcionDetalleViewModel> { new() { DetalleId = detalleId, CantidadARecepcionar = 4 } });
+
+        Assert.True(await _service.CambiarEstadoAsync(orden.Id, EstadoOrdenCompra.Cancelada));
+
+        _context.ChangeTracker.Clear();
+        var final = await _context.OrdenesCompra.Include(o => o.Detalles).SingleAsync(o => o.Id == orden.Id);
+        Assert.Equal(EstadoOrdenCompra.Cancelada, final.Estado);
+        Assert.Equal(4, final.Detalles.Single().CantidadRecibida);
+        Assert.Null(final.FechaRecepcion);
+        Assert.Equal(4m, (await _context.Productos.SingleAsync(p => p.Id == producto.Id)).StockActual);
+        Assert.Single(await _context.MovimientosStock.Where(m => m.OrdenCompraId == orden.Id).ToListAsync());
+        // Cancelada es terminal: no admite nuevas recepciones.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecepcionarAsync(orden.Id, final.RowVersion,
+            new List<RecepcionDetalleViewModel> { new() { DetalleId = detalleId, CantidadARecepcionar = 1 } }));
+    }
+
+    [Fact]
+    public async Task Eliminar_OrdenCanceladaConRecepcionParcial_SeRechazaYElNumeroNoSeLibera()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, cantidad: 10, estado: EstadoOrdenCompra.Confirmada);
+        await _service.RecepcionarAsync(orden.Id, orden.RowVersion,
+            new List<RecepcionDetalleViewModel> { new() { DetalleId = orden.Detalles.Single().Id, CantidadARecepcionar = 4 } });
+        await _service.CambiarEstadoAsync(orden.Id, EstadoOrdenCompra.Cancelada);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(orden.Id));
+        Assert.Contains("recepcionada", ex.Message);
+
+        Assert.True(await _service.NumeroOrdenExisteAsync(orden.Numero));
+    }
+
+    [Fact]
+    public async Task Eliminar_OrdenCanceladaSinRecepcion_SigueSiendoPosible()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Borrador);
+        await _service.CambiarEstadoAsync(orden.Id, EstadoOrdenCompra.Cancelada);
+
+        Assert.True(await _service.DeleteAsync(orden.Id));
+    }
 }
