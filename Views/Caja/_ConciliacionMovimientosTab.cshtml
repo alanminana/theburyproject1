@@ -1,4 +1,4 @@
-@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+﻿@model TheBuryProject.ViewModels.CajaConciliacionViewModel
 @{
     var movimientos = Model.Movimientos;
     var usuarios = movimientos.Select(m => m.Usuario).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().OrderBy(u => u).ToList();
@@ -91,7 +91,7 @@
                                         }
                                         @if (m.EsChequeRecibido)
                                         {
-                                            @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(m.MovimientoId, m.ChequeAcreditable, m.ChequeRechazable, "apertura"))
+                                            @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(m.ChequeAccionMovimientoId, m.ChequeAcreditable, m.ChequeRechazable, "apertura"))
                                         }
                                     </td>
                                     <td>

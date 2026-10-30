@@ -1,4 +1,4 @@
-// FILE: Controllers/CajaController.cs
+﻿// FILE: Controllers/CajaController.cs
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -699,7 +699,11 @@ namespace TheBuryProject.Controllers
                 ? RedirectToAction(nameof(Cheques))
                 : RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
 
-        /// <summary>Completa en cada fila de movimiento los datos de cheque recibido: marca de rechazo y acciones disponibles.</summary>
+        /// <summary>
+        /// Completa en cada fila de movimiento los datos de cheque recibido: marca de rechazo y acciones disponibles. El asiento
+        /// de acreditación de una caja vigente (AcreditacionCheque) también es accionable: sus acciones operan sobre el cheque
+        /// ORIGINAL (<see cref="MovimientoCajaLineaViewModel.ChequeAccionMovimientoId"/>), que vive en una caja ya cerrada.
+        /// </summary>
         private async Task AdjuntarChequesAsync(CajaConciliacionViewModel modelo)
         {
             var ids = modelo.Movimientos.Select(m => m.MovimientoId).ToList();
@@ -707,38 +711,56 @@ namespace TheBuryProject.Controllers
 
             var filas = await _context.MovimientosCaja.AsNoTracking()
                 .Where(m => ids.Contains(m.Id))
-                .Select(m => new { m.Id, m.Tipo, m.Concepto, m.TipoPago, m.VentaId, m.EstadoAcreditacion })
+                .Select(m => new { m.Id, m.Tipo, m.Concepto, m.TipoPago, m.VentaId, m.EstadoAcreditacion, m.MovimientoOrigenId })
                 .ToListAsync();
-            var cheques = filas.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
-                && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
-                    || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque))).ToList();
-            if (cheques.Count == 0) return;
 
-            var chequeIds = cheques.Select(c => c.Id).ToList();
-            var ventaIds = cheques.Where(c => c.VentaId.HasValue).Select(c => c.VentaId!.Value).Distinct().ToList();
+            // Fila -> id del cheque original sobre el que operan sus acciones (null = la fila no es de un cheque recibido).
+            var origenPorFila = new Dictionary<int, int>();
+            foreach (var m in filas)
+            {
+                var esOriginal = m.Tipo == TipoMovimientoCaja.Ingreso
+                    && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
+                        || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque));
+                if (esOriginal)
+                    origenPorFila[m.Id] = m.Id;
+                else if (m.Concepto == ConceptoMovimientoCaja.AcreditacionCheque && m.MovimientoOrigenId.HasValue)
+                    origenPorFila[m.Id] = m.MovimientoOrigenId.Value;
+            }
+            if (origenPorFila.Count == 0) return;
+
+            var origenIds = origenPorFila.Values.Distinct().ToList();
+            var origenes = await _context.MovimientosCaja.AsNoTracking()
+                .Where(m => origenIds.Contains(m.Id))
+                .Select(m => new { m.Id, m.VentaId, m.EstadoAcreditacion })
+                .ToDictionaryAsync(m => m.Id);
+            var ventaIds = origenes.Values.Where(o => o.VentaId.HasValue).Select(o => o.VentaId!.Value).Distinct().ToList();
             var ventasRechazadas = (await _context.DatosCheque.AsNoTracking()
                     .Where(d => ventaIds.Contains(d.VentaId) && !d.IsDeleted && d.RechazadoAt != null)
                     .Select(d => d.VentaId).ToListAsync()).ToHashSet();
             var conRechazoPostAcreditacion = (await _context.MovimientosCaja.AsNoTracking()
                     .Where(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque && !m.IsDeleted
-                             && m.MovimientoOrigenId != null && chequeIds.Contains(m.MovimientoOrigenId.Value))
+                             && m.MovimientoOrigenId != null && origenIds.Contains(m.MovimientoOrigenId.Value))
                     .Select(m => m.MovimientoOrigenId!.Value).ToListAsync()).ToHashSet();
 
             var puedeEditar = _currentUser.HasPermission("caja", "edit");
             var operable = modelo.PuedeOperar && !modelo.EstaCerrada && puedeEditar;
-            var porId = cheques.ToDictionary(c => c.Id);
             foreach (var linea in modelo.Movimientos)
             {
-                if (!porId.TryGetValue(linea.MovimientoId, out var c)) continue;
+                if (!origenPorFila.TryGetValue(linea.MovimientoId, out var origenId) || !origenes.TryGetValue(origenId, out var o))
+                    continue;
+
+                var esAsientoDeAcreditacion = origenId != linea.MovimientoId;
                 linea.EsChequeRecibido = true;
-                linea.ChequeRechazado = c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado
-                    || conRechazoPostAcreditacion.Contains(c.Id)
-                    || (c.VentaId.HasValue && ventasRechazadas.Contains(c.VentaId.Value));
-                linea.ChequeAcreditable = operable && !linea.ChequeRechazado
-                    && c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente;
+                linea.ChequeAccionMovimientoId = origenId;
+                linea.ChequeRechazado = o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado
+                    || conRechazoPostAcreditacion.Contains(origenId)
+                    || (o.VentaId.HasValue && ventasRechazadas.Contains(o.VentaId.Value));
+                // El asiento de acreditación solo se rechaza (el cheque ya está acreditado); el original, según su estado.
+                linea.ChequeAcreditable = operable && !esAsientoDeAcreditacion && !linea.ChequeRechazado
+                    && o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente;
                 linea.ChequeRechazable = operable && !linea.ChequeRechazado
-                    && (c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
-                        || c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado);
+                    && (o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
+                        || o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado);
             }
         }
 

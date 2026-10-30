@@ -79,8 +79,28 @@ namespace TheBuryProject.Services
             return resultado;
         }
 
-        private static bool EsConflictoDeConcurrencia(Exception ex) =>
-            ex is DbUpdateConcurrencyException || ex is DbUpdateException;
+        private const string IndiceUnicoAsientoCheque = "IX_MovimientosCaja_MovimientoOrigenId_Concepto";
+
+        /// <summary>
+        /// Conflicto REAL con otra operación sobre el mismo cheque: token de concurrencia vencido o violación del índice único
+        /// (origen, concepto). Cualquier otro error de persistencia (FK, truncamiento, timeout) NO es un duplicado y se propaga.
+        /// </summary>
+        private static bool EsConflictoDeConcurrencia(Exception ex)
+        {
+            if (ex is DbUpdateConcurrencyException)
+                return true;
+            if (ex is not DbUpdateException)
+                return false;
+
+            for (Exception? actual = ex; actual != null; actual = actual.InnerException)
+            {
+                if (actual.Message.Contains(IndiceUnicoAsientoCheque, StringComparison.OrdinalIgnoreCase)
+                    || actual.Message.Contains("UNIQUE constraint failed: MovimientosCaja.MovimientoOrigenId", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
 
         // ------------------------------------------------------------------ acreditar
 

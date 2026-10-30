@@ -234,6 +234,8 @@ public class MovimientoCajaLineaViewModel
     public bool EsChequeRecibido { get; set; }
     /// <summary>El cheque fue rechazado por el banco: la operación queda pendiente de regularización.</summary>
     public bool ChequeRechazado { get; set; }
+    /// <summary>Movimiento del cheque ORIGINAL sobre el que operan las acciones (en el asiento de acreditación difiere del id de la fila).</summary>
+    public int ChequeAccionMovimientoId { get; set; }
     public bool ChequeAcreditable { get; set; }
     public bool ChequeRechazable { get; set; }
     public int AperturaId { get; set; }

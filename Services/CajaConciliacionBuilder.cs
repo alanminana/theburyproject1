@@ -300,6 +300,10 @@ public static class CajaConciliacionBuilder
     /// </summary>
     private static CategoriaImpactoCaja CategoriaImpactoMovimiento(MovimientoCaja m, string medioLabel)
     {
+        // Acreditación y rechazo de un cheque ya son movimientos bancarios (no "a acreditar"): saldo en cuenta, no caja física.
+        if (m.Concepto is ConceptoMovimientoCaja.AcreditacionCheque or ConceptoMovimientoCaja.RechazoCheque)
+            return CategoriaImpactoCaja.CuentaBancaria;
+
         var key = m.TipoPago.HasValue ? MedioKey(m.TipoPago.Value) : MedioKey(medioLabel);
         return key switch
         {
