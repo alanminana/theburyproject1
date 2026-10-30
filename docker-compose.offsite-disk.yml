@@ -1,0 +1,14 @@
+# Overlay opcional: copia externa a un DISCO / NAS / carpeta de red montada en el host (rclone backend `local`).
+# Monta el directorio del host indicado en BACKUP_OFFSITE_DISK_DIR dentro de los contenedores rclone como /offsite-disk.
+# Uso (ver docs/backup-restore.md §6.1):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.offsite-disk.yml   (en el entorno de cron/Task Scheduler)  -- o --
+#   docker compose -f docker-compose.yml -f docker-compose.offsite-disk.yml ...
+# Con `backup-offsite.env`: RCLONE_CONFIG_OFFSITE_TYPE=local  y  BACKUP_REMOTE=secure:erp (crypt sobre offsite:/offsite-disk/erp).
+# El directorio debe ser OTRO disco/equipo (no el volumen de datos ni BACKUP_DIR): si no, no protege de perder el servidor.
+services:
+  backup-offsite:
+    volumes:
+      - ${BACKUP_OFFSITE_DISK_DIR:?Definir BACKUP_OFFSITE_DISK_DIR (directorio del host del disco externo/NAS)}:/offsite-disk
+  restore-offsite:
+    volumes:
+      - ${BACKUP_OFFSITE_DISK_DIR:?Definir BACKUP_OFFSITE_DISK_DIR (directorio del host del disco externo/NAS)}:/offsite-disk

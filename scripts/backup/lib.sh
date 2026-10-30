@@ -76,6 +76,8 @@ load_config() {
 
   BACKUP_REMOTE=$(cfg BACKUP_REMOTE "")
   BACKUP_REQUIRE_OFFSITE=$(cfg BACKUP_REQUIRE_OFFSITE false)
+  BACKUP_OFFSITE_MARKER=$(cfg BACKUP_OFFSITE_MARKER "")   # archivo centinela en el remoto (ver docs/backup-restore.md §6.1)
+  [[ -z "$BACKUP_OFFSITE_MARKER" || "$BACKUP_OFFSITE_MARKER" =~ ^[A-Za-z0-9._-]+$ ]] || die $EX_USAGE "BACKUP_OFFSITE_MARKER invalido (solo letras, digitos, . _ -)"
   BACKUP_INCLUDE_CADDY=$(cfg BACKUP_INCLUDE_CADDY true)
   BACKUP_STOP_APP=$(cfg BACKUP_STOP_APP true)
   BACKUP_SQL_COMPRESSION=$(cfg BACKUP_SQL_COMPRESSION auto)   # auto | on | off
@@ -119,6 +121,12 @@ sanitize_text() {
     <<<"$input"
 }
 
+# Causa legible de un fallo de rclone: descarta las lineas NOTICE (config no encontrada, host key, ...) que antes ocupaban los
+# primeros 300 caracteres y ocultaban el error real (connection refused, permission denied, ...). Sanitiza y recorta.
+rclone_errtext() { # rclone_errtext <salida de rclone>
+  { grep -v ' NOTICE: ' <<<"$1" || true; } | tr '\n' ' ' | sanitize_text | cut -c1-300
+}
+
 # rclone check con el servicio dado. Si el remoto no tiene hash comun con el local (p.ej. SFTP sin shell), `check` solo compara
 # TAMAÑO: en ese caso se repite con --download (compara byte a byte) para no declarar "verificado" algo que solo coincide en tamaño.
 # rclone_verify <servicio> <origen> <destino> [args rclone...]   -> 0 ok, !=0 diferencias/error. Deja el detalle en $RCLONE_ERR.
@@ -131,7 +139,7 @@ rclone_verify() {
     log INFO "  el remoto no expone hash comun: verificacion byte a byte (rclone check --download)"
     rc=0; out=$(dc run --rm -T --no-deps --quiet-pull "$svc" check "$src" "$dst" --one-way --download "$@" 2>&1) || rc=$?
   fi
-  RCLONE_ERR=$(tr '\n' ' ' <<<"$out" | sanitize_text | cut -c1-300)
+  RCLONE_ERR=$(rclone_errtext "$out")
   return $rc
 }
 
