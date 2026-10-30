@@ -810,8 +810,11 @@ namespace TheBuryProject.Services
                              && (m.EstadoAcreditacion == null
                               || m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.NoAplica
                               || (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Revertido
-                                  && m.VentaId.HasValue
-                                  && ventasConIngresoAcreditado.Contains(m.VentaId.Value))))
+                                  && ((m.VentaId.HasValue && ventasConIngresoAcreditado.Contains(m.VentaId.Value))
+                                      // B13: reversión de un cheque acreditado asentada en la caja vigente (el ingreso
+                                      // acreditado vive en otra caja o es un asiento AcreditacionCheque sin VentaId).
+                                      // Solo se crea si el cheque estaba Acreditado, por eso siempre es dinero real.
+                                      || m.MovimientoOrigenId.HasValue))))
                     .Sum(m => m.Monto);
 
                 return apertura.MontoInicial + ingresosReales - egresosReales;
@@ -1347,19 +1350,34 @@ namespace TheBuryProject.Services
                 // H-CAJA-2: la apertura original debe existir. Si falta o está eliminada, no se informa éxito dejando
                 // una cancelación con efectos monetarios incompletos: se rechaza (el llamador revierte su transacción).
                 // La decisión definitiva sobre cerrada/abierta se toma abajo, bajo el lock compartido de la apertura.
-                var aperturaExiste = await _context.AperturasCaja
-                    .AnyAsync(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted);
+                var aperturaOriginal = await _context.AperturasCaja
+                    .AsNoTracking()
+                    .Where(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted)
+                    .Select(a => new { a.Cerrada })
+                    .FirstOrDefaultAsync();
 
-                if (!aperturaExiste)
+                if (aperturaOriginal == null)
                 {
                     throw new InvalidOperationException(
                         $"No se puede cancelar la venta {ventaNumero}: la caja del ingreso original (apertura " +
                         $"{movimientoOriginal.AperturaCajaId}) no existe o fue eliminada. Se requiere un procedimiento de reversión auditada.");
                 }
 
+                // B13: cheque recibido cuya caja ya cerró. La caja cerrada es inmutable (no se reabre ni se agregan movimientos):
+                // la contrapartida auditada se asienta en la caja VIGENTE del usuario. Ver CajaService.Cheques.cs.
+                var esChequeVenta = movimientoOriginal.Concepto == ConceptoMovimientoCaja.VentaCheque;
+                if (esChequeVenta && aperturaOriginal.Cerrada)
+                {
+                    return await ContramovimientoChequeCajaCerradaAsync(
+                        movimientoOriginal.Id, movimientoOriginal.AperturaCajaId, ventaId, ventaNumero, motivo, usuario);
+                }
+
                 // H-CAJA-2: la reversión se asienta en la apertura ORIGINAL y sólo si sigue ABIERTA; se relee bajo el
                 // lock compartido con el cierre, así que nunca se inserta un egreso en una caja ya cerrada.
-                var contramovimiento = await BajoLockDeAperturaAsync<MovimientoCaja?>(movimientoOriginal.AperturaCajaId, async () =>
+                MovimientoCaja? contramovimiento;
+                try
+                {
+                contramovimiento = await BajoLockDeAperturaAsync<MovimientoCaja?>(movimientoOriginal.AperturaCajaId, async () =>
                 {
                     // Cheque ya rechazado (releído bajo el lock): su salida ya está asentada (egreso RechazoCheque si estaba
                     // acreditado; ingreso Rechazado, que no suma, si no). Reversar de nuevo duplicaría la salida.
@@ -1402,6 +1420,13 @@ namespace TheBuryProject.Services
                     await _context.SaveChangesAsync();
                     return nuevo;
                 }, validarVigencia: false, mensajeCerrada: MensajeReversionCajaCerrada(ventaNumero));
+                }
+                catch (InvalidOperationException ex) when (esChequeVenta && ex.Message == MensajeReversionCajaCerrada(ventaNumero))
+                {
+                    // La caja se cerró entre la lectura y el lock: se sigue por la vía de caja cerrada (B13).
+                    return await ContramovimientoChequeCajaCerradaAsync(
+                        movimientoOriginal.Id, movimientoOriginal.AperturaCajaId, ventaId, ventaNumero, motivo, usuario);
+                }
 
                 if (contramovimiento == null)
                 {

@@ -372,6 +372,101 @@ namespace TheBuryProject.Services
                 BajoLockDeAperturaAsync(destino.Id, () => Aplicar(destino.Id), usuarioPropietario: usuario));
         }
 
+        // ------------------------------------------------------------------ B13: cancelar una venta con cheque de caja cerrada
+
+        /// <summary>
+        /// B13. Contrapartida auditada de la cancelación de una venta pagada con cheque cuyo ingreso pertenece a una caja CERRADA.
+        /// La caja cerrada no se reabre ni se le agregan movimientos (sus totales, efectivo esperado y arqueo quedan intactos):
+        ///  - Pendiente: nunca se cobró, no hay dinero que devolver; el ingreso pasa a Anulado (sin egreso).
+        ///  - Acreditado (en su caja o por un asiento AcreditacionCheque): egreso <c>ReversionVenta</c> bancario (no físico) en la caja
+        ///    ABIERTA del usuario, enlazado al ingreso original con <c>MovimientoOrigenId</c> (índice único: una sola contrapartida).
+        ///  - Rechazado (o rechazo asentado con RechazoCheque) o ya Anulado: no se agrega nada (la salida ya está asentada).
+        /// Orden de locks (el de todo el circuito): Venta (la cancelación ya la tiene) → Apertura del cheque → Apertura vigente.
+        /// Sin caja vigente válida se rechaza antes de escribir (la cancelación entera hace rollback).
+        /// </summary>
+        private async Task<MovimientoCaja?> ContramovimientoChequeCajaCerradaAsync(
+            int movimientoOriginalId, int aperturaOrigenId, int ventaId, string ventaNumero, string motivo, string usuario)
+        {
+            // Candidata (se revalida bajo lock): resolverla antes evita tomar locks si no hay caja donde asentar.
+            var destinoCandidato = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
+
+            return await BajoLockDeOrigenChequeAsync<MovimientoCaja?>(aperturaOrigenId, async () =>
+            {
+                var original = await CargarOrigenParaEscrituraAsync(movimientoOriginalId);
+
+                // Idempotencia / rechazo previo: nada que asentar.
+                if (await ChequeRechazadoAsync(original))
+                {
+                    _logger.LogInformation("Venta {VentaNumero}: el cheque ya estaba rechazado, no se agrega reversión (la salida ya está asentada).", ventaNumero);
+                    return null;
+                }
+
+                if (await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => !m.IsDeleted
+                        && m.Concepto == ConceptoMovimientoCaja.ReversionVenta
+                        && (m.MovimientoOrigenId == original.Id || m.VentaId == ventaId)))
+                {
+                    return null;
+                }
+
+                if (original.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Anulado)
+                    return null;
+
+                if (original.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
+                {
+                    var ahoraPendiente = DateTime.UtcNow;
+                    original.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+                    original.UpdatedAt = ahoraPendiente;
+                    _auditoria?.AgregarEvento("Caja", "AnularChequePendienteCajaCerrada", $"MovimientoCaja:{original.Id}",
+                        $"Apertura origen={original.AperturaCajaId} (cerrada); Venta={ventaId}; Monto={original.Monto:0.00}; Usuario={usuario}; Motivo={Recortar(motivo, 300)}");
+                    await _context.SaveChangesAsync();
+                    return null;
+                }
+
+                if (original.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Acreditado)
+                {
+                    throw new InvalidOperationException(
+                        $"No se puede cancelar la venta {ventaNumero}: el cheque está en un estado que no admite reversión automática ({DescribirEstado(original.EstadoAcreditacion)}).");
+                }
+
+                var destino = destinoCandidato
+                    ?? throw new InvalidOperationException(
+                        $"No se puede cancelar la venta {ventaNumero}: el cheque ya fue cobrado en una caja cerrada y la devolución se asienta en tu caja abierta. Abrí una caja para cancelar la venta.");
+
+                return await BajoLockDeAperturaAsync<MovimientoCaja?>(destino.Id, async () =>
+                {
+                    var ahora = DateTime.UtcNow;
+                    var egreso = new MovimientoCaja
+                    {
+                        AperturaCajaId = destino.Id,
+                        FechaMovimiento = ahora,
+                        Tipo = TipoMovimientoCaja.Egreso,
+                        Concepto = ConceptoMovimientoCaja.ReversionVenta,
+                        EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Revertido,
+                        // Bancario: el cheque ya se acreditó; nunca es efectivo físico (no toca esperado ni arqueo).
+                        TipoPago = TipoPago.Cheque,
+                        // Se hereda del flujo de cancelación, que ya tiene el lock de la fila de la venta (orden Venta → Apertura).
+                        VentaId = ventaId,
+                        Monto = original.Monto,
+                        Descripcion = $"Reversión por cancelación de venta {ventaNumero}",
+                        Referencia = ventaNumero,
+                        ReferenciaId = ventaId,
+                        MedioPagoDetalle = original.MedioPagoDetalle,
+                        Usuario = usuario,
+                        Observaciones = $"Contramovimiento del ingreso #{original.Id} de la apertura {original.AperturaCajaId} (caja cerrada). Motivo: {motivo}",
+                        MovimientoOrigenId = original.Id,
+                        CreatedAt = ahora
+                    };
+                    _context.MovimientosCaja.Add(egreso);
+
+                    _auditoria?.AgregarEvento("Caja", "ReversionChequeCajaCerrada", $"MovimientoCaja:{original.Id}",
+                        $"Apertura origen={original.AperturaCajaId} (cerrada); Apertura contrapartida={destino.Id}; Venta={ventaId}; Monto={original.Monto:0.00}; Usuario={usuario}; Motivo={Recortar(motivo, 300)}");
+
+                    await _context.SaveChangesAsync();
+                    return egreso;
+                }, usuarioPropietario: usuario);
+            });
+        }
+
         // ------------------------------------------------------------------ helpers de escritura
 
         private async Task<MovimientoCaja> CargarOrigenParaEscrituraAsync(int movimientoId)
