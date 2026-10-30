@@ -11,6 +11,10 @@ namespace TheBuryProject.ViewModels
         [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
         public Guid? OperacionExternaId { get; set; }
 
+        /// <summary>D5: datos del cheque con el que se paga la cuota (solo medio Cheque). Lo completa el servicio, no el binder.</summary>
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+        public TheBuryProject.Services.Models.DatosChequeCuota? Cheque { get; set; }
+
         // NUEVA PROPIEDAD
         public int CreditoId { get; set; }
 

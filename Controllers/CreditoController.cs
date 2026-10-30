@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using TheBuryProject.Filters;
@@ -1577,7 +1577,10 @@ namespace TheBuryProject.Controllers
                 input.MedioPago,
                 input.Comprobante,
                 input.Observaciones,
-                rowVersion);
+                rowVersion,
+                Cheque: string.Equals(input.MedioPago?.Trim(), "Cheque", StringComparison.OrdinalIgnoreCase)
+                    ? new DatosChequeCuota(input.ChequeBanco ?? string.Empty, input.ChequeNumero ?? string.Empty, input.ChequeVencimiento ?? default)
+                    : null);
 
         private static PagoCuotaContextoViewModel MapContexto(PagoCuotaContextoResultado source) => new()
         {

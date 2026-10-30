@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
@@ -251,7 +251,8 @@ public static class CajaConciliacionBuilder
             RecargoMedioPago = m.RecargoMedioPago,
             DescuentoMedioPago = m.DescuentoMedioPago,
             CategoriaImpacto = CategoriaImpactoMovimiento(m, medio),
-            EstadoAcreditacion = m.EstadoAcreditacion
+            EstadoAcreditacion = m.EstadoAcreditacion,
+            AperturaId = m.AperturaCajaId
         };
     }
 
@@ -273,6 +274,8 @@ public static class CajaConciliacionBuilder
             case ConceptoMovimientoCaja.VentaNotaCredito:
             case ConceptoMovimientoCaja.LiquidacionMercadoLibre:
             case ConceptoMovimientoCaja.ReversionVenta:
+            case ConceptoMovimientoCaja.AcreditacionCheque:
+            case ConceptoMovimientoCaja.RechazoCheque:
                 var ventaId = m.VentaId ?? m.ReferenciaId;
                 return ventaId.HasValue ? $"/Venta/Details/{ventaId.Value}" : null;
 
@@ -639,6 +642,8 @@ public static class CajaConciliacionBuilder
         ConceptoMovimientoCaja.DepositoEfectivo => "Depósito efectivo",
         ConceptoMovimientoCaja.DevolucionCliente => "Devolución cliente",
         ConceptoMovimientoCaja.ReversionVenta => "Reversión venta",
+        ConceptoMovimientoCaja.AcreditacionCheque => "Acreditación de cheque",
+        ConceptoMovimientoCaja.RechazoCheque => "Rechazo de cheque",
         ConceptoMovimientoCaja.AjusteCaja => "Ajuste caja",
         ConceptoMovimientoCaja.Otro => "Otro",
         _ => concepto.ToString()

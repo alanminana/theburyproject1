@@ -112,6 +112,8 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(actionName, routeValues);
         }
 
+        private readonly IChequeRecibidoService? _chequeService;
+
         public VentaController(
             IVentaService ventaService,
             ILogger<VentaController> logger,
@@ -125,8 +127,10 @@ namespace TheBuryProject.Controllers
             IContratoVentaCreditoService contratoVentaCreditoService,
             AppDbContext context,
             IRelojComercial reloj,
-            IVentaEnvioService ventaEnvioService)
+            IVentaEnvioService ventaEnvioService,
+            IChequeRecibidoService? chequeService = null)
         {
+            _chequeService = chequeService;
             _ventaService = ventaService;
             _logger = logger;
             _creditoService = creditoService;
@@ -259,6 +263,8 @@ namespace TheBuryProject.Controllers
                     ViewBag.TurnoVencido = await ObtenerTurnoVencidoDescripcionAsync(_currentUser.GetUsername());
                 }
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
+                if (venta.TipoPago == TipoPago.Cheque && _chequeService != null)
+                    ViewBag.ChequeEstado = await _chequeService.ObtenerEstadoChequeVentaAsync(id);
 
                 // Cobro de la primera cuota el mismo día (fecha comercial de Argentina, no la zona
                 // del proceso). Micro-lote 6: la DECISIÓN se toma en la configuración del crédito;

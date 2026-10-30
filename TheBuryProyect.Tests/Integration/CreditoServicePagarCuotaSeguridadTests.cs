@@ -451,6 +451,98 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
         Assert.Equal(25m, ledger.ImporteAplicadoCuota);
     }
 
+    // ---- Hito 10, D5: cuota pagada con cheque exige los datos del cheque y queda pendiente de acreditar ----
+
+    [Fact]
+    public async Task PagoIndividualConCheque_SinDatosDelCheque_SeRechazaSinEfectos()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("CHQ0");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() =>
+            _service.RegistrarPagoCuotaIndividualAsync(Comando(cuota, 100m, "Cheque")));
+
+        Assert.Equal(MotivoRechazoPagoCuota.SolicitudInvalida, ex.Motivo);
+        Assert.Contains("cheque", ex.Message, StringComparison.OrdinalIgnoreCase);
+        await AssertSinEfectosAsync(cuota);
+    }
+
+    [Theory]
+    [InlineData("", "123", 5)]
+    [InlineData("Galicia", "", 5)]
+    [InlineData("Galicia", "12a", 5)]
+    [InlineData("Galicia", "1234567890123", 5)]
+    [InlineData("Galicia", "123", -1)]
+    public async Task PagoIndividualConCheque_ConDatosInvalidos_SeRechazaSinEfectos(string banco, string numero, int diasVencimiento)
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("CHQ1");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+        var comando = Comando(cuota, 100m, "Cheque") with
+        {
+            Cheque = new DatosChequeCuota(banco, numero, _reloj.AhoraUtc.Date.AddDays(diasVencimiento))
+        };
+
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() => _service.RegistrarPagoCuotaIndividualAsync(comando));
+
+        Assert.Equal(MotivoRechazoPagoCuota.SolicitudInvalida, ex.Motivo);
+        await AssertSinEfectosAsync(cuota);
+    }
+
+    [Fact]
+    public async Task PagoIndividualConCheque_ConDatosValidos_GuardaElDetalleDelChequeEnElIngresoDeCaja()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("CHQ2");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+        var comando = Comando(cuota, 100m, "Cheque") with
+        {
+            Cheque = new DatosChequeCuota("Galicia", "998877", _reloj.AhoraUtc.Date.AddDays(15))
+        };
+
+        var resultado = Assert.IsType<PagoCuotaResultado>(await _service.RegistrarPagoCuotaIndividualAsync(comando));
+
+        _context.ChangeTracker.Clear();
+        var mov = await _context.MovimientosCaja.AsNoTracking().SingleAsync(m => m.Id == resultado.MovimientoCajaId);
+        Assert.Contains("Galicia", mov.MedioPagoDetalle);
+        Assert.Contains("998877", mov.MedioPagoDetalle);
+        Assert.Equal(TipoPago.Cheque, mov.TipoPago);
+    }
+
+    [Fact]
+    public async Task PagoIndividualConCheque_RepetidoDeUnaVentaVigente_SeRechaza()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("CHQ3");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+        var cliente = await _context.Clientes.AsNoTracking().FirstAsync();
+        var venta = new Venta { ClienteId = cliente.Id, Numero = "VCH-DUP", Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Cheque, Total = 10m };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        _context.DatosCheque.Add(new DatosCheque
+        {
+            VentaId = venta.Id, NumeroCheque = "555", Banco = "Galicia", Titular = "X",
+            FechaVencimiento = _reloj.AhoraUtc.Date.AddDays(10), Monto = 10m
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        var comando = Comando(cuota, 100m, "Cheque") with
+        {
+            Cheque = new DatosChequeCuota("Galicia", "555", _reloj.AhoraUtc.Date.AddDays(15))
+        };
+
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() => _service.RegistrarPagoCuotaIndividualAsync(comando));
+
+        Assert.Contains("ya está registrado", ex.Message);
+        await AssertSinEfectosAsync(cuota);
+    }
+
+    [Fact]
+    public async Task PagoIndividualConEfectivo_NoPideDatosDeCheque()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("CHQ4");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        Assert.IsType<PagoCuotaResultado>(await _service.RegistrarPagoCuotaIndividualAsync(Comando(cuota, 100m)));
+    }
+
     [Fact]
     public async Task ConfirmarPagoIndividual_DoblePostParcialConMismoToken_SoloPersisteUno()
     {

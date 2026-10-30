@@ -85,6 +85,14 @@
                                         {
                                             <div class="mt-1"><span class="chip @m.AcreditacionChipClass">@m.AcreditacionLabel</span></div>
                                         }
+                                        @if (m.EsChequeRecibido && m.ChequeRechazado)
+                                        {
+                                            <div class="mt-1"><span class="chip chip-bad" data-cheque-rechazado>Cheque rechazado &ndash; pendiente de cobro</span></div>
+                                        }
+                                        @if (m.EsChequeRecibido)
+                                        {
+                                            @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(m.MovimientoId, m.ChequeAcreditable, m.ChequeRechazable, "apertura"))
+                                        }
                                     </td>
                                     <td>
                                         @* Si la descripción ya nombra la referencia ("Venta COT-…"), se muestra solo el enlace. *@

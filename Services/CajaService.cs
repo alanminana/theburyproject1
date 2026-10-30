@@ -16,7 +16,7 @@ namespace TheBuryProject.Services
     /// <summary>
     /// Servicio centralizado para gestión de cajas y arqueos.
     /// </summary>
-    public class CajaService : ICajaService
+    public partial class CajaService : ICajaService, IChequeRecibidoService
     {
         private readonly ISeguridadAuditoriaService? _auditoria;
         private readonly AppDbContext _context;
@@ -792,9 +792,14 @@ namespace TheBuryProject.Services
                     .Select(m => m.VentaId!.Value)
                     .ToHashSet();
 
+                // Cheques de esta caja acreditados después, en otra caja vigente: el dinero real se asentó allá
+                // (movimiento AcreditacionCheque). Acá no se cuenta de nuevo: el saldo histórico no cambia.
+                var acreditadosEnOtraCaja = await ObtenerOrigenesAcreditadosEnOtraCajaAsync(aperturaId, movimientos);
+
                 // Ingresos reales: Acreditados explícitamente o sin estado (movimientos manuales en efectivo)
                 var ingresosReales = movimientos
                     .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                             && !acreditadosEnOtraCaja.Contains(m.Id)
                              && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
                               || m.EstadoAcreditacion == null))
                     .Sum(m => m.Monto);
@@ -1161,6 +1166,8 @@ namespace TheBuryProject.Services
                         FechaMovimiento = DateTime.UtcNow,
                         Tipo = TipoMovimientoCaja.Ingreso,
                         Concepto = ConceptoMovimientoCaja.CobroCuota,
+                        // D5: una cuota cobrada con cheque no es dinero real hasta acreditarlo (igual que en la venta).
+                        EstadoAcreditacion = tipoPago == TipoPago.Cheque ? EstadoAcreditacionMovimientoCaja.Pendiente : null,
                         Monto = montoBase + recargoMedioPago,
                         ImporteBase = montoBase,
                         RecargoMedioPago = recargoMedioPago > 0 ? recargoMedioPago : null,
@@ -1413,6 +1420,10 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException("El monto del reembolso debe ser mayor a cero.");
                 }
+
+                // D4: el reembolso sale en efectivo; si la venta se pagó con un cheque que todavía no se cobró (o que el banco
+                // rechazó) no hay dinero recibido que devolver.
+                await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero);
 
                 var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
 
@@ -1694,8 +1705,10 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
         var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
         var cajaFisicaEsperada = apertura.MontoInicial + totalIngresosFisicos - totalEgresosFisicos;
         var saldoReal = await CalcularSaldoRealAsync(aperturaId);
+        var acreditadosEnOtraCaja = await ObtenerOrigenesAcreditadosEnOtraCajaAsync(aperturaId, movimientos);
         var ingresosAcreditados = movimientos
             .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                     && !acreditadosEnOtraCaja.Contains(m.Id)
                      && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
                       || m.EstadoAcreditacion == null))
             .Sum(m => m.Monto);
@@ -1914,8 +1927,10 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
 
         private static (decimal Ingresos, decimal Egresos) CalcularTotalesMovimientos(IEnumerable<MovimientoCaja> movimientos)
         {
+            // Un ingreso Rechazado (cheque rebotado antes de acreditarse) nunca fue dinero: no suma al saldo total.
             var ingresos = movimientos
-                .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso)
+                .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                         && m.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Rechazado)
                 .Sum(m => m.Monto);
 
             var egresos = movimientos

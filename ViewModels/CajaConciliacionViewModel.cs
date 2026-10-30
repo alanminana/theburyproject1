@@ -1,4 +1,4 @@
-using TheBuryProject.Models.Enums;
+﻿using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels;
 
@@ -228,6 +228,15 @@ public class MovimientoCajaLineaViewModel
         CategoriaImpactoCaja.SinIngresoInmediato => "chip-neutral",
         _ => "chip-neutral"
     };
+
+    // ── Cheque recibido (los completa el controller; el builder solo mapea el movimiento) ──
+    /// <summary>Ingreso de un cheque recibido (venta o cuota).</summary>
+    public bool EsChequeRecibido { get; set; }
+    /// <summary>El cheque fue rechazado por el banco: la operación queda pendiente de regularización.</summary>
+    public bool ChequeRechazado { get; set; }
+    public bool ChequeAcreditable { get; set; }
+    public bool ChequeRechazable { get; set; }
+    public int AperturaId { get; set; }
 
     /// <summary>Estado de acreditación bancaria del movimiento (lo copia el builder desde la entidad).</summary>
     public EstadoAcreditacionMovimientoCaja? EstadoAcreditacion { get; set; }

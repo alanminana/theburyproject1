@@ -31,6 +31,7 @@ namespace TheBuryProject.Controllers
         private readonly IMapper _mapper;
         private readonly AppDbContext _context;
         private readonly IRelojComercial _relojComercial;
+        private readonly IChequeRecibidoService? _chequeService;
 
         public CajaController(
             ICajaService cajaService,
@@ -39,8 +40,10 @@ namespace TheBuryProject.Controllers
             ILogger<CajaController> logger,
             IMapper mapper,
             AppDbContext context,
-            IRelojComercial relojComercial)
+            IRelojComercial relojComercial,
+            IChequeRecibidoService? chequeService = null)
         {
+            _chequeService = chequeService;
             _cajaService = cajaService;
             _cajaVendedorService = cajaVendedorService;
             _currentUser = currentUser;
@@ -544,7 +547,11 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
+                // Un cheque recibido se acredita por su circuito (trazabilidad en el cheque y, si su caja cerró, asiento en la caja vigente).
+                if (_chequeService != null && await EsChequeRecibidoAsync(movimientoId))
+                    await _chequeService.AcreditarChequeAsync(movimientoId, _currentUser.GetUsername());
+                else
+                    await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
                 TempData["Success"] = "Movimiento acreditado correctamente.";
             }
             catch (InvalidOperationException ex)
@@ -559,6 +566,180 @@ namespace TheBuryProject.Controllers
             }
 
             return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+        }
+
+        // ---------------------------------------------------------------- Cheques recibidos
+
+        private const string MensajeChequeSinServicio = "El circuito de cheques no está disponible.";
+
+        private async Task<bool> EsChequeRecibidoAsync(int movimientoId) =>
+            await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.Id == movimientoId && !m.IsDeleted
+                && m.Tipo == TipoMovimientoCaja.Ingreso
+                && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
+                    || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque)));
+
+        /// <summary>
+        /// Lista simple de cheques recibidos pendientes de acreditar, por vencimiento, con aviso de por vencer. Solo muestra los de
+        /// las cajas que el usuario puede ver; las acciones solo donde puede operar la apertura del ingreso (caja.edit).
+        /// </summary>
+        public async Task<IActionResult> Cheques()
+        {
+            var visibles = await ObtenerCajaIdsVisiblesAsync();
+            var lista = _chequeService != null
+                ? await _chequeService.ObtenerChequesPendientesAsync()
+                : new List<ChequePendienteViewModel>();
+
+            var aperturaIds = lista.Select(c => c.AperturaId).Distinct().ToList();
+            var cajaPorApertura = await _context.AperturasCaja.AsNoTracking()
+                .Where(a => aperturaIds.Contains(a.Id))
+                .Select(a => new { a.Id, a.CajaId })
+                .ToDictionaryAsync(a => a.Id, a => a.CajaId);
+
+            if (visibles != null)
+                lista = lista.Where(c => cajaPorApertura.TryGetValue(c.AperturaId, out var cajaId) && visibles.Contains(cajaId)).ToList();
+
+            var puedeEditar = _currentUser.HasPermission("caja", "edit");
+            var operables = new Dictionary<int, bool>();
+            foreach (var c in lista)
+            {
+                if (!operables.TryGetValue(c.AperturaId, out var ok))
+                    operables[c.AperturaId] = ok = puedeEditar && await PuedeOperarAperturaAsync(c.AperturaId);
+                c.PuedeAccionar = ok;
+            }
+
+            return View("Cheques_tw", lista);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "edit")]
+        public async Task<IActionResult> AcreditarCheque(int movimientoId, string? origen = null)
+        {
+            var (aperturaId, rechazo) = await AutorizarOperacionChequeAsync(movimientoId);
+            if (rechazo != null) return rechazo;
+
+            try
+            {
+                if (_chequeService == null) throw new InvalidOperationException(MensajeChequeSinServicio);
+                var r = await _chequeService.AcreditarChequeAsync(movimientoId, _currentUser.GetUsername());
+                TempData["Success"] = r.MovimientoAsentadoId.HasValue
+                    ? "Cheque acreditado. El ingreso se asentó en tu caja abierta; la caja original no se modificó."
+                    : "Cheque acreditado correctamente.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Validación al acreditar cheque {MovimientoId}", movimientoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al acreditar cheque {MovimientoId}", movimientoId);
+                TempData["Error"] = "Error al acreditar el cheque.";
+            }
+
+            return VolverDeCheque(origen, aperturaId);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "edit")]
+        public async Task<IActionResult> RechazarCheque(int movimientoId, string? motivo, string? origen = null)
+        {
+            var (aperturaId, rechazo) = await AutorizarOperacionChequeAsync(movimientoId);
+            if (rechazo != null) return rechazo;
+
+            try
+            {
+                if (_chequeService == null) throw new InvalidOperationException(MensajeChequeSinServicio);
+                await _chequeService.RechazarChequeAsync(movimientoId, motivo ?? string.Empty, _currentUser.GetUsername());
+                TempData["Success"] = "Cheque rechazado. La venta no se canceló: queda pendiente de cobro.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Validación al rechazar cheque {MovimientoId}", movimientoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al rechazar cheque {MovimientoId}", movimientoId);
+                TempData["Error"] = "Error al rechazar el cheque.";
+            }
+
+            return VolverDeCheque(origen, aperturaId);
+        }
+
+        /// <summary>Misma autorización que AcreditarMovimiento (FIN-S-006): se decide sobre la apertura REAL del movimiento.</summary>
+        private async Task<(int AperturaId, IActionResult? Rechazo)> AutorizarOperacionChequeAsync(int movimientoId)
+        {
+            var aperturaRealId = await _context.MovimientosCaja
+                .AsNoTracking()
+                .Where(m => m.Id == movimientoId && !m.IsDeleted)
+                .Select(m => (int?)m.AperturaCajaId)
+                .FirstOrDefaultAsync();
+
+            if (aperturaRealId == null)
+            {
+                TempData["Error"] = EsSupervisorCaja() ? "Movimiento no encontrado." : MensajeSinPermisoOperarCaja;
+                return (0, RedirectToAction(nameof(Index)));
+            }
+
+            if (!await PuedeOperarAperturaAsync(aperturaRealId.Value))
+            {
+                _logger.LogWarning("Operación de cheque denegada: usuario {Usuario} sin permiso sobre la caja del movimiento {MovimientoId}",
+                    _currentUser.GetUsername(), movimientoId);
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return (0, RedirectToAction(nameof(Index)));
+            }
+
+            return (aperturaRealId.Value, null);
+        }
+
+        private IActionResult VolverDeCheque(string? origen, int aperturaId) =>
+            string.Equals(origen, "cheques", StringComparison.OrdinalIgnoreCase)
+                ? RedirectToAction(nameof(Cheques))
+                : RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+
+        /// <summary>Completa en cada fila de movimiento los datos de cheque recibido: marca de rechazo y acciones disponibles.</summary>
+        private async Task AdjuntarChequesAsync(CajaConciliacionViewModel modelo)
+        {
+            var ids = modelo.Movimientos.Select(m => m.MovimientoId).ToList();
+            if (ids.Count == 0) return;
+
+            var filas = await _context.MovimientosCaja.AsNoTracking()
+                .Where(m => ids.Contains(m.Id))
+                .Select(m => new { m.Id, m.Tipo, m.Concepto, m.TipoPago, m.VentaId, m.EstadoAcreditacion })
+                .ToListAsync();
+            var cheques = filas.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
+                    || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque))).ToList();
+            if (cheques.Count == 0) return;
+
+            var chequeIds = cheques.Select(c => c.Id).ToList();
+            var ventaIds = cheques.Where(c => c.VentaId.HasValue).Select(c => c.VentaId!.Value).Distinct().ToList();
+            var ventasRechazadas = (await _context.DatosCheque.AsNoTracking()
+                    .Where(d => ventaIds.Contains(d.VentaId) && !d.IsDeleted && d.RechazadoAt != null)
+                    .Select(d => d.VentaId).ToListAsync()).ToHashSet();
+            var conRechazoPostAcreditacion = (await _context.MovimientosCaja.AsNoTracking()
+                    .Where(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque && !m.IsDeleted
+                             && m.MovimientoOrigenId != null && chequeIds.Contains(m.MovimientoOrigenId.Value))
+                    .Select(m => m.MovimientoOrigenId!.Value).ToListAsync()).ToHashSet();
+
+            var puedeEditar = _currentUser.HasPermission("caja", "edit");
+            var operable = modelo.PuedeOperar && !modelo.EstaCerrada && puedeEditar;
+            var porId = cheques.ToDictionary(c => c.Id);
+            foreach (var linea in modelo.Movimientos)
+            {
+                if (!porId.TryGetValue(linea.MovimientoId, out var c)) continue;
+                linea.EsChequeRecibido = true;
+                linea.ChequeRechazado = c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado
+                    || conRechazoPostAcreditacion.Contains(c.Id)
+                    || (c.VentaId.HasValue && ventasRechazadas.Contains(c.VentaId.Value));
+                linea.ChequeAcreditable = operable && !linea.ChequeRechazado
+                    && c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente;
+                linea.ChequeRechazable = operable && !linea.ChequeRechazado
+                    && (c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
+                        || c.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado);
+            }
         }
 
         #endregion
@@ -688,6 +869,7 @@ namespace TheBuryProject.Controllers
 
                 var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap, cuotaClienteMap);
                 await AdjuntarRecibosAsync(viewModel);
+                await AdjuntarChequesAsync(viewModel);
                 viewModel.PuedeRegistrarMovimientos = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "movements");
                 viewModel.PuedeCerrar = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "close");
                 viewModel.EsVencida = !viewModel.EstaCerrada
@@ -730,6 +912,7 @@ namespace TheBuryProject.Controllers
 
             var modeloCierre = CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap, cuotaClienteMap);
             await AdjuntarRecibosAsync(modeloCierre);
+            await AdjuntarChequesAsync(modeloCierre);
             return View("DetallesCierre_tw", modeloCierre);
         }
 

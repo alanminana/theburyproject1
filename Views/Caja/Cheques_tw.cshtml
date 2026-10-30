@@ -1,0 +1,118 @@
+@model List<TheBuryProject.ViewModels.ChequePendienteViewModel>
+@{
+    ViewData["Title"] = "Cheques pendientes";
+    var total = Model.Sum(c => c.Monto);
+    var porVencer = Model.Count(c => c.PorVencer);
+    var vencidos = Model.Count(c => c.Vencido);
+}
+
+<div class="caja-page-shell space-y-4" data-cheques-pendientes>
+
+    <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
+    </a>
+
+    <div class="page-head">
+        <div class="min-w-0">
+            <h1 class="page-title">Cheques pendientes</h1>
+            <p class="page-sub">Cheques recibidos que todavía no se acreditaron, ordenados por vencimiento. No cuentan como dinero real ni como efectivo de caja hasta acreditarse.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-bad" role="alert"><span class="material-symbols-outlined">error</span><span>@TempData["Error"]</span></div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-ok" role="status"><span class="material-symbols-outlined">check_circle</span><span>@TempData["Success"]</span></div>
+    }
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="kpi kpi--accent"><div class="kpi-label">Total pendiente</div><div class="kpi-value" data-cheques-total>$@total.ToString("N2")</div></div>
+        <div class="kpi"><div class="kpi-label">Cheques</div><div class="kpi-value">@Model.Count</div></div>
+        <div class="kpi@(porVencer + vencidos > 0 ? " kpi--bad" : "")"><div class="kpi-label">Por vencer / vencidos</div><div class="kpi-value">@porVencer / @vencidos</div></div>
+    </div>
+
+    <section class="card" style="overflow:hidden">
+        @if (Model.Count == 0)
+        {
+            <div class="px-4 py-6 text-sm muted-2" data-cheques-vacio>No hay cheques pendientes de acreditar.</div>
+        }
+        else
+        {
+            <div class="tbl-wrap">
+                <table data-erp-cards class="tbl">
+                    <thead>
+                        <tr>
+                            <th data-card="title">Vencimiento</th>
+                            <th data-card="half">Origen</th>
+                            <th>Cheque</th>
+                            <th data-card="half" style="text-align:right">Monto</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in Model)
+                        {
+                            <tr data-cheque-fila="@c.MovimientoId">
+                                <td>
+                                    @if (c.FechaVencimiento.HasValue)
+                                    {
+                                        <div class="text-white mono">@c.FechaVencimiento.Value.ToString("dd/MM/yyyy")</div>
+                                        @if (c.Vencido)
+                                        {
+                                            <span class="chip chip-bad">Vencido hace @(-c.DiasParaVencer) d</span>
+                                        }
+                                        else if (c.PorVencer)
+                                        {
+                                            <span class="chip chip-warn">@(c.DiasParaVencer == 0 ? "Vence hoy" : $"Vence en {c.DiasParaVencer} d")</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="muted-2">Ver detalle</span>
+                                    }
+                                </td>
+                                <td>
+                                    @c.Origen
+                                    @if (c.VentaId.HasValue && !string.IsNullOrWhiteSpace(c.Referencia))
+                                    {
+                                        <div class="text-xs mono"><a asp-controller="Venta" asp-action="Details" asp-route-id="@c.VentaId" class="cc-ref-link">@c.Referencia</a></div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(c.Referencia))
+                                    {
+                                        <div class="text-xs muted-2 mono">@c.Referencia</div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(c.Banco))
+                                    {
+                                        <div class="text-white">@c.Banco &middot; N° @c.NumeroCheque</div>
+                                        <div class="text-xs muted">@c.Titular</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-white">@c.Detalle</div>
+                                    }
+                                </td>
+                                <td style="text-align:right" class="num">$ @c.Monto.ToString("N2")</td>
+                                <td>
+                                    @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(c.MovimientoId, c.PuedeAccionar, c.PuedeAccionar, "cheques"))
+                                    @if (!c.PuedeAccionar)
+                                    {
+                                        <span class="text-xs muted-2">Sin permiso para operar esta caja</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+}

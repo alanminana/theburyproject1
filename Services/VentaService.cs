@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -298,6 +298,7 @@ namespace TheBuryProject.Services
 
                 var envioServicio = await AplicarServiciosAsync(venta, viewModel);
                 CalcularTotales(venta, envioServicio);
+                await ValidarChequeContraVentaAsync(venta, viewModel);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -949,6 +950,7 @@ namespace TheBuryProject.Services
             }
             DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
             SincronizarEnvioEdicion(venta, viewModel);
+            await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
             await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -1079,6 +1081,13 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException(
                         "No se puede confirmar la venta: el medio de pago 'Cheque' requiere los datos del cheque y no han sido completados.");
+                }
+
+                // D3: el ingreso de caja es el total a cobrar; un cheque por otro importe no concilia con el valor físico.
+                if (venta.TipoPago == TipoPago.Cheque && venta.DatosCheque != null)
+                {
+                    ValidarMontoChequeContraTotal(venta.DatosCheque.Monto, venta.TotalACobrar,
+                        "No se puede confirmar la venta");
                 }
 
                 // Validación previa del estado
@@ -3166,6 +3175,47 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Métodos Auxiliares - Cheques
+
+        /// <summary>Tolerancia de centavos al comparar el monto del cheque con el total a cobrar (D3).</summary>
+        internal const decimal ToleranciaMontoCheque = 0.01m;
+
+        /// <summary>D3: la venta tiene un único medio de pago, así que el cheque debe cubrir exactamente el total a cobrar.</summary>
+        internal static void ValidarMontoChequeContraTotal(decimal montoCheque, decimal totalACobrar, string prefijo)
+        {
+            if (Math.Abs(montoCheque - totalACobrar) > ToleranciaMontoCheque)
+            {
+                throw new InvalidOperationException(
+                    $"{prefijo}: el monto del cheque ({montoCheque.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}) " +
+                    $"debe coincidir con el total a cobrar de la venta ({totalACobrar.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}).");
+            }
+        }
+
+        /// <summary>
+        /// D3 + D6-c al guardar (Crear/Editar): monto == total a cobrar y banco+número no repetidos entre ventas vigentes.
+        /// No hace nada si la venta no es con cheque o no trae datos (esa falta la rechaza el guardado/la confirmación).
+        /// </summary>
+        private async Task ValidarChequeContraVentaAsync(Venta venta, VentaViewModel viewModel)
+        {
+            if (viewModel.TipoPago != TipoPago.Cheque || viewModel.DatosCheque == null)
+                return;
+
+            var datos = viewModel.DatosCheque;
+            ValidarMontoChequeContraTotal(datos.Monto, venta.TotalACobrar, "No se puede guardar la venta");
+
+            var banco = datos.Banco.Trim();
+            var numero = datos.NumeroCheque.Trim();
+            var ventaId = venta.Id;
+            var duplicado = await _context.DatosCheque.AsNoTracking()
+                .Where(d => !d.IsDeleted && d.VentaId != ventaId && d.Banco == banco && d.NumeroCheque == numero
+                         && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada)
+                .Select(d => d.Venta.Numero)
+                .FirstOrDefaultAsync();
+            if (duplicado != null)
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya está registrado en la venta {duplicado}. No se puede cobrar dos veces.");
+            }
+        }
 
         public async Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque)
         {
