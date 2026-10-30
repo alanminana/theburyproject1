@@ -305,6 +305,12 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
+                if (orden.Detalles?.Any(d => d.CantidadRecibida > 0) == true)
+                {
+                    TempData["Error"] = "No se puede eliminar una orden con mercadería ya recepcionada: el stock ingresado y el Kardex referencian su número. Dejala como Cancelada.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
                 var viewModel = _mapper.Map<OrdenCompraViewModel>(orden);
                 return View("Delete_tw", viewModel);
             }
@@ -360,6 +366,13 @@ namespace TheBuryProject.Controllers
             if (nuevoEstado == EstadoOrdenCompra.Recibida && !User.TienePermiso(ModuloCompras, AccionRecepcionar))
             {
                 TempData["Error"] = "Marcar una orden como recibida requiere el permiso de recepción de compras.";
+                return Volver();
+            }
+
+            // H9-M6: cancelar tiene su propio permiso (ordenescompra.cancel), como Delete; con update alcanzaba para cancelar.
+            if (nuevoEstado == EstadoOrdenCompra.Cancelada && !User.TienePermiso(ModuloCompras, AccionCancelar))
+            {
+                TempData["Error"] = "Cancelar una orden de compra requiere el permiso de cancelación de compras.";
                 return Volver();
             }
 

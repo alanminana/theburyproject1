@@ -153,16 +153,34 @@ offsite() {
   fi
   [[ "$BACKUP_REMOTE" =~ ^[A-Za-z0-9_-]+:.+ ]] || { fail $EX_OFFSITE "BACKUP_REMOTE debe tener la forma <remoto>:<ruta> (p.ej. offsite:bucket/erp)"; return 1; }
 
-  local sub names args n
+  # Centinela: con disco externo/NAS montado en el host, un punto de montaje vacio (disco desconectado) aceptaria la copia y la dejaria
+  # en el disco del servidor. Si BACKUP_OFFSITE_MARKER esta definido, el remoto debe contener ese archivo (se crea una vez con
+  # `rclone touch`); si no esta, se aborta ANTES de subir nada.
+  if [[ -n "$BACKUP_OFFSITE_MARKER" ]]; then
+    local mk
+    mk=$(dc run --rm -T --no-deps --quiet-pull backup-offsite lsf "$BACKUP_REMOTE/$BACKUP_OFFSITE_MARKER" 2>/dev/null | tr -d '\r' || true)
+    if [[ "$mk" != "$BACKUP_OFFSITE_MARKER" ]]; then
+      monitor_status offsite-marker "$EX_OFFSITE" false
+      fail $EX_OFFSITE "copia externa: falta el centinela '$BACKUP_OFFSITE_MARKER' en ${BACKUP_REMOTE%%:*}:* (¿disco/NAS desconectado o no montado?). No se sube nada"; return 1
+    fi
+  fi
+
+  local sub names args up n
   for sub in sql files; do
     if [[ $sub == sql ]]; then names=("${RUN_SQL[@]}"); else names=("${RUN_FILES[@]}"); fi
     (( ${#names[@]} > 0 )) || continue
     args=()
     for n in "${names[@]}"; do args+=(--include "$n" --include "$n.sha256"); done
-    log INFO "copia externa: $sub -> ${BACKUP_REMOTE%%:*}:*/$sub (${#names[@]} archivo(s))"
-    if ! dc run --rm -T --no-deps --quiet-pull backup-offsite copy "/backups/$sub" "$BACKUP_REMOTE/$sub" "${args[@]}" >/dev/null 2>"$BACKUP_DIR/logs/.offsite.err"; then
+    # La SUBIDA cubre todos los backups locales con nombre valido (rclone copy omite lo que ya esta en el remoto): si una corrida
+    # anterior no pudo subir un .trn (remoto caido), este lo repone y la cadena de logs remota no queda con un hueco permanente
+    # (verificado 2026-10-29). La VERIFICACION sigue limitada a los archivos de esta corrida; el resto se comprueba con sha256 al descargar.
+    if [[ $sub == sql ]]; then up=(--include "${DB_NAME}_full_*.bak" --include "${DB_NAME}_full_*.bak.sha256" --include "${DB_NAME}_log_*.trn" --include "${DB_NAME}_log_*.trn.sha256")
+    else up=(--include "files_*.tar.gz" --include "files_*.tar.gz.sha256"); fi
+    if (( REMOTE_RETENTION_DAYS > 0 )); then up+=(--max-age "${REMOTE_RETENTION_DAYS}d"); fi   # no resubir lo que la retencion remota borraria
+    log INFO "copia externa: $sub -> ${BACKUP_REMOTE%%:*}:*/$sub (${#names[@]} archivo(s) de esta corrida + pendientes)"
+    if ! dc run --rm -T --no-deps --quiet-pull backup-offsite copy "/backups/$sub" "$BACKUP_REMOTE/$sub" "${up[@]}" >/dev/null 2>"$BACKUP_DIR/logs/.offsite.err"; then
       monitor_status "offsite-$sub" "$EX_OFFSITE" false
-      fail $EX_OFFSITE "copia externa FALLO ($sub): $(tr '\n' ' ' <"$BACKUP_DIR/logs/.offsite.err" | sanitize_text | cut -c1-300)"; return 1
+      fail $EX_OFFSITE "copia externa FALLO ($sub): $(rclone_errtext "$(cat "$BACKUP_DIR/logs/.offsite.err")")"; return 1
     fi
     if ! rclone_verify backup-offsite "/backups/$sub" "$BACKUP_REMOTE/$sub" "${args[@]}"; then
       monitor_status "offsite-$sub" "$EX_OFFSITE" false
@@ -178,8 +196,12 @@ offsite() {
     local sub inc
     for sub in sql files; do
       if [[ $sub == sql ]]; then inc=(--include "${DB_NAME}_full_*.bak*" --include "${DB_NAME}_log_*.trn*"); else inc=(--include "files_*.tar.gz*"); fi
-      dc run --rm -T --no-deps --quiet-pull backup-offsite delete "$BACKUP_REMOTE/$sub" --min-age "${REMOTE_RETENTION_DAYS}d" "${inc[@]}" >/dev/null 2>&1 \
-        || { fail $EX_OFFSITE "retencion remota fallo ($sub)"; return 1; }
+      # mkdir idempotente: en un remoto nuevo (p.ej. primera corrida = `full`) <sub>/ puede no existir y `delete` fallaria con
+      # "directory not found" (falso fallo de la copia externa, verificado 2026-10-29).
+      if ! rout=$(dc run --rm -T --no-deps --quiet-pull backup-offsite mkdir "$BACKUP_REMOTE/$sub" 2>&1 \
+                  && dc run --rm -T --no-deps --quiet-pull backup-offsite delete "$BACKUP_REMOTE/$sub" --min-age "${REMOTE_RETENTION_DAYS}d" "${inc[@]}" 2>&1); then
+        fail $EX_OFFSITE "retencion remota fallo ($sub): $(rclone_errtext "$rout")"; return 1
+      fi
     done
   fi
 }

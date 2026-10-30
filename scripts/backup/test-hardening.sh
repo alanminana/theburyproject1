@@ -96,7 +96,7 @@ unset -f dc
 
 # --- offsite(): REQUIRE_OFFSITE sin remoto y upload fallido (funcion extraida de backup.sh) ------------------------------
 eval "$(sed -n '/^offsite() {/,/^}/p' "$HERE/backup.sh")"
-BACKUP_DIR="$T/bk"; mkdir -p "$BACKUP_DIR/logs"; RUN_SQL=(x.bak); RUN_FILES=(); REMOTE_RETENTION_DAYS=0
+BACKUP_DIR="$T/bk"; mkdir -p "$BACKUP_DIR/logs"; RUN_SQL=(x.bak); RUN_FILES=(); REMOTE_RETENTION_DAYS=0; BACKUP_OFFSITE_MARKER=""; DB_NAME=TheBuryProjectDb; MODE=full
 FAILCODE="" FAILMSG=""; fail() { FAILCODE=$1; FAILMSG=$2; }
 BACKUP_REMOTE="" BACKUP_REQUIRE_OFFSITE=true; offsite
 check "REQUIRE_OFFSITE=true + remoto vacio -> exit 6" test "$FAILCODE" = 6
@@ -109,6 +109,31 @@ check "upload fallido -> exit 6" test "$FAILCODE" = 6
 check "upload fallido: mensaje sin secreto, con contexto" bash -c '[[ "$1" != *"$2"* && "$1" == *timeout* ]]' _ "$FAILMSG" "$S1"
 check "upload fallido: monitor-status offsite-sql exit=6 verified=false" grep -q '"exit":6,"verified":false' "$BACKUP_DIR/monitor-status/offsite-sql.json"
 unset -f dc fail
+
+# --- offsite(): centinela, subida pendiente y retencion remota (dc simulado) ----------------------------------------------
+CALLS="$T/dc-calls"; : >"$CALLS"
+FAILCODE="" FAILMSG=""; fail() { FAILCODE=$1; FAILMSG=$2; }
+BACKUP_REMOTE="offsite:bucket/erp"; BACKUP_OFFSITE_MARKER=".bury-offsite-ok"
+dc() { echo "$*" >>"$CALLS"; if [[ "$*" == *" lsf "* ]]; then return 0; fi; return 0; }   # lsf sin salida = centinela ausente
+offsite
+check "centinela ausente -> exit 6 y no se sube nada" bash -c '[[ "$1" == 6 && "$2" == *centinela* ]] && ! grep -q " copy " "$3"' _ "$FAILCODE" "$FAILMSG" "$CALLS"
+FAILCODE=""; : >"$CALLS"
+dc() { echo "$*" >>"$CALLS"; if [[ "$*" == *" lsf "* ]]; then echo ".bury-offsite-ok"; fi; return 0; }
+rclone_verify() { return 0; }
+RUN_SQL=(TheBuryProjectDb_full_2026-01-01_000000Z.bak); DB_NAME=TheBuryProjectDb; REMOTE_RETENTION_DAYS=30; MODE=all
+offsite
+check "centinela presente -> sin fallo" test -z "$FAILCODE"
+check "la subida incluye backups pendientes (full+log) y respeta --max-age" bash -c 'grep -q "_log_\*.trn" "$1" && grep -q "_full_\*.bak" "$1" && grep -q -- "--max-age 30d" "$1"' _ "$CALLS"
+check "la retencion remota crea el directorio antes de borrar (mkdir)" bash -c 'grep -q " mkdir offsite:bucket/erp/sql" "$1"' _ "$CALLS"
+unset -f dc fail rclone_verify
+BACKUP_OFFSITE_MARKER=""; REMOTE_RETENTION_DAYS=0
+source "$HERE/lib.sh" >/dev/null 2>&1; set +e   # restaura rclone_verify real
+
+# --- rclone_errtext: la causa real no queda oculta por las lineas NOTICE ---------------------------------------------------
+r=$(rclone_errtext "2026/01/01 NOTICE: Config file not found - using defaults
+2026/01/01 NOTICE: sftpr: No host key validation is being performed
+2026/01/01 CRITICAL: couldn't connect SSH: dial tcp: connection refused password=$S1")
+check "rclone_errtext conserva la causa, descarta NOTICE y sanitiza" bash -c '[[ "$1" == *"connection refused"* && "$1" != *NOTICE* && "$1" != *"$2"* ]]' _ "$r" "$S1"
 
 # --- restore_test_status --------------------------------------------------------------------------------------------------
 BACKUP_DIR="$T/rt"; F="$BACKUP_DIR/monitor-status/restore-test.json"

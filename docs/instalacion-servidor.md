@@ -79,6 +79,27 @@ Docker Desktop corre dentro de la **sesión del usuario**, y las tareas de backu
 
 Los contenedores tienen `restart: unless-stopped`: vuelven con Docker. Probarlo reiniciando el equipo y abriendo `https://tbp` sin tocar nada.
 
+#### Qué hace cada servicio al reiniciar el equipo (verificado el 2026-10-29 en un stack aislado)
+
+- `db`, `app` y `caddy` tienen `restart: unless-stopped`; `db-init` y `migrate` son one-shot (`restart: "no"`) y **no** se vuelven a ejecutar: es lo esperado.
+- Al volver el daemon, `depends_on` **no** ordena el arranque (los contenedores se levantan en paralelo). Se probó la caída simultánea de `db`, `app` y `caddy`
+  (proceso terminado desde dentro del contenedor, sin pasar por la API de Docker): los tres volvieron solos, `app` reintentó la conexión a SQL y `/health/ready` volvió a 200
+  en ≈ 10-20 s, con los datos intactos. `docker compose down` + `up -d` (sin `-v`) conserva datos, claves y sesiones.
+- **No vuelven solos** los contenedores detenidos a propósito: `docker stop`/`docker kill`/`docker compose stop` los marcan «manualmente detenidos» y `unless-stopped` los respeta
+  (reproducido con `docker kill`: los tres quedaron en `Exited (137)` sin reiniciarse). Caso real: un reinicio justo durante `backup.sh all`
+  (que detiene `app` ~15 s) deja `app` apagada. Tampoco arranca `caddy` si `ERP_BIND_ADDRESS` apunta a una IP que aún no existe (`docs/red-privada-lan-vpn.md` §6).
+  Por eso, **tras cada reinicio** (o como tarea al iniciar sesión / unidad systemd `After=docker.service`) conviene ejecutar `docker compose up -d` y comprobar:
+
+  ```bash
+  cd <repo> && docker compose up -d --wait && docker compose ps && curl -fsS https://tbp/health/ready
+  ```
+
+  Windows: agregar esa orden a la tarea `TheBury Docker Start`, después de que Docker Desktop esté listo
+  (con WSL integrado: `wsl.exe -d <distro> -- bash -lc "cd ~/theburyproject1 && docker compose up -d"`).
+  **Esta ampliación de la tarea no está automatizada ni probada en Windows**; es un paso manual hasta validarlo en el servidor definitivo.
+- No se reinició el daemon de Docker/Docker Desktop (afectaría a otros contenedores del equipo de pruebas): el ciclo completo
+  «apagar el equipo → encender → inicio de sesión automático → Docker Desktop → contenedores» queda **pendiente de ensayo en el servidor real**.
+
 ## 4. Linux (Ubuntu Server)
 
 ```bash

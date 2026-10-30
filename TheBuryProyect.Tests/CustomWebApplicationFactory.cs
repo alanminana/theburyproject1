@@ -883,6 +883,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             OrdenCompraConRecepcionUserId, "test-oc-con-recepcion-role-id", "TestOcConRecepcionRole", 9610,
             "ordenescompra.view", "ordenescompra.update", "ordenescompra.receive");
 
+    public const string OrdenCompraCancelaUserId = "test-oc-cancela-id";
+
+    /// <summary>H9-M6: ordenescompra.view + update + cancel (puede cancelar y eliminar órdenes).</summary>
+    public Task SeedUserWithOrdenCompraCancelaAsync() =>
+        SeedPermissionUserAsync(
+            OrdenCompraCancelaUserId, "test-oc-cancela-role-id", "TestOcCancelaRole", 9660,
+            "ordenescompra.view", "ordenescompra.update", "ordenescompra.cancel");
+
     public const string ContratoSoloVentasUserId = "test-contrato-solo-ventas-id";
     public const string ContratoConfigurarUserId = "test-contrato-configurar-id";
 

@@ -19,7 +19,7 @@ public class OrdenCompraBacklogHttpTests : IClassFixture<CustomWebApplicationFac
 
     public OrdenCompraBacklogHttpTests(CustomWebApplicationFactory factory) => _factory = factory;
 
-    private async Task<int> SeedOrdenConfirmadaAsync()
+    private async Task<int> SeedOrdenConfirmadaAsync(EstadoOrdenCompra estado = EstadoOrdenCompra.Confirmada, int recibidas = 0)
     {
         using var scope = _factory.Services.CreateScope();
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
@@ -42,11 +42,11 @@ public class OrdenCompraBacklogHttpTests : IClassFixture<CustomWebApplicationFac
 
         var orden = new OrdenCompra
         {
-            Numero = $"OC-{DateTime.UtcNow.Year}-{sufijo}", ProveedorId = proveedor.Id, Estado = EstadoOrdenCompra.Confirmada,
+            Numero = $"OC-{DateTime.UtcNow.Year}-{sufijo}", ProveedorId = proveedor.Id, Estado = estado,
             FechaEmision = DateTime.UtcNow, RowVersion = new byte[8],
             Detalles = new List<OrdenCompraDetalle>
             {
-                new() { ProductoId = producto.Id, Cantidad = 5, PrecioUnitario = 100m, Subtotal = 500m }
+                new() { ProductoId = producto.Id, Cantidad = 5, PrecioUnitario = 100m, Subtotal = 500m, CantidadRecibida = recibidas }
             }
         };
         context.OrdenesCompra.Add(orden);
@@ -133,5 +133,59 @@ public class OrdenCompraBacklogHttpTests : IClassFixture<CustomWebApplicationFac
         var (estado, recepcion) = await LeerAsync(id);
         Assert.Equal(EstadoOrdenCompra.Confirmada, estado);
         Assert.Null(recepcion);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_ACancelada_SinPermisoDeCancelacion_NoCambiaYLaVistaNoLoOfrece()
+    {
+        // H9-M6: cancelar exige ordenescompra.cancel (como Delete); con solo update alcanzaba.
+        await _factory.SeedUserWithOrdenCompraSinRecepcionAsync();
+        var id = await SeedOrdenConfirmadaAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.OrdenCompraSinRecepcionUserId);
+        var (html, token) = await DetailsAsync(client, id);
+        var select = Regex.Match(html, "<select\\b[^>]*\\bid=\"select-estado\"[^>]*>.*?</select>", RegexOptions.Singleline).Value;
+        Assert.NotEmpty(select);
+        Assert.DoesNotContain($"value=\"{(int)EstadoOrdenCompra.Cancelada}\"", select);
+
+        await CambiarEstadoAsync(client, token, id, EstadoOrdenCompra.Cancelada);
+
+        Assert.Equal(EstadoOrdenCompra.Confirmada, (await LeerAsync(id)).Estado);
+    }
+
+    [Fact]
+    public async Task Cancelar_OrdenParcialmenteRecibida_ConservaRecepcionYDejaAuditoria_YNoSePuedeEliminar()
+    {
+        await _factory.SeedUserWithOrdenCompraCancelaAsync();
+        var id = await SeedOrdenConfirmadaAsync(EstadoOrdenCompra.EnTransito, recibidas: 2);
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.OrdenCompraCancelaUserId);
+        var (_, token) = await DetailsAsync(client, id);
+
+        await CambiarEstadoAsync(client, token, id, EstadoOrdenCompra.Cancelada);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+            await using var context = await contextFactory.CreateDbContextAsync();
+            var orden = await context.OrdenesCompra.Include(o => o.Detalles).AsNoTracking().SingleAsync(o => o.Id == id);
+            Assert.Equal(EstadoOrdenCompra.Cancelada, orden.Estado);
+            Assert.Equal(2, orden.Detalles.Single().CantidadRecibida);
+            var evento = await context.Set<SeguridadEventoAuditoria>().AsNoTracking()
+                .SingleAsync(e => e.Accion == "CancelarOrdenCompra" && e.Entidad == $"OrdenCompra:{id}");
+            Assert.Equal("Compras", evento.Modulo);
+            Assert.Contains("Recibido=2/5", evento.Detalle);
+            Assert.Contains("sin reversión", evento.Detalle);
+        }
+
+        // Eliminarla liberaría su número (índice único filtrado) y el Kardex ("Orden de Compra OC-...") quedaría ambiguo.
+        var (_, token2) = await DetailsAsync(client, id);
+        var delete = await client.PostAsync($"/OrdenCompra/Delete/{id}", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token2
+        }));
+        Assert.True(delete.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.Found);
+        using var scope2 = _factory.Services.CreateScope();
+        var cf = scope2.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var ctx = await cf.CreateDbContextAsync();
+        Assert.False((await ctx.OrdenesCompra.IgnoreQueryFilters().AsNoTracking().SingleAsync(o => o.Id == id)).IsDeleted);
     }
 }

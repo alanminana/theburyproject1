@@ -90,19 +90,65 @@ Para copiar fuera del servidor a mano: `sudo rsync -a $BACKUP_DIR/ destino:` (o 
 
 ## 6. Copia externa
 
-Un solo mecanismo (rclone, en un contenedor) con destino configurable; no se eligió proveedor.
+Un solo mecanismo (rclone, en un contenedor `backup-offsite`) con destino configurable; **el proveedor lo elige el usuario** (ver 6.1).
+Las credenciales viven solo en `backup-offsite.env` (0600, fuera de Git y de la imagen); en `.env` solo van `BACKUP_REMOTE` y flags.
+**Siempre cifrar** (remoto `crypt`, 6.3): los backups contienen datos de clientes y las claves de Data Protection.
 
-1. `cp backup-offsite.env.example backup-offsite.env`, `chmod 600`, descomentar **un** bloque (SFTP, S3, B2, Azure Blob…).
-   Está en `.gitignore` y `.dockerignore`; las credenciales del proveedor viven solo en el contenedor `backup-offsite`.
-2. En `.env`: `BACKUP_REMOTE=offsite:<ruta>` (ej. `offsite:mi-bucket/erp`), `BACKUP_REQUIRE_OFFSITE=true`.
-3. **Cifrado**: encadenar un remoto `crypt` de rclone sobre `offsite` (instrucciones al final de `backup-offsite.env.example`) y usar
-   `BACKUP_REMOTE=secure:erp`. Guardar la clave de cifrado **fuera del servidor**.
-4. Probar: `scripts/backup/backup.sh full` y `scripts/backup/fetch-offsite.sh --list`.
+### 6.1 Qué ubicación elegir
 
-Cada subida se **verifica**: si el remoto expone hash, con `rclone check`; si no (p. ej. SFTP sin shell), byte a byte con
-`--download`. Al descargar (`fetch-offsite.sh`) además se comparan todos los `.sha256` calculados en origen. Sin `BACKUP_REMOTE`,
-cada corrida avisa con `WARN` que los backups están solo en este servidor (y falla con exit 6 si `BACKUP_REQUIRE_OFFSITE=true`).
-En SFTP, fijar la clave del host (`known_hosts_file`) en producción; las pruebas se hicieron sin validación de host key.
+| Opción | Ventajas | Riesgos / costo | Cuándo |
+|---|---|---|---|
+| **Disco USB externo / NAS** en el mismo local (backend `local`, overlay `docker-compose.offsite-disk.yml`) | Sin cuenta ni Internet; barato; restauración rápida (red local/USB) | Mismo sitio: **no protege de incendio, robo o inundación**; el disco desconectado deja el punto de montaje vacío (por eso el centinela, 6.2); hay que rotar/llevar el disco | Mínimo viable; complemento de una copia fuera del local |
+| **SFTP a otro equipo / otra sede** | Sin cuenta cloud; otro sitio físico; control propio | Hay que mantener ese servidor (disco, SO, clave SSH); sin hash remoto → verificación byte a byte (más lenta); fijar la host key | Si ya existe otra sede o un VPS propio |
+| **Nube S3 compatible / Backblaze B2 / Azure Blob** | Otro sitio, durabilidad gestionada, hashes remotos, versionado/object-lock opcional | Cuenta y facturación; salida a Internet; una access key robada borra todo si no se limita al bucket (usar clave solo-bucket; ideal sin permiso de borrado + retención por el proveedor) | **Recomendado como copia fuera del local** |
+
+Recomendación para un uso local: **dos copias externas** — disco externo cifrado (restauración rápida) + nube cifrada con clave limitada
+al bucket (sobrevive al local). El script sube a un solo `BACKUP_REMOTE`; para dos destinos se encadena un remoto `union`/segunda tarea
+(no implementado: hoy se elige uno y el segundo se copia a mano con `rsync`/`rclone sync`).
+Sea cual sea: guardar `.env`, `backup-offsite.env` y las **dos passwords de crypt** en un gestor de contraseñas **fuera del servidor**.
+
+### 6.2 Procedimiento: disco externo / NAS (probado el 2026-10-29)
+
+1. Montar el disco/NAS en el host (Linux: `/mnt/bury-offsite` por `fstab`/`systemd.mount`; Windows+WSL2: ruta visible en WSL). Debe ser **otro
+   disco o equipo**, no `BACKUP_DIR` ni el volumen de datos.
+2. En `.env` (el cron/Task Scheduler no heredan variables de entorno: va todo aquí):
+
+   ```text
+   COMPOSE_PATH_SEPARATOR=,
+   COMPOSE_FILE=docker-compose.yml,docker-compose.offsite-disk.yml
+   BACKUP_OFFSITE_DISK_DIR=/mnt/bury-offsite
+   BACKUP_REMOTE=secure:erp
+   BACKUP_REQUIRE_OFFSITE=true
+   BACKUP_OFFSITE_MARKER=.bury-offsite-ok
+   ```
+
+3. En `backup-offsite.env` (`chmod 600`): `RCLONE_CONFIG_OFFSITE_TYPE=local` y el bloque `crypt` de 6.3 con `RCLONE_CONFIG_SECURE_REMOTE=offsite:/offsite-disk/erp`.
+4. Crear el centinela **una vez, con el disco montado**: `docker compose run --rm -T --no-deps backup-offsite touch secure:erp/.bury-offsite-ok`.
+   Si el disco se desconecta, el directorio queda vacío; sin centinela rclone escribiría igual en el disco del servidor y el log diría
+   «subida y VERIFICADA» (reproducido). Con `BACKUP_OFFSITE_MARKER` el backup falla con exit 6 antes de subir nada.
+5. Probar: `scripts/backup/backup.sh full` → `copia externa sql: subida y VERIFICADA`, exit 0; `scripts/backup/fetch-offsite.sh --list`.
+
+### 6.3 Cifrado (crypt) y otros proveedores
+
+Generar dos passwords (una vez) y ofuscarlas: `docker run --rm rclone/rclone obscure "<password>"` (instrucciones y bloques SFTP/S3/B2/Azure
+en `backup-offsite.env.example`). El remoto `secure` cifra **contenido y nombres**: en el destino solo se ven nombres opacos
+(verificado). Sin las dos passwords los backups son ilegibles — es la propiedad buscada y también el riesgo: respaldarlas fuera del servidor.
+SFTP/nube: completar el bloque `offsite` del proveedor, `BACKUP_REMOTE=secure:erp` (con `RCLONE_CONFIG_SECURE_REMOTE=offsite:<bucket-o-ruta>`)
+y, en SFTP, la host key (`KNOWN_HOSTS_FILE`); el centinela no hace falta.
+
+### 6.4 Integridad, retención y fallo (comportamiento verificado)
+
+- Cada subida se **verifica**: con hash remoto, `rclone check`; sin hash (SFTP, `crypt`, disco local cifrado), byte a byte con `--download`.
+  Al descargar (`fetch-offsite.sh`) se comparan además los `.sha256` calculados en origen. Un byte alterado en el remoto cifrado hace fallar la
+  descarga (`failed to authenticate decrypted block`, exit 6) — probado.
+- La subida cubre **todos los backups locales aún no subidos** (no solo los de esta corrida): si un `.trn` no pudo subirse (remoto caído),
+  la corrida siguiente lo repone y la cadena de logs remota no queda con un hueco. La verificación activa solo cubre los archivos de la corrida.
+- Retención remota: `BACKUP_REMOTE_RETENTION_DAYS` (30) borra por antigüedad **solo** nombres del sistema (`*_full_*.bak*`, `*_log_*.trn*`, `files_*.tar.gz*`);
+  archivos ajenos se conservan (probado). No hay mínimo de copias en el remoto: si se necesita, usar la retención del proveedor.
+- `BACKUP_REQUIRE_OFFSITE=true`: exit 6 si `BACKUP_REMOTE` está vacío **o** el remoto no responde (SFTP caído, disco sin centinela, credenciales
+  inválidas); el mensaje de `backup.log` incluye la causa real (`connection refused`, `no such host`, `permission denied`).
+  No se ejecuta la retención local tras un fallo y no se borra ningún backup histórico.
+- Sin `BACKUP_REMOTE`, cada corrida avisa con `WARN` que los backups están solo en este servidor.
 
 ## 7. Consistencia de los archivos
 
@@ -191,11 +237,38 @@ docker compose up -d --build --wait
 Usar el **último full anterior al desastre** y los logs posteriores. Si el último full o algún log estuviera dañado, el script lo
 rechaza (`sha256`/`VERIFYONLY`) y hay que retroceder a un full anterior (el remoto conserva 30 días).
 
+### 10.1 RTO y RPO medidos (ensayo del 2026-10-29, Docker Desktop, base de prueba 13 MB)
+
+Recuperación en una pila **nueva y aislada** (otro proyecto Compose, otros volúmenes/puerto/subred) **solo desde la copia externa**
+(`secure:erp` sobre disco externo cifrado; `BACKUP_DIR` vacío): `fetch-offsite.sh` → `restore-files.sh` → `up -d --wait db` → `restore-sql.sh --with-logs`
+(full + 2 logs) → `up -d --build --wait`.
+
+| Paso | Tiempo |
+|---|---|
+| fetch + verificación de integridad (byte a byte y sha256) | 11 s |
+| restore de archivos / arranque de `db` / restore SQL (full + 2 logs) | 2 s / 6 s / 8 s |
+| db-init + migrate + app + caddy `healthy` | 17 s |
+| **Total técnico hasta `/health/ready` = 200** | **44 s** |
+
+Verificado: `/health/live` y `/health/ready` 200; login con el usuario administrador; **conteos y `CHECKSUM_AGG` idénticos** al origen en
+`Clientes, Ventas, VentaDetalles, Creditos, Cuotas, MovimientosCaja, AspNetUsers, Productos, __EFMigrationsHistory` (133 migraciones);
+una **cookie de sesión emitida en el servidor original sigue válida** en la pila recuperada porque se restauró `bury-keys` (control negativo:
+con el volumen de claves vacío la misma cookie es rechazada → 302 al login); roles SQL `app` writer/sin DDL y `migrate` con DDL intactos.
+La fila insertada **después del último backup de log** no existe en la pila recuperada (RPO real).
+
+- **RTO**: el tiempo técnico crece con el tamaño de la base y el ancho de banda hacia la copia externa (aprox. descarga + restore); a eso se suma el
+  tiempo humano (conseguir el servidor, el `.env`, las passwords de crypt). Con una base del orden de 100 MB-1 GB, esperar minutos, no horas;
+  **medirlo con la base real** al activar el destino definitivo.
+- **RPO (configuración por defecto)**: datos SQL ≈ **15 min** (backup de log cada 15 min, subido al remoto en la misma corrida; más lo que tarde la subida);
+  hasta el último full si el log falla. **Archivos** (uploads, contratos, claves): hasta **24 h** (tar diario). Para un uso local es razonable;
+  si se suben documentos/contratos durante el día y 24 h es mucho, ejecutar `backup.sh files` más seguido (detiene `app` ~10-15 s) o agendar un `files` a mediodía.
+- Ya queda cubierto el caso «el log remoto quedó con un hueco»: la subida repone los `.trn` pendientes (6.4).
+
 ## 11. Verificación de que el restore quedó bien
 
 ```bash
 curl -fsS https://<dominio>/health/live ; curl -fsS https://<dominio>/health/ready          # 200 / 200
-docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT COUNT(*) AS migraciones FROM __EFMigrationsHistory\""     # = nº de migraciones esperado (106 al escribir esto)
+docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT COUNT(*) AS migraciones FROM __EFMigrationsHistory\""     # = nº de migraciones esperado (133 al 2026-10-29)
 docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT name, IS_ROLEMEMBER('db_datawriter', name) AS writer, IS_ROLEMEMBER('db_ddladmin', name) AS ddl        FROM sys.database_principals WHERE name IN (N'<ERP_DB_USER>', N'<ERP_MIGRATION_USER>')\""   # app: writer=1 ddl=0 | migraciones: ddl=1
 ```
 
@@ -232,11 +305,13 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 
 ## 14. Pendientes específicos de backup/restore
 
-- **Copia externa real no verificada**: los ensayos usaron un servidor SFTP local de prueba (transporte de red real, no un proveedor
-  externo). Falta configurar el destino real, `BACKUP_REQUIRE_OFFSITE=true`, y (SFTP) pinnear la host key.
-- Cifrado `crypt` del remoto: documentado, **no probado**.
-- Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba).
+- **Proveedor externo real no configurado (decisión del usuario)**: probado el 2026-10-29 con (a) disco externo simulado (`local` + `crypt`) y
+  (b) servidor SFTP en contenedor (`sftp` + `crypt`), sin credenciales reales. Falta elegir destino (6.1), completar `backup-offsite.env`,
+  `BACKUP_REQUIRE_OFFSITE=true`, el centinela (disco/NAS) o la host key (SFTP) y repetir el ensayo de 10.1 con la base real.
+- Cifrado `crypt`: **probado** (nombres y contenido cifrados; alteración detectada). Falta guardar las dos passwords fuera del servidor.
+- Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba). En Windows las tareas
+  las crea `install-windows.ps1` (usan `.env`, así que la configuración del overlay de 6.2 también aplica).
 - Permisos verificados en Linux (VM de Docker), no en el disco definitivo del servidor.
-- Falta un aviso activo ante fallos (los códigos de salida están listos; el monitoreo queda para el bloque siguiente).
+- El aviso activo ante fallos depende del monitor (`docs/monitoreo-alertas.md`); sin él, un `exit 6` solo queda en `backup.log` y `monitor-status/`.
 - Sin retención "mensual/anual": si se necesita histórico largo, definirla (p. ej. conservar el full del día 1 de cada mes).
 - El backup no incluye `.env`/`backup-offsite.env`: mantener su copia manual y actualizada.

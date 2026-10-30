@@ -16,6 +16,8 @@
         ? (int)Math.Round((double)totalRecibidas / totalUnidades * 100d, MidpointRounding.AwayFromZero)
         : 0;
     var hayPendientes = Model.Detalles.Any(d => d.CantidadRecibida < d.Cantidad);
+    var cancelada = Model.Estado == EstadoOrdenCompra.Cancelada;
+    var permisoCancelar = User.TienePermiso("ordenescompra", "cancel");
     var scrollMinWidth = "40rem";
 
     var estadoOptions = new[]
@@ -143,9 +145,9 @@
             <p class="oc-stat__sub">@totalRecibidas de @totalUnidades recepcionadas</p>
         </div>
         <div class="oc-stat">
-            <span class="oc-stat__label">Pendientes</span>
+            <span class="oc-stat__label">@(cancelada ? "Pendiente cancelado" : "Pendientes")</span>
             <p class="oc-stat__value">@totalPendientes</p>
-            <p class="oc-stat__sub">unidad(es) por ingresar</p>
+            <p class="oc-stat__sub">@(cancelada ? "unidad(es) que ya no se recibirán" : "unidad(es) por ingresar")</p>
         </div>
         <div class="oc-stat">
             <span class="oc-stat__label">Total ordenado</span>
@@ -169,7 +171,13 @@
                 <span class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold uppercase tracking-wide border-slate-700 bg-slate-800 text-slate-300">
                     @Model.Detalles.Count producto(s)
                 </span>
-                @if (hayPendientes)
+                @if (hayPendientes && cancelada)
+                {
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold uppercase">
+                        @totalPendientes cancelado(s)
+                    </span>
+                }
+                else if (hayPendientes)
                 {
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase">
                         @totalPendientes pendiente(s)
@@ -411,7 +419,7 @@
                         <select name="nuevoEstado" id="select-estado"
                                 aria-describedby="estado-ayuda"
                                 class="w-full bg-slate-800 border border-slate-700 rounded-lg h-10 text-sm appearance-none px-3 focus:ring-primary focus:border-primary text-white">
-                            @foreach (var opt in estadoOptions.Where(o => o.Item1 == Model.Estado || (OrdenCompraTransiciones.EsValida(Model.Estado, o.Item1) && o.Item1 != EstadoOrdenCompra.Recibida)))
+                            @foreach (var opt in estadoOptions.Where(o => o.Item1 == Model.Estado || (OrdenCompraTransiciones.EsValida(Model.Estado, o.Item1) && o.Item1 != EstadoOrdenCompra.Recibida && (o.Item1 != EstadoOrdenCompra.Cancelada || permisoCancelar))))
                             {
                                 <option value="@((int)opt.Item1)" selected="@(opt.Item1 == Model.Estado)">@opt.Item2</option>
                             }
@@ -427,6 +435,12 @@
                 <p id="estado-ayuda" class="text-xs text-slate-400">
                     El sistema pide confirmación antes de aplicar el cambio y notifica al proveedor @(Model.ProveedorNombre ?? "").
                 </p>
+                @if (totalRecibidas > 0 && permisoCancelar)
+                {
+                    <p id="estado-ayuda-cancelar" class="text-xs text-amber-400">
+                        Si cancelás esta orden, las @totalRecibidas unidad(es) ya recepcionadas quedan en stock (no se revierte el ingreso) y las @totalPendientes pendientes no se recibirán.
+                    </p>
+                }
             </form>
         }
         else
