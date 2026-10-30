@@ -1785,10 +1785,10 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Convertir_ConSoloDescuentoPorcentajeSnapshot_DescuentoDetalleEsCero()
+    public async Task Convertir_ConSoloDescuentoPorcentajeSnapshot_RespetaElImporteCotizado()
     {
-        // Por diseño: la conversión usa solo DescuentoImporteSnapshot.
-        // DescuentoPorcentajeSnapshot es solo snapshot/auditoría; no se recalcula al convertir.
+        // HITO9-N2: un descuento de línea en % (lo que genera el cotizador) se perdía al convertir y la
+        // venta salía más cara que la cotización. Ahora la venta queda por el mismo importe cotizado.
         var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: 10m);
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
@@ -1797,16 +1797,16 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
-        Assert.Equal(0m, detalle.Descuento);
-        Assert.Equal(200m, detalle.Subtotal); // 100 * 2 sin descuento aplicado
+        Assert.Equal(10m, detalle.Descuento);
+        Assert.Equal(180m, detalle.Subtotal); // 100 * 2 - 10%
+        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
+        Assert.Equal(180m, venta!.Total);
     }
 
     [Fact]
-    public async Task Convertir_ConAmbosDescuentosSnapshot_UsaImporte()
+    public async Task Convertir_ConAmbosDescuentosSnapshot_SumaPorcentajeEImporteComoElCotizador()
     {
-        // Cuando hay porcentaje e importe, la conversión usa solo importe (el subtotal resta el
-        // importe crudo: 100*2 - 15 = 185). VentaDetalle.Descuento se normaliza al equivalente
-        // porcentual de ese importe sobre el bruto: 15/200*100 = 7.5%.
+        // El cotizador suma ambos: 10% de 200 = 20 + 15 = 35 -> 165.
         var cotizacion = CotizacionEmitidaConDescuento(
             conCliente: true, precioSnapshot: 100m,
             descuentoPorcentaje: 10m, descuentoImporte: 15m);
@@ -1817,25 +1817,46 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
-        Assert.Equal(7.5m, detalle.Descuento);
-        Assert.Equal(185m, detalle.Subtotal); // 100 * 2 - 15
+        Assert.Equal(17.5m, detalle.Descuento);
+        Assert.Equal(165m, detalle.Subtotal);
     }
 
     [Fact]
-    public async Task Convertir_DescuentoGeneralNoPropagaAVentaDescuento()
+    public async Task Convertir_DescuentoGeneralCotizado_SePropagaAVentaYTotalCoincide()
     {
-        // venta.Descuento = 0 siempre; el descuento general de la cotizacion no se propaga
-        var cotizacion = CotizacionEmitida(conCliente: true);
-        cotizacion.DescuentoTotal = 20m; // simula descuento general aplicado
-        cotizacion.TotalBase = 80m;
+        // Cotización: 1 línea de 200 con 10% (180) y descuento general de 30 -> productos 150.
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: 10m);
+        cotizacion.DescuentoTotal += 30m;
+        cotizacion.TotalBase = 150m;
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
 
-        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
 
         Assert.True(resultado.Exitoso);
-        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
-        Assert.Equal(0m, venta!.Descuento); // descuento general no propagado
+        var venta = await _context.Ventas.Include(v => v.Detalles).FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(30m, venta.Descuento);
+        Assert.Equal(150m, venta.Total);
+        var detalle = Assert.Single(venta.Detalles);
+        Assert.Equal(30m, detalle.DescuentoGeneralProrrateado);
+        Assert.Equal(150m, detalle.SubtotalFinal);
+        Assert.Equal(venta.Total, detalle.SubtotalFinalNeto + detalle.SubtotalFinalIVA);
+    }
+
+    [Fact]
+    public async Task Convertir_SoloDescuentoGeneral_SinPermisoDescuento_BloqueaExplicitamente()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.DescuentoTotal = 20m;
+        cotizacion.TotalBase = 180m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await ServicioSinPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.False(resultado.Exitoso);
+        Assert.Contains(resultado.Errores, e => e.Contains("Aplicar descuentos"));
+        Assert.False(await _context.Ventas.AnyAsync(v => v.CotizacionOrigenId == cotizacion.Id));
     }
 
     // Efectivo −5% / Transferencia +3%: el cotizador muestra ese "Total a cobrar", la venta debe coincidir.
@@ -2021,7 +2042,8 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         decimal? descuentoPorcentaje = null,
         decimal? descuentoImporte = null)
     {
-        var descuento = descuentoImporte ?? 0m;
+        // Mismo cálculo que CotizacionPagoCalculator: % sobre el bruto de la línea + importe.
+        var descuento = Math.Round(precioSnapshot * 2 * (descuentoPorcentaje ?? 0m) / 100m, 2) + (descuentoImporte ?? 0m);
         return new Cotizacion
         {
             Numero = $"COT-TEST-{Guid.NewGuid():N}",
