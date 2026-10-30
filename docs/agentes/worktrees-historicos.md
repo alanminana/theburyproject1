@@ -30,6 +30,8 @@ Estados: **contenido en main** (0 commits únicos), **integrado en esta PR**, **
 | theburyproject1-seg-p0 | fix/seg-p0-usuario-inactivo | 1 commit, cherry 0 | retirar |
 | theburyproject1-h9-m2-cotizador, -h9-m4-iva-qa, -h9-m5-recup | task/hito9-m{2,4,5}-* | HEAD = `216e8166` (ancestro de main), limpios, sin commits propios | ajenos activos (Hito 9): no tocar; retirar al cerrar cada micro-lote |
 
+Retiro preparado (Hito 10): `scripts/git/retirar-worktrees-redundantes.ps1` es DRY-RUN por defecto; con `-Ejecutar` retira solo el worktree de las 15 ramas de esta sección si en ese momento están limpias y sin commits únicos (`git cherry`). Conserva siempre la rama y sus commits y no usa `--force`. Verificado en dry-run el 2026-10-30: las 15 cumplen. Falta la autorización específica para ejecutarlo.
+
 ## 2. Trabajo único integrado en esta PR
 
 | Ruta | Rama | Qué había sin integrar | Resultado |
