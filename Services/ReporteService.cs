@@ -236,61 +236,88 @@ namespace TheBuryProject.Services
 
                 if (filtro.IncluyeVentas)
                 {
-                    // Fuente: snapshot histórico de VentaDetalle (alícuota, neto e IVA al momento
-                    // de la operación). Una venta genera un solo registro de IVA aunque se cobre
-                    // en varios movimientos de Caja. Solo Facturada/Entregada tienen factura real
-                    // detrás y discriminan IVA (mismo criterio que CajaConciliacionBuilder.DiscriminaIva);
-                    // una Confirmada sin facturar es una venta informal que no declara IVA, y se
-                    // excluye igual que borradores/cotizaciones y canceladas.
-                    var ventasQuery = _context.VentaDetalles
+                    // Fuente: snapshot histórico de VentaDetalle (alícuota, neto e IVA al momento de la operación) más lo que
+                    // la factura también cobra y discrimina: armados y envío incluidos en el total (IVA a la alícuota de los
+                    // servicios) y el ajuste del medio de pago (recargo o descuento, prorrateado por alícuota). Una venta
+                    // genera un solo registro de IVA aunque se cobre en varios movimientos de Caja. Solo Facturada/Entregada
+                    // tienen factura real detrás y discriminan IVA (mismo criterio que CajaConciliacionBuilder.DiscriminaIva);
+                    // una Confirmada sin facturar es una venta informal que no declara IVA, y se excluye igual que
+                    // borradores/cotizaciones y canceladas.
+                    var ventasQuery = _context.Ventas
                         .AsNoTracking()
-                        .Where(d =>
-                            !d.IsDeleted &&
-                            !d.Venta.IsDeleted &&
-                            (d.Venta.Estado == EstadoVenta.Facturada ||
-                             d.Venta.Estado == EstadoVenta.Entregada));
+                        .Include(v => v.Detalles.Where(d => !d.IsDeleted))
+                        .Include(v => v.Envio)
+                        .Where(v =>
+                            !v.IsDeleted &&
+                            (v.Estado == EstadoVenta.Facturada ||
+                             v.Estado == EstadoVenta.Entregada));
 
                     if (desde.HasValue)
-                        ventasQuery = ventasQuery.Where(d => d.Venta.FechaVenta >= desde.Value);
+                        ventasQuery = ventasQuery.Where(v => v.FechaVenta >= desde.Value);
                     if (hastaExclusivo.HasValue)
-                        ventasQuery = ventasQuery.Where(d => d.Venta.FechaVenta < hastaExclusivo.Value);
-                    if (filtro.Alicuota.HasValue)
-                        ventasQuery = ventasQuery.Where(d => d.PorcentajeIVA == filtro.Alicuota.Value);
+                        ventasQuery = ventasQuery.Where(v => v.FechaVenta < hastaExclusivo.Value);
 
                     // Agregación en memoria: SQLite (tests) no traduce Sum de decimal en el servidor.
-                    var ventaRows = await ventasQuery
-                        .Select(d => new
-                        {
-                            d.VentaId,
-                            d.PorcentajeIVA,
-                            d.SubtotalFinalNeto,
-                            d.SubtotalFinalIVA,
-                            d.SubtotalFinal
-                        })
-                        .ToListAsync();
+                    var ventasIva = await ventasQuery.ToListAsync();
 
                     // Líneas legacy sin snapshot de desglose (neto e IVA en cero con importe
                     // facturado): se excluyen de los buckets y se informan aparte. Una línea
                     // exenta legítima (0%) tiene neto = total, por lo que no cae acá.
-                    var ventasSinDesglose = ventaRows
-                        .Where(d => d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.SubtotalFinal > 0m)
-                        .ToList();
-                    var ventasConDesglose = ventaRows
-                        .Where(d => !(d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.SubtotalFinal > 0m))
-                        .ToList();
+                    static bool SinDesglose(VentaDetalle d) =>
+                        d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.SubtotalFinal > 0m;
+
+                    var ventaRows = new List<(int VentaId, decimal PorcentajeIVA, decimal Neto, decimal Iva, decimal Total)>();
+                    var ventasSinDesglose = new List<(int VentaId, decimal Total)>();
+                    foreach (var venta in ventasIva)
+                    {
+                        var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
+                        var lineasSinDesglose = detalles.Where(SinDesglose).ToList();
+                        foreach (var d in lineasSinDesglose.Where(d => !filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value))
+                            ventasSinDesglose.Add((venta.Id, d.SubtotalFinal));
+                        if (lineasSinDesglose.Count > 0)
+                        {
+                            // Venta con líneas legacy: las líneas con desglose se informan tal cual, sin ajuste de venta.
+                            foreach (var d in detalles.Where(d => !SinDesglose(d) && (!filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value)))
+                                ventaRows.Add((venta.Id, d.PorcentajeIVA, d.SubtotalFinalNeto, d.SubtotalFinalIVA, d.SubtotalFinal));
+                            continue;
+                        }
+
+                        var items = detalles
+                            .Select(d => (d.PorcentajeIVA, Bruto: d.SubtotalFinal, Neto: d.SubtotalFinalNeto, Iva: d.SubtotalFinalIVA))
+                            .ToList();
+                        var envioIncluido = venta.Envio is { IncluidoEnTotal: true, IsDeleted: false }
+                            ? VentaMontos.NormalizarImporteEnvio(venta.Envio.CostoEnvio)
+                            : 0m;
+                        var servicios = detalles.Sum(d => d.ArmadoSubtotal) + envioIncluido;
+                        if (servicios > 0m)
+                        {
+                            var (neto, iva) = ServiciosVentaIva.Separar(servicios);
+                            items.Add((ServiciosVentaIva.Porcentaje, servicios, neto, iva));
+                        }
+
+                        if (items.Count == 0)
+                            continue;
+
+                        foreach (var parte in RecargoMedioPagoIva.ResumenPorAlicuota(venta.Total, items))
+                        {
+                            if (filtro.Alicuota.HasValue && parte.Porcentaje != filtro.Alicuota.Value)
+                                continue;
+                            ventaRows.Add((venta.Id, parte.Porcentaje, parte.Neto, parte.Iva, parte.Bruto));
+                        }
+                    }
 
                     resultado.VentasSinDesglose = ventasSinDesglose.Select(d => d.VentaId).Distinct().Count();
-                    resultado.VentasSinDesgloseTotal = ventasSinDesglose.Sum(d => d.SubtotalFinal);
+                    resultado.VentasSinDesgloseTotal = ventasSinDesglose.Sum(d => d.Total);
 
-                    resultado.VentasPorAlicuota = ventasConDesglose
+                    resultado.VentasPorAlicuota = ventaRows
                         .GroupBy(d => d.PorcentajeIVA)
                         .Select(g => new ReporteIvaAlicuotaItemViewModel
                         {
                             Porcentaje = g.Key,
                             Operaciones = g.Select(d => d.VentaId).Distinct().Count(),
-                            Neto = g.Sum(d => d.SubtotalFinalNeto),
-                            Iva = g.Sum(d => d.SubtotalFinalIVA),
-                            Total = g.Sum(d => d.SubtotalFinal)
+                            Neto = g.Sum(d => d.Neto),
+                            Iva = g.Sum(d => d.Iva),
+                            Total = g.Sum(d => d.Total)
                         })
                         .OrderByDescending(x => x.Total)
                         .ToList();
@@ -298,7 +325,7 @@ namespace TheBuryProject.Services
                     resultado.VentasNeto = resultado.VentasPorAlicuota.Sum(x => x.Neto);
                     resultado.VentasIva = resultado.VentasPorAlicuota.Sum(x => x.Iva);
                     resultado.VentasTotal = resultado.VentasPorAlicuota.Sum(x => x.Total);
-                    resultado.VentasCantidad = ventasConDesglose.Select(r => r.VentaId).Distinct().Count();
+                    resultado.VentasCantidad = ventaRows.Select(r => r.VentaId).Distinct().Count();
                 }
 
                 if (filtro.IncluyeCompras)

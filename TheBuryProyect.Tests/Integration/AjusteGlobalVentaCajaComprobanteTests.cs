@@ -854,4 +854,49 @@ public class AjusteGlobalVentaCajaComprobanteTests : IDisposable
         var factura = await _context.Facturas.AsNoTracking().SingleAsync(f => f.VentaId == venta.Id);
         Assert.Equal(planCotizado.Total, factura.Total);
     }
+
+    [Fact]
+    public async Task Facturar_VentaViejaDeCotizacionConDescuentoDeEfectivo_NormalizaNetoEIvaYLaFacturaCierra()
+    {
+        // Venta confirmada ANTES de normalizar la conversion: Subtotal con IVA incluido (=lista), IVA sobre lista y Total
+        // con el descuento de Efectivo (-5 %). Al facturar se normaliza (ruta lazy) y neto + IVA == total.
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+        var categoria = new Categoria { Nombre = $"CatLZ-{suffix}" };
+        var marca = new Marca { Nombre = $"MarcaLZ-{suffix}" };
+        _context.Categorias.Add(categoria);
+        _context.Marcas.Add(marca);
+        var cliente = new Cliente { Nombre = "Test", Apellido = $"LZ-{suffix}", NumeroDocumento = $"LZ{suffix}", NivelRiesgo = NivelRiesgoCredito.AprobadoTotal };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        var producto = new Producto
+        {
+            Codigo = $"PLZ-{suffix}", Nombre = $"Prod LZ {suffix}", PrecioVenta = 1210m,
+            StockActual = 10, CategoriaId = categoria.Id, MarcaId = marca.Id
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id, Numero = $"VLZ-{suffix}", Estado = EstadoVenta.Presupuesto, TipoPago = TipoPago.Efectivo,
+            Subtotal = 1210m, IVA = 210m, Total = 1149.50m, EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        _context.VentaDetalles.Add(new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1210m, Subtotal = 1210m,
+            SubtotalFinal = 1210m, SubtotalFinalNeto = 1000m, SubtotalFinalIVA = 210m, PorcentajeIVA = 21m
+        });
+        await _context.SaveChangesAsync();
+
+        Assert.True(await _ventaService.ConfirmarVentaAsync(venta.Id));
+        Assert.True(await _ventaService.FacturarVentaAsync(venta.Id,
+            new FacturaViewModel { VentaId = venta.Id, Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow }));
+
+        var factura = await _context.Facturas.AsNoTracking().SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(1149.50m, factura.Total);
+        Assert.Equal(factura.Total, factura.Subtotal + factura.IVA);
+        Assert.True(factura.IVA < 210m);
+    }
 }

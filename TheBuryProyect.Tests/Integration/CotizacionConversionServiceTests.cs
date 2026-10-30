@@ -938,7 +938,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.Equal(1000m, venta.Envio!.CostoEnvio);
         Assert.Equal(1000m, venta.ImporteEnvio);
-        Assert.Equal(venta.Subtotal, venta.Total);                 // el envío no entra en Venta.Total
+        Assert.Equal(venta.Subtotal + venta.IVA, venta.Total);     // el envío no entra en Venta.Total
         Assert.Equal(venta.Total + 1000m, venta.TotalACobrar);      // se suma una sola vez
         Assert.Equal(venta.Total, venta.TotalFacturable);          // el comprobante no lo incluye
     }
@@ -1844,6 +1844,34 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Convertir_DescuentoGeneralMasDescuentoDeEfectivo_TotalCotizadoYNetoMasIvaCierran()
+    {
+        // 200 de lista con 10 % de linea (180) y descuento general de 30 -> 150; Efectivo -5 % -> 142,50.
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.Efectivo, Nombre = "Efectivo", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.Efectivo, CantidadCuotas = 1, AjustePorcentaje = -5m, Activo = true
+        });
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: 10m);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo;
+        cotizacion.DescuentoTotal += 30m;
+        cotizacion.TotalBase = 150m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.Include(v => v.Detalles).AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(30m, venta.Descuento);
+        Assert.Equal(142.50m, venta.Total);
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
+        Assert.True(venta.IVA < venta.Detalles.Sum(d => d.SubtotalFinalIVA));
+    }
+
+    [Fact]
     public async Task Convertir_SoloDescuentoGeneral_SinPermisoDescuento_BloqueaExplicitamente()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);
@@ -1883,12 +1911,17 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
 
         Assert.True(resultado.Exitoso);
-        var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
-        Assert.Equal(Math.Round(venta.Subtotal * (decimal)factor, 2, MidpointRounding.AwayFromZero), venta.Total);
-        Assert.NotEqual(venta.Subtotal, venta.Total);
+        var venta = await _context.Ventas.AsNoTracking().Include(v => v.Detalles).FirstAsync(v => v.Id == resultado.VentaId);
+        var baseItems = venta.Detalles.Sum(d => d.SubtotalFinal);
+        Assert.Equal(Math.Round(baseItems * (decimal)factor, 2, MidpointRounding.AwayFromZero), venta.Total);
+        Assert.NotEqual(baseItems, venta.Total);
         // El ajuste queda guardado para explicar el total en Details y en el comprobante.
         Assert.Equal((decimal)ajuste, venta.AjusteMedioPagoPorcentaje);
-        Assert.Equal(venta.Total - venta.Subtotal, venta.AjusteMedioPagoMonto);
+        Assert.Equal(venta.Total - baseItems, venta.AjusteMedioPagoMonto);
+        // QA H9-M4: Subtotal (neto) + IVA == Total tambien con el ajuste del medio de pago, y el IVA lo acompana.
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
+        var ivaDeLista = venta.Detalles.Sum(d => d.SubtotalFinalIVA);
+        if (ajuste < 0) Assert.True(venta.IVA < ivaDeLista); else Assert.True(venta.IVA > ivaDeLista);
     }
 
     [Fact]
@@ -1903,7 +1936,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.True(resultado.Exitoso);
         var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
-        Assert.Equal(venta.Subtotal, venta.Total);
+        Assert.Equal(venta.Subtotal + venta.IVA, venta.Total);   // Subtotal neto
         Assert.Null(venta.AjusteMedioPagoPorcentaje);
         Assert.Null(venta.AjusteMedioPagoMonto);
     }

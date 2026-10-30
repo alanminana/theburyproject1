@@ -144,17 +144,29 @@ public class RecargoMedioPagoIvaTests
     }
 
     [Fact]
-    public void DiscriminarRecargo_SinRecargoODescuento_NoTocaLaVenta()
+    public void DiscriminarRecargo_SinAjuste_NoTocaLaVenta()
     {
-        foreach (var total in new[] { 12_752m, 12_000m })
-        {
-            var venta = VentaWizard(total, out var detalles);
-            var antes = (venta.Subtotal, venta.IVA);
+        var venta = VentaWizard(12_752m, out var detalles);
+        var antes = (venta.Subtotal, venta.IVA);
 
-            VentaService.DiscriminarRecargoEnNetoEIva(venta, detalles);
+        VentaService.DiscriminarRecargoEnNetoEIva(venta, detalles);
 
-            Assert.Equal(antes, (venta.Subtotal, venta.IVA));
-        }
+        Assert.Equal(antes, (venta.Subtotal, venta.IVA));
+    }
+
+    [Fact]
+    public void DiscriminarRecargo_DescuentoDelMedioDePago_RestaNetoEIvaYCierraContraElTotal()
+    {
+        var venta = VentaWizard(12_000m, out var detalles);
+        var ivaAntes = venta.IVA;
+
+        VentaService.DiscriminarRecargoEnNetoEIva(venta, detalles);
+
+        Assert.Equal(12_000m, venta.Subtotal + venta.IVA);
+        Assert.True(venta.IVA < ivaAntes);
+        var (subtotal, iva) = (venta.Subtotal, venta.IVA);
+        VentaService.DiscriminarRecargoEnNetoEIva(venta, detalles);
+        Assert.Equal((subtotal, iva), (venta.Subtotal, venta.IVA));   // idempotente
     }
 
     [Fact]
@@ -221,13 +233,17 @@ public class RecargoMedioPagoIvaTests
     }
 
     [Fact]
-    public void Comprobante_EfectivoConDescuento_SigueIgual()
+    public void Comprobante_EfectivoConDescuento_NetoMasIvaIgualTotalYElIvaBaja()
     {
         var comprobante = ComprobanteDebito(total: 12_115m, factura: 12_115m);
 
-        Assert.False(comprobante.Totales.RecargoIncluido);
-        Assert.Equal(12_752m, comprobante.Totales.SubtotalNeto + comprobante.Totales.IVA);
-        Assert.Equal(12_115m, comprobante.Totales.Total);
+        var t = comprobante.Totales;
+        Assert.Equal(12_115m, t.Total);
+        Assert.Equal(12_115m, t.SubtotalNeto + t.IVA);
+        Assert.True(t.RecargoIncluido);
+        Assert.Equal(-637m, t.RecargoIncluidoNeto + t.RecargoIncluidoIVA);
+        Assert.Equal(12_115m, comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible + r.IVA));
+        Assert.Equal(t.IVA, comprobante.ResumenAlicuotas.Sum(r => r.IVA));
     }
 
     private static TheBuryProject.ViewModels.FacturaComprobanteViewModel ComprobanteDebito(decimal total, decimal factura)
@@ -244,33 +260,126 @@ public class RecargoMedioPagoIvaTests
         return FacturaComprobanteBuilder.Build(f);
     }
 
-    [Fact]
-    public void VentaDeCotizacion_DebitoConRecargo_SumaElIvaDelRecargoYMantieneSubtotalIgualTotal()
+    // Venta nacida de una cotizacion: Subtotal con IVA incluido (convencion de la conversion), Total = Subtotal +/- ajuste.
+    private static Venta VentaCotizada(decimal total, out List<VentaDetalle> detalles)
     {
-        var detalles = new List<VentaDetalle> { Linea(8_000m, 21m), Linea(4_752m, 10.5m) };
-        var venta = new Venta { Subtotal = 12_752m, IVA = detalles.Sum(d => d.SubtotalFinalIVA), Total = 13_134m };
-        var ivaAntes = venta.IVA;
+        detalles = new List<VentaDetalle> { Linea(8_000m, 21m), Linea(4_752m, 10.5m) };
+        return new Venta { Subtotal = 12_752m, IVA = detalles.Sum(d => d.SubtotalFinalIVA), Total = total };
+    }
 
-        VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
+    [Theory]
+    [InlineData(13_134)]        // recargo (transferencia +3 % / tarjeta)
+    [InlineData(12_115)]        // descuento (efectivo -5 %)
+    [InlineData(12_752)]        // sin ajuste: solo cambia la convencion de Subtotal
+    [InlineData(12_115.45)]     // total con centavos (la cotizacion no trunca a pesos)
+    public void Normalizar_VentaDeCotizacion_NetoMasIvaIgualTotal_EsIdempotente(double totalDouble)
+    {
+        var total = (decimal)totalDouble;
+        var venta = VentaCotizada(total, out var detalles);
 
-        Assert.Equal(13_134m, venta.Subtotal);
-        Assert.True(venta.IVA > ivaAntes);
-        var iva = venta.IVA;
-        VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
-        Assert.Equal(iva, venta.IVA);   // idempotente
+        Assert.True(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+
+        Assert.Equal(total, venta.Total);
+        Assert.Equal(total, venta.Subtotal + venta.IVA);
+        Assert.True(venta.Subtotal < total);
+        var (subtotal, iva) = (venta.Subtotal, venta.IVA);
+        Assert.False(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+        Assert.Equal((subtotal, iva), (venta.Subtotal, venta.IVA));
     }
 
     [Fact]
-    public void VentaDeCotizacion_SinRecargoOConDescuento_NoCambia()
+    public void Normalizar_Descuento_ElIvaBajaYElRecargoLoSube()
     {
-        foreach (var total in new[] { 12_752m, 12_115m })
+        var sin = VentaCotizada(12_752m, out var d0);
+        VentaService.NormalizarNetoEIvaDesdeTotal(sin, d0, 0m);
+        var conDescuento = VentaCotizada(12_115m, out var d1);
+        VentaService.NormalizarNetoEIvaDesdeTotal(conDescuento, d1, 0m);
+        var conRecargo = VentaCotizada(13_134m, out var d2);
+        VentaService.NormalizarNetoEIvaDesdeTotal(conRecargo, d2, 0m);
+
+        Assert.True(conDescuento.IVA < sin.IVA);
+        Assert.True(conRecargo.IVA > sin.IVA);
+    }
+
+    [Fact]
+    public void Normalizar_ConServicios_ElEnvioTributaAlicuotaDeServicios()
+    {
+        var detalles = new List<VentaDetalle> { Linea(10_000m, 21m) };
+        var venta = new Venta { Subtotal = 12_000m, IVA = detalles.Sum(d => d.SubtotalFinalIVA) + 347.11m, Total = 12_000m };
+
+        Assert.True(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 2_000m));
+
+        Assert.Equal(12_000m, venta.Subtotal + venta.IVA);
+        Assert.Equal(detalles.Sum(d => d.SubtotalFinalIVA) + ServiciosVentaIva.Separar(2_000m).Iva, venta.IVA);
+    }
+
+    [Fact]
+    public void Normalizar_VentaQueYaCierra_NoHaceNada()
+    {
+        var detalles = new List<VentaDetalle> { Linea(10_000m, 21m) };
+        var venta = new Venta { Subtotal = detalles.Sum(d => d.SubtotalFinalNeto), IVA = detalles.Sum(d => d.SubtotalFinalIVA), Total = 10_000m };
+
+        Assert.False(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+    }
+
+    [Fact]
+    public void ResumenPorAlicuota_CoincideConElComprobanteYSumaElTotal()
+    {
+        foreach (var total in new[] { 13_134m, 12_115m, 12_752m })
         {
-            var detalles = new List<VentaDetalle> { Linea(12_752m, 21m) };
-            var venta = new Venta { Subtotal = 12_752m, IVA = 2_213.16m, Total = total };
+            var comprobante = ComprobanteDebito(total, total);
+            var lineas = comprobante.Lineas.Select(l => (l.PorcentajeIVA, l.Total, l.SubtotalNeto, l.IVA)).ToList();
 
-            VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, detalles);
+            var resumen = RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas);
 
-            Assert.Equal((12_752m, 2_213.16m), (venta.Subtotal, venta.IVA));
+            Assert.Equal(total, resumen.Sum(r => r.Neto + r.Iva));
+            Assert.Equal(comprobante.ResumenAlicuotas.Sum(r => r.IVA), resumen.Sum(r => r.Iva));
+            Assert.Equal(comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible), resumen.Sum(r => r.Neto));
         }
+    }
+
+    [Fact]
+    public void Discriminar_CentavoDeDiferenciaEnElSnapshotDeLaLinea_CierraExactoContraElTotal()
+    {
+        // Linea cuyo neto + IVA suma 0,01 menos que su total (redondeos del snapshot).
+        var lineas = new List<(decimal, decimal, decimal, decimal)> { (21m, 121m, 99.99m, 21m), (10.5m, 110.5m, 100m, 10.5m) };
+
+        foreach (var total in new[] { 231.50m, 220m, 250m })
+        {
+            var d = RecargoMedioPagoIva.Discriminar(total, lineas);
+            Assert.Equal(total, d.Neto + d.Iva);
+        }
+    }
+
+    [Fact]
+    public void Discriminar_TotalCeroONegativo_DevuelveLasLineasSinAjuste()
+    {
+        var lineas = new List<(decimal, decimal, decimal, decimal)> { (21m, 121m, 100m, 21m) };
+
+        var d = RecargoMedioPagoIva.Discriminar(0m, lineas);
+
+        Assert.Empty(d.Partes);
+        Assert.Equal((100m, 21m), (d.Neto, d.Iva));
+    }
+
+    [Fact]
+    public void Normalizar_TotalCero_NoTocaLaVenta()
+    {
+        var detalles = new List<VentaDetalle> { Linea(121m, 21m) };
+        var venta = new Venta { Subtotal = 121m, IVA = 21m, Total = 0m };
+
+        Assert.False(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+        Assert.Equal((121m, 21m), (venta.Subtotal, venta.IVA));
+    }
+
+    [Fact]
+    public void Normalizar_ConDescuentoYCentavoDeSnapshot_CierraExacto()
+    {
+        var detalles = new List<VentaDetalle> { Linea(8_000m, 21m), Linea(4_752m, 10.5m) };
+        detalles[0].SubtotalFinalNeto -= 0.01m;   // neto + IVA = bruto - 0,01
+        var venta = new Venta { Subtotal = 12_752m, IVA = 1m, Total = 12_115m };
+
+        Assert.True(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+        Assert.Equal(12_115m, venta.Subtotal + venta.IVA);
     }
 }
