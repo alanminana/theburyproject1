@@ -516,6 +516,51 @@ public class ChequeRecibidoServiceTests : IDisposable
         Assert.Equal(antes, await _context.MovimientosCaja.CountAsync());
     }
 
+    [Theory]
+    [InlineData("Cheque")]
+    [InlineData("cheque")]
+    [InlineData("  CHEQUE ")]
+    [InlineData("4")]
+    public async Task CuotaConCheque_SobrecargaLegacyConTextoDelMedio_TambienSeRechaza(string medio)
+    {
+        var antes = await _context.MovimientosCaja.CountAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CR-1", numeroCuota: 1, monto: 500m, medioPago: medio, usuario: CajeroA));
+
+        Assert.Contains("No se aceptan cheques", ex.Message);
+        Assert.Equal(antes, await _context.MovimientosCaja.CountAsync());
+    }
+
+    [Theory]
+    [InlineData("Cheque")]
+    [InlineData("cheque")]
+    [InlineData("4")]
+    public async Task CuotaConCheque_EnumNuloYTextoDelMedio_SeRechaza(string medio)
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 7, creditoNumero: "CR-1", numeroCuota: 1, montoBase: 500m, recargoMedioPago: 0m,
+            tipoPago: null, medioPago: medio, usuario: CajeroA, aperturaIdCandidata: _aperturaA.Id));
+        Assert.Contains("No se aceptan cheques", ex.Message);
+    }
+
+    [Fact]
+    public async Task ChequeDuplicados_UnChequeHistoricoDeCuotaSeDetectaPorSuDetalle_SoloLectura()
+    {
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = _aperturaA.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+            TipoPago = TipoPago.Cheque, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, Monto = 500m,
+            Descripcion = "historico", Usuario = CajeroA, FechaMovimiento = DateTime.UtcNow,
+            MedioPagoDetalle = ChequeDuplicados.Detalle("Galicia", "99", DateTime.UtcNow.AddDays(10))
+        });
+        await _context.SaveChangesAsync();
+
+        Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, " gALICIA ", " 99 "));
+        Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "9"));
+        Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Macro", "99"));
+    }
+
     [Fact]
     public async Task CuotaConEfectivo_NoCambia_SigueSiendoDineroRealInmediato()
     {

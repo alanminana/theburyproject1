@@ -1131,7 +1131,9 @@ namespace TheBuryProject.Services
             int? aperturaIdCandidata)
         {
             // D5: las cuotas de crédito no se cobran con cheque (defensa en profundidad: ya lo rechaza CreditoService).
-            if (tipoPago == TipoPago.Cheque)
+            if (tipoPago == TipoPago.Cheque
+                || MediosPagoCredito.EsCheque(medioPago)
+                || (Enum.TryParse<TipoPago>(medioPago?.Trim(), ignoreCase: true, out var tipoDelTexto) && tipoDelTexto == TipoPago.Cheque))
                 throw new InvalidOperationException(MediosPagoCredito.MensajeChequeNoAdmitido);
 
             try
