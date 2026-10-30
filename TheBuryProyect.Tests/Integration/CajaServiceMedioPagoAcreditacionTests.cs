@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -29,6 +29,18 @@ file sealed class StubNotifMedioPago : INotificacionService
     public Task EliminarNotificacionAsync(int id, string u, byte[]? rv = null) => Task.CompletedTask;
     public Task LimpiarNotificacionesAntiguasAsync(int d = 30) => Task.CompletedTask;
     public Task<ListaNotificacionesViewModel> ObtenerResumenNotificacionesAsync(string u) => Task.FromResult(new ListaNotificacionesViewModel());
+}
+
+file sealed class AuditoriaGrabadora : ISeguridadAuditoriaService
+{
+    public List<(string Modulo, string Accion, string Entidad, string? Detalle)> Eventos { get; } = new();
+    public Task RegistrarEventoAsync(string modulo, string accion, string entidad, string? detalle = null)
+    { Eventos.Add((modulo, accion, entidad, detalle)); return Task.CompletedTask; }
+    public void AgregarEvento(string modulo, string accion, string entidad, string? detalle = null)
+        => Eventos.Add((modulo, accion, entidad, detalle));
+    public Task<AuditoriaQueryResult> ConsultarEventosAsync(string? usuario = null, string? modulo = null, string? accion = null,
+        DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null)
+        => Task.FromResult(new AuditoriaQueryResult());
 }
 
 /// <summary>
@@ -375,5 +387,78 @@ public class CajaServiceMedioPagoAcreditacionTests : IDisposable
         var saldo = await _service.CalcularSaldoActualAsync(_apertura.Id);
 
         Assert.Equal(0m, saldo);
+    }
+    // -------------------------------------------------------------------------
+    // Cheque pendiente de una venta cancelada (auditoría de cheques, H9-M3)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CancelarVentaConChequePendiente_AnulaElIngresoYNoQuedaPendienteDeAcreditacion()
+    {
+        var venta = await SeedVentaAsync(TipoPago.Cheque, 900m);
+        var ingreso = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero94");
+
+        await _service.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "Cancelación cheque", "cajero94");
+
+        var detalle = await _service.ObtenerDetallesAperturaAsync(_apertura.Id);
+        var original = await _context.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == ingreso!.Id);
+
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Anulado, original.EstadoAcreditacion);
+        Assert.Equal(0m, detalle!.SaldoPendienteAcreditacion);
+        Assert.Equal(0m, await _service.CalcularSaldoActualAsync(_apertura.Id));
+        Assert.Equal(0m, await _service.CalcularSaldoRealAsync(_apertura.Id));
+    }
+
+    [Fact]
+    public async Task CancelarVentaConChequePendiente_NoPermiteAcreditarElIngresoDespues()
+    {
+        var venta = await SeedVentaAsync(TipoPago.Cheque, 900m);
+        var ingreso = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero94");
+        await _service.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "Cancelación cheque", "cajero94");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.AcreditarMovimientoAsync(ingreso!.Id, "cajero94"));
+
+        Assert.Equal(0m, await _service.CalcularSaldoRealAsync(_apertura.Id));
+    }
+
+    [Fact]
+    public async Task CancelarVentaConChequeYaAcreditado_ConservaAcreditadoYNetea()
+    {
+        var venta = await SeedVentaAsync(TipoPago.Cheque, 900m);
+        var ingreso = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero94");
+        await _service.AcreditarMovimientoAsync(ingreso!.Id, "cajero94");
+        Assert.Equal(900m, await _service.CalcularSaldoRealAsync(_apertura.Id));
+
+        await _service.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "Cancelación cheque", "cajero94");
+
+        var original = await _context.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == ingreso.Id);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, original.EstadoAcreditacion);
+        Assert.Equal(0m, await _service.CalcularSaldoRealAsync(_apertura.Id));
+    }
+    [Fact]
+    public async Task AcreditarCheque_RegistraEventoDeAuditoria_YUnSegundoIntentoNoDuplicaNiAudita()
+    {
+        var auditoria = new AuditoriaGrabadora();
+        var servicio = new CajaService(
+            _context,
+            new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper(),
+            NullLogger<CajaService>.Instance,
+            new StubNotifMedioPago(),
+            relojComercial: null,
+            auditoria: auditoria);
+        var venta = await SeedVentaAsync(TipoPago.Cheque, 900m);
+        var ingreso = await servicio.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero94");
+
+        await servicio.AcreditarMovimientoAsync(ingreso!.Id, "cajero94");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => servicio.AcreditarMovimientoAsync(ingreso.Id, "cajero94"));
+
+        var evento = Assert.Single(auditoria.Eventos);
+        Assert.Equal(("Caja", "AcreditarMovimiento", $"MovimientoCaja:{ingreso.Id}"), (evento.Modulo, evento.Accion, evento.Entidad));
+        Assert.Contains("cajero94", evento.Detalle);
     }
 }
