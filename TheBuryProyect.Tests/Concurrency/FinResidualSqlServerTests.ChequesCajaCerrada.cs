@@ -448,32 +448,38 @@ public partial class FinResidualSqlServerTests
     // B13-E  Sin caja vigente
     // =====================================================================================
 
-    [SqlServerConcFact(DisplayName = "H10-B13 [B13l] cheque acreditado de caja cerrada y usuario SIN caja vigente: se rechaza y no queda ningun cambio")]
-    public async Task B13l_SinCajaVigente_SeRechazaSinCambios()
+    [SqlServerConcFact(DisplayName = "H10-B13 [B13l] cancelacion REAL de un cheque acreditado de caja cerrada con el usuario SIN caja vigente: rollback completo")]
+    public async Task B13l_SinCajaVigente_CancelacionRealHaceRollbackCompleto()
     {
         var e = await SembrarCerradaAsync(EstadoAcreditacionMovimientoCaja.Acreditado);
+        // El usuario del harness (qaconc) queda sin ninguna caja abierta (las de otros tests y la vigente de este escenario).
+        using (var scope = _fx.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().AperturasCaja
+                .Where(a => a.UsuarioApertura == ConcCurrentUser.Usuario && !a.Cerrada)
+                .ExecuteUpdateAsync(x => x.SetProperty(a => a.Cerrada, true));
         var antesO = await LibroAsync(e.Origen);
         var antesV = await LibroAsync(e.Vigente);
-        var sinCaja = UsuarioNuevo();
-
-        string r;
+        var stockAntes = await StockAsync(e.C.Venta.ProductoId);
+        int eventosAntes;
         using (var scope = _fx.Services.CreateScope())
-        {
-            try
-            {
-                await scope.ServiceProvider.GetRequiredService<ICajaService>()
-                    .RegistrarContramovimientoVentaAsync(e.C.Venta.VentaId, e.C.Venta.Numero, "QA", sinCaja);
-                r = "OK";
-            }
-            catch (Exception ex) { r = Clasificar(ex); }
-        }
+            eventosAntes = await scope.ServiceProvider.GetRequiredService<AppDbContext>().SeguridadEventosAuditoria
+                .CountAsync(x => x.Accion == "CancelarVenta" || x.Accion == "ReversionChequeCajaCerrada");
 
-        Informe("B13l", $"resultado={r}");
-        NoEsFalloDeInfraestructura("contrapartida", r);
+        var r = await CancelarVentaAsync(e.C.Venta.VentaId);
+
+        int eventosDespues;
+        using (var scope = _fx.Services.CreateScope())
+            eventosDespues = await scope.ServiceProvider.GetRequiredService<AppDbContext>().SeguridadEventosAuditoria
+                .CountAsync(x => x.Accion == "CancelarVenta" || x.Accion == "ReversionChequeCajaCerrada");
+        Informe("B13l", $"cancelación={r}", $"estado venta={await EstadoVentaAsync(e.C.Venta.VentaId)}", $"stock {stockAntes}->{await StockAsync(e.C.Venta.ProductoId)}");
+        NoEsFalloDeInfraestructura("cancelación", r);
         Assert.StartsWith("InvalidOperationException", r);
         Assert.Contains("caja abierta", r);
+        Assert.Equal(EstadoVenta.Confirmada, await EstadoVentaAsync(e.C.Venta.VentaId));
+        Assert.Equal(stockAntes, await StockAsync(e.C.Venta.ProductoId)); // el stock no se devolvió
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoChequeAsync(e.C.ChequeId));
         Assert.Equal(antesO, await LibroAsync(e.Origen));
         Assert.Equal(antesV, await LibroAsync(e.Vigente));
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoChequeAsync(e.C.ChequeId));
+        Assert.Equal(eventosAntes, eventosDespues);
     }
 }

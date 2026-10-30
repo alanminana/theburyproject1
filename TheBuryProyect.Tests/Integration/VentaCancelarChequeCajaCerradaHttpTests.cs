@@ -145,17 +145,54 @@ public class VentaCancelarChequeCajaCerradaHttpTests : IClassFixture<CustomWebAp
         Assert.Empty(f.Reversiones);
     }
 
-    [Fact]
-    public async Task UsuarioSinPermisoDeCancelar_NoCancela()
+    private const string SoloVerUserId = "b13-ventas-solo-ver";
+
+    /// <summary>Usuario con ventas.view y SIN ventas.cancel: aisla el permiso de la acción (el de clase lo cumple).</summary>
+    private async Task SembrarUsuarioSoloVerAsync()
     {
+        using var scope = _factory.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (await ctx.Users.AnyAsync(u => u.Id == SoloVerUserId))
+            return;
+        const string roleId = "b13-ventas-solo-ver-role";
+        const int moduloId = 9961, accionId = 9961;
+        ctx.Roles.Add(new Microsoft.AspNetCore.Identity.IdentityRole { Id = roleId, Name = "B13SoloVer", NormalizedName = "B13SOLOVER" });
+        ctx.Users.Add(new ApplicationUser
+        {
+            Id = SoloVerUserId, UserName = "b13-solo-ver", NormalizedUserName = "B13-SOLO-VER", Email = "b13sv@test.com",
+            NormalizedEmail = "B13SV@TEST.COM", Activo = true, RowVersion = new byte[8]
+        });
+        await ctx.SaveChangesAsync();
+        ctx.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<string> { UserId = SoloVerUserId, RoleId = roleId });
+        ctx.ModulosSistema.Add(new ModuloSistema { Id = moduloId, Nombre = "B13 Ventas", Clave = "ventas-b13-test", Orden = 0, RowVersion = new byte[8] });
+        await ctx.SaveChangesAsync();
+        ctx.AccionesModulo.Add(new AccionModulo { Id = accionId, ModuloId = moduloId, Nombre = "Ver", Clave = "ver-b13-test", Orden = 0, RowVersion = new byte[8] });
+        await ctx.SaveChangesAsync();
+        ctx.RolPermisos.Add(new RolPermiso { RoleId = roleId, ModuloId = moduloId, AccionId = accionId, ClaimValue = "ventas.view", IsDeleted = false, RowVersion = new byte[8] });
+        await ctx.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task UsuarioConVerPeroSinCancelar_ConTokenValidoDeSuSesion_RecibeDenegacionYNoCambiaNada()
+    {
+        await SembrarUsuarioSoloVerAsync();
         var s = await SembrarAsync(EstadoAcreditacionMovimientoCaja.Acreditado);
-        var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.NoPermsUserId);
+        var client = _factory.CreateClientWithUserId(SoloVerUserId);
 
-        var r = await CancelarAsync(client, s.VentaId, token: "x");
+        // Token válido de ESTA sesión (formulario de una página que sí puede ver): el rechazo no puede ser por antiforgery.
+        var detalle = await client.GetAsync($"/Venta/Details/{s.VentaId}");
+        Assert.Equal(HttpStatusCode.OK, detalle.StatusCode);
+        var m = Regex.Match(await detalle.Content.ReadAsStringAsync(), "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        Assert.True(m.Success, "La página de detalle no ofrece un token antiforgery.");
+        var token = WebUtility.HtmlDecode(m.Groups[1].Value);
 
-        Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
+        var r = await CancelarAsync(client, s.VentaId, token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         var f = await LeerAsync(s);
         Assert.Equal(EstadoVenta.Confirmada, f.Venta);
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, f.Cheque);
         Assert.Empty(f.Reversiones);
+        Assert.Equal(1, f.MovsCerrada);
     }
 }
