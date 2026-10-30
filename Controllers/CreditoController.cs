@@ -1577,10 +1577,7 @@ namespace TheBuryProject.Controllers
                 input.MedioPago,
                 input.Comprobante,
                 input.Observaciones,
-                rowVersion,
-                Cheque: string.Equals(input.MedioPago?.Trim(), "Cheque", StringComparison.OrdinalIgnoreCase)
-                    ? new DatosChequeCuota(input.ChequeBanco ?? string.Empty, input.ChequeNumero ?? string.Empty, input.ChequeVencimiento ?? default)
-                    : null);
+                rowVersion);
 
         private static PagoCuotaContextoViewModel MapContexto(PagoCuotaContextoResultado source) => new()
         {

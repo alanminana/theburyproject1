@@ -13,11 +13,7 @@ public sealed record PagoCuotaIndividualComando(
     string? Comprobante,
     string? Observaciones,
     byte[] CuotaRowVersionEsperada,
-    Guid? OperacionExternaId = null,
-    DatosChequeCuota? Cheque = null);
-
-/// <summary>D5: datos mínimos del cheque con el que se paga una cuota (sin entidad propia: viajan en el ingreso de caja).</summary>
-public sealed record DatosChequeCuota(string Banco, string Numero, DateTime Vencimiento);
+    Guid? OperacionExternaId = null);
 
 /// <summary>Lectura autoritativa necesaria para renderizar el pago de una cuota.</summary>
 public sealed record PagoCuotaContextoResultado(

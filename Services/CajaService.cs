@@ -1130,6 +1130,10 @@ namespace TheBuryProject.Services
             string usuario,
             int? aperturaIdCandidata)
         {
+            // D5: las cuotas de crédito no se cobran con cheque (defensa en profundidad: ya lo rechaza CreditoService).
+            if (tipoPago == TipoPago.Cheque)
+                throw new InvalidOperationException(MediosPagoCredito.MensajeChequeNoAdmitido);
+
             try
             {
                 // El cobro se imputa a la caja abierta del usuario que cobra (mismo criterio que la
@@ -1166,8 +1170,6 @@ namespace TheBuryProject.Services
                         FechaMovimiento = DateTime.UtcNow,
                         Tipo = TipoMovimientoCaja.Ingreso,
                         Concepto = ConceptoMovimientoCaja.CobroCuota,
-                        // D5: una cuota cobrada con cheque no es dinero real hasta acreditarlo (igual que en la venta).
-                        EstadoAcreditacion = tipoPago == TipoPago.Cheque ? EstadoAcreditacionMovimientoCaja.Pendiente : null,
                         Monto = montoBase + recargoMedioPago,
                         ImporteBase = montoBase,
                         RecargoMedioPago = recargoMedioPago > 0 ? recargoMedioPago : null,

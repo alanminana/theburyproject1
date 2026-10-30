@@ -464,6 +464,28 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Null(result.Comando.MedioPagoPrimeraCuota);
     }
 
+    [Theory]
+    [InlineData("Cheque")]
+    [InlineData("cheque")]
+    [InlineData(" CHEQUE ")]
+    public async Task Resolver_CobrarPrimeraCuota_ConCheque_SeRechazaConMensajeClaro(string medio)
+    {
+        // D5 (propietario): las cuotas de crédito no aceptan cheques; no se descarta en silencio, se rechaza.
+        var service = CrearService(
+            ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)),
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(HoyFijo));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.FechaPrimeraCuota = HoyFijo.ToDateTime(TimeOnly.MinValue);
+        modelo.CobrarPrimeraCuota = true;
+        modelo.MedioPagoPrimeraCuota = medio;
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        Assert.False(result.EsValido);
+        Assert.Equal(nameof(modelo.MedioPagoPrimeraCuota), result.ErrorKey);
+        Assert.Contains("No se aceptan cheques", result.ErrorMessage);
+    }
+
     [Fact]
     public async Task Resolver_CobrarPrimeraCuota_SinMarcar_NoPersiste()
     {
