@@ -431,7 +431,7 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
             Anticipo = 0m,
             CantidadCuotas = cantidadCuotas,
             GastosAdministrativos = 0m,
-            FechaPrimeraCuota = new DateTime(2026, 8, 10),
+            FechaPrimeraCuota = DateTime.Today.AddDays(30),
             FuenteConfiguracion = FuenteConfiguracionCredito.Global,
             MetodoCalculo = MetodoCalculoCredito.Global
         };

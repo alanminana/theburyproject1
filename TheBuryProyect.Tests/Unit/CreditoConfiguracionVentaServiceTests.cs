@@ -549,7 +549,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
             CantidadCuotas = 6,
             TasaMensual = fuente == FuenteConfiguracionCredito.Manual ? 5m : null,
             GastosAdministrativos = 0m,
-            FechaPrimeraCuota = new DateTime(2026, 6, 7),
+            FechaPrimeraCuota = DateTime.Today.AddDays(30),
             FuenteConfiguracion = fuente,
             MetodoCalculo = metodo
         };
