@@ -7,6 +7,10 @@ namespace TheBuryProject.Services;
 
 public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 {
+    // La cantidad de una línea es un entero que viaja del navegador: sin tope, 2.000 millones de unidades
+    // desbordaban los importes o generaban totales absurdos.
+    internal const int CantidadMaximaPorLinea = 999_999;
+
     private readonly IProductoService _productoService;
     private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
     private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
@@ -78,6 +82,12 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             if (producto.Cantidad <= 0)
             {
                 errores.Add("Todos los productos de la cotizacion deben tener una cantidad mayor a cero.");
+                continue;
+            }
+
+            if (producto.Cantidad > CantidadMaximaPorLinea)
+            {
+                errores.Add($"La cantidad de cada producto no puede superar {CantidadMaximaPorLinea:N0}.");
                 continue;
             }
 
