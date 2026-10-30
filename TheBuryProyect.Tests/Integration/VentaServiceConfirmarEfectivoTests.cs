@@ -397,6 +397,26 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVenta_Cheque_ConMontoDistintoDelTotalACobrar_NoCobraNiConfirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Cheque);
+        _context.DatosCheque.Add(new DatosCheque
+        {
+            VentaId = venta.Id, NumeroCheque = "0002", Banco = "Banco X", Titular = "Ana",
+            FechaVencimiento = DateTime.UtcNow.AddDays(30), Monto = venta.Total - 50m
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("debe coincidir con el total a cobrar", error.Message);
+        Assert.Null(_cajaStub.UltimoMontoVenta);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Presupuesto, (await _context.Ventas.FindAsync(venta.Id))!.Estado);
+    }
+
+    [Fact]
     public async Task ConfirmarVenta_ContactoLibreValido_MedioDistintoDeCreditoPersonal_Confirma()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);

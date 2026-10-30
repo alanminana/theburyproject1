@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
@@ -31,6 +31,19 @@ public sealed class PagarCuotaInputModel
     [Display(Name = "Número de comprobante")]
     [StringLength(100, ErrorMessage = "El comprobante admite hasta 100 caracteres.")]
     public string? Comprobante { get; set; }
+
+    // D5: datos del cheque, requeridos por el servidor solo cuando el medio de pago es Cheque.
+    [Display(Name = "Banco del cheque")]
+    [StringLength(100, ErrorMessage = "El banco admite hasta 100 caracteres.")]
+    public string? ChequeBanco { get; set; }
+
+    [Display(Name = "Número de cheque")]
+    [StringLength(12, ErrorMessage = "El número de cheque admite hasta 12 dígitos.")]
+    public string? ChequeNumero { get; set; }
+
+    [Display(Name = "Vencimiento del cheque")]
+    [DataType(DataType.Date)]
+    public DateTime? ChequeVencimiento { get; set; }
 
     [Display(Name = "Observaciones")]
     [StringLength(500, ErrorMessage = "Las observaciones admiten hasta 500 caracteres.")]

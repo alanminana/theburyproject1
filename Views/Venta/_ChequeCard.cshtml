@@ -1,0 +1,58 @@
+@model TheBuryProject.ViewModels.ChequeVentaEstadoViewModel
+@{
+    var rechazado = Model.Rechazado;
+    var chip = rechazado ? "bg-red-500/10 text-red-400 border-red-500/20"
+        : Model.Estado == "Acreditado" ? "bg-green-500/10 text-green-400 border-green-500/20"
+        : Model.Estado == "Anulado" ? "bg-slate-500/10 text-slate-400 border-slate-500/20"
+        : "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    var puedeVerCaja = User.TienePermiso("caja", "view") && Model.AperturaId.HasValue;
+}
+<section class="card-erp-panel-padded" data-cheque-card aria-labelledby="cheque-card-titulo">
+    <div class="mb-4 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="flex items-start gap-2">
+            <span class="material-symbols-outlined mt-0.5 text-primary">payments</span>
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Medio de pago</p>
+                <h2 id="cheque-card-titulo" class="mt-1 text-xl font-bold text-white">Cheque</h2>
+            </div>
+        </div>
+        <span class="inline-flex items-center self-start rounded-full border px-3 py-1 text-xs font-bold @chip" data-cheque-estado>
+            @(rechazado ? "Rechazado" : Model.Estado)
+        </span>
+    </div>
+
+    @if (rechazado)
+    {
+        <div class="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300" role="alert" data-cheque-rechazado>
+            <p class="font-bold">Cheque rechazado &ndash; pendiente de cobro</p>
+            <p class="mt-1">La venta no se canceló ni se devolvió stock. Cobrá la operación por otro medio o cancelala manualmente.</p>
+            <p class="mt-1 text-xs text-red-200/80">
+                Rechazado el @Model.RechazadoAt!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") por @Model.RechazadoPor.
+                Motivo: @Model.MotivoRechazo
+            </p>
+        </div>
+    }
+
+    <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-sm">
+        <div><dt class="text-slate-400">Banco</dt><dd class="font-semibold text-white">@Model.Banco</dd></div>
+        <div><dt class="text-slate-400">N° de cheque</dt><dd class="font-semibold text-white font-mono">@Model.NumeroCheque</dd></div>
+        <div><dt class="text-slate-400">Titular</dt><dd class="font-semibold text-white">@Model.Titular</dd></div>
+        <div><dt class="text-slate-400">Monto</dt><dd class="font-semibold text-white">$ @Model.Monto.ToString("N2")</dd></div>
+        <div><dt class="text-slate-400">Emisión</dt><dd class="font-semibold text-white">@Model.FechaEmision.ToString("dd/MM/yyyy")</dd></div>
+        <div><dt class="text-slate-400">Vencimiento</dt><dd class="font-semibold text-white">@Model.FechaVencimiento.ToString("dd/MM/yyyy")</dd></div>
+        @if (Model.AcreditadoAt.HasValue)
+        {
+            <div class="sm:col-span-2"><dt class="text-slate-400">Acreditación</dt>
+                <dd class="font-semibold text-white">@Model.AcreditadoAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") &middot; @Model.AcreditadoPor</dd></div>
+        }
+    </dl>
+
+    @if (puedeVerCaja)
+    {
+        <div class="mt-4">
+            <a asp-controller="Caja" asp-action="DetallesApertura" asp-route-id="@Model.AperturaId" class="btn-erp-secondary no-underline">
+                <span class="material-symbols-outlined text-sm">account_balance_wallet</span> Ver en caja
+            </a>
+        </div>
+    }
+</section>

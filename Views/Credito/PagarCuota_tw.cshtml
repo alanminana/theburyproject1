@@ -1,4 +1,4 @@
-@using System.Globalization
+﻿@using System.Globalization
 @using TheBuryProject.ViewModels.PagoCuota
 @using TheBuryProject.Services.Models
 @model PagarCuotaPageViewModel
@@ -180,6 +180,28 @@
                                     <option value="Cheque">Cheque</option>
                                 </select>
                                 <span asp-validation-for="Input.MedioPago" class="err-text"></span>
+                            </div>
+                            <div class="sm:col-span-2" data-pago-cheque-bloque @(string.Equals(Model.Input.MedioPago, "Cheque", StringComparison.OrdinalIgnoreCase) ? "" : "hidden")>
+                                <p class="hint" style="margin-bottom:.5rem">El cheque queda <strong>pendiente de acreditar</strong>: no cuenta como dinero real hasta que se acredite en Caja.</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label asp-for="Input.ChequeBanco" class="label">Banco <span class="req">*</span></label>
+                                        <input asp-for="Input.ChequeBanco" class="field" autocomplete="off" maxlength="100" />
+                                        <span asp-validation-for="Input.ChequeBanco" class="err-text"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="Input.ChequeNumero" class="label">N° de cheque <span class="req">*</span></label>
+                                        <input asp-for="Input.ChequeNumero" class="field mono" autocomplete="off" inputmode="numeric" maxlength="12" />
+                                        <span asp-validation-for="Input.ChequeNumero" class="err-text"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="Input.ChequeVencimiento" class="label">Vencimiento <span class="req">*</span></label>
+                                        @* Sin asp-for: el tag helper de fecha agrega un hidden "__Invariant" que rompe el contrato del formulario (solo postea intención). *@
+                                        <input type="date" id="Input_ChequeVencimiento" name="Input.ChequeVencimiento" class="field"
+                                               value="@(Model.Input.ChequeVencimiento?.ToString("yyyy-MM-dd"))" />
+                                        <span asp-validation-for="Input.ChequeVencimiento" class="err-text"></span>
+                                    </div>
+                                </div>
                             </div>
                             <div class="sm:col-span-2">
                                 <label asp-for="Input.Comprobante" class="label">Número de comprobante</label>

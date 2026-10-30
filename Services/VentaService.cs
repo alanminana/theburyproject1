@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -301,6 +301,7 @@ namespace TheBuryProject.Services
                 // H10 (D4): Efectivo/Transferencia cobran el plan de 1 pago configurado, igual que la venta del cotizador.
                 await AplicarAjusteMedioUnPagoAsync(venta);
                 DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+                await ValidarChequeContraVentaAsync(venta, viewModel);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -331,6 +332,9 @@ namespace TheBuryProject.Services
                 }
 
                 transaction = await _context.Database.BeginTransactionAsync();
+
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                    await ValidarChequeDuplicadoBajoLockAsync(0, viewModel.DatosCheque);
 
                 _context.Ventas.Add(venta);
                 // FIN-S-002: usar venta.Estado (puede haber sido actualizado por
@@ -941,6 +945,7 @@ namespace TheBuryProject.Services
             await AplicarAjusteMedioUnPagoAsync(venta);
             DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
             SincronizarEnvioEdicion(venta, viewModel);
+            await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
             await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -982,8 +987,16 @@ namespace TheBuryProject.Services
                 await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
             }
 
+            IDbContextTransaction? txCheque = null;
             try
             {
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                {
+                    if (_context.Database.CurrentTransaction == null)
+                        txCheque = await _context.Database.BeginTransactionAsync();
+                    await ValidarChequeDuplicadoBajoLockAsync(venta.Id, viewModel.DatosCheque);
+                }
+
                 _logger.LogDebug(
                     "UpdateAsync venta {Id} before SaveChanges. Subtotal:{Subtotal} Total:{Total} DetallesTotal:{DetallesTotal} DetallesActivos:{DetallesActivos}",
                     id,
@@ -996,12 +1009,19 @@ namespace TheBuryProject.Services
                     id,
                     venta.Estado);
                 await _context.SaveChangesAsync();
+                if (txCheque != null)
+                    await txCheque.CommitAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
                 _logger.LogWarning("UpdateAsync venta {Id} concurrency conflict", id);
                 throw new InvalidOperationException(
                     "La venta fue modificada por otro usuario. Recargá la página y volvé a intentar.");
+            }
+            finally
+            {
+                if (txCheque != null)
+                    await txCheque.DisposeAsync();
             }
 
             _logger.LogInformation("Venta {Id} actualizada exitosamente", id);
@@ -1071,6 +1091,13 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException(
                         "No se puede confirmar la venta: el medio de pago 'Cheque' requiere los datos del cheque y no han sido completados.");
+                }
+
+                // D3: el ingreso de caja es el total a cobrar; un cheque por otro importe no concilia con el valor físico.
+                if (venta.TipoPago == TipoPago.Cheque && venta.DatosCheque != null)
+                {
+                    ValidarMontoChequeContraTotal(venta.DatosCheque.Monto, venta.TotalACobrar,
+                        "No se puede confirmar la venta");
                 }
 
                 // Validación previa del estado
@@ -2870,8 +2897,8 @@ namespace TheBuryProject.Services
             }
 
             existente.IsDeleted = false;
-            existente.NumeroCheque = origen.NumeroCheque;
-            existente.Banco = origen.Banco;
+            existente.NumeroCheque = ChequeDuplicados.Normalizar(origen.NumeroCheque);
+            existente.Banco = ChequeDuplicados.Normalizar(origen.Banco);
             existente.Titular = origen.Titular;
             existente.CUIT = origen.CUIT;
             existente.FechaEmision = origen.FechaEmision;
@@ -3192,6 +3219,65 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Métodos Auxiliares - Cheques
+
+        /// <summary>Tolerancia de centavos al comparar el monto del cheque con el total a cobrar (D3).</summary>
+        internal const decimal ToleranciaMontoCheque = 0.01m;
+
+        /// <summary>D3: la venta tiene un único medio de pago, así que el cheque debe cubrir exactamente el total a cobrar.</summary>
+        internal static void ValidarMontoChequeContraTotal(decimal montoCheque, decimal totalACobrar, string prefijo)
+        {
+            if (Math.Abs(montoCheque - totalACobrar) > ToleranciaMontoCheque)
+            {
+                throw new InvalidOperationException(
+                    $"{prefijo}: el monto del cheque ({montoCheque.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}) " +
+                    $"debe coincidir con el total a cobrar de la venta ({totalACobrar.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}).");
+            }
+        }
+
+        /// <summary>
+        /// D3 + D6-c al guardar (Crear/Editar): monto == total a cobrar y banco+número no repetidos entre ventas vigentes.
+        /// No hace nada si la venta no es con cheque o no trae datos (esa falta la rechaza el guardado/la confirmación).
+        /// </summary>
+        private async Task ValidarChequeContraVentaAsync(Venta venta, VentaViewModel viewModel)
+        {
+            if (viewModel.TipoPago != TipoPago.Cheque || viewModel.DatosCheque == null)
+                return;
+
+            var datos = viewModel.DatosCheque;
+            ValidarMontoChequeContraTotal(datos.Monto, venta.TotalACobrar, "No se puede guardar la venta");
+        }
+
+        /// <summary>
+        /// D6-c: banco + número (normalizados) no repetidos entre ventas vigentes ni en cuotas ya cobradas. Se llama DENTRO de la
+        /// transacción que inserta el cheque, tras tomar el lock de aplicación de la clave: dos altas concurrentes del mismo cheque
+        /// se serializan y la segunda ve a la primera. Sin transacción abierta no hay lock y el chequeo no es confiable (se exige).
+        /// </summary>
+        private async Task ValidarChequeDuplicadoBajoLockAsync(int ventaId, DatosChequeViewModel datos)
+        {
+            if (_context.Database.CurrentTransaction == null)
+                throw new InvalidOperationException("El chequeo de cheque duplicado requiere una transacción abierta.");
+
+            var banco = ChequeDuplicados.Normalizar(datos.Banco);
+            var numero = ChequeDuplicados.Normalizar(datos.NumeroCheque);
+            await ChequeDuplicados.BloquearAsync(_context, banco, numero);
+
+            var duplicado = await _context.DatosCheque.AsNoTracking()
+                .Where(d => !d.IsDeleted && d.VentaId != ventaId && d.Banco == banco && d.NumeroCheque == numero
+                         && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada)
+                .Select(d => d.Venta.Numero)
+                .FirstOrDefaultAsync();
+            if (duplicado != null)
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya está registrado en la venta {duplicado}. No se puede cobrar dos veces.");
+            }
+
+            if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
+            }
+        }
 
         public async Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque)
         {

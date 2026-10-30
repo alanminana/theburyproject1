@@ -50,8 +50,29 @@ namespace TheBuryProject.ViewModels
         [StringLength(500)]
         public string? Observaciones { get; set; }
 
+        private static DateTime HoyComercial() =>
+            TheBuryProject.Services.RelojComercial.Sistema.AhoraComercial.Date;
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+            var hoy = HoyComercial();
+
+            // D6-a: no se acepta un cheque emitido en el futuro.
+            if (FechaEmision.Date > hoy)
+            {
+                yield return new ValidationResult(
+                    "La fecha de emisión no puede ser futura.",
+                    new[] { nameof(FechaEmision) });
+            }
+
+            // D6-b: un cheque ya vencido solo se acepta "a la vista" (vencimiento = emisión).
+            if (FechaVencimiento.Date < hoy && FechaVencimiento.Date != FechaEmision.Date)
+            {
+                yield return new ValidationResult(
+                    "La fecha de vencimiento no puede ser anterior a hoy, salvo un cheque a la vista (vencimiento igual a la emisión).",
+                    new[] { nameof(FechaVencimiento) });
+            }
+
             // Un cheque no puede vencer antes de su fecha de emisión.
             if (FechaVencimiento.Date < FechaEmision.Date)
             {

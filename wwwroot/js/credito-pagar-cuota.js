@@ -1,4 +1,4 @@
-/* credito-pagar-cuota.js — La aritmética del cobro pertenece al servidor. */
+﻿/* credito-pagar-cuota.js — La aritmética del cobro pertenece al servidor. */
 
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
@@ -159,6 +159,15 @@ document.addEventListener('DOMContentLoaded', function () {
             estado.textContent = 'Registrando pago…';
         }, 0);
     });
+
+    // D5: los datos del cheque solo se piden (y se muestran) con el medio Cheque.
+    var bloqueCheque = root.querySelector('[data-pago-cheque-bloque]');
+    function sincronizarCheque() {
+        if (!bloqueCheque || !medio) return;
+        bloqueCheque.hidden = String(medio.value || '').toLowerCase() !== 'cheque';
+    }
+    if (medio) medio.addEventListener('change', sincronizarCheque);
+    sincronizarCheque();
 
     actualizarConfirmacion();
 

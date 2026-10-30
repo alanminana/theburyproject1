@@ -79,8 +79,16 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public Guid? IdempotencyKey { get; set; }
 
+        /// <summary>
+        /// Movimiento al que este asiento da seguimiento: la acreditación (o el rechazo post-acreditación) de un
+        /// cheque recibido referencia el ingreso original `VentaCheque`/`CobroCuota`, que pertenece a otra apertura
+        /// (ya cerrada). Nulo en el resto de los movimientos. Único por (origen, concepto): garantía de idempotencia.
+        /// </summary>
+        public int? MovimientoOrigenId { get; set; }
+
         // Navegaci�n
         public virtual AperturaCaja AperturaCaja { get; set; } = null!;
         public virtual Venta? Venta { get; set; }
+        public virtual MovimientoCaja? MovimientoOrigen { get; set; }
     }
 }

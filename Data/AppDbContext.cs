@@ -2405,6 +2405,17 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.VentaId);
                 entity.HasIndex(e => new { e.AperturaCajaId, e.TipoPago });
 
+                // Cheques recibidos: acreditación/rechazo asentados en la caja vigente referencian el ingreso original.
+                entity.HasOne(e => e.MovimientoOrigen)
+                    .WithMany()
+                    .HasForeignKey(e => e.MovimientoOrigenId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.MovimientoOrigenId, e.Concepto })
+                    .IsUnique()
+                    .HasFilter("[MovimientoOrigenId] IS NOT NULL")
+                    .HasDatabaseName("IX_MovimientosCaja_MovimientoOrigenId_Concepto");
+
                 // H-IDEM-1: garantía persistente contra duplicar un movimiento manual por reintento/doble clic.
                 entity.HasIndex(e => e.IdempotencyKey)
                     .IsUnique()

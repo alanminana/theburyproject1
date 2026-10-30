@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
@@ -202,11 +202,14 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     public Task Anticipo_FueraDeRegla_SeRechaza(string anticipo) =>
         AssertRechazadaAsync("Anticipo", anticipo);
 
+    private static int _secuenciaCheque = 12345;
+
     private static void ConCheque(Dictionary<string, string> form)
     {
         var hoy = DateTime.UtcNow.Date;
         form["TipoPago"] = "Cheque";
-        form["DatosCheque.NumeroCheque"] = "00012345";
+        // Único por cheque: la BD de la clase es compartida y un mismo banco+número en dos ventas vigentes se rechaza (D6).
+        form["DatosCheque.NumeroCheque"] = Interlocked.Increment(ref _secuenciaCheque).ToString("D8");
         form["DatosCheque.Banco"] = "Banco Nación";
         form["DatosCheque.Titular"] = "Cliente de Prueba";
         form["DatosCheque.CUIT"] = "20-12345678-6";
@@ -253,6 +256,148 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     [InlineData("123 456")]
     public Task Cheque_Numero_NoNumerico_SeRechaza(string numero) =>
         AssertChequeRechazadoAsync("DatosCheque.NumeroCheque", numero);
+
+    // ---- Hito 10: D3 (monto == total a cobrar) y D6 (emisión/vencimiento/duplicado) ----
+
+    [Theory]
+    [InlineData("999")]
+    [InlineData("1000.5")]
+    [InlineData("1")]
+    public async Task Cheque_Monto_DistintoDelTotalACobrar_SeRechazaConMensajeClaro(string monto)
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form["DatosCheque.Monto"] = monto;
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("debe coincidir con el total a cobrar", cuerpo);
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_MismoBancoYNumeroEnOtraVentaVigente_SeRechaza()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var primero = Form(clienteId, productoId);
+        ConCheque(primero);
+        var (ok, cuerpoOk) = await PostAsync(_factory.CreateAuthenticatedClient(), primero);
+        Assert.True(ok, cuerpoOk);
+
+        var repetido = Form(clienteId, productoId);
+        ConCheque(repetido);
+        repetido["DatosCheque.NumeroCheque"] = primero["DatosCheque.NumeroCheque"];
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), repetido);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("No se puede cobrar dos veces", cuerpo);
+        Assert.Equal(1, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_UsadoParaCobrarUnaCuota_NoSePuedeUsarEnUnaVenta()
+    {
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var apertura = await ctx.AperturasCaja.FirstAsync(a => a.UsuarioApertura == "testuser" && !a.Cerrada && !a.IsDeleted);
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+                TipoPago = TipoPago.Cheque, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, Monto = 100m,
+                Descripcion = "Cobro cuota con cheque", Usuario = "testuser", FechaMovimiento = DateTime.UtcNow,
+                MedioPagoDetalle = "Cheque · BANCO NACIÓN N° 77700001 · vence 01/12/2026"
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form["DatosCheque.Banco"] = "Banco Nación";
+        form["DatosCheque.NumeroCheque"] = "77700001";
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("ya se us", cuerpo);
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_BancoYNumeroSeGuardanNormalizados_YElDuplicadoSeDetectaAunConOtraCapitalizacionOEspacios()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var numero = Interlocked.Increment(ref _secuenciaCheque).ToString("D8");
+        var primero = Form(clienteId, productoId);
+        ConCheque(primero);
+        primero["DatosCheque.Banco"] = "  Banco   Galicia ";
+        primero["DatosCheque.NumeroCheque"] = numero;
+        var (ok, cuerpoOk) = await PostAsync(_factory.CreateAuthenticatedClient(), primero);
+        Assert.True(ok, cuerpoOk);
+
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var guardado = await ctx.DatosCheque.AsNoTracking().FirstAsync(d => d.NumeroCheque == numero);
+            Assert.Equal("BANCO GALICIA", guardado.Banco);
+        }
+
+        var repetido = Form(clienteId, productoId);
+        ConCheque(repetido);
+        repetido["DatosCheque.Banco"] = "banco galicia";
+        repetido["DatosCheque.NumeroCheque"] = numero;
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), repetido);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("No se puede cobrar dos veces", cuerpo);
+    }
+
+    [Fact]
+    public Task Cheque_Emision_Futura_SeRechaza() =>
+        AssertChequeRechazadoAsync("DatosCheque.FechaEmision", DateTime.UtcNow.Date.AddDays(3).ToString("yyyy-MM-dd"));
+
+    [Fact]
+    public async Task Cheque_Vencimiento_Pasado_ConEmisionAnterior_SeRechaza()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form["DatosCheque.FechaEmision"] = DateTime.UtcNow.Date.AddDays(-20).ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaVencimiento"] = DateTime.UtcNow.Date.AddDays(-5).ToString("yyyy-MM-dd");
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, cuerpo);
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_ALaVista_EmisionYVencimientoIgualesEnElPasado_SeAcepta()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        var dia = DateTime.UtcNow.Date.AddDays(-3).ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaEmision"] = dia;
+        form["DatosCheque.FechaVencimiento"] = dia;
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.True(success, cuerpo);
+    }
+
+    [Theory]
+    [InlineData(1000.00, 1000.00, true)]
+    [InlineData(1000.01, 1000.00, true)]
+    [InlineData(999.99, 1000.00, true)]
+    [InlineData(1000.02, 1000.00, false)]
+    [InlineData(500.00, 1000.00, false)]
+    public void ValidarMontoChequeContraTotal_ToleraCentavos(double cheque, double total, bool esperadoOk)
+    {
+        var accion = () => TheBuryProject.Services.VentaService.ValidarMontoChequeContraTotal((decimal)cheque, (decimal)total, "x");
+        if (esperadoOk) accion(); else Assert.Throws<InvalidOperationException>(accion);
+    }
 
     [Fact]
     public Task Cheque_Vencimiento_AnteriorALaEmision_SeRechaza() =>

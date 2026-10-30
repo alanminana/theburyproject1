@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
@@ -394,8 +394,11 @@ namespace TheBuryProject.Helpers
             // =======================
             CreateMap<DatosCheque, DatosChequeViewModel>();
 
+            // Banco y número se guardan normalizados (trim, espacios colapsados, mayúsculas): base de la detección de duplicados.
             CreateMap<DatosChequeViewModel, DatosCheque>()
-                .ForMember(d => d.Venta, o => o.Ignore());
+                .ForMember(d => d.Venta, o => o.Ignore())
+                .ForMember(d => d.Banco, o => o.MapFrom(s => TheBuryProject.Services.ChequeDuplicados.Normalizar(s.Banco)))
+                .ForMember(d => d.NumeroCheque, o => o.MapFrom(s => TheBuryProject.Services.ChequeDuplicados.Normalizar(s.NumeroCheque)));
 
             // =======================
             // VentaEnvio
