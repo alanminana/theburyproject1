@@ -141,11 +141,21 @@
     {
         var r = Model!;
 
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div class="card-erp-metric">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Total ventas</p>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" id="reporte-ventas-kpis">
+            <div class="card-erp-metric" id="reporte-ventas-brutas">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas brutas</p>
                 <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TotalVentas.ToString("N2")</p>
-                <p class="text-xs text-slate-500 mt-1">@r.CantidadVentas transacciones</p>
+                <p class="text-xs text-slate-500 mt-1">@r.CantidadVentas transacciones, con IVA</p>
+            </div>
+            <div class="card-erp-metric" id="reporte-devoluciones">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Devoluciones</p>
+                <p class="mt-1 text-2xl font-bold @(r.TotalDevoluciones > 0 ? "text-amber-400" : "text-slate-100")">@(r.TotalDevoluciones > 0 ? "-" : "")$@r.TotalDevoluciones.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">@r.CantidadDevoluciones @(r.CantidadDevoluciones == 1 ? "devolución" : "devoluciones") del período</p>
+            </div>
+            <div class="card-erp-metric" id="reporte-ventas-netas">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas netas</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TotalVentasNetas.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Brutas menos devoluciones</p>
             </div>
             <div class="card-erp-metric" id="reporte-productos-vendidos">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Productos vendidos</p>
@@ -153,14 +163,14 @@
                 <p class="text-xs text-slate-500 mt-1">Unidades en @r.CantidadVentas transacciones</p>
             </div>
             <div class="card-erp-metric card-erp-metric-success">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia</p>
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia neta</p>
                 <p class="mt-1 text-2xl font-bold text-emerald-400">$@r.TotalGanancia.ToString("N2")</p>
-                <p class="text-xs text-slate-500 mt-1">Costo productos: $@r.TotalCosto.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Sin IVA y neta de devoluciones. Costo: $@r.TotalCosto.ToString("N2")</p>
             </div>
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Margen promedio</p>
                 <p class="mt-1 text-2xl font-bold text-slate-100">@r.MargenPromedio.ToString("N1")%</p>
-                <p class="text-xs text-slate-500 mt-1">Sobre productos, sin recargo débito</p>
+                <p class="text-xs text-slate-500 mt-1">Sobre ingreso neto sin IVA y sin recargo débito</p>
             </div>
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Recargo débito</p>

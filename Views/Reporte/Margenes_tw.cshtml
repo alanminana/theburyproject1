@@ -102,10 +102,12 @@
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Margen promedio</p>
                 <p class="mt-1 text-2xl font-bold text-slate-100">@Model.MargenPromedioGeneral.ToString("N1")%</p>
+                <p class="text-xs text-slate-500 mt-1">Sobre precio neto, sin IVA</p>
             </div>
             <div class="card-erp-metric card-erp-metric-success">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia potencial</p>
                 <p class="mt-1 text-2xl font-bold text-emerald-400">$@Model.GananciaTotalPotencial.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Precio neto sin IVA menos costo, por stock</p>
             </div>
             <div class="card-erp-metric card-erp-metric-warning">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Margen bajo (&lt;@Model.MargenBajoMax.ToString("N0")%)</p>
@@ -156,7 +158,10 @@
                                     <td class="px-4 py-3 text-slate-400">@p.CategoriaNombre</td>
                                     <td class="px-4 py-3 text-slate-400">@(p.MarcaNombre ?? "—")</td>
                                     <td class="px-4 py-3 text-right text-slate-400">$@p.PrecioCompra.ToString("N2")</td>
-                                    <td class="px-4 py-3 text-right text-slate-100">$@p.PrecioVenta.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-slate-100">
+                                        $@p.PrecioVenta.ToString("N2")
+                                        <span class="block text-xs text-slate-400">neto $@p.PrecioVentaNeto.ToString("N2")</span>
+                                    </td>
                                     <td class="px-4 py-3 text-right">
                                         <span class="font-semibold @margenColor">@p.MargenPorcentaje.ToString("N1")%</span>
                                         <span class="block text-xs text-slate-400">@p.MargenCategoria</span>
