@@ -196,7 +196,9 @@
                                     </div>
                                     <div>
                                         <label asp-for="Input.ChequeVencimiento" class="label">Vencimiento <span class="req">*</span></label>
-                                        <input asp-for="Input.ChequeVencimiento" type="date" class="field" />
+                                        @* Sin asp-for: el tag helper de fecha agrega un hidden "__Invariant" que rompe el contrato del formulario (solo postea intención). *@
+                                        <input type="date" id="Input_ChequeVencimiento" name="Input.ChequeVencimiento" class="field"
+                                               value="@(Model.Input.ChequeVencimiento?.ToString("yyyy-MM-dd"))" />
                                         <span asp-validation-for="Input.ChequeVencimiento" class="err-text"></span>
                                     </div>
                                 </div>
