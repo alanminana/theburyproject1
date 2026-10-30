@@ -20,6 +20,8 @@ Fuente única del cálculo: `Services/VentasNetas.cs`. Usada por `ReporteService
 - Factura emitida o no: no cambia nada, se leen los campos de la venta.
 - Producto sin costo: costo 0.
 - Venta cancelada: no suma ni resta.
+- Recargo de débito: se excluye de la ganancia de la venta y, de forma simétrica, la parte proporcional del recargo se descuenta del neto devuelto (devolución total de una venta con débito deja ganancia 0, no negativa).
+- Filtro común (`VentasNetas.Comerciales()`): ventas comerciales, no eliminadas y de cliente no eliminado, igual en Reporte y Dashboard.
 - Márgenes: calcula sobre precio neto y resta las unidades devueltas de los últimos 30 días.
 
 ## Decisiones pendientes (comportamiento actual conservado)
