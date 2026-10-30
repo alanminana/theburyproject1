@@ -65,8 +65,8 @@ namespace TheBuryProject.Services
             var clientesNuevosMes = await _context.Clientes.CountAsync(c => !c.IsDeleted && c.CreatedAt >= inicioMes);
 
             // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
-            var ventasRaw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioAnio)
+            var ventasRaw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= inicioAnio)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
             // H10/D3: las ventas del período se informan netas de devoluciones Aprobadas/Completadas, por FECHA DE
@@ -213,9 +213,9 @@ namespace TheBuryProject.Services
         {
             var hoy = _reloj.InicioDiaComercial;
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
-            var agregados = await _context.Ventas
+            var agregados = await _context.Ventas.Comerciales()
                 .AsNoTracking()
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioMes)
+                .Where(v => v.FechaVenta >= inicioMes)
                 .Select(v => new { v.Total })
                 .ToListAsync();
 
@@ -286,8 +286,8 @@ namespace TheBuryProject.Services
             var hoy = _reloj.InicioDiaComercial;
             var hace7Dias = hoy.AddDays(-7);
 
-            var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace7Dias)
+            var raw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= hace7Dias)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
 
@@ -322,8 +322,8 @@ namespace TheBuryProject.Services
             var hace12Meses = _reloj.InicioDiaComercial.AddMonths(-12);
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
-            var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace12Meses)
+            var raw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= hace12Meses)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
 

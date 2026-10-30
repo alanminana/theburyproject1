@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
@@ -437,5 +437,84 @@ public class ReporteDevolucionesNetasTests : IDisposable
         var r = await _reporte.GenerarReporteMargenesAsync();
 
         Assert.Equal(3, Assert.Single(r.Productos, x => x.Id == producto.Id).VentasUltimos30Dias);
+    }
+
+    // ------------------------------------------------ revisión Codex #209 (P1/P2)
+
+    private async Task<Venta> SeedVentaDebitoAsync(int clienteId, Producto producto)
+    {
+        // Productos 242 (neto 200) + recargo de débito 12,10 (neto 10) = 254,10; IVA 44,10; costo 120.
+        var venta = await SeedVentaAsync(clienteId, producto, tipoPago: TipoPago.TarjetaDebito, totalOverride: 254.10m, ivaOverride: 44.10m);
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id, NombreTarjeta = "Debito", TipoTarjeta = TipoTarjeta.Debito, RecargoAplicado = 12.10m
+        });
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
+    [Fact]
+    public async Task Reporte_DebitoConDevolucionTotal_LaGananciaNetaQuedaEnCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaDebitoAsync(cliente.Id, producto);
+        await SeedDevolucionAsync(venta, producto, 2, 254.10m);
+
+        var r = await _reporte.GenerarReporteVentasAsync(Mes());
+
+        Assert.Equal(254.10m, r.TotalDevoluciones);
+        Assert.Equal(200m, r.TotalDevolucionesNeto);   // sin el neto del recargo de débito (10)
+        Assert.Equal(120m, r.TotalCostoDevuelto);
+        Assert.Equal(0m, r.TotalGanancia);
+    }
+
+    [Fact]
+    public async Task Reporte_DebitoConDevolucionParcial_ExcluyeLaParteProporcionalDelRecargo()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaDebitoAsync(cliente.Id, producto);
+        await SeedDevolucionAsync(venta, producto, 1, 127.05m);   // mitad de 254,10
+
+        var r = await _reporte.GenerarReporteVentasAsync(Mes());
+
+        Assert.Equal(100m, r.TotalDevolucionesNeto);
+        Assert.Equal(60m, r.TotalCostoDevuelto);
+        Assert.Equal(40m, r.TotalGanancia);   // 80 - (100 - 60)
+    }
+
+    [Fact]
+    public async Task Ventas_ClienteEliminado_NoCuentaNiEnReporteNiEnDashboardNiSuDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: new DateTime(2026, 9, 20, 10, 0, 0));
+        await SeedDevolucionAsync(venta, producto, 1, 121m, fecha: new DateTime(2026, 10, 5, 10, 0, 0));
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var r = await _reporte.GenerarReporteVentasAsync(Mes());
+        var d = await _dashboard.GetDashboardDataAsync();
+
+        Assert.Equal(0m, r.TotalDevoluciones);
+        Assert.Equal(0m, d.DevolucionesMes);
+        Assert.Equal(r.TotalVentasNetas, d.VentasTotalesMes);
+    }
+
+    [Fact]
+    public async Task Dashboard_VentaDeClienteEliminadoDelMes_NoSuma()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto);
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var r = await _reporte.GenerarReporteVentasAsync(Mes());
+        var d = await _dashboard.GetDashboardDataAsync();
+
+        Assert.Equal(0m, r.TotalVentas);
+        Assert.Equal(0m, d.VentasBrutasMes);
     }
 }

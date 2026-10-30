@@ -33,6 +33,15 @@ namespace TheBuryProject.Services
         };
 
         /// <summary>
+        /// Ventas que cuentan en Reportes y Dashboard (única definición): comerciales, no eliminadas y de un cliente no
+        /// eliminado (o sin cliente). Las devoluciones restan solo de estas ventas.
+        /// </summary>
+        public static IQueryable<Venta> Comerciales(this IQueryable<Venta> ventas) =>
+            ventas.Where(v => !v.IsDeleted &&
+                              EstadosVentaComerciales.Contains(v.Estado) &&
+                              (v.Cliente == null || !v.Cliente.IsDeleted));
+
+        /// <summary>
         /// Una devolución valuada: <see cref="Bruto"/> = lo realmente cobrado por lo devuelto (con IVA, incluida su parte del
         /// recargo/descuento del medio de pago; es <c>Devolucion.TotalDevolucion</c>), <see cref="Neto"/> = esa misma
         /// porción sin IVA y <see cref="Costo"/> = costo de la venta original de las unidades devueltas.
@@ -52,8 +61,7 @@ namespace TheBuryProject.Services
                 .Where(d => !d.IsDeleted &&
                             EstadosDevolucionQueRestan.Contains(d.Estado) &&
                             d.FechaDevolucion >= desde &&
-                            d.Venta != null && !d.Venta.IsDeleted &&
-                            EstadosVentaComerciales.Contains(d.Venta.Estado));
+                            context.Ventas.Comerciales().Any(v => v.Id == d.VentaId));
 
             if (hastaExclusivo.HasValue)
                 query = query.Where(d => d.FechaDevolucion < hastaExclusivo.Value);
@@ -98,6 +106,17 @@ namespace TheBuryProject.Services
                 .Select(v => new { v.Id, v.Total, v.IVA })
                 .ToDictionaryAsync(v => v.Id);
 
+            // El recargo de débito se excluye del ingreso de la venta (ver CalcularIngresoNeto): su parte proporcional
+            // también debe excluirse de lo devuelto, para que devolver todo deje la ganancia en cero.
+            var recargosDebito = (await context.DatosTarjeta
+                    .AsNoTracking()
+                    .Where(dt => !dt.IsDeleted && dt.TipoTarjeta == TipoTarjeta.Debito && dt.RecargoAplicado > 0m &&
+                                 ventaIdsConDevolucion.Contains(dt.VentaId))
+                    .Select(dt => new { dt.VentaId, Recargo = dt.RecargoAplicado!.Value })
+                    .ToListAsync())
+                .GroupBy(x => x.VentaId)
+                .ToDictionary(g => g.Key, g => g.Max(x => x.Recargo));
+
             var resultado = new List<DevolucionNeta>(devoluciones.Count);
             foreach (var d in devoluciones)
             {
@@ -111,6 +130,18 @@ namespace TheBuryProject.Services
 
                 if (d.Detalles.Count == 0 && ventas.TryGetValue(d.VentaId, out var venta) && venta.Total > 0m)
                     neto = Math.Round(d.TotalDevolucion * Math.Max(0m, venta.Total - Math.Max(0m, venta.IVA)) / venta.Total, 2, MidpointRounding.AwayFromZero);
+
+                if (recargosDebito.TryGetValue(d.VentaId, out var recargo))
+                {
+                    var lineasVenta = lineas.Where(l => l.VentaId == d.VentaId).ToList();
+                    var base_ = lineasVenta.Sum(l => l.SubtotalFinal) + recargo;
+                    var fraccion = base_ > 0m ? Math.Min(1m, d.TotalDevolucion / base_) : 0m;
+                    var netoRecargo = RecargoMedioPagoIva
+                        .Repartir(lineasVenta.Select(l => (l.PorcentajeIVA, l.SubtotalFinal)), recargo)
+                        .Sum(p => p.Neto);
+                    if (netoRecargo <= 0m) netoRecargo = recargo;
+                    neto -= Math.Round(netoRecargo * fraccion, 2, MidpointRounding.AwayFromZero);
+                }
 
                 resultado.Add(new DevolucionNeta(d.Id, d.VentaId, d.FechaDevolucion, d.TotalDevolucion, neto, costo));
             }

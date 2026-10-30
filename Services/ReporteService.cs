@@ -89,10 +89,7 @@ namespace TheBuryProject.Services
                         !d.Producto.IsDeleted))
                         .ThenInclude(d => d.Producto)
                             .ThenInclude(p => p!.Categoria)
-                    .Where(v =>
-                        !v.IsDeleted &&
-                        EstadosVentaComerciales.Contains(v.Estado) &&
-                        (v.Cliente == null || !v.Cliente.IsDeleted))
+                    .Comerciales()
                     .AsQueryable();
 
                 // Filtros que no son de fecha: se reutilizan para decidir qué devoluciones restan (mismas ventas).
