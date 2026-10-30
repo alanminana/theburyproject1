@@ -502,7 +502,7 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
 
         _context.ChangeTracker.Clear();
         var mov = await _context.MovimientosCaja.AsNoTracking().SingleAsync(m => m.Id == resultado.MovimientoCajaId);
-        Assert.Contains("Galicia", mov.MedioPagoDetalle);
+        Assert.Contains("GALICIA", mov.MedioPagoDetalle); // normalizado
         Assert.Contains("998877", mov.MedioPagoDetalle);
         Assert.Equal(TipoPago.Cheque, mov.TipoPago);
     }
@@ -518,7 +518,7 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
         await _context.SaveChangesAsync();
         _context.DatosCheque.Add(new DatosCheque
         {
-            VentaId = venta.Id, NumeroCheque = "555", Banco = "Galicia", Titular = "X",
+            VentaId = venta.Id, NumeroCheque = "555", Banco = "GALICIA", Titular = "X",
             FechaVencimiento = _reloj.AhoraUtc.Date.AddDays(10), Monto = 10m
         });
         await _context.SaveChangesAsync();

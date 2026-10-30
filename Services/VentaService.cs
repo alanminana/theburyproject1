@@ -333,6 +333,9 @@ namespace TheBuryProject.Services
 
                 transaction = await _context.Database.BeginTransactionAsync();
 
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                    await ValidarChequeDuplicadoBajoLockAsync(0, viewModel.DatosCheque);
+
                 _context.Ventas.Add(venta);
                 // FIN-S-002: usar venta.Estado (puede haber sido actualizado por
                 // AplicarResultadoValidacionAsync) en lugar de viewModel.Estado.
@@ -984,8 +987,16 @@ namespace TheBuryProject.Services
                 await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
             }
 
+            IDbContextTransaction? txCheque = null;
             try
             {
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                {
+                    if (_context.Database.CurrentTransaction == null)
+                        txCheque = await _context.Database.BeginTransactionAsync();
+                    await ValidarChequeDuplicadoBajoLockAsync(venta.Id, viewModel.DatosCheque);
+                }
+
                 _logger.LogDebug(
                     "UpdateAsync venta {Id} before SaveChanges. Subtotal:{Subtotal} Total:{Total} DetallesTotal:{DetallesTotal} DetallesActivos:{DetallesActivos}",
                     id,
@@ -998,12 +1009,19 @@ namespace TheBuryProject.Services
                     id,
                     venta.Estado);
                 await _context.SaveChangesAsync();
+                if (txCheque != null)
+                    await txCheque.CommitAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
                 _logger.LogWarning("UpdateAsync venta {Id} concurrency conflict", id);
                 throw new InvalidOperationException(
                     "La venta fue modificada por otro usuario. Recargá la página y volvé a intentar.");
+            }
+            finally
+            {
+                if (txCheque != null)
+                    await txCheque.DisposeAsync();
             }
 
             _logger.LogInformation("Venta {Id} actualizada exitosamente", id);
@@ -2879,8 +2897,8 @@ namespace TheBuryProject.Services
             }
 
             existente.IsDeleted = false;
-            existente.NumeroCheque = origen.NumeroCheque;
-            existente.Banco = origen.Banco;
+            existente.NumeroCheque = ChequeDuplicados.Normalizar(origen.NumeroCheque);
+            existente.Banco = ChequeDuplicados.Normalizar(origen.Banco);
             existente.Titular = origen.Titular;
             existente.CUIT = origen.CUIT;
             existente.FechaEmision = origen.FechaEmision;
@@ -3227,10 +3245,22 @@ namespace TheBuryProject.Services
 
             var datos = viewModel.DatosCheque;
             ValidarMontoChequeContraTotal(datos.Monto, venta.TotalACobrar, "No se puede guardar la venta");
+        }
 
-            var banco = datos.Banco.Trim();
-            var numero = datos.NumeroCheque.Trim();
-            var ventaId = venta.Id;
+        /// <summary>
+        /// D6-c: banco + número (normalizados) no repetidos entre ventas vigentes ni en cuotas ya cobradas. Se llama DENTRO de la
+        /// transacción que inserta el cheque, tras tomar el lock de aplicación de la clave: dos altas concurrentes del mismo cheque
+        /// se serializan y la segunda ve a la primera. Sin transacción abierta no hay lock y el chequeo no es confiable (se exige).
+        /// </summary>
+        private async Task ValidarChequeDuplicadoBajoLockAsync(int ventaId, DatosChequeViewModel datos)
+        {
+            if (_context.Database.CurrentTransaction == null)
+                throw new InvalidOperationException("El chequeo de cheque duplicado requiere una transacción abierta.");
+
+            var banco = ChequeDuplicados.Normalizar(datos.Banco);
+            var numero = ChequeDuplicados.Normalizar(datos.NumeroCheque);
+            await ChequeDuplicados.BloquearAsync(_context, banco, numero);
+
             var duplicado = await _context.DatosCheque.AsNoTracking()
                 .Where(d => !d.IsDeleted && d.VentaId != ventaId && d.Banco == banco && d.NumeroCheque == numero
                          && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada)

@@ -307,7 +307,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
                 AperturaCajaId = apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
                 TipoPago = TipoPago.Cheque, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, Monto = 100m,
                 Descripcion = "Cobro cuota con cheque", Usuario = "testuser", FechaMovimiento = DateTime.UtcNow,
-                MedioPagoDetalle = "Cheque · Banco Nación N° 77700001 · vence 01/12/2026"
+                MedioPagoDetalle = "Cheque · BANCO NACIÓN N° 77700001 · vence 01/12/2026"
             });
             await ctx.SaveChangesAsync();
         }
@@ -323,6 +323,34 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
         Assert.False(success, cuerpo);
         Assert.Contains("ya se us", cuerpo);
         Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
+    public async Task Cheque_BancoYNumeroSeGuardanNormalizados_YElDuplicadoSeDetectaAunConOtraCapitalizacionOEspacios()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var numero = Interlocked.Increment(ref _secuenciaCheque).ToString("D8");
+        var primero = Form(clienteId, productoId);
+        ConCheque(primero);
+        primero["DatosCheque.Banco"] = "  Banco   Galicia ";
+        primero["DatosCheque.NumeroCheque"] = numero;
+        var (ok, cuerpoOk) = await PostAsync(_factory.CreateAuthenticatedClient(), primero);
+        Assert.True(ok, cuerpoOk);
+
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var guardado = await ctx.DatosCheque.AsNoTracking().FirstAsync(d => d.NumeroCheque == numero);
+            Assert.Equal("BANCO GALICIA", guardado.Banco);
+        }
+
+        var repetido = Form(clienteId, productoId);
+        ConCheque(repetido);
+        repetido["DatosCheque.Banco"] = "banco galicia";
+        repetido["DatosCheque.NumeroCheque"] = numero;
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), repetido);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("No se puede cobrar dos veces", cuerpo);
     }
 
     [Fact]

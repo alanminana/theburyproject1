@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -179,7 +179,8 @@ public class ChequeRecibidoServiceTests : IDisposable
         Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, asiento.EstadoAcreditacion);
         Assert.Equal(ingreso.Id, asiento.MovimientoOrigenId);
         Assert.Equal(900m, asiento.Monto);
-        Assert.Equal(venta.Id, asiento.VentaId);
+        Assert.Equal(venta.Id, asiento.ReferenciaId); // sin FK a Ventas: no invierte el orden de locks
+        Assert.Null(asiento.VentaId);
 
         // El original queda marcado Acreditado; la caja cerrada no cambia en cantidades, totales, efectivo ni saldo real.
         Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, (await LeerMovAsync(ingreso.Id)).EstadoAcreditacion);
@@ -626,6 +627,8 @@ public class ChequeRecibidoServiceTests : IDisposable
 
         Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "99"));
         Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, " Galicia ", "99"));
+        Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "  gALICIA", " 99 "));
+        Assert.Equal("BANCO DE LA NACION", ChequeDuplicados.Normalizar("  banco   de la\tnacion "));
         Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "9"));
         Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Macro", "99"));
 

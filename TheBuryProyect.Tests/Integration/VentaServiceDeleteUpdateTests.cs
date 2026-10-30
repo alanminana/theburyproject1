@@ -915,7 +915,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         var chequeDb = await _context.DatosCheque.FirstOrDefaultAsync(c => c.VentaId == venta.Id);
         Assert.NotNull(chequeDb);
         Assert.Equal("00012345", chequeDb!.NumeroCheque);
-        Assert.Equal("Banco Nación", chequeDb.Banco);
+        Assert.Equal("BANCO NACIÓN", chequeDb.Banco);
     }
 
     [Fact]
@@ -1208,7 +1208,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.NotNull(resultado);
         var cheque = await _context.DatosCheque.AsNoTracking().SingleAsync(d => d.VentaId == original.Id && !d.IsDeleted);
         Assert.Equal("12345", cheque.NumeroCheque);
-        Assert.Equal("Banco Uno", cheque.Banco);
+        Assert.Equal("BANCO UNO", cheque.Banco);
     }
 
     [Fact]
@@ -1229,7 +1229,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         var cheques = await _context.DatosCheque.AsNoTracking().Where(d => d.VentaId == original.Id && !d.IsDeleted).ToListAsync();
         var unico = Assert.Single(cheques);
         Assert.Equal("222", unico.NumeroCheque);
-        Assert.Equal("Banco Dos", unico.Banco);
+        Assert.Equal("BANCO DOS", unico.Banco);
     }
 
     [Fact]

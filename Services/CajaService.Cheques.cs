@@ -202,11 +202,14 @@ namespace TheBuryProject.Services
                             Concepto = ConceptoMovimientoCaja.AcreditacionCheque,
                             EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado,
                             TipoPago = TipoPago.Cheque,
-                            VentaId = movimiento.VentaId,
+                            // Sin FK a Ventas a propósito: insertar con VentaId obliga a SQL Server a leer (S) la fila de la venta; con la Apertura ya
+                            // bloqueada eso invierte el orden Venta → Apertura de la cancelación y la devolución (deadlock con READ COMMITTED).
+                            // El enlace con la venta viaja en ReferenciaId (solo informativo) y el origen en MovimientoOrigenId.
+                            VentaId = null,
                             Monto = movimiento.Monto,
                             Descripcion = $"Acreditación de cheque {movimiento.Referencia}".Trim(),
                             Referencia = movimiento.Referencia,
-                            ReferenciaId = movimiento.ReferenciaId,
+                            ReferenciaId = movimiento.VentaId,
                             MedioPagoDetalle = "Cheque",
                             Usuario = usuario,
                             Observaciones = $"Acredita el ingreso #{movimiento.Id} de la apertura {movimiento.AperturaCajaId} (caja cerrada).",
@@ -242,14 +245,6 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException(
                         $"Solo se puede rechazar un cheque Pendiente o Acreditado. Estado actual: {DescribirEstado(origen.Estado)}.");
-                }
-
-                if (origen.VentaId.HasValue)
-                {
-                    var ventaCancelada = await _context.Ventas.AsNoTracking()
-                        .AnyAsync(v => v.Id == origen.VentaId.Value && v.Estado == EstadoVenta.Cancelada);
-                    if (ventaCancelada)
-                        throw new InvalidOperationException("No se puede rechazar el cheque: la venta está cancelada.");
                 }
 
                 // Acreditado => hace falta un egreso en una caja abierta; Pendiente => solo cambia de estado.
@@ -335,11 +330,12 @@ namespace TheBuryProject.Services
                     Concepto = ConceptoMovimientoCaja.RechazoCheque,
                     EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.NoAplica,
                     TipoPago = TipoPago.Cheque,
-                    VentaId = movimiento.VentaId,
+                    // Sin FK a Ventas (ver el asiento de acreditación): evita invertir el orden de locks Venta → Apertura.
+                    VentaId = null,
                     Monto = movimiento.Monto,
                     Descripcion = $"Rechazo de cheque {movimiento.Referencia}".Trim(),
                     Referencia = movimiento.Referencia,
-                    ReferenciaId = movimiento.ReferenciaId,
+                    ReferenciaId = movimiento.VentaId,
                     MedioPagoDetalle = "Cheque",
                     Usuario = usuario,
                     Observaciones = $"Contrapartida del ingreso acreditado #{movimiento.Id}. Motivo: {motivo}",
@@ -453,17 +449,21 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// Revalida bajo el lock de apertura que la venta del cheque no esté cancelada ni reversada: la cancelación toma el mismo
-        /// lock, así que o ya agregó su reversión (se ve acá) o espera a que este rechazo termine y entonces ve el cheque rechazado.
+        /// Revalida bajo el lock de apertura que la venta del cheque no esté cancelada ni reversada. ORDEN GLOBAL DE LOCKS:
+        /// Crédito → Venta → Apertura del cheque → Apertura vigente (la cancelación y la devolución toman la Venta primero y recién
+        /// después la Apertura). Por eso acá NO se lee la fila de <c>Ventas</c> reteniendo la Apertura (con READ COMMITTED sin
+        /// snapshot esa lectura espera al lock de Venta de una cancelación que a su vez espera esta Apertura: deadlock). Basta con el
+        /// libro de caja: la cancelación toma este mismo lock de Apertura, así que o ya asentó su reversión (se ve acá), o anuló el
+        /// ingreso Pendiente (ya lo rechaza el control de estado), o espera a que este rechazo termine y entonces ve el cheque
+        /// rechazado y no duplica la salida.
         /// </summary>
         private async Task ExigirVentaNoCanceladaBajoLockAsync(int? ventaId)
         {
             if (!ventaId.HasValue) return;
 
-            var cancelada = await _context.Ventas.AsNoTracking().AnyAsync(v => v.Id == ventaId.Value && v.Estado == EstadoVenta.Cancelada)
-                || await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.VentaId == ventaId.Value
-                    && m.Concepto == ConceptoMovimientoCaja.ReversionVenta && !m.IsDeleted);
-            if (cancelada)
+            var reversada = await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.VentaId == ventaId.Value
+                && m.Concepto == ConceptoMovimientoCaja.ReversionVenta && !m.IsDeleted);
+            if (reversada)
                 throw new InvalidOperationException("No se puede rechazar el cheque: la venta está cancelada.");
         }
 

@@ -936,6 +936,11 @@ namespace TheBuryProject.Services
                 await CreditoConcurrencia.BloquearAsync(_context, pago.CreditoId);
                 await AsegurarCreditoAdmiteCobrosAsync(pago.CreditoId);
 
+                // Cheque: duplicado banco+número bajo lock de aplicación, dentro de esta transacción (orden de locks:
+                // Crédito → clave del cheque → Apertura; la clave es una hoja: nadie la pide reteniendo otro lock).
+                if (detalleCheque != null)
+                    await ValidarChequeCuotaNoDuplicadoBajoLockAsync(pago.Cheque!);
+
                 // El adelanto no acepta la cuota que indique el cliente: la resuelve el servidor
                 // aplicando la regla funcional (última cuota pendiente del plan).
                 var cuota = modo == ModoCobroCuota.AdelantoUltimaCuota
@@ -2261,19 +2266,30 @@ namespace TheBuryProject.Services
             if (DateOnly.FromDateTime(cheque.Vencimiento) < _reloj.HoyComercial)
                 throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, "El vencimiento del cheque no puede ser anterior a hoy.");
 
-            var repetido = await _context.DatosCheque.AsNoTracking()
+            return ChequeDuplicados.Detalle(banco, numero, cheque.Vencimiento);
+        }
+
+        /// <summary>
+        /// D5/D6-c: un mismo cheque no puede pagar dos cuotas ni una cuota y una venta. Se llama DENTRO de la transacción del cobro,
+        /// tras tomar el lock de aplicación de la clave normalizada: dos cobros concurrentes (aun en créditos distintos) se
+        /// serializan y el segundo ve al primero.
+        /// </summary>
+        private async Task ValidarChequeCuotaNoDuplicadoBajoLockAsync(DatosChequeCuota cheque)
+        {
+            var banco = ChequeDuplicados.Normalizar(cheque.Banco);
+            var numero = ChequeDuplicados.Normalizar(cheque.Numero);
+            await ChequeDuplicados.BloquearAsync(_context, banco, numero);
+
+            var enVenta = await _context.DatosCheque.AsNoTracking()
                 .AnyAsync(d => !d.IsDeleted && d.Banco == banco && d.NumeroCheque == numero
                             && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada);
-            if (repetido)
+            if (enVenta)
                 throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
                     $"El cheque {banco} N° {numero} ya está registrado en una venta. No se puede cobrar dos veces.");
 
-            // Un mismo cheque no puede pagar dos cuotas (ni una cuota y una venta): los de cuota viven en el detalle del ingreso.
             if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
                 throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
                     $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
-
-            return ChequeDuplicados.Detalle(banco, numero, cheque.Vencimiento);
         }
 
         private static string NormalizarMedioPago(string? medioPago)
