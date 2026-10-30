@@ -211,7 +211,8 @@ public partial class FinResidualSqlServerTests
         int reembolsos;
         using (var scope = _fx.Services.CreateScope())
             reembolsos = await scope.ServiceProvider.GetRequiredService<AppDbContext>().MovimientosCaja
-                .CountAsync(m => m.Concepto == ConceptoMovimientoCaja.DevolucionCliente);
+                .CountAsync(m => m.Concepto == ConceptoMovimientoCaja.DevolucionCliente
+                              && m.AperturaCajaId == aperturaId && m.ReferenciaId == devId); // solo ESTA devolucion: el catalogo se comparte entre tests
         Informe("H2a", $"devolución bloqueada = {bloqueada}", $"rechazo={rRechazar}", $"devolución={rDevolver}", $"reembolsos en efectivo={reembolsos}");
         SinFalloDeInfra(rRechazar, rDevolver);
         Assert.True(bloqueada, "La devolución debía esperar el lock de la apertura del cheque.");
