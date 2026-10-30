@@ -107,7 +107,26 @@ public class RecargoMedioPagoIvaTests
     public void RecargoPorLinea_SinRecargo_Ceros()
     {
         Assert.All(DevolucionService.RecargoPorLinea(new[] { 500m, 500m }, 0m, 1_000m), r => Assert.Equal(0m, r));
-        Assert.All(DevolucionService.RecargoPorLinea(new[] { 500m, 500m }, 0m, 900m), r => Assert.Equal(0m, r));
+    }
+
+    [Fact]
+    public void RecargoPorLinea_AjusteNegativo_DevolverTodoReintegraExactamenteLoCobrado()
+    {
+        // Efectivo -5%: productos 885.218 (3 lineas), total cobrado 840.957 (truncado).
+        var cobrado = new[] { 500_000m, 300_000.40m, 85_217.60m };
+        var ajuste = DevolucionService.RecargoPorLinea(cobrado, 0m, 840_957m);
+
+        Assert.Equal(840_957m, cobrado.Sum() + ajuste.Sum());
+        Assert.All(ajuste, r => Assert.True(r <= 0m));
+    }
+
+    [Fact]
+    public void RecargoPorLinea_AjusteNegativoConServicios_SoloDescuentaLaParteDeProductos()
+    {
+        // productos 900 + servicios 100, total 950 (-5%): descuento 50 => 45 a productos.
+        var ajuste = DevolucionService.RecargoPorLinea(new[] { 900m }, 100m, 950m);
+
+        Assert.Equal(-45m, ajuste.Sum());
     }
 
     [Fact]
