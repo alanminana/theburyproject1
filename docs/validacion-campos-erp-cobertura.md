@@ -49,7 +49,7 @@ Estado: **Revisado** = reglas del servidor revisadas y probadas por HTTP o por r
 | Producto | 34 | L3 | Revisado |
 | Caja | 29 | L1 | Revisado |
 | Credito | 28 | L2, L14 | Revisado |
-| Proveedor | 23 | L4 | Revisado (decisión CUIT abierta) |
+| Proveedor | 23 | L4 | Revisado |
 | OrdenCompra | 20 | L4 | Revisado |
 | Reporte | 16 | L8 | Revisado |
 | PlantillaContratoCredito | 15 | L5 | Revisado |
@@ -108,10 +108,17 @@ Se dejan registrados porque cada uno mostró un punto frágil del sistema:
 | Configuración de mora (JSON) y edición de plantillas/reglas de documentos | Mora / DocumentosConfig | Sin sondeo de flujo completo |
 | Importación de catálogo por ruta, carga de imágenes y URLs, atributos de borrador, escenarios de envío simulado, webhook | MercadoLibre | Superficies de integración externa |
 | Pantalla de Seguridad devuelve 500 en el entorno de pruebas HTTP | Seguridad | El rango invertido y la página enorme de auditoría solo se cubrieron como reglas puras |
-| Adjuntos de ticket no verifican el contenido real del archivo | Ticket | Decisión de producto (Documentos de cliente sí lo hace) |
-| CUIT de proveedor con verificador estricto | Proveedor | Decisión de producto abierta: hoy se acepta un verificador incorrecto |
 | Campos generados por JavaScript y parciales compartidos | Shared | Sin análisis propio; se cubren solo cuando el módulo dueño los usa |
 | Registro, Olvidé mi contraseña, Reset | Identity | Páginas deshabilitadas (404): no hay campos que validar |
+
+### Decisiones cerradas después del informe
+
+- **CUIT de proveedor:** el dígito verificador (módulo 11) se exige al **crear** y cuando el CUIT **cambia**. Un CUIT antiguo con
+  verificador incorrecto (2 de los 5 proveedores de la base de desarrollo) se puede seguir editando mientras no se toque el CUIT.
+  Solo se controla el verificador, no el prefijo (los proveedores del exterior usan 50/51/55). El mensaje indica el verificador correcto.
+- **Adjuntos de ticket:** además de tamaño y extensión se verifica el contenido real (PDF, JPG, PNG, GIF, WEBP, DOC/XLS, DOCX/XLSX/ZIP;
+  los `.txt` no pueden tener bytes nulos). Un ejecutable renombrado se rechaza. La verificación es la misma función que usan los
+  documentos de cliente (`DocumentoValidationHelper.ContenidoCoincideConExtension`).
 
 ## 5. Cómo mantener esto
 

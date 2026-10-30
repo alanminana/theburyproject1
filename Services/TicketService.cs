@@ -333,6 +333,13 @@ public class TicketService : ITicketService
     {
         await ObtenerEntidadOFallarAsync(ticketId);
 
+        // La extensión la declara el cliente: se comprueba que el contenido realmente sea de ese tipo.
+        await using (var lectura = archivo.OpenReadStream())
+        {
+            if (!Helpers.DocumentoValidationHelper.ContenidoCoincideConExtension(lectura, Path.GetExtension(archivo.FileName)))
+                throw new InvalidOperationException("El contenido del archivo no coincide con su extensión.");
+        }
+
         var rutaRelativa = await _fileStorage.SaveAsync(archivo, TicketConstants.UploadFolder);
 
         var adjunto = new TicketAdjunto

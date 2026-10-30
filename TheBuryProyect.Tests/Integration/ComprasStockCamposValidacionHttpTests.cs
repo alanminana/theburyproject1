@@ -257,15 +257,15 @@ public class ComprasStockCamposValidacionHttpTests : IClassFixture<CustomWebAppl
         Assert.Equal(1, await ProveedoresConCuitAsync(cuit));
     }
 
-    // El dígito verificador del CUIT es una ADVERTENCIA en el formulario ("Podés guardarlo igual", proveedor-modal-base.js),
-    // no un bloqueo: lo decidió el producto y el test unitario Cuit_OnceDigitos_NoExigeDigitoVerificadorAfip lo fija.
+    // Un CUIT nuevo con el dígito verificador incorrecto casi siempre es un error de tipeo: el servidor lo rechaza.
+    // (Los CUIT antiguos con verificador incorrecto siguen editables mientras no se cambien: ProveedorServiceTests.)
     [Fact]
-    public async Task Proveedor_CuitConVerificadorIncorrecto_SeAcepta_PorqueEsSoloUnaAdvertencia()
+    public async Task Proveedor_CuitNuevoConVerificadorIncorrecto_SeRechaza()
     {
         var cuit = "30502680479";   // el verificador válido sería 8
-        if (await ProveedoresConCuitAsync(cuit) > 0) return;
 
-        Assert.True(await CrearProveedorAsync(FormProveedor(cuit)));
+        Assert.False(await CrearProveedorAsync(FormProveedor(cuit)), "El CUIT con verificador incorrecto fue ACEPTADO.");
+        Assert.Equal(0, await ProveedoresConCuitAsync(cuit));
     }
 
     [Theory]

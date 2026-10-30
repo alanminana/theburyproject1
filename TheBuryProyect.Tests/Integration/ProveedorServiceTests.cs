@@ -438,6 +438,91 @@ public class ProveedorServiceTests : IDisposable
     }
 
     // =========================================================================
+    // Dígito verificador del CUIT: se exige al crear y cuando el CUIT cambia
+    // =========================================================================
+
+    private static string CuitValido(string primerosDiez)
+    {
+        int[] mult = { 5, 4, 3, 2, 7, 6, 5, 4, 3, 2 };
+        var suma = 0;
+        for (var i = 0; i < 10; i++) suma += (primerosDiez[i] - '0') * mult[i];
+        var d = 11 - suma % 11;
+        d = d == 11 ? 0 : d == 10 ? 9 : d;
+        return primerosDiez + d;
+    }
+
+    private static string CuitConVerificadorIncorrecto(string primerosDiez)
+        => primerosDiez + ((CuitValido(primerosDiez)[10] - '0' + 1) % 10);
+
+    [Fact]
+    public async Task Create_CuitConVerificadorIncorrecto_Lanza_IndicandoElCorrecto()
+    {
+        var invalido = CuitConVerificadorIncorrecto("3071442109");
+        var correcto = CuitValido("3071442109")[10];
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(new Proveedor { Cuit = invalido, RazonSocial = "X", Activo = true }));
+
+        Assert.Contains($"debería ser {correcto}", ex.Message);
+        Assert.False(await _context.Set<Proveedor>().AnyAsync(p => p.Cuit == invalido));
+    }
+
+    [Fact]
+    public async Task Create_CuitValido_Crea()
+    {
+        var cuit = CuitValido("3071442109");
+
+        await _service.CreateAsync(new Proveedor { Cuit = cuit, RazonSocial = "X", Activo = true });
+
+        Assert.True(await _context.Set<Proveedor>().AnyAsync(p => p.Cuit == cuit));
+    }
+
+    [Fact]
+    public async Task Create_CuitDelExterior_PrefijoNoHabitual_SoloMiraElVerificador()
+    {
+        var cuit = CuitValido("5512345678"); // prefijo 55: CUIT país que AFIP emite a entidades del exterior
+
+        await _service.CreateAsync(new Proveedor { Cuit = cuit, RazonSocial = "Exterior", Activo = true });
+
+        Assert.True(await _context.Set<Proveedor>().AnyAsync(p => p.Cuit == cuit));
+    }
+
+    [Fact]
+    public async Task Update_CuitAntiguoInvalido_SinCambiarElCuit_SigueEditable()
+    {
+        var antiguo = CuitConVerificadorIncorrecto("2222222222");
+        var proveedor = await SeedProveedorAsync(antiguo);
+        proveedor.RazonSocial = "Nombre corregido";
+
+        await _service.UpdateAsync(proveedor);
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal("Nombre corregido", (await _context.Set<Proveedor>().FirstAsync(p => p.Id == proveedor.Id)).RazonSocial);
+    }
+
+    [Fact]
+    public async Task Update_CambiarElCuitAOtroInvalido_Lanza()
+    {
+        var proveedor = await SeedProveedorAsync(CuitConVerificadorIncorrecto("2222222222"));
+        proveedor.Cuit = CuitConVerificadorIncorrecto("3071442109");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(proveedor));
+    }
+
+    [Fact]
+    public async Task Update_CambiarElCuitAUnoValido_Permite()
+    {
+        var proveedor = await SeedProveedorAsync(CuitConVerificadorIncorrecto("2222222222"));
+        var nuevo = CuitValido("3071442109");
+        proveedor.Cuit = nuevo;
+
+        await _service.UpdateAsync(proveedor);
+
+        _context.ChangeTracker.Clear();
+        Assert.Equal(nuevo, (await _context.Set<Proveedor>().FirstAsync(p => p.Id == proveedor.Id)).Cuit);
+    }
+
+    // =========================================================================
     // SearchAsync
     // =========================================================================
 
