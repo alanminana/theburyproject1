@@ -9,10 +9,10 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Módulo | Estado | Evidencia principal | Limitaciones / pendiente |
 |---|---|---|---|
 | Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador abre el wizard vacío (decisión de flujo). Factura de venta a crédito personal: recorrido validado en clon (contrato con PDF → facturar cierra neto + IVA = total); el interés queda fuera de la factura y el tratamiento fiscal espera decisión (`docs/factura-credito-personal.md`). |
-| Caja | Aprobado con limitaciones | QA Caja/cierre/arqueo, concurrencia en SQL Server, #197 | Acreditar y rechazar cheques recibidos implementado en `hito10/cheques` (migración sin aplicar a la base real; ver Cheques). Un solo medio de pago por venta. |
+| Caja | Aprobado con limitaciones | QA Caja/cierre/arqueo, concurrencia en SQL Server, #197, #211 | Acreditar y rechazar cheques recibidos en la interfaz (#211). Un solo medio de pago por venta. |
 | Crédito | Aprobado con limitaciones | Crédito personal en la pantalla única, #161, #166 | El job de vencimiento de borradores no corrió aún contra la base real (debe cancelar solo las ventas 1003 y 1006; plazo de 7 días provisorio). El interés del crédito queda fuera de la factura de venta (D1). |
 | Mora y Acuerdos | Aprobado con limitaciones | Smoke en clon (crear, activar, cobrar, cumplir, incumplir, auditoría), acuerdos con pagos no efectivos y punitorio > 0, #169 | `DiasParaCumplirPromesa`: lectura conservadora (días de espera tras la fecha prometida); hoy NULL. Una sola instancia de la app. |
-| Cheques | **Implementado en PR, a la espera de autorización de migración** (estado final: decisión del propietario) | `docs/cheques-circuito-propuesta.md` §6, `docs/cheques-migracion-autorizacion.md`; D1-A y D2-A autorizadas, D3-D6 aplicadas; tests de servicio, autorización/IDOR/antiforgery y concurrencia en SQL Server (RCSI 0 y 1); QA visual 1280 y 390 sobre clon | Migración `H10ChequesRecibidos` **sin aplicar a la base real**. Cuota con cheque solo desde «Pagar cuota» individual; si el cheque de una cuota rebota, la cuota no se revierte (decisión D5 pendiente). Cancelar una venta con cheque de caja ya cerrada sigue fallando. Hasta aplicar la migración, **no usar «Cheque» como medio de pago**. |
+| Cheques | **Aprobado con limitaciones** (migración `H10ChequesRecibidos` aplicada a la base real el 2026-10-30, #211) | `docs/cheques-circuito-propuesta.md` §6, `docs/cheques-migracion-autorizacion.md`; D1-A y D2-A autorizadas, D3-D6 aplicadas; tests de servicio, autorización/IDOR/antiforgery y concurrencia en SQL Server (RCSI 0 y 1) con 3 revisiones independientes (Codex); QA visual 1280 y 390 sobre clon; migración probada Up/Down/Up en clon y aplicada con backup verificado, CHECKDB limpio y conteos idénticos | Cuota con cheque solo desde «Pagar cuota» individual; si el cheque de una cuota rebota, la cuota no se revierte (decisión D5 pendiente: revertir automático / prohibir cheques en cuotas). Cancelar una venta con cheque de caja ya cerrada sigue fallando (B13). Sin uso real todavía: probar con un cheque de prueba antes de operar. |
 | Compras | Aprobado con limitaciones | QA OC completa, recepción parcial, concurrencia, #171, #202 | Costo del producto manual (no se actualiza al recibir). Cancelar una OC parcial conserva el stock (sin devolución al proveedor). Sin cuentas ni pagos a proveedor. |
 | Stock | Aprobado | Stock = Σ movimientos para los 16 productos, Kardex sin cortes, recepción idempotente | — |
 | Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
@@ -32,10 +32,11 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 
 **Listo para uso local con limitaciones.** El circuito principal (cotizar, vender, cobrar, facturar, devolver, comprar, controlar stock, crédito y mora) funciona, está integrado en `main` y fue probado de punta a punta.
 
-Condiciones: no usar Cheque como medio de pago hasta resolver D1 y D2; verificar el job de borradores en la primera ejecución real; configurar la copia externa antes de operar con datos de producción.
+Condiciones: probar el circuito de cheques con un cheque de prueba antes de operar (D1-A y D2-A implementadas, #211); verificar el job de borradores en la primera ejecución real; configurar la copia externa antes de operar con datos de producción.
 
-## Decisiones indispensables del propietario
+## Decisiones pendientes del propietario
 
-1. **Cheques D1** — acreditación (recomendada: manual, asentada en la caja abierta vigente).
-2. **Cheques D2** — rechazo (recomendado: registrar y dejar la venta marcada para resolver a mano).
-3. **IVA D1** — tratamiento del interés de financiación y del recargo del medio de pago (recomendado: mantener el vigente, a la alícuota de los ítems, hasta validación del contador).
+1. **IVA D1** — tratamiento del interés de financiación y del recargo del medio de pago (vigente: a la alícuota de los ítems, provisional; validar con el contador, ver `docs/iva-decisiones-contador.md`).
+2. **Cheques D5** — qué pasa con la cuota si su cheque rebota (hoy: no se revierte, queda marcada en caja).
+3. **Factura de crédito personal C1–C4** (`docs/factura-credito-personal.md`).
+4. **Efectivo con descuento del plan en venta directa** (#210): se desactiva en la configuración del plan si no se quiere.
