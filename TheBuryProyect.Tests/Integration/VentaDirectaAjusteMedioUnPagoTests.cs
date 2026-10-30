@@ -228,6 +228,34 @@ public class VentaDirectaAjusteMedioUnPagoTests : IDisposable
         Assert.Equal(30m, preview.AjustePagoGlobalAplicado);
         Assert.Equal(3m, preview.PorcentajeAjustePagoGlobalAplicado);
         Assert.Equal(preview.Total, creada.Total);
+        var guardada = await CargarAsync(creada.Id);
+        Assert.Equal(guardada.Subtotal, preview.Subtotal);
+        Assert.Equal(guardada.IVA, preview.IVA);
+        Assert.Equal(preview.Total, preview.Subtotal + preview.IVA);
+    }
+
+    [Fact]
+    public async Task Preview_RecargoDiscriminadoEnNetoEIva_IgualQueCreate()
+    {
+        var (cliente, producto) = await SeedBaseAsync(precio: 1_210m);
+        await SeedPlanAsync(TipoPago.Transferencia, 10m);
+
+        var preview = await _service.CalcularTotalesPreviewConServiciosAsync(new CalcularTotalesVentaRequest
+        {
+            Detalles = new List<DetalleCalculoVentaRequest>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1_210m }
+            },
+            TipoPago = TipoPago.Transferencia
+        });
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, TipoPago.Transferencia, precio: 1_210m));
+
+        var guardada = await CargarAsync(creada.Id);
+        Assert.Equal(1_331m, preview.Total);
+        Assert.Equal(1_100m, guardada.Subtotal);
+        Assert.Equal(231m, guardada.IVA);
+        Assert.Equal(guardada.Subtotal, preview.Subtotal);
+        Assert.Equal(guardada.IVA, preview.IVA);
     }
 
     [Fact]

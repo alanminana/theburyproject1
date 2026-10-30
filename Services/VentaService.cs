@@ -3147,6 +3147,18 @@ namespace TheBuryProject.Services
                     response.PorcentajeAjustePagoGlobalAplicado = ajusteUnPago.PorcentajeAjuste;
                     response.TotalConAjustePagoGlobal = ajusteUnPago.TotalFinal;
                     response.Total = ajusteUnPago.TotalFinal;
+
+                    // Misma discriminacion en neto e IVA que Create (DiscriminarRecargoEnNetoEIva): Subtotal + IVA = Total.
+                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total };
+                    DiscriminarRecargoEnNetoEIva(ventaPreview, response.Detalles.Select(d => new VentaDetalle
+                    {
+                        PorcentajeIVA = d.PorcentajeIVA,
+                        SubtotalFinal = d.SubtotalFinal,
+                        SubtotalFinalNeto = d.SubtotalFinalNeto,
+                        SubtotalFinalIVA = d.SubtotalFinalIVA
+                    }));
+                    response.Subtotal = ventaPreview.Subtotal;
+                    response.IVA = ventaPreview.IVA;
                 }
 
                 return response;
