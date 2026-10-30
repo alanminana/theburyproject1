@@ -3272,6 +3272,7 @@ namespace TheBuryProject.Services
                     $"El cheque {banco} N° {numero} ya está registrado en la venta {duplicado}. No se puede cobrar dos veces.");
             }
 
+            // Solo lectura de cobros históricos de cuota con cheque (hoy ya no se pueden crear): no se reutiliza en una venta.
             if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
             {
                 throw new InvalidOperationException(

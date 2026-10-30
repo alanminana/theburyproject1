@@ -16,9 +16,26 @@ namespace TheBuryProject.Services
                 ["Efectivo"] = TipoPago.Efectivo,
                 ["Transferencia"] = TipoPago.Transferencia,
                 ["Tarjeta Débito"] = TipoPago.TarjetaDebito,
-                ["Tarjeta Crédito"] = TipoPago.TarjetaCredito,
-                ["Cheque"] = TipoPago.Cheque
+                ["Tarjeta Crédito"] = TipoPago.TarjetaCredito
             };
+
+        /// <summary>
+        /// Decisión D5 (propietario): NO se aceptan cheques para cobrar cuotas de crédito personal. Mensaje único para todos
+        /// los caminos de cobro (pago individual, adelanto, pago múltiple, primera cuota, acuerdos de pago).
+        /// </summary>
+        public const string MensajeChequeNoAdmitido =
+            "No se aceptan cheques para pagar cuotas de crédito. Elegí Efectivo, Transferencia o tarjeta.";
+
+        /// <summary>True si el medio indicado es Cheque (cualquier capitalización / espacios).</summary>
+        public static bool EsCheque(string? medioPago) =>
+            string.Equals(medioPago?.Trim(), "Cheque", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Lanza <see cref="InvalidOperationException"/> con el mensaje de D5 si el medio es Cheque.</summary>
+        public static void RechazarSiEsCheque(string? medioPago)
+        {
+            if (EsCheque(medioPago))
+                throw new InvalidOperationException(MensajeChequeNoAdmitido);
+        }
 
         /// <summary>Nombres canónicos, en el orden de declaración.</summary>
         public static IEnumerable<string> Nombres => TipoPorMedio.Keys;
@@ -27,6 +44,8 @@ namespace TheBuryProject.Services
         public static bool TryNormalizar(string? medioPago, out string canonico)
         {
             canonico = string.Empty;
+            if (EsCheque(medioPago))
+                return false;
             var valor = medioPago?.Trim();
             if (string.IsNullOrWhiteSpace(valor))
                 return false;

@@ -1744,6 +1744,10 @@ namespace TheBuryProject.Services
 
         public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null)
         {
+            // D5: los acuerdos cobran cuotas por el circuito de cuotas, que no acepta cheques. Se rechaza antes de crear
+            // cualquier intención de imputación.
+            MediosPagoCredito.RechazarSiEsCheque(medioPago);
+
             var bloqueo = _bloqueosPagoAcuerdo.GetOrAdd(acuerdoId, _ => new SemaphoreSlim(1, 1));
             await bloqueo.WaitAsync();
             try

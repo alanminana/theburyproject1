@@ -285,54 +285,36 @@ public partial class FinResidualSqlServerTests
     }
 
     // =====================================================================================
-    // CHQ-H4  Un mismo cheque no puede pagar dos cuotas de créditos distintos a la vez (lock de aplicación por clave)
+    // CHQ-H4  Un mismo cheque no puede cobrarse dos veces (ventas) + D5: las cuotas de crédito no aceptan cheques
     // =====================================================================================
 
-    private Task<string> PagarCuotaConChequeAsync(EscenarioSembrado s, string banco, string numero, GatePlan? plan = null) =>
-        Lanzar(plan, async sp =>
+    [SqlServerConcFact(DisplayName = "H10-CHQ [H4a] D5: cobrar una cuota con Cheque se rechaza en el servidor (SQL Server) sin pago ni ingreso de caja")]
+    public async Task H4a_CuotaConCheque_SeRechazaSinEfectos()
+    {
+        var aperturaId = await NuevaAperturaAsync();
+        var s = await NuevoCreditoAsync(aperturaId);
+
+        var r = await Lanzar(null, async sp =>
         {
             var ctx = sp.GetRequiredService<AppDbContext>();
             var cuota = await ctx.Cuotas.AsNoTracking().FirstAsync(c => c.Id == s.CuotaIds[0]);
             return await sp.GetRequiredService<ICreditoService>().PagarCuotaAsync(new PagarCuotaViewModel
             {
-                CreditoId = s.CreditoId, CuotaId = cuota.Id, MontoPagado = 100m, MedioPago = "Cheque",
-                Cheque = new TheBuryProject.Services.Models.DatosChequeCuota(banco, numero, DateTime.UtcNow.Date.AddDays(15))
+                CreditoId = s.CreditoId, CuotaId = cuota.Id, MontoPagado = 100m, MedioPago = "Cheque"
             });
         });
 
-    [SqlServerConcFact(DisplayName = "H10-CHQ [H4a] dos cobros de cuota (creditos distintos) con el mismo cheque a la vez: gana uno, el otro espera la clave y se rechaza")]
-    public async Task H4a_MismoChequeEnDosCuotas_UnoSoloGana()
-    {
-        var aperturaId = await NuevaAperturaAsync();
-        var s1 = await NuevoCreditoAsync(aperturaId);
-        var s2 = await NuevoCreditoAsync(aperturaId);
-        var numero = Random.Shared.NextInt64(10_000_000, 99_999_999).ToString();
-        var plan = Compuerta("cobro/antes-de-insertar-pago", "INSERT INTO [PagosCuota]");
-
-        Task<string>? primero = null, segundo = null;
-        bool bloqueado;
-        try
-        {
-            primero = PagarCuotaConChequeAsync(s1, "Galicia", numero, plan);
-            Assert.True(await LlegoALaCompuertaAsync(plan, primero), "El primer cobro no llegó a insertar el pago.");
-            segundo = PagarCuotaConChequeAsync(s2, "  gALICIA ", numero); // misma clave normalizada
-            bloqueado = await QuedaBloqueadaAsync(segundo);
-        }
-        finally { plan.Release.TrySetResult(); }
-        var r1 = await ResultadoAsync("primer cobro", primero!, plan);
-        var r2 = await ResultadoAsync("segundo cobro", segundo!);
-
-        int cobros;
+        int pagos, ingresos;
         using (var scope = _fx.Services.CreateScope())
-            cobros = await scope.ServiceProvider.GetRequiredService<AppDbContext>().MovimientosCaja
-                .CountAsync(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque
-                              && m.MedioPagoDetalle != null && m.MedioPagoDetalle.Contains(numero));
-        Informe("H4a", $"segundo bloqueado por la clave = {bloqueado}", $"primero={r1}", $"segundo={r2}", $"ingresos con ese cheque={cobros}");
-        SinFalloDeInfra(r1, r2);
-        Assert.True(bloqueado, "El segundo cobro debía esperar el lock de aplicación del cheque.");
-        Assert.StartsWith("OK", r1);
-        Assert.Contains("ya se usó para cobrar una cuota", r2);
-        Assert.Equal(1, cobros);
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            pagos = await ctx.PagosCuota.CountAsync(p => p.CuotaId == s.CuotaIds[0]);
+            ingresos = await ctx.MovimientosCaja.CountAsync(m => m.AperturaCajaId == aperturaId && m.Concepto == ConceptoMovimientoCaja.CobroCuota);
+        }
+        Informe("H4a", $"resultado={r}", $"pagos={pagos}", $"ingresos de cuota={ingresos}");
+        Assert.Contains("No se aceptan cheques", r);
+        Assert.Equal(0, pagos);
+        Assert.Equal(0, ingresos);
     }
 
     private Task<string> CrearVentaConChequeAsync(VentaContado ref0, string banco, string numero, GatePlan? plan = null) =>
