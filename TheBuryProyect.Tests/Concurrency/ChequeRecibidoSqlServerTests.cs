@@ -215,4 +215,105 @@ public class ChequeRecibidoSqlServerTests : IClassFixture<ChequeRecibidoSqlHostF
 
         await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
     }
+
+    // ------------------------------------------------------------------ integridad contable: rechazo vs cancelacion / devolucion
+
+    private sealed record EscenarioVenta(string Dueno, int AperturaId, int VentaId, string VentaNumero, int ChequeId);
+
+    /// <summary>Venta con su cheque Acreditado en una caja ABIERTA del dueno (el caso donde cancelar y devolver son posibles).</summary>
+    private async Task<EscenarioVenta> SembrarVentaConChequeAcreditadoAsync()
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var s = Guid.NewGuid().ToString("N")[..10];
+        var dueno = "chqv" + s;
+        var apertura = await ConcSeed.SembrarAperturaAsync(ctx, dueno);
+        var cliente = new Cliente
+        {
+            TipoDocumento = "DNI", NumeroDocumento = s, Nombre = "Chq", Apellido = "QA" + s, Telefono = "0000000000", Domicilio = "QA 1",
+            PuntajeCliente = 5, NivelRiesgo = NivelRiesgoCredito.AprobadoTotal
+        };
+        ctx.Clientes.Add(cliente);
+        await ctx.SaveChangesAsync();
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id, AperturaCajaId = apertura, Numero = "VCH" + s, Estado = EstadoVenta.Confirmada,
+            TipoPago = TipoPago.Cheque, Total = 100m, Subtotal = 100m, FechaVenta = DateTime.UtcNow
+        };
+        ctx.Ventas.Add(venta);
+        await ctx.SaveChangesAsync();
+        var cheque = new MovimientoCaja
+        {
+            AperturaCajaId = apertura, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaCheque,
+            TipoPago = TipoPago.Cheque, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado, Monto = 100m,
+            Descripcion = "Venta " + venta.Numero, Referencia = venta.Numero, ReferenciaId = venta.Id, VentaId = venta.Id,
+            Usuario = dueno, FechaMovimiento = DateTime.UtcNow
+        };
+        ctx.MovimientosCaja.Add(cheque);
+        await ctx.SaveChangesAsync();
+        return new EscenarioVenta(dueno, apertura, venta.Id, venta.Numero, cheque.Id);
+    }
+
+    private async Task<(decimal Total, decimal Real, int Egresos)> SaldosAsync(EscenarioVenta e)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var caja = scope.ServiceProvider.GetRequiredService<ICajaService>();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var egresos = await ctx.MovimientosCaja.CountAsync(m => m.AperturaCajaId == e.AperturaId && m.Tipo == TipoMovimientoCaja.Egreso);
+        return (await caja.CalcularSaldoActualAsync(e.AperturaId), await caja.CalcularSaldoRealAsync(e.AperturaId), egresos);
+    }
+
+    [SqlServerConcFact(DisplayName = "H10-CHQ [CHQ-07] rechazar y cancelar la venta a la vez (caja abierta): una sola salida, saldos total y real neutros")]
+    public async Task CHQ07_RechazoVsCancelacion_UnaSolaSalida_SaldosNeutros()
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            var e = await SembrarVentaConChequeAcreditadoAsync();
+
+            var (r1, r2) = await DosALaVezAsync(
+                s => s.RechazarChequeAsync(e.ChequeId, "rebotado", e.Dueno),
+                s => Task.Run(async () =>
+                {
+                    using var scope = _fx.Services.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<ICajaService>()
+                        .RegistrarContramovimientoVentaAsync(e.VentaId, e.VentaNumero, "cancelada", e.Dueno);
+                }));
+
+            var saldos = await SaldosAsync(e);
+            _out.WriteLine($"iter {i}: rechazo={r1} | cancelacion={r2} | total={saldos.Total} real={saldos.Real} egresos={saldos.Egresos}");
+            Assert.Equal(1, saldos.Egresos);        // nunca las dos salidas
+            Assert.Equal(0m, saldos.Total);         // ingreso 100 - una salida 100
+            Assert.Equal(0m, saldos.Real);
+        }
+    }
+
+    [SqlServerConcFact(DisplayName = "H10-CHQ [CHQ-08] rechazar y devolver en efectivo a la vez: la devolucion nunca se paga despues de un rechazo ya confirmado")]
+    public async Task CHQ08_RechazoVsDevolucion_SeSerializanSobreElMismoLock()
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            var e = await SembrarVentaConChequeAcreditadoAsync();
+
+            var (r1, r2) = await DosALaVezAsync(
+                s => s.RechazarChequeAsync(e.ChequeId, "rebotado", e.Dueno),
+                s => Task.Run(async () =>
+                {
+                    using var scope = _fx.Services.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<ICajaService>()
+                        .RegistrarMovimientoDevolucionAsync(900 + i, e.VentaId, e.VentaNumero, "DEV-H10-" + i, 100m, e.Dueno);
+                }));
+
+            using var scope2 = _fx.Services.CreateScope();
+            var ctx = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+            var rechazoId = await ctx.MovimientosCaja.Where(m => m.MovimientoOrigenId == e.ChequeId && m.Concepto == ConceptoMovimientoCaja.RechazoCheque)
+                .Select(m => (int?)m.Id).FirstOrDefaultAsync();
+            var devolucionId = await ctx.MovimientosCaja.Where(m => m.VentaId == null && m.AperturaCajaId == e.AperturaId
+                    && m.Concepto == ConceptoMovimientoCaja.DevolucionCliente).Select(m => (int?)m.Id).FirstOrDefaultAsync();
+            _out.WriteLine($"iter {i}: rechazo={r1} | devolucion={r2} | idRechazo={rechazoId} idDevolucion={devolucionId}");
+
+            Assert.Equal("OK", r1);
+            if (rechazoId.HasValue && devolucionId.HasValue)
+                Assert.True(devolucionId < rechazoId, "La devolucion se pago DESPUES de confirmado el rechazo.");
+        }
+    }
 }

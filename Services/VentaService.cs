@@ -3215,6 +3215,12 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException(
                     $"El cheque {banco} N° {numero} ya está registrado en la venta {duplicado}. No se puede cobrar dos veces.");
             }
+
+            if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
+            }
         }
 
         public async Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque)

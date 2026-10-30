@@ -297,6 +297,35 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     }
 
     [Fact]
+    public async Task Cheque_UsadoParaCobrarUnaCuota_NoSePuedeUsarEnUnaVenta()
+    {
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var apertura = await ctx.AperturasCaja.FirstAsync(a => a.UsuarioApertura == "testuser" && !a.Cerrada && !a.IsDeleted);
+            ctx.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+                TipoPago = TipoPago.Cheque, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente, Monto = 100m,
+                Descripcion = "Cobro cuota con cheque", Usuario = "testuser", FechaMovimiento = DateTime.UtcNow,
+                MedioPagoDetalle = "Cheque · Banco Nación N° 77700001 · vence 01/12/2026"
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var (clienteId, productoId) = await SeedAsync();
+        var form = Form(clienteId, productoId);
+        ConCheque(form);
+        form["DatosCheque.Banco"] = "Banco Nación";
+        form["DatosCheque.NumeroCheque"] = "77700001";
+
+        var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
+
+        Assert.False(success, cuerpo);
+        Assert.Contains("ya se us", cuerpo);
+        Assert.Equal(0, await CantidadVentasAsync(clienteId));
+    }
+
+    [Fact]
     public Task Cheque_Emision_Futura_SeRechaza() =>
         AssertChequeRechazadoAsync("DatosCheque.FechaEmision", DateTime.UtcNow.Date.AddDays(3).ToString("yyyy-MM-dd"));
 

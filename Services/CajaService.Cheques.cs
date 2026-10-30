@@ -276,6 +276,7 @@ namespace TheBuryProject.Services
             {
                 var movimiento = await CargarOrigenParaEscrituraAsync(origen.Id);
                 ExigirEstado(movimiento, EstadoAcreditacionMovimientoCaja.Pendiente, "rechazar");
+                await ExigirVentaNoCanceladaBajoLockAsync(movimiento.VentaId);
 
                 var ahora = DateTime.UtcNow;
                 movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Rechazado;
@@ -311,6 +312,7 @@ namespace TheBuryProject.Services
             {
                 var movimiento = await CargarOrigenParaEscrituraAsync(origen.Id);
                 ExigirEstado(movimiento, EstadoAcreditacionMovimientoCaja.Acreditado, "rechazar");
+                await ExigirVentaNoCanceladaBajoLockAsync(movimiento.VentaId);
 
                 if (await _context.MovimientosCaja.AnyAsync(m => m.MovimientoOrigenId == movimiento.Id
                         && m.Concepto == ConceptoMovimientoCaja.RechazoCheque && !m.IsDeleted))
@@ -433,6 +435,47 @@ namespace TheBuryProject.Services
 
         private static string Recortar(string valor, int max) => valor.Length <= max ? valor : valor[..max];
 
+        // ------------------------------------------------------------------ integridad bajo lock
+
+        /// <summary>Cheque ya rechazado (estado del ingreso, egreso de contrapartida o marca en el cheque). Leer bajo lock.</summary>
+        private async Task<bool> ChequeRechazadoAsync(MovimientoCaja origen)
+        {
+            if (origen.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado)
+                return true;
+
+            if (await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.MovimientoOrigenId == origen.Id
+                    && m.Concepto == ConceptoMovimientoCaja.RechazoCheque && !m.IsDeleted))
+                return true;
+
+            return origen.VentaId.HasValue
+                && await _context.DatosCheque.AsNoTracking().AnyAsync(d => d.VentaId == origen.VentaId.Value
+                    && !d.IsDeleted && d.RechazadoAt != null);
+        }
+
+        /// <summary>
+        /// Revalida bajo el lock de apertura que la venta del cheque no esté cancelada ni reversada: la cancelación toma el mismo
+        /// lock, así que o ya agregó su reversión (se ve acá) o espera a que este rechazo termine y entonces ve el cheque rechazado.
+        /// </summary>
+        private async Task ExigirVentaNoCanceladaBajoLockAsync(int? ventaId)
+        {
+            if (!ventaId.HasValue) return;
+
+            var cancelada = await _context.Ventas.AsNoTracking().AnyAsync(v => v.Id == ventaId.Value && v.Estado == EstadoVenta.Cancelada)
+                || await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.VentaId == ventaId.Value
+                    && m.Concepto == ConceptoMovimientoCaja.ReversionVenta && !m.IsDeleted);
+            if (cancelada)
+                throw new InvalidOperationException("No se puede rechazar el cheque: la venta está cancelada.");
+        }
+
+        /// <summary>Apertura del ingreso del cheque de una venta (para serializar devolución y rechazo sobre el mismo lock), o null.</summary>
+        private async Task<int?> ObtenerAperturaDelChequeDeVentaAsync(int ventaId) =>
+            await _context.MovimientosCaja.AsNoTracking()
+                .Where(m => m.VentaId == ventaId && !m.IsDeleted && m.Tipo == TipoMovimientoCaja.Ingreso
+                         && m.Concepto == ConceptoMovimientoCaja.VentaCheque)
+                .OrderBy(m => m.Id)
+                .Select(m => (int?)m.AperturaCajaId)
+                .FirstOrDefaultAsync();
+
         // ------------------------------------------------------------------ D4: devolución
 
         /// <summary>
@@ -446,13 +489,10 @@ namespace TheBuryProject.Services
                          && m.Tipo == TipoMovimientoCaja.Ingreso
                          && m.Concepto == ConceptoMovimientoCaja.VentaCheque)
                 .OrderBy(m => m.Id)
-                .Select(m => new { m.EstadoAcreditacion })
                 .FirstOrDefaultAsync();
             if (cheque == null) return;
 
-            var rechazado = cheque.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado
-                || await _context.DatosCheque.AsNoTracking().AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted && d.RechazadoAt != null);
-            if (rechazado)
+            if (await ChequeRechazadoAsync(cheque))
             {
                 throw new InvalidOperationException(
                     $"No se puede reembolsar en efectivo la venta {ventaNumero}: el cheque fue rechazado por el banco y nunca se cobró.");

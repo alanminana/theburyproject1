@@ -1355,8 +1355,14 @@ namespace TheBuryProject.Services
 
                 // H-CAJA-2: la reversión se asienta en la apertura ORIGINAL y sólo si sigue ABIERTA; se relee bajo el
                 // lock compartido con el cierre, así que nunca se inserta un egreso en una caja ya cerrada.
-                var contramovimiento = await BajoLockDeAperturaAsync(movimientoOriginal.AperturaCajaId, async () =>
+                var contramovimiento = await BajoLockDeAperturaAsync<MovimientoCaja?>(movimientoOriginal.AperturaCajaId, async () =>
                 {
+                    // Cheque ya rechazado (releído bajo el lock): su salida ya está asentada (egreso RechazoCheque si estaba
+                    // acreditado; ingreso Rechazado, que no suma, si no). Reversar de nuevo duplicaría la salida.
+                    await _context.Entry(movimientoOriginal).ReloadAsync();
+                    if (await ChequeRechazadoAsync(movimientoOriginal))
+                        return null;
+
                     var nuevo = new MovimientoCaja
                     {
                         AperturaCajaId = movimientoOriginal.AperturaCajaId,
@@ -1393,6 +1399,14 @@ namespace TheBuryProject.Services
                     return nuevo;
                 }, validarVigencia: false, mensajeCerrada: MensajeReversionCajaCerrada(ventaNumero));
 
+                if (contramovimiento == null)
+                {
+                    _logger.LogInformation(
+                        "Venta {VentaNumero}: el cheque ya estaba rechazado, no se agrega reversión (la salida ya está asentada).",
+                        ventaNumero);
+                    return null;
+                }
+
                 _logger.LogInformation(
                     "Contramovimiento de caja creado para venta {VentaNumero}: Egreso ${Monto:N2}",
                     ventaNumero, contramovimiento.Monto);
@@ -1421,10 +1435,6 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("El monto del reembolso debe ser mayor a cero.");
                 }
 
-                // D4: el reembolso sale en efectivo; si la venta se pagó con un cheque que todavía no se cobró (o que el banco
-                // rechazó) no hay dinero recibido que devolver.
-                await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero);
-
                 var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
 
                 if (apertura == null)
@@ -1432,8 +1442,15 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("No hay una caja abierta para registrar el reembolso.");
                 }
 
-                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
+                // D4: el reembolso sale en efectivo; si la venta se pagó con un cheque que todavía no se cobró (o que el banco
+                // rechazó) no hay dinero recibido que devolver. El estado del cheque se valida BAJO el mismo lock que usa el
+                // rechazo (la apertura del ingreso del cheque, y luego la caja vigente): rechazo y devolución se serializan.
+                var aperturaDelCheque = await ObtenerAperturaDelChequeDeVentaAsync(ventaId);
+
+                Task<MovimientoCaja> Registrar() => BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
+                    await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero);
+
                     var nuevo = new MovimientoCaja
                     {
                         AperturaCajaId = apertura.Id,
@@ -1455,6 +1472,10 @@ namespace TheBuryProject.Services
                     await _context.SaveChangesAsync();
                     return nuevo;
                 });
+
+                var movimiento = aperturaDelCheque.HasValue
+                    ? await BajoLockDeOrigenChequeAsync(aperturaDelCheque.Value, Registrar)
+                    : await Registrar();
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para devolución {DevolucionNumero}: ${Monto:N2}",

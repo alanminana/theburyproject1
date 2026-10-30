@@ -2268,7 +2268,12 @@ namespace TheBuryProject.Services
                 throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
                     $"El cheque {banco} N° {numero} ya está registrado en una venta. No se puede cobrar dos veces.");
 
-            return $"Cheque · {banco} N° {numero} · vence {cheque.Vencimiento:dd/MM/yyyy}";
+            // Un mismo cheque no puede pagar dos cuotas (ni una cuota y una venta): los de cuota viven en el detalle del ingreso.
+            if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
+                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
+                    $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
+
+            return ChequeDuplicados.Detalle(banco, numero, cheque.Vencimiento);
         }
 
         private static string NormalizarMedioPago(string? medioPago)

@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -532,6 +532,24 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
 
         Assert.Contains("ya está registrado", ex.Message);
         await AssertSinEfectosAsync(cuota);
+    }
+
+    [Fact]
+    public async Task PagoIndividualConCheque_ElMismoChequeNoPuedePagarOtraCuota()
+    {
+        var (credito, cuota1Seed) = await SeedEscenarioAsync("CHQ5");
+        var cuota2Seed = await SeedCuotaAsync(credito.Id, numeroCuota: 2);
+        var cheque = new DatosChequeCuota("Galicia", "424242", _reloj.AhoraUtc.Date.AddDays(15));
+        var cuota1 = await RecargarCuotaAsync(cuota1Seed.Id);
+        Assert.IsType<PagoCuotaResultado>(await _service.RegistrarPagoCuotaIndividualAsync(Comando(cuota1, 100m, "Cheque") with { Cheque = cheque }));
+
+        var cuota2 = await RecargarCuotaAsync(cuota2Seed.Id);
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() =>
+            _service.RegistrarPagoCuotaIndividualAsync(Comando(cuota2, 100m, "Cheque") with { Cheque = cheque }));
+
+        Assert.Contains("ya se usó para cobrar una cuota", ex.Message);
+        Assert.Equal(0m, (await RecargarCuotaAsync(cuota2.Id)).MontoPagado);
+        Assert.Single(_caja.Movimientos);
     }
 
     [Fact]

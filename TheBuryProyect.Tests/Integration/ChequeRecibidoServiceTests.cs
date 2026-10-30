@@ -527,15 +527,110 @@ public class ChequeRecibidoServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CuotaConCheque_SePuedeAcreditarYRechazarSinDatosDeVenta_LaCuotaNoSeRevierte()
+    public async Task CuotaConCheque_RechazadoElCheque_LaCuotaYSuPagoNoSeRevierten_SoloSeMarcaElIngreso()
     {
+        // Cuota real, cobrada con cheque: PagoCuota enlazado al ingreso de caja Pendiente.
+        var cliente = new Cliente { Nombre = "Cuota", Apellido = "Cheque", NumeroDocumento = Guid.NewGuid().ToString("N")[..8] };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        var credito = new Credito
+        {
+            Numero = "CR-H10", ClienteId = cliente.Id, Estado = EstadoCredito.Activo, MontoSolicitado = 1000m, MontoAprobado = 1000m,
+            SaldoPendiente = 500m, TasaInteres = 0m, CantidadCuotas = 2, FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = 500m, MontoInteres = 0m, MontoTotal = 500m, MontoPagado = 500m,
+            MontoPunitorio = 0m, Estado = EstadoCuota.Pagada, FechaVencimiento = DateTime.UtcNow.Date, FechaPago = DateTime.UtcNow.Date
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
         var mov = await _service.RegistrarMovimientoCuotaAsync(
-            7, "CR-1", 1, 500m, 0m, TipoPago.Cheque, "Cheque · Galicia N° 99 · vence 01/12/2026", CajeroA, _aperturaA.Id);
+            cuota.Id, credito.Numero, 1, 500m, 0m, TipoPago.Cheque, "Cheque", CajeroA, _aperturaA.Id);
+        mov!.MedioPagoDetalle = "Cheque · Galicia N° 99 · vence 01/12/2026";
+        var pago = new PagoCuota
+        {
+            CuotaId = cuota.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.UtcNow), ImporteTotal = 500m,
+            ImporteAplicadoCuota = 500m, ImporteAplicadoPunitorio = 0m, MovimientoCajaId = mov.Id, MedioPago = "Cheque",
+            Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, HistorialCompleto = true
+        };
+        _context.PagosCuota.Add(pago);
+        await _context.SaveChangesAsync();
 
-        await _service.RechazarChequeAsync(mov!.Id, "sin fondos", CajeroA);
+        await _service.RechazarChequeAsync(mov.Id, "sin fondos", CajeroA);
 
-        var db = await LeerMovAsync(mov.Id);
+        _context.ChangeTracker.Clear();
+        var db = await _context.MovimientosCaja.AsNoTracking().FirstAsync(m => m.Id == mov.Id);
         Assert.Equal(EstadoAcreditacionMovimientoCaja.Rechazado, db.EstadoAcreditacion);
         Assert.Contains("sin fondos", db.Observaciones);
+        // D5 (decision pendiente): la cuota y su pago NO se revierten automaticamente.
+        var cuotaDb = await _context.Cuotas.AsNoTracking().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(500m, cuotaDb.MontoPagado);
+        Assert.Equal(EstadoCuota.Pagada, cuotaDb.Estado);
+        var pagoDb = await _context.PagosCuota.AsNoTracking().FirstAsync(p => p.Id == pago.Id);
+        Assert.Equal(EstadoPagoCuota.Aplicado, pagoDb.Estado);
+        Assert.Equal(mov.Id, pagoDb.MovimientoCajaId);
+    }
+
+    // ------------------------------------------------------------------ cancelacion x rechazo: saldos neutros (total y real)
+
+    [Theory]
+    [InlineData(false, false)] // pendiente, no rechazado
+    [InlineData(false, true)]  // pendiente, rechazado
+    [InlineData(true, false)]  // acreditado, no rechazado
+    [InlineData(true, true)]   // acreditado, rechazado
+    public async Task CancelarVentaConCheque_CajaAbierta_DejaNeutrosElSaldoTotalYElReal(bool acreditado, bool rechazado)
+    {
+        var venta = await SeedVentaChequeAsync(100m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        if (acreditado) await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        if (rechazado) await _service.RechazarChequeAsync(ingreso.Id, "rebotado", CajeroA);
+
+        await _service.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "cancelada", CajeroA);
+
+        Assert.Equal(1000m, await _service.CalcularSaldoActualAsync(_aperturaA.Id)); // fondo inicial: neto 0
+        Assert.Equal(1000m, await _service.CalcularSaldoRealAsync(_aperturaA.Id));
+        var reversiones = await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.ReversionVenta);
+        Assert.Equal(rechazado ? 0 : 1, reversiones); // un cheque rechazado ya tiene su salida: no se duplica
+        var det = await _service.ObtenerDetallesAperturaAsync(_aperturaA.Id);
+        Assert.Equal(0m, det.SaldoPendienteAcreditacion);
+        Assert.Equal(1000m, det.CajaFisicaEsperada);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_DespuesDeRechazarUnAcreditado_NoDuplicaLaSalida_ElSaldoRealNoQuedaNegativo()
+    {
+        var venta = await SeedVentaChequeAsync(100m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        await _service.RechazarChequeAsync(ingreso.Id, "rebotado", CajeroA);
+
+        await _service.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "cancelada", CajeroA);
+
+        Assert.True(await _service.CalcularSaldoRealAsync(_aperturaA.Id) >= 1000m);
+        Assert.Equal(1, await _context.MovimientosCaja.CountAsync(m => m.Tipo == TipoMovimientoCaja.Egreso));
+    }
+
+    // ------------------------------------------------------------------ duplicado entre ventas y cuotas
+
+    [Fact]
+    public async Task ChequeDuplicados_UnChequeDeCuotaSeDetectaPorSuDetalle_YNoAfectaAOtrosChequesNiAEstadosAnulados()
+    {
+        var mov = await _service.RegistrarMovimientoCuotaAsync(
+            7, "CR-1", 1, 500m, 0m, TipoPago.Cheque, "Cheque", CajeroA, _aperturaA.Id);
+        mov!.MedioPagoDetalle = ChequeDuplicados.Detalle("Galicia", "99", DateTime.UtcNow.AddDays(10));
+        await _context.SaveChangesAsync();
+
+        Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "99"));
+        Assert.True(await ChequeDuplicados.ExisteEnCuotasAsync(_context, " Galicia ", "99"));
+        Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "9"));
+        Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Macro", "99"));
+
+        mov.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+        await _context.SaveChangesAsync();
+        Assert.False(await ChequeDuplicados.ExisteEnCuotasAsync(_context, "Galicia", "99"));
     }
 }
