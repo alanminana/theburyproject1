@@ -140,6 +140,181 @@ public class UsuarioInactivoRevocacionHttpTests : IClassFixture<CookieAuthWebApp
         Assert.False(recargado.Activo);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // SEC-S-005 (vigente en main, PR #128): un bloqueo de cuenta vigente (LockoutEnd futuro) impide
+    // nuevos inicios de sesión Y expulsa la sesión ya abierta en el siguiente request
+    // (ActiveUserCookieValidator). Activo=false, SecurityStamp rotado y usuario inexistente también revocan.
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task SesionAbierta_BloqueoAutomatico_PorIntentosFallidos_EsRevocada()
+    {
+        var user = await SeedAsync("lock-auto");
+        var sesion = NewBrowser();
+        await LoginAsync(sesion, user.UserName!);
+        AssertAutenticada(await ProbeAsync(sesion));
+
+        await BloquearPorIntentosFallidosAsync(user.UserName!);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+    }
+
+    [Fact]
+    public async Task SesionAbierta_BloqueoAdministrativo_EsRevocada()
+    {
+        var user = await SeedAsync("lock-admin");
+        var sesion = NewBrowser();
+        await LoginAsync(sesion, user.UserName!);
+
+        // Mismas llamadas que UsuariosController.BulkAction("bloquear"): habilitar + fin indefinido.
+        await BloquearAsync(user.Id, DateTimeOffset.MaxValue);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+    }
+
+    [Fact]
+    public async Task SesionAbierta_BloqueoTemporalAdministrativo_EsRevocada()
+    {
+        var user = await SeedAsync("lock-temp");
+        var sesion = NewBrowser();
+        await LoginAsync(sesion, user.UserName!);
+
+        await BloquearAsync(user.Id, DateTimeOffset.UtcNow.AddHours(1));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+    }
+
+    [Fact]
+    public async Task NuevoLogin_DuranteBloqueoAutomatico_EsRechazado()
+    {
+        var user = await SeedAsync("login-auto");
+        await BloquearPorIntentosFallidosAsync(user.UserName!);
+
+        var otro = NewBrowser();
+        var login = await LoginAsync(otro, user.UserName!); // credenciales correctas
+
+        Assert.False(TieneCookieDeSesion(login));
+        Assert.Contains("Lockout", login.Headers.Location?.ToString() ?? string.Empty);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(otro)).StatusCode);
+    }
+
+    [Fact]
+    public async Task NuevoLogin_DuranteBloqueoAdministrativo_EsRechazado()
+    {
+        var user = await SeedAsync("login-admin");
+        await BloquearAsync(user.Id, DateTimeOffset.MaxValue);
+
+        var otro = NewBrowser();
+        var login = await LoginAsync(otro, user.UserName!);
+
+        Assert.False(TieneCookieDeSesion(login));
+        Assert.Contains("Lockout", login.Headers.Location?.ToString() ?? string.Empty);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(otro)).StatusCode);
+    }
+
+    [Fact]
+    public async Task NuevoLogin_BloqueoVencido_EsPermitido()
+    {
+        var user = await SeedAsync("login-venc");
+        await BloquearDirectoAsync(user.Id, DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        var otro = NewBrowser();
+        Assert.True(TieneCookieDeSesion(await LoginAsync(otro, user.UserName!)));
+        AssertAutenticada(await ProbeAsync(otro));
+    }
+
+    [Fact]
+    public async Task NuevoLogin_TrasDesbloqueo_EsPermitido()
+    {
+        var user = await SeedAsync("login-unlock");
+        await BloquearAsync(user.Id, DateTimeOffset.UtcNow.AddHours(1));
+        Assert.False(TieneCookieDeSesion(await LoginAsync(NewBrowser(), user.UserName!)));
+
+        await BloquearAsync(user.Id, null);
+
+        var otro = NewBrowser();
+        Assert.True(TieneCookieDeSesion(await LoginAsync(otro, user.UserName!)));
+        AssertAutenticada(await ProbeAsync(otro));
+    }
+
+    [Fact]
+    public async Task SuperAdminBloqueado_ConservaRolYActivo_PeroPierdeLaSesionPrevia()
+    {
+        var user = await SeedAsync("lock-sa");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            if (!await rm.RoleExistsAsync("SuperAdmin"))
+                Assert.True((await rm.CreateAsync(new IdentityRole("SuperAdmin"))).Succeeded);
+            var um = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await um.AddToRoleAsync((await um.FindByIdAsync(user.Id))!, "SuperAdmin")).Succeeded);
+        }
+        var sesion = NewBrowser();
+        await LoginAsync(sesion, user.UserName!);
+
+        await BloquearAsync(user.Id, DateTimeOffset.MaxValue);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+        using var scope2 = _factory.Services.CreateScope();
+        var um2 = scope2.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var recargado = await um2.FindByIdAsync(user.Id);
+        Assert.True(recargado!.Activo);
+        Assert.True(await um2.IsInRoleAsync(recargado, "SuperAdmin"));
+        Assert.False(TieneCookieDeSesion(await LoginAsync(NewBrowser(), user.UserName!)));
+    }
+
+    [Fact]
+    public async Task UsuarioBloqueadoYLuegoDesactivado_SesionSigueRechazada()
+    {
+        // Bloqueo y desactivación se acumulan: la sesión sigue revocada.
+        var user = await SeedAsync("lock-inact");
+        var sesion = NewBrowser();
+        await LoginAsync(sesion, user.UserName!);
+        await BloquearAsync(user.Id, DateTimeOffset.MaxValue);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+
+        await SetActivoDirectoAsync(user.Id, false);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(sesion)).StatusCode);
+    }
+
+    [Fact]
+    public async Task SecurityStampRotado_RevocaSesion()
+    {
+        var user = await SeedAsync("stamp");
+        var client = NewBrowser();
+        await LoginAsync(client, user.UserName!);
+        AssertAutenticada(await ProbeAsync(client));
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var um = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            await um.UpdateSecurityStampAsync((await um.FindByIdAsync(user.Id))!);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(client)).StatusCode);
+    }
+
+    [Fact]
+    public async Task UsuarioInexistente_CookieSinFilaEnBase_Rechazada()
+    {
+        var user = await SeedAsync("borrado");
+        var client = NewBrowser();
+        await LoginAsync(client, user.UserName!);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Users.Remove((await db.Users.FindAsync(user.Id))!);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ProbeAsync(client)).StatusCode);
+    }
+
+
     [Fact]
     public async Task Usuario_ActivoSinPermisos_NoSeConfundeConDesactivado()
     {
@@ -196,6 +371,10 @@ public class UsuarioInactivoRevocacionHttpTests : IClassFixture<CookieAuthWebApp
     // ---------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------
+
+    /// <summary>Sesión aceptada: llegó al recurso (200 o 403 por permisos), no 401/302/500.</summary>
+    private static void AssertAutenticada(HttpResponseMessage r) =>
+        Assert.True(r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Forbidden, $"Se esperaba sesión aceptada, llegó {(int)r.StatusCode}.");
 
     private HttpClient NewBrowser() =>
         _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
@@ -255,7 +434,25 @@ public class UsuarioInactivoRevocacionHttpTests : IClassFixture<CookieAuthWebApp
         await db.SaveChangesAsync();
     }
 
-    private async Task BloquearAsync(string userId, DateTimeOffset hasta)
+    /// <summary>Escribe LockoutEnd/LockoutEnabled directo en la base (permite fechas pasadas y LockoutEnabled=false).</summary>
+    private async Task BloquearDirectoAsync(string userId, DateTimeOffset? hasta, bool lockoutEnabled = true)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var u = await db.Users.FindAsync(userId);
+        u!.LockoutEnabled = lockoutEnabled;
+        u.LockoutEnd = hasta;
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Bloqueo automático real de Identity: MaxFailedAccessAttempts (5) passwords malas desde otro navegador.</summary>
+    private async Task BloquearPorIntentosFallidosAsync(string userName)
+    {
+        for (var i = 0; i < 5; i++)
+            await LoginAsync(NewBrowser(), userName, "Mala1234!");
+    }
+
+    private async Task BloquearAsync(string userId, DateTimeOffset? hasta)
     {
         using var scope = _factory.Services.CreateScope();
         var um = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();

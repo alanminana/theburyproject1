@@ -37,6 +37,25 @@ namespace TheBuryProject.Models.Entities
         [StringLength(500)]
         public string? Observaciones { get; set; }
 
+        /// <summary>Instante UTC en que el cheque se acreditó (manual). Null mientras no se acreditó.</summary>
+        public DateTime? AcreditadoAt { get; set; }
+
+        [StringLength(50)]
+        public string? AcreditadoPor { get; set; }
+
+        /// <summary>Instante UTC en que se registró el rechazo del banco. Null = no rechazado.</summary>
+        public DateTime? RechazadoAt { get; set; }
+
+        [StringLength(50)]
+        public string? RechazadoPor { get; set; }
+
+        [StringLength(500)]
+        public string? MotivoRechazo { get; set; }
+
+        /// <summary>Cheque rechazado por el banco: la operación queda pendiente de regularización (cobro por otro medio o cancelación manual).</summary>
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool Rechazado => RechazadoAt.HasValue;
+
         // Navigation
         public virtual Venta Venta { get; set; } = null!;
     }

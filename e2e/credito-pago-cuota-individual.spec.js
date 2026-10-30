@@ -243,7 +243,11 @@ test.describe('PUN-ML9-D — contrato del formulario', () => {
 
         // La fecha comercial se muestra, pero como dato del servidor, no como input.
         await expect(page.getByText(/\(autom[aá]tica\)/i)).toBeVisible();
+        // Sin fecha de pago editable.
         await expect(page.locator('[data-credito-pago-form] input[type="date"]')).toHaveCount(0);
+        // D5 (propietario): las cuotas de crédito no aceptan cheques; ni el selector ni campos de cheque existen.
+        await expect(page.locator('[data-pago-medio] option[value="Cheque"]')).toHaveCount(0);
+        await expect(page.locator('[data-pago-cheque-bloque]')).toHaveCount(0);
     });
 
     test('el punitorio calculado no aplicado no entra en el total cobrable', async ({ page }) => {

@@ -127,9 +127,9 @@ namespace TheBuryProject.Services
                 {
                     ClienteId = viewModel.ClienteId,
                     TipoDocumento = viewModel.TipoDocumento,
-                    NombreArchivo = viewModel.Archivo.FileName,
+                    NombreArchivo = DocumentoValidationHelper.NombreParaMostrar(viewModel.Archivo.FileName),
                     RutaArchivo = Path.Combine(UPLOAD_FOLDER, nombreArchivo).Replace('\\', '/'),
-                    TipoMIME = viewModel.Archivo.ContentType,
+                    TipoMIME = DocumentoValidationHelper.MimeAcotado(viewModel.Archivo.ContentType),
                     TamanoBytes = viewModel.Archivo.Length,
                     Estado = EstadoDocumento.Pendiente,
                     FechaSubida = DateTime.UtcNow,

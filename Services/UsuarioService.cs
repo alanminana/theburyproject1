@@ -28,10 +28,13 @@ public class UsuarioService : IUsuarioService
     {
         var now = DateTimeOffset.UtcNow;
         var activos = await _context.Users.AsNoTracking().CountAsync(u => u.Activo);
-        var bloqueados = await _context.Users.AsNoTracking().CountAsync(u =>
-            u.LockoutEnabled &&
-            u.LockoutEnd.HasValue &&
-            u.LockoutEnd > now);
+        // La comparación DateTimeOffset se evalúa en memoria: SQLite (entorno de tests HTTP) no la traduce y daba 500.
+        // Solo se proyecta el LockoutEnd de los usuarios con bloqueo fijado (conjunto chico).
+        var finesDeBloqueo = await _context.Users.AsNoTracking()
+            .Where(u => u.LockoutEnabled && u.LockoutEnd.HasValue)
+            .Select(u => u.LockoutEnd!.Value)
+            .ToListAsync();
+        var bloqueados = finesDeBloqueo.Count(fin => fin > now);
 
         return new UsuarioDashboardStats(activos, bloqueados);
     }

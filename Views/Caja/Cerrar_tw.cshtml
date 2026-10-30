@@ -43,6 +43,15 @@
         </div>
     </div>
 
+    @if (Model.ChequesPendientesCantidad > 0)
+    {
+        <div class="alert alert-warn" role="note" data-cierre-cheques-pendientes>
+            <span class="material-symbols-outlined">payments</span>
+            <span>Cheques pendientes de acreditar en este turno: <strong>@Model.ChequesPendientesCantidad</strong> por <strong>$@Model.ChequesPendientesTotal.ToString("N2")</strong>.
+            Es informativo: no suma al efectivo esperado ni al arqueo. Se acreditan después desde <a asp-action="Cheques">Cheques pendientes</a>.</span>
+        </div>
+    }
+
     <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden" role="alert"></div>
 
     <form asp-action="Cerrar" method="post" id="form-cerrar">

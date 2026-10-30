@@ -338,9 +338,9 @@ public class TicketService : ITicketService
         var adjunto = new TicketAdjunto
         {
             TicketId = ticketId,
-            NombreArchivo = archivo.FileName,
+            NombreArchivo = Helpers.DocumentoValidationHelper.NombreParaMostrar(archivo.FileName),
             RutaArchivo = rutaRelativa,
-            TipoMIME = archivo.ContentType,
+            TipoMIME = Helpers.DocumentoValidationHelper.MimeAcotado(archivo.ContentType),
             TamanoBytes = archivo.Length
         };
 

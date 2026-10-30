@@ -3868,6 +3868,13 @@ namespace TheBuryProject.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AcreditadoAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AcreditadoPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Banco")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -3896,6 +3903,10 @@ namespace TheBuryProject.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("NumeroCheque")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -3904,6 +3915,13 @@ namespace TheBuryProject.Migrations
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RechazadoAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RechazadoPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -6931,6 +6949,9 @@ namespace TheBuryProject.Migrations
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("MovimientoOrigenId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -6991,6 +7012,11 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("VentaId");
 
                     b.HasIndex("AperturaCajaId", "TipoPago");
+
+                    b.HasIndex("MovimientoOrigenId", "Concepto")
+                        .IsUnique()
+                        .HasDatabaseName("IX_MovimientosCaja_MovimientoOrigenId_Concepto")
+                        .HasFilter("[MovimientoOrigenId] IS NOT NULL");
 
                     b.ToTable("MovimientosCaja");
                 });
@@ -12130,12 +12156,19 @@ namespace TheBuryProject.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("TheBuryProject.Models.Entities.MovimientoCaja", "MovimientoOrigen")
+                        .WithMany()
+                        .HasForeignKey("MovimientoOrigenId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("TheBuryProject.Models.Entities.Venta", "Venta")
                         .WithMany("MovimientosCaja")
                         .HasForeignKey("VentaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AperturaCaja");
+
+                    b.Navigation("MovimientoOrigen");
 
                     b.Navigation("Venta");
                 });

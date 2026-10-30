@@ -70,7 +70,20 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
     private static bool TieneDescuentosManuales(Cotizacion cotizacion) =>
         cotizacion.Detalles.Any(d =>
-            (d.DescuentoImporteSnapshot ?? 0m) > 0m || (d.DescuentoPorcentajeSnapshot ?? 0m) > 0m);
+            (d.DescuentoImporteSnapshot ?? 0m) > 0m || (d.DescuentoPorcentajeSnapshot ?? 0m) > 0m)
+        || ResolverDescuentoGeneralCotizado(cotizacion) > 0m;
+
+    /// <summary>
+    /// Descuento general (sobre el total de productos) que se cotizó. La cotización no lo guarda como
+    /// campo propio: persiste <c>DescuentoTotal</c> (líneas + general) y el subtotal de cada línea ya
+    /// descontado, así que el general es lo que falta para llegar de la suma de líneas a
+    /// <c>Subtotal - DescuentoTotal</c>. Nunca negativo (cotizaciones viejas o inconsistentes = 0).
+    /// </summary>
+    private static decimal ResolverDescuentoGeneralCotizado(Cotizacion cotizacion)
+    {
+        var sumaLineas = cotizacion.Detalles.Sum(d => d.Subtotal);
+        return Math.Max(0m, Redondear(sumaLineas - (cotizacion.Subtotal - cotizacion.DescuentoTotal)));
+    }
 
     private bool PuedeAplicarDescuentos() =>
         _currentUserService.HasPermission(
@@ -400,20 +413,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             ArmadoSubtotal = d.ArmadoSubtotal
         }).ToList();
 
-        // Mismo criterio que ConvertirAVentaAsync: Subtotal ya incluye IVA, Total = Subtotal,
-        // IVA es sólo el desglose informativo (ver venta.Subtotal/IVA/Total más arriba).
+        // Mismo criterio que ConvertirAVentaAsync (sin el ajuste del medio de pago, que depende del plan): Subtotal es el
+        // neto, IVA su desglose y Total el importe con IVA, de modo que Subtotal + IVA == Total.
         var serviciosEnTotal = detalles.Sum(d => d.ArmadoSubtotal)
             + (cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m);
-        var subtotal = detalles.Sum(d => d.Subtotal) + serviciosEnTotal;
-        var iva = detalles.Sum(d => d.SubtotalIVA)
-            + (serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal).Iva : 0m);
+        var (serviciosNeto, serviciosIva) = serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal) : (0m, 0m);
+        var subtotal = detalles.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
+        var iva = detalles.Sum(d => d.SubtotalFinalIVA) + serviciosIva;
+        var total = detalles.Sum(d => d.SubtotalFinal) + serviciosEnTotal;
 
         return new CotizacionFacturaPreviewResultado
         {
             Exitoso = true,
             Subtotal = subtotal,
             IVA = iva,
-            Total = subtotal,
+            Total = total,
             ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(
                 detalleViewModels, cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m)
         };
@@ -541,9 +555,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             if (erroresUnidades.Count > 0)
                 return CotizacionConversionResultado.Fallido(cotizacionId, erroresUnidades);
 
+            // Descuento general cotizado: se prorratea entre las líneas (igual que Venta/Create) y queda
+            // en Venta.Descuento. Se limita al total de productos por si cambiaron los precios.
+            var descuentoGeneral = Math.Min(
+                ResolverDescuentoGeneralCotizado(cotizacionEnTx), detalles.Sum(d => d.Subtotal));
+            AplicarDescuentoGeneral(detalles, descuentoGeneral);
+
             venta.Subtotal = detalles.Sum(d => d.Subtotal);
-            venta.Descuento = 0m;
-            venta.IVA = detalles.Sum(d => d.SubtotalIVA);
+            venta.Descuento = descuentoGeneral;
+            venta.IVA = detalles.Sum(d => d.SubtotalFinalIVA);
 
             // Armados y envío del modelo nuevo viajan dentro del total (con IVA incluido a la alícuota
             // general); una cotización anterior deja el envío aparte (VentaEnvio.IncluidoEnTotal = false).
@@ -554,7 +574,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 venta.Subtotal += serviciosEnTotal;
                 venta.IVA += ServiciosVentaIva.Separar(serviciosEnTotal).Iva;
             }
-            venta.Total = venta.Subtotal;
+            venta.Total = venta.Subtotal - venta.Descuento;
 
             // Efectivo / Transferencia: el cotizador muestra el descuento o recargo del plan general del medio
             // ("Total a cobrar"); la venta debe quedar por ese mismo importe. Tarjeta/débito/digital lo aplican
@@ -575,6 +595,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
+
+            // Subtotal (neto) + IVA == Total también con el descuento/recargo de Efectivo/Transferencia: antes la venta
+            // guardaba Subtotal con IVA incluido y el IVA sin ajustar, y la factura no cerraba (QA H9-M4).
+            VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, serviciosEnTotal);
 
             // Crédito personal: evaluar con la MISMA fuente de verdad que Venta/Create
             // (IValidacionVentaService) y aplicar el resultado con la misma lógica
@@ -692,7 +716,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 else
                 {
                     // H5-I: el recargo/interés de la tarjeta (ya sumado a Total) lleva su IVA en Venta.IVA.
-                    VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, venta.Detalles);
+                    VentaService.NormalizarNetoEIvaDesdeTotal(venta, venta.Detalles, serviciosEnTotal);
                     await _context.SaveChangesAsync(cancellationToken);
                 }
             }
@@ -994,6 +1018,30 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         return resultado.Length > 500 ? resultado[..500] : resultado;
     }
 
+    private static void AplicarDescuentoGeneral(List<VentaDetalle> detalles, decimal descuentoGeneral)
+    {
+        var totalBruto = detalles.Sum(d => d.Subtotal);
+        if (descuentoGeneral <= 0m || totalBruto <= 0m)
+            return;
+
+        foreach (var d in detalles)
+            d.DescuentoGeneralProrrateado = Redondear(descuentoGeneral * d.Subtotal / totalBruto);
+
+        var diferencia = Redondear(descuentoGeneral - detalles.Sum(d => d.DescuentoGeneralProrrateado));
+        if (diferencia != 0m)
+            detalles.OrderByDescending(d => d.Subtotal).First().DescuentoGeneralProrrateado += diferencia;
+
+        foreach (var d in detalles)
+        {
+            d.SubtotalFinal = Redondear(Math.Max(0m, d.Subtotal - d.DescuentoGeneralProrrateado));
+            d.SubtotalFinalNeto = d.PorcentajeIVA > 0m
+                ? Redondear(d.SubtotalFinal / (1m + d.PorcentajeIVA / 100m))
+                : d.SubtotalFinal;
+            d.SubtotalFinalIVA = Redondear(d.SubtotalFinal - d.SubtotalFinalNeto);
+            d.ComisionMonto = VentaComisionCalculator.Calcular(d.SubtotalFinal, d.ComisionPorcentajeAplicada);
+        }
+    }
+
     private static List<VentaDetalle> ConstruirDetalles(
         Cotizacion cotizacion,
         CotizacionConversionRequest request,
@@ -1014,8 +1062,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             }
 
             int cantidad = (int)detalle.Cantidad;
-            decimal descuentoImporte = detalle.DescuentoImporteSnapshot ?? 0m;
             decimal bruto = precioUnitario * cantidad;
+            // El cotizador suma el descuento por porcentaje (sobre el bruto de la línea) y el de importe
+            // (CotizacionPagoCalculator.CalcularDescuentoProducto); acá se reproduce exactamente para que
+            // la venta quede por el mismo importe cotizado. Antes sólo se leía el importe y un descuento
+            // por % se perdía en silencio (la venta salía más cara que la cotización).
+            decimal descuentoImporte = Math.Min(
+                bruto,
+                Redondear((detalle.DescuentoImporteSnapshot ?? 0m)
+                    + Redondear(bruto * (detalle.DescuentoPorcentajeSnapshot ?? 0m) / 100m)));
             decimal subtotal = Redondear(bruto - descuentoImporte);
 
             // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: VentaDetalle.Descuento es porcentaje

@@ -508,6 +508,23 @@ public class MoraServiceTests : IDisposable
         return (cliente, credito, alerta, acuerdo);
     }
 
+    [Theory]
+    [InlineData("Cheque")]
+    [InlineData("cheque")]
+    public async Task PagoAcuerdo_ConCheque_SeRechazaAntesDeCrearIntencionesNiCobrar(string medio)
+    {
+        // D5 (propietario): los acuerdos cobran cuotas por el circuito de cuotas, que no acepta cheques.
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, medio, "R-CHQ"));
+
+        Assert.Contains("No se aceptan cheques", ex.Message);
+        Assert.Empty(_creditoServiceFake.Cobros);
+        _context.ChangeTracker.Clear();
+        Assert.Empty(await _context.AcuerdoPagoImputaciones.AsNoTracking().ToListAsync());
+    }
+
     [Fact]
     public async Task PagoAcuerdo_Entrega_ImputaALaCuotaVencidaMasVieja()
     {
@@ -919,6 +936,23 @@ public class MoraServiceTests : IDisposable
         var reloj = new RelojComercialFake(d0.AddDays(365));
         Assert.Equal(0, await VerificarAsync(ServicioConFecha(reloj)));
         Assert.Equal(EstadoAcuerdo.Cumplido, (await LeerAcuerdoAsync(acuerdo.Id)).Estado);
+    }
+
+    [Fact]
+    public async Task Cumplimiento_AlCompletarLosPagos_DejaEventoDeAuditoriaConElCambioDeEstado()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 3, totalAcuerdo: 2_000m);
+
+        var auditoria = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(new RelojComercialFake((await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value), auditoria);
+
+        var r = await servicio.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Transferencia", null, pasoEsperado: 0);
+
+        Assert.True(r.AcuerdoCumplido);
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking()
+            .Where(e => e.Accion == "CumplimientoAutomatico" && e.Entidad == $"AcuerdoPago:{acuerdo.Id}").ToListAsync();
+        var evento = Assert.Single(eventos);
+        Assert.Contains("Activo -> Cumplido", evento.Detalle);
     }
 
     [Fact]

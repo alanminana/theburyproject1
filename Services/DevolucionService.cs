@@ -359,14 +359,32 @@ public class DevolucionService : IDevolucionService
     {
         var productos = cobradoPorLinea.Sum();
         var bruto = productos + serviciosBruto;
-        var recargo = RecargoMedioPagoIva.CalcularRecargo(totalVenta, bruto);
-        if (recargo <= 0m || productos <= 0m)
+        if (productos <= 0m)
             return new decimal[cobradoPorLinea.Count];
 
-        var parteProductos = serviciosBruto <= 0m
-            ? recargo
-            : Math.Round(recargo * productos / bruto, 2, MidpointRounding.AwayFromZero);
-        return RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+        var recargo = RecargoMedioPagoIva.CalcularRecargo(totalVenta, bruto);
+        if (recargo > 0m)
+        {
+            var parteProductos = serviciosBruto <= 0m
+                ? recargo
+                : Math.Round(recargo * productos / bruto, 2, MidpointRounding.AwayFromZero);
+            return RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+        }
+
+        // Ajuste NEGATIVO del medio de pago (descuento de Efectivo/Transferencia, etc.): el total cobrado es menor que
+        // los ítems (más allá del truncado a pesos). Lo reintegrable por productos es su parte proporcional de lo
+        // realmente cobrado, de modo que devolver todo reintegre exactamente Venta.Total - servicios y nunca más.
+        if (totalVenta > 0m && totalVenta < Math.Floor(bruto))
+        {
+            var descuento = serviciosBruto <= 0m
+                ? productos - Math.Max(0m, totalVenta)
+                : Math.Round((bruto - totalVenta) * productos / bruto, 2, MidpointRounding.AwayFromZero);
+            descuento = Math.Min(descuento, productos);
+            var partes = RecargoMedioPagoIva.Prorratear(cobradoPorLinea, descuento);
+            return partes.Select(x => -x).ToArray();
+        }
+
+        return new decimal[cobradoPorLinea.Count];
     }
 
     internal static decimal ImporteCobradoDeLinea(int cantidad, decimal precioUnitario, decimal descuento, decimal subtotal, decimal subtotalFinal)

@@ -64,7 +64,7 @@ public class ReporteServiceTests : IDisposable
 
     private async Task<Producto> SeedProductoAsync(
         decimal precioCompra = 10m, decimal precioVenta = 50m,
-        decimal stockActual = 20m)
+        decimal stockActual = 20m, decimal porcentajeIva = 21m)
     {
         var codigo = Guid.NewGuid().ToString("N")[..8];
         var cat = new Categoria { Codigo = codigo, Nombre = "Cat-" + codigo, Activo = true };
@@ -78,7 +78,7 @@ public class ReporteServiceTests : IDisposable
             Codigo = codigo, Nombre = "Prod-" + codigo,
             CategoriaId = cat.Id, MarcaId = marca.Id,
             PrecioCompra = precioCompra, PrecioVenta = precioVenta,
-            PorcentajeIVA = 21m, StockActual = stockActual, Activo = true
+            PorcentajeIVA = porcentajeIva, StockActual = stockActual, Activo = true
         };
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
@@ -752,8 +752,8 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_ConProducto_CalculaMargenCorrectamente()
     {
-        // PrecioCompra=10, PrecioVenta=50 → margen = (50-10)/50 * 100 = 80%
-        await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        // H10/D5: PrecioVenta incluye IVA. Alícuota 0 => neto = precio: margen = (50-10)/50 * 100 = 80%
+        await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -766,7 +766,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_ConPrecioListaVigente_UsaPrecioVentaBaseDelProducto()
     {
-        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m, porcentajeIva: 0m);
         var lista = await SeedListaAsync(esPredeterminada: true);
         await SeedPrecioListaAsync(producto.Id, lista.Id, precio: 120m, costo: 10m);
 
@@ -809,9 +809,9 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_Defaults_ConservanClasificacionActual()
     {
-        await SeedProductoAsync(precioCompra: 81m, precioVenta: 100m); // 19% bajo
-        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m); // 35% alto
-        await SeedProductoAsync(precioCompra: 70m, precioVenta: 100m); // 30% normal
+        await SeedProductoAsync(precioCompra: 81m, precioVenta: 100m, porcentajeIva: 0m); // 19% bajo
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m, porcentajeIva: 0m); // 35% alto
+        await SeedProductoAsync(precioCompra: 70m, precioVenta: 100m, porcentajeIva: 0m); // 30% normal
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -824,7 +824,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_MargenExacto20_NoCuentaComoBajo()
     {
-        await SeedProductoAsync(precioCompra: 80m, precioVenta: 100m);
+        await SeedProductoAsync(precioCompra: 80m, precioVenta: 100m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -834,7 +834,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_MargenExacto35_CuentaComoAlto()
     {
-        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m);
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -848,9 +848,9 @@ public class ReporteServiceTests : IDisposable
         await configuracionService.SaveConfiguracionAsync(margenBajoMax: 25m, margenAltoMin: 40m);
         var service = new ReporteService(_context, NullLogger<ReporteService>.Instance, configuracionService);
 
-        await SeedProductoAsync(precioCompra: 76m, precioVenta: 100m); // 24%
-        await SeedProductoAsync(precioCompra: 62m, precioVenta: 100m); // 38%
-        await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m); // 40%
+        await SeedProductoAsync(precioCompra: 76m, precioVenta: 100m, porcentajeIva: 0m); // 24%
+        await SeedProductoAsync(precioCompra: 62m, precioVenta: 100m, porcentajeIva: 0m); // 38%
+        await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m, porcentajeIva: 0m); // 40%
 
         var resultado = await service.GenerarReporteMargenesAsync();
 
@@ -1838,6 +1838,85 @@ public class ReporteServiceTests : IDisposable
         var alicuota = Assert.Single(resultado.VentasPorAlicuota);
         Assert.Equal(21m, alicuota.Porcentaje);
         Assert.Equal(104_041.60m, alicuota.Neto + alicuota.Iva);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_VentaConEnvioYRecargo_IncluyeElIvaDeLoQueLaFacturaCobra()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Producto 121 (neto 100 + IVA 21) + envio 121 incluido en el total + recargo 12 del medio de pago: total cobrado 254.
+        var venta = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m);
+        venta.Total = 254m;
+        _context.VentaEnvios.Add(new VentaEnvio
+        {
+            VentaId = venta.Id, Destinatario = "x", Domicilio = "y", CostoEnvio = 121m, IncluidoEnTotal = true
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        // QA H9-M4: el reporte tomaba solo las lineas de producto (21 de IVA y total 121) y omitia envio y recargo.
+        Assert.Equal(254m, resultado.VentasTotal);
+        Assert.Equal(254m, resultado.VentasNeto + resultado.VentasIva);
+        Assert.True(resultado.VentasIva > 42m);   // 21 del producto + 21 del envio + la parte del recargo
+        var alicuota = Assert.Single(resultado.VentasPorAlicuota);
+        Assert.Equal(1, alicuota.Operaciones);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_VentaConDescuentoDelMedioDePago_ElIvaBajaYCierraContraElTotal()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m);
+        venta.Total = 115m;   // Efectivo -5 % sobre 121 truncado a pesos
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(115m, resultado.VentasTotal);
+        Assert.Equal(115m, resultado.VentasNeto + resultado.VentasIva);
+        Assert.True(resultado.VentasIva < 21m);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_FiltroPorAlicuota_IncluyeElIvaDelEnvioAunqueNingunProductoTengaEsaAlicuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Producto al 10,5 % (110,50) + envio incluido de 1.210 (21 %): total 1.320,50.
+        var venta = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 110.5m, 100m, 10.5m, porcentajeIva: 10.5m);
+        venta.Total = 1_320.5m;
+        _context.VentaEnvios.Add(new VentaEnvio { VentaId = venta.Id, Destinatario = "x", Domicilio = "y", CostoEnvio = 1_210m, IncluidoEnTotal = true });
+        await _context.SaveChangesAsync();
+
+        var r21 = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas", Alicuota = 21m });
+        var r105 = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas", Alicuota = 10.5m });
+
+        Assert.Equal(210m, r21.VentasIva);
+        Assert.Equal(1_210m, r21.VentasTotal);
+        Assert.Equal(1, r21.VentasCantidad);
+        Assert.Equal(10.5m, r105.VentasIva);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_MultiAlicuotaConTruncado_NetoMasIvaIgualAlTotalCobrado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Dos ventas con centavos en el bruto y total truncado a pesos.
+        var v1 = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 100.60m, 83.14m, 17.46m);
+        v1.Total = 100m;
+        var v2 = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 55.25m, 50m, 5.25m, porcentajeIva: 10.5m);
+        v2.Total = 55m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(155m, resultado.VentasTotal);
+        Assert.Equal(155m, resultado.VentasNeto + resultado.VentasIva);
+        Assert.Equal(2, resultado.VentasPorAlicuota.Count);
     }
 
     [Fact]

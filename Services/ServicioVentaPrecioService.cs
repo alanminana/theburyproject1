@@ -28,6 +28,8 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("Tipo de servicio inválido.");
                 if (c.Precio < 0m)
                     throw new InvalidOperationException($"El precio de «{c.Tipo.NombreVisible()}» no puede ser negativo.");
+                if (c.Precio > Validation.MontoArgentinoAttribute.Maximo)
+                    throw new InvalidOperationException($"El precio de «{c.Tipo.NombreVisible()}» no puede superar 20.000.000.");
             }
 
             var duplicado = lista.GroupBy(c => c.Tipo).FirstOrDefault(g => g.Count() > 1);

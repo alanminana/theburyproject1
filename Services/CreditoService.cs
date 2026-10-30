@@ -1,4 +1,4 @@
-using TheBuryProject.Validation;
+﻿using TheBuryProject.Validation;
 using AutoMapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -1495,6 +1495,8 @@ namespace TheBuryProject.Services
             if (string.IsNullOrWhiteSpace(medioElegido))
                 return CobroPrimeraCuotaResultado.NoAplica("No se definió el medio de pago de la primera cuota.");
 
+            if (MediosPagoCredito.EsCheque(medioElegido))
+                return CobroPrimeraCuotaResultado.NoAplica(MediosPagoCredito.MensajeChequeNoAdmitido);
             var medioNormalizado = NormalizarMedioPago(medioElegido);
 
             var primeraCuota = credito.Cuotas
@@ -2229,6 +2231,10 @@ namespace TheBuryProject.Services
             var valor = medioPago?.Trim();
             if (string.IsNullOrWhiteSpace(valor))
                 throw new InvalidOperationException("El medio de pago es requerido.");
+
+            // D5: el cheque no es un medio válido para cuotas (único punto de entrada de todos los caminos de cobro).
+            if (MediosPagoCredito.EsCheque(valor))
+                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, MediosPagoCredito.MensajeChequeNoAdmitido);
 
             if (MediosPagoCredito.TryNormalizar(valor, out var medioPagoPermitido))
                 return medioPagoPermitido;

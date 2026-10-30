@@ -1,4 +1,4 @@
-using TheBuryProject.Models.Enums;
+﻿using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services.Models;
 

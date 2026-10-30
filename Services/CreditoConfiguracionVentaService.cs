@@ -233,6 +233,16 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         // F2: la decisión de cobrar la primera cuota solo es legítima si la 1ª cuota vence en la
         // fecha comercial actual (Argentina) y el medio es válido. El servidor NO confía en el
         // payload: si no vence hoy o el medio es inválido, la opción se descarta (no se persiste).
+        // D5: el cheque no se acepta para cobrar cuotas; se rechaza explícito en vez de descartarlo en silencio.
+        if (modelo.CobrarPrimeraCuota && MediosPagoCredito.EsCheque(modelo.MedioPagoPrimeraCuota))
+        {
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.MedioPagoPrimeraCuota),
+                MediosPagoCredito.MensajeChequeNoAdmitido,
+                rangoEfectivo,
+                MotivoRechazoConfiguracionCredito.SolicitudInvalida);
+        }
+
         var (cobrarPrimeraCuota, medioPrimeraCuota) = ResolverDecisionPrimeraCuota(modelo);
 
         var comando = new ConfiguracionCreditoComando

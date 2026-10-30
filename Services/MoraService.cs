@@ -1744,6 +1744,10 @@ namespace TheBuryProject.Services
 
         public async Task<ResultadoPagoAcuerdo> RegistrarPagoAcuerdoAsync(int acuerdoId, int clienteId, string medioPago, string? comprobante, int? pasoEsperado = null)
         {
+            // D5: los acuerdos cobran cuotas por el circuito de cuotas, que no acepta cheques. Se rechaza antes de crear
+            // cualquier intención de imputación.
+            MediosPagoCredito.RechazarSiEsCheque(medioPago);
+
             var bloqueo = _bloqueosPagoAcuerdo.GetOrAdd(acuerdoId, _ => new SemaphoreSlim(1, 1));
             await bloqueo.WaitAsync();
             try
@@ -1796,6 +1800,9 @@ namespace TheBuryProject.Services
 
             acuerdo.Estado = EstadoAcuerdo.Cumplido;
             acuerdo.UpdatedAt = DateTime.UtcNow;
+            // Como el incumplimiento automático: el cambio de estado y su auditoría se confirman juntos (QA H9-M4: el
+            // pase a Cumplido no dejaba evento propio, solo el recibo de cada cobro).
+            AgregarAuditoria("CumplimientoAutomatico", acuerdo.Id, $"{acuerdo.NumeroAcuerdo}: Activo -> Cumplido. Todos los pagos del acuerdo están completos.");
             await _context.SaveChangesAsync();
             await ResolverAlertasMoraRegularizadasAsync(new List<int>(), _reloj.InicioDiaComercial, CancellationToken.None);
             await _context.SaveChangesAsync();

@@ -1,4 +1,4 @@
-/* credito-pagar-cuota.js — La aritmética del cobro pertenece al servidor. */
+﻿/* credito-pagar-cuota.js — La aritmética del cobro pertenece al servidor. */
 
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';

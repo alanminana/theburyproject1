@@ -178,6 +178,17 @@ public class CerrarCajaViewModel
     [Display(Name = "Vales/Otros")]
     public decimal ValesContados { get; set; }
 
+    /// <summary>Cheques recibidos todavía no acreditados en el turno: informativo, NO suma al arqueo físico.</summary>
+    public int ChequesPendientesCantidad => (Movimientos ?? new()).Count(EsChequePendiente);
+    public decimal ChequesPendientesTotal => (Movimientos ?? new()).Where(EsChequePendiente).Sum(m => m.Monto);
+
+    private static bool EsChequePendiente(TheBuryProject.Models.Entities.MovimientoCaja m) =>
+        m.Tipo == TheBuryProject.Models.Enums.TipoMovimientoCaja.Ingreso
+        && m.EstadoAcreditacion == TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Pendiente
+        && (m.Concepto == TheBuryProject.Models.Enums.ConceptoMovimientoCaja.VentaCheque
+            || (m.Concepto == TheBuryProject.Models.Enums.ConceptoMovimientoCaja.CobroCuota
+                && m.TipoPago == TheBuryProject.Models.Enums.TipoPago.Cheque));
+
     [Display(Name = "Total Real")]
     public decimal MontoTotalReal => EfectivoContado + ChequesContados + ValesContados;
 

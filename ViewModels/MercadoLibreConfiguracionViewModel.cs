@@ -23,7 +23,7 @@ namespace TheBuryProject.ViewModels
         [Range(0, 100, ErrorMessage = "La comisión estimada debe estar entre 0% y 100%")]
         public decimal ComisionEstimadaPorcentaje { get; set; } = 13m;
 
-        [Range(0, 99999999, ErrorMessage = "El costo de envío estimado no puede ser negativo")]
+        [Range(0, 20000000, ErrorMessage = "El costo de envío estimado debe estar entre 0 y 20.000.000")]
         public decimal CostoEnvioEstimado { get; set; }
 
         [Range(0, 999, ErrorMessage = "El margen mínimo debe estar entre 0% y 999%")]

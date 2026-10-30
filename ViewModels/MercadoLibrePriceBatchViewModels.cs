@@ -6,7 +6,7 @@ namespace TheBuryProject.ViewModels
     /// <summary>
     /// Solicitud de simulación de un aumento masivo ML.
     /// </summary>
-    public class MercadoLibrePriceBatchRequest
+    public class MercadoLibrePriceBatchRequest : IValidatableObject
     {
         [Required(ErrorMessage = "El nombre del lote es obligatorio")]
         [StringLength(200)]
@@ -32,6 +32,23 @@ namespace TheBuryProject.ViewModels
 
         /// <summary>Solo publicaciones con stock ML &gt; 0.</summary>
         public bool SoloConStock { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            const decimal maximo = 20_000_000m;
+
+            if (string.IsNullOrWhiteSpace(Nombre))
+                yield return new ValidationResult("El nombre del lote es obligatorio", new[] { nameof(Nombre) });
+
+            if (PrecioDesde is < 0 or > maximo)
+                yield return new ValidationResult("El precio desde debe estar entre 0 y 20.000.000", new[] { nameof(PrecioDesde) });
+
+            if (PrecioHasta is < 0 or > maximo)
+                yield return new ValidationResult("El precio hasta debe estar entre 0 y 20.000.000", new[] { nameof(PrecioHasta) });
+
+            if (PrecioDesde.HasValue && PrecioHasta.HasValue && PrecioDesde > PrecioHasta)
+                yield return new ValidationResult("El precio desde no puede ser mayor que el precio hasta", new[] { nameof(PrecioHasta) });
+        }
     }
 
     public class MercadoLibrePriceBatchListViewModel

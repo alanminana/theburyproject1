@@ -1,0 +1,40 @@
+@* Acciones de un cheque recibido: Acreditar (confirmación) y Rechazar (motivo obligatorio + confirmación). Sin JS: el rechazo usa <details>. *@
+@model TheBuryProject.ViewModels.ChequeAccionesModel
+@if (Model.PuedeAcreditar || Model.PuedeRechazar)
+{
+    <div class="cheque-acciones flex flex-wrap items-start gap-2 mt-1.5" data-cheque-acciones>
+        @if (Model.PuedeAcreditar)
+        {
+            <form asp-controller="Caja" asp-action="AcreditarCheque" method="post"
+                  data-confirm-message="¿Acreditar este cheque? Si su caja ya cerró, el ingreso se asienta en tu caja abierta."
+                  data-confirm-title="Acreditar cheque" data-confirm-label="Acreditar" data-confirm-tone="primary">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="movimientoId" value="@Model.MovimientoId" />
+                <input type="hidden" name="origen" value="@Model.Origen" />
+                <button type="submit" class="btn btn-soft btn-sm" data-cheque-acreditar>
+                    <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Acreditar
+                </button>
+            </form>
+        }
+        @if (Model.PuedeRechazar)
+        {
+            <details class="cheque-rechazo" data-cheque-rechazo>
+                <summary class="btn btn-ghost btn-sm" style="cursor:pointer;list-style:none">
+                    <span class="material-symbols-outlined" aria-hidden="true">cancel</span>Rechazar
+                </summary>
+                <form asp-controller="Caja" asp-action="RechazarCheque" method="post" class="mt-2 space-y-2" style="min-width:16rem">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="movimientoId" value="@Model.MovimientoId" />
+                    <input type="hidden" name="origen" value="@Model.Origen" />
+                    <label class="label" for="motivo-@Model.MovimientoId">Motivo del rechazo <span class="req">*</span></label>
+                    <textarea id="motivo-@Model.MovimientoId" name="motivo" class="field" rows="2" maxlength="500" required
+                              placeholder="Ej.: sin fondos, cuenta cerrada"></textarea>
+                    <p class="text-xs muted-2">La venta no se cancela ni se devuelve stock: queda pendiente de cobro.</p>
+                    <button type="submit" class="btn btn-sm" style="background:#e5484d;color:#fff" data-cheque-rechazar-confirmar>
+                        Confirmar rechazo
+                    </button>
+                </form>
+            </details>
+        }
+    </div>
+}

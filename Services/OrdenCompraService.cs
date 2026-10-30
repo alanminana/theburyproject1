@@ -16,17 +16,20 @@ namespace TheBuryProject.Services
         private readonly ILogger<OrdenCompraService> _logger;
         private readonly IMovimientoStockService _movimientoStockService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ISeguridadAuditoriaService? _auditoria;
 
         public OrdenCompraService(
             AppDbContext context,
             ILogger<OrdenCompraService> logger,
             IMovimientoStockService movimientoStockService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            ISeguridadAuditoriaService? auditoria = null)
         {
             _context = context;
             _logger = logger;
             _movimientoStockService = movimientoStockService;
             _currentUserService = currentUserService;
+            _auditoria = auditoria;
         }
 
         #endregion
@@ -274,6 +277,16 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("No se puede eliminar una orden en tránsito o recibida");
             }
 
+            // H9-M6: una orden cancelada con recepción parcial conserva el stock ya ingresado y sus movimientos de Kardex
+            // ("Orden de Compra OC-...") apuntan a su número. Eliminarla liberaría el número (índice único filtrado por
+            // IsDeleted) y una orden nueva lo reutilizaría, dejando ambigua la referencia del Kardex.
+            if ((orden.Detalles ?? new List<OrdenCompraDetalle>()).Any(d => d.CantidadRecibida > 0)
+                || await _context.MovimientosStock.AnyAsync(m => m.OrdenCompraId == id && !m.IsDeleted))
+            {
+                throw new InvalidOperationException(
+                    "No se puede eliminar una orden con mercadería ya recepcionada: el stock ingresado y el Kardex referencian su número. Dejala como Cancelada.");
+            }
+
             if (await _context.Cheques.AnyAsync(c => c.OrdenCompraId == id && !c.IsDeleted))
             {
                 throw new InvalidOperationException("No se puede eliminar una orden con cheques asociados");
@@ -373,7 +386,7 @@ namespace TheBuryProject.Services
 
         public async Task<bool> CambiarEstadoAsync(int id, EstadoOrdenCompra nuevoEstado)
         {
-            var orden = await _context.OrdenesCompra.FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+            var orden = await _context.OrdenesCompra.Include(o => o.Detalles).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
             if (orden == null) return false;
 
             if (!OrdenCompraTransiciones.EsValida(orden.Estado, nuevoEstado))
@@ -390,7 +403,23 @@ namespace TheBuryProject.Services
                     "Una orden pasa a Recibida registrando la recepción de la mercadería (Recepcionar): eso es lo que ingresa el stock.");
             }
 
+            var estadoPrevio = orden.Estado;
             orden.Estado = nuevoEstado;
+
+            // H9-M6: cancelar no revierte la mercadería ya recepcionada (el stock y el Kardex quedan; devolver al proveedor es
+            // otro circuito). Se deja constancia en la auditoría, en la misma operación que el cambio de estado.
+            if (nuevoEstado == EstadoOrdenCompra.Cancelada)
+            {
+                var detalles = (orden.Detalles ?? new List<OrdenCompraDetalle>()).Where(d => !d.IsDeleted).ToList();
+                var solicitadas = detalles.Sum(d => d.Cantidad);
+                var recibidas = detalles.Sum(d => Math.Min(d.CantidadRecibida, d.Cantidad));
+                _auditoria?.AgregarEvento("Compras", "CancelarOrdenCompra", $"OrdenCompra:{orden.Id}",
+                    $"Numero={orden.Numero}; EstadoPrevio={estadoPrevio}; Recibido={recibidas}/{solicitadas}; " +
+                    (recibidas > 0
+                        ? $"Pendiente cancelado={solicitadas - recibidas}; stock ingresado conservado (sin reversión)"
+                        : "sin mercadería recepcionada"));
+            }
+
             await _context.SaveChangesAsync();
             _logger.LogInformation("Estado de orden {Id} cambiado a {Estado}", id, nuevoEstado);
             return true;

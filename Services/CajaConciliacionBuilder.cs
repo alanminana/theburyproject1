@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
@@ -251,7 +251,8 @@ public static class CajaConciliacionBuilder
             RecargoMedioPago = m.RecargoMedioPago,
             DescuentoMedioPago = m.DescuentoMedioPago,
             CategoriaImpacto = CategoriaImpactoMovimiento(m, medio),
-            EstadoAcreditacion = m.EstadoAcreditacion
+            EstadoAcreditacion = m.EstadoAcreditacion,
+            AperturaId = m.AperturaCajaId
         };
     }
 
@@ -273,6 +274,8 @@ public static class CajaConciliacionBuilder
             case ConceptoMovimientoCaja.VentaNotaCredito:
             case ConceptoMovimientoCaja.LiquidacionMercadoLibre:
             case ConceptoMovimientoCaja.ReversionVenta:
+            case ConceptoMovimientoCaja.AcreditacionCheque:
+            case ConceptoMovimientoCaja.RechazoCheque:
                 var ventaId = m.VentaId ?? m.ReferenciaId;
                 return ventaId.HasValue ? $"/Venta/Details/{ventaId.Value}" : null;
 
@@ -297,6 +300,14 @@ public static class CajaConciliacionBuilder
     /// </summary>
     private static CategoriaImpactoCaja CategoriaImpactoMovimiento(MovimientoCaja m, string medioLabel)
     {
+        // Acreditación y rechazo de un cheque ya son movimientos bancarios (no "a acreditar"): saldo en cuenta, no caja física.
+        if (m.Concepto is ConceptoMovimientoCaja.AcreditacionCheque or ConceptoMovimientoCaja.RechazoCheque)
+            return CategoriaImpactoCaja.CuentaBancaria;
+
+        // B13: reversión de un cheque ya acreditado asentada en la caja vigente (lleva el ingreso original en MovimientoOrigenId).
+        if (m.Concepto == ConceptoMovimientoCaja.ReversionVenta && m.MovimientoOrigenId.HasValue)
+            return CategoriaImpactoCaja.CuentaBancaria;
+
         var key = m.TipoPago.HasValue ? MedioKey(m.TipoPago.Value) : MedioKey(medioLabel);
         return key switch
         {
@@ -639,6 +650,8 @@ public static class CajaConciliacionBuilder
         ConceptoMovimientoCaja.DepositoEfectivo => "Depósito efectivo",
         ConceptoMovimientoCaja.DevolucionCliente => "Devolución cliente",
         ConceptoMovimientoCaja.ReversionVenta => "Reversión venta",
+        ConceptoMovimientoCaja.AcreditacionCheque => "Acreditación de cheque",
+        ConceptoMovimientoCaja.RechazoCheque => "Rechazo de cheque",
         ConceptoMovimientoCaja.AjusteCaja => "Ajuste caja",
         ConceptoMovimientoCaja.Otro => "Otro",
         _ => concepto.ToString()

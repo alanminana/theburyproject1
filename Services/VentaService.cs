@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -298,6 +298,10 @@ namespace TheBuryProject.Services
 
                 var envioServicio = await AplicarServiciosAsync(venta, viewModel);
                 CalcularTotales(venta, envioServicio);
+                // H10 (D4): Efectivo/Transferencia cobran el plan de 1 pago configurado, igual que la venta del cotizador.
+                await AplicarAjusteMedioUnPagoAsync(venta);
+                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+                await ValidarChequeContraVentaAsync(venta, viewModel);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -328,6 +332,9 @@ namespace TheBuryProject.Services
                 }
 
                 transaction = await _context.Database.BeginTransactionAsync();
+
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                    await ValidarChequeDuplicadoBajoLockAsync(0, viewModel.DatosCheque);
 
                 _context.Ventas.Add(venta);
                 // FIN-S-002: usar venta.Estado (puede haber sido actualizado por
@@ -933,22 +940,12 @@ namespace TheBuryProject.Services
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             await SincronizarDatosChequeEdicionAsync(venta, viewModel);
-            // Venta nacida del cotizador: CalcularTotales volvió a la base de lista, así que se reaplica el
-            // descuento/recargo de Efectivo/Transferencia que se cotizó (ver CotizacionConversionService).
-            venta.AjusteMedioPagoPorcentaje = null;
-            venta.AjusteMedioPagoMonto = null;
-            if (venta.CotizacionOrigenId.HasValue && AjusteMedioUnPago.Aplica(viewModel.TipoPago))
-            {
-                var ajusteMedio = await AjusteMedioUnPago.ResolverAsync(_context, viewModel.TipoPago, venta.Total);
-                if (ajusteMedio != null)
-                {
-                    venta.AjusteMedioPagoPorcentaje = ajusteMedio.PorcentajeAjuste;
-                    venta.AjusteMedioPagoMonto = ajusteMedio.MontoAjuste;
-                    venta.Total = ajusteMedio.TotalFinal;
-                }
-            }
+            // CalcularTotales volvió a la base de lista, así que se reaplica (una sola vez) el descuento/recargo de
+            // Efectivo/Transferencia: la misma regla que Create y que la conversión de la cotización (H10, D4).
+            await AplicarAjusteMedioUnPagoAsync(venta);
             DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
             SincronizarEnvioEdicion(venta, viewModel);
+            await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
             await NormalizarYValidarNotaCreditoAsync(venta);
 
@@ -990,8 +987,16 @@ namespace TheBuryProject.Services
                 await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
             }
 
+            IDbContextTransaction? txCheque = null;
             try
             {
+                if (viewModel.TipoPago == TipoPago.Cheque && viewModel.DatosCheque != null)
+                {
+                    if (_context.Database.CurrentTransaction == null)
+                        txCheque = await _context.Database.BeginTransactionAsync();
+                    await ValidarChequeDuplicadoBajoLockAsync(venta.Id, viewModel.DatosCheque);
+                }
+
                 _logger.LogDebug(
                     "UpdateAsync venta {Id} before SaveChanges. Subtotal:{Subtotal} Total:{Total} DetallesTotal:{DetallesTotal} DetallesActivos:{DetallesActivos}",
                     id,
@@ -1004,12 +1009,19 @@ namespace TheBuryProject.Services
                     id,
                     venta.Estado);
                 await _context.SaveChangesAsync();
+                if (txCheque != null)
+                    await txCheque.CommitAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
                 _logger.LogWarning("UpdateAsync venta {Id} concurrency conflict", id);
                 throw new InvalidOperationException(
                     "La venta fue modificada por otro usuario. Recargá la página y volvé a intentar.");
+            }
+            finally
+            {
+                if (txCheque != null)
+                    await txCheque.DisposeAsync();
             }
 
             _logger.LogInformation("Venta {Id} actualizada exitosamente", id);
@@ -1079,6 +1091,13 @@ namespace TheBuryProject.Services
                 {
                     throw new InvalidOperationException(
                         "No se puede confirmar la venta: el medio de pago 'Cheque' requiere los datos del cheque y no han sido completados.");
+                }
+
+                // D3: el ingreso de caja es el total a cobrar; un cheque por otro importe no concilia con el valor físico.
+                if (venta.TipoPago == TipoPago.Cheque && venta.DatosCheque != null)
+                {
+                    ValidarMontoChequeContraTotal(venta.DatosCheque.Monto, venta.TotalACobrar,
+                        "No se puede confirmar la venta");
                 }
 
                 // Validación previa del estado
@@ -2000,7 +2019,18 @@ namespace TheBuryProject.Services
             factura.VentaId = venta.Id;
             factura.Numero = await _numberGenerator.GenerarNumeroFacturaAsync(factura.Tipo);
             // H5-I: ventas confirmadas antes de discriminar el recargo: se completa aquí (idempotente) para que la factura cierre.
-            DiscriminarRecargoEnNetoEIva(venta, await _context.VentaDetalles.Where(d => d.VentaId == venta.Id && !d.IsDeleted).ToListAsync());
+            var detallesFactura = await _context.VentaDetalles.Where(d => d.VentaId == venta.Id && !d.IsDeleted).ToListAsync();
+            DiscriminarRecargoEnNetoEIva(venta, detallesFactura);
+            // Ventas nacidas de una cotización y confirmadas antes de normalizar la conversión: Subtotal con IVA incluido y
+            // el ajuste del medio de pago sin discriminar. Se normaliza aquí (idempotente) para que neto + IVA == total.
+            var envioIncluidoFactura = await _context.VentaEnvios
+                .Where(e => e.VentaId == venta.Id && !e.IsDeleted && e.IncluidoEnTotal)
+                .Select(e => (decimal?)e.CostoEnvio)
+                .FirstOrDefaultAsync();
+            NormalizarNetoEIvaDesdeTotal(
+                venta,
+                detallesFactura,
+                detallesFactura.Sum(d => d.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluidoFactura));
             factura.Subtotal = venta.Subtotal;
             factura.IVA = venta.IVA;
             // El comprobante cubre el total facturable (hoy = Venta.Total, sin envío): ver
@@ -2083,8 +2113,18 @@ namespace TheBuryProject.Services
 
             if (!await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(venta.Id))
             {
-                throw new InvalidOperationException(
-                    "Debe generar e imprimir el Contrato de Venta antes de continuar.");
+                // H10: contrato ya emitido (PDF verificado en la base) pero sin archivo en el servidor (copia restaurada sin
+                // App_Data, otro directorio de contenido). No es "falta generarlo": se regenera desde sus datos guardados.
+                var archivoPerdido = await _context.ContratosVentaCredito.AsNoTracking().AnyAsync(c =>
+                    c.VentaId == venta.Id
+                    && c.EstadoDocumento == EstadoDocumento.Verificado
+                    && c.RutaArchivo != null && c.RutaArchivo != string.Empty);
+
+                throw new InvalidOperationException(archivoPerdido
+                    ? "El contrato de esta venta figura emitido, pero su archivo PDF no está disponible en el servidor " +
+                      "(por ejemplo, tras restaurar una copia sin la carpeta de contratos). Abrí «Ver contrato» en " +
+                      "el detalle de la venta, generalo de nuevo y reintentá."
+                    : "Debe generar e imprimir el Contrato de Venta antes de continuar.");
             }
 
             // Reglas documentales que exigen firma para continuar (configurable por regla, apagado por defecto).
@@ -2857,8 +2897,8 @@ namespace TheBuryProject.Services
             }
 
             existente.IsDeleted = false;
-            existente.NumeroCheque = origen.NumeroCheque;
-            existente.Banco = origen.Banco;
+            existente.NumeroCheque = ChequeDuplicados.Normalizar(origen.NumeroCheque);
+            existente.Banco = ChequeDuplicados.Normalizar(origen.Banco);
             existente.Titular = origen.Titular;
             existente.CUIT = origen.CUIT;
             existente.FechaEmision = origen.FechaEmision;
@@ -3125,7 +3165,31 @@ namespace TheBuryProject.Services
             var plan = await ValidarYObtenerPlanPagoGlobalAsync(configuracionPagoPlanId, tipoPago, configuracionTarjetaId);
 
             if (plan == null)
+            {
+                // H10 (D4): Efectivo/Transferencia no eligen plan; el servidor aplica el de 1 pago configurado (como Create).
+                var ajusteUnPago = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, response.Total);
+                if (ajusteUnPago != null)
+                {
+                    response.AjustePagoGlobalAplicado = ajusteUnPago.MontoAjuste;
+                    response.PorcentajeAjustePagoGlobalAplicado = ajusteUnPago.PorcentajeAjuste;
+                    response.TotalConAjustePagoGlobal = ajusteUnPago.TotalFinal;
+                    response.Total = ajusteUnPago.TotalFinal;
+
+                    // Misma discriminacion en neto e IVA que Create (DiscriminarRecargoEnNetoEIva): Subtotal + IVA = Total.
+                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total };
+                    DiscriminarRecargoEnNetoEIva(ventaPreview, response.Detalles.Select(d => new VentaDetalle
+                    {
+                        PorcentajeIVA = d.PorcentajeIVA,
+                        SubtotalFinal = d.SubtotalFinal,
+                        SubtotalFinalNeto = d.SubtotalFinalNeto,
+                        SubtotalFinalIVA = d.SubtotalFinalIVA
+                    }));
+                    response.Subtotal = ventaPreview.Subtotal;
+                    response.IVA = ventaPreview.IVA;
+                }
+
                 return response;
+            }
 
             var resultado = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
             {
@@ -3155,6 +3219,66 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Métodos Auxiliares - Cheques
+
+        /// <summary>Tolerancia de centavos al comparar el monto del cheque con el total a cobrar (D3).</summary>
+        internal const decimal ToleranciaMontoCheque = 0.01m;
+
+        /// <summary>D3: la venta tiene un único medio de pago, así que el cheque debe cubrir exactamente el total a cobrar.</summary>
+        internal static void ValidarMontoChequeContraTotal(decimal montoCheque, decimal totalACobrar, string prefijo)
+        {
+            if (Math.Abs(montoCheque - totalACobrar) > ToleranciaMontoCheque)
+            {
+                throw new InvalidOperationException(
+                    $"{prefijo}: el monto del cheque ({montoCheque.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}) " +
+                    $"debe coincidir con el total a cobrar de la venta ({totalACobrar.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}).");
+            }
+        }
+
+        /// <summary>
+        /// D3 + D6-c al guardar (Crear/Editar): monto == total a cobrar y banco+número no repetidos entre ventas vigentes.
+        /// No hace nada si la venta no es con cheque o no trae datos (esa falta la rechaza el guardado/la confirmación).
+        /// </summary>
+        private async Task ValidarChequeContraVentaAsync(Venta venta, VentaViewModel viewModel)
+        {
+            if (viewModel.TipoPago != TipoPago.Cheque || viewModel.DatosCheque == null)
+                return;
+
+            var datos = viewModel.DatosCheque;
+            ValidarMontoChequeContraTotal(datos.Monto, venta.TotalACobrar, "No se puede guardar la venta");
+        }
+
+        /// <summary>
+        /// D6-c: banco + número (normalizados) no repetidos entre ventas vigentes ni en cuotas ya cobradas. Se llama DENTRO de la
+        /// transacción que inserta el cheque, tras tomar el lock de aplicación de la clave: dos altas concurrentes del mismo cheque
+        /// se serializan y la segunda ve a la primera. Sin transacción abierta no hay lock y el chequeo no es confiable (se exige).
+        /// </summary>
+        private async Task ValidarChequeDuplicadoBajoLockAsync(int ventaId, DatosChequeViewModel datos)
+        {
+            if (_context.Database.CurrentTransaction == null)
+                throw new InvalidOperationException("El chequeo de cheque duplicado requiere una transacción abierta.");
+
+            var banco = ChequeDuplicados.Normalizar(datos.Banco);
+            var numero = ChequeDuplicados.Normalizar(datos.NumeroCheque);
+            await ChequeDuplicados.BloquearAsync(_context, banco, numero);
+
+            var duplicado = await _context.DatosCheque.AsNoTracking()
+                .Where(d => !d.IsDeleted && d.VentaId != ventaId && d.Banco == banco && d.NumeroCheque == numero
+                         && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada)
+                .Select(d => d.Venta.Numero)
+                .FirstOrDefaultAsync();
+            if (duplicado != null)
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya está registrado en la venta {duplicado}. No se puede cobrar dos veces.");
+            }
+
+            // Solo lectura de cobros históricos de cuota con cheque (hoy ya no se pueden crear): no se reutiliza en una venta.
+            if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
+            {
+                throw new InvalidOperationException(
+                    $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
+            }
+        }
 
         public async Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque)
         {
@@ -3800,19 +3924,44 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// H5-I: el recargo del medio de pago (débito, tarjeta en cuotas con interés, recargo de Efectivo/Transferencia)
-        /// forma parte del total cobrado y se discrimina con IVA: Subtotal + IVA == Total. Detecta el recargo como
-        /// <c>Total - (Subtotal + IVA)</c> (CalcularTotales deja Subtotal + IVA == total de los ítems truncado) y lo reparte
-        /// entre alícuotas proporcionalmente al bruto de cada una (<see cref="RecargoMedioPagoIva"/>). Idempotente: tras
-        /// aplicarlo la diferencia es 0. No toca descuentos (diferencia negativa) ni ventas de cotización, que guardan
-        /// Subtotal con IVA incluido (convención distinta: Subtotal + IVA &gt; Total).
+        /// H10 (D4 de docs/iva-recargos-verificacion.md). Aplica sobre <see cref="Venta.Total"/> (base limpia, recién salida de
+        /// <c>CalcularTotales</c>) el descuento o recargo del plan general de 1 pago de Efectivo / Transferencia: misma fuente
+        /// (<see cref="AjusteMedioUnPago"/>) que usa la conversión de una cotización, de modo que una venta directa y una venta
+        /// cotizada con el mismo medio cobran el mismo importe. Deja el porcentaje y el monto persistidos (los lee la caja y el
+        /// comprobante) o ambos en null si no hay plan, el ajuste es 0 o el medio no es Efectivo/Transferencia. No es idempotente
+        /// sobre un Total ya ajustado: se llama una vez por operación, justo después de <c>CalcularTotales</c>.
+        /// </summary>
+        private async Task AplicarAjusteMedioUnPagoAsync(Venta venta)
+        {
+            venta.AjusteMedioPagoPorcentaje = null;
+            venta.AjusteMedioPagoMonto = null;
+            if (!AjusteMedioUnPago.Aplica(venta.TipoPago))
+                return;
+
+            var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, venta.TipoPago, venta.Total);
+            if (ajuste == null)
+                return;
+
+            venta.AjusteMedioPagoPorcentaje = ajuste.PorcentajeAjuste;
+            venta.AjusteMedioPagoMonto = ajuste.MontoAjuste;
+            venta.Total = ajuste.TotalFinal;
+        }
+
+        /// <summary>
+        /// H5-I: el ajuste del medio de pago (débito, tarjeta en cuotas con interés, recargo o descuento de
+        /// Efectivo/Transferencia) forma parte del total cobrado y se discrimina con IVA: Subtotal + IVA == Total.
+        /// Detecta el ajuste como <c>Total - (Subtotal + IVA)</c> (CalcularTotales deja Subtotal + IVA == total de los ítems
+        /// truncado) y lo reparte entre alícuotas proporcionalmente al bruto de cada una (<see cref="RecargoMedioPagoIva"/>).
+        /// Un recargo suma neto e IVA; un descuento los resta (reduce la base imponible, igual que un descuento de línea).
+        /// Idempotente: tras aplicarlo la diferencia es 0. No toca ventas de cotización con Subtotal bruto (convención
+        /// distinta, Subtotal + IVA &gt; Total): esas se normalizan con <see cref="NormalizarNetoEIvaDesdeTotal"/>.
         /// </summary>
         internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles)
         {
             var lineas = detalles.Where(d => !d.IsDeleted).ToList();
             var baseNetoIva = venta.Subtotal + venta.IVA;
-            var recargo = venta.Total - baseNetoIva;
-            if (recargo <= 0m || baseNetoIva <= 0m)
+            var ajuste = venta.Total - baseNetoIva;
+            if (Math.Abs(ajuste) < 0.005m || baseNetoIva <= 0m)
                 return;
 
             // Convención de CalcularTotales: Subtotal = Σ neto final (+ neto de servicios). Si no coincide (cotización),
@@ -3828,32 +3977,45 @@ namespace TheBuryProject.Services
             if (servicios > 0m)
                 bases.Add((ServiciosVentaIva.Porcentaje, servicios));
 
-            var partes = RecargoMedioPagoIva.Repartir(bases, recargo);
-            venta.Subtotal += partes.Sum(p => p.Neto);
-            venta.IVA += partes.Sum(p => p.Iva);
+            var signo = ajuste > 0m ? 1m : -1m;
+            var partes = RecargoMedioPagoIva.Repartir(bases, Math.Abs(ajuste));
+            venta.Subtotal += signo * partes.Sum(p => p.Neto);
+            venta.IVA += signo * partes.Sum(p => p.Iva);
         }
 
         /// <summary>
-        /// H5-I: versión para ventas nacidas de una cotización, que guardan <c>Subtotal</c> con IVA incluido
-        /// (<c>Subtotal == Total</c> antes del recargo; <c>IVA</c> es solo el desglose). El recargo de la tarjeta
-        /// (<c>Total - Subtotal</c>) se suma al Subtotal y su IVA, prorrateado entre alícuotas, al IVA, de modo que
-        /// <c>Venta.IVA</c> (Caja, reportes, factura) lo incluya. Idempotente y sin efecto con descuentos.
+        /// Deja <c>Subtotal</c> (neto) e <c>IVA</c> de una venta con <c>Subtotal + IVA == Total</c> a partir de sus líneas y de
+        /// <see cref="Venta.Total"/>, para las ventas nacidas de una cotización: la conversión guardaba <c>Subtotal</c> con IVA
+        /// incluido (<c>Subtotal == Total</c>) y el IVA sin tocar por el descuento/recargo del medio de pago, de modo que la
+        /// factura no cerraba (neto + IVA &gt; total en un descuento, IVA sin el recargo en una transferencia). El ajuste del
+        /// medio de pago se discrimina con <see cref="RecargoMedioPagoIva.Discriminar"/> (mismo criterio que
+        /// <see cref="DiscriminarRecargoEnNetoEIva"/>). <paramref name="serviciosEnTotal"/> son los armados y el envío incluidos en
+        /// el total (precio final con IVA a la alícuota de los servicios). Idempotente. Devuelve false (sin tocar nada) si la
+        /// venta ya cierra o si alguna línea no tiene snapshot de IVA (venta legacy).
         /// </summary>
-        internal static void DiscriminarRecargoEnIvaVentaCotizacion(Venta venta, IEnumerable<VentaDetalle> detalles)
+        internal static bool NormalizarNetoEIvaDesdeTotal(Venta venta, IEnumerable<VentaDetalle> detalles, decimal serviciosEnTotal)
         {
             var lineas = detalles.Where(d => !d.IsDeleted).ToList();
-            var recargo = venta.Total - venta.Subtotal;
-            if (recargo <= 0m || venta.Subtotal <= 0m)
-                return;
+            // Total <= 0 (venta sin importe cobrado, p. ej. descuento del 100 %): no hay nada que discriminar, no se toca.
+            if (lineas.Count == 0 || venta.Total <= 0m || Math.Abs(venta.Subtotal + venta.IVA - venta.Total) < 0.005m)
+                return false;
 
-            var servicios = Math.Max(0m, venta.Subtotal - lineas.Sum(d => d.SubtotalFinal));
-            var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
-            if (servicios > 0m)
-                bases.Add((ServiciosVentaIva.Porcentaje, servicios));
+            if (lineas.Any(d => d.SubtotalFinal <= 0m || (d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.PorcentajeIVA > 0m)))
+                return false;
 
-            var partes = RecargoMedioPagoIva.Repartir(bases, recargo);
-            venta.Subtotal += partes.Sum(p => p.Bruto);
-            venta.IVA += partes.Sum(p => p.Iva);
+            var items = lineas
+                .Select(d => (d.PorcentajeIVA, Bruto: d.SubtotalFinal, Neto: d.SubtotalFinalNeto, Iva: d.SubtotalFinalIVA))
+                .ToList();
+            if (serviciosEnTotal > 0m)
+            {
+                var (neto, iva) = ServiciosVentaIva.Separar(serviciosEnTotal);
+                items.Add((ServiciosVentaIva.Porcentaje, serviciosEnTotal, neto, iva));
+            }
+
+            var resultado = RecargoMedioPagoIva.Discriminar(venta.Total, items);
+            venta.Subtotal = resultado.Neto;
+            venta.IVA = resultado.Iva;
+            return true;
         }
 
         /// <summary>

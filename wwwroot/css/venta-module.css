@@ -754,6 +754,15 @@
     #venta-details-scroll :is(th, td).px-6:last-child { padding-inline: 0.75rem 1.25rem; }
 }
 
+/* 1024–1279px con descuentos: la tabla llega a 9 columnas (~910px) y con la columna lateral quedaba en
+   ~394px (encabezados recortados, casi todo detrás del scroll). Se apila el aside debajo, igual que en
+   mobile, para que la tabla use el ancho completo; desde 1280px vuelve la grilla de dos columnas. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    #venta-details-page .venta-details-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* Historial de Details: línea y puntos con medidas propias. `size-4.5` y `before:left-2.25`
    no existen en el CSS de Tailwind precompilado, así que el punto colapsaba a 4px y la línea
    quedaba pisando el texto. Punto de 18px en el margen izquierdo; la línea pasa por su centro. */

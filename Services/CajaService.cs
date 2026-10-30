@@ -16,7 +16,7 @@ namespace TheBuryProject.Services
     /// <summary>
     /// Servicio centralizado para gestión de cajas y arqueos.
     /// </summary>
-    public class CajaService : ICajaService
+    public partial class CajaService : ICajaService, IChequeRecibidoService
     {
         private readonly ISeguridadAuditoriaService? _auditoria;
         private readonly AppDbContext _context;
@@ -792,9 +792,14 @@ namespace TheBuryProject.Services
                     .Select(m => m.VentaId!.Value)
                     .ToHashSet();
 
+                // Cheques de esta caja acreditados después, en otra caja vigente: el dinero real se asentó allá
+                // (movimiento AcreditacionCheque). Acá no se cuenta de nuevo: el saldo histórico no cambia.
+                var acreditadosEnOtraCaja = await ObtenerOrigenesAcreditadosEnOtraCajaAsync(aperturaId, movimientos);
+
                 // Ingresos reales: Acreditados explícitamente o sin estado (movimientos manuales en efectivo)
                 var ingresosReales = movimientos
                     .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                             && !acreditadosEnOtraCaja.Contains(m.Id)
                              && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
                               || m.EstadoAcreditacion == null))
                     .Sum(m => m.Monto);
@@ -805,8 +810,11 @@ namespace TheBuryProject.Services
                              && (m.EstadoAcreditacion == null
                               || m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.NoAplica
                               || (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Revertido
-                                  && m.VentaId.HasValue
-                                  && ventasConIngresoAcreditado.Contains(m.VentaId.Value))))
+                                  && ((m.VentaId.HasValue && ventasConIngresoAcreditado.Contains(m.VentaId.Value))
+                                      // B13: reversión de un cheque acreditado asentada en la caja vigente (el ingreso
+                                      // acreditado vive en otra caja o es un asiento AcreditacionCheque sin VentaId).
+                                      // Solo se crea si el cheque estaba Acreditado, por eso siempre es dinero real.
+                                      || m.MovimientoOrigenId.HasValue))))
                     .Sum(m => m.Monto);
 
                 return apertura.MontoInicial + ingresosReales - egresosReales;
@@ -875,6 +883,11 @@ namespace TheBuryProject.Services
                         }
 
                         movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+
+                        // Mismo SaveChanges que la acreditación: no puede quedar acreditado sin su evento. Sin PII del cliente.
+                        _auditoria?.AgregarEvento("Caja", "AcreditarMovimiento", $"MovimientoCaja:{movimiento.Id}",
+                            $"Apertura={movimiento.AperturaCajaId}; Concepto={movimiento.Concepto}; Medio={movimiento.TipoPago}; Monto={movimiento.Monto:0.00}; Usuario={usuario}");
+
                         await _context.SaveChangesAsync();
                         return movimiento;
                     },
@@ -1120,6 +1133,12 @@ namespace TheBuryProject.Services
             string usuario,
             int? aperturaIdCandidata)
         {
+            // D5: las cuotas de crédito no se cobran con cheque (defensa en profundidad: ya lo rechaza CreditoService).
+            if (tipoPago == TipoPago.Cheque
+                || MediosPagoCredito.EsCheque(medioPago)
+                || (Enum.TryParse<TipoPago>(medioPago?.Trim(), ignoreCase: true, out var tipoDelTexto) && tipoDelTexto == TipoPago.Cheque))
+                throw new InvalidOperationException(MediosPagoCredito.MensajeChequeNoAdmitido);
+
             try
             {
                 // El cobro se imputa a la caja abierta del usuario que cobra (mismo criterio que la
@@ -1331,20 +1350,41 @@ namespace TheBuryProject.Services
                 // H-CAJA-2: la apertura original debe existir. Si falta o está eliminada, no se informa éxito dejando
                 // una cancelación con efectos monetarios incompletos: se rechaza (el llamador revierte su transacción).
                 // La decisión definitiva sobre cerrada/abierta se toma abajo, bajo el lock compartido de la apertura.
-                var aperturaExiste = await _context.AperturasCaja
-                    .AnyAsync(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted);
+                var aperturaOriginal = await _context.AperturasCaja
+                    .AsNoTracking()
+                    .Where(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted)
+                    .Select(a => new { a.Cerrada })
+                    .FirstOrDefaultAsync();
 
-                if (!aperturaExiste)
+                if (aperturaOriginal == null)
                 {
                     throw new InvalidOperationException(
                         $"No se puede cancelar la venta {ventaNumero}: la caja del ingreso original (apertura " +
                         $"{movimientoOriginal.AperturaCajaId}) no existe o fue eliminada. Se requiere un procedimiento de reversión auditada.");
                 }
 
+                // B13: cheque recibido cuya caja ya cerró. La caja cerrada es inmutable (no se reabre ni se agregan movimientos):
+                // la contrapartida auditada se asienta en la caja VIGENTE del usuario. Ver CajaService.Cheques.cs.
+                var esChequeVenta = movimientoOriginal.Concepto == ConceptoMovimientoCaja.VentaCheque;
+                if (esChequeVenta && aperturaOriginal.Cerrada)
+                {
+                    return await ContramovimientoChequeCajaCerradaAsync(
+                        movimientoOriginal.Id, movimientoOriginal.AperturaCajaId, ventaId, ventaNumero, motivo, usuario);
+                }
+
                 // H-CAJA-2: la reversión se asienta en la apertura ORIGINAL y sólo si sigue ABIERTA; se relee bajo el
                 // lock compartido con el cierre, así que nunca se inserta un egreso en una caja ya cerrada.
-                var contramovimiento = await BajoLockDeAperturaAsync(movimientoOriginal.AperturaCajaId, async () =>
+                MovimientoCaja? contramovimiento;
+                try
                 {
+                contramovimiento = await BajoLockDeAperturaAsync<MovimientoCaja?>(movimientoOriginal.AperturaCajaId, async () =>
+                {
+                    // Cheque ya rechazado (releído bajo el lock): su salida ya está asentada (egreso RechazoCheque si estaba
+                    // acreditado; ingreso Rechazado, que no suma, si no). Reversar de nuevo duplicaría la salida.
+                    await _context.Entry(movimientoOriginal).ReloadAsync();
+                    if (await ChequeRechazadoAsync(movimientoOriginal))
+                        return null;
+
                     var nuevo = new MovimientoCaja
                     {
                         AperturaCajaId = movimientoOriginal.AperturaCajaId,
@@ -1364,10 +1404,37 @@ namespace TheBuryProject.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
+                    // Un ingreso todavía Pendiente (cheque, tarjeta, transferencia, MP) de una venta cancelada nunca se va a
+                    // acreditar: se anula para que no quede como "pendiente de acreditación" ni pueda acreditarse después.
+                    // El estado se relee bajo el lock (una acreditación concurrente ya confirmada se respeta). El saldo
+                    // total no cambia (el egreso Revertido sigue contrapesando) y el saldo real tampoco (ni el ingreso
+                    // Anulado ni su reversión cuentan como dinero cobrado).
+                    await _context.Entry(movimientoOriginal).ReloadAsync();
+                    if (movimientoOriginal.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
+                    {
+                        movimientoOriginal.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+                        movimientoOriginal.UpdatedAt = DateTime.UtcNow;
+                    }
+
                     _context.MovimientosCaja.Add(nuevo);
                     await _context.SaveChangesAsync();
                     return nuevo;
                 }, validarVigencia: false, mensajeCerrada: MensajeReversionCajaCerrada(ventaNumero));
+                }
+                catch (InvalidOperationException ex) when (esChequeVenta && ex.Message == MensajeReversionCajaCerrada(ventaNumero))
+                {
+                    // La caja se cerró entre la lectura y el lock: se sigue por la vía de caja cerrada (B13).
+                    return await ContramovimientoChequeCajaCerradaAsync(
+                        movimientoOriginal.Id, movimientoOriginal.AperturaCajaId, ventaId, ventaNumero, motivo, usuario);
+                }
+
+                if (contramovimiento == null)
+                {
+                    _logger.LogInformation(
+                        "Venta {VentaNumero}: el cheque ya estaba rechazado, no se agrega reversión (la salida ya está asentada).",
+                        ventaNumero);
+                    return null;
+                }
 
                 _logger.LogInformation(
                     "Contramovimiento de caja creado para venta {VentaNumero}: Egreso ${Monto:N2}",
@@ -1404,8 +1471,15 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("No hay una caja abierta para registrar el reembolso.");
                 }
 
-                var movimiento = await BajoLockDeAperturaAsync(apertura.Id, async () =>
+                // D4: el reembolso sale en efectivo; si la venta se pagó con un cheque que todavía no se cobró (o que el banco
+                // rechazó) no hay dinero recibido que devolver. El estado del cheque se valida BAJO el mismo lock que usa el
+                // rechazo (la apertura del ingreso del cheque, y luego la caja vigente): rechazo y devolución se serializan.
+                var aperturaDelCheque = await ObtenerAperturaDelChequeDeVentaAsync(ventaId);
+
+                Task<MovimientoCaja> Registrar() => BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
+                    await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero);
+
                     var nuevo = new MovimientoCaja
                     {
                         AperturaCajaId = apertura.Id,
@@ -1427,6 +1501,10 @@ namespace TheBuryProject.Services
                     await _context.SaveChangesAsync();
                     return nuevo;
                 });
+
+                var movimiento = aperturaDelCheque.HasValue
+                    ? await BajoLockDeOrigenChequeAsync(aperturaDelCheque.Value, Registrar)
+                    : await Registrar();
 
                 _logger.LogInformation(
                     "Movimiento de caja registrado para devolución {DevolucionNumero}: ${Monto:N2}",
@@ -1677,8 +1755,10 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
         var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
         var cajaFisicaEsperada = apertura.MontoInicial + totalIngresosFisicos - totalEgresosFisicos;
         var saldoReal = await CalcularSaldoRealAsync(aperturaId);
+        var acreditadosEnOtraCaja = await ObtenerOrigenesAcreditadosEnOtraCajaAsync(aperturaId, movimientos);
         var ingresosAcreditados = movimientos
             .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                     && !acreditadosEnOtraCaja.Contains(m.Id)
                      && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
                       || m.EstadoAcreditacion == null))
             .Sum(m => m.Monto);
@@ -1897,8 +1977,10 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
 
         private static (decimal Ingresos, decimal Egresos) CalcularTotalesMovimientos(IEnumerable<MovimientoCaja> movimientos)
         {
+            // Un ingreso Rechazado (cheque rebotado antes de acreditarse) nunca fue dinero: no suma al saldo total.
             var ingresos = movimientos
-                .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso)
+                .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                         && m.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Rechazado)
                 .Sum(m => m.Monto);
 
             var egresos = movimientos

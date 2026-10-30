@@ -395,6 +395,11 @@
                     }
                 </section>
 
+                @if (ViewBag.ChequeEstado is TheBuryProject.ViewModels.ChequeVentaEstadoViewModel chequeEstado)
+                {
+                    <partial name="_ChequeCard" model="chequeEstado" />
+                }
+
                 <!-- Line Items Table -->
                 <section class="card-erp-panel">
                     <div class="flex flex-col gap-3 border-b border-slate-800 p-6 sm:flex-row sm:items-start sm:justify-between">
@@ -411,9 +416,14 @@
                         </span>
                     </div>
                     <div id="venta-details-scroll" data-oc-scroll style="--oc-scroll-min-width: 36rem;">
-                        <p data-oc-scroll-hint hidden class="px-6 pt-4 text-xs font-medium text-slate-400">
-                            Deslizá la tabla para revisar importes, @(puedeDescuentos ? "descuentos y " : "")subtotales completos.
-                        </p>
+                        <div data-oc-scroll-hint hidden
+                             class="mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs border-slate-700 bg-slate-800/60 text-slate-300">
+                            <div class="flex items-center gap-2 font-semibold">
+                                <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                                <span>Deslizá la tabla para revisar importes, @(puedeDescuentos ? "descuentos y " : "")subtotales completos.</span>
+                            </div>
+                            <span class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide bg-slate-900/80 text-slate-400">Scroll horizontal</span>
+                        </div>
                         <div data-oc-scroll-shell class="px-0 pb-0">
                             <div data-oc-scroll-fade="left" hidden></div>
                             <div data-oc-scroll-fade="right" hidden></div>

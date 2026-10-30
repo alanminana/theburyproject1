@@ -1,4 +1,4 @@
-@model TheBuryProject.ViewModels.VentaViewModel
+﻿@model TheBuryProject.ViewModels.VentaViewModel
 @inject TheBuryProject.Services.Interfaces.IServicioVentaPrecioService ServiciosVentaSvc
 @{
     // Precios globales de envío y armado (los administra ServiciosVenta/Index). Sólo se ofrecen los
@@ -863,44 +863,45 @@
                                                                                                 <div>
                                                                                                     <label for="txt-num-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de
                                                                                                         Cheque</label>
-                                                                                                        <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque" inputmode="numeric" maxlength="12" pattern="[0-9]{1,12}"
+                                                                                                        <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque" inputmode="numeric" maxlength="12" pattern="[0-9]{1,12}" value="@Model.DatosCheque?.NumeroCheque"
                                                                                                                class="venta-input" placeholder="Nº de cheque" />
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <label for="txt-banco-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Banco</label>
-                                                                                                        <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque"
+                                                                                                        <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque" value="@Model.DatosCheque?.Banco"
                                                                                                                class="venta-input" placeholder="Nombre del banco" />
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <label for="txt-titular-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Titular</label>
-                                                                                                        <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque"
+                                                                                                        <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque" value="@Model.DatosCheque?.Titular"
                                                                                                                class="venta-input" placeholder="Nombre del titular" />
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <label for="txt-cuit-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">CUIT</label>
-                                                                                                        <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque"
+                                                                                                        <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque" value="@Model.DatosCheque?.CUIT"
                                                                                                                class="venta-input" placeholder="XX-XXXXXXXX-X" />
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <label for="txt-fecha-emision-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                             Emisión</label>
-                                                                                                            <input type="date" data-fecha="hoy" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque"
+                                                                                                            <input type="date" data-fecha="hoy" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque" value="@(Model.DatosCheque != null ? Model.DatosCheque.FechaEmision.ToString("yyyy-MM-dd") : null)"
                                                                                                                    class="venta-input" />
                                                                                                         </div>
                                                                                                         <div>
                                                                                                             <label for="txt-fecha-vencimiento-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                                 Vencimiento</label>
                                                                                                                 <input type="date" data-fecha="hoy" name="DatosCheque.FechaVencimiento" min="@DateTime.Today.ToString("yyyy-MM-dd")"
-                                                                                                                       id="txt-fecha-vencimiento-cheque" class="venta-input" />
+                                                                                                                       id="txt-fecha-vencimiento-cheque" class="venta-input" value="@(Model.DatosCheque != null ? Model.DatosCheque.FechaVencimiento.ToString("yyyy-MM-dd") : null)" />
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label for="txt-monto-cheque"
                                                                                                                 class="block text-xs font-bold text-slate-500 uppercase mb-1">Monto</label>
-                                                                                                                <input type="number" step="0.01" min="0.01" max="20000000" name="DatosCheque.Monto" id="txt-monto-cheque"
+                                                                                                                <input type="number" step="0.01" min="0.01" max="20000000" name="DatosCheque.Monto" id="txt-monto-cheque" value="@(Model.DatosCheque != null ? Model.DatosCheque.Monto.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : null)"
                                                                                                                        class="venta-input" placeholder="$0,00" />
+                                                                                                                <p class="text-xs text-slate-500 mt-1" data-cheque-monto-ayuda>Debe coincidir con el total a cobrar de la venta.</p>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     </div>

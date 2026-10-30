@@ -133,6 +133,19 @@ public sealed class VentaDetailsUiContractTests
         Assert.DoesNotContain("Ver / imprimir contrato", view);
     }
 
+    [Fact]
+    public void DetailsCss_Entre1024Y1279_ApilaElAsideParaDarleElAnchoCompletoALaTabla()
+    {
+        // H9-M2: con descuentos la tabla de productos llega a 9 columnas (~910px); entre 1024 y 1279px
+        // la columna lateral la dejaba en ~394px con los encabezados recortados. En ese rango la grilla
+        // pasa a una sola columna; desde 1280px vuelve la de dos columnas.
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-module.css"));
+
+        Assert.Matches(
+            @"@media \(min-width: 1024px\) and \(max-width: 1279px\) \{\s*#venta-details-page \.venta-details-grid \{\s*grid-template-columns: minmax\(0, 1fr\);",
+            css);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
