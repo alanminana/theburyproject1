@@ -89,6 +89,73 @@ namespace TheBuryProject.Helpers
             return partes;
         }
 
+        /// <summary>Resultado de <see cref="Discriminar"/>: partes del ajuste (con signo), truncado a pesos y neto/IVA totales.</summary>
+        public readonly record struct Discriminacion(IReadOnlyList<ParteAlicuota> Partes, decimal Truncado, decimal Neto, decimal Iva);
+
+        /// <summary>
+        /// Neto e IVA de una venta cuyo <paramref name="total"/> cobrado difiere de la suma de sus ítems por el ajuste del
+        /// medio de pago: recargo o interés (el total es mayor) o descuento (el total es menor), con IVA a la alícuota de los
+        /// ítems, prorrateado por alícuota. Misma fórmula para el recargo (criterio H5-I) y para el descuento (reduce la
+        /// base imponible, igual que un descuento de línea). El truncado a pesos (total entero, ítems con centavos) se
+        /// absorbe primero del IVA y luego del neto. Garantía: <c>Neto + Iva == total</c> cuando los ítems son coherentes.
+        /// Las partes devueltas llevan el signo del ajuste (negativas si es un descuento).
+        /// </summary>
+        public static Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas)
+        {
+            var bruto = lineas.Sum(l => l.Bruto);
+            var netoLineas = lineas.Sum(l => l.Neto);
+            var ivaLineas = lineas.Sum(l => l.Iva);
+
+            // Sin total cobrado (comprobante o venta legacy sin importe persistido) no hay ajuste que medir.
+            if (total <= 0m)
+                return new Discriminacion(Array.Empty<ParteAlicuota>(), 0m, netoLineas, ivaLineas);
+
+            // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
+            var truncado = total == Math.Floor(total) ? bruto - Math.Floor(bruto) : 0m;
+            var ajuste = total - (bruto - truncado);
+            if (Math.Abs(ajuste) < 0.005m)
+            {
+                var (n0, i0) = AbsorberTruncado(netoLineas, ivaLineas, truncado);
+                return new Discriminacion(Array.Empty<ParteAlicuota>(), truncado, n0, i0);
+            }
+
+            var signo = ajuste > 0m ? 1m : -1m;
+            var partes = Repartir(lineas.Select(l => (l.Porcentaje, l.Bruto)), Math.Abs(ajuste))
+                .Select(p => new ParteAlicuota(p.Porcentaje, signo * p.Bruto, signo * p.Neto, signo * p.Iva))
+                .ToList();
+            var (neto, iva) = AbsorberTruncado(netoLineas + partes.Sum(p => p.Neto), ivaLineas + partes.Sum(p => p.Iva), truncado);
+            return new Discriminacion(partes, truncado, neto, iva);
+        }
+
+        /// <summary>
+        /// Resumen por alícuota (base imponible, IVA y total) de lo cobrado: las líneas agrupadas por alícuota más el ajuste del
+        /// medio de pago prorrateado (<see cref="Discriminar"/>), con el truncado a pesos absorbido en la alícuota de mayor
+        /// IVA. Es el mismo desglose que imprime el comprobante de factura; la suma de los totales es siempre <paramref name="total"/>
+        /// (cuando los ítems son coherentes) y la de neto + IVA también.
+        /// </summary>
+        public static List<ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas)
+        {
+            var d = Discriminar(total, lineas);
+            var buckets = lineas
+                .GroupBy(l => l.Porcentaje)
+                .ToDictionary(g => g.Key, g => new ParteAlicuota(g.Key, g.Sum(l => l.Bruto), g.Sum(l => l.Neto), g.Sum(l => l.Iva)));
+            foreach (var parte in d.Partes)
+            {
+                buckets[parte.Porcentaje] = buckets.TryGetValue(parte.Porcentaje, out var actual)
+                    ? new ParteAlicuota(parte.Porcentaje, actual.Bruto + parte.Bruto, actual.Neto + parte.Neto, actual.Iva + parte.Iva)
+                    : parte;
+            }
+
+            if (d.Truncado > 0m && buckets.Count > 0)
+            {
+                var destino = buckets.Values.OrderByDescending(b => b.Iva).First();
+                var (neto, iva) = AbsorberTruncado(destino.Neto, destino.Iva, d.Truncado);
+                buckets[destino.Porcentaje] = new ParteAlicuota(destino.Porcentaje, destino.Bruto - ((destino.Neto - neto) + (destino.Iva - iva)), neto, iva);
+            }
+
+            return buckets.Values.OrderByDescending(b => b.Porcentaje).ToList();
+        }
+
         /// <summary>
         /// Descuenta el truncado a pesos (fracción de centavos que el total cobrado no incluye) primero del IVA y luego
         /// del neto, como hace VentaService.CalcularTotales, para que Neto + IVA == Total exacto.

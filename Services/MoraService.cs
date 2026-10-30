@@ -1796,6 +1796,9 @@ namespace TheBuryProject.Services
 
             acuerdo.Estado = EstadoAcuerdo.Cumplido;
             acuerdo.UpdatedAt = DateTime.UtcNow;
+            // Como el incumplimiento automático: el cambio de estado y su auditoría se confirman juntos (QA H9-M4: el
+            // pase a Cumplido no dejaba evento propio, solo el recibo de cada cobro).
+            AgregarAuditoria("CumplimientoAutomatico", acuerdo.Id, $"{acuerdo.NumeroAcuerdo}: Activo -> Cumplido. Todos los pagos del acuerdo están completos.");
             await _context.SaveChangesAsync();
             await ResolverAlertasMoraRegularizadasAsync(new List<int>(), _reloj.InicioDiaComercial, CancellationToken.None);
             await _context.SaveChangesAsync();

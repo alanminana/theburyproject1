@@ -922,6 +922,23 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Cumplimiento_AlCompletarLosPagos_DejaEventoDeAuditoriaConElCambioDeEstado()
+    {
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync(entrega: 2_000m, cuotasAcuerdo: 3, totalAcuerdo: 2_000m);
+
+        var auditoria = new SeguridadAuditoriaService(_context, new UsuarioAuditoria(), NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = ServicioConFecha(new RelojComercialFake((await LeerAcuerdoAsync(acuerdo.Id)).FechaActivacionComercial!.Value), auditoria);
+
+        var r = await servicio.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, "Transferencia", null, pasoEsperado: 0);
+
+        Assert.True(r.AcuerdoCumplido);
+        var eventos = await _context.SeguridadEventosAuditoria.AsNoTracking()
+            .Where(e => e.Accion == "CumplimientoAutomatico" && e.Entidad == $"AcuerdoPago:{acuerdo.Id}").ToListAsync();
+        var evento = Assert.Single(eventos);
+        Assert.Contains("Activo -> Cumplido", evento.Detalle);
+    }
+
+    [Fact]
     public async Task Incumplimiento_UnBorradorNoSeEvalua()
     {
         var (cl, cr, al) = await SeedCreditoConDeudaAsync();

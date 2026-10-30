@@ -413,20 +413,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             ArmadoSubtotal = d.ArmadoSubtotal
         }).ToList();
 
-        // Mismo criterio que ConvertirAVentaAsync: Subtotal ya incluye IVA, Total = Subtotal,
-        // IVA es sólo el desglose informativo (ver venta.Subtotal/IVA/Total más arriba).
+        // Mismo criterio que ConvertirAVentaAsync (sin el ajuste del medio de pago, que depende del plan): Subtotal es el
+        // neto, IVA su desglose y Total el importe con IVA, de modo que Subtotal + IVA == Total.
         var serviciosEnTotal = detalles.Sum(d => d.ArmadoSubtotal)
             + (cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m);
-        var subtotal = detalles.Sum(d => d.Subtotal) + serviciosEnTotal;
-        var iva = detalles.Sum(d => d.SubtotalIVA)
-            + (serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal).Iva : 0m);
+        var (serviciosNeto, serviciosIva) = serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal) : (0m, 0m);
+        var subtotal = detalles.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
+        var iva = detalles.Sum(d => d.SubtotalFinalIVA) + serviciosIva;
+        var total = detalles.Sum(d => d.SubtotalFinal) + serviciosEnTotal;
 
         return new CotizacionFacturaPreviewResultado
         {
             Exitoso = true,
             Subtotal = subtotal,
             IVA = iva,
-            Total = subtotal,
+            Total = total,
             ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(
                 detalleViewModels, cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m)
         };
@@ -595,6 +596,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
 
+            // Subtotal (neto) + IVA == Total también con el descuento/recargo de Efectivo/Transferencia: antes la venta
+            // guardaba Subtotal con IVA incluido y el IVA sin ajustar, y la factura no cerraba (QA H9-M4).
+            VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, serviciosEnTotal);
+
             // Crédito personal: evaluar con la MISMA fuente de verdad que Venta/Create
             // (IValidacionVentaService) y aplicar el resultado con la misma lógica
             // (IVentaService.AplicarResultadoValidacionAsync) — nunca hardcodear NoRequiere acá.
@@ -711,7 +716,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 else
                 {
                     // H5-I: el recargo/interés de la tarjeta (ya sumado a Total) lleva su IVA en Venta.IVA.
-                    VentaService.DiscriminarRecargoEnIvaVentaCotizacion(venta, venta.Detalles);
+                    VentaService.NormalizarNetoEIvaDesdeTotal(venta, venta.Detalles, serviciosEnTotal);
                     await _context.SaveChangesAsync(cancellationToken);
                 }
             }
