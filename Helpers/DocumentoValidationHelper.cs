@@ -82,26 +82,42 @@ namespace TheBuryProject.Helpers
             try
             {
                 using var stream = file.OpenReadStream();
-                if (!stream.CanRead) return false;
-
-                var buffer = new byte[4];
-                var bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                return extension switch
-                {
-                    ".pdf" => bytesRead >= 4 && buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46, // %PDF
-                    ".png" => bytesRead >= 4 && buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47, // PNG
-                    ".jpg" or ".jpeg" => bytesRead >= 3 && buffer[0] == 0xFF && buffer[1] == 0xD8 && buffer[2] == 0xFF, // JPEG
-                    ".doc" => bytesRead >= 4 && buffer[0] == 0xD0 && buffer[1] == 0xCF && buffer[2] == 0x11 && buffer[3] == 0xE0, // OLE
-                    ".docx" => bytesRead >= 2 && buffer[0] == 0x50 && buffer[1] == 0x4B, // ZIP (PK)
-                    _ => true
-                };
+                return stream.CanRead && ContenidoCoincideConExtension(stream, extension);
             }
             catch
             {
-                // Si no se puede leer el header, bloquear (m�s seguro)
+                // Si no se puede leer el header, bloquear (más seguro)
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Verifica que los primeros bytes del contenido correspondan a la extensión declarada (un ejecutable renombrado
+        /// a .pdf no pasa). Extensiones sin firma conocida devuelven true; <c>.txt</c> se acepta solo si es texto (sin bytes nulos).
+        /// </summary>
+        public static bool ContenidoCoincideConExtension(Stream stream, string extension)
+        {
+            var buffer = new byte[4096];
+            var leidos = 0;
+            int n;
+            while (leidos < buffer.Length && (n = stream.Read(buffer, leidos, buffer.Length - leidos)) > 0)
+                leidos += n;
+
+            bool Empieza(params byte[] firma) => leidos >= firma.Length && buffer.Take(firma.Length).SequenceEqual(firma);
+
+            return extension.ToLowerInvariant() switch
+            {
+                ".pdf" => Empieza(0x25, 0x50, 0x44, 0x46), // %PDF
+                ".png" => Empieza(0x89, 0x50, 0x4E, 0x47), // PNG
+                ".jpg" or ".jpeg" => Empieza(0xFF, 0xD8, 0xFF),
+                ".gif" => Empieza((byte)'G', (byte)'I', (byte)'F', (byte)'8'), // GIF87a / GIF89a
+                ".webp" => leidos >= 12 && Empieza((byte)'R', (byte)'I', (byte)'F', (byte)'F')
+                           && buffer[8] == (byte)'W' && buffer[9] == (byte)'E' && buffer[10] == (byte)'B' && buffer[11] == (byte)'P',
+                ".doc" or ".xls" => Empieza(0xD0, 0xCF, 0x11, 0xE0), // OLE2
+                ".docx" or ".xlsx" or ".zip" => Empieza(0x50, 0x4B), // ZIP (PK)
+                ".txt" => leidos > 0 && !buffer.Take(leidos).Contains((byte)0),
+                _ => true
+            };
         }
 
         private static string FormatFileSize(long bytes)

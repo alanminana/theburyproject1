@@ -333,8 +333,8 @@
             }
         });
 
-        // Aviso (no bloqueante): el servidor acepta cualquier CUIT de 11 dígitos, pero si el dígito verificador
-        // no coincide casi seguro hay un error de tipeo. Se avisa en la ayuda del campo y se puede guardar igual.
+        // Aviso anticipado: el servidor rechaza un CUIT nuevo o modificado cuyo dígito verificador no coincide (casi
+        // seguro es un error de tipeo). Un CUIT antiguo que no se toca se puede seguir guardando.
         const CUIT_WEIGHTS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
         function cuitVerifierOk(digits) {
             const sum = CUIT_WEIGHTS.reduce((acc, w, i) => acc + w * Number(digits[i]), 0);
@@ -350,7 +350,7 @@
             if (!hint.dataset.defaultText) hint.dataset.defaultText = hint.textContent;
             const warn = input.value.length === 11 && !cuitVerifierOk(input.value);
             hint.textContent = warn
-                ? 'El dígito verificador no coincide: revisá que el CUIT esté bien escrito. Podés guardarlo igual.'
+                ? 'El dígito verificador no coincide: revisá que el CUIT esté bien escrito.'
                 : hint.dataset.defaultText;
             hint.classList.toggle('prov-hint--warn', warn);
         }

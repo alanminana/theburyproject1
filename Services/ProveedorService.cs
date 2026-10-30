@@ -83,11 +83,29 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <summary>
+        /// El dígito verificador (módulo 11) detecta los errores de tipeo del CUIT. Solo se controla el verificador,
+        /// no el prefijo: los proveedores del exterior usan prefijos 50/51/55 que AFIP también emite.
+        /// </summary>
+        internal static void ValidarVerificadorCuit(string? cuit)
+        {
+            var digitos = new string((cuit ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (digitos.Length != 11)
+                return; // el largo ya lo valida el ViewModel
+
+            var esperado = Validation.CuilCuitArgentinoAttribute.CalcularVerificador(digitos[..10]);
+            if (esperado != digitos[10] - '0')
+                throw new InvalidOperationException(
+                    $"El CUIT {digitos} no es válido: el dígito verificador debería ser {esperado}. Revisá que esté bien escrito.");
+        }
+
         public async Task CreateAsync(Proveedor proveedor)
         {
             try
             {
                 if (proveedor == null) throw new ArgumentNullException(nameof(proveedor));
+
+                ValidarVerificadorCuit(proveedor.Cuit);
 
                 // Validar CUIT único
                 if (await ExistsCuitAsync(proveedor.Cuit))
@@ -137,6 +155,15 @@ namespace TheBuryProject.Services
                     .Include(p => p.ProveedorMarcas)
                     .Include(p => p.ProveedorCategorias)
                     .FirstOrDefaultAsync(p => p.Id == proveedor.Id && !p.IsDeleted);
+
+                // Un CUIT cargado antes de esta regla con verificador incorrecto no bloquea la edición del resto de
+                // los datos: solo se exige cuando el CUIT es nuevo o cambia.
+                // Se compara contra el valor original de la base: la entidad cargada puede ser la misma instancia que se editó.
+                var cuitGuardado = existingProveedor == null
+                    ? null
+                    : _context.Entry(existingProveedor).Property(p => p.Cuit).OriginalValue;
+                if (cuitGuardado != proveedor.Cuit)
+                    ValidarVerificadorCuit(proveedor.Cuit);
 
                 if (existingProveedor == null)
                 {
