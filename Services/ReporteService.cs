@@ -89,54 +89,22 @@ namespace TheBuryProject.Services
                         !d.Producto.IsDeleted))
                         .ThenInclude(d => d.Producto)
                             .ThenInclude(p => p!.Categoria)
-                    .Where(v =>
-                        !v.IsDeleted &&
-                        EstadosVentaComerciales.Contains(v.Estado) &&
-                        (v.Cliente == null || !v.Cliente.IsDeleted))
+                    .Comerciales()
                     .AsQueryable();
 
-                // Aplicar filtros. "Hasta" es un día completo (inclusivo), no medianoche.
+                // Filtros que no son de fecha: se reutilizan para decidir qué devoluciones restan (mismas ventas).
+                query = AplicarFiltrosVenta(query, filtro);
+
+                // Aplicar filtros de fecha. "Hasta" es un día completo (inclusivo), no medianoche.
+                var queryPeriodo = query;
                 if (filtro.FechaDesde.HasValue)
-                    query = query.Where(v => v.FechaVenta >= filtro.FechaDesde.Value);
+                    queryPeriodo = queryPeriodo.Where(v => v.FechaVenta >= filtro.FechaDesde.Value);
 
-                if (filtro.FechaHasta.HasValue)
-                {
-                    var hastaExclusivo = filtro.FechaHasta.Value.Date.AddDays(1);
-                    query = query.Where(v => v.FechaVenta < hastaExclusivo);
-                }
+                DateTime? hastaExclusivoFiltro = filtro.FechaHasta.HasValue ? filtro.FechaHasta.Value.Date.AddDays(1) : null;
+                if (hastaExclusivoFiltro.HasValue)
+                    queryPeriodo = queryPeriodo.Where(v => v.FechaVenta < hastaExclusivoFiltro.Value);
 
-                if (filtro.ClienteId.HasValue)
-                    query = query.Where(v => v.ClienteId == filtro.ClienteId.Value);
-
-                if (filtro.TipoPago.HasValue)
-                    query = query.Where(v => v.TipoPago == filtro.TipoPago.Value);
-
-                if (!string.IsNullOrWhiteSpace(filtro.VendedorId))
-                    query = query.Where(v => v.VendedorUserId == filtro.VendedorId);
-
-
-                if (filtro.ProductoId.HasValue)
-                    query = query.Where(v => v.Detalles.Any(d =>
-                        !d.IsDeleted &&
-                        d.ProductoId == filtro.ProductoId.Value &&
-                        d.Producto != null &&
-                        !d.Producto.IsDeleted));
-
-                if (filtro.CategoriaId.HasValue)
-                    query = query.Where(v => v.Detalles.Any(d =>
-                        !d.IsDeleted &&
-                        d.Producto != null &&
-                        !d.Producto.IsDeleted &&
-                        d.Producto.CategoriaId == filtro.CategoriaId.Value));
-
-                if (filtro.MarcaId.HasValue)
-                    query = query.Where(v => v.Detalles.Any(d =>
-                        !d.IsDeleted &&
-                        d.Producto != null &&
-                        !d.Producto.IsDeleted &&
-                        d.Producto.MarcaId == filtro.MarcaId.Value));
-
-                var ventas = await query.OrderByDescending(v => v.FechaVenta).ToListAsync();
+                var ventas = await queryPeriodo.OrderByDescending(v => v.FechaVenta).ToListAsync();
 
                 // Mapear a ViewModels
                 var ventasItems = ventas.Select(v =>
@@ -147,8 +115,9 @@ namespace TheBuryProject.Services
 
                     var costo = detallesValidos.Sum(CalcularCostoTotalDetalle);
                     var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(v);
-                    var totalProductos = v.Total - recargoDebitoAplicado;
-                    var ganancia = totalProductos - costo;
+                    // H10/D5: ganancia y margen sobre neto sin IVA (docs/reportes-ganancia-devoluciones.md).
+                    var ingresoNeto = VentasNetas.CalcularIngresoNeto(v, recargoDebitoAplicado, detallesValidos);
+                    var ganancia = ingresoNeto - costo;
 
                     return new VentaReporteItemViewModel
                     {
@@ -169,9 +138,10 @@ namespace TheBuryProject.Services
                         IVA = v.IVA,
                         RecargoDebitoAplicado = recargoDebitoAplicado,
                         Total = v.Total,
+                        IngresoNeto = ingresoNeto,
                         Costo = costo,
                         Ganancia = ganancia,
-                        MargenPorcentaje = CalcularMargenPorcentaje(ganancia, totalProductos),
+                        MargenPorcentaje = CalcularMargenPorcentaje(ganancia, ingresoNeto),
                         CantidadProductos = detallesValidos.Sum(d => (int)d.Cantidad)
                     };
                 }).ToList();
@@ -180,9 +150,23 @@ namespace TheBuryProject.Services
                 var totalVentas = ventasItems.Sum(v => v.Total);
                 var totalRecargoDebito = ventasItems.Sum(v => v.RecargoDebitoAplicado);
                 var totalCosto = ventasItems.Sum(v => v.Costo);
-                var totalProductos = ventasItems.Sum(v => v.TotalProductos);
-                var totalGanancia = ventasItems.Sum(v => v.Ganancia);
-                var margenPromedio = CalcularMargenPorcentaje(totalGanancia, totalProductos);
+                var totalIngresoNeto = ventasItems.Sum(v => v.IngresoNeto);
+                var totalGananciaVentas = ventasItems.Sum(v => v.Ganancia);
+
+                // H10/D3: devoluciones Aprobadas/Completadas por FECHA DE DEVOLUCIÓN dentro del período (aunque la venta sea de otro
+                // período), de las mismas ventas que pasan los filtros; sin alterar ningún registro histórico.
+                var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(
+                    _context,
+                    filtro.FechaDesde ?? DateTime.MinValue,
+                    hastaExclusivoFiltro,
+                    query.Select(v => v.Id));
+                var totalDevoluciones = devoluciones.Sum(d => d.Bruto);
+                var totalDevolucionesNeto = devoluciones.Sum(d => d.Neto);
+                var totalCostoDevuelto = devoluciones.Sum(d => d.Costo);
+
+                // Ganancia neta = ganancia de las ventas - (neto devuelto - costo devuelto). Margen sobre el ingreso neto de devoluciones.
+                var totalGanancia = totalGananciaVentas - (totalDevolucionesNeto - totalCostoDevuelto);
+                var margenPromedio = CalcularMargenPorcentaje(totalGanancia, totalIngresoNeto - totalDevolucionesNeto);
 
                 // Ventas por tipo de pago
                 var ventasPorTipoPago = ventasItems
@@ -204,6 +188,12 @@ namespace TheBuryProject.Services
                 {
                     Ventas = ventasItems,
                     TotalVentas = totalVentas,
+                    TotalDevoluciones = totalDevoluciones,
+                    CantidadDevoluciones = devoluciones.Count,
+                    TotalDevolucionesNeto = totalDevolucionesNeto,
+                    TotalCostoDevuelto = totalCostoDevuelto,
+                    TotalIngresoNeto = totalIngresoNeto,
+                    TotalGananciaVentas = totalGananciaVentas,
                     TotalRecargoDebito = totalRecargoDebito,
                     TotalCosto = totalCosto,
                     TotalGanancia = totalGanancia,
@@ -223,6 +213,42 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al generar reporte de ventas");
                 throw;
             }
+        }
+
+        /// <summary>Filtros de venta del reporte que no son de fecha (cliente, tipo de pago, vendedor, producto, categoría, marca).</summary>
+        private static IQueryable<Venta> AplicarFiltrosVenta(IQueryable<Venta> query, ReporteVentasFiltroViewModel filtro)
+        {
+            if (filtro.ClienteId.HasValue)
+                query = query.Where(v => v.ClienteId == filtro.ClienteId.Value);
+
+            if (filtro.TipoPago.HasValue)
+                query = query.Where(v => v.TipoPago == filtro.TipoPago.Value);
+
+            if (!string.IsNullOrWhiteSpace(filtro.VendedorId))
+                query = query.Where(v => v.VendedorUserId == filtro.VendedorId);
+
+            if (filtro.ProductoId.HasValue)
+                query = query.Where(v => v.Detalles.Any(d =>
+                    !d.IsDeleted &&
+                    d.ProductoId == filtro.ProductoId.Value &&
+                    d.Producto != null &&
+                    !d.Producto.IsDeleted));
+
+            if (filtro.CategoriaId.HasValue)
+                query = query.Where(v => v.Detalles.Any(d =>
+                    !d.IsDeleted &&
+                    d.Producto != null &&
+                    !d.Producto.IsDeleted &&
+                    d.Producto.CategoriaId == filtro.CategoriaId.Value));
+
+            if (filtro.MarcaId.HasValue)
+                query = query.Where(v => v.Detalles.Any(d =>
+                    !d.IsDeleted &&
+                    d.Producto != null &&
+                    !d.Producto.IsDeleted &&
+                    d.Producto.MarcaId == filtro.MarcaId.Value));
+
+            return query;
         }
 
         public async Task<ReporteIvaResultadoViewModel> GenerarReporteIvaAsync(ReporteIvaFiltroViewModel filtro)
@@ -433,6 +459,8 @@ namespace TheBuryProject.Services
 
                 var query = _context.Productos
                     .Include(p => p.Categoria)
+                        .ThenInclude(c => c!.AlicuotaIVA)
+                    .Include(p => p.AlicuotaIVA)
                     .Include(p => p.Marca)
                     .AsNoTracking()
                     .Where(p => !p.IsDeleted)
@@ -464,12 +492,29 @@ namespace TheBuryProject.Services
                     })
                     .ToListAsync();
 
-                var ventasPorProducto = ventasRecientes.ToDictionary(v => v.ProductoId, v => (int)v.CantidadVendida);
+                // H10/D3: las unidades devueltas (Aprobadas/Completadas, por fecha de devolución) se restan de lo vendido.
+                var devueltasRecientes = await _context.DevolucionDetalles
+                    .AsNoTracking()
+                    .Where(dd => !dd.IsDeleted &&
+                                 !dd.Devolucion.IsDeleted &&
+                                 VentasNetas.EstadosDevolucionQueRestan.Contains(dd.Devolucion.Estado) &&
+                                 dd.Devolucion.FechaDevolucion >= hace30Dias &&
+                                 !dd.Devolucion.Venta.IsDeleted &&
+                                 EstadosVentaComerciales.Contains(dd.Devolucion.Venta.Estado))
+                    .GroupBy(dd => dd.ProductoId)
+                    .Select(g => new { ProductoId = g.Key, CantidadDevuelta = g.Sum(dd => dd.Cantidad) })
+                    .ToDictionaryAsync(x => x.ProductoId, x => x.CantidadDevuelta);
+
+                var ventasPorProducto = ventasRecientes.ToDictionary(
+                    v => v.ProductoId,
+                    v => Math.Max(0, (int)v.CantidadVendida - devueltasRecientes.GetValueOrDefault(v.ProductoId, 0)));
 
                 var productosMargen = productos.Select(p =>
                 {
-                    var ganancia = p.PrecioVenta - p.PrecioCompra;
-                    var margenPorcentaje = CalcularMargenPorcentaje(ganancia, p.PrecioVenta);
+                    // H10/D5: PrecioVenta incluye IVA; ganancia y margen se calculan sobre el precio neto (sin IVA).
+                    var precioVentaNeto = VentasNetas.SinIva(p.PrecioVenta, ProductoIvaResolver.ResolverPorcentajeIVAProducto(p));
+                    var ganancia = precioVentaNeto - p.PrecioCompra;
+                    var margenPorcentaje = CalcularMargenPorcentaje(ganancia, precioVentaNeto);
 
                     var ventasUltimos30Dias = ventasPorProducto.GetValueOrDefault(p.Id, 0);
                     var rotacionMensual = p.StockActual > 0
@@ -485,6 +530,7 @@ namespace TheBuryProject.Services
                         MarcaNombre = p.Marca?.Nombre,
                         PrecioCompra = p.PrecioCompra,
                         PrecioVenta = p.PrecioVenta,
+                        PrecioVentaNeto = precioVentaNeto,
                         Ganancia = ganancia,
                         MargenPorcentaje = margenPorcentaje,
                         StockActual = p.StockActual,
@@ -651,7 +697,7 @@ namespace TheBuryProject.Services
                             Etiqueta = g.Key.ToString("dd/MM/yyyy"),
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
+                            Ganancia = g.Sum(GananciaNetaDeVenta)
                         })
                         .ToList(),
 
@@ -663,7 +709,7 @@ namespace TheBuryProject.Services
                             Etiqueta = $"{g.Key.Month:D2}/{g.Key.Year}",
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
+                            Ganancia = g.Sum(GananciaNetaDeVenta)
                         })
                         .ToList(),
 
@@ -676,7 +722,7 @@ namespace TheBuryProject.Services
                             Etiqueta = g.Key,
                             Monto = g.Sum(d => d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal),
                             Cantidad = (int)g.Sum(d => d.Cantidad),
-                            Ganancia = g.Sum(d => (d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal) - CalcularCostoTotalDetalle(d))
+                            Ganancia = g.Sum(d => VentasNetas.NetoDeLinea(d) - CalcularCostoTotalDetalle(d))
                         })
                         .OrderByDescending(v => v.Monto)
                         .ToList(),
@@ -696,6 +742,16 @@ namespace TheBuryProject.Services
 
         internal static decimal CalcularMargenPorcentaje(decimal ganancia, decimal @base) =>
             @base > 0 ? (ganancia / @base) * 100 : 0;
+
+        /// <summary>Ganancia de una venta sobre neto sin IVA (H10/D5): ingreso neto sin recargo de débito - costo.</summary>
+        internal static decimal GananciaNetaDeVenta(Venta venta)
+        {
+            var detalles = venta.Detalles
+                .Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
+                .ToList();
+            return VentasNetas.CalcularIngresoNeto(venta, ResolverRecargoDebitoAplicado(venta), detalles)
+                   - detalles.Sum(CalcularCostoTotalDetalle);
+        }
 
         internal static decimal CalcularCostoDetalles(IEnumerable<VentaDetalle> detalles) =>
             detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
@@ -1018,8 +1074,9 @@ namespace TheBuryProject.Services
                 {
                     var producto = g.First().Producto;
                     var montoTotal = g.Sum(d => d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal);
+                    var montoNeto = g.Sum(VentasNetas.NetoDeLinea);
                     var costoTotal = g.Sum(CalcularCostoTotalDetalle);
-                    var gananciaTotal = montoTotal - costoTotal;
+                    var gananciaTotal = montoNeto - costoTotal;
 
                     return new ProductoMasVendidoViewModel
                     {
@@ -1030,7 +1087,7 @@ namespace TheBuryProject.Services
                         CantidadVendida = (int)g.Sum(d => d.Cantidad),
                         MontoTotal = montoTotal,
                         GananciaTotal = gananciaTotal,
-                        MargenPromedio = CalcularMargenPorcentaje(gananciaTotal, montoTotal)
+                        MargenPromedio = CalcularMargenPorcentaje(gananciaTotal, montoNeto)
                     };
                 })
                 .ToList();
@@ -1132,6 +1189,18 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, colIva).Value = reporte.Ventas.Sum(v => v.IVA);
                 worksheet.Cell(row, colRecargo).Value = reporte.TotalRecargoDebito;
                 worksheet.Cell(row, colTotal).Value = reporte.TotalVentas;
+                worksheet.Cell(row, colGanancia).Value = reporte.TotalGananciaVentas;
+                worksheet.Cell(row, colMargen).Value = CalcularMargenPorcentaje(reporte.TotalGananciaVentas, reporte.TotalIngresoNeto);
+
+                // H10/D3: devoluciones del período (por fecha de devolución) y totales netos. Ganancia y margen sin IVA.
+                row++;
+                worksheet.Cell(row, 5).Value = "Devoluciones del período:";
+                worksheet.Cell(row, colTotal).Value = -reporte.TotalDevoluciones;
+                worksheet.Cell(row, colGanancia).Value = -(reporte.TotalDevolucionesNeto - reporte.TotalCostoDevuelto);
+                row++;
+                worksheet.Cell(row, 5).Value = "NETO (ventas - devoluciones):";
+                worksheet.Cell(row, 5).Style.Font.Bold = true;
+                worksheet.Cell(row, colTotal).Value = reporte.TotalVentasNetas;
                 worksheet.Cell(row, colGanancia).Value = reporte.TotalGanancia;
                 worksheet.Cell(row, colMargen).Value = reporte.MargenPromedio;
 
@@ -1354,9 +1423,11 @@ namespace TheBuryProject.Services
                             // Resumen
                             col.Item().Row(row =>
                             {
-                                row.RelativeItem().Text($"Total Ventas: ${reporte.TotalVentas:N2}").Bold();
+                                row.RelativeItem().Text($"Ventas brutas: ${reporte.TotalVentas:N2}").Bold();
+                                row.RelativeItem().Text($"Devoluciones: ${reporte.TotalDevoluciones:N2}").Bold();
+                                row.RelativeItem().Text($"Ventas netas: ${reporte.TotalVentasNetas:N2}").Bold();
                                 row.RelativeItem().Text($"Total Recargo débito: ${reporte.TotalRecargoDebito:N2}").Bold();
-                                row.RelativeItem().Text($"Ganancia: ${reporte.TotalGanancia:N2}").Bold();
+                                row.RelativeItem().Text($"Ganancia (sin IVA): ${reporte.TotalGanancia:N2}").Bold();
                                 row.RelativeItem().Text($"Margen: {reporte.MargenPromedio:N1}%").Bold();
                             });
 

@@ -65,14 +65,21 @@ namespace TheBuryProject.Services
             var clientesNuevosMes = await _context.Clientes.CountAsync(c => !c.IsDeleted && c.CreatedAt >= inicioMes);
 
             // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
-            var ventasRaw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioAnio)
+            var ventasRaw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= inicioAnio)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
-            var ventasHoy     = ventasRaw.Where(v => v.FechaVenta >= hoy && v.FechaVenta < manana).Sum(v => v.Total);
-            var ventasMes     = ventasRaw.Where(v => v.FechaVenta >= inicioMes).Sum(v => v.Total);
+            // H10/D3: las ventas del período se informan netas de devoluciones Aprobadas/Completadas, por FECHA DE
+            // DEVOLUCIÓN (misma definición que ReporteService.GenerarReporteVentasAsync).
+            var devolucionesAnio = await VentasNetas.ObtenerDevolucionesAsync(_context, inicioAnio, null);
+            var ventasHoy     = ventasRaw.Where(v => v.FechaVenta >= hoy && v.FechaVenta < manana).Sum(v => v.Total)
+                                - devolucionesAnio.Where(d => d.Fecha >= hoy && d.Fecha < manana).Sum(d => d.Bruto);
+            var ventasBrutasMes = ventasRaw.Where(v => v.FechaVenta >= inicioMes).Sum(v => v.Total);
+            var devolucionesMes = devolucionesAnio.Where(d => d.Fecha >= inicioMes).ToList();
+            var devolucionesMesTotal = devolucionesMes.Sum(d => d.Bruto);
+            var ventasMes     = ventasBrutasMes - devolucionesMesTotal;
             var cantVentasMes = ventasRaw.Count(v => v.FechaVenta >= inicioMes);
-            var ventasAnio    = ventasRaw.Sum(v => v.Total);
+            var ventasAnio    = ventasRaw.Sum(v => v.Total) - devolucionesAnio.Sum(d => d.Bruto);
             var ticketPromedio = cantVentasMes > 0
                 ? ventasRaw.Where(v => v.FechaVenta >= inicioMes).Average(v => v.Total)
                 : 0;
@@ -152,6 +159,9 @@ namespace TheBuryProject.Services
                 VentasTotalesMes     = ventasMes,
                 CantidadVentasMes    = cantVentasMes,
                 VentasTotalesAnio    = ventasAnio,
+                VentasBrutasMes      = ventasBrutasMes,
+                DevolucionesMes      = devolucionesMesTotal,
+                CantidadDevolucionesMes = devolucionesMes.Count,
                 TicketPromedio       = ticketPromedio,
 
                 CreditosActivos      = creditosActivos,
@@ -203,9 +213,9 @@ namespace TheBuryProject.Services
         {
             var hoy = _reloj.InicioDiaComercial;
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
-            var agregados = await _context.Ventas
+            var agregados = await _context.Ventas.Comerciales()
                 .AsNoTracking()
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= inicioMes)
+                .Where(v => v.FechaVenta >= inicioMes)
                 .Select(v => new { v.Total })
                 .ToListAsync();
 
@@ -276,17 +286,21 @@ namespace TheBuryProject.Services
             var hoy = _reloj.InicioDiaComercial;
             var hace7Dias = hoy.AddDays(-7);
 
-            var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace7Dias)
+            var raw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= hace7Dias)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
+
+            // H10/D3: cada día resta las devoluciones con esa fecha de devolución (puede quedar negativo).
+            var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(_context, hace7Dias, null);
+            var devueltoPorDia = devoluciones.GroupBy(d => d.Fecha.Date).ToDictionary(g => g.Key, g => g.Sum(d => d.Bruto));
 
             var agrupado = raw
                 .GroupBy(v => v.FechaVenta.Date)
                 .Select(g => new VentasPorDiaDto
                 {
                     Fecha = g.Key,
-                    Total = g.Sum(v => v.Total),
+                    Total = g.Sum(v => v.Total) - devueltoPorDia.GetValueOrDefault(g.Key, 0m),
                     Cantidad = g.Count()
                 })
                 .ToDictionary(v => v.Fecha);
@@ -295,7 +309,9 @@ namespace TheBuryProject.Services
             var resultado = new List<VentasPorDiaDto>();
             for (var fecha = hace7Dias.Date; fecha <= hoy; fecha = fecha.AddDays(1))
             {
-                resultado.Add(agrupado.TryGetValue(fecha, out var d) ? d : new VentasPorDiaDto { Fecha = fecha, Total = 0, Cantidad = 0 });
+                resultado.Add(agrupado.TryGetValue(fecha, out var d)
+                    ? d
+                    : new VentasPorDiaDto { Fecha = fecha, Total = -devueltoPorDia.GetValueOrDefault(fecha, 0m), Cantidad = 0 });
             }
 
             return resultado;
@@ -306,20 +322,29 @@ namespace TheBuryProject.Services
             var hace12Meses = _reloj.InicioDiaComercial.AddMonths(-12);
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
-            var raw = await _context.Ventas
-                .Where(v => !v.IsDeleted && EstadosVentaComerciales.Contains(v.Estado) && v.FechaVenta >= hace12Meses)
+            var raw = await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= hace12Meses)
                 .Select(v => new { v.FechaVenta, v.Total })
                 .ToListAsync();
 
-            return raw
-                .GroupBy(v => new { v.FechaVenta.Year, v.FechaVenta.Month })
-                .Select(g => new VentasPorMesDto
+            // H10/D3: cada mes resta las devoluciones con fecha de devolución en ese mes.
+            var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(_context, hace12Meses, null);
+            var devueltoPorMes = devoluciones
+                .GroupBy(d => (d.Fecha.Year, d.Fecha.Month))
+                .ToDictionary(g => g.Key, g => g.Sum(d => d.Bruto));
+
+            var ventasPorMes = raw
+                .GroupBy(v => (v.FechaVenta.Year, v.FechaVenta.Month))
+                .ToDictionary(g => g.Key, g => (Total: g.Sum(v => v.Total), Cantidad: g.Count()));
+
+            return ventasPorMes.Keys.Union(devueltoPorMes.Keys)
+                .Select(k => new VentasPorMesDto
                 {
-                    Anio = g.Key.Year,
-                    Mes = g.Key.Month,
-                    MesNombre = cultura.DateTimeFormat.GetMonthName(g.Key.Month),
-                    Total = g.Sum(v => v.Total),
-                    Cantidad = g.Count()
+                    Anio = k.Year,
+                    Mes = k.Month,
+                    MesNombre = cultura.DateTimeFormat.GetMonthName(k.Month),
+                    Total = ventasPorMes.GetValueOrDefault(k).Total - devueltoPorMes.GetValueOrDefault(k, 0m),
+                    Cantidad = ventasPorMes.GetValueOrDefault(k).Cantidad
                 })
                 .OrderBy(v => v.Anio).ThenBy(v => v.Mes)
                 .ToList();
