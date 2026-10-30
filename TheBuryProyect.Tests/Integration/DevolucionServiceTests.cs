@@ -495,6 +495,79 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(13_134m, acumulado);
     }
 
+    private async Task<(Cliente Cliente, Producto A, Producto B, Venta Venta)> SeedVentaConAjusteNegativoAsync(decimal servicios = 0m)
+    {
+        var cliente = await SeedClienteAsync();
+        var a = await SeedProductoAsync();
+        var b = await SeedProductoAsync();
+        // Productos 7.000 (x3) + 5.752 (x1) = 12.752 (+ armado opcional); Efectivo -5% => total truncado a pesos.
+        var bruto = 12_752m + servicios;
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8], ClienteId = cliente.Id, Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.Efectivo, FechaVenta = DateTime.UtcNow, Total = Math.Floor(bruto * 0.95m),
+            Detalles = new List<VentaDetalle>
+            {
+                new() { ProductoId = a.Id, Cantidad = 3, PrecioUnitario = 2_333.34m, Subtotal = 7_000m, SubtotalFinal = 7_000m, ArmadoSubtotal = servicios },
+                new() { ProductoId = b.Id, Cantidad = 1, PrecioUnitario = 5_752m, Subtotal = 5_752m, SubtotalFinal = 5_752m }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return (cliente, a, b, venta);
+    }
+
+    [Fact]
+    public async Task Crear_ConAjusteNegativoDelMedioDePago_DevolverTodoReintegraExactamenteLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConAjusteNegativoAsync();
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = a.Id, Cantidad = 3 },
+            new() { ProductoId = b.Id, Cantidad = 1 }
+        };
+
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        Assert.Equal(venta.Total, creada.TotalDevolucion);
+    }
+
+    [Fact]
+    public async Task Crear_ConAjusteNegativoDelMedioDePago_ParcialesNuncaExcedenLoCobrado()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConAjusteNegativoAsync();
+        decimal acumulado = 0m;
+        foreach (var cantidad in new[] { 1, 1, 1 })
+        {
+            var dev = await _service.CrearDevolucionAsync(
+                NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = a.Id, Cantidad = cantidad } });
+            acumulado += dev.TotalDevolucion;
+            Assert.True(acumulado < 7_000m);
+        }
+        var ultima = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = b.Id, Cantidad = 1 } });
+        acumulado += ultima.TotalDevolucion;
+
+        Assert.Equal(venta.Total, acumulado);
+    }
+
+    [Fact]
+    public async Task Crear_ConAjusteNegativoYArmado_NoReintegraArmadoNiSuParteDelDescuento()
+    {
+        var (cliente, a, b, venta) = await SeedVentaConAjusteNegativoAsync(servicios: 1_000m);
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = a.Id, Cantidad = 3 },
+            new() { ProductoId = b.Id, Cantidad = 1 }
+        };
+
+        var creada = await _service.CrearDevolucionAsync(NuevaDevolucion(venta, cliente), detalles);
+
+        // Productos + armado = 13.752 -> total 13.064 (-5%); productos reintegran 12.752 menos su parte (688 * 12.752 / 13.752) = 12.114,03 (no el armado).
+        Assert.Equal(12_114.03m, creada.TotalDevolucion);
+        Assert.True(creada.TotalDevolucion < venta.Total);
+    }
+
     [Fact]
     public async Task Crear_SinRecargo_SigueValuandoConLoCobradoSinAgregarNada()
     {
