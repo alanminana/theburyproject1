@@ -304,6 +304,10 @@ public static class CajaConciliacionBuilder
         if (m.Concepto is ConceptoMovimientoCaja.AcreditacionCheque or ConceptoMovimientoCaja.RechazoCheque)
             return CategoriaImpactoCaja.CuentaBancaria;
 
+        // B13: reversión de un cheque ya acreditado asentada en la caja vigente (lleva el ingreso original en MovimientoOrigenId).
+        if (m.Concepto == ConceptoMovimientoCaja.ReversionVenta && m.MovimientoOrigenId.HasValue)
+            return CategoriaImpactoCaja.CuentaBancaria;
+
         var key = m.TipoPago.HasValue ? MedioKey(m.TipoPago.Value) : MedioKey(medioLabel);
         return key switch
         {
