@@ -1844,6 +1844,34 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Convertir_DescuentoGeneralMasDescuentoDeEfectivo_TotalCotizadoYNetoMasIvaCierran()
+    {
+        // 200 de lista con 10 % de linea (180) y descuento general de 30 -> 150; Efectivo -5 % -> 142,50.
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.Efectivo, Nombre = "Efectivo", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.Efectivo, CantidadCuotas = 1, AjustePorcentaje = -5m, Activo = true
+        });
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: 10m);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo;
+        cotizacion.DescuentoTotal += 30m;
+        cotizacion.TotalBase = 150m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await ServicioConPermisoDescuento().ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.Include(v => v.Detalles).AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(30m, venta.Descuento);
+        Assert.Equal(142.50m, venta.Total);
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
+        Assert.True(venta.IVA < venta.Detalles.Sum(d => d.SubtotalFinalIVA));
+    }
+
+    [Fact]
     public async Task Convertir_SoloDescuentoGeneral_SinPermisoDescuento_BloqueaExplicitamente()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);

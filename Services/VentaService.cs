@@ -3859,7 +3859,8 @@ namespace TheBuryProject.Services
         internal static bool NormalizarNetoEIvaDesdeTotal(Venta venta, IEnumerable<VentaDetalle> detalles, decimal serviciosEnTotal)
         {
             var lineas = detalles.Where(d => !d.IsDeleted).ToList();
-            if (lineas.Count == 0 || Math.Abs(venta.Subtotal + venta.IVA - venta.Total) < 0.005m)
+            // Total <= 0 (venta sin importe cobrado, p. ej. descuento del 100 %): no hay nada que discriminar, no se toca.
+            if (lineas.Count == 0 || venta.Total <= 0m || Math.Abs(venta.Subtotal + venta.IVA - venta.Total) < 0.005m)
                 return false;
 
             if (lineas.Any(d => d.SubtotalFinal <= 0m || (d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.PorcentajeIVA > 0m)))

@@ -116,6 +116,9 @@ namespace TheBuryProject.Helpers
             if (Math.Abs(ajuste) < 0.005m)
             {
                 var (n0, i0) = AbsorberTruncado(netoLineas, ivaLineas, truncado);
+                var residuo0 = total - (n0 + i0);
+                if (residuo0 != 0m && Math.Abs(residuo0) <= 0.05m * Math.Max(1, lineas.Count))
+                    i0 += residuo0;
                 return new Discriminacion(Array.Empty<ParteAlicuota>(), truncado, n0, i0);
             }
 
@@ -124,6 +127,11 @@ namespace TheBuryProject.Helpers
                 .Select(p => new ParteAlicuota(p.Porcentaje, signo * p.Bruto, signo * p.Neto, signo * p.Iva))
                 .ToList();
             var (neto, iva) = AbsorberTruncado(netoLineas + partes.Sum(p => p.Neto), ivaLineas + partes.Sum(p => p.Iva), truncado);
+            // Si el snapshot de alguna línea difiere del bruto en centavos (neto + IVA != total de la línea), el centavo se
+            // absorbe en el IVA para que neto + IVA == total cobrado.
+            var residuo = total - (neto + iva);
+            if (residuo != 0m && Math.Abs(residuo) <= 0.05m * Math.Max(1, lineas.Count))
+                iva += residuo;
             return new Discriminacion(partes, truncado, neto, iva);
         }
 

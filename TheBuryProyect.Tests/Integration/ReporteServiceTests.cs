@@ -1881,6 +1881,45 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerarReporteIva_FiltroPorAlicuota_IncluyeElIvaDelEnvioAunqueNingunProductoTengaEsaAlicuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Producto al 10,5 % (110,50) + envio incluido de 1.210 (21 %): total 1.320,50.
+        var venta = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 110.5m, 100m, 10.5m, porcentajeIva: 10.5m);
+        venta.Total = 1_320.5m;
+        _context.VentaEnvios.Add(new VentaEnvio { VentaId = venta.Id, Destinatario = "x", Domicilio = "y", CostoEnvio = 1_210m, IncluidoEnTotal = true });
+        await _context.SaveChangesAsync();
+
+        var r21 = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas", Alicuota = 21m });
+        var r105 = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas", Alicuota = 10.5m });
+
+        Assert.Equal(210m, r21.VentasIva);
+        Assert.Equal(1_210m, r21.VentasTotal);
+        Assert.Equal(1, r21.VentasCantidad);
+        Assert.Equal(10.5m, r105.VentasIva);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_MultiAlicuotaConTruncado_NetoMasIvaIgualAlTotalCobrado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Dos ventas con centavos en el bruto y total truncado a pesos.
+        var v1 = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 100.60m, 83.14m, 17.46m);
+        v1.Total = 100m;
+        var v2 = await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 55.25m, 50m, 5.25m, porcentajeIva: 10.5m);
+        v2.Total = 55m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(155m, resultado.VentasTotal);
+        Assert.Equal(155m, resultado.VentasNeto + resultado.VentasIva);
+        Assert.Equal(2, resultado.VentasPorAlicuota.Count);
+    }
+
+    [Fact]
     public async Task GenerarReporteIva_ExcluyeVentasConfirmadasCanceladasYCotizaciones()
     {
         var cliente = await SeedClienteAsync();

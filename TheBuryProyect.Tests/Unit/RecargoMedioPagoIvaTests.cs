@@ -337,4 +337,49 @@ public class RecargoMedioPagoIvaTests
             Assert.Equal(comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible), resumen.Sum(r => r.Neto));
         }
     }
+
+    [Fact]
+    public void Discriminar_CentavoDeDiferenciaEnElSnapshotDeLaLinea_CierraExactoContraElTotal()
+    {
+        // Linea cuyo neto + IVA suma 0,01 menos que su total (redondeos del snapshot).
+        var lineas = new List<(decimal, decimal, decimal, decimal)> { (21m, 121m, 99.99m, 21m), (10.5m, 110.5m, 100m, 10.5m) };
+
+        foreach (var total in new[] { 231.50m, 220m, 250m })
+        {
+            var d = RecargoMedioPagoIva.Discriminar(total, lineas);
+            Assert.Equal(total, d.Neto + d.Iva);
+        }
+    }
+
+    [Fact]
+    public void Discriminar_TotalCeroONegativo_DevuelveLasLineasSinAjuste()
+    {
+        var lineas = new List<(decimal, decimal, decimal, decimal)> { (21m, 121m, 100m, 21m) };
+
+        var d = RecargoMedioPagoIva.Discriminar(0m, lineas);
+
+        Assert.Empty(d.Partes);
+        Assert.Equal((100m, 21m), (d.Neto, d.Iva));
+    }
+
+    [Fact]
+    public void Normalizar_TotalCero_NoTocaLaVenta()
+    {
+        var detalles = new List<VentaDetalle> { Linea(121m, 21m) };
+        var venta = new Venta { Subtotal = 121m, IVA = 21m, Total = 0m };
+
+        Assert.False(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+        Assert.Equal((121m, 21m), (venta.Subtotal, venta.IVA));
+    }
+
+    [Fact]
+    public void Normalizar_ConDescuentoYCentavoDeSnapshot_CierraExacto()
+    {
+        var detalles = new List<VentaDetalle> { Linea(8_000m, 21m), Linea(4_752m, 10.5m) };
+        detalles[0].SubtotalFinalNeto -= 0.01m;   // neto + IVA = bruto - 0,01
+        var venta = new Venta { Subtotal = 12_752m, IVA = 1m, Total = 12_115m };
+
+        Assert.True(VentaService.NormalizarNetoEIvaDesdeTotal(venta, detalles, 0m));
+        Assert.Equal(12_115m, venta.Subtotal + venta.IVA);
+    }
 }

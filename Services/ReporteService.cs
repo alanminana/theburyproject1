@@ -271,16 +271,13 @@ namespace TheBuryProject.Services
                     foreach (var venta in ventasIva)
                     {
                         var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
-                        if (filtro.Alicuota.HasValue && !detalles.Any(d => d.PorcentajeIVA == filtro.Alicuota.Value))
-                            continue;
-
                         var lineasSinDesglose = detalles.Where(SinDesglose).ToList();
-                        foreach (var d in lineasSinDesglose)
+                        foreach (var d in lineasSinDesglose.Where(d => !filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value))
                             ventasSinDesglose.Add((venta.Id, d.SubtotalFinal));
                         if (lineasSinDesglose.Count > 0)
                         {
                             // Venta con líneas legacy: las líneas con desglose se informan tal cual, sin ajuste de venta.
-                            foreach (var d in detalles.Where(d => !SinDesglose(d)))
+                            foreach (var d in detalles.Where(d => !SinDesglose(d) && (!filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value)))
                                 ventaRows.Add((venta.Id, d.PorcentajeIVA, d.SubtotalFinalNeto, d.SubtotalFinalIVA, d.SubtotalFinal));
                             continue;
                         }
