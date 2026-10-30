@@ -64,7 +64,7 @@ public class ReporteServiceTests : IDisposable
 
     private async Task<Producto> SeedProductoAsync(
         decimal precioCompra = 10m, decimal precioVenta = 50m,
-        decimal stockActual = 20m)
+        decimal stockActual = 20m, decimal porcentajeIva = 21m)
     {
         var codigo = Guid.NewGuid().ToString("N")[..8];
         var cat = new Categoria { Codigo = codigo, Nombre = "Cat-" + codigo, Activo = true };
@@ -78,7 +78,7 @@ public class ReporteServiceTests : IDisposable
             Codigo = codigo, Nombre = "Prod-" + codigo,
             CategoriaId = cat.Id, MarcaId = marca.Id,
             PrecioCompra = precioCompra, PrecioVenta = precioVenta,
-            PorcentajeIVA = 21m, StockActual = stockActual, Activo = true
+            PorcentajeIVA = porcentajeIva, StockActual = stockActual, Activo = true
         };
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
@@ -752,8 +752,8 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_ConProducto_CalculaMargenCorrectamente()
     {
-        // PrecioCompra=10, PrecioVenta=50 → margen = (50-10)/50 * 100 = 80%
-        await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        // H10/D5: PrecioVenta incluye IVA. Alícuota 0 => neto = precio: margen = (50-10)/50 * 100 = 80%
+        await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -766,7 +766,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_ConPrecioListaVigente_UsaPrecioVentaBaseDelProducto()
     {
-        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m, porcentajeIva: 0m);
         var lista = await SeedListaAsync(esPredeterminada: true);
         await SeedPrecioListaAsync(producto.Id, lista.Id, precio: 120m, costo: 10m);
 
@@ -809,9 +809,9 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_Defaults_ConservanClasificacionActual()
     {
-        await SeedProductoAsync(precioCompra: 81m, precioVenta: 100m); // 19% bajo
-        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m); // 35% alto
-        await SeedProductoAsync(precioCompra: 70m, precioVenta: 100m); // 30% normal
+        await SeedProductoAsync(precioCompra: 81m, precioVenta: 100m, porcentajeIva: 0m); // 19% bajo
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m, porcentajeIva: 0m); // 35% alto
+        await SeedProductoAsync(precioCompra: 70m, precioVenta: 100m, porcentajeIva: 0m); // 30% normal
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -824,7 +824,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_MargenExacto20_NoCuentaComoBajo()
     {
-        await SeedProductoAsync(precioCompra: 80m, precioVenta: 100m);
+        await SeedProductoAsync(precioCompra: 80m, precioVenta: 100m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -834,7 +834,7 @@ public class ReporteServiceTests : IDisposable
     [Fact]
     public async Task GenerarReporteMargenes_MargenExacto35_CuentaComoAlto()
     {
-        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m);
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m, porcentajeIva: 0m);
 
         var resultado = await _service.GenerarReporteMargenesAsync();
 
@@ -848,9 +848,9 @@ public class ReporteServiceTests : IDisposable
         await configuracionService.SaveConfiguracionAsync(margenBajoMax: 25m, margenAltoMin: 40m);
         var service = new ReporteService(_context, NullLogger<ReporteService>.Instance, configuracionService);
 
-        await SeedProductoAsync(precioCompra: 76m, precioVenta: 100m); // 24%
-        await SeedProductoAsync(precioCompra: 62m, precioVenta: 100m); // 38%
-        await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m); // 40%
+        await SeedProductoAsync(precioCompra: 76m, precioVenta: 100m, porcentajeIva: 0m); // 24%
+        await SeedProductoAsync(precioCompra: 62m, precioVenta: 100m, porcentajeIva: 0m); // 38%
+        await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m, porcentajeIva: 0m); // 40%
 
         var resultado = await service.GenerarReporteMargenesAsync();
 

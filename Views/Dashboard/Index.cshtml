@@ -146,7 +146,7 @@
                     <a asp-controller="Venta" asp-action="Index" class="card-erp-metric dashboard-kpi-link">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas del mes</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.VentasTotalesMes.ToString("C")</p>
-                        <p class="text-xs text-slate-400 mt-1">@Model.CantidadVentasMes ventas</p>
+                        <p class="text-xs text-slate-400 mt-1">@Model.CantidadVentasMes ventas@(Model.DevolucionesMes > 0 ? $" · netas de {Model.DevolucionesMes.ToString("C")} en devoluciones" : "")</p>
                         <span class="dash-chip dash-kpi-chip dash-tone-success" aria-hidden="true"><span class="material-symbols-outlined">receipt_long</span></span>
                     </a>
                     }

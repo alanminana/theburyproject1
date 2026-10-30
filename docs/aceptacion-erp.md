@@ -1,4 +1,4 @@
-# Matriz de aceptación del ERP — cierre del Hito 9
+﻿# Matriz de aceptación del ERP — cierre del Hito 9
 
 Fecha: 2026-10-30 · `main` `36d57726` · Base real `TheBuryProjectDb` en `20261029012048_H4E2NotaCreditoCanje`.
 
@@ -8,20 +8,20 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 
 | Módulo | Estado | Evidencia principal | Limitaciones / pendiente |
 |---|---|---|---|
-| Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador abre el wizard vacío (decisión de flujo). Venta directa con Transferencia no aplica el plan que sí aplica la cotización. Factura de venta a crédito personal no validada (exige contrato impreso). |
+| Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador abre el wizard vacío (decisión de flujo). Factura de venta a crédito personal: recorrido validado en clon (contrato con PDF → facturar cierra neto + IVA = total); el interés queda fuera de la factura y el tratamiento fiscal espera decisión (`docs/factura-credito-personal.md`). |
 | Caja | Aprobado con limitaciones | QA Caja/cierre/arqueo, concurrencia en SQL Server, #197 | Acreditar y rechazar cheques recibidos implementado en `hito10/cheques` (migración sin aplicar a la base real; ver Cheques). Un solo medio de pago por venta. |
 | Crédito | Aprobado con limitaciones | Crédito personal en la pantalla única, #161, #166 | El job de vencimiento de borradores no corrió aún contra la base real (debe cancelar solo las ventas 1003 y 1006; plazo de 7 días provisorio). El interés del crédito queda fuera de la factura de venta (D1). |
 | Mora y Acuerdos | Aprobado con limitaciones | Smoke en clon (crear, activar, cobrar, cumplir, incumplir, auditoría), acuerdos con pagos no efectivos y punitorio > 0, #169 | `DiasParaCumplirPromesa`: lectura conservadora (días de espera tras la fecha prometida); hoy NULL. Una sola instancia de la app. |
 | Cheques | **Implementado en PR, a la espera de autorización de migración** (estado final: decisión del propietario) | `docs/cheques-circuito-propuesta.md` §6, `docs/cheques-migracion-autorizacion.md`; D1-A y D2-A autorizadas, D3-D6 aplicadas; tests de servicio, autorización/IDOR/antiforgery y concurrencia en SQL Server (RCSI 0 y 1); QA visual 1280 y 390 sobre clon | Migración `H10ChequesRecibidos` **sin aplicar a la base real**. Cuota con cheque solo desde «Pagar cuota» individual; si el cheque de una cuota rebota, la cuota no se revierte (decisión D5 pendiente). Cancelar una venta con cheque de caja ya cerrada sigue fallando. Hasta aplicar la migración, **no usar «Cheque» como medio de pago**. |
 | Compras | Aprobado con limitaciones | QA OC completa, recepción parcial, concurrencia, #171, #202 | Costo del producto manual (no se actualiza al recibir). Cancelar una OC parcial conserva el stock (sin devolución al proveedor). Sin cuentas ni pagos a proveedor. |
 | Stock | Aprobado | Stock = Σ movimientos para los 16 productos, Kardex sin cortes, recepción idempotente | — |
-| Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). Reportes y Dashboard no restan devoluciones (D3). |
+| Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
 | Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202 | Consulta BCRA con tope de 6 s (provisorio aceptado). |
 | Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
-| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Suman ventas sin restar devoluciones (D3). «Ganancia» incluye IVA (D5). |
-| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» sin netear devoluciones (D3). |
+| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
+| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» neta de devoluciones (H10); ticket promedio sigue bruto. |
 | Notificaciones | Aprobado con limitaciones | Campana conectada, #180 | Llegada en vivo por SignalR sin validar. |
 | Tickets | Aprobado con limitaciones | Alta, estados, adjuntos, checklist | Acciones masivas por UI sin recorrer con clics. |
 | Configuración | Aprobado | Empresa, prefijos, mora, crédito, medios de pago persisten | — |
