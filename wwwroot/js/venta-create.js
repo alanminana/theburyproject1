@@ -72,6 +72,9 @@
         NotaCredito: '9'
     };
 
+    // Si el medio anterior era Efectivo/Transferencia (llevan ajuste de plan de 1 pago): ver onTipoPagoChange.
+    let tipoPagoUnPagoPrevio = false;
+
     const TIPO_CUOTA_TARJETA = {
         SinInteres: 0,
         ConInteres: 1
@@ -1885,6 +1888,10 @@
         return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito;
     }
 
+    function esTipoPagoUnPago(tipoPago) {
+        return tipoPago === TIPO_PAGO.Efectivo || tipoPago === TIPO_PAGO.Transferencia;
+    }
+
     function esTipoPagoConPlanes(tipoPago) {
         return tipoPago === TIPO_PAGO.TarjetaCredito ||
                tipoPago === TIPO_PAGO.TarjetaDebito ||
@@ -1951,6 +1958,14 @@
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
         renderDetalles();
         verificarElegibilidadAuto();
+
+        // Efectivo/Transferencia llevan el descuento o recargo de su plan de 1 pago, que calcula el servidor (H10, D4): al
+        // entrar o salir de esos medios el total se recalcula. Los medios que exigen elegir un plan lo recalculan al elegirlo.
+        const unPagoAhora = esTipoPagoUnPago(val);
+        if (esInicializacion !== true && (unPagoAhora || (tipoPagoUnPagoPrevio && !esTipoPagoConPlanes(val)))) {
+            recalcularTotales();
+        }
+        tipoPagoUnPagoPrevio = unPagoAhora;
     }
 
     // ── 7. Card Payment ───────────────────────────────────────────────

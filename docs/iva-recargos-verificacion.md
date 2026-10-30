@@ -33,7 +33,7 @@ Evidencia SQL (clon): 7 facturas emitidas antes del arreglo no cerraban (ventas 
 | H7 | El paso automático de un acuerdo de mora a Cumplido no dejaba evento de auditoría (sí el incumplimiento) | Implementación (baja) | Corregido: `CumplimientoAutomatico` |
 | H8 | Reportes y Dashboard suman `Venta.Total` completo, sin descontar devoluciones ni notas de crédito (9 ventas con devolución completa suman 2.121.412 de las 3.631.412 del mes) | Definición de KPI | Decisión D3 |
 | H9 | "Ganancia" del Reporte de Ventas y Márgenes = total con IVA - costo; el margen incluye el IVA y el recargo financiero (salvo débito) | Definición de KPI / fiscal | Decisión D5 |
-| H10 | Venta directa con Transferencia no aplica el plan de +3 % que sí aplica la cotización (mismo medio, distinto precio según el origen) | Funcional | Decisión D4 |
+| H10 | Venta directa con Transferencia no aplica el plan de +3 % que sí aplica la cotización (mismo medio, distinto precio según el origen) | Funcional | **Resuelto en el Hito 10** (D4, ver sección 5) |
 
 Sin defectos: cancelación de venta pagada con nota de crédito (el saldo vuelve a Vigente, la caja se revierte, el reintento responde "La venta ya está cancelada" sin doble restitución, también facturada: factura anulada y stock repuesto) y acuerdos de pago con Transferencia, Tarjeta crédito y Tarjeta débito y punitorio > 0 (ver QA en el informe del PR).
 
@@ -69,3 +69,15 @@ Decisiones no bloqueantes (recomendación entre paréntesis):
 - D5. Definir "ganancia" y margen sobre neto (sin IVA) y separar el recargo financiero (recomendado).
 - D7. Devolución con descuento del medio de pago o centavos truncados: reembolso mayor que lo cobrado; corrección en curso por otro agente (no se repite aquí). Con este PR el descuento ya queda discriminado en `Venta.IVA`, lo que esa corrección puede usar.
 - D6. El recargo cobrado al pagar una cuota con Transferencia (+3 %, p. ej. 300 sobre 10.000) entra a caja pero no se factura ni se discrimina.
+
+## 5. Hito 10: D4 resuelto (venta directa con Efectivo / Transferencia)
+
+Se siguió la recomendación de D4 (unificar con la cotización). La venta directa (`Venta/Create`, `CreateAjax` y `Edit`) aplica el plan general de 1 pago de Efectivo o Transferencia con la misma fuente (`AjusteMedioUnPago`) que la conversión de una cotización:
+
+- El servidor es autoritativo: `VentaService.CreateAsync`/`UpdateAsync` aplican el ajuste justo después de `CalcularTotales` (una sola vez; `CalcularTotales` siempre parte de la base de lista) y lo discriminan en neto + IVA con `DiscriminarRecargoEnNetoEIva` (Subtotal + IVA = Total).
+- El preview de totales (`/api/ventas/CalcularTotalesVenta`) devuelve el mismo importe (`TotalConAjustePagoGlobal`), de modo que el wizard muestra el mismo total que se guarda, con la fila «Recargo/Descuento por forma de pago» en Revisión. Al cambiar el medio entre Efectivo, Transferencia y otros el wizard recalcula.
+- Convertir una cotización y editar la venta resultante no aplica el ajuste dos veces (cubierto por tests y verificado en el clon).
+- Con la configuración real (Efectivo -5 %, Transferencia +3 %), una venta directa de 182.499,00 cobra 173.374,05 (Efectivo) y 187.973,97 (Transferencia), igual que la misma venta cotizada: Subtotal + IVA = Total, la factura cierra y la caja registra el total.
+- **Cambio de comportamiento a tener presente:** la venta directa en Efectivo ahora cobra con el descuento del plan configurado (antes cobraba a precio de lista). Si el negocio no quiere descuento en el mostrador, se desactiva en el plan de Efectivo (Configuración de pagos), no en el código. Una venta directa ya creada no cambia hasta que se edite.
+- Sin plan activo, o con ajuste 0, no hay cambio.
+
