@@ -158,10 +158,7 @@
                                     <td class="px-4 py-3 text-slate-400">@p.CategoriaNombre</td>
                                     <td class="px-4 py-3 text-slate-400">@(p.MarcaNombre ?? "—")</td>
                                     <td class="px-4 py-3 text-right text-slate-400">$@p.PrecioCompra.ToString("N2")</td>
-                                    <td class="px-4 py-3 text-right text-slate-100">
-                                        $@p.PrecioVenta.ToString("N2")
-                                        <span class="block text-xs text-slate-400">neto $@p.PrecioVentaNeto.ToString("N2")</span>
-                                    </td>
+                                    <td class="px-4 py-3 text-right text-slate-100" title="Neto sin IVA: $@p.PrecioVentaNeto.ToString("N2")">$@p.PrecioVenta.ToString("N2")</td>
                                     <td class="px-4 py-3 text-right">
                                         <span class="font-semibold @margenColor">@p.MargenPorcentaje.ToString("N1")%</span>
                                         <span class="block text-xs text-slate-400">@p.MargenCategoria</span>

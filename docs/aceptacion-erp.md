@@ -15,13 +15,13 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Cheques | **Bloqueado** | `docs/cheques-circuito-propuesta.md` | Sin acreditación en la interfaz, sin rechazo, acreditar inviable para cheques diferidos, devolución en efectivo sin mirar el cheque, cuota con cheque cuenta al instante. Decisiones indispensables D1 y D2. **No usar «Cheque» como medio de pago hasta resolverlas.** |
 | Compras | Aprobado con limitaciones | QA OC completa, recepción parcial, concurrencia, #171, #202 | Costo del producto manual (no se actualiza al recibir). Cancelar una OC parcial conserva el stock (sin devolución al proveedor). Sin cuentas ni pagos a proveedor. |
 | Stock | Aprobado | Stock = Σ movimientos para los 16 productos, Kardex sin cortes, recepción idempotente | — |
-| Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque pendiente: pendiente de D4. Reportes y Dashboard no restan devoluciones (D3). |
+| Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque pendiente: pendiente de D4. |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
 | Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202 | Consulta BCRA con tope de 6 s (provisorio aceptado). |
 | Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
-| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Suman ventas sin restar devoluciones (D3). «Ganancia» incluye IVA (D5). |
-| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» sin netear devoluciones (D3). |
+| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
+| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» neta de devoluciones (H10); ticket promedio sigue bruto. |
 | Notificaciones | Aprobado con limitaciones | Campana conectada, #180 | Llegada en vivo por SignalR sin validar. |
 | Tickets | Aprobado con limitaciones | Alta, estados, adjuntos, checklist | Acciones masivas por UI sin recorrer con clics. |
 | Configuración | Aprobado | Empresa, prefijos, mora, crédito, medios de pago persisten | — |
