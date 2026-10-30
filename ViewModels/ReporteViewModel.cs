@@ -28,9 +28,36 @@ namespace TheBuryProject.ViewModels
     public class ReporteVentasResultadoViewModel
     {
         public List<VentaReporteItemViewModel> Ventas { get; set; } = new();
+
+        /// <summary>Ventas brutas del período: Σ Venta.Total (con IVA), sin descontar devoluciones.</summary>
         public decimal TotalVentas { get; set; }
+
+        /// <summary>
+        /// Devoluciones (Aprobadas o Completadas) con fecha de devolución dentro del período, con IVA, valuadas por lo
+        /// realmente cobrado (<c>Devolucion.TotalDevolucion</c>). Pueden corresponder a ventas de períodos anteriores.
+        /// </summary>
+        public decimal TotalDevoluciones { get; set; }
+        public int CantidadDevoluciones { get; set; }
+
+        /// <summary>Porción neta (sin IVA) de las devoluciones del período.</summary>
+        public decimal TotalDevolucionesNeto { get; set; }
+
+        /// <summary>Costo de las unidades devueltas (costo de la venta original), que se revierte de la ganancia.</summary>
+        public decimal TotalCostoDevuelto { get; set; }
+
+        /// <summary>Ventas netas de devoluciones (con IVA): <see cref="TotalVentas"/> - <see cref="TotalDevoluciones"/>.</summary>
+        public decimal TotalVentasNetas => TotalVentas - TotalDevoluciones;
+
+        /// <summary>Ingreso neto sin IVA de las ventas del período (sin recargo de débito), antes de devoluciones.</summary>
+        public decimal TotalIngresoNeto { get; set; }
+
+        /// <summary>Σ ganancia por venta (sin IVA), antes de devoluciones.</summary>
+        public decimal TotalGananciaVentas { get; set; }
+
         public decimal TotalRecargoDebito { get; set; }
         public decimal TotalCosto { get; set; }
+
+        /// <summary>Ganancia neta: ingreso neto sin IVA - costo, menos la porción neta devuelta más el costo revertido.</summary>
         public decimal TotalGanancia { get; set; }
         public decimal MargenPromedio { get; set; }
         public int CantidadVentas { get; set; }
@@ -63,6 +90,9 @@ namespace TheBuryProject.ViewModels
         public decimal RecargoDebitoAplicado { get; set; }
         public decimal Total { get; set; }
         public decimal TotalProductos => Total - RecargoDebitoAplicado;
+
+        /// <summary>Ingreso neto sin IVA de la venta, sin el recargo de débito (base de la ganancia y del margen).</summary>
+        public decimal IngresoNeto { get; set; }
         public decimal Costo { get; set; }
         public decimal Ganancia { get; set; }
         public decimal MargenPorcentaje { get; set; }
@@ -124,6 +154,9 @@ namespace TheBuryProject.ViewModels
         public string? MarcaNombre { get; set; }
         public decimal PrecioCompra { get; set; }
         public decimal PrecioVenta { get; set; }
+
+        /// <summary>Precio de venta sin IVA (a la alícuota vigente del producto): base de la ganancia y del margen.</summary>
+        public decimal PrecioVentaNeto { get; set; }
         public decimal Ganancia { get; set; }
         public decimal MargenPorcentaje { get; set; }
         public decimal StockActual { get; set; }

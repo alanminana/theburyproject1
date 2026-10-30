@@ -8,9 +8,14 @@ namespace TheBuryProject.ViewModels
         public int TotalClientes { get; set; }
         public int ClientesActivos { get; set; }
         public int ClientesNuevosMes { get; set; }
+        // Ventas netas de devoluciones (con IVA): brutas del período - devoluciones Aprobadas/Completadas con fecha de
+        // devolución en el período. Misma definición que ReporteService.GenerarReporteVentasAsync.
         public decimal VentasTotalesHoy { get; set; }
         public decimal VentasTotalesMes { get; set; }
         public decimal VentasTotalesAnio { get; set; }
+        public decimal VentasBrutasMes { get; set; }
+        public decimal DevolucionesMes { get; set; }
+        public int CantidadDevolucionesMes { get; set; }
         public int CantidadVentasMes { get; set; }
         public decimal TicketPromedio { get; set; }
 
