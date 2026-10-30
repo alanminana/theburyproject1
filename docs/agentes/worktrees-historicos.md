@@ -32,6 +32,8 @@ Estados: **contenido en main** (0 commits únicos), **integrado en esta PR**, **
 
 Retiro preparado (Hito 10): `scripts/git/retirar-worktrees-redundantes.ps1` es DRY-RUN por defecto; con `-Ejecutar` retira solo el worktree de las 15 ramas de esta sección si en ese momento están limpias y sin commits únicos (`git cherry`). Conserva siempre la rama y sus commits y no usa `--force`. Verificado en dry-run el 2026-10-30: las 15 cumplen. Falta la autorización específica para ejecutarlo.
 
+**Retirados el 2026-10-30 (autorizado por el propietario):** com-s-005, fin-s-006, integracion, integracion-v2, mora-cfg-fix, mora-clientes, prd-p0, prd-p1, qa-fin-conc, qa-fin-conc-p0, qa-fin-tx, qa-prd-tx, qa-v3, sec-s-003 y seg-p0 (15 de 15 superaron los controles: limpios, sin archivos sin seguimiento y sin commits únicos). Las ramas y sus commits se conservan. Los archivos ignorados por Git (evidencias de QA, uploads de prueba, claves de desarrollo; 345 archivos) se copiaron antes a `D:/tmp/worktrees-retirados-ignorados/<nombre>/`. Los demás worktrees de este inventario no se tocaron.
+
 ## 2. Trabajo único integrado en esta PR
 
 | Ruta | Rama | Qué había sin integrar | Resultado |
