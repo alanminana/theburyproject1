@@ -1,0 +1,41 @@
+# Matriz de aceptación del ERP — cierre del Hito 9
+
+Fecha: 2026-10-30 · `main` `36d57726` · Base real `TheBuryProjectDb` en `20261029012048_H4E2NotaCreditoCanje`.
+
+Estados: **Aprobado** (completo y probado) · **Aprobado con limitaciones** (funciona dentro de un alcance explícito y seguro) · **Bloqueado** (defecto o decisión indispensable pendiente) · **Diferido** (fuera del alcance inicial por decisión del propietario).
+
+Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR, recorridos en clones de la base real con contraste SQL, barridos dinámicos con roles. Nada se probó sobre datos reales.
+
+| Módulo | Estado | Evidencia principal | Limitaciones / pendiente |
+|---|---|---|---|
+| Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador abre el wizard vacío (decisión de flujo). Venta directa con Transferencia no aplica el plan que sí aplica la cotización. Factura de venta a crédito personal no validada (exige contrato impreso). |
+| Caja | Aprobado con limitaciones | QA Caja/cierre/arqueo, concurrencia en SQL Server, #197 | Sin acreditación de cheques en la interfaz (ver Cheques). Un solo medio de pago por venta. |
+| Crédito | Aprobado con limitaciones | Crédito personal en la pantalla única, #161, #166 | El job de vencimiento de borradores no corrió aún contra la base real (debe cancelar solo las ventas 1003 y 1006; plazo de 7 días provisorio). El interés del crédito queda fuera de la factura de venta (D1). |
+| Mora y Acuerdos | Aprobado con limitaciones | Smoke en clon (crear, activar, cobrar, cumplir, incumplir, auditoría), acuerdos con pagos no efectivos y punitorio > 0, #169 | `DiasParaCumplirPromesa`: lectura conservadora (días de espera tras la fecha prometida); hoy NULL. Una sola instancia de la app. |
+| Cheques | **Bloqueado** | `docs/cheques-circuito-propuesta.md` | Sin acreditación en la interfaz, sin rechazo, acreditar inviable para cheques diferidos, devolución en efectivo sin mirar el cheque, cuota con cheque cuenta al instante. Decisiones indispensables D1 y D2. **No usar «Cheque» como medio de pago hasta resolverlas.** |
+| Compras | Aprobado con limitaciones | QA OC completa, recepción parcial, concurrencia, #171, #202 | Costo del producto manual (no se actualiza al recibir). Cancelar una OC parcial conserva el stock (sin devolución al proveedor). Sin cuentas ni pagos a proveedor. |
+| Stock | Aprobado | Stock = Σ movimientos para los 16 productos, Kardex sin cortes, recepción idempotente | — |
+| Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque pendiente: pendiente de D4. Reportes y Dashboard no restan devoluciones (D3). |
+| Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
+| Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202 | Consulta BCRA con tope de 6 s (provisorio aceptado). |
+| Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. |
+| Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
+| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Suman ventas sin restar devoluciones (D3). «Ganancia» incluye IVA (D5). |
+| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» sin netear devoluciones (D3). |
+| Notificaciones | Aprobado con limitaciones | Campana conectada, #180 | Llegada en vivo por SignalR sin validar. |
+| Tickets | Aprobado con limitaciones | Alta, estados, adjuntos, checklist | Acciones masivas por UI sin recorrer con clics. |
+| Configuración | Aprobado | Empresa, prefijos, mora, crédito, medios de pago persisten | — |
+| Seguridad | Aprobado | Barrido dinámico de 506 acciones con 10 identidades, antiforgery, IDOR, XSS, auditoría ampliada, #162, #184–#186, #202 | Webhook de Mercado Libre anónimo (firma diferida). Hallazgos bajos documentados. |
+| Infraestructura y recuperación | Aprobado con limitaciones | Pila Docker desde cero con 133 migraciones, backup y restauración con conteos y checksum idénticos, recuperación desde la copia externa en 44 s, #181, #200, #201 | **Copia fuera del servidor sin configurar** (falta el proveedor y sus credenciales). IP de la VPN y firewall del host sin definir. Una sola instancia de la app. Licencia de AutoMapper diferida. |
+
+## Veredicto
+
+**Listo para uso local con limitaciones.** El circuito principal (cotizar, vender, cobrar, facturar, devolver, comprar, controlar stock, crédito y mora) funciona, está integrado en `main` y fue probado de punta a punta.
+
+Condiciones: no usar Cheque como medio de pago hasta resolver D1 y D2; verificar el job de borradores en la primera ejecución real; configurar la copia externa antes de operar con datos de producción.
+
+## Decisiones indispensables del propietario
+
+1. **Cheques D1** — acreditación (recomendada: manual, asentada en la caja abierta vigente).
+2. **Cheques D2** — rechazo (recomendado: registrar y dejar la venta marcada para resolver a mano).
+3. **IVA D1** — tratamiento del interés de financiación y del recargo del medio de pago (recomendado: mantener el vigente, a la alícuota de los ítems, hasta validación del contador).
