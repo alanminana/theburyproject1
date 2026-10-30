@@ -508,6 +508,23 @@ public class MoraServiceTests : IDisposable
         return (cliente, credito, alerta, acuerdo);
     }
 
+    [Theory]
+    [InlineData("Cheque")]
+    [InlineData("cheque")]
+    public async Task PagoAcuerdo_ConCheque_SeRechazaAntesDeCrearIntencionesNiCobrar(string medio)
+    {
+        // D5 (propietario): los acuerdos cobran cuotas por el circuito de cuotas, que no acepta cheques.
+        var (cliente, _, _, acuerdo) = await SeedAcuerdoActivoConDeudaAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarPagoAcuerdoAsync(acuerdo.Id, cliente.Id, medio, "R-CHQ"));
+
+        Assert.Contains("No se aceptan cheques", ex.Message);
+        Assert.Empty(_creditoServiceFake.Cobros);
+        _context.ChangeTracker.Clear();
+        Assert.Empty(await _context.AcuerdoPagoImputaciones.AsNoTracking().ToListAsync());
+    }
+
     [Fact]
     public async Task PagoAcuerdo_Entrega_ImputaALaCuotaVencidaMasVieja()
     {

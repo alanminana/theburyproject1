@@ -710,8 +710,7 @@ namespace TheBuryProject.Services
                     MedioPago = comando.MedioPago,
                     ComprobantePago = comando.Comprobante,
                     Observaciones = comando.Observaciones,
-                    OperacionExternaId = comando.OperacionExternaId,
-                    Cheque = comando.Cheque
+                    OperacionExternaId = comando.OperacionExternaId
                 },
                 ModoCobroCuota.PagoManual,
                 comando.CuotaRowVersionEsperada,
@@ -915,7 +914,6 @@ namespace TheBuryProject.Services
 
             var medioPago = NormalizarMedioPago(pago.MedioPago);
             await ValidarMedioPagoHabilitadoAsync(medioPago);
-            var detalleCheque = await ValidarDatosChequeCuotaAsync(medioPago, pago.Cheque);
 
             var cajaActiva = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(_currentUserService.GetUsername());
             if (cajaActiva == null)
@@ -935,11 +933,6 @@ namespace TheBuryProject.Services
                 // cancelado ni cancelarse el crédito entre esta comprobación y el commit.
                 await CreditoConcurrencia.BloquearAsync(_context, pago.CreditoId);
                 await AsegurarCreditoAdmiteCobrosAsync(pago.CreditoId);
-
-                // Cheque: duplicado banco+número bajo lock de aplicación, dentro de esta transacción (orden de locks:
-                // Crédito → clave del cheque → Apertura; la clave es una hoja: nadie la pide reteniendo otro lock).
-                if (detalleCheque != null)
-                    await ValidarChequeCuotaNoDuplicadoBajoLockAsync(pago.Cheque!);
 
                 // El adelanto no acepta la cuota que indique el cliente: la resuelve el servidor
                 // aplicando la regla funcional (última cuota pendiente del plan).
@@ -1044,10 +1037,6 @@ namespace TheBuryProject.Services
                     throw new PagoCuotaRechazadoException(
                         MotivoRechazoPagoCuota.Conflicto,
                         "Debe existir una caja abierta para registrar el pago.");
-
-                // D5: el ingreso queda Pendiente de acreditar; los datos del cheque viajan en el asiento de caja.
-                if (detalleCheque != null)
-                    movimientoCaja.MedioPagoDetalle = detalleCheque;
 
                 var aplicacionCobrada = cobro.AplicadoPunitorio > 0m ? infoPunitorio!.Aplicacion : null;
 
@@ -1506,9 +1495,9 @@ namespace TheBuryProject.Services
             if (string.IsNullOrWhiteSpace(medioElegido))
                 return CobroPrimeraCuotaResultado.NoAplica("No se definió el medio de pago de la primera cuota.");
 
+            if (MediosPagoCredito.EsCheque(medioElegido))
+                return CobroPrimeraCuotaResultado.NoAplica(MediosPagoCredito.MensajeChequeNoAdmitido);
             var medioNormalizado = NormalizarMedioPago(medioElegido);
-            if (string.Equals(medioNormalizado, "Cheque", StringComparison.OrdinalIgnoreCase))
-                return CobroPrimeraCuotaResultado.NoAplica(MensajeChequeSoloPagoIndividual);
 
             var primeraCuota = credito.Cuotas
                 .OrderBy(c => c.NumeroCuota)
@@ -1595,8 +1584,6 @@ namespace TheBuryProject.Services
             var rowVersionsEsperadas = DecodificarRowVersionsPorCuota(request.RowVersionsPorCuota);
 
             var medioPago = NormalizarMedioPago(request.MedioPago);
-            if (string.Equals(medioPago, "Cheque", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(MensajeChequeSoloPagoIndividual);
             var observaciones = request.Observaciones?.Trim();
             var fechaPago = _reloj.AhoraUtc;
             var hoyComercial = _reloj.HoyComercial;
@@ -2239,64 +2226,15 @@ namespace TheBuryProject.Services
 
         #region Métodos Privados
 
-        private const string MensajeChequeSoloPagoIndividual =
-            "El cobro con cheque requiere los datos del cheque (banco, número y vencimiento) y queda pendiente de acreditar: " +
-            "registralo desde Pagar cuota, cuota por cuota.";
-
-        /// <summary>
-        /// D5. Con medio Cheque exige banco, número (1-12 dígitos) y vencimiento no anterior a hoy, y devuelve el detalle que se
-        /// guarda en el ingreso de caja. Con otro medio devuelve null. Rechaza también el cheque ya registrado en una venta vigente.
-        /// </summary>
-        private async Task<string?> ValidarDatosChequeCuotaAsync(string medioPago, DatosChequeCuota? cheque)
-        {
-            if (!string.Equals(medioPago, "Cheque", StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            if (cheque == null)
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, MensajeChequeSoloPagoIndividual);
-
-            var banco = cheque.Banco?.Trim();
-            var numero = cheque.Numero?.Trim();
-            if (string.IsNullOrWhiteSpace(banco) || banco.Length > 100)
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, "Indicá el banco del cheque.");
-            if (string.IsNullOrWhiteSpace(numero) || numero.Length > 12 || !numero.All(char.IsAsciiDigit))
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, "El número de cheque debe tener entre 1 y 12 dígitos.");
-            if (cheque.Vencimiento == default)
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, "Indicá el vencimiento del cheque.");
-            if (DateOnly.FromDateTime(cheque.Vencimiento) < _reloj.HoyComercial)
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, "El vencimiento del cheque no puede ser anterior a hoy.");
-
-            return ChequeDuplicados.Detalle(banco, numero, cheque.Vencimiento);
-        }
-
-        /// <summary>
-        /// D5/D6-c: un mismo cheque no puede pagar dos cuotas ni una cuota y una venta. Se llama DENTRO de la transacción del cobro,
-        /// tras tomar el lock de aplicación de la clave normalizada: dos cobros concurrentes (aun en créditos distintos) se
-        /// serializan y el segundo ve al primero.
-        /// </summary>
-        private async Task ValidarChequeCuotaNoDuplicadoBajoLockAsync(DatosChequeCuota cheque)
-        {
-            var banco = ChequeDuplicados.Normalizar(cheque.Banco);
-            var numero = ChequeDuplicados.Normalizar(cheque.Numero);
-            await ChequeDuplicados.BloquearAsync(_context, banco, numero);
-
-            var enVenta = await _context.DatosCheque.AsNoTracking()
-                .AnyAsync(d => !d.IsDeleted && d.Banco == banco && d.NumeroCheque == numero
-                            && !d.Venta.IsDeleted && d.Venta.Estado != EstadoVenta.Cancelada);
-            if (enVenta)
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
-                    $"El cheque {banco} N° {numero} ya está registrado en una venta. No se puede cobrar dos veces.");
-
-            if (await ChequeDuplicados.ExisteEnCuotasAsync(_context, banco, numero))
-                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida,
-                    $"El cheque {banco} N° {numero} ya se usó para cobrar una cuota. No se puede cobrar dos veces.");
-        }
-
         private static string NormalizarMedioPago(string? medioPago)
         {
             var valor = medioPago?.Trim();
             if (string.IsNullOrWhiteSpace(valor))
                 throw new InvalidOperationException("El medio de pago es requerido.");
+
+            // D5: el cheque no es un medio válido para cuotas (único punto de entrada de todos los caminos de cobro).
+            if (MediosPagoCredito.EsCheque(valor))
+                throw new PagoCuotaRechazadoException(MotivoRechazoPagoCuota.SolicitudInvalida, MediosPagoCredito.MensajeChequeNoAdmitido);
 
             if (MediosPagoCredito.TryNormalizar(valor, out var medioPagoPermitido))
                 return medioPagoPermitido;

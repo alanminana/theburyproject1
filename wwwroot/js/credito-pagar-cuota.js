@@ -160,15 +160,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 0);
     });
 
-    // D5: los datos del cheque solo se piden (y se muestran) con el medio Cheque.
-    var bloqueCheque = root.querySelector('[data-pago-cheque-bloque]');
-    function sincronizarCheque() {
-        if (!bloqueCheque || !medio) return;
-        bloqueCheque.hidden = String(medio.value || '').toLowerCase() !== 'cheque';
-    }
-    if (medio) medio.addEventListener('change', sincronizarCheque);
-    sincronizarCheque();
-
     actualizarConfirmacion();
 
     var primerError = root.querySelector('.field-validation-error, .validation-summary-errors');
