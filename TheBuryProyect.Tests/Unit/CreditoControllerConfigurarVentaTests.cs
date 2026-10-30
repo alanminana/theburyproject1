@@ -695,7 +695,7 @@ public class CreditoControllerConfigurarVentaTests
             Estado = EstadoCredito.PendienteConfiguracion,
             MontoAprobado = montoAprobado,
             MontoSolicitado = montoSolicitado,
-            FechaPrimeraCuota = new DateTime(2026, 6, 7)
+            FechaPrimeraCuota = DateTime.Today.AddDays(30)
         };
 
     private static ConfiguracionCreditoVentaViewModel ModeloPost(
@@ -712,7 +712,7 @@ public class CreditoControllerConfigurarVentaTests
             CantidadCuotas = 6,
             TasaMensual = fuente == FuenteConfiguracionCredito.Manual ? 5m : null,
             GastosAdministrativos = 0m,
-            FechaPrimeraCuota = new DateTime(2026, 6, 7),
+            FechaPrimeraCuota = DateTime.Today.AddDays(30),
             FuenteConfiguracion = fuente,
             MetodoCalculo = metodo
         };
