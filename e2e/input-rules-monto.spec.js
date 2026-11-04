@@ -61,11 +61,19 @@ test('validador jQuery: acepta los decimales con coma que el servidor precarga y
             rangoDentro: m.range.call(ctx, '10,00', el, [0, 100]),
             rangoFuera: m.range.call(ctx, '100,50', el, [0, 100]),
             minFuera: m.min.call(ctx, '4,99', el, 5),
+            rangoMilesComaDentro: m.range.call(ctx, '1,234,567', el, [0, 20000000]),
+            rangoMilesComaFuera: m.range.call(ctx, '25,000,000', el, [0, 20000000]),
+            rangoAngloDentro: m.range.call(ctx, '250,000.00', el, [0, 20000000]),
+            rangoAngloFuera: m.range.call(ctx, '20,000,000.50', el, [0, 20000000]),
+            maxAngloDecimal: m.max.call(ctx, '1,234.5', el, 1234.5),
+            minAngloDecimalFuera: m.min.call(ctx, '1,234.5', el, 1235),
             maxDentro: m.max.call(ctx, '4,99', el, 5),
         };
     });
     expect(r).toEqual({
         numeroEsAr: true, numeroMiles: true, numeroAnglo: true, numeroMilesPunto: true, numeroBasura: false, numeroLetras: false,
-        rangoDentro: true, rangoFuera: false, minFuera: false, maxDentro: true,
+        rangoDentro: true, rangoFuera: false,
+        rangoMilesComaDentro: true, rangoMilesComaFuera: false, rangoAngloDentro: true, rangoAngloFuera: false,
+        maxAngloDecimal: true, minAngloDecimalFuera: false, minFuera: false, maxDentro: true,
     });
 });

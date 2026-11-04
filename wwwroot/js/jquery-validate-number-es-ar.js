@@ -39,18 +39,18 @@
         return this.optional(element) || anglosajon.test(value) || esFormatoEsAr(value);
     };
 
-    // Con un valor en formato es-AR se compara el número real; el resto sigue en los métodos originales.
+    // Con cualquier formato numérico admitido por "number" (es-AR, anglosajón, con miles) se compara el número real; si no
+    // es un número, siguen los métodos originales (que lo rechazan igual que antes).
     methods.min = function (value, element, param) {
-        return esFormatoEsAr(('' + value).trim()) ? this.optional(element) || aNumero(value) >= param : minOriginal.call(this, value, element, param);
+        var n = aNumero(value);
+        return isNaN(n) ? minOriginal.call(this, value, element, param) : this.optional(element) || n >= param;
     };
     methods.max = function (value, element, param) {
-        return esFormatoEsAr(('' + value).trim()) ? this.optional(element) || aNumero(value) <= param : maxOriginal.call(this, value, element, param);
+        var n = aNumero(value);
+        return isNaN(n) ? maxOriginal.call(this, value, element, param) : this.optional(element) || n <= param;
     };
     methods.range = function (value, element, param) {
-        if (!esFormatoEsAr(('' + value).trim())) {
-            return rangeOriginal.call(this, value, element, param);
-        }
         var n = aNumero(value);
-        return this.optional(element) || (n >= param[0] && n <= param[1]);
+        return isNaN(n) ? rangeOriginal.call(this, value, element, param) : this.optional(element) || (n >= param[0] && n <= param[1]);
     };
 })(window.jQuery);
