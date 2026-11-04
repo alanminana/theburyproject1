@@ -233,7 +233,7 @@ test.describe('Venta/Create — paso Cotizar', () => {
         for (const term of ['an', 'el', 'or', 'ar', 'al']) {
             await page.fill('#cotizacion-producto-buscar', term);
             const item = page.locator('#cotizacion-productos-dropdown button, #cotizacion-productos-dropdown [role=option], #cotizacion-productos-dropdown li').first();
-            if (await item.isVisible({ timeout: 2500 }).catch(() => false)) {
+            if (await item.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) {
                 await item.click();
                 cargado = true;
                 break;
@@ -286,5 +286,10 @@ test.describe('Venta/Edit — sin paso Cotizar', () => {
         await expect(page.locator('#hdn-cliente-id')).not.toHaveValue('');
         await irAlPaso(page, 'productos');
         expect(await page.locator('#tbody-detalles tr').count()).toBeGreaterThanOrEqual(1);
+
+        // H11: "Guardar sin confirmar" sólo guarda en Revisión; fuera de ahí el submit del wizard avanza, así que no se muestra.
+        await expect(page.locator('#btn-guardar-sin-confirmar')).toBeHidden();
+        await irAlPaso(page, 'revision');
+        await expect(page.locator('#btn-guardar-sin-confirmar')).toBeVisible();
     });
 });
