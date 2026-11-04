@@ -11,11 +11,17 @@
     var anglosajon = /^(?:-?\d+|-?\d{1,3}(?:,\d{3})+)?(?:\.\d+)?$/;
     // es-AR: "1234,56" o "1.234,56" (la coma decimal es obligatoria; sin ella rige el formato anterior).
     var esAr = /^-?(?:\d+|\d{1,3}(?:\.\d{3})+),\d+$/;
+    // Miles repetidos con punto y sin decimales ("1.234.567"): el servidor los lee como miles (DecimalParsingHelper).
+    var milesPunto = /^-?\d{1,3}(?:\.\d{3}){2,}$/;
+
+    function esFormatoEsAr(texto) {
+        return esAr.test(texto) || milesPunto.test(texto);
+    }
 
     // Valor numérico de un texto ya validado como número; NaN si no lo es.
     function aNumero(value) {
         var texto = ('' + value).trim();
-        if (esAr.test(texto)) {
+        if (esFormatoEsAr(texto)) {
             return parseFloat(texto.replace(/\./g, '').replace(',', '.'));
         }
         if (anglosajon.test(texto) && texto !== '') {
@@ -30,18 +36,18 @@
     var rangeOriginal = methods.range;
 
     methods.number = function (value, element) {
-        return this.optional(element) || anglosajon.test(value) || esAr.test(value);
+        return this.optional(element) || anglosajon.test(value) || esFormatoEsAr(value);
     };
 
     // Con un valor en formato es-AR se compara el número real; el resto sigue en los métodos originales.
     methods.min = function (value, element, param) {
-        return esAr.test(('' + value).trim()) ? this.optional(element) || aNumero(value) >= param : minOriginal.call(this, value, element, param);
+        return esFormatoEsAr(('' + value).trim()) ? this.optional(element) || aNumero(value) >= param : minOriginal.call(this, value, element, param);
     };
     methods.max = function (value, element, param) {
-        return esAr.test(('' + value).trim()) ? this.optional(element) || aNumero(value) <= param : maxOriginal.call(this, value, element, param);
+        return esFormatoEsAr(('' + value).trim()) ? this.optional(element) || aNumero(value) <= param : maxOriginal.call(this, value, element, param);
     };
     methods.range = function (value, element, param) {
-        if (!esAr.test(('' + value).trim())) {
+        if (!esFormatoEsAr(('' + value).trim())) {
             return rangeOriginal.call(this, value, element, param);
         }
         var n = aNumero(value);

@@ -94,6 +94,11 @@
     // punto final cuando hay ambos tipos).
     function sanitizeMontoTexto(value, previo) {
         var v = String(value || '').replace(/[^\d.,]/g, '');
+        // Formato anglosajón con ambos separadores ("250,000.00"): el servidor lo lee con el MISMO contrato (el último es
+        // el decimal), pero se lleva a es-AR acá para que lo escrito y lo guardado coincidan a simple vista.
+        if (v.indexOf('.') !== -1 && v.indexOf(',') !== -1 && v.lastIndexOf('.') > v.lastIndexOf(',')) {
+            v = v.replace(/,/g, '').replace('.', ',');
+        }
         var ultimo = Math.max(v.lastIndexOf('.'), v.lastIndexOf(','));
         if (ultimo !== -1) {
             var cola = v.slice(ultimo + 1);

@@ -54,16 +54,31 @@ public class DecimalParsingHelperTests
         Assert.Equal(1234.56m, value);
     }
 
-    [Fact]
-    public void TryParseFlexibleDecimal_FormatoMixtoIngles_CaracterizaComportamientoActual()
+    // H11: antes se "caracterizaba" que "1,234.56" valía 1,23456 (el normalizador asumía siempre el orden es-AR y borraba el
+    // punto decimal): un importe 1000 veces menor sin aviso. Con ambos separadores el último es el decimal.
+    [Theory]
+    [InlineData("1,234.56", 1234.56)]
+    [InlineData("250,000.00", 250000.00)]
+    [InlineData("1.234,56", 1234.56)]
+    [InlineData("250.000,00", 250000.00)]
+    [InlineData("1.234.567", 1234567)]
+    [InlineData("1,234,567", 1234567)]
+    [InlineData("-1.234.567,5", -1234567.5)]
+    public void TryParseFlexibleDecimal_Mixto_ElUltimoSeparadorEsElDecimal_Y_LosRepetidosSonMiles(string raw, double esperado)
     {
-        var parsed = DecimalParsingHelper.TryParseFlexibleDecimal(
-            "1,234.56",
-            out var value,
-            allowMixedSeparators: true);
+        var parsed = DecimalParsingHelper.TryParseFlexibleDecimal(raw, out var value, allowMixedSeparators: true);
 
         Assert.True(parsed);
-        Assert.Equal(1.23456m, value);
+        Assert.Equal((decimal)esperado, value);
+    }
+
+    [Theory]
+    [InlineData("1.2.3")]
+    [InlineData("12.34.567")]
+    [InlineData("1,23,456")]
+    public void TryParseFlexibleDecimal_SeparadoresRepetidosSinGruposDeTres_SeRechazan(string raw)
+    {
+        Assert.False(DecimalParsingHelper.TryParseFlexibleDecimal(raw, out _, allowMixedSeparators: true));
     }
 
     [Fact]

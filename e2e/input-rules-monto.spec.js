@@ -20,6 +20,9 @@ const CASOS = [
     ['250000', '250000'],
     ['250.000,00', '250.000,00'],      // miles con punto + decimales con coma: se conserva
     ['1.234.567,89', '1.234.567,89'],
+    ['1.234.567', '1.234.567'],        // miles repetidos con punto: se conservan (el servidor y el validador los leen como miles)
+    ['250,000.00', '250000,00'],       // anglosajón mixto: se lleva a es-AR (último separador = decimal), igual que el servidor
+    ['1,234.5', '1234,5'],
     ['250.000', '250.000'],            // ambiguo: no se inventa un decimal; el servidor avisa con un mensaje claro (FIN-S-017)
     ['1,5', '1,5'],
     ['10,5555', '10,55'],              // decimal real: se recorta a 2 cifras
@@ -52,6 +55,7 @@ test('validador jQuery: acepta los decimales con coma que el servidor precarga y
             numeroEsAr: m.number.call(ctx, '10,00', el),
             numeroMiles: m.number.call(ctx, '1.234,56', el),
             numeroAnglo: m.number.call(ctx, '1234.56', el),
+            numeroMilesPunto: m.number.call(ctx, '1.234.567', el),
             numeroBasura: m.number.call(ctx, '10,5,3', el),
             numeroLetras: m.number.call(ctx, 'abc', el),
             rangoDentro: m.range.call(ctx, '10,00', el, [0, 100]),
@@ -61,7 +65,7 @@ test('validador jQuery: acepta los decimales con coma que el servidor precarga y
         };
     });
     expect(r).toEqual({
-        numeroEsAr: true, numeroMiles: true, numeroAnglo: true, numeroBasura: false, numeroLetras: false,
+        numeroEsAr: true, numeroMiles: true, numeroAnglo: true, numeroMilesPunto: true, numeroBasura: false, numeroLetras: false,
         rangoDentro: true, rangoFuera: false, minFuera: false, maxDentro: true,
     });
 });
