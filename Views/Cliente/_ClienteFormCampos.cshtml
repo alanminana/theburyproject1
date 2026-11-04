@@ -125,7 +125,7 @@
                 <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
             }
         </button>
-        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" aria-controls="t-refs" data-cliente-tab="t-refs" hidden="@isWizard">
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" aria-controls="t-refs" data-cliente-tab="t-refs" hidden>
             @if (isWizard)
             {
                 <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
@@ -339,7 +339,7 @@
     <section class="tab-panel" id="t-credito" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-credito-title" : null)" data-cliente-section="crediticio">
         @* En wizard, Referencias queda fuera de los pasos navegables (Lote 2): Crédito
            pasa a ser el 5to paso real, no el 6to. La edición conserva el número original. *@
-        <div class="sec-head"><span class="sec-num">@(isWizard ? "5" : "6")</span><div><div class="sec-title" id="t-credito-title">@(puedeConfigurarCredito ? "Configuración crediticia" : "Observaciones y estado")</div><div class="sec-sub">@(puedeConfigurarCredito ? "Parámetros iniciales y observaciones." : "Notas internas y estado del cliente.")</div></div></div>
+        <div class="sec-head"><span class="sec-num">5</span><div><div class="sec-title" id="t-credito-title">@(puedeConfigurarCredito ? "Configuración crediticia" : "Observaciones y estado")</div><div class="sec-sub">@(puedeConfigurarCredito ? "Parámetros iniciales y observaciones." : "Notas internas y estado del cliente.")</div></div></div>
         @if (!puedeConfigurarCredito)
         {
             @* sin permiso: no se muestran ni el alert ni los parámetros crediticios *@

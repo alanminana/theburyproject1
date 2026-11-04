@@ -142,10 +142,12 @@ public class ClienteWizardUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cliente", "_ClienteFormCampos.cshtml"));
 
-        // Referencias se saca del flujo navegable con el atributo hidden nativo
-        // (no se borra la sección ni sus campos: solo deja de listarse como
-        // paso). Ningún otro botón de paso lleva este atributo.
-        Assert.Contains("data-cliente-tab=\"t-refs\" hidden=\"@isWizard\"", view);
+        // Referencias se saca de la navegación (alta y edición) con el atributo hidden nativo: no tiene campos en el modelo
+        // (es un marcador), así que listarla como solapa vacía confundía (H11). No se borra la sección: solo deja de
+        // listarse. Ningún otro botón de paso lleva este atributo.
+        Assert.Contains("data-cliente-tab=\"t-refs\" hidden>", view);
+        Assert.DoesNotContain("data-cliente-tab=\"t-refs\" hidden=\"@isWizard\"", view);
+        Assert.DoesNotContain("@(isWizard ? \"5\" : \"6\")", view); // Crediticio es la 5ª sección también en edición
         Assert.DoesNotContain("data-cliente-tab=\"t-personal\" hidden", view);
         Assert.DoesNotContain("data-cliente-tab=\"t-conyuge\" hidden", view);
         Assert.DoesNotContain("data-cliente-tab=\"t-contacto\" hidden", view);

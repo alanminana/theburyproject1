@@ -168,6 +168,39 @@ namespace TheBuryProject.Controllers
         /// </summary>
         private bool PuedeConfigurarCredito() => _currentUser.HasPermission("clientes", "configurecredit");
 
+        /// <summary>
+        /// Valores personalizados de crédito guardados antes de que existieran los topes de validación (p. ej. un monto máximo
+        /// de 100.000.000 contra el tope de 20.000.000) no deben impedir editar datos que no tienen relación con el crédito.
+        /// Si el valor enviado es el mismo que está guardado, o el usuario no puede configurar crédito (su valor se descarta y
+        /// se conserva el guardado en <see cref="AplicarRestriccionConfigCreditoAsync"/>), se descarta el error de validación de
+        /// ese campo. Cambiar el valor sigue sujeto a la regla: un valor nuevo fuera de tope se rechaza igual que siempre.
+        /// </summary>
+        private async Task AceptarValoresHistoricosDeCreditoAsync(ClienteViewModel viewModel)
+        {
+            if (viewModel.Id <= 0 || ModelState.IsValid)
+                return;
+
+            var actual = await _clienteService.GetByIdAsync(viewModel.Id);
+            if (actual == null)
+                return;
+
+            var puedeConfigurar = PuedeConfigurarCredito();
+            Tolerar(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), !puedeConfigurar || viewModel.TasaInteresMensualPersonalizada == actual.TasaInteresMensualPersonalizada);
+            Tolerar(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), !puedeConfigurar || viewModel.GastosAdministrativosPersonalizados == actual.GastosAdministrativosPersonalizados);
+            Tolerar(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), !puedeConfigurar || viewModel.CuotasMaximasPersonalizadas == actual.CuotasMaximasPersonalizadas);
+            Tolerar(nameof(ClienteViewModel.MontoMinimoPersonalizado), !puedeConfigurar || viewModel.MontoMinimoPersonalizado == actual.MontoMinimoPersonalizado);
+            Tolerar(nameof(ClienteViewModel.MontoMaximoPersonalizado), !puedeConfigurar || viewModel.MontoMaximoPersonalizado == actual.MontoMaximoPersonalizado);
+
+            void Tolerar(string campo, bool sinCambio)
+            {
+                if (sinCambio && ModelState.TryGetValue(campo, out var entrada) && entrada.Errors.Count > 0)
+                {
+                    entrada.Errors.Clear();
+                    entrada.ValidationState = Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Valid;
+                }
+            }
+        }
+
         private async Task AplicarRestriccionConfigCreditoAsync(ClienteViewModel viewModel)
         {
             if (PuedeConfigurarCredito())
@@ -270,6 +303,7 @@ namespace TheBuryProject.Controllers
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
+                await AceptarValoresHistoricosDeCreditoAsync(viewModel);
                 if (!ModelState.IsValid)
                 {
                     CargarDropdowns();
@@ -364,6 +398,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> EditAjax(ClienteViewModel viewModel)
         {
+            await AceptarValoresHistoricosDeCreditoAsync(viewModel);
             if (!ModelState.IsValid)
             {
                 var errors = ModelState.Values
