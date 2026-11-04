@@ -323,4 +323,20 @@ public class ClienteConfiguracionCreditoPermisoTests : IDisposable
 
         Assert.NotEqual("341-999-9999", (await LeerAsync(cliente.Id)).Telefono);
     }
+
+    [Fact]
+    public async Task EditAjax_SinConfigureCredit_ValorNoInterpretable_SeRechazaAunqueElCreditoSeDescarte()
+    {
+        // Revisión Codex (2ª): sin el permiso el valor se sustituye por el guardado, pero un error de conversión del valor
+        // escrito no se tolera igual (el error se detecta antes de sustituir).
+        var cliente = await SeedClienteConMaximoHistoricoAsync(maximo: null);
+        var form = FormularioConCreditoSinCambios(cliente);
+        var controller = CrearController(puedeConfigurarCredito: false);
+        controller.ModelState.SetModelValue(nameof(ClienteViewModel.MontoMaximoPersonalizado), "abc", "abc");
+        controller.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "Ingresá un monto válido.");
+
+        Assert.False(Exito(await controller.EditAjax(form)));
+
+        Assert.NotEqual("341-999-9999", (await LeerAsync(cliente.Id)).Telefono);
+    }
 }

@@ -187,6 +187,16 @@ namespace TheBuryProject.Controllers
                 return;
 
             var puedeConfigurar = PuedeConfigurarCredito();
+
+            // Un valor escrito que no se pudo interpretar (el binder lo dejó null) nunca se tolera, con o sin permiso y aunque el
+            // guardado también sea null: se detecta ANTES de sustituir los valores por los guardados.
+            var noInterpretados = new HashSet<string>(StringComparer.Ordinal);
+            NoInterpretado(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), viewModel.TasaInteresMensualPersonalizada);
+            NoInterpretado(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), viewModel.GastosAdministrativosPersonalizados);
+            NoInterpretado(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), viewModel.CuotasMaximasPersonalizadas);
+            NoInterpretado(nameof(ClienteViewModel.MontoMinimoPersonalizado), viewModel.MontoMinimoPersonalizado);
+            NoInterpretado(nameof(ClienteViewModel.MontoMaximoPersonalizado), viewModel.MontoMaximoPersonalizado);
+
             if (!puedeConfigurar)
                 await AplicarRestriccionConfigCreditoAsync(viewModel); // valores efectivos = los guardados
 
@@ -207,14 +217,19 @@ namespace TheBuryProject.Controllers
                     ModelState.AddModelError(miembro, resultado.ErrorMessage ?? string.Empty);
             }
 
+            void NoInterpretado(string campo, object? enviado)
+            {
+                if (enviado == null && ModelState.TryGetValue(campo, out var entrada)
+                    && entrada.Errors.Count > 0 && !string.IsNullOrWhiteSpace(entrada.AttemptedValue))
+                    noInterpretados.Add(campo);
+            }
+
             bool Tolerar(string campo, object? enviado, object? guardado)
             {
                 if (!ModelState.TryGetValue(campo, out var entrada) || entrada.Errors.Count == 0)
                     return false;
 
-                // Un valor escrito que no se pudo interpretar (queda null) nunca se tolera, ni siquiera contra un guardado null.
-                var noInterpretado = puedeConfigurar && enviado == null && !string.IsNullOrWhiteSpace(entrada.AttemptedValue);
-                if (noInterpretado || (puedeConfigurar && !Equals(enviado, guardado)))
+                if (noInterpretados.Contains(campo) || (puedeConfigurar && !Equals(enviado, guardado)))
                     return false;
 
                 entrada.Errors.Clear();
