@@ -171,9 +171,11 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Valores personalizados de crédito guardados antes de que existieran los topes de validación (p. ej. un monto máximo
         /// de 100.000.000 contra el tope de 20.000.000) no deben impedir editar datos que no tienen relación con el crédito.
-        /// Si el valor enviado es el mismo que está guardado, o el usuario no puede configurar crédito (su valor se descarta y
-        /// se conserva el guardado en <see cref="AplicarRestriccionConfigCreditoAsync"/>), se descarta el error de validación de
-        /// ese campo. Cambiar el valor sigue sujeto a la regla: un valor nuevo fuera de tope se rechaza igual que siempre.
+        /// Se exceptúa SOLO la validación individual del valor histórico, y solo si el valor enviado se leyó bien y es el
+        /// guardado (o si el usuario no puede configurar crédito: su valor se descarta y rige el guardado). Un valor nuevo
+        /// fuera de tope, o uno que ni se pudo interpretar, se rechaza igual que siempre.
+        /// MVC omite la validación de objeto (<see cref="IValidatableObject"/>: mínimo ≤ máximo, fecha de nacimiento, CUIL) cuando
+        /// falla una propiedad; al descartar ese error de propiedad se ejecuta esa validación sobre los valores efectivos.
         /// </summary>
         private async Task AceptarValoresHistoricosDeCreditoAsync(ClienteViewModel viewModel)
         {
@@ -185,19 +187,39 @@ namespace TheBuryProject.Controllers
                 return;
 
             var puedeConfigurar = PuedeConfigurarCredito();
-            Tolerar(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), !puedeConfigurar || viewModel.TasaInteresMensualPersonalizada == actual.TasaInteresMensualPersonalizada);
-            Tolerar(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), !puedeConfigurar || viewModel.GastosAdministrativosPersonalizados == actual.GastosAdministrativosPersonalizados);
-            Tolerar(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), !puedeConfigurar || viewModel.CuotasMaximasPersonalizadas == actual.CuotasMaximasPersonalizadas);
-            Tolerar(nameof(ClienteViewModel.MontoMinimoPersonalizado), !puedeConfigurar || viewModel.MontoMinimoPersonalizado == actual.MontoMinimoPersonalizado);
-            Tolerar(nameof(ClienteViewModel.MontoMaximoPersonalizado), !puedeConfigurar || viewModel.MontoMaximoPersonalizado == actual.MontoMaximoPersonalizado);
+            if (!puedeConfigurar)
+                await AplicarRestriccionConfigCreditoAsync(viewModel); // valores efectivos = los guardados
 
-            void Tolerar(string campo, bool sinCambio)
+            var toleradas = false;
+            toleradas |= Tolerar(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), viewModel.TasaInteresMensualPersonalizada, actual.TasaInteresMensualPersonalizada);
+            toleradas |= Tolerar(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), viewModel.GastosAdministrativosPersonalizados, actual.GastosAdministrativosPersonalizados);
+            toleradas |= Tolerar(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), viewModel.CuotasMaximasPersonalizadas, actual.CuotasMaximasPersonalizadas);
+            toleradas |= Tolerar(nameof(ClienteViewModel.MontoMinimoPersonalizado), viewModel.MontoMinimoPersonalizado, actual.MontoMinimoPersonalizado);
+            toleradas |= Tolerar(nameof(ClienteViewModel.MontoMaximoPersonalizado), viewModel.MontoMaximoPersonalizado, actual.MontoMaximoPersonalizado);
+
+            if (!toleradas)
+                return;
+
+            foreach (var resultado in ((IValidatableObject)viewModel).Validate(new ValidationContext(viewModel)))
             {
-                if (sinCambio && ModelState.TryGetValue(campo, out var entrada) && entrada.Errors.Count > 0)
-                {
-                    entrada.Errors.Clear();
-                    entrada.ValidationState = Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Valid;
-                }
+                var miembros = resultado.MemberNames.Any() ? resultado.MemberNames : new[] { string.Empty };
+                foreach (var miembro in miembros)
+                    ModelState.AddModelError(miembro, resultado.ErrorMessage ?? string.Empty);
+            }
+
+            bool Tolerar(string campo, object? enviado, object? guardado)
+            {
+                if (!ModelState.TryGetValue(campo, out var entrada) || entrada.Errors.Count == 0)
+                    return false;
+
+                // Un valor escrito que no se pudo interpretar (queda null) nunca se tolera, ni siquiera contra un guardado null.
+                var noInterpretado = puedeConfigurar && enviado == null && !string.IsNullOrWhiteSpace(entrada.AttemptedValue);
+                if (noInterpretado || (puedeConfigurar && !Equals(enviado, guardado)))
+                    return false;
+
+                entrada.Errors.Clear();
+                entrada.ValidationState = Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Valid;
+                return true;
             }
         }
 

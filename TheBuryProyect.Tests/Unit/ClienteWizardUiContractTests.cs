@@ -335,7 +335,9 @@ public class ClienteWizardUiContractTests
 
         // El servidor no confía en la UI: las 4 acciones de alta/edición aplican la restricción.
         Assert.Contains("_currentUser.HasPermission(\"clientes\", \"configurecredit\")", controller);
-        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(controller, @"await AplicarRestriccionConfigCreditoAsync\(viewModel\);").Count);
+        // 4 acciones de escritura (Create, CreateAjax, Edit, EditAjax) + AceptarValoresHistoricosDeCreditoAsync, que trabaja con los
+        // valores efectivos (los guardados) cuando el usuario no puede configurar crédito.
+        Assert.Equal(5, System.Text.RegularExpressions.Regex.Matches(controller, @"await AplicarRestriccionConfigCreditoAsync\(viewModel\);").Count);
     }
 
     [Fact]

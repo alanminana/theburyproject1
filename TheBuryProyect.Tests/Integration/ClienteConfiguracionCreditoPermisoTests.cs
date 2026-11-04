@@ -205,4 +205,122 @@ public class ClienteConfiguracionCreditoPermisoTests : IDisposable
         Assert.Equal(7m, bd.TasaInteresMensualPersonalizada);
         Assert.Equal(24, bd.CuotasMaximasPersonalizadas);
     }
+
+    // ---- H11: valores históricos de crédito fuera de tope (revisión adversarial de Codex) ----
+    // Al llamar a la acción directamente el ModelState lo arma el test como lo dejaría MVC: error de propiedad en el monto
+    // histórico (MontoArgentino) y SIN validación de objeto (MVC la omite cuando falla una propiedad).
+
+    private async Task<Cliente> SeedClienteConMaximoHistoricoAsync(decimal? maximo = 100_000_000m)
+    {
+        var cliente = await SeedClienteConConfiguracionAsync();
+        var c = await _context.Clientes.SingleAsync(x => x.Id == cliente.Id);
+        c.MontoMaximoPersonalizado = maximo;
+        await _context.SaveChangesAsync();
+        await _context.Entry(c).ReloadAsync();
+        _context.ChangeTracker.Clear();
+        return c;
+    }
+
+    private static ClienteViewModel FormularioConCreditoSinCambios(Cliente c) => new()
+    {
+        Id = c.Id, RowVersion = c.RowVersion, Nombre = c.Nombre, Apellido = c.Apellido, TipoDocumento = c.TipoDocumento,
+        NumeroDocumento = c.NumeroDocumento, Email = c.Email, Activo = true, NivelRiesgo = c.NivelRiesgo,
+        Telefono = "341-999-9999",
+        TasaInteresMensualPersonalizada = c.TasaInteresMensualPersonalizada, GastosAdministrativosPersonalizados = c.GastosAdministrativosPersonalizados,
+        CuotasMaximasPersonalizadas = c.CuotasMaximasPersonalizadas,
+        MontoMinimoPersonalizado = c.MontoMinimoPersonalizado, MontoMaximoPersonalizado = c.MontoMaximoPersonalizado
+    };
+
+    private static bool Exito(IActionResult r) =>
+        System.Text.Json.JsonSerializer.Serialize(Assert.IsType<JsonResult>(r).Value).Contains("\"success\":true");
+
+    private async Task<(string? Telefono, decimal? Maximo, decimal? Minimo)> LeerAsync(int id)
+    {
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == id);
+        return (bd.Telefono, bd.MontoMaximoPersonalizado, bd.MontoMinimoPersonalizado);
+    }
+
+    [Fact]
+    public async Task EditAjax_ConConfigureCredit_MaximoHistoricoSinCambios_GuardaLosDemasDatos()
+    {
+        var cliente = await SeedClienteConMaximoHistoricoAsync();
+        var controller = CrearController(puedeConfigurarCredito: true);
+        controller.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "monto fuera de tope");
+
+        var ok = Exito(await controller.EditAjax(FormularioConCreditoSinCambios(cliente)));
+
+        Assert.True(ok);
+        var (telefono, maximo, _) = await LeerAsync(cliente.Id);
+        Assert.Equal("341-999-9999", telefono);
+        Assert.Equal(100_000_000m, maximo);
+    }
+
+    [Fact]
+    public async Task EditAjax_ConConfigureCredit_MinimoSinCambiosYMaximoMenor_SeRechazaPorLaRelacionMinMax()
+    {
+        // El error cruzado "mínimo > máximo" vive en la clave del mínimo: que el mínimo no haya cambiado no debe borrarlo.
+        var cliente = await SeedClienteConMaximoHistoricoAsync(maximo: 100_000m);
+        var form = FormularioConCreditoSinCambios(cliente);
+        form.MontoMaximoPersonalizado = 500m;                       // menor que el mínimo guardado (1000)
+        var controller = CrearController(puedeConfigurarCredito: true);
+        controller.ModelState.AddModelError(nameof(ClienteViewModel.MontoMinimoPersonalizado), "El monto mínimo no puede ser mayor al monto máximo.");
+
+        Assert.False(Exito(await controller.EditAjax(form)));
+
+        var (telefono, maximo, _) = await LeerAsync(cliente.Id);
+        Assert.NotEqual("341-999-9999", telefono);
+        Assert.Equal(100_000m, maximo);
+    }
+
+    [Fact]
+    public async Task EditAjax_ConConfigureCredit_FechaDeNacimientoInvalidaJuntoAlMaximoHistorico_SeRechaza()
+    {
+        // MVC no ejecuta Validate (fecha de nacimiento, CUIL) cuando una propiedad falla: al tolerar el máximo se ejecuta igual.
+        var cliente = await SeedClienteConMaximoHistoricoAsync();
+        var form = FormularioConCreditoSinCambios(cliente);
+        form.FechaNacimiento = DateTime.UtcNow.Date.AddDays(10);
+        var controller = CrearController(puedeConfigurarCredito: true);
+        controller.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "monto fuera de tope");
+
+        Assert.False(Exito(await controller.EditAjax(form)));
+
+        Assert.NotEqual("341-999-9999", (await LeerAsync(cliente.Id)).Telefono);
+    }
+
+    [Fact]
+    public async Task EditAjax_SinConfigureCredit_MontoManipuladoConFechaInvalida_SeRechaza_Y_SinFechaGuardaConElCreditoIntacto()
+    {
+        var cliente = await SeedClienteConMaximoHistoricoAsync();
+
+        var conFecha = FormularioConCreditoSinCambios(cliente);
+        conFecha.MontoMaximoPersonalizado = 30_000_000m;            // manipulado: se descarta, pero la fecha inválida no
+        conFecha.FechaNacimiento = DateTime.UtcNow.Date.AddDays(10);
+        var c1 = CrearController(puedeConfigurarCredito: false);
+        c1.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "monto fuera de tope");
+        Assert.False(Exito(await c1.EditAjax(conFecha)));
+        Assert.NotEqual("341-999-9999", (await LeerAsync(cliente.Id)).Telefono);
+
+        var sinFecha = FormularioConCreditoSinCambios(cliente);
+        sinFecha.MontoMaximoPersonalizado = 30_000_000m;
+        var c2 = CrearController(puedeConfigurarCredito: false);
+        c2.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "monto fuera de tope");
+        Assert.True(Exito(await c2.EditAjax(sinFecha)));
+        var (telefono, maximo, _) = await LeerAsync(cliente.Id);
+        Assert.Equal("341-999-9999", telefono);
+        Assert.Equal(100_000_000m, maximo);                          // el crédito no se tocó
+    }
+
+    [Fact]
+    public async Task EditAjax_ConConfigureCredit_MaximoNoInterpretable_ConGuardadoNull_SeRechaza()
+    {
+        var cliente = await SeedClienteConMaximoHistoricoAsync(maximo: null);
+        var form = FormularioConCreditoSinCambios(cliente);         // el binder dejó null el "abc" escrito
+        var controller = CrearController(puedeConfigurarCredito: true);
+        controller.ModelState.SetModelValue(nameof(ClienteViewModel.MontoMaximoPersonalizado), "abc", "abc");
+        controller.ModelState.AddModelError(nameof(ClienteViewModel.MontoMaximoPersonalizado), "Ingresá un monto válido.");
+
+        Assert.False(Exito(await controller.EditAjax(form)));
+
+        Assert.NotEqual("341-999-9999", (await LeerAsync(cliente.Id)).Telefono);
+    }
 }
