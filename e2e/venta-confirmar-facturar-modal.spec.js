@@ -26,6 +26,7 @@ const {
     ensureVendedorSeleccionado,
     TIPO_PAGO,
     irAlPaso,
+    CTA_PRIMARIO_VISIBLE,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -47,7 +48,7 @@ test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal 
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
     await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
     expect(id).toBeTruthy();
@@ -59,7 +60,7 @@ test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal 
     test.skip(await chkFacturar.count() === 0, 'Sin permiso ventas.invoice en este entorno: el checkbox no se renderiza.');
 
     await chkFacturar.check();
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
 
     const modalBtn = page.locator('#modal-confirmar-facturar button[name="accionConfirmacion"][value="confirmar-facturar"]');
     await expect(modalBtn).toBeVisible({ timeout: 5_000 });
@@ -81,7 +82,7 @@ test('"Confirmar y facturar" del modal envía accionConfirmacion=confirmar-factu
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
     await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
     expect(id).toBeTruthy();
@@ -91,7 +92,7 @@ test('"Confirmar y facturar" del modal envía accionConfirmacion=confirmar-factu
     const chkFacturar = page.locator('#chk-facturar');
     test.skip(await chkFacturar.count() === 0, 'Sin permiso ventas.invoice en este entorno: el checkbox no se renderiza.');
     await chkFacturar.check();
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
 
     const modalBtn = page.locator('#modal-confirmar-facturar button[name="accionConfirmacion"][value="confirmar-facturar"]');
     await expect(modalBtn).toBeEnabled({ timeout: 5_000 });

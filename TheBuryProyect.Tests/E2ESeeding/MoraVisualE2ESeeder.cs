@@ -49,6 +49,9 @@ namespace TheBuryProject.Tests.E2ESeeding
 
                 var cliente = new Cliente
                 {
+                    // El aviso modal "Actualizar datos del cliente" depende de la configuración de la base (la real lo tiene activo con 1 día):
+                    // se sella la fecha para que el E2E no dependa de ella.
+                    FechaUltimaActualizacionDatos = DateTime.UtcNow,
                     Nombre = nombreLargo ? "María de los Ángeles Guadalupe" : $"Cliente {i + 1:00}",
                     Apellido = nombreLargo
                         ? "Rodríguez de la Fuente Villanueva"
