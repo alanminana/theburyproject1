@@ -105,13 +105,16 @@ namespace TheBuryProject.ViewModels
         public string? ConyugeTipoDocumento { get; set; }
 
         [StringLength(20)]
+        [Display(Name = "Número de documento del cónyuge")]
         [DocumentoArgentino(nameof(ConyugeTipoDocumento))]
         public string? ConyugeNumeroDocumento { get; set; }
 
         [StringLength(20)]
+        [Display(Name = "Teléfono del cónyuge")]
         [TelefonoArgentino]
         public string? ConyugeTelefono { get; set; }
 
+        [Display(Name = "Sueldo del cónyuge")]
         [MontoArgentino]
         public decimal? ConyugeSueldo { get; set; }
 
