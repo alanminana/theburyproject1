@@ -224,6 +224,31 @@ test.describe('Venta/Create — paso Cotizar', () => {
             expect(medidas.workspaceOculto).toBeTruthy();
         });
     }
+
+    // H11: "Siguiente: Cliente" con productos cargados ya no abre el wizard vacío: continúa con la
+    // cotización (guardar + convertir sin confirmar + Venta/Edit). Sin cliente del sistema no escribe nada.
+    test('Siguiente: Cliente con productos cargados no abre el wizard vacío', async ({ page }) => {
+        await gotoCreate(page);
+        let cargado = false;
+        for (const term of ['an', 'el', 'or', 'ar', 'al']) {
+            await page.fill('#cotizacion-producto-buscar', term);
+            const item = page.locator('#cotizacion-productos-dropdown button, #cotizacion-productos-dropdown [role=option], #cotizacion-productos-dropdown li').first();
+            if (await item.isVisible({ timeout: 2500 }).catch(() => false)) {
+                await item.click();
+                cargado = true;
+                break;
+            }
+        }
+        test.skip(!cargado, 'No hay productos buscables en el entorno de QA.');
+        await expect(page.locator('#cotizacion-productos-tbody > *')).not.toHaveCount(0);
+
+        await page.getByRole('button', { name: /Siguiente: Cliente/ }).click();
+
+        await expect(page.getByText('Seleccioná un cliente del sistema para continuar con el wizard.')).toBeVisible();
+        await expect(page.locator('#step-panel-cotizar')).toBeVisible();
+        await expect(page.locator('#step-panel-cliente')).toBeHidden();
+        await expect(page).toHaveURL(/\/Venta\/Create/);
+    });
 });
 
 test.describe('Venta/Edit — sin paso Cotizar', () => {

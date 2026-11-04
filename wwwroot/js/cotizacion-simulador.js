@@ -3294,6 +3294,15 @@
         $('#cotizacion-credito-generar')?.addEventListener('click', generarContratoCredito);
         $('#cotizacion-credito-confirmar')?.addEventListener('click', confirmarVentaCredito);
         els.continuarWizard?.addEventListener('click', continuarConWizard);
+        // Venta/Create: "Siguiente: Cliente" (venta-page-wizard.js) con productos ya cargados no debe abrir
+        // el wizard vacío: continúa con esta misma cotización (guarda, convierte sin confirmar y abre
+        // Venta/Edit, que reconstruye el wizard desde la venta). Con el cotizador vacío no hace nada y el
+        // wizard avanza como siempre. Si falta cliente u opción, continuarConWizard avisa y no navega.
+        root.addEventListener('cotizador:continuar-wizard', (event) => {
+            if (state.productos.length === 0) return;
+            event.preventDefault();
+            continuarConWizard();
+        });
         els.confirmarAceptar?.addEventListener('click', () => {
             window.closeModal?.('modal-confirmar-venta');
             continuarConOpcion();

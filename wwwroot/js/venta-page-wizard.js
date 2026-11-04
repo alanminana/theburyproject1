@@ -751,7 +751,13 @@
         button.addEventListener('click', retroceder);
     });
     root.querySelectorAll('[data-wizard-next]').forEach((button) => {
-        button.addEventListener('click', avanzar);
+        button.addEventListener('click', () => {
+            // Con productos cargados en el cotizador, el cotizador decide (cancela el evento y continúa
+            // con la cotización en Venta/Edit) para que "Siguiente: Cliente" no abra el wizard vacío.
+            const cotizador = root.querySelector(COTIZADOR_SELECTOR);
+            if (cotizador && !cotizador.dispatchEvent(new CustomEvent('cotizador:continuar-wizard', { cancelable: true }))) return;
+            avanzar();
+        });
     });
 
     ventaForm?.addEventListener('keydown', (event) => {

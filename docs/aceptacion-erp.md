@@ -8,7 +8,7 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 
 | Módulo | Estado | Evidencia principal | Limitaciones / pendiente |
 |---|---|---|---|
-| Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador abre el wizard vacío (decisión de flujo). Factura de venta a crédito personal: recorrido validado en clon (contrato con PDF → facturar cierra neto + IVA = total); el interés queda fuera de la factura y el tratamiento fiscal espera decisión (`docs/factura-credito-personal.md`). |
+| Ventas y Cotizaciones | Aprobado con limitaciones | Recorrido cotización → venta → confirmar → facturar → caja con SQL; #165, #182, #203, #205 | Interés de financiación y recargo: tratamiento fiscal sin validar (D1). «Siguiente: Cliente» del cotizador con productos cargados ya no abre el wizard vacío: guarda la cotización, la convierte sin confirmar y abre Venta/Edit con los importes intactos (Hito 11, validado en clon con SQL); sin cliente avisa y no navega. Factura de venta a crédito personal: recorrido validado en clon (contrato con PDF → facturar cierra neto + IVA = total); el interés queda fuera de la factura y el tratamiento fiscal espera decisión (`docs/factura-credito-personal.md`). |
 | Caja | Aprobado con limitaciones | QA Caja/cierre/arqueo, concurrencia en SQL Server, #197, #211 | Acreditar y rechazar cheques recibidos en la interfaz (#211). Un solo medio de pago por venta. |
 | Crédito | Aprobado con limitaciones | Crédito personal en la pantalla única, #161, #166 | El job de vencimiento de borradores no corrió aún contra la base real (debe cancelar solo las ventas 1003 y 1006; plazo de 7 días provisorio). El interés del crédito queda fuera de la factura de venta (D1). |
 | Mora y Acuerdos | Aprobado con limitaciones | Smoke en clon (crear, activar, cobrar, cumplir, incumplir, auditoría), acuerdos con pagos no efectivos y punitorio > 0, #169 | `DiasParaCumplirPromesa`: lectura conservadora (días de espera tras la fecha prometida); hoy NULL. Una sola instancia de la app. |
@@ -40,3 +40,14 @@ Condiciones: probar el circuito de cheques con un cheque de prueba antes de oper
 2. ~~**Cheques D5**~~ — resuelta: prohibido cobrar cuotas con cheque.
 3. **Factura de crédito personal C1–C4** (`docs/factura-credito-personal.md`).
 4. **Efectivo con descuento del plan en venta directa** (#210): se desactiva en la configuración del plan si no se quiere.
+
+## Clasificación de limitaciones de Compras y Reportes (Hito 11)
+
+| Limitación | Clase | Detalle |
+|---|---|---|
+| Compras: costo del producto manual (no se actualiza al recibir) | Regla de negocio (propietario) | Hay que elegir el método de costeo (manual, último costo, promedio). No es fiscal ni defecto: cambia el margen informado. |
+| Compras: cancelar una OC parcial conserva el stock | Comportamiento correcto | La mercadería recibida existe físicamente; devolverla al proveedor es un circuito aparte (RMA de unidades). |
+| Compras: sin cuentas ni pagos a proveedor | Funcionalidad nueva, fuera de alcance | Sin cambio hasta que el propietario la declare indispensable. |
+| Reportes: Reporte de IVA no netea devoluciones | Defecto funcional parcial; el período es fiscal | El informe avisa en su nota. Restar la devolución requiere definir en qué período se computa la nota de crédito (contador, `docs/iva-decisiones-contador.md` #4). |
+| Reportes: costo con IVA, envío/armados y recargo en la ganancia | Contador | `docs/iva-decisiones-contador.md` #1, #5 y #6. |
+| Dashboard: ticket promedio bruto mientras «Ventas del mes» es neta | Inconsistencia técnica menor | Definición de la métrica; candidata a unificar sin criterio fiscal. |
