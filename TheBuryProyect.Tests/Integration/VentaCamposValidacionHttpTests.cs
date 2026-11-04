@@ -202,11 +202,15 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
     public Task Anticipo_FueraDeRegla_SeRechaza(string anticipo) =>
         AssertRechazadaAsync("Anticipo", anticipo);
 
+    // Las fechas de cheque se validan con el reloj comercial (Argentina), no con el día UTC: entre las 21:00 y las 24:00 locales
+    // el día UTC ya es el siguiente y una emisión "de hoy" del test parecía futura.
+    private static DateTime HoyComercial => TheBuryProject.Services.RelojComercial.Sistema.AhoraComercial.Date;
+
     private static int _secuenciaCheque = 12345;
 
     private static void ConCheque(Dictionary<string, string> form)
     {
-        var hoy = DateTime.UtcNow.Date;
+        var hoy = HoyComercial;
         form["TipoPago"] = "Cheque";
         // Único por cheque: la BD de la clase es compartida y un mismo banco+número en dos ventas vigentes se rechaza (D6).
         form["DatosCheque.NumeroCheque"] = Interlocked.Increment(ref _secuenciaCheque).ToString("D8");
@@ -355,7 +359,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
 
     [Fact]
     public Task Cheque_Emision_Futura_SeRechaza() =>
-        AssertChequeRechazadoAsync("DatosCheque.FechaEmision", DateTime.UtcNow.Date.AddDays(3).ToString("yyyy-MM-dd"));
+        AssertChequeRechazadoAsync("DatosCheque.FechaEmision", HoyComercial.AddDays(3).ToString("yyyy-MM-dd"));
 
     [Fact]
     public async Task Cheque_Vencimiento_Pasado_ConEmisionAnterior_SeRechaza()
@@ -363,8 +367,8 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
         var (clienteId, productoId) = await SeedAsync();
         var form = Form(clienteId, productoId);
         ConCheque(form);
-        form["DatosCheque.FechaEmision"] = DateTime.UtcNow.Date.AddDays(-20).ToString("yyyy-MM-dd");
-        form["DatosCheque.FechaVencimiento"] = DateTime.UtcNow.Date.AddDays(-5).ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaEmision"] = HoyComercial.AddDays(-20).ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaVencimiento"] = HoyComercial.AddDays(-5).ToString("yyyy-MM-dd");
 
         var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
 
@@ -378,7 +382,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
         var (clienteId, productoId) = await SeedAsync();
         var form = Form(clienteId, productoId);
         ConCheque(form);
-        var dia = DateTime.UtcNow.Date.AddDays(-3).ToString("yyyy-MM-dd");
+        var dia = HoyComercial.AddDays(-3).ToString("yyyy-MM-dd");
         form["DatosCheque.FechaEmision"] = dia;
         form["DatosCheque.FechaVencimiento"] = dia;
 
@@ -401,11 +405,11 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
 
     [Fact]
     public Task Cheque_Vencimiento_AnteriorALaEmision_SeRechaza() =>
-        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", DateTime.UtcNow.Date.AddDays(-10).ToString("yyyy-MM-dd"));
+        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", HoyComercial.AddDays(-10).ToString("yyyy-MM-dd"));
 
     [Fact]
     public Task Cheque_Vencimiento_MasDe360DiasDespuesDeLaEmision_SeRechaza() =>
-        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", DateTime.UtcNow.Date.AddDays(361).ToString("yyyy-MM-dd"));
+        AssertChequeRechazadoAsync("DatosCheque.FechaVencimiento", HoyComercial.AddDays(361).ToString("yyyy-MM-dd"));
 
     [Fact]
     public async Task Cheque_Vencimiento_A360Dias_SeAcepta()
@@ -413,7 +417,7 @@ public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplication
         var (clienteId, productoId) = await SeedAsync();
         var form = Form(clienteId, productoId);
         ConCheque(form);
-        form["DatosCheque.FechaVencimiento"] = DateTime.UtcNow.Date.AddDays(360).ToString("yyyy-MM-dd");
+        form["DatosCheque.FechaVencimiento"] = HoyComercial.AddDays(360).ToString("yyyy-MM-dd");
 
         var (success, cuerpo) = await PostAsync(_factory.CreateAuthenticatedClient(), form);
 
