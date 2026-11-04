@@ -22,6 +22,7 @@ const {
     activarFiltroStock,
     addProduct,
     irAlPaso,
+    CTA_PRIMARIO_VISIBLE,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -56,7 +57,7 @@ async function crearVentaThrowaway(page) {
         await vendedor.selectOption({ index: 1 });
     }
 
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
     expect(id).toBeTruthy();

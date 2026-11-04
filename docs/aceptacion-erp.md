@@ -18,7 +18,7 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
 | Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202; Etapa C: edición con valores de crédito históricos | Consulta BCRA con tope de 6 s (provisorio aceptado). La solapa Referencias no existe en el modelo: se oculta en la interfaz (sin entidad ni migración; decisión del propietario si se construye). |
-| Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. |
+| Usuarios y Roles | Aprobado con limitaciones | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. **La base real no tiene los permisos `ventas.discount` ni `creditos.configure`** (ver Etapa D, defecto D-1): solo SuperAdmin puede aplicar descuentos o configurar crédito hasta que se ejecuten los sembradores. |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
 | Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
 | Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» neta de devoluciones (H10); ticket promedio sigue bruto. |
@@ -137,3 +137,53 @@ Es igual a «Ventas del mes ÷ cantidad» salvo cuando entran devoluciones de pe
 4. **Dato de desarrollo:** el cliente 1 conserva un monto máximo histórico fuera de tope (ya no impide editarlo).
 5. **Infraestructura diferida:** copia fuera del servidor, VPN y firewall, licencia de AutoMapper, una sola instancia de la app; Mercado Libre fuera de alcance.
 6. **Cierre documental:** pasar esta matriz a «Aprobado» solo donde la evidencia sea suficiente; el veredicto final de la Etapa D depende de los puntos 1 y 2. No se autoriza la puesta en producción.
+
+## Hito 11 — Etapa D: aceptación final (`main` `745379a2` + PR de la etapa)
+
+Entorno: clon `TheBuryProjectDb_qa_h11d` (copia `COPY_ONLY` de la base real), restaurado de cero para la corrida final y sembrado con los mismos sembradores que el CI; app en :5199. La base real se consultó **solo en lectura**: no se modificó, no se aplicaron migraciones, no se ejecutó ningún job financiero.
+
+### Cambios de la etapa
+
+| Cambio | Motivo | Evidencia |
+|---|---|---|
+| **Interruptor de arranque del job de borradores** (`BorradoresCredito:VencimientoAutomaticoHabilitado`, apagado por defecto, falla cerrado ante un valor inválido) | Hasta hoy el único modo de apagar el job era poner `NULL` en una tabla de la base real. Ahora no corre salvo habilitación explícita (appsettings o variable de entorno). | 7 tests (ausente, `false`, `flase`, vacío, `1` → no corre ni consulta la base; `true` → corre); verificado en la app real del clon: el log informa «deshabilitado» y la venta 1003 queda intacta pasados los 2 minutos de espera inicial. Revisión adversarial de Codex: 1 hallazgo medio (un valor inválido tumbaba el arranque) corregido. |
+| Sembradores E2E sellan `FechaUltimaActualizacionDatos` | La base real tiene la revisión de datos de clientes activa con **1 día**: los clientes sembrados con fecha vieja disparaban el aviso modal que tapa los clics y volvía frágiles 17 specs. | Corrida completa sin esos fallos. |
+| 6 specs usan el CTA visible (`CTA_PRIMARIO_VISIBLE`) en vez de `#btn-confirmar` | En móvil `#btn-confirmar` está oculto (rige el CTA fijo inferior): 16 specs de escritorio fallaban a 390 px sin que hubiera un defecto de producto. | Los 16 pasan a 390×844 y a 1366×768. |
+
+### Regresión E2E (clon, suite completa a 1366×768, 223 specs)
+
+**201 pasan, 18 omitidos y 4 fallan.** Los 4 se investigaron uno por uno; ninguno es un defecto de producto comprobado, ninguno se desactivó:
+
+| Spec | Causa verificada | Clase |
+|---|---|---|
+| `venta-descuento-permiso` — «Edit de una venta con descuentos: totales reales» | Espera $1.600 y la pantalla muestra $1.520: la configuración real tiene **descuento del 5 % por pago en Efectivo** (decisión vigente del propietario); el CI usa una base sin esa configuración. | Configuración de la base real |
+| `cotizacion-credito-personal-aptitud-contradiccion` — «Cliente No apto» | Busca un cliente por DNI de QA; en el clon existe un cliente real con ese DNI que está *Apto con cupo $0* (en el CI el DNI no existe y el spec se omite). **Observación a revisar con el propietario:** la tarjeta muestra «Apto» con «Cupo disponible $0» y monto solicitado $12.752. | Datos de la base real |
+| `venta-excepcion-documental-reload` | Exige que la configuración documental pida un documento exceptuable; el sistema documental de la base real se configuró a mano y no coincide con el supuesto. | Configuración de la base real |
+| `cotizacion-simulador` T9 (móvil) | Depende de los planes de pago configurados en la base real. | Configuración de la base real |
+
+A 1280×720 y 390×844 el resultado de la Etapa C se mantiene (solo fallos de datos); la regresión autorizada sigue siendo el workflow «Playwright Tests» del CI (base sembrada y vacía de configuración propia).
+
+Lección registrada: el dataset sembrado **se consume** (los tests editan y cobran sobre él); una segunda corrida sobre la misma base produce fallos espurios. Cada corrida exige una restauración limpia.
+
+### Controles de integridad en SQL Server
+
+13 controles ejecutados sobre el clon (después de la suite completa, es decir, con todo lo que crearon los E2E) y, en solo lectura, sobre la base real: stock = último movimiento; cadena de stock sin cortes; stock no negativo; cuota = capital + interés + punitorio; pagado ≤ total (el recargo del medio de pago puede ser negativo: es un descuento); cuota pagada sin saldo; cierre esperado = inicial + ingresos − egresos; diferencia = real − esperado; crédito cancelado sin saldo; saldo no negativo; una sola apertura abierta por caja; ventas comerciales con detalle; venta cancelada sin crédito vigente. **0 violaciones en ambas bases.**
+
+### Defectos operativos conocidos: estado
+
+| # | Defecto / pendiente | Estado |
+|---|---|---|
+| **D-1** | **La base real no tiene los permisos `ventas.discount` ni `creditos.configure`.** Causa: los user-secrets del servidor fijan `Database:InitializeOnStartup=false`, de modo que la app nunca ejecuta los sembradores contra la base real y los permisos añadidos después del 2026-10-04 no existen. Efecto: Administrador, Gerente y Vendedor no pueden aplicar descuentos ni configurar el plan de un crédito; solo SuperAdmin (por bypass). | **Abierto — requiere tu autorización.** Reproducido en el clon: al ejecutar el inicializador se crean exactamente 2 acciones y 16 asignaciones a roles (Administrador 2, Gerente 9, Cajero 1, Contador 1, SuperAdmin 2, Vendedor 1). Ojo: ejecutar el inicializador en Development también crea los usuarios de prueba; hacerlo en el modo normal o con un script acotado. |
+| D-2 | Job de borradores | **Mitigado en código** (apagado por defecto). Primera corrida real = decisión del propietario: cancelaría venta 1003 + crédito 3 (−$256.060 de cupo). |
+| D-3 | Ticket promedio | Definición propuesta en la Etapa C; **implementación pendiente de tu confirmación** (no se modificó). |
+| D-4 | Listas de precios | Circuito operativo = cambio directo del Catálogo (aplicar, historial, revertir, concurrencia en SQL Server). El modo por lotes **no está disponible** (sin listas de precios ni pantalla para crearlas): documentado, fuera del alcance. |
+| D-5 | Venta 1006 | Conservada sin cambios (borrador sin crédito; no reserva cupo ni mueve stock). |
+| D-6 | Referencias del cliente | Pestaña oculta; no existe en el modelo. |
+| D-7 | Cliente «Apto» con cupo $0 en la tarjeta de aptitud del cotizador | **Observación nueva**, sin diagnóstico cerrado: confirmar con el propietario si el cliente con ese DNI tiene límite de crédito 0 y si la tarjeta debe decir «Apto» en ese caso. |
+
+### Conclusión de la etapa
+
+- **Cierre funcional:** los 19 módulos tienen evidencia en la matriz; no hay defectos funcionales de código sin corregir. Hay **un defecto operativo abierto (D-1)** que bloquea el uso de descuentos y la configuración de crédito por roles distintos de SuperAdmin hasta que lo autorices.
+- **Pendientes fiscales/contables** (no bloquean el uso local): IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia.
+- **Preparación para producción: no autorizada.** Faltan: copia fuera del servidor, VPN y firewall del servidor local (la seguridad básica del servidor no está resuelta), licencia de AutoMapper, una sola instancia de la app. Mercado Libre queda fuera de alcance.
+- **Hito 11:** no se declara finalizado mientras D-1 siga abierto. Con tu autorización de D-1 y las decisiones D-2/D-3 queda cerrado funcionalmente.

@@ -79,7 +79,7 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     await gotoCreate(page);
 
     // Validación sin datos: la UI no debe enviar ni avanzar hacia una operación inválida.
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await expect(page).toHaveURL(/\/Venta\/Create/);
     await capture(page, 'create-validation-empty');
 
@@ -294,7 +294,7 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
     // de factura; este recorrido valida el guardado/confirmación sin facturar.
     const chkFacturar = page.locator('#chk-facturar');
     if (await chkFacturar.count() && await chkFacturar.isChecked()) await chkFacturar.uncheck();
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 20_000 });
     await capture(page, 'edit-saved');
 

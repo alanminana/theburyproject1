@@ -26,6 +26,7 @@ const {
     ensureVendedorSeleccionado,
     TIPO_PAGO,
     irAlPaso,
+    CTA_PRIMARIO_VISIBLE,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -51,7 +52,7 @@ async function crearVentaBorrador(page) {
     // Create no tiene accionConfirmacion: "Confirmar Transacción" crea la venta directo
     // en Presupuesto (nunca confirmada desde acá), que es justo el estado de partida que
     // necesitamos para reproducir el POST de Edit.
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
     expect(id).toBeTruthy();
@@ -78,7 +79,7 @@ test('Venta/Edit "Confirmar venta" envía accionConfirmacion y la venta queda co
     const postRequest = page.waitForRequest((req) =>
         req.url().includes(`/Venta/Edit/${id}`) && req.method() === 'POST');
 
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
 
     const request = await postRequest;
     const body = request.postData() || '';
@@ -111,7 +112,7 @@ test('Venta/Edit "Facturar al confirmar" viene tildado y "Confirmar venta" abre 
         if (req.url().includes(`/Venta/Edit/${id}`) && req.method() === 'POST') huboPost = true;
     });
 
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
 
     // El modal de tipo de factura es el paso de control: la venta NO se confirma todavía.
     await expect(page.locator('#modal-confirmar-facturar')).toBeVisible({ timeout: 5_000 });

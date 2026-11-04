@@ -35,6 +35,7 @@ const {
     ensureVendedorSeleccionado,
     TIPO_PAGO,
     irAlPaso,
+    CTA_PRIMARIO_VISIBLE,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -70,7 +71,7 @@ async function crearVentaThrowaway(page) {
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
     await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
-    await page.locator('#btn-confirmar').click();
+    await page.locator(CTA_PRIMARIO_VISIBLE).first().click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
     expect(id).toBeTruthy();

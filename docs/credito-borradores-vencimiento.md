@@ -42,3 +42,10 @@ Es idempotente (un borrador ya cancelado se omite) y seguro con varias instancia
 - `null` o menor que 1 desactiva el vencimiento. Sin fila de configuracion rige el valor por defecto.
 - Limite: un borrador vence cuando `ahora - actividad >= plazo` (el limite exacto vence).
 - Todavia no hay pantalla para editarlo; se ajusta en la tabla. `UpdateConfiguracionAsync` no lo pisa.
+
+## Interruptor de arranque (Hito 11, Etapa D)
+
+El job **no corre salvo que se habilite**: `BorradoresCredito:VencimientoAutomaticoHabilitado` (appsettings, variable de
+entorno `BorradoresCredito__VencimientoAutomaticoHabilitado`) vale `false` por defecto. Con `false` el servicio se registra,
+loguea que esta deshabilitado y termina sin consultar la base. Habilitarlo es una decision del propietario: la primera
+corrida sobre la base real cancela la venta 1003 y su credito 3 (libera 256.060 de cupo).

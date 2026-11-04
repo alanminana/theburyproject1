@@ -15,18 +15,39 @@ namespace TheBuryProject.Services
 
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<BorradorCreditoVencimientoBackgroundService> _logger;
+        private readonly bool _habilitado;
         private DateOnly? _ultimaFechaEjecutada;
+
+        /// <summary>
+        /// Interruptor de arranque (<c>BorradoresCredito:VencimientoAutomaticoHabilitado</c>). Apagado por defecto: el job
+        /// cancela ventas y créditos reales, así que solo corre si el propietario lo habilita de forma explícita.
+        /// </summary>
+        public const string ClaveHabilitado = "BorradoresCredito:VencimientoAutomaticoHabilitado";
 
         public BorradorCreditoVencimientoBackgroundService(
             IServiceProvider serviceProvider,
-            ILogger<BorradorCreditoVencimientoBackgroundService> logger)
+            ILogger<BorradorCreditoVencimientoBackgroundService> logger,
+            IConfiguration configuration)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            // Falla cerrado: solo un "true" válido lo habilita; un valor mal escrito lo deja apagado (y no tumba el arranque).
+            var valor = configuration[ClaveHabilitado];
+            _habilitado = bool.TryParse(valor, out var habilitado) && habilitado;
+            if (!string.IsNullOrWhiteSpace(valor) && !bool.TryParse(valor, out _))
+                _logger.LogWarning(
+                    "{Clave} tiene un valor inválido ('{Valor}'): el vencimiento de borradores queda deshabilitado", ClaveHabilitado, valor);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (!_habilitado)
+            {
+                _logger.LogInformation(
+                    "BorradorCreditoVencimientoBackgroundService deshabilitado ({Clave}=false): no se vencen borradores", ClaveHabilitado);
+                return;
+            }
+
             _logger.LogInformation("BorradorCreditoVencimientoBackgroundService iniciado");
             try
             {
@@ -46,6 +67,9 @@ namespace TheBuryProject.Services
         /// <summary>Ejecuta el vencimiento una vez por fecha comercial. Devuelve true si corrió.</summary>
         internal async Task<bool> EjecutarSiCorrespondeAsync(CancellationToken cancellationToken)
         {
+            if (!_habilitado)
+                return false;
+
             try
             {
                 using var scope = _serviceProvider.CreateScope();
