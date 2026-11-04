@@ -107,7 +107,7 @@ Se dejan registrados porque cada uno mostró un punto frágil del sistema:
 | Edición de producto por el modal AJAX del catálogo en navegador | Catalogo | Solo servidor |
 | Configuración de mora (JSON) y edición de plantillas/reglas de documentos | Mora / DocumentosConfig | Sin sondeo de flujo completo |
 | Importación de catálogo por ruta, carga de imágenes y URLs, atributos de borrador, escenarios de envío simulado, webhook | MercadoLibre | Superficies de integración externa |
-| Pantalla de Seguridad devuelve 500 en el entorno de pruebas HTTP | Seguridad | El rango invertido y la página enorme de auditoría solo se cubrieron como reglas puras |
+| ~~Pantalla de Seguridad devuelve 500 en el entorno de pruebas HTTP~~ | Seguridad | **Resuelto** (verificado en el Hito 11): `SeguridadIndiceHttpTests` 11/11 y, sobre la app real con SQL Server (clon), `/Seguridad` y sus pestañas responden 200, página enorme o negativa 200 y rango invertido 302 |
 | Campos generados por JavaScript y parciales compartidos | Shared | Sin análisis propio; se cubren solo cuando el módulo dueño los usa |
 | Registro, Olvidé mi contraseña, Reset | Identity | Páginas deshabilitadas (404): no hay campos que validar |
 
