@@ -168,6 +168,76 @@ namespace TheBuryProject.Controllers
         /// </summary>
         private bool PuedeConfigurarCredito() => _currentUser.HasPermission("clientes", "configurecredit");
 
+        /// <summary>
+        /// Valores personalizados de crédito guardados antes de que existieran los topes de validación (p. ej. un monto máximo
+        /// de 100.000.000 contra el tope de 20.000.000) no deben impedir editar datos que no tienen relación con el crédito.
+        /// Se exceptúa SOLO la validación individual del valor histórico, y solo si el valor enviado se leyó bien y es el
+        /// guardado (o si el usuario no puede configurar crédito: su valor se descarta y rige el guardado). Un valor nuevo
+        /// fuera de tope, o uno que ni se pudo interpretar, se rechaza igual que siempre.
+        /// MVC omite la validación de objeto (<see cref="IValidatableObject"/>: mínimo ≤ máximo, fecha de nacimiento, CUIL) cuando
+        /// falla una propiedad; al descartar ese error de propiedad se ejecuta esa validación sobre los valores efectivos.
+        /// </summary>
+        private async Task AceptarValoresHistoricosDeCreditoAsync(ClienteViewModel viewModel)
+        {
+            if (viewModel.Id <= 0 || ModelState.IsValid)
+                return;
+
+            var actual = await _clienteService.GetByIdAsync(viewModel.Id);
+            if (actual == null)
+                return;
+
+            var puedeConfigurar = PuedeConfigurarCredito();
+
+            // Un valor escrito que no se pudo interpretar (el binder lo dejó null) nunca se tolera, con o sin permiso y aunque el
+            // guardado también sea null: se detecta ANTES de sustituir los valores por los guardados.
+            var noInterpretados = new HashSet<string>(StringComparer.Ordinal);
+            NoInterpretado(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), viewModel.TasaInteresMensualPersonalizada);
+            NoInterpretado(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), viewModel.GastosAdministrativosPersonalizados);
+            NoInterpretado(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), viewModel.CuotasMaximasPersonalizadas);
+            NoInterpretado(nameof(ClienteViewModel.MontoMinimoPersonalizado), viewModel.MontoMinimoPersonalizado);
+            NoInterpretado(nameof(ClienteViewModel.MontoMaximoPersonalizado), viewModel.MontoMaximoPersonalizado);
+
+            if (!puedeConfigurar)
+                await AplicarRestriccionConfigCreditoAsync(viewModel); // valores efectivos = los guardados
+
+            var toleradas = false;
+            toleradas |= Tolerar(nameof(ClienteViewModel.TasaInteresMensualPersonalizada), viewModel.TasaInteresMensualPersonalizada, actual.TasaInteresMensualPersonalizada);
+            toleradas |= Tolerar(nameof(ClienteViewModel.GastosAdministrativosPersonalizados), viewModel.GastosAdministrativosPersonalizados, actual.GastosAdministrativosPersonalizados);
+            toleradas |= Tolerar(nameof(ClienteViewModel.CuotasMaximasPersonalizadas), viewModel.CuotasMaximasPersonalizadas, actual.CuotasMaximasPersonalizadas);
+            toleradas |= Tolerar(nameof(ClienteViewModel.MontoMinimoPersonalizado), viewModel.MontoMinimoPersonalizado, actual.MontoMinimoPersonalizado);
+            toleradas |= Tolerar(nameof(ClienteViewModel.MontoMaximoPersonalizado), viewModel.MontoMaximoPersonalizado, actual.MontoMaximoPersonalizado);
+
+            if (!toleradas)
+                return;
+
+            foreach (var resultado in ((IValidatableObject)viewModel).Validate(new ValidationContext(viewModel)))
+            {
+                var miembros = resultado.MemberNames.Any() ? resultado.MemberNames : new[] { string.Empty };
+                foreach (var miembro in miembros)
+                    ModelState.AddModelError(miembro, resultado.ErrorMessage ?? string.Empty);
+            }
+
+            void NoInterpretado(string campo, object? enviado)
+            {
+                if (enviado == null && ModelState.TryGetValue(campo, out var entrada)
+                    && entrada.Errors.Count > 0 && !string.IsNullOrWhiteSpace(entrada.AttemptedValue))
+                    noInterpretados.Add(campo);
+            }
+
+            bool Tolerar(string campo, object? enviado, object? guardado)
+            {
+                if (!ModelState.TryGetValue(campo, out var entrada) || entrada.Errors.Count == 0)
+                    return false;
+
+                if (noInterpretados.Contains(campo) || (puedeConfigurar && !Equals(enviado, guardado)))
+                    return false;
+
+                entrada.Errors.Clear();
+                entrada.ValidationState = Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Valid;
+                return true;
+            }
+        }
+
         private async Task AplicarRestriccionConfigCreditoAsync(ClienteViewModel viewModel)
         {
             if (PuedeConfigurarCredito())
@@ -270,6 +340,7 @@ namespace TheBuryProject.Controllers
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
+                await AceptarValoresHistoricosDeCreditoAsync(viewModel);
                 if (!ModelState.IsValid)
                 {
                     CargarDropdowns();
@@ -364,6 +435,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> EditAjax(ClienteViewModel viewModel)
         {
+            await AceptarValoresHistoricosDeCreditoAsync(viewModel);
             if (!ModelState.IsValid)
             {
                 var errors = ModelState.Values

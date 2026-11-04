@@ -142,10 +142,12 @@ public class ClienteWizardUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cliente", "_ClienteFormCampos.cshtml"));
 
-        // Referencias se saca del flujo navegable con el atributo hidden nativo
-        // (no se borra la sección ni sus campos: solo deja de listarse como
-        // paso). Ningún otro botón de paso lleva este atributo.
-        Assert.Contains("data-cliente-tab=\"t-refs\" hidden=\"@isWizard\"", view);
+        // Referencias se saca de la navegación (alta y edición) con el atributo hidden nativo: no tiene campos en el modelo
+        // (es un marcador), así que listarla como solapa vacía confundía (H11). No se borra la sección: solo deja de
+        // listarse. Ningún otro botón de paso lleva este atributo.
+        Assert.Contains("data-cliente-tab=\"t-refs\" hidden>", view);
+        Assert.DoesNotContain("data-cliente-tab=\"t-refs\" hidden=\"@isWizard\"", view);
+        Assert.DoesNotContain("@(isWizard ? \"5\" : \"6\")", view); // Crediticio es la 5ª sección también en edición
         Assert.DoesNotContain("data-cliente-tab=\"t-personal\" hidden", view);
         Assert.DoesNotContain("data-cliente-tab=\"t-conyuge\" hidden", view);
         Assert.DoesNotContain("data-cliente-tab=\"t-contacto\" hidden", view);
@@ -333,7 +335,9 @@ public class ClienteWizardUiContractTests
 
         // El servidor no confía en la UI: las 4 acciones de alta/edición aplican la restricción.
         Assert.Contains("_currentUser.HasPermission(\"clientes\", \"configurecredit\")", controller);
-        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(controller, @"await AplicarRestriccionConfigCreditoAsync\(viewModel\);").Count);
+        // 4 acciones de escritura (Create, CreateAjax, Edit, EditAjax) + AceptarValoresHistoricosDeCreditoAsync, que trabaja con los
+        // valores efectivos (los guardados) cuando el usuario no puede configurar crédito.
+        Assert.Equal(5, System.Text.RegularExpressions.Regex.Matches(controller, @"await AplicarRestriccionConfigCreditoAsync\(viewModel\);").Count);
     }
 
     [Fact]

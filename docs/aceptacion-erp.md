@@ -17,7 +17,7 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Stock | Aprobado | Stock = Σ movimientos para los 16 productos, Kardex sin cortes, recepción idempotente | — |
 | Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
-| Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202 | Consulta BCRA con tope de 6 s (provisorio aceptado). |
+| Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202; Etapa C: edición con valores de crédito históricos | Consulta BCRA con tope de 6 s (provisorio aceptado). La solapa Referencias no existe en el modelo: se oculta en la interfaz (sin entidad ni migración; decisión del propietario si se construye). |
 | Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
 | Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
@@ -81,3 +81,59 @@ Hoy «Ventas del mes» es neta de devoluciones (H10) pero el ticket promedio (Da
 4. **Venta 1006** (PendienteFinanciacion sin crédito): decidir si se cancela manualmente.
 5. **Cliente 1** tiene `MontoMaximoPersonalizado` = 100.000.000, por encima del tope de 20.000.000 de la validación: no se puede guardar hasta corregir ese dato.
 6. **Lista de precios:** si querés usar el módulo por lotes, hay que crear al menos una lista (no hay pantalla de listas).
+
+## Hito 11 — Etapa C: validación integral (`main` `124e30ea` + PR de la etapa)
+
+Entorno: clon `TheBuryProjectDb_qa_h11c` (copia `COPY_ONLY`; el job de borradores desactivado **solo en el clon**), app en :5199. La base real no se modificó (se consultó en solo lectura); no se aplicaron migraciones ni se ejecutaron jobs financieros reales.
+
+### Regresión
+
+| Capa | Resultado |
+|---|---|
+| CI sobre `main` `124e30ea` (merge de #221) | 14/14 checks, **más el workflow «Playwright Tests»: suite completa a 1366×768 con SQL Server en Docker y los sembradores**, verde (permisos por rol, antiforgery, IDOR y concurrencia incluidos en los tests .NET). Es la evidencia autorizada de la regresión E2E. |
+| E2E en el clon, 1366×768 (204 specs) | 90 pasan en la primera corrida; con la caja del clon abierta y la fecha de actualización de datos de los clientes controlada, solo quedan fallos de specs que exigen usuarios y datos sembrados (`PUN-ML9` con usuario vendedor, `configuracion-punitorio`, `credito-pago-cuota-*`) y tres ya documentados como dependientes de datos (`venta-functional-audit`, `venta-excepcion-documental-reload`, `cotizacion-simulador` T9). |
+| E2E en el clon, 1280×720 | 112 pasan; los 3 mismos fallos de datos. |
+| E2E en el clon, 390×844 | 99 pasan; 16 fallan por specs de escritorio que usan `#btn-confirmar` (en móvil rige el CTA fijo inferior); el resto pasa. |
+| Invariantes financieras contra SQL Server (base real, solo lectura) | Stock = último movimiento (0 violaciones) y sin cortes de cadena (0); cuota total = capital + interés + punitorio (0); pagado ≤ total (0); cierres de caja: esperado = inicial + ingresos − egresos (0) y diferencia = contado − esperado (0); capital pendiente del crédito = Σ capital de las cuotas (0). `SaldoPendiente` **es capital pendiente por diseño** (alimenta el cupo), no la suma de cuotas. |
+
+Defectos corregidos en esta etapa (con tests discriminantes y revisión de Codex, 2 revisiones adversariales, 2 hallazgos altos y 1 medio corregidos):
+- **Clientes con valores históricos de crédito** (p. ej. monto máximo 100.000.000 contra el tope de 20.000.000): ya se pueden editar los demás datos. Solo se exceptúa la validación individual del valor guardado e igual al enviado; un valor nuevo fuera de tope, uno no interpretable o la relación mínimo ≤ máximo se rechazan igual, y se vuelve a ejecutar la validación de objeto (fecha de nacimiento, CUIL). El valor real no se modificó.
+- **Referencias**: solapa oculta también en edición; «Crediticio» pasa a ser la 5.ª sección.
+
+### Pendientes resueltos o con definición
+
+| # | Tema | Resultado |
+|---|---|---|
+| 1 | Job de borradores | No se ejecutó nada contra la base real ni se arrancó la app sobre ella. La venta 1003 espera tu autorización. |
+| 2 | Referencias | Pestaña oculta (solo interfaz). |
+| 3 | Ticket promedio | Ver definición abajo; **no se modificó la métrica**. |
+| 4 | Venta 1006 | Ver abajo. No se tocó. |
+| 5 | Cliente 1 | Resuelto con compatibilidad histórica (ver arriba); el valor real sigue en 100.000.000. |
+| 6 | Listas de precios | Ver abajo. |
+
+**Venta 1006.** Se creó el 2026-09-26 07:45:45 al convertir la cotización COT-20260926-0020 (estado Convertida), y quedó en PendienteFinanciacion sin crédito porque el crédito solo se crea cuando el operador entra al paso «Configurar plan» (la 1003, convertida 20 minutos antes, sí lo hizo: crédito 3 a los 9 segundos). Es un borrador legítimo de conversión que nadie continuó; no es corrupción. Efectos: no reserva cupo, no mueve stock ni caja. Brecha funcional: el job exige crédito en PendienteConfiguracion, por lo que un borrador sin crédito **no vence nunca**. Opciones: (a) dejarla (inocua), (b) cancelarla manualmente con tu autorización, (c) extender el job para vencer también PendienteFinanciacion sin crédito (cambio de regla de negocio: necesita tu decisión).
+
+**Ticket promedio — definición final propuesta (validada con SQL Server sobre escenarios; la base real no tiene devoluciones aprobadas/completadas).** Ticket del período = (ventas brutas del período − devoluciones **de ventas del mismo período, por fecha de devolución dentro del período**) ÷ cantidad de ventas del período; cantidad 0 → 0.
+
+| Caso (período) | Hoy (bruto) | KPI ÷ cant. | **Propuesta** |
+|---|---|---|---|
+| Venta devuelta al 100 % en el mismo mes (100 y 200, devuelta la de 100) | 150 | 100 | **100** |
+| Devolución de una venta de un período anterior (300 en sep., devuelta en oct.; oct. = 100 y 200) | oct. 150 | oct. **0** (distorsiona) | oct. **150**; sep. sigue 300 |
+| Cantidad 0 con una devolución de una venta anterior | 0 | −300 → 0 | **0** |
+| Devolución parcial (50 sobre 300 en el mes) | 150 | 125 | **125** |
+
+Es igual a «Ventas del mes ÷ cantidad» salvo cuando entran devoluciones de períodos anteriores, que sí restan de «Ventas del mes» (criterio H10, por fecha de devolución) y no deben deformar el ticket de las ventas del período. No cambia el pasado (a diferencia de netear por venta) y no es un criterio fiscal. Cambio localizado: `DashboardService.CalcularTicketPromedioAsync` y `ReporteService` (`TicketPromedio`), reutilizando `VentasNetas.ObtenerDevolucionesAsync(..., ventaIds)`. **Falta tu confirmación** antes de modificarlo.
+
+**Listas de precios — qué falta exactamente para usar el módulo por lotes.**
+- *Datos de configuración faltantes:* no existe ninguna lista (`ListasPrecios` vacía en la base real y en el clon). Hace falta al menos una lista activa y una predeterminada; sin ella `Simular` responde «Debe seleccionar al menos una lista» y `AplicarRapido` no encuentra la predeterminada.
+- *Funcionalidad sin desarrollar:* nada en la aplicación crea ni edita listas (no hay controlador, vista ni semilla; `CreateListaAsync` y similares no tienen llamadores) y el módulo `CambiosPrecios` no está enlazado en ningún menú. Además `AplicarBatch` escribe `ProductoPrecioLista` pero no `Producto.PrecioVenta`: el precio resuelto pasaría a depender de dos fuentes.
+- *Alternativas:* **A (recomendada)** mantener el cambio directo del Catálogo como circuito oficial (ya probado: aplicar, historial, revertir, concurrencia) y declarar el módulo por lotes fuera de alcance; **B** crear una lista «Contado» predeterminada por semilla (requiere tu aprobación de datos y define la regla de precedencia entre lista y precio base); **C** desarrollar un ABM de listas (funcionalidad nueva).
+
+### Etapa D — qué falta para declarar finalizado funcionalmente el Hito 11
+
+1. **Tus decisiones:** autorizar (o desactivar) la primera corrida del job de borradores sobre la base real (cancelaría 1003 y su crédito 3); confirmar la definición del ticket promedio; elegir la alternativa de listas de precios (A/B/C); decidir qué hacer con la venta 1006 y si se construye Referencias.
+2. **Cheques:** el circuito está aprobado con limitaciones; falta probarlo con un cheque de prueba en el uso real antes de operar.
+3. **Contador (no bloquea el uso local):** IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia.
+4. **Dato de desarrollo:** el cliente 1 conserva un monto máximo histórico fuera de tope (ya no impide editarlo).
+5. **Infraestructura diferida:** copia fuera del servidor, VPN y firewall, licencia de AutoMapper, una sola instancia de la app; Mercado Libre fuera de alcance.
+6. **Cierre documental:** pasar esta matriz a «Aprobado» solo donde la evidencia sea suficiente; el veredicto final de la Etapa D depende de los puntos 1 y 2. No se autoriza la puesta en producción.
