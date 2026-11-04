@@ -319,9 +319,24 @@ async function pasoActual(page) {
  * @param {import('playwright/test').Page} page
  * @param {'cotizar'|'cliente'|'productos'|'pago'|'credito'|'envio'|'revision'} destino
  */
+/**
+ * Cierra con "Más tarde" el aviso "Actualizar datos del cliente" si está abierto: aparece cuando los datos del
+ * cliente tienen varios días y, al ser un <dialog> modal, tapa los botones del wizard. Depende de la fecha de
+ * actualización del cliente (dato), no del flujo bajo prueba.
+ * @param {import('playwright/test').Page} page
+ */
+async function cerrarAvisoDatosClienteSiAbierto(page) {
+    const modal = page.locator('#cliente-actualizar-datos-modal[open]');
+    if (await modal.isVisible().catch(() => false)) {
+        await modal.locator('[data-cad-later]').click();
+        await expect(modal).toBeHidden();
+    }
+}
+
 async function irAlPaso(page, destino) {
     const destinoIdx = ORDEN_PASOS.indexOf(destino);
     for (let intento = 0; intento < ORDEN_PASOS.length + 2; intento++) {
+        await cerrarAvisoDatosClienteSiAbierto(page);
         const actual = await pasoActual(page);
         if (actual === destino) return;
         if (!actual) throw new Error(`irAlPaso('${destino}'): no hay ningún panel del wizard visible.`);
@@ -345,6 +360,7 @@ async function irAlPaso(page, destino) {
 const CTA_PRIMARIO_VISIBLE = '.vm-hero__primary:visible, #btn-confirmar:visible, .vm-btn-confirm-sm:visible';
 
 module.exports = {
+    cerrarAvisoDatosClienteSiAbierto,
     CTA_PRIMARIO_VISIBLE,
     ORDEN_PASOS,
     pasoActual,

@@ -368,6 +368,13 @@
             const ocultarNota = texto !== textoConfirmarCanonico;
             notaConfirmar.classList.toggle('hidden', ocultarNota);
             notaConfirmar.hidden = ocultarNota;
+            // "Guardar sin confirmar" (sólo Edit) únicamente guarda en el paso final: el submit del wizard fuera de
+            // Revisión se convierte en "Siguiente", así que en los demás pasos parecía guardar y sólo avanzaba.
+            const btnGuardarSinConfirmar = document.getElementById('btn-guardar-sin-confirmar');
+            if (btnGuardarSinConfirmar) {
+                btnGuardarSinConfirmar.classList.toggle('hidden', ocultarNota);
+                btnGuardarSinConfirmar.hidden = ocultarNota;
+            }
         }
 
         if (btnConfirmarLabel && !esCredito) {

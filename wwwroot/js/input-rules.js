@@ -66,15 +66,48 @@
     }
 
     // Texto: digitos y un unico separador decimal (, o .), hasta 2 decimales, tope MONTO_MAX.
+    // Valor numérico de un monto escrito en formato es-AR o anglosajón, o NaN. Con ambos separadores el último es el
+    // decimal; con un solo tipo repetido es de miles ("1.234.567"); con uno solo y tres dígitos detrás ("1.500") es
+    // ambiguo y se lee como miles (el mayor valor posible): el servidor lo rechaza con un mensaje claro (FIN-S-017).
+    function montoANumero(v) {
+        var tienePunto = v.indexOf('.') !== -1, tieneComa = v.indexOf(',') !== -1;
+        var n;
+        if (tienePunto && tieneComa) {
+            var decimal = v.lastIndexOf(',') > v.lastIndexOf('.') ? ',' : '.';
+            var miles = decimal === ',' ? /\./g : /,/g;
+            n = v.replace(miles, '').replace(decimal, '.');
+        } else if (tienePunto || tieneComa) {
+            var sep = tienePunto ? '.' : ',';
+            var partes = v.split(sep);
+            var unico = partes.length === 2;
+            var comoMiles = !unico || partes[1].length === 3;
+            n = comoMiles ? partes.join('') : partes[0] + '.' + partes[1];
+        } else {
+            n = v;
+        }
+        return parseFloat(n);
+    }
+
+    // Antes el primer separador era siempre el decimal y se recortaba a 2 cifras: escribir "250.000" (miles con punto)
+    // dejaba "250.00", un monto mil veces menor sin aviso. Ahora se conservan los separadores de miles y sólo se
+    // recortan los decimales cuando de verdad lo son (un único separador con 1, 2 o más de 3 dígitos detrás, o la coma/
+    // punto final cuando hay ambos tipos).
     function sanitizeMontoTexto(value, previo) {
         var v = String(value || '').replace(/[^\d.,]/g, '');
-        var idx = v.search(/[.,]/);
-        if (idx !== -1) {
-            var ent = v.slice(0, idx);
-            var dec = v.slice(idx + 1).replace(/[.,]/g, '').slice(0, 2);
-            v = ent + v.charAt(idx) + dec;
+        // Formato anglosajón con ambos separadores ("250,000.00"): el servidor lo lee con el MISMO contrato (el último es
+        // el decimal), pero se lleva a es-AR acá para que lo escrito y lo guardado coincidan a simple vista.
+        if (v.indexOf('.') !== -1 && v.indexOf(',') !== -1 && v.lastIndexOf('.') > v.lastIndexOf(',')) {
+            v = v.replace(/,/g, '').replace('.', ',');
         }
-        if (parseFloat(v.replace(',', '.')) > MONTO_MAX) return previo || '';
+        var ultimo = Math.max(v.lastIndexOf('.'), v.lastIndexOf(','));
+        if (ultimo !== -1) {
+            var cola = v.slice(ultimo + 1);
+            var tienePunto = v.indexOf('.') !== -1, tieneComa = v.indexOf(',') !== -1;
+            var sepUnico = !(tienePunto && tieneComa) && (v.match(/[.,]/g) || []).length === 1;
+            var decimalSeguro = (tienePunto && tieneComa) || (sepUnico && cola.length !== 3);
+            if (decimalSeguro && cola.length > 2) v = v.slice(0, ultimo + 1) + cola.slice(0, 2);
+        }
+        if (montoANumero(v) > MONTO_MAX) return previo || '';
         return v;
     }
 
