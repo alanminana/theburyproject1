@@ -6,7 +6,10 @@ Base real `TheBuryProjectDb` ya limpia (PR #231). Todo lo probado acá se hizo e
 
 - Ejecutar **solo** desde un worktree limpio dedicado (`D:\git\theburyproject1-run`) con `scripts/ejecutar-erp-local.ps1`: lleva el árbol a `origin/main`, compila en `bin\app`, exige puerto libre y arranca con `Database:InitializeOnStartup=false`.
 - No ejecutar desde `D:\git\theburyproject1` (rama `trabajo/cambios-pendientes`, 379 commits detrás de `main`, con cambios sin integrar).
-- Una sola instancia de la app (jobs de fondo: vencimiento de borradores deshabilitado por configuración; mora y documentos vencidos corren si la app está activa).
+- El lanzador exige `HEAD == origin/main` (hash completo), árbol limpio, puerto libre y ninguna otra instancia de `TheBuryProyect.dll`; verifica que la app responda antes de informar éxito.
+- **`InitializeOnStartup=false` no detiene los 7 servicios en segundo plano**, que actúan solos mientras la app esté viva: mora (`ConfiguracionesMora.JobActivo=1`, cálculo automático, 08:00; crea su configuración si falta), incumplimiento de acuerdos (cada minuto), alertas de stock, vencimiento de cotizaciones, documentos vencidos, consumidor de webhooks de Mercado Libre (el webhook es anónimo, con límite de tamaño y tasa) y vencimiento de borradores de crédito (**deshabilitado** por configuración). Sin datos de crédito no hay efecto hoy; decidir antes de cargar créditos reales si el job de mora debe quedar activo.
+- Entorno por defecto `Development` (LocalDB con Windows Auth, sin `ErpDb:*`): habilita `DiagnosticoController` (solo SuperAdmin + antiforgery; incluye crear usuarios de prueba y reiniciar contraseñas a `Test123!`). `Production` exige `ErpDb:User/Password` (login SQL dedicado) y HTTPS: decisión de despliegue pendiente, no se cambió.
+- Los worktrees comparten el `UserSecretsId`; las claves de protección de datos (`keys/`) y los archivos subidos (`App_Data`, `wwwroot/uploads`) viven bajo el directorio de ejecución: **usar siempre el mismo worktree de ejecución** (cambiarlo invalida cookies y deja sin leer tokens cifrados de Mercado Libre) y respaldar la base **y** esos directorios. El backup documentado cubre Docker/Linux, no este LocalDB.
 
 ## Archivos de pruebas anteriores (huérfanos)
 
@@ -33,11 +36,24 @@ Activas: `central` (01), `NIKKY` (CAJA 6), `CERRADA` (02), `Akasha` (87), `caja 
 - Crear cuentas desde Seguridad funciona (se creó un SuperAdmin y 5 usuarios de rol en el clon). El primer ingreso de cada usuario exige aceptar «Términos y condiciones».
 - Matriz de acceso por rol (21 rutas × 6 roles) coherente: p. ej. cajero sin Venta/Create, Catálogo, Reportes ni Seguridad; contador sin Caja ni Venta/Create; repositor solo Dashboard, Catálogo y Devolución; Seguridad, Envíos y armados y Medios de pago solo SuperAdmin.
 - El último SuperAdmin está protegido por el servidor (tests de #98/#100; no se probó eliminarlo en la base real).
-- **Propuesta de transición sin perder acceso:** (1) crear la cuenta SuperAdmin propia con contraseña fuerte y aceptar los términos; (2) ingresar con ella y verificar Seguridad; (3) cambiar la contraseña de `admin` por una fuerte propia (o desactivarlo), (4) desactivar `administrador` y las demás cuentas de demostración que no se usen, asignando rol y caja a los usuarios reales; (5) nunca desactivar `admin` antes del paso 2.
+- Confirmado en código: cambiar la contraseña de `admin` está permitido (política de contraseña + antiforgery) y revoca sesiones previas; desactivarlo solo se permite si queda otro SuperAdmin habilitado (guardia con `UPDLOCK, HOLDLOCK`); el login bloquea 5 minutos tras 5 fallos; la recuperación de contraseña por correo está deshabilitada; `Admin:Password` no resetea contraseñas existentes. La guardia no comprueba que alguien conozca la contraseña ni que haya aceptado los términos.
+- **Propuesta de transición sin perder acceso:** (1) crear la cuenta SuperAdmin propia con contraseña fuerte; (2) ingresar con ella **en una sesión independiente**, aceptar los términos y verificar Seguridad; (3) crear una **segunda cuenta SuperAdmin de recuperación** con contraseña fuerte custodiada aparte (no hay recuperación por correo); (4) cambiar la contraseña de `admin` por una fuerte propia o desactivarlo; (5) desactivar `administrador` y las demás cuentas de demostración, asignando rol y caja a los usuarios reales; (6) nunca desactivar `admin` antes de completar 2 y 3. Hasta decidirlo, **no operar con `admin`/`administrador` expuestos con `Admin123!`**.
 
 ## Numeraciones tras la limpieza
 
-Reinician en 1: ventas `VTA-AAAAMM-000001` (contador vacío), cotizaciones, facturas internas (`Facturas` sin CAE), órdenes de compra `OC-2026-0001` (verificado), créditos. **Continúan** (series por Id/contador guardado): devoluciones y notas de crédito (`DEV-AAAAMM-000002` el primer número), garantías, contratos/pagarés (21), recibos (4). Sin decisión fiscal: ver `docs/iva-decisiones-contador.md`, `docs/factura-credito-personal.md`, `docs/envios-armados-costo-real.md`.
+Mecanismo por serie (confirmado leyendo los servicios; valores concretos medidos en clones):
+
+| Serie | Cómo se calcula | Después de la limpieza |
+|---|---|---|
+| Ventas | contador por prefijo/mes (`NumeracionVentaContadores`); si falta, parte del máximo numérico en `Ventas` | `VTA-AAAAMM-000001` (contador vacío y sin ventas) |
+| Cotizaciones | máximo del día + 1 | reinicia en 1 |
+| Facturas internas (`Facturas` sin CAE) | máximo por prefijo/mes + 1 | reinicia en 1 |
+| Órdenes de compra | máximo del año (sin eliminadas) + 1 | `OC-2026-0001` (verificado) |
+| Créditos | último Id visible + 1 | empieza en 1 y puede saltar después (Id no reiniciado) |
+| Devoluciones, notas de crédito de devolución, garantías | número derivado del Id real | continúan por IDENTITY (primer `DEV-AAAAMM-000002`) |
+| Contratos, pagarés, recibos | `TiposDocumento.UltimoNumero`, sin reinicio mensual | siguientes: contrato 22, pagaré 22, recibo 5 |
+
+Sin decisión fiscal: ver `docs/iva-decisiones-contador.md`, `docs/factura-credito-personal.md`, `docs/envios-armados-costo-real.md`.
 
 ## Evidencia de esta etapa (clones de la base ya limpia)
 
