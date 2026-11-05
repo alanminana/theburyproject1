@@ -2766,7 +2766,9 @@
         mostrarEstadoVerificandoCrediticia(true);
 
         try {
-            const data = await fetchJson(`/api/ventas/PrevalidarCredito?clienteId=${clienteId}&monto=${total}`);
+            // En edición, el crédito propio de la venta no cuenta como cupo ya usado (ver ValidacionVentaService).
+            const ventaIdEdicion = window.ventaInicial?.id ? `&ventaId=${encodeURIComponent(window.ventaInicial.id)}` : '';
+            const data = await fetchJson(`/api/ventas/PrevalidarCredito?clienteId=${clienteId}&monto=${total}${ventaIdEdicion}`);
             verificacionAutoKey = clave;
             ultimaPrevalidacion = data;
 

@@ -111,6 +111,13 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> GetCupoDisponibleAsync(int clienteId);
 
         /// <summary>
+        /// Cupo disponible excluyendo el saldo del crédito propio de una venta en edición (que ya figura como vigente).
+        /// Implementación por defecto: ignora la exclusión (los dobles de prueba no la necesitan).
+        /// </summary>
+        Task<decimal> GetCupoDisponibleAsync(int clienteId, decimal saldoPropioExcluido)
+            => GetCupoDisponibleAsync(clienteId);
+
+        /// <summary>
         /// Obtiene el crédito utilizado actual del cliente.
         /// </summary>
         Task<decimal> GetCreditoUtilizadoAsync(int clienteId);
