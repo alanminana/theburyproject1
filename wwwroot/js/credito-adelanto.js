@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function aplicarPreview(payload) {
         escribirCampo('aplicadoCapital', payload.aplicadoCapital, true);
         escribirCampo('aplicadoPunitorio', payload.aplicadoPunitorio, true);
+        escribirCampo('etiquetaAjusteMedioPago', payload.etiquetaAjusteMedioPago, false);
         escribirCampo('recargoMedioPago', payload.recargoMedioPago, true);
         escribirCampo('totalCaja', payload.totalCaja, true);
         escribirCampo('estadoEstimadoTexto', payload.estadoEstimadoTexto, false);

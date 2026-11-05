@@ -50,8 +50,8 @@
                     <div class="kv-row"><dt>Importe recibido</dt><dd class="num">@Dinero(resultado.ImporteRecibido)</dd></div>
                     <div class="kv-row"><dt>Aplicado a punitorio</dt><dd class="num">@Dinero(resultado.AplicadoPunitorio)</dd></div>
                     <div class="kv-row"><dt>Aplicado a capital</dt><dd class="num">@Dinero(resultado.AplicadoCapital)</dd></div>
-                    <div class="kv-row"><dt>Recargo del medio</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
-                    <div class="kv-row"><dt>Total ingresado en caja</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
+                    <div class="kv-row"><dt>@resultado.EtiquetaAjusteMedioPago</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
+                    <div class="kv-row"><dt>Total efectivamente cobrado</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
                     <div class="kv-row"><dt>Punitorio pendiente</dt><dd class="num">@Dinero(resultado.PunitorioRestante)</dd></div>
                     <div class="kv-row"><dt>Capital pendiente</dt><dd class="num">@Dinero(resultado.CapitalRestante)</dd></div>
                     <div class="kv-row"><dt>Estado final</dt><dd>@resultado.EstadoFinalTexto</dd></div>
@@ -209,8 +209,8 @@
                         <div class="kv-row"><dt>Aplicado a punitorio</dt><dd class="num" data-preview-field="aplicadoPunitorio">@(preview is null ? "—" : Dinero(preview.AplicadoPunitorio))</dd></div>
                         <div class="kv-row"><dt>Aplicado a capital</dt><dd class="num" data-preview-field="aplicadoCapital">@(preview is null ? "—" : Dinero(preview.AplicadoCapital))</dd></div>
                         <div class="kv-row"><dt>Excedente</dt><dd class="num" data-preview-field="excedente">@(preview is null ? "—" : Dinero(preview.Excedente))</dd></div>
-                        <div class="kv-row"><dt>Recargo del medio</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
-                        <div class="kv-row"><dt>Total a caja</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
+                        <div class="kv-row"><dt data-preview-field="etiquetaAjusteMedioPago">@(preview?.EtiquetaAjusteMedioPago ?? "Recargo por medio de pago")</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
+                        <div class="kv-row"><dt>Total efectivamente cobrado</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
                         <div class="kv-row"><dt>Punitorio restante</dt><dd class="num" data-preview-field="punitorioRestante">@(preview is null ? "—" : Dinero(preview.PunitorioRestante))</dd></div>
                         <div class="kv-row"><dt>Capital restante</dt><dd class="num" data-preview-field="capitalRestante">@(preview is null ? "—" : Dinero(preview.CapitalRestante))</dd></div>
                         <div class="kv-row"><dt>Estado estimado</dt><dd data-preview-field="estadoEstimadoTexto">@(preview?.EstadoEstimadoTexto ?? "—")</dd></div>

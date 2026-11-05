@@ -478,6 +478,30 @@ namespace TheBuryProject.Services.Documentos
             ctx.Set("pago.importeTotalLetras", NumeroALetras.Importe(total));
             ctx.Set("pago.importeEnLetras", NumeroALetras.Importe(total));
             ctx.Set("pago.medioPago", string.Join(", ", pagos.Select(p => p.MedioPago).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct()));
+            // Recargo/descuento del medio de pago: se lee del movimiento de caja que registró el cobro
+            // (no se recalcula). ImporteTotal del pago es siempre el importe base, sin el recargo.
+            var movimientoIds = pagos.Where(p => p.MovimientoCajaId.HasValue).Select(p => p.MovimientoCajaId!.Value).Distinct().ToList();
+            var recargoMedio = movimientoIds.Count == 0
+                ? 0m
+                : (await _context.MovimientosCaja.AsNoTracking()
+                    .Where(m => movimientoIds.Contains(m.Id))
+                    .Select(m => (m.RecargoMedioPago ?? 0m) - (m.DescuentoMedioPago ?? 0m))
+                    .ToListAsync()).Sum();
+            var totalCobrado = total + recargoMedio;
+            ctx.Set("pago.tieneRecargo", recargoMedio > 0m);
+            ctx.Set("pago.recargoMedioPago", recargoMedio);
+            ctx.Set("pago.recargoMedioPagoFormato", FormatoArgentino.Importe(recargoMedio));
+            var porcentajeAjuste = total > 0m ? Math.Round(recargoMedio * 100m / total, 2, MidpointRounding.AwayFromZero) : 0m;
+            ctx.Set("pago.recargoPorcentajeFormato", recargoMedio > 0m
+                ? porcentajeAjuste.ToString("0.##", new CultureInfo("es-AR"))
+                : string.Empty);
+            // Ajuste del medio de pago con signo: recargo (+) o descuento (-). Lo usa la plantilla para no ocultar descuentos.
+            ctx.Set("pago.tieneAjusteMedioPago", recargoMedio != 0m);
+            ctx.Set("pago.ajusteMedioPagoEtiqueta", TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(porcentajeAjuste, recargoMedio));
+            ctx.Set("pago.ajusteMedioPagoFormato", FormatoArgentino.Importe(Math.Abs(recargoMedio)));
+            ctx.Set("pago.totalCobrado", totalCobrado);
+            ctx.Set("pago.totalCobradoFormato", FormatoArgentino.Importe(totalCobrado));
+            ctx.Set("pago.totalCobradoLetras", NumeroALetras.Importe(totalCobrado));
             ctx.Set("pago.importeCuota", pagos.Sum(p => p.ImporteAplicadoCuota ?? 0m));
             ctx.Set("pago.importePunitorio", pagos.Sum(p => p.ImporteAplicadoPunitorio ?? 0m));
             ctx.Set("cuota.numero", cuota.NumeroCuota);
