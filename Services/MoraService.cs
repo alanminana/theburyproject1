@@ -152,11 +152,16 @@ namespace TheBuryProject.Services
                 Errores = 0
             };
 
+            ConfiguracionMora? configProceso = null;
+            DateTime? ultimaEjecucionPrevia = null;
+
             try
             {
                 _logger.LogInformation("=== INICIANDO PROCESAMIENTO DE MORA ===");
 
                 var config = await GetConfiguracionAsync();
+                configProceso = config;
+                ultimaEjecucionPrevia = config.UltimaEjecucion;
                 // PUN-ML7: fecha comercial única (antes DateTime.Today — dependía de la zona del
                 // proceso, no de Argentina). InicioDiaComercial es la cota diseñada para comparar
                 // contra Cuota.FechaVencimiento (DateTime a medianoche).
@@ -307,8 +312,10 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                // Actualizar configuración
-                config.UltimaEjecucion = DateTime.UtcNow;
+                // Actualizar configuración. La marca de "ya corrió hoy" solo se fija si no hubo errores: el job automático la usa
+                // para no repetir el mismo día comercial, así que una corrida con fallos debe poder reintentarse.
+                if (log.Errores == 0)
+                    config.UltimaEjecucion = DateTime.UtcNow;
                 log.AlertasGeneradas = alertasCreadas;
                 log.Exitoso = true;
                 log.Mensaje = $"Proceso completado. {cuotasVencidas.Count} cuotas procesadas, " +
@@ -321,6 +328,9 @@ namespace TheBuryProject.Services
             }
             catch (Exception ex)
             {
+                // Si el guardado falló, la marca ya asignada se persistiría en el SaveChanges del finally: se revierte.
+                if (configProceso != null)
+                    configProceso.UltimaEjecucion = ultimaEjecucionPrevia;
                 log.Exitoso = false;
                 log.Mensaje = "Error al procesar mora";
                 log.DetalleError = ex.Message + (ex.InnerException != null ? " | " + ex.InnerException.Message : string.Empty);

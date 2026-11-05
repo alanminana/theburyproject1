@@ -118,6 +118,10 @@ powershell -NoProfile -File scripts\respaldo-local.ps1 -Accion Probar    -Raiz D
 - `Probar`: restaura en una base **nueva** descartable y comprueba SHA256 del `.bak`, `VERIFYONLY`, `DBCC CHECKDB`, `DBCC CHECKCONSTRAINTS`, mismas
   migraciones y mismas huellas por tabla, SuperAdmin activo, saldos de caja/stock y recuperación de archivos con SHA256 idéntico. Código de salida 0 solo
   si todo coincide; un `.bak` alterado falla (verificado). Elimina la base de prueba al terminar.
+- `Respaldar` calcula las huellas antes y después del `BACKUP` y aborta si la base cambió en el medio: ejecutarlo con la aplicación detenida o sin
+  actividad. `Probar` rechaza un `manifest.json` con nombre de base no válido y devuelve error si no puede borrar la base o la carpeta temporal.
+- Invariantes financieros (solo lectura, útil sobre un clon tras una corrida de QA o sobre la base real):
+  `sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -d <BASE> -i scripts\sql\verificar-invariantes-financieros.sql` (stock, cuotas/pagos, caja, devoluciones, notas de crédito).
 - Limitación: no hay copia fuera del equipo ni programación automática; el destino debe ser otro disco y, fuera del equipo, cifrado.
 - **Producción real no puede usar LocalDB**: `Production` exige `ErpDb:User/Password` (login SQL) y LocalDB no admite autenticación SQL. Producción =
   la pila Docker de este documento (SQL Server en contenedor) o un SQL Server Express/Standard instalado.

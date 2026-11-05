@@ -34,8 +34,9 @@ if ($Base -notmatch '^[A-Za-z0-9_]+$') { throw "Nombre de base invalido." }
 $Raiz = (Resolve-Path $Raiz).Path
 $subcarpetas = @('keys', 'wwwroot\uploads', 'App_Data')
 
-function Sql([string]$db, [string]$q) {
-    $r = & sqlcmd -S $Servidor -E -C -d $db -h -1 -W -b -Q "SET NOCOUNT ON; $q" 2>&1
+function Lit([string]$s) { return $s.Replace("'", "''") }   # literal SQL seguro para rutas
+function Sql([string]$db, [string]$q, [string]$sep = ' ') {
+    $r = & sqlcmd -S $Servidor -E -C -d $db -h -1 -W -s $sep -b -Q "SET NOCOUNT ON; $q" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "sqlcmd fallo: $($r -join ' ')" }
     return ($r | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
 }
@@ -46,7 +47,7 @@ function Huellas([string]$db) {
     foreach ($t in $tablas) {
         $cols = Sql $db "SELECT QUOTENAME(c.name) FROM sys.columns c WHERE c.object_id = OBJECT_ID(N'dbo.$t') AND c.system_type_id NOT IN (189,241,34,35,99) ORDER BY c.column_id"
         $lista = ($cols -join ',')
-        $res = Sql $db "SELECT CAST(COUNT_BIG(*) AS varchar(30)) + '|' + CAST(ISNULL(CHECKSUM_AGG(CHECKSUM($lista)),0) AS varchar(30)) FROM [dbo].[$t]"
+        $res = Sql $db "SELECT CAST(COUNT_BIG(*) AS varchar(30)) + '|' + CAST(ISNULL(CHECKSUM_AGG(CHECKSUM($lista)),0) AS varchar(30)) + '|' + CAST(ISNULL(CHECKSUM_AGG(BINARY_CHECKSUM($lista)),0) AS varchar(30)) FROM [dbo].[$t]"
         $h[$t] = "$($res | Select-Object -First 1)"
     }
     return $h
@@ -71,8 +72,13 @@ if ($Accion -eq 'Respaldar') {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     $bak = Join-Path $dir "$Base.bak"
     Write-Host "Respaldando base en $bak ..."
-    Sql 'master' "BACKUP DATABASE [$Base] TO DISK = N'$bak' WITH COPY_ONLY, CHECKSUM, INIT, STATS = 25" | Out-Null
-    Sql 'master' "RESTORE VERIFYONLY FROM DISK = N'$bak' WITH CHECKSUM" | Out-Null
+    $huellasAntes = Huellas $Base
+    Sql 'master' "BACKUP DATABASE [$Base] TO DISK = N'$(Lit $bak)' WITH COPY_ONLY, CHECKSUM, INIT, STATS = 25" | Out-Null
+    Sql 'master' "RESTORE VERIFYONLY FROM DISK = N'$(Lit $bak)' WITH CHECKSUM" | Out-Null
+    $huellas = Huellas $Base
+    foreach ($k in $huellas.Keys) {
+        if ($huellas[$k] -ne $huellasAntes[$k]) { throw "La base cambio durante el respaldo (tabla $k). Repetir con la aplicacion detenida o sin actividad." }
+    }
     foreach ($s in $subcarpetas) {
         $o = Join-Path $Raiz $s
         if (Test-Path $o) { Copy-Item $o (Join-Path $dir $s) -Recurse -Force; Write-Host "Copiado $s" } else { Write-Host "Sin $s (no existe)" }
@@ -82,7 +88,7 @@ if ($Accion -eq 'Respaldar') {
         base       = $Base
         servidor   = $Servidor
         migraciones = [int]((Sql $Base "SELECT COUNT(*) FROM __EFMigrationsHistory") | Select-Object -First 1)
-        tablas     = Huellas $Base
+        tablas     = $huellas
         archivos   = HashArchivos $dir $subcarpetas
         bakSha256  = (Get-FileHash $bak -Algorithm SHA256).Hash
         nota       = 'No incluye secretos (user-secrets / ErpDb__* / .env): guardarlos aparte.'
@@ -98,6 +104,7 @@ if (-not $Carpeta) {
 }
 if (-not $Carpeta -or -not (Test-Path (Join-Path $Carpeta 'manifest.json'))) { throw "No hay respaldo valido (manifest.json) en $Destino." }
 $man = Get-Content (Join-Path $Carpeta 'manifest.json') -Raw | ConvertFrom-Json
+if ("$($man.base)" -notmatch '^[A-Za-z0-9_]+$') { throw "manifest.json: nombre de base invalido (posible manipulacion)." }
 $bak = Join-Path $Carpeta "$($man.base).bak"
 $prueba = "$($man.base)_prueba_restore"
 $tmp = Join-Path 'C:\Users\Public' "restore_$($prueba)_$(Get-Date -Format yyyyMMddHHmmss)"
@@ -106,20 +113,20 @@ function Ok([string]$m) { Write-Host "  [OK]   $m" }
 function Mal([string]$m) { Write-Host "  [FALLA] $m"; $fallos.Add($m) }
 
 if ((Get-FileHash $bak -Algorithm SHA256).Hash -eq $man.bakSha256) { Ok "SHA256 del .bak coincide con el manifiesto" } else { Mal "SHA256 del .bak distinto del manifiesto" }
-Sql 'master' "RESTORE VERIFYONLY FROM DISK = N'$bak' WITH CHECKSUM" | Out-Null; Ok "RESTORE VERIFYONLY con CHECKSUM"
+Sql 'master' "RESTORE VERIFYONLY FROM DISK = N'$(Lit $bak)' WITH CHECKSUM" | Out-Null; Ok "RESTORE VERIFYONLY con CHECKSUM"
 if (Sql 'master' "SELECT name FROM sys.databases WHERE name = N'$prueba'") { throw "Ya existe $prueba; eliminarla manualmente si es de una prueba anterior." }
 
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 try {
-    $lf = Sql 'master' "RESTORE FILELISTONLY FROM DISK = N'$bak'"
+    $lf = Sql 'master' "RESTORE FILELISTONLY FROM DISK = N'$(Lit $bak)'" '|'
     $moves = @(); $i = 0
     foreach ($linea in $lf) {
-        $p = $linea -split '\s+'
-        $logico = $p[0]; $tipo = ($linea -split '\s+' | Where-Object { $_ -in 'D', 'L' } | Select-Object -First 1)
+        $p = $linea -split '\|'          # columna 1 = LogicalName (puede tener espacios), columna 3 = Type (D/L)
+        $logico = $p[0].Trim(); $tipo = $p[2].Trim()
         $ext = if ($tipo -eq 'L') { 'ldf' } else { 'mdf' }
-        $moves += "MOVE N'$logico' TO N'$(Join-Path $tmp "f$i.$ext")'"; $i++
+        $moves += "MOVE N'$(Lit $logico)' TO N'$(Lit (Join-Path $tmp "f$i.$ext"))'"; $i++
     }
-    Sql 'master' "RESTORE DATABASE [$prueba] FROM DISK = N'$bak' WITH $($moves -join ', '), CHECKSUM, STATS = 50" | Out-Null
+    Sql 'master' "RESTORE DATABASE [$prueba] FROM DISK = N'$(Lit $bak)' WITH $($moves -join ', '), CHECKSUM, STATS = 50" | Out-Null
     Ok "Restauracion en base nueva $prueba"
 
     $chk = Sql $prueba "DBCC CHECKDB (N'$prueba') WITH NO_INFOMSGS, ALL_ERRORMSGS"
@@ -156,8 +163,9 @@ try {
     if (-not (Get-ChildItem (Join-Path $tmp 'keys') -Filter '*.xml' -ErrorAction SilentlyContinue)) { Mal "El respaldo no contiene claves de Data Protection (keys\*.xml)" } else { Ok "Claves de Data Protection presentes" }
 }
 finally {
-    try { Sql 'master' "IF DB_ID(N'$prueba') IS NOT NULL BEGIN ALTER DATABASE [$prueba] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$prueba]; END" | Out-Null } catch { Write-Host "No se pudo eliminar $prueba : $_" }
-    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    try { Sql 'master' "IF DB_ID(N'$prueba') IS NOT NULL BEGIN ALTER DATABASE [$prueba] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$prueba]; END" | Out-Null }
+    catch { Mal "No se pudo eliminar la base de prueba $prueba (queda una copia de datos sensibles): $_" }
+    try { Remove-Item $tmp -Recurse -Force -ErrorAction Stop } catch { Mal "No se pudo eliminar la carpeta temporal $tmp : $_" }
 }
 if ($fallos.Count -gt 0) { Write-Host "`nRESULTADO: FALLA ($($fallos.Count))"; exit 1 }
 Write-Host "`nRESULTADO: OK - respaldo verificado y restaurable. Base de prueba eliminada."
