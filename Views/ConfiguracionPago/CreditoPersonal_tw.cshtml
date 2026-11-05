@@ -1449,6 +1449,13 @@
 
             var focusables = punitorioFocusablesEnModal(modal);
             if (focusables.length > 0) focusables[0].focus();
+            // jQuery Validate (focusInvalid) puede devolver el foco a un campo del formulario justo despues
+            // del submit que abrio el modal: se reafirma el foco dentro del modal tras ese ciclo de eventos.
+            window.setTimeout(function () {
+                if (modal.classList.contains('hidden') || modal.contains(document.activeElement)) return;
+                var items = punitorioFocusablesEnModal(modal);
+                if (items.length > 0) items[0].focus();
+            }, 0);
 
             punitorioFocusTrapHandler = function (event) {
                 if (event.key === 'Escape') {
