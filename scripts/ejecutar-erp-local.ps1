@@ -1,9 +1,9 @@
-<#
+﻿<#
   Ejecuta TheBuryProject desde un checkout limpio de origin/main (nunca desde una rama vieja ni con cambios locales).
 
   Uso (desde un worktree LIMPIO dedicado a ejecutar, p. ej. D:\git\theburyproject1-run):
-    pwsh -File scripts\ejecutar-erp-local.ps1                      # base real (user-secrets), http://127.0.0.1:18787
-    pwsh -File scripts\ejecutar-erp-local.ps1 -Puerto 5205 -ConnectionString "Server=(localdb)\MSSQLLocalDB;Database=TheBuryProjectDb_qa;Trusted_Connection=True;TrustServerCertificate=True"
+    powershell -NoProfile -File scripts\ejecutar-erp-local.ps1                      # base real (user-secrets), http://127.0.0.1:18787
+    powershell -NoProfile -File scripts\ejecutar-erp-local.ps1 -Puerto 5205 -ConnectionString "Server=(localdb)\MSSQLLocalDB;Database=TheBuryProjectDb_qa;Trusted_Connection=True;TrustServerCertificate=True"
 
   Que hace: verifica que el arbol este limpio, lo lleva a origin/main (detached), compila en bin\app, comprueba que el puerto
   este libre y arranca con Database:InitializeOnStartup=false (sin inicializadores ni migraciones automaticas). No toca la base.
@@ -38,3 +38,4 @@ if ($ConnectionString) { $env:ConnectionStrings__DefaultConnection = $Connection
 $p = Start-Process dotnet -ArgumentList 'exec', 'bin/app/TheBuryProyect.dll', '--contentRoot', $raiz, '--urls', "http://127.0.0.1:$Puerto" -PassThru -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $raiz 'bin\app.log') -RedirectStandardError (Join-Path $raiz 'bin\app.err')
 "TheBuryProject $commit en http://127.0.0.1:$Puerto (PID $($p.Id)). Logs: bin\app.log / bin\app.err"
+
