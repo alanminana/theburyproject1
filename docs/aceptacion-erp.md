@@ -270,3 +270,30 @@ Dos revisiones adversariales sobre el cierre. 1.ª: 2 hallazgos altos (el script
 ## Prueba operativa de cheques (2026-11-05)
 
 Circuito de cheques recibidos **APROBADO operativamente en entorno controlado** (clon aislado, operado desde la interfaz con Playwright y verificado en SQL Server): venta con cheque, acreditación con la caja original cerrada, rechazo (pendiente y ya acreditado), cancelaciones (pendiente, acreditado, sin caja vigente), devoluciones, validaciones, permisos, caja ajena, cuotas con cheque y repeticiones; 13 invariantes y 10 controles de cheques con 0 violaciones; cajas históricas inmutables; base real intacta. Detalle, hallazgos (F-1 configuración del medio, F-2 rechazo post-acreditación sin entrada en la interfaz, O-1 reembolso sin control de efectivo) y requisitos para una prueba con un cheque auténtico en `docs/cheques-circuito-propuesta.md` §7. F-2, O-1 y F-4 quedaron corregidos y verificados (§7.5). **No se autoriza el uso con cheques reales** hasta una prueba explícitamente autorizada.
+
+## Preproducción (2026-11-05, `main` `c0519f7b` + #234)
+
+Alcance: dejar el ERP listo técnicamente para operar. **No es una aprobación de producción**: quedan decisiones del propietario (credenciales, infraestructura definitiva, comerciales y fiscales) detalladas en `docs/preproduccion-seguridad-y-transicion.md`. Todo se probó en clones aislados; ninguna operación sobre la base real.
+
+### Cambios de la etapa
+
+| Cambio | PR | Cobertura |
+|---|---|---|
+| Job de mora: hora configurada interpretada como hora comercial (antes UTC → corría 3 h antes) y última ejecución persistida (no repite al reiniciar); la marca no se fija si hubo errores | #233 | `MoraBackgroundServiceProgramacionTests` (5), `MoraServiceTests` (+2) |
+| Contraseñas: mínimo 10 en Production | #233 | `IdentityPasswordPolicyTests` |
+| Interruptor `MercadoLibre:Webhook:Enabled=false` (endpoint anónimo + consumidor) | #233 | `MercadoLibreWebhookInterruptorTests` |
+| `scripts/respaldo-local.ps1` (respaldo y prueba de restauración con manifiesto SHA256) y `scripts/sql/verificar-invariantes-financieros.sql` (solo lectura) | #233 | Probado contra la base real (solo lectura), con un `.bak` corrupto (falla) y con mutaciones sobre un clon (detecta stock, cuota y NC) |
+| **Defecto corregido:** en Venta/Edit el paso Crédito marcaba «NO VIABLE» porque el crédito propio de la venta contaba como cupo usado (cliente con cupo $500.000 y venta de $261.183 no podía confirmar). `VentaService` ya lo excluía al confirmar; faltaba la prevalidación | #234 | 3 pruebas nuevas en `ValidacionVentaServiceAptitudRealIntegrationTests` + validación Playwright en clon; revisión Codex (2 hallazgos resueltos) |
+| Diagnóstico fuera de Development → 404 (todas las acciones), cambio de credenciales revoca sesión | esta rama | `DiagnosticoFueraDeDevelopmentHttpTests`, `SecurityStampRotado_*` |
+
+### Evidencia
+
+- **xUnit** (línea base antes de los cambios): 7955 correctas, 0 fallos, **194 omitidas**: 187 son de SQL Server (variables `QA_*`), 6 siembras E2E (`E2E_SEED_CONNECTION`) y 1 pendiente de decisión de negocio (`CFG-DEF-04`, `TipoTasaMora` no se interpreta). Ninguna es obsoleta.
+- **SQL Server real** (LocalDB, 4 bases descartables): las 187 omitidas ejecutadas con las variables del CI: **186 correctas**; la única que falla es `CancelarVsPagoLockModelSqlServerTests.I4_…`, un modelo de locks documentado como «FAIL esperado — TOCTOU» que el CI excluye. En CI corren por separado `sqlserver-concurrencia` (RCSI 0 y 1), `-superadmin`, `-configventa` y `-fin-s-002`.
+- **Flujos financieros en clon con SQL** (Playwright): documentos del cliente cargados y verificados → «No apto» pasa a «Apto»; venta a crédito personal 3 cuotas (contrato y pagaré con numeración continua), confirmación (stock 10→9, 3 cuotas, caja sin movimiento), cobro parcial en efectivo + saldo por transferencia (recargo 3 %, recibo REC v2), cuota vencida: mora genera **1** alerta y es idempotente (2ª corrida: 0), punitorio calculado informativo sin cobrar, cobro completo, cierre de caja exacto (esperado = fondo + efectivo; la transferencia no entra), venta contado en efectivo, devolución con nota de crédito (doble clic: 1 NC, +1 stock). `verificar-invariantes-financieros.sql`: **0 violaciones** (stock, cuotas/pagos, caja, devoluciones, NC) tras cada paso.
+- **Servicios automáticos** (7): `docs/auditoria-servicios-automaticos.md`.
+- **Seguridad:** `docs/preproduccion-seguridad-y-transicion.md`.
+
+### Estado de la matriz
+
+Los estados de la tabla anterior se mantienen salvo: **Crédito** y **Ventas y Cotizaciones**: el defecto de la prevalidación en edición queda corregido (#234) y el recorrido crédito → cobro → mora → cierre quedó validado en clon. **Mora y Acuerdos**: job corregido (hora comercial, sin repetición al reiniciar). **Seguridad**: política de contraseña en Production y pruebas negativas de Diagnóstico/sesiones. **Infraestructura y recuperación**: respaldo local con prueba de restauración (base + claves + archivos) validado; sigue sin copia externa ni servidor definitivo.
