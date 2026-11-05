@@ -42,6 +42,20 @@ namespace TheBuryProject.Services
                               (v.Cliente == null || !v.Cliente.IsDeleted));
 
         /// <summary>
+        /// Ticket promedio del período (única definición para Dashboard y Reportes): (ventas brutas del período − devoluciones
+        /// de ESAS mismas ventas) ÷ cantidad de ventas del período; sin ventas, 0. Las devoluciones que se pasan ya vienen
+        /// acotadas por fecha de devolución dentro del período; las de ventas de otros períodos no deforman el ticket.
+        /// No es un criterio fiscal: usa el total cobrado (con IVA), igual que «Ventas del mes».
+        /// </summary>
+        public static decimal CalcularTicketPromedio(
+            decimal ventasBrutas, int cantidadVentas, IEnumerable<DevolucionNeta> devolucionesDelPeriodo, IReadOnlySet<int> ventaIdsDelPeriodo)
+        {
+            if (cantidadVentas <= 0) return 0m;
+            var devueltoDeEstasVentas = devolucionesDelPeriodo.Where(d => ventaIdsDelPeriodo.Contains(d.VentaId)).Sum(d => d.Bruto);
+            return (ventasBrutas - devueltoDeEstasVentas) / cantidadVentas;
+        }
+
+        /// <summary>
         /// Una devolución valuada: <see cref="Bruto"/> = lo realmente cobrado por lo devuelto (con IVA, incluida su parte del
         /// recargo/descuento del medio de pago; es <c>Devolucion.TotalDevolucion</c>), <see cref="Neto"/> = esa misma
         /// porción sin IVA y <see cref="Costo"/> = costo de la venta original de las unidades devueltas.

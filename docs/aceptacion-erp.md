@@ -18,10 +18,10 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
 | Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202; Etapa C: edición con valores de crédito históricos | Consulta BCRA con tope de 6 s (provisorio aceptado). La solapa Referencias no existe en el modelo: se oculta en la interfaz (sin entidad ni migración; decisión del propietario si se construye). |
-| Usuarios y Roles | Aprobado con limitaciones | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones | Permisos del catálogo sin uso (~50) sin limpiar. **La base real no tiene los permisos `ventas.discount` ni `creditos.configure`** (ver Etapa D, defecto D-1): solo SuperAdmin puede aplicar descuentos o configurar crédito hasta que se ejecuten los sembradores. |
+| Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones; **D-1 resuelto en la base real** (`ventas.discount` y `creditos.configure` con sus asignaciones, verificado por rol en un clon) | Permisos del catálogo sin uso (~50) sin limpiar. Hallazgo D-8: a la base real también le faltan `precios.*` (Gerente) y `mora.view/manage` (Gerente, Cajero, Contador); no se tocaron (fuera de la autorización). |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
-| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205 | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
-| Dashboard | Aprobado con limitaciones | KPIs vs SQL, #177, mobile 390 | «Ventas del mes» neta de devoluciones (H10); ticket promedio sigue bruto. |
+| Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205; ticket promedio con la definición aprobada (Hito 11) | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
+| Dashboard | Aprobado | KPIs vs SQL, #177, mobile 390; ticket promedio con la definición aprobada (Hito 11) | — |
 | Notificaciones | Aprobado con limitaciones | Campana conectada, #180 | Llegada en vivo por SignalR sin validar. |
 | Tickets | Aprobado con limitaciones | Alta, estados, adjuntos, checklist | Acciones masivas por UI sin recorrer con clics. |
 | Configuración | Aprobado | Empresa, prefijos, mora, crédito, medios de pago persisten | — |
@@ -50,7 +50,7 @@ Condiciones: probar el circuito de cheques con un cheque de prueba antes de oper
 | Compras: sin cuentas ni pagos a proveedor | Funcionalidad nueva, fuera de alcance | Sin cambio hasta que el propietario la declare indispensable. |
 | Reportes: Reporte de IVA no netea devoluciones | Defecto funcional parcial; el período es fiscal | El informe avisa en su nota. Restar la devolución requiere definir en qué período se computa la nota de crédito (contador, `docs/iva-decisiones-contador.md` #4). |
 | Reportes: costo con IVA, envío/armados y recargo en la ganancia | Contador | `docs/iva-decisiones-contador.md` #1, #5 y #6. |
-| Dashboard: ticket promedio bruto mientras «Ventas del mes» es neta | Inconsistencia técnica menor | Definición de la métrica; candidata a unificar sin criterio fiscal. |
+| ~~Dashboard: ticket promedio bruto mientras «Ventas del mes» es neta~~ | Resuelto (Hito 11) | Ticket promedio unificado en Dashboard y Reportes con la definición aprobada. |
 
 ## Hito 11 — Bloque 2: evidencia (clon de la base real, `main` `6d9d4065` + PR del bloque)
 
@@ -187,3 +187,53 @@ Lección registrada: el dataset sembrado **se consume** (los tests editan y cobr
 - **Pendientes fiscales/contables** (no bloquean el uso local): IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia.
 - **Preparación para producción: no autorizada.** Faltan: copia fuera del servidor, VPN y firewall del servidor local (la seguridad básica del servidor no está resuelta), licencia de AutoMapper, una sola instancia de la app. Mercado Libre queda fuera de alcance.
 - **Hito 11:** no se declara finalizado mientras D-1 siga abierto. Con tu autorización de D-1 y las decisiones D-2/D-3 queda cerrado funcionalmente.
+
+## Hito 11 — Cierre (`main` `c1f1ca2f` + PR de cierre)
+
+Decisiones del propietario aplicadas: D-1 autorizado, job de borradores deshabilitado, ticket promedio aprobado, aptitud con cupo $0 a verificar, listas de precios por lotes diferidas, venta 1006 sin cambios, pestaña Referencias oculta. La base real se modificó **solo** en D-1 (descrito abajo); no se aplicaron migraciones ni se ejecutó ningún job financiero; la venta 1003 y el crédito 3 siguen intactos.
+
+### D-1: permisos `ventas.discount` y `creditos.configure` en la base real
+
+- **Procedimiento:** `scripts/sql/h11-d1-permisos-ventas-discount-creditos-configure.sql`. Acotado (solo `INSERT` de 2 acciones y 6 asignaciones), idempotente, transaccional (`XACT_ABORT`, ensayo obligatorio `-v DryRun=1|0`), serializado con un bloqueo de aplicación, aborta ante roles homónimos o acciones dadas de baja, y verifica antes de confirmar. No ejecuta el inicializador ni crea usuarios.
+- **Asignaciones (idénticas a las del sembrador, comparadas fila por fila):** `ventas.discount` → Administrador, SuperAdmin; `creditos.configure` → Administrador, SuperAdmin, Gerente, Vendedor.
+- **Respaldo:** `COPY_ONLY` con `CHECKSUM` y `RESTORE VERIFYONLY` correcto, antes de modificar (`D:\tmp\h11-d1-previo-TheBuryProjectDb-20261104-205444.bak`).
+- **Clon primero:** ensayo (revierte), aplicación, reaplicación (0 inserciones) y dos ejecuciones simultáneas desde cero (una inserta, la otra 0; sin duplicados).
+- **Base real, resultado:** +2 acciones y +6 asignaciones; el checksum del resto de los permisos no cambió; usuarios, roles, ventas y créditos con los mismos conteos. Verificación por rol en el clon, antes y después:
+
+| Rol | `creditos.configure` (Credito/ConfigurarVenta) | Descuentos en Cotización |
+|---|---|---|
+| admin (SuperAdmin) | permitido | sí |
+| Administrador | **antes: AccessDenied → ahora permitido** | **antes: no → ahora sí** |
+| Gerente | **antes: AccessDenied → ahora permitido** | no (decisión vigente) |
+| Vendedor | **antes: AccessDenied → ahora permitido** | no |
+| Cajero, Contador | AccessDenied (sin cambios, correcto) | sin acceso |
+
+Los usuarios deben **volver a iniciar sesión** para que sus claims incluyan los permisos nuevos. Tests de contrato del script: `H11D1PermisosScriptContractTests`.
+
+**Hallazgo D-8 (no corregido, fuera de la autorización):** al ejecutar el sembrador en una base desechable aparecen además 10 asignaciones que la base real no tiene: `precios.view/simulate/approve/apply/revert/history` para Gerente y `mora.view` (Gerente, Cajero, Contador) y `mora.manage` (Gerente). Hasta que decidas, esos roles no acceden a esas pantallas. Mismo procedimiento disponible si lo autorizás.
+
+### Ticket promedio (implementado)
+
+(ventas brutas del período − devoluciones de **esas mismas ventas** con fecha de devolución dentro del período) ÷ cantidad de ventas del período; sin ventas, 0. Una única función (`VentasNetas.CalcularTicketPromedio`) usada por Dashboard y Reportes; no cambia ningún criterio fiscal ni registros históricos. Tests (Reportes y Dashboard, mismo escenario): sin devoluciones (150), venta devuelta en el mismo período (100), devolución parcial (125), devolución de una venta de otro período (150: antes habría distorsionado), sin ventas con devolución de otro período (0), devolución no aprobada (no resta), helper con cantidad 0.
+
+### Cliente «Apto» con cupo $0
+
+Verificado sobre un clon fiel a la base real: el cliente con DNI 35996614 sale **No apto** con cupo $0 y faltante de $12.752 (correcto). La anomalía vista en la Etapa D («Apto» con «Cupo disponible $0») ocurre cuando la validación de cupo está desactivada: el cupo no se calcula (queda en 0) y se mostraba como si fuera un dato. Correcciones: el endpoint informa `cupoEvaluado`, `excedeCupo` y el faltante real; la tarjeta dice «Cupo: sin validar» en lugar de $0 (en cualquier estado) y, si el monto supera un cupo evaluado, lo muestra claramente («Supera el cupo disponible», con cupo, solicitado y faltante; en «Requiere autorización» avisa que no se podrá confirmar). **Sin cambios en reglas crediticias ni en datos:** la financiación que excede el límite ya se rechazaba al confirmar la venta (`ValidarCupoDisponibleEnConfirmacionAsync`, con tests) y al crear el crédito; si el propietario desactiva la validación de cupo en la configuración, no se aplica ningún límite (decisión de configuración, no de código). Revisado visualmente en 1366×768 (3 estados) y con tests (`CotizacionAptitudCupoResumenTests`).
+
+### Revisión independiente (Codex)
+
+Dos revisiones adversariales sobre el cierre. 1.ª: 2 hallazgos altos (el script no serializaba ejecuciones concurrentes —aunque la base tiene índices únicos— y resolvía roles por nombre sin detectar homónimos) y 1 medio (la tarjeta mostraba cupo $0 sin evaluar en estados no-Apto y no advertía exceso en «Requiere autorización»): corregidos con prueba. 2.ª, enfocada en el cambio: **aprobada, sin hallazgos**. El estado del worktree fue idéntico antes y después de cada revisión.
+
+### Estado final del Hito 11
+
+| Tema | Estado |
+|---|---|
+| D-1 permisos | **Resuelto** en la base real (con respaldo verificado). |
+| Job de borradores | Deshabilitado por defecto; venta 1003 y crédito 3 intactos. Habilitarlo = decisión futura del propietario. |
+| Ticket promedio | Implementado y probado en Dashboard y Reportes. |
+| Cliente Apto con cupo $0 | Verificado; presentación corregida; sin cambios de reglas ni datos. |
+| Listas de precios por lotes | Diferido; el cambio directo del Catálogo es el circuito operativo. |
+| Venta 1006 / Referencias | Sin cambios / pestaña oculta. |
+| D-8 (`precios.*`, `mora.*` sin asignar) | **Abierto**, pendiente de autorización. |
+
+**Cierre funcional:** sin defectos funcionales de código sin resolver; queda el hallazgo D-8 (permisos de Precios y Mora para Gerente/Cajero/Contador) y el uso de cheques, que debe probarse con un cheque de prueba antes de operar. **Pendientes fiscales/contables:** IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia. **Preparación para producción: NO autorizada** — siguen pendientes la copia fuera del servidor, la VPN, el firewall y la seguridad básica del servidor local, la licencia de AutoMapper y la instancia única de la app; Mercado Libre fuera de alcance.

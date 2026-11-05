@@ -517,4 +517,114 @@ public class ReporteDevolucionesNetasTests : IDisposable
         Assert.Equal(0m, r.TotalVentas);
         Assert.Equal(0m, d.VentasBrutasMes);
     }
+
+    // ------------------------------------------------- H11: ticket promedio
+
+    // Definición aprobada: (ventas brutas del período − devoluciones de ESAS ventas, por fecha de devolución en el período)
+    // ÷ cantidad de ventas del período; sin ventas, 0. Misma cifra en Reportes y Dashboard.
+
+    private static readonly DateTime Septiembre = new(2026, 9, 10, 10, 0, 0);
+
+    private async Task<(decimal Reporte, decimal Dashboard)> TicketsAsync()
+    {
+        var r = await _reporte.GenerarReporteVentasAsync(Mes());
+        var d = await _dashboard.GetDashboardDataAsync();
+        return (r.TicketPromedio, d.TicketPromedio);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_SinDevoluciones_EsElPromedioDeLasVentas()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 100m);
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 200m);
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(150m, reporte);
+        Assert.Equal(150m, dashboard);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_VentaDevueltaTotalmenteEnElMismoPeriodo_RestaLaDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var devuelta = await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 100m);
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 200m);
+        await SeedDevolucionAsync(devuelta, producto, cantidad: 1, subtotal: 100m);
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(100m, reporte);    // (300 - 100) / 2
+        Assert.Equal(100m, dashboard);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_DevolucionParcial_RestaSoloLoDevuelto()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 100m);
+        var parcial = await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 200m);
+        await SeedDevolucionAsync(parcial, producto, cantidad: 1, subtotal: 50m);
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(125m, reporte);    // (300 - 50) / 2
+        Assert.Equal(125m, dashboard);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_DevolucionDeUnaVentaDeOtroPeriodo_NoDeformaElTicketDelPeriodo()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var deSeptiembre = await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 300m, fecha: Septiembre);
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 100m);
+        await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 200m);
+        await SeedDevolucionAsync(deSeptiembre, producto, cantidad: 1, subtotal: 300m);   // devuelta en octubre
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(150m, reporte);    // octubre: (300 - 0) / 2; con "ventas netas / cantidad" daría 0
+        Assert.Equal(150m, dashboard);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_SinVentasPeroConDevolucionDeOtroPeriodo_EsCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var deSeptiembre = await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 300m, fecha: Septiembre);
+        await SeedDevolucionAsync(deSeptiembre, producto, cantidad: 1, subtotal: 300m);
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(0m, reporte);
+        Assert.Equal(0m, dashboard);
+    }
+
+    [Fact]
+    public async Task TicketPromedio_DevolucionNoAprobada_NoRestaYSinVentasEsCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto, cantidad: 1, brutoUnitario: 100m);
+        await SeedDevolucionAsync(venta, producto, cantidad: 1, subtotal: 100m, estado: EstadoDevolucion.Pendiente);
+
+        var (reporte, dashboard) = await TicketsAsync();
+
+        Assert.Equal(100m, reporte);
+        Assert.Equal(100m, dashboard);
+    }
+
+    [Fact]
+    public void TicketPromedio_HelperConCantidadCero_Devuelve0()
+    {
+        var dev = new[] { new VentasNetas.DevolucionNeta(1, 99, Hoy, 300m, 300m, 0m) };
+
+        Assert.Equal(0m, VentasNetas.CalcularTicketPromedio(0m, 0, dev, new HashSet<int>()));
+    }
 }
