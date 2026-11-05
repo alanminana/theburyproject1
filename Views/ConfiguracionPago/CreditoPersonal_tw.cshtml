@@ -1439,6 +1439,13 @@
                 .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
         }
 
+        function formularioPunitorioValido(form) {
+            if (window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.valid === 'function') {
+                return window.jQuery(form).valid();
+            }
+            return form.checkValidity();
+        }
+
         function abrirModalPunitorioRetro() {
             var modal = document.getElementById('m-punitorio-retro');
             if (!modal) return;
@@ -1518,6 +1525,10 @@
 
                 event.preventDefault();
 
+                // H-03: la confirmacion retroactiva solo se ofrece si el formulario ya es valido; el modal no puede
+                // usarse para saltear la validacion de cliente (jQuery Validate muestra los errores y enfoca el campo).
+                if (!formularioPunitorioValido(form)) return;
+
                 if (!motivoInput || motivoInput.value.trim() === '') {
                     if (motivoInput) motivoInput.focus();
                     return;
@@ -1546,7 +1557,9 @@
                 confirmarBtn.addEventListener('click', function () {
                     confirmado = true;
                     cerrarModalPunitorioRetro();
-                    form.submit();
+                    // requestSubmit() dispara el evento submit y la validacion; form.submit() la salteaba.
+                    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                    else form.submit();
                 });
             }
         }

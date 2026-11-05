@@ -24,6 +24,22 @@ public class ConfiguracionPunitorioUiContractTests
         Assert.Contains("Punitorios por mora", view);
     }
 
+    // H-03 (auditoria funcional): el modal de vigencia retroactiva no puede saltear la validacion del formulario.
+    [Fact]
+    public void Vista_ConfirmacionRetroactivaNoSalteaLaValidacion()
+    {
+        var view = LeerVista();
+
+        var inicio = view.IndexOf("function inicializarConfirmacionRetroactivaPunitorio", StringComparison.Ordinal);
+        Assert.True(inicio > 0);
+        var bloque = view.Substring(inicio, Math.Min(4000, view.Length - inicio));
+
+        // Valida antes de abrir el modal y confirma con requestSubmit (que valida), nunca con form.submit() a secas.
+        Assert.Contains("formularioPunitorioValido(form)", bloque);
+        Assert.Contains("form.requestSubmit()", bloque);
+        Assert.DoesNotContain("                    form.submit();", bloque.Replace("else form.submit();", string.Empty));
+    }
+
     [Fact]
     public void Vista_PestanaDePunitoriosEstaGateadaPorViewpunitorio()
     {

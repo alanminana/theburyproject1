@@ -238,6 +238,13 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // H-11 / H-05: la comprobación («¿ya hay apertura?») y el alta se serializan con locks de aplicación (por usuario y
+                // por caja) dentro de una transacción; todo se lee DESPUÉS de tomarlos para no validar contra un estado viejo.
+                var propia = _context.Database.CurrentTransaction == null;
+                await using var transaccion = propia ? await _context.Database.BeginTransactionAsync() : null;
+
+                await AperturaCajaConcurrencia.BloquearAperturaAsync(_context, usuario, model.CajaId);
+
                 var caja = await ObtenerCajaPorIdAsync(model.CajaId);
                 if (caja == null)
                 {
@@ -249,9 +256,28 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La caja no está activa");
                 }
 
+                // El estado se relee de la base: el change tracker pudo cargar la caja antes de esperar el lock.
+                await _context.Entry(caja).ReloadAsync();
+
                 if (await TieneCajaAbiertaAsync(model.CajaId))
                 {
                     throw new InvalidOperationException("La caja ya tiene una apertura activa");
+                }
+
+                // Regla de negocio (H-05): un usuario mantiene UNA sola apertura activa. «Activa» = no cerrada y del día comercial
+                // vigente (mismo criterio que ObtenerAperturaActivaParaUsuarioAsync): una apertura vencida de un día anterior no
+                // sirve para operar y no impide abrir la de hoy (la caja vencida igual debe cerrarse para poder reabrirla).
+                var inicioDiaComercialUtc = InicioDiaComercialUtc;
+                var aperturaPropia = await _context.AperturasCaja
+                    .AsNoTracking()
+                    .Where(a => !a.Cerrada && !a.IsDeleted && a.UsuarioApertura == usuario
+                             && a.FechaApertura >= inicioDiaComercialUtc)
+                    .Select(a => new { a.Id, Codigo = a.Caja.Codigo })
+                    .FirstOrDefaultAsync();
+                if (aperturaPropia != null)
+                {
+                    throw new InvalidOperationException(
+                        $"Ya tenés una caja abierta ({aperturaPropia.Codigo}). Cerrala antes de abrir otra.");
                 }
 
                 var apertura = new AperturaCaja
@@ -272,6 +298,9 @@ namespace TheBuryProject.Services
                 caja.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
+
+                if (transaccion != null)
+                    await transaccion.CommitAsync();
 
                 _logger.LogInformation(
                     "Caja abierta: {Codigo} por {Usuario} con monto inicial ${Monto:N2}",

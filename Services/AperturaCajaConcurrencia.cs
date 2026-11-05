@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -27,6 +28,33 @@ namespace TheBuryProject.Services
     /// </summary>
     internal static class AperturaCajaConcurrencia
     {
+        /// <summary>
+        /// H-11 / H-05: serializa la APERTURA de caja. Toma, en este orden fijo (sin ciclos), dos locks de aplicación
+        /// <c>sp_getapplock</c> con dueño = transacción: uno por usuario (un usuario, una sola apertura activa) y uno por caja
+        /// (una caja, una sola apertura activa). Debe invocarse con una transacción abierta y ANTES de leer el estado que se
+        /// valida: quien llega segundo espera, y al entrar ve la apertura ya confirmada por el primero. Son locks hoja: nadie
+        /// retiene otro lock esperando estos (la apertura es el primer paso de la operación). SQLite de tests: no-op.
+        /// </summary>
+        public static async Task BloquearAperturaAsync(AppDbContext context, string usuario, int cajaId, CancellationToken cancellationToken = default)
+        {
+            if (!context.Database.IsSqlServer())
+                return;
+
+            await TomarLockAplicacionAsync(context, "caja-apertura:usuario:" + (usuario ?? string.Empty).Trim().ToUpperInvariant(), cancellationToken);
+            await TomarLockAplicacionAsync(context, "caja-apertura:caja:" + cajaId, cancellationToken);
+        }
+
+        private static async Task TomarLockAplicacionAsync(AppDbContext context, string recurso, CancellationToken cancellationToken)
+        {
+            var resultado = new SqlParameter("@rc", System.Data.SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output };
+            await context.Database.ExecuteSqlRawAsync(
+                "EXEC @rc = sp_getapplock @Resource = @r, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 20000",
+                new object[] { resultado, new SqlParameter("@r", recurso) }, cancellationToken);
+
+            if (resultado.Value is int rc && rc < 0)
+                throw new InvalidOperationException("No se pudo reservar la apertura de caja (otra apertura está en curso). Reintentá.");
+        }
+
         /// <summary>Toma el lock de actualización de la fila de la apertura hasta el fin de la transacción.</summary>
         public static async Task BloquearAsync(AppDbContext context, int aperturaId, CancellationToken cancellationToken = default)
         {

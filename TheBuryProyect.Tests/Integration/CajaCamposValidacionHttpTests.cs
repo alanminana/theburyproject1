@@ -149,6 +149,10 @@ public class CajaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationF
     {
         var n = Interlocked.Increment(ref _counter);
         await using var ctx = await NuevoContextoAsync();
+        // H-05: un usuario mantiene una sola apertura activa; el fixture comparte el usuario entre casos, así que cada caso
+        // parte sin aperturas abiertas de casos anteriores.
+        foreach (var previa in await ctx.AperturasCaja.Where(a => !a.Cerrada).ToListAsync())
+            previa.Cerrada = true;
         var caja = new Caja { Codigo = $"AB{n}", Nombre = $"Caja Abrir {n}", RowVersion = new byte[8], Activa = true };
         ctx.Cajas.Add(caja);
         await ctx.SaveChangesAsync();

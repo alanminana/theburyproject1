@@ -662,7 +662,7 @@ public class DevolucionService : IDevolucionService
             await _context.SaveChangesAsync();
 
             // Procesar stock según acción recomendada en cada detalle
-            var referencia = $"DEV-{devolucion.NumeroDevolucion}";
+            var referencia = devolucion.NumeroDevolucion; // H-02: el número ya lleva el prefijo configurado; antes salía "DEV-DEV-…"
             var costosVentaPorProducto = await ObtenerCostosVentaPorProductoAsync(devolucion.VentaId);
 
             var reintegros = devolucion.Detalles
@@ -761,8 +761,14 @@ public class DevolucionService : IDevolucionService
                     $"Unidad devuelta para gestión con proveedor: {devolucion.NumeroDevolucion}",
                     usuario);
 
-            if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero && devolucion.RegistrarEgresoCaja)
+            // H-04: el reembolso en efectivo siempre sale de la caja abierta, también en devoluciones creadas antes de esta regla
+            // con la marca apagada. Si la venta no se cobró por caja (crédito/cuenta corriente/nota de crédito) no hay egreso.
+            var egresoObligatorio = devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
+                && (devolucion.RegistrarEgresoCaja || PermiteImpactoCaja(devolucion.Venta.TipoPago));
+            if (egresoObligatorio)
             {
+                devolucion.RegistrarEgresoCaja = true;
+                await _context.SaveChangesAsync();
                 if (_cajaService == null)
                     throw new InvalidOperationException("No hay servicio de caja configurado para registrar el reembolso.");
 
