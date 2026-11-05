@@ -3,10 +3,10 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>Precio global vigente de un servicio de venta (envío o armado).</summary>
-    public sealed record ServicioVentaPrecioInfo(TipoServicioVenta Tipo, decimal Precio, bool Activo);
+    public sealed record ServicioVentaPrecioInfo(TipoServicioVenta Tipo, decimal Precio, bool Activo, decimal Costo = 0m);
 
     /// <summary>Comando de alta/edición del precio global de un servicio.</summary>
-    public sealed record ServicioVentaPrecioComando(TipoServicioVenta Tipo, decimal Precio, bool Activo);
+    public sealed record ServicioVentaPrecioComando(TipoServicioVenta Tipo, decimal Precio, bool Activo, decimal Costo = 0m);
 
     /// <summary>
     /// Administración y consulta de los precios fijos globales de Envío Ciudad/Rural y Armado N.º 1..6.

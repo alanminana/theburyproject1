@@ -977,6 +977,38 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(venta.Total, venta.TotalACobrar);   // el envío no se cobra dos veces
     }
 
+    // H12: la conversión congela el costo estándar de entrega y armado vigente (no viaja en la cotización).
+    [Fact]
+    public async Task Convertir_CotizacionConServicios_CongelaElCostoEstandarDeEntregaYArmado()
+    {
+        _context.ServiciosVentaPrecios.AddRange(
+            new ServicioVentaPrecio { Tipo = TipoServicioVenta.EnvioRural, Precio = 9000m, Costo = 2500m, Activo = true },
+            new ServicioVentaPrecio { Tipo = TipoServicioVenta.Armado2, Precio = 1500m, Costo = 400m, Activo = true });
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.TieneEnvio = true;
+        cotizacion.TipoEnvio = TipoServicioVenta.EnvioRural;
+        cotizacion.CostoEnvio = 9000m;
+        cotizacion.EnvioIncluidoEnTotal = true;
+        cotizacion.ImporteArmados = 3000m;
+        var det = cotizacion.Detalles.First();
+        det.TipoArmado = TipoServicioVenta.Armado2;
+        det.ArmadoPrecioUnitario = 3000m / det.Cantidad;
+        det.ArmadoSubtotal = 3000m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        _context.ChangeTracker.Clear();
+        var venta = await _context.Ventas
+            .Include(v => v.Envio).Include(v => v.Detalles)
+            .FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(2500m, venta.Envio!.CostoEstandarServicio);
+        Assert.Null(venta.Envio.CostoRealServicio);
+        Assert.Equal(400m, venta.Detalles.Single().ArmadoCostoUnitarioEstandar);
+    }
+
     [Fact]
     public async Task Convertir_CostoEnvioDelModalNegativo_NoRestaDelTotalACobrar()
     {

@@ -69,6 +69,20 @@ namespace TheBuryProject.Models.Entities
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public decimal? CostoFueraDelTotal => IncluidoEnTotal ? null : CostoEnvio;
 
+        /// <summary>
+        /// Snapshot del costo estándar de entrega (ServicioVentaPrecio.Costo) al guardar la venta.
+        /// Null = envío anterior a este dato o legacy sin tipo: no suma costo.
+        /// </summary>
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "decimal(18,2)")]
+        public decimal? CostoEstandarServicio { get; set; }
+
+        /// <summary>
+        /// Costo real de entregar esta venta, cargado a mano. Si tiene valor REEMPLAZA al estándar
+        /// (ver Helpers.CostoServiciosVenta): nunca se descuentan ambos. Null = usar el estándar.
+        /// </summary>
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "decimal(18,2)")]
+        public decimal? CostoRealServicio { get; set; }
+
         public DateTime? FechaProgramada { get; set; }
         public DateTime? FechaDespacho { get; set; }
         public DateTime? FechaEntregaReal { get; set; }

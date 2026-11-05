@@ -406,6 +406,9 @@ namespace TheBuryProject.Helpers
             CreateMap<VentaEnvio, VentaEnvioViewModel>();
 
             CreateMap<VentaEnvioViewModel, VentaEnvio>()
+                // Costos de servicio: los resuelve el servidor (estándar congelado) o se cargan aparte (real); nunca del formulario.
+                .ForMember(d => d.CostoEstandarServicio, o => o.Ignore())
+                .ForMember(d => d.CostoRealServicio, o => o.Ignore())
                 // Un envío nunca resta del total a cobrar: importe negativo se guarda como 0.
                 .ForMember(d => d.CostoEnvio, o => o.MapFrom(s => s.CostoEnvio.HasValue
                     ? Math.Max(0m, s.CostoEnvio.Value)

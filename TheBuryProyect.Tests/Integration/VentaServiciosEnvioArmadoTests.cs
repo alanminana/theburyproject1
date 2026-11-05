@@ -52,6 +52,11 @@ public class VentaServiciosEnvioArmadoTests : IDisposable
     private const decimal PrecioArmado5 = 450m;
     private const decimal PrecioEnvioCiudad = 200m;
     private const decimal PrecioEnvioRural = 500m;
+    private const decimal CostoEnvioCiudad = 80m;
+    private const decimal CostoEnvioRural = 150m;
+    private const decimal CostoArmado3 = 100m;
+    private const decimal CostoArmado5 = 120m;
+    private readonly VentaCostoServiciosService _costos;
 
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
@@ -95,11 +100,12 @@ public class VentaServiciosEnvioArmadoTests : IDisposable
         _precios = new ServicioVentaPrecioService(_context);
         _precios.GuardarAsync(new[]
         {
-            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioCiudad, PrecioEnvioCiudad, true),
-            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioRural, PrecioEnvioRural, true),
-            new ServicioVentaPrecioComando(TipoServicioVenta.Armado3, PrecioArmado3, true),
-            new ServicioVentaPrecioComando(TipoServicioVenta.Armado5, PrecioArmado5, true)
+            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioCiudad, PrecioEnvioCiudad, true, CostoEnvioCiudad),
+            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioRural, PrecioEnvioRural, true, CostoEnvioRural),
+            new ServicioVentaPrecioComando(TipoServicioVenta.Armado3, PrecioArmado3, true, CostoArmado3),
+            new ServicioVentaPrecioComando(TipoServicioVenta.Armado5, PrecioArmado5, true, CostoArmado5)
         }).GetAwaiter().GetResult();
+        _costos = new VentaCostoServiciosService(_context, NullLogger<VentaCostoServiciosService>.Instance);
     }
 
     public void Dispose()
@@ -638,5 +644,277 @@ public class VentaServiciosEnvioArmadoTests : IDisposable
         Assert.Equal(vm.Total, resumen.Sum(r => r.Total));
         Assert.Equal(600m, vm.TotalArmados);
         Assert.Equal(500m, vm.ImporteEnvioIncluido);
+    }
+
+    // ── costo estándar / real de envío y armado (H12, alternativa A+B) ───────
+
+    /// <summary>Arma el comando como lo haría el formulario: con la versión de cada fila tal como se mostró.</summary>
+    private async Task<VentaCostoServiciosComando> Cmd(int ventaId, decimal? envio, Dictionary<int, decimal?> armados)
+    {
+        var info = await _costos.ObtenerAsync(ventaId);
+        var versiones = info!.Armados.Where(a => a.DetalleId.HasValue).ToDictionary(a => a.DetalleId!.Value, a => a.RowVersionBase64);
+        return new VentaCostoServiciosComando(envio, armados, info.Envio?.RowVersionBase64, versiones);
+    }
+
+    [Fact]
+    public async Task CostoReal_FormularioObsoleto_SeRechazaSinPisarElCambioDeOtroUsuario()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var detalleId = (await CargarConProductosAsync(creada.Id)).Detalles.Single().Id;
+
+        // Dos personas abren el formulario con la misma versión.
+        var formularioA = await Cmd(creada.Id, 90m, new Dictionary<int, decimal?> { [detalleId] = 200m });
+        var formularioB = await Cmd(creada.Id, null, new Dictionary<int, decimal?> { [detalleId] = null });
+
+        await _costos.GuardarAsync(creada.Id, formularioA, "A");
+        // SQL Server cambia el rowversion en cada UPDATE; SQLite no, así que se emula (igual que otros tests de esta clase).
+        await _context.Database.ExecuteSqlRawAsync("UPDATE VentaEnvio SET RowVersion = X'0A0B0C0D0E0F1011' WHERE VentaId = {0}", creada.Id);
+        await _context.Database.ExecuteSqlRawAsync("UPDATE VentaDetalles SET RowVersion = X'1A1B1C1D1E1F2021' WHERE VentaId = {0}", creada.Id);
+        _context.ChangeTracker.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(creada.Id, formularioB, "B"));
+
+        Assert.Equal(90m + 200m, CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id)));   // el cambio de A sigue
+    }
+
+    [Fact]
+    public async Task CostoReal_SinVersionesEnElFormulario_SeRechaza()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(creada.Id,
+            new VentaCostoServiciosComando(50m, new Dictionary<int, decimal?>()), "tester"));
+        Assert.Null((await CargarConProductosAsync(creada.Id)).Envio!.CostoRealServicio);
+    }
+
+    [Fact]
+    public async Task Editar_ConservaElCostoRealDeLaLineaEquivalente_YLoDescartaSiCambiaLaCantidad()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, cantidad: 2, armado: TipoServicioVenta.Armado3));
+        var detalleId = (await CargarConProductosAsync(creada.Id)).Detalles.Single().Id;
+        await _costos.GuardarAsync(creada.Id, await Cmd(creada.Id, null, new Dictionary<int, decimal?> { [detalleId] = 175m }), "tester");
+
+        // Editar solo datos generales (misma línea): el costo real se conserva.
+        await _context.Database.ExecuteSqlRawAsync("UPDATE Ventas SET RowVersion = X'0102030405060708' WHERE Id = {0}", creada.Id);
+        _context.ChangeTracker.Clear();
+        var vmIgual = Vm(cliente.Id, producto.Id, cantidad: 2, armado: TipoServicioVenta.Armado3);
+        vmIgual.Id = creada.Id;
+        vmIgual.RowVersion = (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id)).RowVersion;
+        await _service.UpdateAsync(creada.Id, vmIgual);
+        var conservado = (await CargarConProductosAsync(creada.Id)).Detalles.Where(d => !d.IsDeleted).Single();
+        Assert.Equal(175m, conservado.ArmadoCostoReal);
+        Assert.Equal(CostoArmado3, conservado.ArmadoCostoUnitarioEstandar);
+
+        // Cambia la cantidad: ya no es el mismo trabajo, vuelve al estándar.
+        await _context.Database.ExecuteSqlRawAsync("UPDATE Ventas SET RowVersion = X'0807060504030201' WHERE Id = {0}", creada.Id);
+        _context.ChangeTracker.Clear();
+        var vmOtraCantidad = Vm(cliente.Id, producto.Id, cantidad: 3, armado: TipoServicioVenta.Armado3);
+        vmOtraCantidad.Id = creada.Id;
+        vmOtraCantidad.RowVersion = (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id)).RowVersion;
+        await _service.UpdateAsync(creada.Id, vmOtraCantidad);
+        var descartado = (await CargarConProductosAsync(creada.Id)).Detalles.Where(d => !d.IsDeleted).Single();
+        Assert.Null(descartado.ArmadoCostoReal);
+        Assert.Equal(CostoArmado3 * 3, CostoServiciosVenta.Armados(new[] { descartado }));
+    }
+
+    private async Task<Venta> CargarConProductosAsync(int id)
+    {
+        _context.ChangeTracker.Clear();
+        return await _context.Ventas
+            .Include(v => v.Detalles).ThenInclude(d => d.Producto)
+            .Include(v => v.Envio)
+            .AsNoTracking()
+            .FirstAsync(v => v.Id == id);
+    }
+
+    [Fact]
+    public async Task Crear_CongelaElCostoEstandarDeEntregaYArmado()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, cantidad: 3,
+            armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioRural));
+
+        var venta = await CargarConProductosAsync(creada.Id);
+        Assert.Equal(CostoEnvioRural, venta.Envio!.CostoEstandarServicio);
+        Assert.Null(venta.Envio.CostoRealServicio);
+        var linea = venta.Detalles.Single();
+        Assert.Equal(CostoArmado3, linea.ArmadoCostoUnitarioEstandar);
+        Assert.Null(linea.ArmadoCostoReal);
+        // Estándar por unidad × cantidad + entrega.
+        Assert.Equal(CostoEnvioRural + CostoArmado3 * 3, CostoServiciosVenta.Total(venta));
+    }
+
+    [Fact]
+    public async Task CambiarElCostoEstandarGlobal_NoAlteraLaVentaYaRegistrada()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var antes = CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id));
+
+        await _precios.GuardarAsync(new[]
+        {
+            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioCiudad, PrecioEnvioCiudad, true, 999m),
+            new ServicioVentaPrecioComando(TipoServicioVenta.Armado3, PrecioArmado3, true, 888m)
+        });
+
+        Assert.Equal(antes, CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id)));
+        Assert.Equal(CostoEnvioCiudad + CostoArmado3, antes);
+    }
+
+    [Fact]
+    public async Task CostoReal_ReemplazaAlEstandar_NuncaSeDescuentanAmbos_YVacioVuelveAlEstandar()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, cantidad: 2,
+            armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var detalleId = (await CargarConProductosAsync(creada.Id)).Detalles.Single().Id;
+
+        await _costos.GuardarAsync(creada.Id,
+            await Cmd(creada.Id, 95m, new Dictionary<int, decimal?> { [detalleId] = 260m }), "tester");
+
+        var conReal = await CargarConProductosAsync(creada.Id);
+        Assert.Equal(95m + 260m, CostoServiciosVenta.Total(conReal));            // solo el real
+        Assert.NotEqual(CostoEnvioCiudad + CostoArmado3 * 2 + 95m + 260m, CostoServiciosVenta.Total(conReal));
+        Assert.Equal(CostoEnvioCiudad, conReal.Envio!.CostoEstandarServicio);      // el estándar sigue guardado
+
+        var info = await _costos.ObtenerAsync(creada.Id);
+        Assert.Equal(95m, info!.Envio!.CostoAplicado);
+        Assert.True(info.Envio.UsaCostoReal);
+        Assert.Equal(260m, info.Armados.Single().CostoAplicado);
+
+        // Vacío = vuelve al estándar.
+        await _costos.GuardarAsync(creada.Id,
+            await Cmd(creada.Id, null, new Dictionary<int, decimal?> { [detalleId] = null }), "tester");
+        Assert.Equal(CostoEnvioCiudad + CostoArmado3 * 2, CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id)));
+    }
+
+    [Fact]
+    public async Task CostoReal_CeroEsUnValorValido_YNoSeConfundeConElEstandar()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, tipoEnvio: TipoServicioVenta.EnvioRural));
+
+        await _costos.GuardarAsync(creada.Id, await Cmd(creada.Id, 0m, new Dictionary<int, decimal?>()), "tester");
+
+        Assert.Equal(0m, CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id)));
+    }
+
+    [Fact]
+    public async Task CostoReal_ValorInvalido_NoDejaCambiosParciales()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var detalleId = (await CargarConProductosAsync(creada.Id)).Detalles.Single().Id;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(creada.Id,
+            await Cmd(creada.Id, 70m, new Dictionary<int, decimal?> { [detalleId] = -1m }), "tester"));
+
+        var venta = await CargarConProductosAsync(creada.Id);
+        Assert.Null(venta.Envio!.CostoRealServicio);
+        Assert.Null(venta.Detalles.Single().ArmadoCostoReal);
+    }
+
+    [Fact]
+    public async Task CostoReal_LineaSinArmadoOAjena_SeRechaza()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var sinArmado = await _service.CreateAsync(Vm(cliente.Id, producto.Id));
+        var otra = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3));
+        var detalleDeOtra = (await CargarConProductosAsync(otra.Id)).Detalles.Single().Id;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(sinArmado.Id,
+            await Cmd(sinArmado.Id, null, new Dictionary<int, decimal?> { [detalleDeOtra] = 10m }), "tester"));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(sinArmado.Id,
+            await Cmd(sinArmado.Id, 10m, new Dictionary<int, decimal?>()), "tester"));   // sin envío
+    }
+
+    [Fact]
+    public async Task CostoReal_VentaCancelada_SeRechaza()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var v = await _context.Ventas.FirstAsync(x => x.Id == creada.Id);
+        v.Estado = EstadoVenta.Cancelada;
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _costos.GuardarAsync(creada.Id,
+            await Cmd(creada.Id, 10m, new Dictionary<int, decimal?>()), "tester"));
+    }
+
+    [Fact]
+    public async Task VentaAnteriorSinSnapshot_NoSumaCostoDeServicios()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        // Simula una venta registrada antes de esta función: sin snapshot ni costo real.
+        var envio = await _context.VentaEnvios.FirstAsync(e => e.VentaId == creada.Id);
+        envio.CostoEstandarServicio = null;
+        var linea = await _context.VentaDetalles.FirstAsync(d => d.VentaId == creada.Id);
+        linea.ArmadoCostoUnitarioEstandar = 0m;
+        await _context.SaveChangesAsync();
+
+        Assert.Equal(0m, CostoServiciosVenta.Total(await CargarConProductosAsync(creada.Id)));
+    }
+
+    [Fact]
+    public async Task Ganancia_DescuentaElCostoDeServicios_ConElRealReemplazandoAlEstandar()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(Vm(cliente.Id, producto.Id, armado: TipoServicioVenta.Armado3, tipoEnvio: TipoServicioVenta.EnvioCiudad));
+        var detalleId = (await CargarConProductosAsync(creada.Id)).Detalles.Single().Id;
+
+        var conEstandar = ReporteService.GananciaNetaDeVenta(await CargarConProductosAsync(creada.Id));
+        var sinCostos = conEstandar + CostoEnvioCiudad + CostoArmado3;
+
+        await _costos.GuardarAsync(creada.Id,
+            await Cmd(creada.Id, 30m, new Dictionary<int, decimal?> { [detalleId] = 40m }), "tester");
+
+        var conReal = ReporteService.GananciaNetaDeVenta(await CargarConProductosAsync(creada.Id));
+        Assert.Equal(sinCostos - 30m - 40m, conReal);   // el real reemplaza: ni el estándar ni la suma de ambos
+    }
+
+    [Fact]
+    public async Task Editar_LineasDuplicadas_NoTrasladanElCostoRealEntreLineas()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var vm = Vm(cliente.Id, producto.Id, cantidad: 2, armado: TipoServicioVenta.Armado3);
+        vm.Detalles.Add(new VentaDetalleViewModel
+        {
+            ProductoId = producto.Id, Cantidad = 2, PrecioUnitario = PrecioProducto, TipoArmado = TipoServicioVenta.Armado3
+        });
+        var creada = await _service.CreateAsync(vm);
+
+        var lineas = (await CargarConProductosAsync(creada.Id)).Detalles.OrderBy(d => d.Id).ToList();
+        Assert.Equal(2, lineas.Count);
+        // Solo la segunda línea tiene costo real.
+        await _costos.GuardarAsync(creada.Id, await Cmd(creada.Id, null,
+            new Dictionary<int, decimal?> { [lineas[0].Id] = null, [lineas[1].Id] = 175m }), "tester");
+
+        // Se elimina la línea con costo real y queda una sola idéntica a la otra: el costo real NO se traslada.
+        await _context.Database.ExecuteSqlRawAsync("UPDATE Ventas SET RowVersion = X'0102030405060708' WHERE Id = {0}", creada.Id);
+        _context.ChangeTracker.Clear();
+        var soloUna = Vm(cliente.Id, producto.Id, cantidad: 2, armado: TipoServicioVenta.Armado3);
+        soloUna.Id = creada.Id;
+        soloUna.RowVersion = (await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id)).RowVersion;
+        await _service.UpdateAsync(creada.Id, soloUna);
+
+        var activa = (await CargarConProductosAsync(creada.Id)).Detalles.Where(d => !d.IsDeleted).Single();
+        Assert.Null(activa.ArmadoCostoReal);
+        Assert.Equal(CostoArmado3 * 2, CostoServiciosVenta.Armado(activa));
+    }
+
+    [Fact]
+    public async Task GuardarCostosEstandar_RechazaNegativosYPersiste()
+    {
+        await _precios.GuardarAsync(new[] { new ServicioVentaPrecioComando(TipoServicioVenta.Armado1, 50m, true, 12.345m) });
+        var lista = await _precios.ListarAsync();
+        Assert.Equal(12.35m, lista.Single(p => p.Tipo == TipoServicioVenta.Armado1).Costo);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _precios.GuardarAsync(new[] { new ServicioVentaPrecioComando(TipoServicioVenta.Armado1, 50m, true, -1m) }));
+        Assert.Equal(12.35m, (await _precios.ListarAsync()).Single(p => p.Tipo == TipoServicioVenta.Armado1).Costo);
     }
 }

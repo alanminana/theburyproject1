@@ -944,7 +944,7 @@ namespace TheBuryProject.Services
             // Efectivo/Transferencia: la misma regla que Create y que la conversión de la cotización (H10, D4).
             await AplicarAjusteMedioUnPagoAsync(venta);
             DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
-            SincronizarEnvioEdicion(venta, viewModel);
+            await SincronizarEnvioEdicionAsync(venta, viewModel);
             await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
             await NormalizarYValidarNotaCreditoAsync(venta);
@@ -2915,7 +2915,7 @@ namespace TheBuryProject.Services
         /// llega acá en estados previos a la confirmación (ValidarEstadoParaEdicion), así que el
         /// importe no puede cambiar después de registrado el cobro.
         /// </summary>
-        private void SincronizarEnvioEdicion(Venta venta, VentaViewModel viewModel)
+        private async Task SincronizarEnvioEdicionAsync(Venta venta, VentaViewModel viewModel)
         {
             if (!viewModel.TieneEnvio)
             {
@@ -2947,7 +2947,16 @@ namespace TheBuryProject.Services
             {
                 ActualizarEnvioDesdeViewModel(envio, viewModel.Envio);
             }
+
+            // Costo estándar de entrega congelado con el tipo vigente; el costo real cargado aparte se conserva.
+            envio.CostoEstandarServicio = await CostoEstandarEnvioAsync(envio);
         }
+
+        /// <summary>Snapshot del costo estándar de entrega: solo para envíos del modelo nuevo (con tipo, dentro del total).</summary>
+        private async Task<decimal?> CostoEstandarEnvioAsync(VentaEnvio envio) =>
+            envio.IncluidoEnTotal && envio.TipoEnvio.HasValue
+                ? await ServiciosVentaPrecios.ObtenerCostoAsync(_context, envio.TipoEnvio.Value)
+                : null;
 
         private static void ActualizarEnvioDesdeViewModel(VentaEnvio destino, VentaEnvioViewModel origen)
         {
@@ -4084,6 +4093,8 @@ namespace TheBuryProject.Services
             {
                 detalle.ArmadoPrecioUnitario = 0m;
                 detalle.ArmadoSubtotal = 0m;
+                // Costo estándar de armado (snapshot por unidad). El costo real, si se cargó, no se toca acá.
+                detalle.ArmadoCostoUnitarioEstandar = 0m;
 
                 if (detalle.TipoArmado == null)
                     continue;
@@ -4098,6 +4109,7 @@ namespace TheBuryProject.Services
                 var precio = await PrecioAsync(detalle.TipoArmado.Value);
                 detalle.ArmadoPrecioUnitario = precio;
                 detalle.ArmadoSubtotal = RedondearMoneda(precio * detalle.Cantidad);
+                detalle.ArmadoCostoUnitarioEstandar = await ServiciosVentaPrecios.ObtenerCostoAsync(_context, detalle.TipoArmado.Value);
             }
 
             if (!viewModel.TieneEnvio)
@@ -4658,6 +4670,20 @@ namespace TheBuryProject.Services
                     d => d.Id,
                     d => (d.ProductoId, d.ProductoNombreAlMomento, d.ProductoCodigoAlMomento));
 
+            // Costo real de armado cargado por venta (H12). Se conserva SOLO si la línea entrante es inequívocamente la
+            // misma que la persistida: por Id persistido (con mismo producto, tipo y cantidad) o, sin Id, cuando la terna
+            // (producto, tipo de armado, cantidad) es única tanto entre las líneas previas como entre las entrantes.
+            // Con líneas duplicadas o cualquier cambio, el costo real no se traslada y vuelve al estándar (nunca se
+            // atribuye a otro trabajo). Las líneas previas salen de la base, no del cliente.
+            var armadosPrevios = venta.Detalles
+                .Where(d => !d.IsDeleted && d.TipoArmado.HasValue && !d.EntregaCajaCerrada)
+                .Select(d => (d.Id, d.ProductoId, TipoArmado: d.TipoArmado!.Value, d.Cantidad, Costo: d.ArmadoCostoReal))
+                .ToList();
+            var ternasEntrantes = detallesVM
+                .Where(v => v.TipoArmado.HasValue && !v.EntregaCajaCerrada)
+                .GroupBy(v => (v.ProductoId, TipoArmado: v.TipoArmado!.Value, v.Cantidad))
+                .ToDictionary(g => g.Key, g => g.Count());
+
             foreach (var existente in venta.Detalles.Where(d => !d.IsDeleted))
             {
                 existente.IsDeleted = true;
@@ -4668,6 +4694,19 @@ namespace TheBuryProject.Services
                 var detalle = _mapper.Map<VentaDetalle>(detalleVM);
                 NormalizarPagoPorItemLegacy(detalle);
                 detalle.VentaId = venta.Id;
+
+                if (detalle.TipoArmado.HasValue && !detalle.EntregaCajaCerrada)
+                {
+                    var terna = (detalle.ProductoId, TipoArmado: detalle.TipoArmado.Value, detalle.Cantidad);
+                    var mismaTerna = armadosPrevios
+                        .Where(p => p.ProductoId == terna.ProductoId && p.TipoArmado == terna.TipoArmado && p.Cantidad == terna.Cantidad)
+                        .ToList();
+
+                    if (detalleVM.Id != 0 && mismaTerna.Any(p => p.Id == detalleVM.Id))
+                        detalle.ArmadoCostoReal = mismaTerna.First(p => p.Id == detalleVM.Id).Costo;
+                    else if (mismaTerna.Count == 1 && ternasEntrantes.GetValueOrDefault(terna) == 1)
+                        detalle.ArmadoCostoReal = mismaTerna[0].Costo;
+                }
 
                 if (detalleVM.Id != 0 &&
                     snapshotIdentidadPrevio.TryGetValue(detalleVM.Id, out var previo) &&
@@ -4976,6 +5015,7 @@ namespace TheBuryProject.Services
             var envio = _mapper.Map<VentaEnvio>(datosEnvio);
             envio.VentaId = ventaId;
             envio.Estado = EstadoEnvio.Pendiente;
+            envio.CostoEstandarServicio = await CostoEstandarEnvioAsync(envio);
 
             _context.VentaEnvios.Add(envio);
             await _context.SaveChangesAsync();

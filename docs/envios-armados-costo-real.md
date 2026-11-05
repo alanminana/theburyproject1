@@ -1,38 +1,38 @@
-# Envíos y armados: ¿existe el costo real? (investigación 2026-11-05)
+# Envíos y armados: costo real de entrega y de armado
 
-Solo investigación; **no hay cambios de modelo ni migraciones**. Las alternativas esperan decisión del dueño.
+Actualizado 2026-11-05. **Decisión confirmada: alternativa A+B** (costo estándar configurable por tipo de servicio + costo real modificable por venta). Implementado y probado en un clon; **la migración NO está aplicada a la base real** (se autoriza por separado).
 
-## Qué existe hoy (cuatro conceptos distintos)
+## Cuatro conceptos distintos (no confundir)
 
 | Concepto | Dónde vive | Qué es |
 |---|---|---|
-| 1. Precio que se cobra al cliente por envío | `ServicioVentaPrecio` (Ciudad/Rural, configurable en Configuración de pagos → Envíos y armados); congelado en `VentaEnvio.CostoEnvio` al guardar la venta. | **Ingreso.** A pesar del nombre, `CostoEnvio` es el *precio al cliente*. |
-| 2. Gasto de transporte al comprar un producto | `Producto.CostoEnvio` (permiso `productos.editshippingcost`). | Informativo; ya está incluido en `Producto.PrecioCompra`. Es costo de **compra**, no de entrega. |
-| 3. Costo real de entregar una venta | **No existe.** `VentaEnvio` solo tiene `Transportista` (texto libre), seguimiento, fechas y estado. | — |
-| 4. Costo real de realizar un armado | **No existe.** `VentaDetalle` guarda `TipoArmado`, `ArmadoPrecioUnitario` y `ArmadoSubtotal` (precio cobrado). | — |
+| 1. Precio que se cobra al cliente por envío | `ServicioVentaPrecio.Precio` (Ciudad/Rural, Configuración de pagos → Envíos y armados); congelado en `VentaEnvio.CostoEnvio` al guardar la venta. | **Ingreso.** A pesar del nombre, `CostoEnvio` es el *precio al cliente*. |
+| 2. Gasto de transporte al comprar un producto | `Producto.CostoEnvio` (permiso `productos.editshippingcost`). | Informativo; ya está incluido en `Producto.PrecioCompra`. Costo de **compra**, no de entrega. |
+| 3. Costo real de entregar una venta | `VentaEnvio.CostoEstandarServicio` (snapshot) y `VentaEnvio.CostoRealServicio` (cargado a mano). | **Costo** (nuevo). |
+| 4. Costo real de realizar un armado | `VentaDetalle.ArmadoCostoUnitarioEstandar` (snapshot por unidad) y `VentaDetalle.ArmadoCostoReal` (total de la línea, cargado a mano). | **Costo** (nuevo). |
 
-Otros hallazgos:
+## Cómo funciona
 
-- `ServicioVentaPrecio` tiene solo `Precio` y `Activo`: no hay columna de costo.
-- Reportes (`ReporteService`, `VentasNetas.CalcularIngresoNeto`): ganancia = ingreso neto de la venta (que **incluye** envío y armados como ingreso, IVA 21 %) − `CostoTotalAlMomento` de los productos. Envío y armado entran como ingreso sin costo, es decir con **margen implícito del 100 %**: la ganancia de las ventas con servicios está sobreestimada.
-- Mercado Libre tiene `CostoEnvioEstimado` (costo que absorbe el vendedor en esa plataforma); es un concepto aparte, usado solo en el precio mínimo de ML. No se tocó.
-- No hay hoy un registro de gastos operativos asociados a una venta.
+- **Costo estándar:** columna `Costo` en `ServiciosVentaPrecios`, editable junto al precio en Configuración de pagos → Envíos y armados (mismo permiso `configuracion.update`). El costo de armado es **por unidad**. "Caja cerrada" no lleva armado ni costo.
+- **Snapshot:** al guardar o convertir una venta (Venta/Create y Edit, conversión de cotización) se congela el costo estándar vigente. Cambiar el costo global después **no** altera ventas ya registradas.
+- **Costo real por venta:** panel «Costo de envío y armado» en el Detalle de venta (solo con permiso `ventas.update` y si la venta tiene servicios; no en ventas canceladas). Se carga el costo real de entrega y/o el total real de cada armado; vacío = usar el estándar; `0` es un valor válido.
+- **Regla central (`Helpers/CostoServiciosVenta`):** el costo real, si existe, **reemplaza** al estándar de ese servicio; **nunca se descuentan ambos**. Ventas anteriores (sin snapshot ni costo real) = costo 0, es decir, **los reportes históricos no cambian**.
+- **Ganancia y reportes:** `ReporteService` descuenta el costo de servicios (entrega + armados) del costo de cada venta (reporte de ventas y agrupación por día/mes). El ingreso de envío/armado ya estaba en el ingreso neto; ahora tiene su costo.
+- **Seguridad de la carga:** valida todo antes de guardar (sin cambios parciales), rechaza líneas ajenas, importes negativos o mayores a 20.000.000, y rechaza formularios obsoletos (control de versión por fila): si otra persona cambió los costos desde que abriste la pantalla, hay que recargar.
+- **Edición de una venta:** el costo real de armado se conserva solo si la línea es inequívocamente la misma (mismo producto, tipo y cantidad, sin duplicados); si cambia o es ambigua, vuelve al estándar. El costo real de entrega se conserva mientras el envío exista.
 
-## Qué falta
+## Qué NO cambia / límites conocidos
 
-Un dato de **costo** del servicio (lo que nos cuesta hacer la entrega o el armado) y su resta en la ganancia, separado del precio cobrado.
+- No se modificó ningún criterio de IVA ni de facturación. El importe cobrado incluye IVA y la ganancia trabaja sobre neto sin IVA; el tratamiento fiscal de envío/armado sigue **pendiente del contador** (`docs/iva-decisiones-contador.md` §2.6).
+- Una devolución no recupera el costo de entrega/armado ya incurrido (se mantiene en la ganancia de la venta).
+- La agrupación de ventas por **categoría** sigue calculando solo productos (los servicios no pertenecen a una categoría).
+- Mercado Libre usa su propio `CostoEnvioEstimado`; no se tocó.
+- Ventas existentes: sin costo hasta que se cargue un costo real (o se vuelvan a guardar con el estándar configurado).
 
-## Alternativas (a decidir)
+## Aplicar a la base real (requiere autorización explícita)
 
-**A — Costo estándar por tipo de servicio (recomendada, la más simple).** Agregar `Costo` a `ServicioVentaPrecio` (Envío Ciudad/Rural, Armado 1..6), editable en la misma pantalla donde hoy se cargan los precios. Al guardar la venta se congela un snapshot (`VentaEnvio.CostoRealEnvio`, `VentaDetalle.ArmadoCostoUnitario`), igual que hoy con el precio. El reporte de ganancia resta ese costo y muestra la ganancia de servicios por separado. Requiere migración (3 columnas) y un ajuste de `ReporteService`. Ventas históricas: costo 0 (comportamiento actual, sin recalcular).
-Ventaja: sin carga manual por venta; consistente con el modelo actual. Limitación: es un promedio, no el costo exacto de cada entrega.
+La migración `20261105142232_H12CostoServiciosVenta` es **aditiva** (5 columnas; las obligatorias con `DEFAULT 0`, el resto `NULL`). Verificada sobre un clon de la base real. Script idempotente: `scripts/sql/h12-migracion-costo-servicios-venta.sql`. Pasos previstos: respaldo verificado (`BACKUP … WITH CHECKSUM`, `RESTORE VERIFYONLY`), ensayo en clon, aplicar, y luego cargar los costos estándar en Configuración de pagos.
 
-**B — Costo real cargado por venta.** Al despachar o entregar, el usuario ingresa lo que costó el flete o el armado. Exacto, pero agrega un paso operativo y puede quedar sin cargar. Se puede combinar con A (A como valor sugerido, B como corrección).
+## Alternativas descartadas
 
-**C — Gasto operativo vinculado a la venta.** Registrar el costo como egreso de Caja/gasto con `VentaId`. Evita tocar `VentaEnvio`/`VentaDetalle`, pero necesita un concepto de gasto vinculado que hoy no existe y complica los reportes.
-
-**D — No cambiar el modelo y aclarar el reporte.** Mostrar envío/armado como ingreso aparte y avisar que la ganancia no los descuenta. Riesgo cero, pero no resuelve el cálculo.
-
-## Decisión que se necesita
-
-¿A (costo estándar), A+B (estándar + ajuste real) o D mientras tanto? Conviene además saber con el contador si el envío/armado se factura gravado (ver `docs/iva-decisiones-contador.md` §2.6), porque cambia la base del margen.
+C (gasto operativo vinculado a la venta) y D (solo aclarar el reporte) quedaron descartadas por la decisión A+B.
