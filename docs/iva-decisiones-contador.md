@@ -1,19 +1,78 @@
-# Decisiones de IVA, recargo, interés y ganancia para consultar con el contador
+# Decisiones comerciales confirmadas y pendientes fiscales (contador)
 
-Ninguna está validada fiscalmente. Lo implementado es un criterio **provisional y conservador**. Cada punto indica qué hace hoy el ERP, las alternativas, el impacto y la pregunta concreta. Fuentes: `docs/iva-recargos-verificacion.md`, `docs/reportes-ganancia-devoluciones.md`.
+Actualizado 2026-11-05. Fuentes: `docs/iva-recargos-verificacion.md`, `docs/reportes-ganancia-devoluciones.md`, `docs/envios-armados-costo-real.md`.
 
-| # | Tema | Qué hace hoy | Alternativas | Impacto de cambiarlo | Pregunta al contador |
-|---|---|---|---|---|---|
-| 1 | Recargo del medio de pago (débito, tarjeta en cuotas, transferencia) | Se suma al total como importe final con IVA y se grava a la alícuota de los ítems; con ítems a distintas alícuotas se prorratea. | Gravar siempre al 21 %; exento/no gravado; concepto aparte con alícuota propia. | Una función (`RecargoMedioPagoIva.Discriminar`); la opción "concepto aparte" requiere línea propia en la factura. Cambia IVA débito y facturas. | ¿El recargo por pagar con tarjeta/transferencia integra el precio gravado del bien, o es un concepto financiero distinto (exento/no gravado)? ¿A qué alícuota? |
-| 2 | Interés de financiación del crédito personal | Vive en el crédito (`Credito.TotalAPagar`) y queda fuera de la factura de venta, sin IVA. La factura cubre solo los ítems. | Gravado, exento, o facturado como concepto aparte. | Alto: afecta contrato, factura de venta a crédito (hoy no validada) y IVA débito. | ¿El interés de un crédito propio sobre una venta de bienes es exento, gravado o no alcanzado? ¿Cómo se documenta (factura, contrato)? |
-| 3 | Descuento del medio de pago (p. ej. Efectivo -5 %) | Reduce la base imponible y el IVA igual que un descuento de línea. | Tratarlo como descuento financiero posterior a la factura. | Bajo (una función); cambia neto/IVA de las ventas con descuento. | ¿Un descuento por pago en efectivo reduce la base imponible o es un descuento financiero? |
-| 4 | Devoluciones y notas de crédito sobre el IVA | Reportes/Dashboard restan la devolución por su fecha. El Reporte de IVA y "IVA a depositar" **no** netean aún (lo avisan en su nota). | Restar el IVA proporcional de las devoluciones completadas del período en el Reporte de IVA. | Medio; el cálculo por línea ya existe (`VentasNetas`). | ¿En qué período se computa la nota de crédito (fecha de emisión) y se resta el débito fiscal? ¿Hay que emitir nota de crédito fiscal electrónica por cada devolución? |
-| 5 | Costo del producto con IVA | `PrecioCompra` es el costo con IVA y gastos; la ganancia compara precio neto contra ese costo. | Costo sin IVA (si el IVA de compra es crédito fiscal). | Medio: sube la ganancia informada; requiere separar IVA compra por producto (ya existe `PorcentajeIVACompra`, informativo). | ¿El IVA de compra es crédito fiscal recuperable para este negocio? ¿El costo para el margen debe ser sin IVA? |
-| 6 | Ganancia: envío y armados | Se incluyen como ingreso neto (IVA 21 %) sin costo. | Excluirlos de la base del margen o informarlos por separado. | Bajo (reportes). | ¿El envío y el armado son prestaciones gravadas al 21 % cuando se facturan junto con el bien? |
-| 7 | Recargo cobrado al pagar una cuota con Transferencia (+3 %) | Entra a caja pero no se factura ni se discrimina. | Facturarlo/discriminarlo como el recargo de venta. | Medio: nuevo comprobante o línea. | ¿Un recargo por pagar una cuota fuera de término/medio es un ingreso gravado? ¿Cómo se documenta? |
-| 8 | Redondeo y truncado a pesos | El total se trunca a pesos enteros; el centavo se absorbe en el IVA y luego en el neto. | Redondeo al centavo o al peso más cercano. | Bajo, pero cambia importes de todas las facturas. | ¿Es aceptable truncar el total y absorber la diferencia en el IVA? |
-| 9 | Margen por devoluciones aprobadas | Una devolución Aprobada ya resta de ventas y de ganancia (no espera a Completada). | Restar solo Completadas. | Bajo (una lista de estados). | (Contable, no fiscal) ¿Se reconoce la devolución al aprobar la nota de crédito o al recibir la mercadería? |
+**Regla:** una decisión *comercial* confirmada por el dueño no implica validez *fiscal*. Nada de lo pendiente está validado por un contador; el ERP aplica un criterio provisional y conservador, y cada punto es un cambio localizado cuando llegue la respuesta.
 
-Qué llevar a la reunión: una factura de ejemplo con descuento, una con recargo de tarjeta en cuotas y una venta a crédito personal con su contrato; la tabla de alícuotas configuradas; el Reporte de IVA de un mes.
+## 1. Decisiones comerciales CONFIRMADAS
 
-Cuando el contador responda, cada decisión es un cambio localizado (columna "Impacto"); no hay que re-validar el resto del circuito.
+| Decisión | Alcance | Estado en el ERP |
+|---|---|---|
+| Los recargos por tarjeta y transferencia en **ventas** se siguen aplicando al precio según la configuración de pagos | No eliminar recargos, no cambiar porcentajes, mantener el cálculo existente | Sin cambios. El recargo se refleja en `Venta.Total` y en Caja. Su tratamiento de IVA es el punto 2.3 (pendiente). |
+| El recargo (hoy 3 %) al **pagar cuotas** por transferencia debe verse **discriminado** | Pantalla de cobro (individual y adelanto), resultado del pago, recibo, Detalle de crédito y movimientos de Caja | Implementado como desglose operativo: importe de la cuota, recargo con su porcentaje, importe del recargo y total efectivamente cobrado. No altera capital, interés, punitorio ni saldo de la cuota, y no emite comprobantes fiscales. |
+
+Cómo queda el desglose del 3 % (sin migración ni cambios de entidad):
+
+- **Cobro / adelanto de cuota:** preview y resultado muestran el importe, `Recargo por medio de pago (3 %)` con su importe, y `Total efectivamente cobrado`. El porcentaje es el configurado en Configuración de pagos para el medio, resuelto por el servidor (no se infiere en el navegador).
+- **Cuota:** `Cuota.RecargoMedioPago` acumula el recargo (ya existía); `MontoPagado` sigue siendo solo capital/punitorio.
+- **Caja:** `MovimientoCaja.ImporteBase`, `RecargoMedioPago` y `Monto = base + recargo` (ya existía), visibles en la conciliación.
+- **Recibo:** variables nuevas `pago.tieneRecargo`, `pago.recargoMedioPago(+Formato)`, `pago.recargoPorcentajeFormato`, `pago.totalCobrado(+Formato/Letras)`. La plantilla **por defecto** (instalaciones nuevas) muestra el recargo y el total cobrado solo si hubo recargo, y "Son Pesos / Recibí conforme" usan el total cobrado. Las plantillas ya existentes en una base no se reescriben solas: hay que editarlas desde Configuración de documentos para incluir esas líneas.
+- **Descuentos:** si el medio tiene descuento (p. ej. Efectivo −5 %), el recibo muestra `Descuento por medio de pago (5 %)` con su importe y el total cobrado.
+- **Pendiente de decisión (recibos ya emitidos con la plantilla vieja):** en una base existente el recibo seguirá mostrando solo el importe base (sin recargo) hasta que se actualice la plantilla `RECIBO_COBRANZA`. Comprobado en un clon de la base real: el recibo de una cuota de $26.928,37 cobrada con 3 % documenta $26.928,37 mientras Caja registra $27.736,22. Actualizar la plantilla persistida es un cambio de datos de la base real y requiere autorización.
+- **Fuera de este lote:** la pantalla de pago múltiple ya muestra el recargo por cuota y el total, pero no el texto del porcentaje.
+
+## 2. Pendientes para el contador
+
+Estado: **PENDIENTE** (sin criterio fiscal) o **PENDIENTE DE VALIDACIÓN** (criterio implementado, falta confirmarlo).
+
+### 2.1 Intereses del crédito personal: factura e IVA — PENDIENTE
+- **Qué hace hoy:** el interés vive en el crédito (`Credito.TotalAPagar`); queda fuera de la factura de venta y sin IVA. La factura cubre solo los ítems.
+- **Falta saber:** si el interés de financiación de un crédito propio es exento, gravado o no alcanzado, y cómo se documenta.
+- **Pregunta:** ¿el interés de un crédito propio sobre una venta de bienes es exento, gravado o no alcanzado? ¿Se documenta con factura, contrato u otro comprobante?
+- **Podría cambiar:** factura de venta a crédito, contrato, IVA débito, cuotas (si se discrimina IVA en cada una).
+
+### 2.2 Costo de productos con IVA y cálculo de ganancia — PENDIENTE
+- **Qué hace hoy:** `PrecioCompra` es costo con IVA y gastos; la ganancia compara el precio de venta neto (sin IVA) contra ese costo. Subestima la ganancia si el IVA de compra es crédito fiscal.
+- **Falta saber:** si el IVA de compra es crédito fiscal recuperable para este negocio.
+- **Pregunta:** ¿el IVA de las compras es crédito fiscal recuperable? ¿El margen debe calcularse sobre costo sin IVA?
+- **Podría cambiar:** reportes de ganancia y margen, catálogo (margen por producto), precio mínimo de Mercado Libre. `PorcentajeIVACompra` ya existe como dato informativo.
+
+### 2.3 Recargos por tarjeta y transferencia en ventas (tratamiento fiscal) — PENDIENTE
+- **Qué hace hoy:** el recargo se suma al total como importe final con IVA y se grava a la alícuota de los ítems (prorrateado si hay varias alícuotas).
+- **Falta saber:** si integra el precio gravado del bien o es un concepto financiero distinto.
+- **Pregunta:** ¿el recargo por pagar con tarjeta/transferencia integra el precio gravado del bien, o es un concepto financiero (exento/no gravado)? ¿A qué alícuota?
+- **Podría cambiar:** `RecargoMedioPagoIva`, factura (línea propia si es concepto aparte), Reporte de IVA.
+
+### 2.4 Tratamiento fiscal del 3 % cobrado en cuotas — PENDIENTE
+- **Qué hace hoy:** entra a Caja y se muestra discriminado (sección 1), pero **no se factura ni se le calcula IVA** y no genera comprobante.
+- **Falta saber:** si es un ingreso gravado y cómo se documenta.
+- **Pregunta:** ¿un recargo cobrado por pagar una cuota por transferencia es un ingreso gravado o parte del cobro de la financiación? ¿Qué comprobante corresponde?
+- **Podría cambiar:** emisión de comprobante o línea por cada cobro con recargo, Reporte de IVA, recibo.
+
+### 2.5 IVA de devoluciones y notas de crédito — PENDIENTE
+- **Qué hace hoy:** Reportes/Dashboard restan la devolución por su fecha. El Reporte de IVA y "IVA a depositar" **no** netean aún (lo avisan en su nota).
+- **Falta saber:** período en que se computa la nota de crédito y si hay que emitir NC fiscal electrónica por cada devolución.
+- **Pregunta:** ¿en qué período se resta el débito fiscal de una devolución (fecha de emisión de la NC)? ¿Se emite NC fiscal por cada devolución?
+- **Podría cambiar:** Reporte de IVA (netear NC), emisión de NC electrónica, circuito de Devolución.
+
+### 2.6 IVA de envíos y armados — PENDIENTE
+- **Qué hace hoy:** se incluyen en el total de la venta y en el ingreso neto con IVA 21 % (`ServiciosVentaIva`), sin costo asociado (ver `docs/envios-armados-costo-real.md`).
+- **Falta saber:** si son prestaciones gravadas al 21 % cuando se facturan junto al bien.
+- **Pregunta:** ¿el envío y el armado facturados junto con el bien son prestaciones gravadas al 21 %?
+- **Podría cambiar:** `ServiciosVentaIva`, factura, Reporte de IVA, reportes de ganancia.
+
+### 2.7 Descuento en Efectivo y base imponible — PENDIENTE DE VALIDACIÓN
+- **Qué hace hoy:** el descuento del medio de pago (p. ej. Efectivo −5 %) reduce la base imponible y el IVA igual que un descuento de línea.
+- **Falta saber:** si corresponde descuento comercial (reduce la base) o financiero posterior a la factura.
+- **Pregunta:** ¿un descuento por pagar en efectivo reduce la base imponible o es un descuento financiero?
+- **Podría cambiar:** una función de cálculo; neto/IVA de las ventas con descuento.
+
+### 2.8 Redondeos y reconocimiento contable de devoluciones — PENDIENTE DE VALIDACIÓN
+- **Qué hace hoy:** el total se trunca a pesos enteros y el centavo se absorbe en el IVA y luego en el neto. Una devolución *Aprobada* ya resta de ventas y ganancia (no espera a *Completada*).
+- **Falta saber:** si el truncado es aceptable; si la devolución se reconoce al aprobar la NC o al recibir la mercadería (pregunta contable, no fiscal).
+- **Pregunta:** ¿es aceptable truncar el total y absorber la diferencia en el IVA? ¿Se reconoce la devolución al aprobar la nota de crédito o al recibir la mercadería?
+- **Podría cambiar:** importes de todas las facturas (redondeo); lista de estados que restan en reportes.
+
+## 3. Qué llevar a la reunión
+
+Una factura de ejemplo con descuento, una con recargo de tarjeta en cuotas, un cobro de cuota por transferencia con recargo (pantalla y recibo), una venta a crédito personal con su contrato, la tabla de alícuotas configuradas y el Reporte de IVA de un mes.

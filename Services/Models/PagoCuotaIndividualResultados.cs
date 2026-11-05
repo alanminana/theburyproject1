@@ -52,7 +52,8 @@ public sealed record PagoCuotaPreviewResultado(
     decimal CapitalRestante,
     EstadoCuota EstadoEstimado,
     DateOnly FechaComercial,
-    string CuotaRowVersionBase64);
+    string CuotaRowVersionBase64,
+    decimal PorcentajeRecargoMedioPago = 0m);
 
 /// <summary>Resultado persistido real del cobro individual.</summary>
 public sealed record PagoCuotaResultado(
@@ -71,7 +72,8 @@ public sealed record PagoCuotaResultado(
     int MovimientoCajaId,
     int PagoCuotaId,
     string MedioPago,
-    string CuotaRowVersionBase64);
+    string CuotaRowVersionBase64,
+    decimal PorcentajeRecargoMedioPago = 0m);
 
 /// <summary>
 /// PUN-ML9-E: intención de adelanto recibida por la capa de servicio. A diferencia del pago

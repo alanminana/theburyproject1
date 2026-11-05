@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
         escribirCampo('aplicadoPunitorio', payload.aplicadoPunitorio, true);
         escribirCampo('aplicadoCapital', payload.aplicadoCapital, true);
         escribirCampo('excedente', payload.excedente, true);
+        escribirCampo('etiquetaAjusteMedioPago', payload.etiquetaAjusteMedioPago, false);
         escribirCampo('recargoMedioPago', payload.recargoMedioPago, true);
         escribirCampo('totalCaja', payload.totalCaja, true);
         escribirCampo('punitorioRestante', payload.punitorioRestante, true);

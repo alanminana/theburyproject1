@@ -1,5 +1,7 @@
 # IVA, intereses y recargos: verificación integral (Hito 9, M4)
 
+> **Actualización 2026-11-05:** el recargo de cuotas por transferencia (+3 %) se muestra discriminado (porcentaje, importe y total cobrado) en el cobro, el recibo, el Detalle de crédito y Caja; sigue sin facturarse ni calcularse IVA. Ver `docs/iva-decisiones-contador.md`.
+
 Fecha: 2026-10-29/30. Base: `main` 216e8166. Método: clon de la base real (`TheBuryProjectDb_qa_h9m4`, ya eliminado), app en `127.0.0.1:6300`, ventas reales creadas por los endpoints HTTP (CreateAjax, Confirmar, Facturar, conversión de cotización, QuickCreate/Aprobar/Completar de devoluciones, Mora) y contraste contra consultas SQL propias. La base real no se tocó.
 
 Alcance de este documento: separar **errores de implementación** (corregidos aquí, con test que falla antes y pasa después) de **decisiones fiscales no definidas** (no se tocó ninguna alícuota ni criterio impositivo nuevo: se aplicó, con signo, el mismo criterio ya adoptado en #182).

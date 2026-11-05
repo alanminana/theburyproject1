@@ -372,10 +372,14 @@ Fecha¦Comprobante¦Monto
 @@fintabla
 @@linea
 >> Monto total: {{pago.importeTotalFormato}}
+{{#pago.tieneAjusteMedioPago}}
+>> {{pago.ajusteMedioPagoEtiqueta}}: {{pago.ajusteMedioPagoFormato}}
+>> Total cobrado: {{pago.totalCobradoFormato}}
+{{/pago.tieneAjusteMedioPago}}
 
-Son Pesos: ${{pago.importeTotalFormato}}
+Son Pesos: ${{pago.totalCobradoFormato}}
 
-Recibí conforme la suma de {{pago.importeTotalLetras}}
+Recibí conforme la suma de {{pago.totalCobradoLetras}}
 """;
     }
 }

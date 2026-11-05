@@ -464,6 +464,91 @@ public class DocumentoCreditoArgentinaTests : DocumentoTestBase
     }
 
     [Fact]
+    public async Task Recibo_ConDescuentoDeMedio_DiscriminaElDescuentoYElTotalCobrado()
+    {
+        await ConfigurarAsync();
+        var venta = await VentaAsync(1000m, 1000m, 2, 500m);
+        var pago = await PagoAsync(venta, 1, 500m);
+        await VincularMovimientoAsync(pago, 475m, 500m, recargo: null, descuento: 25m, TipoPago.Efectivo);
+
+        var recibo = (await TipoAsync(await CobranzaAsync(pago), "RECIBO")).ContenidoRenderizado;
+
+        Assert.Contains("Monto total: 500,00", recibo);
+        Assert.Contains("Descuento por medio de pago (5 %): 25,00", recibo);
+        Assert.Contains("Total cobrado: 475,00", recibo);
+        Assert.Contains("Son Pesos: $475,00", recibo);
+    }
+
+    private async Task VincularMovimientoAsync(PagoCuota pago, decimal monto, decimal importeBase, decimal? recargo, decimal? descuento, TipoPago tipoPago)
+    {
+        var caja = new Caja { Codigo = "CJREC", Nombre = "Caja recibo", Activa = true, Estado = EstadoCaja.Abierta };
+        Context.Cajas.Add(caja);
+        await Context.SaveChangesAsync();
+        var apertura = new AperturaCaja { CajaId = caja.Id, UsuarioApertura = "cajero", MontoInicial = 0m, Cerrada = false };
+        Context.AperturasCaja.Add(apertura);
+        await Context.SaveChangesAsync();
+        var mov = new MovimientoCaja
+        {
+            AperturaCajaId = apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = monto, ImporteBase = importeBase, RecargoMedioPago = recargo, DescuentoMedioPago = descuento,
+            Descripcion = "cobro", Usuario = "cajero", TipoPago = tipoPago
+        };
+        Context.MovimientosCaja.Add(mov);
+        await Context.SaveChangesAsync();
+        pago.MovimientoCajaId = mov.Id;
+        pago.MedioPago = tipoPago.ToString();
+        await Context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Recibo_ConRecargoDeTransferencia_DiscriminaImporteRecargoYTotalCobrado()
+    {
+        await ConfigurarAsync();
+        var venta = await VentaAsync(1000m, 1000m, 2, 500m);
+        var pago = await PagoAsync(venta, 1, 500m);
+
+        var caja = new Caja { Codigo = "CJREC", Nombre = "Caja recibo", Activa = true, Estado = EstadoCaja.Abierta };
+        Context.Cajas.Add(caja);
+        await Context.SaveChangesAsync();
+        var apertura = new AperturaCaja { CajaId = caja.Id, UsuarioApertura = "cajero", MontoInicial = 0m, Cerrada = false };
+        Context.AperturasCaja.Add(apertura);
+        await Context.SaveChangesAsync();
+        var mov = new MovimientoCaja
+        {
+            AperturaCajaId = apertura.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = 515m, ImporteBase = 500m, RecargoMedioPago = 15m, Descripcion = "cobro", Usuario = "cajero",
+            TipoPago = TipoPago.Transferencia
+        };
+        Context.MovimientosCaja.Add(mov);
+        await Context.SaveChangesAsync();
+        pago.MovimientoCajaId = mov.Id;
+        pago.MedioPago = "Transferencia";
+        await Context.SaveChangesAsync();
+
+        var recibo = (await TipoAsync(await CobranzaAsync(pago), "RECIBO")).ContenidoRenderizado;
+
+        Assert.Contains("Monto total: 500,00", recibo);
+        Assert.Contains("Recargo por medio de pago (3 %): 15,00", recibo);
+        Assert.Contains("Total cobrado: 515,00", recibo);
+        Assert.Contains("Son Pesos: $515,00", recibo);
+        Assert.Contains("Quinientos Quince Pesos", recibo);
+    }
+
+    [Fact]
+    public async Task Recibo_SinRecargo_NoMuestraLineasDeRecargo()
+    {
+        await ConfigurarAsync();
+        var venta = await VentaAsync(900m, 900m, 3, 300m);
+        var pago = await PagoAsync(venta, 1, 300m);
+
+        var recibo = (await TipoAsync(await CobranzaAsync(pago), "RECIBO")).ContenidoRenderizado;
+
+        Assert.DoesNotContain("Recargo por medio de pago", recibo);
+        Assert.DoesNotContain("Total cobrado:", recibo);
+        Assert.Contains("Son Pesos: $300,00", recibo);
+    }
+
+    [Fact]
     public async Task CasoF_PagoParcial_ElReciboMuestraLoRealmenteCobrado()
     {
         await ConfigurarAsync();
