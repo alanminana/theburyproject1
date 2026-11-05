@@ -443,4 +443,82 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
             Assert.Equal(0m, ajena.CreditoUtilizado);
         }
     }
+
+    private static async Task<(Venta venta, Credito credito)> SembrarVentaConCreditoAsync(
+        AppDbContext ctx, int clienteId, decimal monto, EstadoVenta estadoVenta, string sufijo)
+    {
+        var credito = new Credito
+        {
+            ClienteId = clienteId, Numero = $"CRED-{sufijo}", Estado = EstadoCredito.Configurado,
+            MontoSolicitado = monto, MontoAprobado = monto, SaldoPendiente = monto,
+            CantidadCuotas = 3, FechaPrimeraCuota = DateTime.UtcNow.AddMonths(1), IsDeleted = false
+        };
+        ctx.Creditos.Add(credito);
+        await ctx.SaveChangesAsync();
+        var venta = new Venta
+        {
+            ClienteId = clienteId, CreditoId = credito.Id, Numero = $"VTA-{sufijo}", Estado = estadoVenta,
+            TipoPago = TipoPago.CreditoPersonal, Total = monto, IsDeleted = false
+        };
+        ctx.Ventas.Add(venta);
+        await ctx.SaveChangesAsync();
+        return (venta, credito);
+    }
+
+    [Fact]
+    public async Task Prevalidar_EnEdicion_CreditoPropioQueConsumeTodoElCupo_NoQuedaNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            // ValidarLimiteCredito = true: la aptitud calcula el cupo contando el crédito propio como usado.
+            ctx.Set<ConfiguracionCredito>().Add(new ConfiguracionCredito
+            {
+                ValidarDocumentacion = false, ValidarLimiteCredito = true, ValidarMora = false
+            });
+            var preset = await ctx.PuntajesCreditoLimite.FindAsync(4);
+            preset!.LimiteMonto = 100_000m;
+            ctx.Clientes.Add(ClienteBuenPagador(1, bcraSituacion: 1));
+            await ctx.SaveChangesAsync();
+            var (venta, _) = await SembrarVentaConCreditoAsync(ctx, 1, 100_000m, EstadoVenta.Presupuesto, "TODO");
+
+            var service = BuildService(ctx, new FakeSituacionCrediticiaBcraService());
+
+            var nueva = await service.PrevalidarAsync(1, 100_000m);
+            Assert.Equal(ResultadoPrevalidacion.NoViable, nueva.Resultado);   // sin exclusión: cupo agotado
+
+            var edicion = await service.PrevalidarAsync(1, 100_000m, venta.Id);
+            Assert.True(edicion.Resultado != ResultadoPrevalidacion.NoViable,
+                string.Join(" | ", edicion.Motivos.Select(m => m.Titulo + ": " + m.Descripcion)));
+            Assert.Equal(0m, edicion.CreditoUtilizado);
+            Assert.Equal(100_000m, edicion.CupoDisponible);
+
+            // Pedir más que el límite sigue siendo no viable aun en edición.
+            var excede = await service.PrevalidarAsync(1, 100_001m, venta.Id);
+            Assert.Equal(ResultadoPrevalidacion.NoViable, excede.Resultado);
+        }
+    }
+
+    [Fact]
+    public async Task Prevalidar_ConVentaYaConfirmada_NoExcluyeSuCredito()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var preset = await ctx.PuntajesCreditoLimite.FindAsync(4);
+            preset!.LimiteMonto = 100_000m;
+            ctx.Clientes.Add(ClienteBuenPagador(1, bcraSituacion: 1));
+            await ctx.SaveChangesAsync();
+            // Venta A ya confirmada: su crédito (60.000) es deuda real.
+            var (ventaA, _) = await SembrarVentaConCreditoAsync(ctx, 1, 60_000m, EstadoVenta.Confirmada, "CONF");
+
+            var service = BuildService(ctx, new FakeSituacionCrediticiaBcraService());
+
+            // Otra operación de 60.000 enviando ventaId=A no obtiene el cupo de A: sigue habiendo 40.000 disponibles.
+            var resultado = await service.PrevalidarAsync(1, 60_000m, ventaA.Id);
+            Assert.Equal(ResultadoPrevalidacion.NoViable, resultado.Resultado);
+            Assert.Equal(40_000m, resultado.CupoDisponible);
+        }
+    }
 }

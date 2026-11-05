@@ -135,8 +135,22 @@ namespace TheBuryProject.Services
                 evaluacion.CupoDisponible = Math.Max(0m, evaluacion.LimiteCredito.Value - evaluacion.CreditoUtilizado);
             }
 
-            // 4. Evaluar según estado de aptitud
-            EvaluarSegunEstadoAptitud(evaluacion, aptitud);
+            // 4. Evaluar según estado de aptitud. En edición (crédito propio excluido) un NoApto cuyo ÚNICO bloqueo es el cupo
+            // (el cálculo de aptitud cuenta el crédito propio como usado) no es definitivo: igual que al confirmar
+            // (ValidarSinCupoAsync), el cupo se reevalúa abajo sin el crédito propio.
+            var bloqueos = aptitud.Detalles.Where(d => d.EsBloqueo).ToList();
+            if (saldoPropioExcluido > 0m
+                && aptitud.ConfiguracionCompleta
+                && aptitud.Estado == EstadoCrediticioCliente.NoApto
+                && bloqueos.Count > 0
+                && bloqueos.All(d => d.Categoria == "Cupo"))
+            {
+                evaluacion.Resultado = ResultadoPrevalidacion.Aprobable;
+            }
+            else
+            {
+                EvaluarSegunEstadoAptitud(evaluacion, aptitud);
+            }
 
             // 5. Verificar cupo para el monto específico (si no es NoViable)
             if (!evaluacion.EsNoViable)
@@ -156,13 +170,18 @@ namespace TheBuryProject.Services
             if (ventaId is null or <= 0)
                 return 0m;
 
+            // Solo una venta editable (aún sin confirmar) de crédito personal del mismo cliente: la deuda de una venta ya
+            // confirmada/facturada/entregada es deuda real y no se descuenta.
             var credito = await _context.Ventas
                 .AsNoTracking()
-                .Where(v => v.Id == ventaId.Value && !v.IsDeleted && v.ClienteId == clienteId && v.CreditoId != null)
+                .Where(v => v.Id == ventaId.Value && !v.IsDeleted && v.ClienteId == clienteId && v.CreditoId != null
+                            && v.TipoPago == TipoPago.CreditoPersonal
+                            && (v.Estado == EstadoVenta.Cotizacion || v.Estado == EstadoVenta.Presupuesto
+                                || v.Estado == EstadoVenta.PendienteRequisitos || v.Estado == EstadoVenta.PendienteFinanciacion))
                 .Select(v => v.Credito)
                 .FirstOrDefaultAsync();
 
-            if (credito == null || credito.IsDeleted || credito.SaldoPendiente <= 0m
+            if (credito == null || credito.IsDeleted || credito.ClienteId != clienteId || credito.SaldoPendiente <= 0m
                 || credito.Estado is EstadoCredito.Finalizado or EstadoCredito.Rechazado or EstadoCredito.Cancelado)
                 return 0m;
 
