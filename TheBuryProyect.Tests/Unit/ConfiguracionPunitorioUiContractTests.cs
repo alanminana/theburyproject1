@@ -36,6 +36,8 @@ public class ConfiguracionPunitorioUiContractTests
 
         // Valida antes de abrir el modal y confirma con requestSubmit (que valida), nunca con form.submit() a secas.
         Assert.Contains("formularioPunitorioValido(form)", bloque);
+        // La vigencia retroactiva es legítima: el campo no puede imponer min = hoy (volvería inválido el formulario antes del modal).
+        Assert.Contains("data-fecha=\"hoy-libre\" id=\"pun-vigente-desde\"", view);
         Assert.Contains("form.requestSubmit()", bloque);
         Assert.DoesNotContain("                    form.submit();", bloque.Replace("else form.submit();", string.Empty));
     }
