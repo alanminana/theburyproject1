@@ -19,6 +19,36 @@ namespace TheBuryProject.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Decide si corresponde correr hoy: hora comercial dentro de ±10 min de la configurada y sin ejecución
+        /// previa el mismo día comercial (ni en memoria ni persistida en la base).
+        /// </summary>
+        internal static bool DebeEjecutar(
+            TimeSpan? horaConfigurada,
+            DateTime ahoraComercial,
+            DateTime? ultimaEjecucionPersistidaUtc,
+            IRelojComercial reloj,
+            DateTime ultimaEjecucionMemoriaUtc)
+        {
+            var hora = horaConfigurada ?? new TimeSpan(8, 0, 0);
+            var horaActual = new TimeSpan(ahoraComercial.Hour, ahoraComercial.Minute, 0);
+            if (Math.Abs((hora - horaActual).TotalMinutes) > 10)
+                return false;
+
+            var hoy = reloj.HoyComercial;
+            return !YaEjecutadoEseDia(ultimaEjecucionMemoriaUtc, hoy, reloj)
+                && !YaEjecutadoEseDia(ultimaEjecucionPersistidaUtc, hoy, reloj);
+        }
+
+        private static bool YaEjecutadoEseDia(DateTime? ultimaUtc, DateOnly hoy, IRelojComercial reloj)
+        {
+            if (ultimaUtc is null || ultimaUtc.Value == DateTime.MinValue)
+                return false;
+            var utc = DateTime.SpecifyKind(ultimaUtc.Value, DateTimeKind.Utc);
+            var local = TimeZoneInfo.ConvertTimeFromUtc(utc, reloj.ZonaComercial);
+            return DateOnly.FromDateTime(local) >= hoy;
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("MoraBackgroundService iniciado");
@@ -39,36 +69,25 @@ namespace TheBuryProject.Services
                             continue;
                         }
 
-                        // Comparar solo horas y minutos
-                        var ahora = DateTime.UtcNow;
-                        var horaEjecucion = configuracion.HoraEjecucionDiaria ?? new TimeSpan(8, 0, 0);
-                        var horaActual = new TimeSpan(ahora.Hour, ahora.Minute, 0);
-                        var diferencia = (horaEjecucion - horaActual).TotalMinutes;
-
-                        // Ventana de ejecución: ±10 minutos (más tolerante que antes)
-                        if (Math.Abs(diferencia) <= 10)
+                        // La hora configurada es hora comercial (Argentina), no UTC. La última ejecución sale de
+                        // la base (ConfiguracionMora.UltimaEjecucion) para no repetir el proceso al reiniciar la app.
+                        var reloj = scope.ServiceProvider.GetRequiredService<IRelojComercial>();
+                        var ahora = reloj.AhoraComercial;
+                        if (DebeEjecutar(configuracion.HoraEjecucionDiaria, ahora, configuracion.UltimaEjecucion, reloj, _ultimaEjecucion))
                         {
-                            // Verificar si ya se ejecutó hoy
-                            if (_ultimaEjecucion.Date < DateTime.Today)
+                            _logger.LogInformation("Ejecutando procesamiento automático de mora a las {Hora}", ahora.ToString("HH:mm"));
+
+                            try
                             {
-                                _logger.LogInformation("Ejecutando procesamiento automático de mora a las {Hora}", ahora.ToString("HH:mm"));
-                                
-                                try
-                                {
-                                    await moraService.ProcesarMoraAsync(stoppingToken);
-                                    _ultimaEjecucion = DateTime.UtcNow;
-                                    
-                                    _logger.LogInformation("Procesamiento de mora completado exitosamente");
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Error durante la ejecución automática de mora");
-                                    // Continuar el servicio incluso si hay error
-                                }
+                                await moraService.ProcesarMoraAsync(stoppingToken);
+                                _ultimaEjecucion = reloj.AhoraUtc;
+
+                                _logger.LogInformation("Procesamiento de mora completado exitosamente");
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                _logger.LogDebug("Procesamiento de mora ya ejecutado hoy");
+                                _logger.LogError(ex, "Error durante la ejecución automática de mora");
+                                // Continuar el servicio incluso si hay error
                             }
                         }
                     }

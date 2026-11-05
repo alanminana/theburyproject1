@@ -104,6 +104,24 @@ scripts/backup/restore-test.sh                         # prueba de restore no de
 - **`.env` y `backup-offsite.env` no van en los backups**: guardarlos aparte (gestor de contraseñas). Sin ellos no se puede recuperar.
 - Recuperación desde cero: `docs/backup-restore.md` §10.
 
+## 7.2 Instalación local en Windows (LocalDB): respaldo y prueba de restauración
+
+Para la instalación que hoy corre con LocalDB y el lanzador `scripts/ejecutar-erp-local.ps1` (sin Docker), `scripts/respaldo-local.ps1`:
+
+```powershell
+powershell -NoProfile -File scripts\respaldo-local.ps1 -Accion Respaldar -Raiz D:\git\theburyproject1-run -Destino D:\respaldos-erp
+powershell -NoProfile -File scripts\respaldo-local.ps1 -Accion Probar    -Raiz D:\git\theburyproject1-run -Destino D:\respaldos-erp
+```
+
+- `Respaldar`: `BACKUP ... COPY_ONLY, CHECKSUM` + `RESTORE VERIFYONLY`, copia `keys\` (Data Protection), `wwwroot\uploads\` y `App_Data\` (contratos) y
+  escribe `manifest.json` (SHA256 de cada archivo, migraciones, recuento y huella de cada tabla). No incluye secretos (user-secrets, `ErpDb__*`, `.env`).
+- `Probar`: restaura en una base **nueva** descartable y comprueba SHA256 del `.bak`, `VERIFYONLY`, `DBCC CHECKDB`, `DBCC CHECKCONSTRAINTS`, mismas
+  migraciones y mismas huellas por tabla, SuperAdmin activo, saldos de caja/stock y recuperación de archivos con SHA256 idéntico. Código de salida 0 solo
+  si todo coincide; un `.bak` alterado falla (verificado). Elimina la base de prueba al terminar.
+- Limitación: no hay copia fuera del equipo ni programación automática; el destino debe ser otro disco y, fuera del equipo, cifrado.
+- **Producción real no puede usar LocalDB**: `Production` exige `ErpDb:User/Password` (login SQL) y LocalDB no admite autenticación SQL. Producción =
+  la pila Docker de este documento (SQL Server en contenedor) o un SQL Server Express/Standard instalado.
+
 ## 8. Deuda conocida / mejoras pendientes
 
 - **CSP (Content-Security-Policy)**: no se aplica todavía porque las vistas usan
@@ -114,7 +132,7 @@ scripts/backup/restore-test.sh                         # prueba de restore no de
   configuración soportada. Con dos instancias contra la misma base: el job de incumplimiento de acuerdos usa un
   `SemaphoreSlim` por proceso (el segundo marcado choca con `RowVersion`, cuenta un fallo y reintenta: seguro); el
   vencimiento de borradores de crédito se serializa con el lock de crédito en base (seguro); **`MoraBackgroundService`
-  guarda su última ejecución solo en memoria y no hay índice único de alerta activa por crédito**, así que dos corridas
+  ya no guarda su última ejecución solo en memoria (2026-11-05: también consulta `ConfiguracionMora.UltimaEjecucion` y usa hora comercial) pero sigue sin haber índice único de alerta activa por crédito**, así que dos corridas
   verdaderamente simultáneas podrían duplicar alertas (la repetición secuencial es idempotente). Para escalar a más de una
   instancia primero hace falta un `sp_getapplock` alrededor de cada job y ese índice único.
 - **Webhook ML** (`/api/mercadolibre/webhook`): anónimo por contrato de ML, protegido con
