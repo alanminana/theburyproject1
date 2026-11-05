@@ -56,13 +56,13 @@ public class ActiveUserCookieValidatorTests : IDisposable
         return id;
     }
 
-    private async Task<bool> SesionVigenteAsync(string userId)
+    private async Task<bool> SesionVigenteAsync(string userId, string stampDeLaSesion = Stamp)
     {
         var http = new DefaultHttpContext { RequestServices = _provider.CreateScope().ServiceProvider };
         var identity = new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, userId),
-            new Claim(new IdentityOptions().ClaimsIdentity.SecurityStampClaimType, Stamp)
+            new Claim(new IdentityOptions().ClaimsIdentity.SecurityStampClaimType, stampDeLaSesion)
         }, "Cookies");
         var scheme = new AuthenticationScheme("Cookies", null, typeof(CookieAuthenticationHandler));
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), "Cookies");
@@ -92,6 +92,12 @@ public class ActiveUserCookieValidatorTests : IDisposable
     [Fact]
     public async Task UsuarioInactivo_PierdeLaSesion()
         => Assert.False(await SesionVigenteAsync(await SembrarUsuarioAsync(activo: false)));
+
+    // Cambio de credenciales (reset/cambio de contrasena rota el SecurityStamp): la sesion con el sello anterior se revoca
+    // en el siguiente request, sin esperar los 30 minutos del validador estandar.
+    [Fact]
+    public async Task SecurityStampRotado_PorCambioDeCredenciales_PierdeLaSesionAnterior()
+        => Assert.False(await SesionVigenteAsync(await SembrarUsuarioAsync(), stampDeLaSesion: "stamp-anterior-a-la-rotacion"));
 
     private sealed class FakeAuth : IAuthenticationService
     {
