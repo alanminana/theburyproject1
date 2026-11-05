@@ -34,6 +34,10 @@ SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF;
 SET LOCK_TIMEOUT 30000;
 
 DECLARE @BaseEsperada sysname = N'$(BaseEsperada)';
+IF N'$(Ejecutar)' NOT IN (N'0', N'1') OR N'$(ReiniciarNumeraciones)' NOT IN (N'0', N'1')
+    THROW 50000, N'Ejecutar y ReiniciarNumeraciones deben ser exactamente 0 o 1.', 1;
+IF TRY_CAST(N'$(MaxMinutosRespaldo)' AS int) IS NULL OR TRY_CAST(N'$(MaxMinutosRespaldo)' AS int) NOT BETWEEN 1 AND 1440
+    THROW 50000, N'MaxMinutosRespaldo debe ser un entero entre 1 y 1440.', 1;
 DECLARE @Ejecutar bit = $(Ejecutar);
 DECLARE @DelClientes bit = CASE LOWER(N'$(Clientes)') WHEN N'eliminar' THEN 1 WHEN N'conservar' THEN 0 ELSE NULL END;
 DECLARE @DelProveedores bit = CASE LOWER(N'$(Proveedores)') WHEN N'eliminar' THEN 1 WHEN N'conservar' THEN 0 ELSE NULL END;
@@ -52,11 +56,25 @@ IF (SELECT COUNT(*) FROM dbo.__EFMigrationsHistory) <> 135
     THROW 50003, N'El historial de migraciones no es el esperado (135, con H12CostoServiciosVenta). No se hizo ningun cambio.', 1;
 IF EXISTS (SELECT 1 FROM sys.dm_exec_sessions WHERE database_id = DB_ID() AND session_id <> @@SPID AND is_user_process = 1)
     THROW 50004, N'Hay otras conexiones abiertas a la base. Cerrar la aplicacion y las herramientas antes de limpiar.', 1;
-IF NOT EXISTS (SELECT 1 FROM msdb.dbo.backupset WHERE database_name = DB_NAME() AND type = 'D' AND backup_finish_date >= DATEADD(MINUTE, -@MaxMin, GETDATE()))
-    THROW 50005, N'No hay un respaldo completo registrado en los ultimos MaxMinutosRespaldo minutos. Hacer el respaldo (COPY_ONLY) y verificarlo.', 1;
+-- Respaldo: el mas reciente completo de ESTA incarnation de la base (mismo database_guid), dentro de la ventana y con un
+-- unico archivo que existe y pasa RESTORE VERIFYONLY ... WITH CHECKSUM ahora mismo.
+DECLARE @bkFile nvarchar(520), @bkId int, @bkDevs int;
+SELECT TOP (1) @bkId = bs.backup_set_id FROM msdb.dbo.backupset bs
+ WHERE bs.database_name = DB_NAME() AND bs.type = 'D' AND bs.backup_finish_date >= DATEADD(MINUTE, -@MaxMin, GETDATE())
+   AND bs.database_guid = (SELECT database_guid FROM sys.database_recovery_status WHERE database_id = DB_ID())
+ ORDER BY bs.backup_finish_date DESC;
+IF @bkId IS NULL
+    THROW 50005, N'No hay un respaldo completo (de esta misma base) en los ultimos MaxMinutosRespaldo minutos. Hacer el respaldo COPY_ONLY y verificarlo.', 1;
+SELECT @bkDevs = COUNT(*), @bkFile = MAX(mf.physical_device_name) FROM msdb.dbo.backupset bs JOIN msdb.dbo.backupmediafamily mf ON mf.media_set_id = bs.media_set_id WHERE bs.backup_set_id = @bkId;
+IF @bkDevs <> 1 THROW 50005, N'El respaldo mas reciente usa mas de un archivo; hacer uno de un solo archivo.', 1;
+SET @sql = N'RESTORE VERIFYONLY FROM DISK = N''' + REPLACE(@bkFile, N'''', N'''''') + N''' WITH CHECKSUM;';
+EXEC (@sql);   -- falla (y aborta) si el archivo no existe o esta danado
+-- Si hay publicaciones de Mercado Libre, la limpieza de unidades fisicas las dejaria sin vinculo: revisarlas a mano.
+IF EXISTS (SELECT 1 FROM dbo.MercadoLibreListings) OR EXISTS (SELECT 1 FROM dbo.MercadoLibreListingVariations)
+    THROW 50006, N'Existen publicaciones de Mercado Libre; revisar y desvincular manualmente antes de limpiar.', 1;
 
 -- ---- Huella de las tablas que deben quedar intactas -------------------------------------------------------------
-CREATE TABLE #fp (Tabla sysname PRIMARY KEY, Expr nvarchar(400) NOT NULL, NAntes bigint NULL, CkAntes int NULL, NDespues bigint NULL, CkDespues int NULL);
+CREATE TABLE #fp (Tabla sysname PRIMARY KEY, Expr nvarchar(max) NOT NULL, NAntes bigint NULL, CkAntes int NULL, NDespues bigint NULL, CkDespues int NULL);
 INSERT #fp (Tabla, Expr) SELECT name, N'CHECKSUM(*)' FROM sys.tables WHERE name IN (
  N'__EFMigrationsHistory',N'AccionesModulo',N'AlicuotasIVA',N'AspNetRoleClaims',N'AspNetRoles',N'AspNetUserClaims',N'AspNetUserLogins',
  N'AspNetUserRoles',N'AspNetUsers',N'AspNetUserTokens',N'CajaVendedores',N'Categorias',N'Marcas',
@@ -68,10 +86,16 @@ INSERT #fp (Tabla, Expr) SELECT name, N'CHECKSUM(*)' FROM sys.tables WHERE name 
  N'PrefijosNumeracion',N'PuntajeCreditoLimites',N'ReglasDocumento',N'RolesMetadata',N'RolPermisos',N'ServiciosVentaPrecios',
  N'Sucursales',N'TerminosCondicionesAceptaciones',N'UmbralesAutorizacion');
 -- Tablas con columnas que la limpieza puede tocar a proposito: huella solo de las columnas estables.
-INSERT #fp (Tabla, Expr) VALUES (N'Cajas', N'CHECKSUM(Id,Codigo,Nombre,Descripcion,Sucursal,Ubicacion,Activa,IsDeleted)');   -- Estado se reinicia a Cerrada a proposito
-INSERT #fp (Tabla, Expr) VALUES (N'TiposDocumento', N'CHECKSUM(Id,Codigo,Nombre,Categoria,Activo,PermiteMultiples,RequiereFirma,Prefijo,EsSistema)');
-IF @DelProductos = 0 INSERT #fp (Tabla, Expr) VALUES (N'Productos', N'CHECKSUM(Id,Codigo,Nombre,PrecioCompra,PrecioVenta,Activo,IsDeleted)');
-IF @DelClientes = 0 INSERT #fp (Tabla, Expr) VALUES (N'Clientes', N'CHECKSUM(*)');
+-- Todas las columnas EXCEPTO las que esta limpieza modifica a proposito y la rowversion (cambia con cualquier UPDATE).
+DECLARE @eCajas nvarchar(max), @eTipos nvarchar(max), @eProd nvarchar(max), @eCli nvarchar(max);
+SELECT @eCajas = N'CHECKSUM(' + STRING_AGG(QUOTENAME(name), N',') + N')' FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.Cajas') AND system_type_id <> 189 AND name NOT IN (N'Estado');
+SELECT @eTipos = N'CHECKSUM(' + STRING_AGG(QUOTENAME(name), N',') + N')' FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.TiposDocumento') AND system_type_id <> 189 AND name NOT IN (N'UltimoNumero');
+SELECT @eProd  = N'CHECKSUM(' + STRING_AGG(QUOTENAME(name), N',') + N')' FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.Productos') AND system_type_id <> 189 AND name NOT IN (N'StockActual');
+SELECT @eCli   = N'CHECKSUM(' + STRING_AGG(QUOTENAME(name), N',') + N')' FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.Clientes') AND system_type_id <> 189 AND name NOT IN (N'PuntajeCliente', N'UltimaVentaFecha', N'CantidadComprasCliente', N'CreditosEnTermino', N'CreditosConAtraso');
+INSERT #fp (Tabla, Expr) VALUES (N'Cajas', @eCajas);   -- Estado vuelve a Cerrada a proposito
+INSERT #fp (Tabla, Expr) VALUES (N'TiposDocumento', @eTipos);   -- UltimoNumero solo cambia con ReiniciarNumeraciones=1
+IF @DelProductos = 0 INSERT #fp (Tabla, Expr) VALUES (N'Productos', @eProd);   -- StockActual vuelve a 0
+IF @DelClientes = 0 INSERT #fp (Tabla, Expr) VALUES (N'Clientes', @eCli);   -- scoring/estadisticas derivadas de ventas se reinician
 IF @DelProveedores = 0 INSERT #fp (Tabla, Expr) VALUES (N'Proveedores', N'CHECKSUM(*)');
 IF @DelAuditoria = 0 INSERT #fp (Tabla, Expr) VALUES (N'SeguridadEventosAuditoria', N'CHECKSUM(*)');
 IF @DelProductos = 0 AND @DelClientes = 0 AND @DelProveedores = 0 INSERT #fp (Tabla, Expr) VALUES (N'ProveedorProductos', N'CHECKSUM(*)');
@@ -86,6 +110,24 @@ INSERT #antes VALUES (N'Cajas abiertas (turnos)', (SELECT COUNT(*) FROM dbo.Aper
                      (N'Cajas marcadas Abierta', (SELECT COUNT(*) FROM dbo.Cajas WHERE Estado <> 0)),
                      (N'Stock total en productos', (SELECT ISNULL(SUM(StockActual),0) FROM dbo.Productos)),
                      (N'Creditos', (SELECT COUNT(*) FROM dbo.Creditos));
+
+-- Toda tabla debe estar clasificada (a vaciar o a conservar); una tabla nueva u omitida aborta la limpieza.
+IF EXISTS (SELECT 1 FROM sys.tables WHERE is_ms_shipped = 0 AND name NOT IN (N'AcuerdoPagoCuotasCubiertas',N'AcuerdoPagoImputaciones',N'AlertasMora',N'AlertasStock',N'CambioPrecioDetalles',N'CambioPrecioEventos',N'Cheques',N'CierresCaja',N'ClientesCreditoConfiguraciones',N'ClientesPuntajeHistorial',N'ContratosVentaCredito',N'CotizacionDetalles',N'CotizacionPagosSimulados',N'CuotasAcuerdo',N'DatosCheque',N'DatosTarjeta',N'DevolucionDetalles',N'DocumentosCliente',N'DocumentosGenerados',N'Facturas',N'Garantias',N'HistorialContactos',N'LogsMora',N'MercadoLibreClaims',N'MercadoLibreListingVariations',N'MercadoLibreMessages',N'MercadoLibreOrderItems',N'MercadoLibreOrders',N'MercadoLibrePriceBatchItems',N'MercadoLibrePublicacionBorradores',N'MercadoLibreQuestions',N'MercadoLibreSyncLogs',N'MercadoLibreWebhookEvents',N'MovimientosStock',N'NotaRapidaItems',N'NotasCreditoUso',N'NotasRapidas',N'Notificaciones',N'NumeracionVentaContadores',N'OrdenCompraDetalle',N'OrdenesCompra',N'PagosCuota',N'PreciosHistoricos',N'PriceChangeItems',N'ProductoCreditoPersonalCuotas',N'ProductoCreditoRestricciones',N'ProductosCaracteristicas',N'ProductosPrecios',N'ProductoUnidadMovimientos',N'ProveedorCategorias',N'ProveedorMarcas',N'ProveedorProductos',N'PunitoriosAplicados',N'RMAs',N'SeguridadEventosAuditoria',N'SolicitudesAutorizacion',N'TicketAdjuntos',N'TicketChecklistItems',N'Tickets',N'VentaDetalles',N'VentaEnvio',N'AcuerdosPago',N'AlertasCobranza',N'Cotizaciones',N'Cuotas',N'MercadoLibreListings',N'MercadoLibrePriceBatches',N'MovimientosCaja',N'NotasCredito',N'PriceChangeBatches',N'ProductoCondicionPagoPlanes',N'ProductoUnidades',N'Proveedores',N'Devoluciones',N'ProductoCondicionesPagoTarjeta',N'Ventas',N'AperturasCaja',N'Creditos',N'Garantes',N'ProductoCondicionesPago',N'Productos',N'Clientes')
+           AND name NOT IN (N'__EFMigrationsHistory',N'AccionesModulo',N'AlicuotasIVA',N'AspNetRoleClaims',N'AspNetRoles',N'AspNetUserClaims',N'AspNetUserLogins',
+ N'AspNetUserRoles',N'AspNetUsers',N'AspNetUserTokens',N'CajaVendedores',N'Cajas',N'Categorias',N'Marcas',
+ N'ConfiguracionCreditoMontosPorPuntaje',N'ConfiguracionCreditoPersonalCuotas',N'ConfiguracionCreditoPersonalCuotasSinRecargo',
+ N'ConfiguracionesActualizacionDatosCliente',N'ConfiguracionesCredito',N'ConfiguracionesMora',N'ConfiguracionesPago',
+ N'ConfiguracionesPunitorio',N'ConfiguracionesRentabilidad',N'ConfiguracionesScoringCliente',N'ConfiguracionesTarjeta',
+ N'ConfiguracionPagoPlanes',N'EmpresasConfiguracion',N'ListasPrecios',N'ModulosSistema',N'PaquetesDocumentales',
+ N'PaquetesDocumentalesItems',N'PerfilesCredito',N'PlantillasContratoCredito',N'PlantillasDocumento',N'PlantillasDocumentoVersion',
+ N'PrefijosNumeracion',N'PuntajeCreditoLimites',N'ReglasDocumento',N'RolesMetadata',N'RolPermisos',N'ServiciosVentaPrecios',
+ N'Sucursales',N'TerminosCondicionesAceptaciones',N'TiposDocumento',N'UmbralesAutorizacion',
+ N'MercadoLibreAccounts',N'MercadoLibreCategories',N'MercadoLibreCategoryAttributes',N'MercadoLibreCategorySyncStates',N'MercadoLibreConfiguraciones',N'PlantillasNotificacionMora'))
+BEGIN
+    SELECT name AS TablaSinClasificar FROM sys.tables WHERE is_ms_shipped = 0 AND name NOT IN (N'AcuerdoPagoCuotasCubiertas',N'AcuerdoPagoImputaciones',N'AlertasMora',N'AlertasStock',N'CambioPrecioDetalles',N'CambioPrecioEventos',N'Cheques',N'CierresCaja',N'ClientesCreditoConfiguraciones',N'ClientesPuntajeHistorial',N'ContratosVentaCredito',N'CotizacionDetalles',N'CotizacionPagosSimulados',N'CuotasAcuerdo',N'DatosCheque',N'DatosTarjeta',N'DevolucionDetalles',N'DocumentosCliente',N'DocumentosGenerados',N'Facturas',N'Garantias',N'HistorialContactos',N'LogsMora',N'MercadoLibreClaims',N'MercadoLibreListingVariations',N'MercadoLibreMessages',N'MercadoLibreOrderItems',N'MercadoLibreOrders',N'MercadoLibrePriceBatchItems',N'MercadoLibrePublicacionBorradores',N'MercadoLibreQuestions',N'MercadoLibreSyncLogs',N'MercadoLibreWebhookEvents',N'MovimientosStock',N'NotaRapidaItems',N'NotasCreditoUso',N'NotasRapidas',N'Notificaciones',N'NumeracionVentaContadores',N'OrdenCompraDetalle',N'OrdenesCompra',N'PagosCuota',N'PreciosHistoricos',N'PriceChangeItems',N'ProductoCreditoPersonalCuotas',N'ProductoCreditoRestricciones',N'ProductosCaracteristicas',N'ProductosPrecios',N'ProductoUnidadMovimientos',N'ProveedorCategorias',N'ProveedorMarcas',N'ProveedorProductos',N'PunitoriosAplicados',N'RMAs',N'SeguridadEventosAuditoria',N'SolicitudesAutorizacion',N'TicketAdjuntos',N'TicketChecklistItems',N'Tickets',N'VentaDetalles',N'VentaEnvio',N'AcuerdosPago',N'AlertasCobranza',N'Cotizaciones',N'Cuotas',N'MercadoLibreListings',N'MercadoLibrePriceBatches',N'MovimientosCaja',N'NotasCredito',N'PriceChangeBatches',N'ProductoCondicionPagoPlanes',N'ProductoUnidades',N'Proveedores',N'Devoluciones',N'ProductoCondicionesPagoTarjeta',N'Ventas',N'AperturasCaja',N'Creditos',N'Garantes',N'ProductoCondicionesPago',N'Productos',N'Clientes') AND name NOT IN (SELECT Tabla FROM #fp)
+       AND name NOT IN (N'MercadoLibreAccounts',N'MercadoLibreCategories',N'MercadoLibreCategoryAttributes',N'MercadoLibreCategorySyncStates',N'MercadoLibreConfiguraciones',N'PlantillasNotificacionMora');
+    THROW 50007, N'Hay tablas sin clasificar en el script (tabla nueva u omitida). Revisar antes de limpiar.', 1;
+END
 
 BEGIN TRANSACTION;
 
@@ -104,7 +146,7 @@ IF @DelProductos = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[CambioPrecioEven
 IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[Cheques]; DELETE FROM [dbo].[Cheques]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'Cheques', N'Operativo', @n); END
 IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[CierresCaja]; DELETE FROM [dbo].[CierresCaja]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'CierresCaja', N'Operativo', @n); END
 IF @DelClientes = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[ClientesCreditoConfiguraciones]; DELETE FROM [dbo].[ClientesCreditoConfiguraciones]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'ClientesCreditoConfiguraciones', N'Clientes', @n); END
-IF @DelClientes = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[ClientesPuntajeHistorial]; DELETE FROM [dbo].[ClientesPuntajeHistorial]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'ClientesPuntajeHistorial', N'Clientes', @n); END
+IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[ClientesPuntajeHistorial]; DELETE FROM [dbo].[ClientesPuntajeHistorial]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'ClientesPuntajeHistorial', N'Clientes', @n); END
 IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[ContratosVentaCredito]; DELETE FROM [dbo].[ContratosVentaCredito]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'ContratosVentaCredito', N'Operativo', @n); END
 IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[CotizacionDetalles]; DELETE FROM [dbo].[CotizacionDetalles]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'CotizacionDetalles', N'Operativo', @n); END
 IF 1=1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[CotizacionPagosSimulados]; DELETE FROM [dbo].[CotizacionPagosSimulados]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'CotizacionPagosSimulados', N'Operativo', @n); END
@@ -178,6 +220,11 @@ IF @DelProductos = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[ProductoCondicio
 IF @DelProductos = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[Productos]; DELETE FROM [dbo].[Productos]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'Productos', N'Productos', @n); END
 IF @DelClientes = 1 BEGIN SELECT @n = COUNT_BIG(*) FROM [dbo].[Clientes]; DELETE FROM [dbo].[Clientes]; INSERT #res (Tabla, Grupo, Eliminadas) VALUES (N'Clientes', N'Clientes', @n); END
 
+-- ---- Clientes conservados: su scoring y estadisticas se derivaban de ventas/creditos que ya no existen ----------------------
+IF @DelClientes = 0
+    UPDATE dbo.Clientes SET PuntajeCliente = 0, UltimaVentaFecha = NULL, CantidadComprasCliente = 0, CreditosEnTermino = 0, CreditosConAtraso = 0
+     WHERE PuntajeCliente <> 0 OR UltimaVentaFecha IS NOT NULL OR CantidadComprasCliente <> 0 OR CreditosEnTermino <> 0 OR CreditosConAtraso <> 0;
+
 -- ---- Cajas: la columna Cajas.Estado (Abierta/Cerrada) es independiente de AperturasCaja; sin turnos, todas quedan Cerradas ----
 UPDATE dbo.Cajas SET Estado = 0 WHERE Estado <> 0;
 
@@ -189,7 +236,8 @@ IF @Reiniciar = 1
 BEGIN
     UPDATE dbo.TiposDocumento SET UltimoNumero = 0 WHERE UltimoNumero <> 0;
     DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
-        SELECT r.Tabla FROM #res r JOIN sys.tables t ON t.name = r.Tabla JOIN sys.identity_columns ic ON ic.object_id = t.object_id;
+        SELECT r.Tabla FROM #res r JOIN sys.tables t ON t.name = r.Tabla JOIN sys.identity_columns ic ON ic.object_id = t.object_id
+         WHERE ic.last_value IS NOT NULL;   -- identities nunca usados ya empiezan en 1; RESEED 0 los dejaria en 0
     OPEN cur; FETCH NEXT FROM cur INTO @t;
     WHILE @@FETCH_STATUS = 0
     BEGIN
@@ -231,6 +279,10 @@ SELECT a.Clave, a.Valor AS Antes,
                     WHEN N'Creditos' THEN (SELECT COUNT(*) FROM dbo.Creditos) ELSE 0 END AS Despues
   FROM #antes a;
 
+-- Reverificar exclusividad justo antes de confirmar (una app que se conecto durante la limpieza invalida el resultado).
+IF EXISTS (SELECT 1 FROM sys.dm_exec_sessions WHERE database_id = DB_ID() AND session_id <> @@SPID AND is_user_process = 1)
+    THROW 50004, N'Aparecio otra conexion durante la limpieza. Se revierte todo.', 1;
+
 IF @Ejecutar = 1
 BEGIN
     COMMIT TRANSACTION;
@@ -241,4 +293,6 @@ BEGIN
     ROLLBACK TRANSACTION;
     PRINT N'ENSAYO: todo revertido (ROLLBACK). No se cambio ningun dato en ' + DB_NAME();
 END
+
+
 
