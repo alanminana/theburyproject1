@@ -46,6 +46,13 @@ public class PagoMultipleCuotasResult
     /// <summary>PUN-ML9-E: total realmente movido en caja (TotalPagado + RecargoTotal).</summary>
     public decimal TotalCaja { get; set; }
 
+    /// <summary>Porcentaje configurado del medio de pago aplicado (negativo = descuento). 0 si no aplica.</summary>
+    public decimal PorcentajeRecargoMedioPago { get; set; }
+
+    /// <summary>Etiqueta de la línea del ajuste, p.ej. "Recargo por medio de pago (3 %)".</summary>
+    public string EtiquetaAjusteMedioPago =>
+        TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(PorcentajeRecargoMedioPago, RecargoTotal);
+
     public DateTime FechaPago { get; set; }
 
     /// <summary>Pago ancla de la cobranza (el de menor id): con él se abre el recibo emitido (Documento/VerPorPago).</summary>

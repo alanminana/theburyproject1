@@ -44,4 +44,6 @@ public sealed class PagoMultiplePreviewViewModel
     public required decimal RecargoTotal { get; init; }
     public required decimal TotalCaja { get; init; }
     public required DateOnly FechaComercial { get; init; }
+    public decimal PorcentajeRecargoMedioPago { get; init; }
+    public string EtiquetaAjusteMedioPago => PagoCuotaAjusteTexto.Etiqueta(PorcentajeRecargoMedioPago, RecargoTotal);
 }

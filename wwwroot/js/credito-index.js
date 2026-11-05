@@ -239,12 +239,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (previewVigente && preview.data) {
             setText(root, '[data-credito-resumen-subtotal]', formatCurrency(preview.data.capitalTotal));
             setText(root, '[data-credito-resumen-mora]', formatCurrency(preview.data.punitorioTotal));
+            setText(root, '[data-credito-resumen-recargo-label]', preview.data.etiquetaAjusteMedioPago || 'Recargo / descuento del medio');
             setText(root, '[data-credito-resumen-recargo]', formatCurrency(preview.data.recargoTotal));
             setText(root, '[data-credito-resumen-total]', formatCurrency(preview.data.totalCaja));
             aplicarDatosPreview(root, preview.data);
         } else if (selectedItems.length === 0) {
             setText(root, '[data-credito-resumen-subtotal]', formatCurrency(0));
             setText(root, '[data-credito-resumen-mora]', formatCurrency(0));
+            setText(root, '[data-credito-resumen-recargo-label]', 'Recargo / descuento del medio');
             setText(root, '[data-credito-resumen-recargo]', formatCurrency(0));
             setText(root, '[data-credito-resumen-total]', formatCurrency(0));
             limpiarCeldasPunitorio(root);
