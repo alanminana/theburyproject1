@@ -55,8 +55,8 @@
                 <dl class="kv" data-adelanto-resultado>
                     <div class="kv-row"><dt>Capital cancelado</dt><dd class="num">@Dinero(resultado.AplicadoCapital)</dd></div>
                     <div class="kv-row"><dt>Punitorio aplicado cancelado</dt><dd class="num">@Dinero(resultado.AplicadoPunitorio)</dd></div>
-                    <div class="kv-row"><dt>Recargo del medio</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
-                    <div class="kv-row"><dt>Total ingresado en caja</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
+                    <div class="kv-row"><dt>@resultado.EtiquetaAjusteMedioPago</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
+                    <div class="kv-row"><dt>Total efectivamente cobrado</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
                     <div class="kv-row"><dt>Estado final</dt><dd>@resultado.EstadoFinalTexto</dd></div>
                     <div class="kv-row"><dt>Fecha comercial</dt><dd>@resultado.FechaComercial.ToString("dd/MM/yyyy")</dd></div>
                     <div class="kv-row"><dt>Medio de pago</dt><dd>@resultado.MedioPago</dd></div>
@@ -167,8 +167,8 @@
                     <dl class="kv mt-3" data-adelanto-preview>
                         <div class="kv-row"><dt>Capital a cancelar</dt><dd class="num" data-preview-field="aplicadoCapital">@(preview is null ? "—" : Dinero(preview.AplicadoCapital))</dd></div>
                         <div class="kv-row"><dt>Punitorio aplicado a cancelar</dt><dd class="num" data-preview-field="aplicadoPunitorio">@(preview is null ? "—" : Dinero(preview.AplicadoPunitorio))</dd></div>
-                        <div class="kv-row"><dt>Recargo del medio</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
-                        <div class="kv-row"><dt>Total a caja</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
+                        <div class="kv-row"><dt data-preview-field="etiquetaAjusteMedioPago">@(preview?.EtiquetaAjusteMedioPago ?? "Recargo por medio de pago")</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
+                        <div class="kv-row"><dt>Total efectivamente cobrado</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
                         <div class="kv-row"><dt>Estado final esperado</dt><dd data-preview-field="estadoEstimadoTexto">@(preview?.EstadoEstimadoTexto ?? "—")</dd></div>
                         <div class="kv-row"><dt>Fecha comercial</dt><dd data-preview-field="fechaComercial">@(preview?.FechaComercial.ToString("dd/MM/yyyy") ?? "—")</dd></div>
                     </dl>

@@ -271,6 +271,51 @@ public class CreditoServiceAdelantoComandoTests : IDisposable
         var recargoEsperado = Math.Round(MontoCuota * 0.04m, 2, MidpointRounding.AwayFromZero);
         Assert.Equal(recargoEsperado, preview!.RecargoMedioPago);
         Assert.Equal(MontoCuota + recargoEsperado, preview.TotalCaja);
+        Assert.Equal(4m, preview.PorcentajeRecargoMedioPago);
+    }
+
+    [Fact]
+    public async Task Registrar_ConRecargoDeTransferencia_DesglosaPorcentajeImporteYTotalSinTocarElCapital()
+    {
+        _configuracionPago.AjustePorcentaje = 3m;
+        var (credito, ultima) = await SeedPlanAsync("REG3PCT");
+        var rowVersion = (await RecargarCuotaAsync(ultima.Id)).RowVersion;
+
+        var resultado = await _service.RegistrarAdelantoAsync(Comando(credito.Id, rowVersion, "Transferencia"));
+
+        var recargo = Math.Round(MontoCuota * 0.03m, 2, MidpointRounding.AwayFromZero);
+        Assert.NotNull(resultado);
+        Assert.Equal(MontoCuota, resultado!.ImporteRecibido);
+        Assert.Equal(3m, resultado.PorcentajeRecargoMedioPago);
+        Assert.Equal(recargo, resultado.RecargoMedioPago);
+        Assert.Equal(MontoCuota + recargo, resultado.TotalCaja);
+
+        // El recargo no se mezcla con capital: la cuota queda saldada por su importe, no por importe + recargo.
+        var cuotaBd = await RecargarCuotaAsync(ultima.Id);
+        Assert.Equal(MontoCuota, cuotaBd.MontoPagado);
+        Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
+        Assert.Equal(recargo, cuotaBd.RecargoMedioPago);
+
+        var vm = new TheBuryProject.ViewModels.PagoCuota.PagoCuotaResultadoViewModel
+        {
+            CuotaId = resultado.CuotaId, ImporteRecibido = resultado.ImporteRecibido,
+            AplicadoPunitorio = 0m, AplicadoCapital = resultado.AplicadoCapital,
+            RecargoMedioPago = resultado.RecargoMedioPago,
+            PorcentajeRecargoMedioPago = resultado.PorcentajeRecargoMedioPago,
+            TotalCaja = resultado.TotalCaja, PunitorioRestante = 0m, CapitalRestante = 0m,
+            EstadoFinal = resultado.EstadoFinal, EstadoFinalTexto = "", FechaComercial = resultado.FechaComercial,
+            MovimientoCajaId = resultado.MovimientoCajaId, PagoCuotaId = resultado.PagoCuotaId, MedioPago = resultado.MedioPago
+        };
+        Assert.Equal("Recargo por medio de pago (3 %)", vm.EtiquetaAjusteMedioPago);
+    }
+
+    [Fact]
+    public void EtiquetaAjusteMedioPago_CubreRecargoDescuentoYSinAjuste()
+    {
+        Assert.Equal("Recargo por medio de pago (3 %)", TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(3m, 30m));
+        Assert.Equal("Recargo por medio de pago (2,5 %)", TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(2.5m, 25m));
+        Assert.Equal("Descuento por medio de pago (5 %)", TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(-5m, -50m));
+        Assert.Equal("Recargo por medio de pago", TheBuryProject.ViewModels.PagoCuota.PagoCuotaAjusteTexto.Etiqueta(0m, 0m));
     }
 
     [Fact]

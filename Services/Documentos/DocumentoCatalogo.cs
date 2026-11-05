@@ -198,6 +198,16 @@ namespace TheBuryProject.Services.Documentos
             N("pago.importeTotal", "Importe total recibido", "Pago", SoloPago);
             T("pago.importeTotalFormato", "Importe total formateado", "Pago", SoloPago);
             T("pago.importeTotalLetras", "Importe total en letras", "Pago", SoloPago);
+            B("pago.tieneRecargo", "El cobro incluye recargo del medio de pago", "Pago", SoloPago);
+            B("pago.tieneAjusteMedioPago", "El cobro incluye recargo o descuento del medio de pago", "Pago", SoloPago);
+            T("pago.ajusteMedioPagoEtiqueta", "Etiqueta del ajuste (Recargo/Descuento por medio de pago, con %)", "Pago", SoloPago);
+            T("pago.ajusteMedioPagoFormato", "Importe del ajuste del medio de pago (sin signo)", "Pago", SoloPago);
+            N("pago.recargoMedioPago", "Recargo del medio de pago (negativo si es descuento)", "Pago", SoloPago);
+            T("pago.recargoMedioPagoFormato", "Recargo del medio de pago formateado", "Pago", SoloPago);
+            T("pago.recargoPorcentajeFormato", "Porcentaje de recargo del medio de pago", "Pago", SoloPago);
+            N("pago.totalCobrado", "Total efectivamente cobrado (importe + recargo)", "Pago", SoloPago);
+            T("pago.totalCobradoFormato", "Total efectivamente cobrado formateado", "Pago", SoloPago);
+            T("pago.totalCobradoLetras", "Total efectivamente cobrado en letras", "Pago", SoloPago);
             T("recibo.numero", "Número de recibo", "Pago", SoloPago);
             T("pago.importeEnLetras", "Importe en letras", "Pago", SoloPago);
             T("pago.medioPago", "Medio de pago", "Pago", SoloPago);

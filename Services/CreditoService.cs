@@ -685,7 +685,8 @@ namespace TheBuryProject.Services
                 capitalRestante,
                 estadoEstimado,
                 _reloj.HoyComercial,
-                Convert.ToBase64String(cuota.RowVersion));
+                Convert.ToBase64String(cuota.RowVersion),
+                cobro.PorcentajeAjuste);
         }
 
         public async Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(
@@ -735,7 +736,8 @@ namespace TheBuryProject.Services
                 aplicado.MovimientoCajaId,
                 aplicado.PagoCuotaId,
                 aplicado.MedioPago,
-                aplicado.CuotaRowVersionBase64);
+                aplicado.CuotaRowVersionBase64,
+                aplicado.PorcentajeRecargoMedioPago);
         }
 
         public async Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago)
@@ -833,7 +835,8 @@ namespace TheBuryProject.Services
                 capitalRestante,
                 estadoEstimado,
                 _reloj.HoyComercial,
-                Convert.ToBase64String(cuota.RowVersion));
+                Convert.ToBase64String(cuota.RowVersion),
+                cobro.PorcentajeAjuste);
         }
 
         /// <inheritdoc/>
@@ -884,7 +887,8 @@ namespace TheBuryProject.Services
                 aplicado.MovimientoCajaId,
                 aplicado.PagoCuotaId,
                 aplicado.MedioPago,
-                aplicado.CuotaRowVersionBase64);
+                aplicado.CuotaRowVersionBase64,
+                aplicado.PorcentajeRecargoMedioPago);
         }
 
         /// <summary>
@@ -1091,7 +1095,8 @@ namespace TheBuryProject.Services
                     _reloj.HoyComercial,
                     movimientoCaja.Id,
                     pagoCuota.Id,
-                    Convert.ToBase64String(cuota.RowVersion));
+                    Convert.ToBase64String(cuota.RowVersion),
+                    cobro.PorcentajeAjuste);
             }
             catch (PagoCuotaRechazadoException ex)
             {
@@ -1338,7 +1343,8 @@ namespace TheBuryProject.Services
                 aplicadoCuota,
                 excedente,
                 recargoMedioPago,
-                tipoPagoMedio);
+                tipoPagoMedio,
+                ajustePorcentaje);
         }
 
         /// <summary>
@@ -1452,7 +1458,8 @@ namespace TheBuryProject.Services
             decimal AplicadoCuota,
             decimal Excedente,
             decimal RecargoMedioPago,
-            TipoPago? TipoPago);
+            TipoPago? TipoPago,
+            decimal PorcentajeAjuste);
 
         /// <summary>Resultado de un cobro efectivamente aplicado y confirmado.</summary>
         private sealed record PagoCuotaAplicado(
@@ -1470,7 +1477,8 @@ namespace TheBuryProject.Services
             DateOnly FechaComercial,
             int MovimientoCajaId,
             int PagoCuotaId,
-            string CuotaRowVersionBase64);
+            string CuotaRowVersionBase64,
+            decimal PorcentajeRecargoMedioPago);
 
         /// <inheritdoc />
         public async Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(

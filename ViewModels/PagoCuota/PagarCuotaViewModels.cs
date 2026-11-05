@@ -81,6 +81,10 @@ public sealed class PagoCuotaPreviewViewModel
     public required decimal AplicadoCapital { get; init; }
     public required decimal Excedente { get; init; }
     public required decimal RecargoMedioPago { get; init; }
+    /// <summary>Porcentaje configurado del medio de pago aplicado (negativo = descuento). 0 si no aplica.</summary>
+    public decimal PorcentajeRecargoMedioPago { get; init; }
+    /// <summary>Etiqueta de la línea del ajuste, p.ej. "Recargo por medio de pago (3 %)".</summary>
+    public string EtiquetaAjusteMedioPago => PagoCuotaAjusteTexto.Etiqueta(PorcentajeRecargoMedioPago, RecargoMedioPago);
     public required decimal TotalCaja { get; init; }
     public required decimal PunitorioRestante { get; init; }
     public required decimal CapitalRestante { get; init; }
@@ -97,6 +101,10 @@ public sealed class PagoCuotaResultadoViewModel
     public required decimal AplicadoPunitorio { get; init; }
     public required decimal AplicadoCapital { get; init; }
     public required decimal RecargoMedioPago { get; init; }
+    /// <summary>Porcentaje configurado del medio de pago aplicado (negativo = descuento). 0 si no aplica.</summary>
+    public decimal PorcentajeRecargoMedioPago { get; init; }
+    /// <summary>Etiqueta de la línea del ajuste, p.ej. "Recargo por medio de pago (3 %)".</summary>
+    public string EtiquetaAjusteMedioPago => PagoCuotaAjusteTexto.Etiqueta(PorcentajeRecargoMedioPago, RecargoMedioPago);
     public required decimal TotalCaja { get; init; }
     public required decimal PunitorioRestante { get; init; }
     public required decimal CapitalRestante { get; init; }
