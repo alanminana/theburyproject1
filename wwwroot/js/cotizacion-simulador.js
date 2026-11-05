@@ -2193,6 +2193,12 @@
     // que uno de los dos SÍ tiene un camino real para seguir. Clasifica con el mismo campo
     // `estado` que ya devuelve /api/cotizacion/aptitud-credito (CotizacionApiController —
     // AptitudCredito ya expone aptitud.Estado.ToString(), no se tocó el backend).
+    // Texto del cupo: con la validación de cupo desactivada el cupo no se calculó (llega 0 por defecto): es «sin validar»,
+    // no «$0». Vale para cualquier estado crediticio (Apto / Requiere autorización / No apto).
+    function cupoTexto(data) {
+        return data && data.cupoEvaluado === false ? 'sin validar' : formatCurrency(data.cupoDisponible);
+    }
+
     function aptitudTone(data) {
         if (!data) return null;
         if (data.estado === 'RequiereAutorizacion') return 'requiere-autorizacion';
@@ -2209,6 +2215,9 @@
     function aptitudNotaHtml() {
         if (!state.aptitud || state.aptitudClienteId !== state.clienteSeleccionado?.id) return '';
         const tone = aptitudTone(state.aptitud);
+        if (tone === 'apto' && state.aptitud.excedeCupo === true) {
+            return `<span class="rmedio-aptitud rmedio-aptitud--no-apto">Supera el cupo · cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)} · faltante ${formatCurrency(state.aptitud.faltante)}</span>`;
+        }
         if (tone === 'apto' || !tone) return '';
         // §14: bajo el nombre del medio va el DATO que explica el estado (cupo vs.
         // monto solicitado), no una segunda copia del estado — ese ya vive en la
@@ -2216,7 +2225,8 @@
         // la pill de al lado decía "No apto": la misma fila repetía el veredicto dos
         // veces y no aportaba el número que permite decidir qué hacer.
         const clsTone = tone === 'requiere-autorizacion' ? 'rmedio-aptitud--requiere-autorizacion' : 'rmedio-aptitud--no-apto';
-        return `<span class="rmedio-aptitud ${clsTone}">Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}</span>`;
+        const excede = state.aptitud.excedeCupo === true ? ' · supera el cupo' : '';
+        return `<span class="rmedio-aptitud ${clsTone}">Cupo ${cupoTexto(state.aptitud)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}${excede}</span>`;
     }
 
     /* ---------------------------------------------------------------------
@@ -2268,6 +2278,36 @@
             ? `<ul>${motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`
             : '';
 
+        if (tone === 'apto' && data.excedeCupo === true) {
+            // H11: «Apto» describe al cliente, no a este monto: si supera el cupo disponible se dice claramente
+            // (la confirmación de la venta rechaza una financiación que exceda el límite).
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--no-apto">
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">cancel</span> Supera el cupo disponible</span></div>
+                    <p class="aptitud-card__resumen">Cupo disponible: ${formatCurrency(data.cupoDisponible)} · solicitado ${formatCurrency(data.montoSolicitado)}</p>
+                    <details class="aptitud-card__detalle">
+                        <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
+                        <dl>
+                            <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                            <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
+                            <dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>
+                        </dl>
+                        <p class="aptitud-card__resumen">No se puede financiar este monto: reducí el monto, elegí otro medio de pago o ampliá el límite del cliente.</p>
+                    </details>
+                </div>`;
+            return;
+        }
+
+        if (tone === 'apto' && data.cupoEvaluado === false) {
+            // Validación de cupo desactivada en la configuración: el cupo no se calculó (no es «$0»).
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--apto">
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">check_circle</span> Apto</span></div>
+                    <p class="aptitud-card__resumen">Cupo: sin validar (la validación de cupo está desactivada en la configuración).</p>
+                </div>`;
+            return;
+        }
+
         if (tone === 'apto') {
             els.aptitudCredito.innerHTML = `
                 <div class="aptitud-card aptitud-card--apto">
@@ -2306,12 +2346,16 @@
                 <div class="aptitud-card aptitud-card--requiere-autorizacion">
                     <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span> Requiere autorización</span></div>
                     ${resumenLinea ? `<p class="aptitud-card__resumen">${esc(resumenLinea)}</p>` : ''}
+                    ${data.excedeCupo === true ? '<p class="aptitud-card__resumen">Supera el cupo disponible.</p>' : ''}
                     <details class="aptitud-card__detalle">
                         <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
-                        <p class="aptitud-card__resumen">Podés continuar: la venta va a pedir autorización de un supervisor.</p>
+                        ${data.excedeCupo === true
+                            ? '<p class="aptitud-card__resumen">El monto supera el cupo disponible: la venta no se podrá confirmar con este monto aunque se autorice.</p>'
+                            : '<p class="aptitud-card__resumen">Podés continuar: la venta va a pedir autorización de un supervisor.</p>'}
                         <dl>
-                            <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                            <dt>Cupo disponible</dt><dd>${cupoTexto(data)}</dd>
                             <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
+                            ${data.excedeCupo === true ? `<dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>` : ''}
                         </dl>
                         ${motivosHtml}
                     </details>
@@ -2326,9 +2370,9 @@
                 <details class="aptitud-card__detalle">
                     <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
                     <dl>
-                        <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                        <dt>Cupo disponible</dt><dd>${cupoTexto(data)}</dd>
                         <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
-                        <dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>
+                        ${data.cupoEvaluado === false ? '' : `<dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>`}
                     </dl>
                     ${motivosHtml}
                 </details>
@@ -2793,7 +2837,9 @@
                     ? 'Cliente apto — sin planes configurados para este monto.'
                     : tone === 'requiere-autorizacion'
                         ? (state.aptitud.motivo || 'Requiere autorización de un supervisor — sin planes configurados para este monto.')
-                        : `Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)} · faltante ${formatCurrency(state.aptitud.faltante)}`;
+                        : (state.aptitud.cupoEvaluado === false
+                            ? `Cupo sin validar · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}`
+                            : `Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)} · faltante ${formatCurrency(state.aptitud.faltante)}`);
                 const rmedioCls = tone === 'apto' ? 'rmedio-aptitud--apto' : (tone === 'requiere-autorizacion' ? 'rmedio-aptitud--requiere-autorizacion' : 'rmedio-aptitud--no-apto');
                 tr.innerHTML = `
                     <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="rmedio-nombre font-medium text-slate-300">${esc(group.label)}</span></span></td>

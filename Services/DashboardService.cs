@@ -67,7 +67,7 @@ namespace TheBuryProject.Services
             // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
             var ventasRaw = await _context.Ventas.Comerciales()
                 .Where(v => v.FechaVenta >= inicioAnio)
-                .Select(v => new { v.FechaVenta, v.Total })
+                .Select(v => new { v.Id, v.FechaVenta, v.Total })
                 .ToListAsync();
             // H10/D3: las ventas del período se informan netas de devoluciones Aprobadas/Completadas, por FECHA DE
             // DEVOLUCIÓN (misma definición que ReporteService.GenerarReporteVentasAsync).
@@ -80,9 +80,9 @@ namespace TheBuryProject.Services
             var ventasMes     = ventasBrutasMes - devolucionesMesTotal;
             var cantVentasMes = ventasRaw.Count(v => v.FechaVenta >= inicioMes);
             var ventasAnio    = ventasRaw.Sum(v => v.Total) - devolucionesAnio.Sum(d => d.Bruto);
-            var ticketPromedio = cantVentasMes > 0
-                ? ventasRaw.Where(v => v.FechaVenta >= inicioMes).Average(v => v.Total)
-                : 0;
+            // H11: ticket promedio = (ventas brutas del mes − devoluciones de esas mismas ventas) ÷ cantidad de ventas del mes.
+            var ventaIdsMes = ventasRaw.Where(v => v.FechaVenta >= inicioMes).Select(v => v.Id).ToHashSet();
+            var ticketPromedio = VentasNetas.CalcularTicketPromedio(ventasBrutasMes, cantVentasMes, devolucionesMes, ventaIdsMes);
 
             // Créditos: fetch raw para sumas — incluye todos los estados operativos
             var estadosOperativos = new[]
@@ -208,21 +208,6 @@ namespace TheBuryProject.Services
         #endregion
 
         #region KPIs
-
-        private async Task<decimal> CalcularTicketPromedioAsync()
-        {
-            var hoy = _reloj.InicioDiaComercial;
-            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
-            var agregados = await _context.Ventas.Comerciales()
-                .AsNoTracking()
-                .Where(v => v.FechaVenta >= inicioMes)
-                .Select(v => new { v.Total })
-                .ToListAsync();
-
-            if (agregados.Count == 0) return 0;
-
-            return agregados.Sum(v => v.Total) / agregados.Count;
-        }
 
         private async Task<decimal> CalcularTasaMorosidadAsync()
         {

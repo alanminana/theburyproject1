@@ -200,7 +200,8 @@ namespace TheBuryProject.Services
                     MargenPromedio = margenPromedio,
                     CantidadVentas = ventasItems.Count,
                     CantidadProductosVendidos = ventasItems.Sum(v => v.CantidadProductos),
-                    TicketPromedio = ventasItems.Any() ? totalVentas / ventasItems.Count : 0,
+                    TicketPromedio = VentasNetas.CalcularTicketPromedio(
+                        totalVentas, ventasItems.Count, devoluciones, ventasItems.Select(v => v.Id).ToHashSet()),
                     VentasPorTipoPago = ventasPorTipoPago,
                     ProductosMasVendidos = productosMasVendidos,
                     ClientesTop = clientesTop,

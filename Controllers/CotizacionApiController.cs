@@ -7,6 +7,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Controllers;
 
@@ -67,8 +68,7 @@ public sealed class CotizacionApiController : ControllerBase
                 .Distinct()
                 .ToList();
 
-            var cupoDisponible = aptitud.Cupo.CupoDisponible;
-            var faltante = Math.Max(0, monto - cupoDisponible);
+            var (cupoEvaluado, cupoDisponible, excedeCupo, faltante) = ResumirCupo(aptitud.Cupo, monto);
 
             return Ok(new
             {
@@ -76,8 +76,10 @@ public sealed class CotizacionApiController : ControllerBase
                 apto = aptitud.Estado == EstadoCrediticioCliente.Apto,
                 motivo = aptitud.Motivo,
                 motivos,
+                cupoEvaluado,
                 cupoDisponible,
                 montoSolicitado = monto,
+                excedeCupo,
                 faltante,
                 mora = new { tiene = aptitud.Mora.TieneMora, dias = aptitud.Mora.DiasMaximoMora },
                 documentacion = new
@@ -96,6 +98,18 @@ public sealed class CotizacionApiController : ControllerBase
             _logger.LogError(ex, "Error al evaluar aptitud crediticia (preview) para cliente {ClienteId}", clienteId);
             return StatusCode(500, new { error = "No se pudo evaluar el crédito." });
         }
+    }
+
+    /// <summary>
+    /// H11: lo que la tarjeta de aptitud muestra del cupo. Con la validación de cupo desactivada el cupo no se calcula
+    /// (<c>CupoDisponible</c> queda en 0): se informa como «no evaluado» y no como «$0». Si se evalúa y el monto supera
+    /// lo disponible, <c>excedeCupo</c> lo marca aunque el cliente sea «Apto» (la confirmación de la venta lo rechaza).
+    /// </summary>
+    internal static (bool CupoEvaluado, decimal CupoDisponible, bool ExcedeCupo, decimal Faltante) ResumirCupo(
+        AptitudCupoDetalle cupo, decimal monto)
+    {
+        var excede = cupo.Evaluado && monto > cupo.CupoDisponible;
+        return (cupo.Evaluado, cupo.CupoDisponible, excede, excede ? monto - cupo.CupoDisponible : 0m);
     }
 
     private ObjectResult DescuentoSinPermiso() =>
