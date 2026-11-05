@@ -39,9 +39,13 @@ DECLARE @ModCreditos int = (SELECT Id FROM dbo.ModulosSistema WHERE Clave = N'cr
 IF @ModVentas IS NULL OR @ModCreditos IS NULL
     THROW 51000, 'Falta el modulo ventas o creditos en ModulosSistema: no se modifica nada.', 1;
 
--- 1b) Los roles se resuelven por nombre: si un nombre es ambiguo (roles homonimos) se aborta sin cambiar nada.
-IF EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE Name IN (N'Administrador', N'SuperAdmin', N'Gerente', N'Vendedor') GROUP BY Name HAVING COUNT(*) > 1)
-    THROW 51004, 'Hay roles homonimos entre Administrador/SuperAdmin/Gerente/Vendedor: no se modifica nada.', 1;
+-- 1b) Los roles se resuelven UNA sola vez, bajo bloqueo, y de ahi en mas se usan solo esos Id: debe existir exactamente un
+--     rol por cada nombre requerido (ni ausentes ni homonimos), o se aborta sin cambiar nada.
+DECLARE @Roles TABLE (Rol nvarchar(256) PRIMARY KEY, RoleId nvarchar(450) NOT NULL);
+INSERT @Roles (Rol, RoleId)
+SELECT r.Name, MIN(r.Id) FROM dbo.AspNetRoles r WITH (UPDLOCK, HOLDLOCK) WHERE r.Name IN (N'Administrador', N'SuperAdmin', N'Gerente', N'Vendedor') GROUP BY r.Name HAVING COUNT(*) = 1;
+IF (SELECT COUNT(*) FROM @Roles) <> 4
+    THROW 51004, 'Falta alguno de los roles requeridos o hay roles homonimos: no se modifica nada.', 1;
 
 -- 2) Acciones (misma definicion que el sembrador: nombre, clave y orden).
 DECLARE @Acciones TABLE (ModuloId int, Nombre nvarchar(200), Clave nvarchar(100), Orden int);
@@ -68,22 +72,22 @@ INSERT @Asignaciones VALUES
     (N'Vendedor',      @ModCreditos, N'configure');
 
 INSERT dbo.RolPermisos (RoleId, ModuloId, AccionId, ClaimValue, CreatedAt, CreatedBy, IsDeleted)
-SELECT r.Id, s.ModuloId, ac.Id,
+SELECT r.RoleId, s.ModuloId, ac.Id,
        CASE WHEN s.ModuloId = @ModVentas THEN N'ventas.' ELSE N'creditos.' END + s.Clave,
        @Ahora, @Autor, 0
 FROM @Asignaciones s
-JOIN dbo.AspNetRoles r ON r.Name = s.Rol
+JOIN @Roles r ON r.Rol = s.Rol
 JOIN dbo.AccionesModulo ac ON ac.ModuloId = s.ModuloId AND ac.Clave = s.Clave AND ac.IsDeleted = 0
-WHERE NOT EXISTS (SELECT 1 FROM dbo.RolPermisos x WITH (UPDLOCK, HOLDLOCK) WHERE x.RoleId = r.Id AND x.ModuloId = s.ModuloId AND x.AccionId = ac.Id);
+WHERE NOT EXISTS (SELECT 1 FROM dbo.RolPermisos x WITH (UPDLOCK, HOLDLOCK) WHERE x.RoleId = r.RoleId AND x.ModuloId = s.ModuloId AND x.AccionId = ac.Id);
 DECLARE @AsignacionesInsertadas int = @@ROWCOUNT;
 
 -- 4) Verificacion previa al commit: lo que debe quedar, y nada fuera de lo esperado.
-DECLARE @Esperadas int = (SELECT COUNT(*) FROM @Asignaciones s JOIN dbo.AspNetRoles r ON r.Name = s.Rol);
+DECLARE @Esperadas int = (SELECT COUNT(*) FROM @Asignaciones);   -- siempre las 6 de la politica
 DECLARE @Presentes int = (
     SELECT COUNT(*) FROM @Asignaciones s
-    JOIN dbo.AspNetRoles r ON r.Name = s.Rol
+    JOIN @Roles r ON r.Rol = s.Rol
     JOIN dbo.AccionesModulo ac ON ac.ModuloId = s.ModuloId AND ac.Clave = s.Clave
-    JOIN dbo.RolPermisos rp ON rp.RoleId = r.Id AND rp.ModuloId = s.ModuloId AND rp.AccionId = ac.Id AND rp.IsDeleted = 0);
+    JOIN dbo.RolPermisos rp ON rp.RoleId = r.RoleId AND rp.ModuloId = s.ModuloId AND rp.AccionId = ac.Id AND rp.IsDeleted = 0);
 IF @Presentes <> @Esperadas
     THROW 51002, 'La verificacion de asignaciones no coincide: se revierte todo.', 1;
 
