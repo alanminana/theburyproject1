@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Reflection;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
@@ -248,6 +248,56 @@ public class ChequeRecibidoAutorizacionTests : IDisposable
             Assert.IsType<ViewResult>(await ControllerPara("cajero-a", puedeEditar: false).Cheques()).Model);
 
         Assert.False(Assert.Single(lista).PuedeAccionar);
+    }
+
+    // ------------------------------------------------------------------ F-2: lista de acreditados (rechazo posterior)
+
+    [Fact]
+    public async Task ListaAcreditados_UnNoSupervisorSoloVeLosDeSuPadron_YElRechazoVuelveALaMismaLista()
+    {
+        var a = await SeedCajaConChequeAsync("cajero-a");
+        var b = await SeedCajaConChequeAsync("cajero-b");
+        await _service.AcreditarChequeAsync(a.Cheque.Id, "cajero-a");
+        await _service.AcreditarChequeAsync(b.Cheque.Id, "cajero-b");
+
+        var lista = Assert.IsType<List<ChequePendienteViewModel>>(
+            Assert.IsType<ViewResult>(await ControllerPara("cajero-a").ChequesAcreditados()).Model);
+        var fila = Assert.Single(lista);
+        Assert.Equal(a.Cheque.Id, fila.MovimientoId);
+        Assert.True(fila.PuedeAccionar);
+
+        var supervisor = Assert.IsType<List<ChequePendienteViewModel>>(
+            Assert.IsType<ViewResult>(await ControllerPara("admin", true, Roles.Administrador).ChequesAcreditados()).Model);
+        Assert.Equal(2, supervisor.Count);
+
+        var r = Assert.IsType<RedirectToActionResult>(
+            await ControllerPara("cajero-a").RechazarCheque(a.Cheque.Id, "devuelto", "acreditados"));
+        Assert.Equal(nameof(CajaController.ChequesAcreditados), r.ActionName);
+        Assert.Equal(1, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque));
+    }
+
+    [Fact]
+    public async Task ListaAcreditados_SinPermisoCajaEdit_NoOfreceElRechazo()
+    {
+        var a = await SeedCajaConChequeAsync("cajero-a");
+        await _service.AcreditarChequeAsync(a.Cheque.Id, "cajero-a");
+
+        var lista = Assert.IsType<List<ChequePendienteViewModel>>(
+            Assert.IsType<ViewResult>(await ControllerPara("cajero-a", puedeEditar: false).ChequesAcreditados()).Model);
+
+        Assert.False(Assert.Single(lista).PuedeAccionar);
+    }
+
+    [Fact]
+    public async Task RechazarAcreditado_DeUnaCajaAjena_SinSerSupervisor_EsDenegado()
+    {
+        var b = await SeedCajaConChequeAsync("cajero-b");
+        await _service.AcreditarChequeAsync(b.Cheque.Id, "cajero-b");
+
+        await ControllerPara("cajero-a").RechazarCheque(b.Cheque.Id, "intento", "acreditados");
+
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoAsync(b.Cheque.Id));
+        Assert.Equal(0, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque));
     }
 
     // ------------------------------------------------------------------ contrato de seguridad de los endpoints

@@ -584,9 +584,30 @@ namespace TheBuryProject.Controllers
         /// </summary>
         public async Task<IActionResult> Cheques()
         {
+            var lista = await CargarChequesVisiblesAsync(c => c.ObtenerChequesPendientesAsync());
+            return View("Cheques_tw", lista);
+        }
+
+        /// <summary>
+        /// F-2. Cheques ya acreditados que todavía pueden rechazarse (el banco lo devolvió después de acreditarlo), aunque la caja donde
+        /// se asentaron esté cerrada. Mismas reglas de visibilidad y autorización que la lista de pendientes; el rechazo reutiliza
+        /// <see cref="RechazarCheque"/> (contrapartida en la caja abierta del usuario, sin tocar las cajas históricas).
+        /// </summary>
+        public async Task<IActionResult> ChequesAcreditados(string? buscar = null)
+        {
+            // La visibilidad se resuelve ANTES del limite del listado (si no, cheques ajenos recientes ocultarian los propios).
+            var visiblesPrevias = await ObtenerCajaIdsVisiblesAsync();
+            var lista = await CargarChequesVisiblesAsync(c => c.ObtenerChequesAcreditadosRechazablesAsync(visiblesPrevias, buscar));
+            ViewData["Buscar"] = buscar;
+            return View("ChequesAcreditados_tw", lista);
+        }
+
+        private async Task<List<ChequePendienteViewModel>> CargarChequesVisiblesAsync(
+            Func<TheBuryProject.Services.Interfaces.IChequeRecibidoService, Task<List<ChequePendienteViewModel>>> obtener)
+        {
             var visibles = await ObtenerCajaIdsVisiblesAsync();
             var lista = _chequeService != null
-                ? await _chequeService.ObtenerChequesPendientesAsync()
+                ? await obtener(_chequeService)
                 : new List<ChequePendienteViewModel>();
 
             var aperturaIds = lista.Select(c => c.AperturaId).Distinct().ToList();
@@ -607,7 +628,7 @@ namespace TheBuryProject.Controllers
                 c.PuedeAccionar = ok;
             }
 
-            return View("Cheques_tw", lista);
+            return lista;
         }
 
         [HttpPost]
@@ -697,7 +718,9 @@ namespace TheBuryProject.Controllers
         private IActionResult VolverDeCheque(string? origen, int aperturaId) =>
             string.Equals(origen, "cheques", StringComparison.OrdinalIgnoreCase)
                 ? RedirectToAction(nameof(Cheques))
-                : RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+                : string.Equals(origen, "acreditados", StringComparison.OrdinalIgnoreCase)
+                    ? RedirectToAction(nameof(ChequesAcreditados))
+                    : RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
 
         /// <summary>
         /// Completa en cada fila de movimiento los datos de cheque recibido: marca de rechazo y acciones disponibles. El asiento

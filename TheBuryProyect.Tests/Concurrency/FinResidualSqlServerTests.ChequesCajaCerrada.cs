@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -383,6 +383,7 @@ public partial class FinResidualSqlServerTests
     public async Task B13j_DevolucionPrimero_LaCancelacionSeRechaza()
     {
         var e = await SembrarCerradaAsync(EstadoAcreditacionMovimientoCaja.Acreditado);
+        await FinanciarEfectivoAsync(e.Vigente, 100m); // O-1: el reembolso sale del efectivo fisico de la caja vigente
         var (devId, rv) = await DevolucionAprobadaConReembolsoAsync(e.C.Venta, cantidad: 1);
         var antesO = await LibroAsync(e.Origen);
         var plan = AntesDeInsertarMovimiento();

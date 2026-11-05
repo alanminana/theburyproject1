@@ -26,6 +26,13 @@ public interface IChequeRecibidoService
     /// <summary>Cheques recibidos Pendientes, por vencimiento (los de venta con fecha primero; los de cuota después).</summary>
     Task<List<ChequePendienteViewModel>> ObtenerChequesPendientesAsync();
 
+    /// <summary>
+    /// F-2. Cheques recibidos ya Acreditados que todavia pueden rechazarse (sin rechazo previo ni venta cancelada), los mas
+    /// recientes primero. El alcance de cajas visibles y la busqueda (numero, banco, titular, referencia) se aplican antes del limite. Sirven de entrada operativa al rechazo posterior aunque la caja donde se asentaron este cerrada.
+    /// </summary>
+    Task<List<ChequePendienteViewModel>> ObtenerChequesAcreditadosRechazablesAsync(
+        IReadOnlyCollection<int>? cajaIdsVisibles = null, string? buscar = null);
+
     /// <summary>Estado del cheque de una venta (datos + acreditación/rechazo), o null si la venta no tiene cheque.</summary>
     Task<ChequeVentaEstadoViewModel?> ObtenerEstadoChequeVentaAsync(int ventaId);
 }

@@ -492,12 +492,281 @@ public class ChequeRecibidoServiceTests : IDisposable
     {
         var venta = await SeedVentaChequeAsync();
         venta.TipoPago = TipoPago.Efectivo;
+        _context.DatosCheque.RemoveRange(_context.DatosCheque.Where(d => d.VentaId == venta.Id)); // una venta en efectivo no tiene cheque
         await _context.SaveChangesAsync();
         await _service.RegistrarMovimientoVentaAsync(venta.Id, venta.Numero, venta.Total, TipoPago.Efectivo, CajeroA);
 
         var mov = await _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA);
 
         Assert.Equal(TipoMovimientoCaja.Egreso, mov.Tipo);
+    }
+
+    // ------------------------------------------------------------------ O-1: efectivo insuficiente en devoluciones
+
+    private Task<MovimientoCaja> ReembolsarAsync(decimal monto, int ventaId = 9001, string numero = "DEV-X") =>
+        _service.RegistrarMovimientoDevolucionAsync(1, ventaId, "VTA-" + ventaId, numero, monto, CajeroA);
+
+    [Fact]
+    public async Task Devolucion_ConEfectivoSuficiente_RegistraElEgreso()
+    {
+        var mov = await ReembolsarAsync(999.99m); // la apertura A arranca con 1000
+
+        Assert.Equal(ConceptoMovimientoCaja.DevolucionCliente, mov.Concepto);
+        Assert.Equal(999.99m, mov.Monto);
+    }
+
+    [Fact]
+    public async Task Devolucion_ConEfectivoExactamenteIgualAlReembolso_Permite_YElSiguienteCentavoSeBloquea()
+    {
+        var mov = await ReembolsarAsync(1000m);
+        Assert.Equal(1000m, mov.Monto);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => ReembolsarAsync(0.01m, numero: "DEV-Y"));
+        Assert.Contains("Efectivo insuficiente", ex.Message);
+        Assert.Equal(0m, (await _service.ObtenerDetallesAperturaAsync(_aperturaA.Id)).CajaFisicaEsperada);
+    }
+
+    [Fact]
+    public async Task Devolucion_ConEfectivoInsuficiente_BloqueaYNoEscribeNada_ElMensajeInformaDisponibleYSolicitado()
+    {
+        var movs = await _context.MovimientosCaja.CountAsync();
+        var eventos = _grabadora.Eventos.Count;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => ReembolsarAsync(1000.01m));
+
+        Assert.Contains("disponible", ex.Message);
+        Assert.Contains(1000m.ToString("N2"), ex.Message);
+        Assert.Contains("solicitado", ex.Message);
+        Assert.Contains(1000.01m.ToString("N2"), ex.Message);
+        Assert.Equal(movs, await _context.MovimientosCaja.CountAsync());
+        Assert.Equal(eventos, _grabadora.Eventos.Count);
+        Assert.Equal(1000m, (await _service.ObtenerDetallesAperturaAsync(_aperturaA.Id)).CajaFisicaEsperada);
+    }
+
+    [Fact]
+    public async Task Devolucion_ReembolsosSucesivos_ConsumenElMismoEfectivo()
+    {
+        await ReembolsarAsync(600m, numero: "DEV-1");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ReembolsarAsync(500m, numero: "DEV-2"));
+        await ReembolsarAsync(400m, numero: "DEV-3");
+
+        Assert.Equal(0m, (await _service.ObtenerDetallesAperturaAsync(_aperturaA.Id)).CajaFisicaEsperada); // nunca negativo
+    }
+
+    [Fact]
+    public async Task Devolucion_UnChequeAcreditadoNoHabilitaReembolsarEfectivoQueNoHay()
+    {
+        // El cheque acreditado suma al saldo real pero no al efectivo fisico: el limite es el arqueo (1000), no 1000 + 900.
+        var venta = await SeedVentaChequeAsync(900m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 1000.01m, CajeroA));
+
+        Assert.Contains("Efectivo insuficiente", ex.Message);
+    }
+
+    [Fact]
+    public async Task Devolucion_LaReglaEsDelReembolso_NoDelMedioDePagoOriginal()
+    {
+        var venta = await SeedVentaChequeAsync(300m);
+        venta.TipoPago = TipoPago.Efectivo;
+        _context.DatosCheque.RemoveRange(_context.DatosCheque.Where(d => d.VentaId == venta.Id));
+        await _context.SaveChangesAsync();
+        await _service.RegistrarMovimientoVentaAsync(venta.Id, venta.Numero, 300m, TipoPago.Efectivo, CajeroA);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ReembolsarAsync(1300.01m, ventaId: venta.Id));
+        var ok = await ReembolsarAsync(1300m, ventaId: venta.Id);
+        Assert.Equal(1300m, ok.Monto);
+    }
+
+    // ------------------------------------------------------------------ F-4: cheque sin movimiento verificable
+
+    [Fact]
+    public async Task Devolucion_VentaDeChequeSinMovimientoDeCaja_Bloquea()
+    {
+        var venta = await SeedVentaChequeAsync(); // tiene datos de cheque pero nunca se asento el ingreso
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
+
+        Assert.Contains("no hay un movimiento de caja", ex.Message);
+        Assert.Equal(0, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.DevolucionCliente));
+    }
+
+    [Fact]
+    public async Task Devolucion_VentaPagadaConChequeSinDatosNiMovimiento_Bloquea()
+    {
+        var venta = await SeedVentaChequeAsync();
+        _context.DatosCheque.RemoveRange(_context.DatosCheque.Where(d => d.VentaId == venta.Id));
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
+    }
+
+    [Fact]
+    public async Task Devolucion_ChequeAnulado_Bloquea()
+    {
+        var venta = await SeedVentaChequeAsync();
+        var ingreso = await RegistrarIngresoAsync(venta);
+        var mov = await _context.MovimientosCaja.FirstAsync(m => m.Id == ingreso.Id);
+        mov.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Anulado;
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
+
+        Assert.Contains("no hay evidencia válida", ex.Message);
+    }
+
+    [Fact]
+    public async Task Devolucion_ChequeAcreditadoPorLaViaGenerica_SinFechaEnElCheque_PermiteElReembolso()
+    {
+        // La via generica de acreditacion deja el ingreso Acreditado sin completar DatosCheque.AcreditadoAt: es una
+        // acreditacion legitima y no debe bloquear la devolucion.
+        var venta = await SeedVentaChequeAsync();
+        var ingreso = await RegistrarIngresoAsync(venta);
+        var mov = await _context.MovimientosCaja.FirstAsync(m => m.Id == ingreso.Id);
+        mov.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+        await _context.SaveChangesAsync();
+
+        var r = await _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA);
+
+        Assert.Equal(ConceptoMovimientoCaja.DevolucionCliente, r.Concepto);
+    }
+
+    [Fact]
+    public async Task Devolucion_ChequeAcreditadoConMarcaDeRechazoEnElCheque_Bloquea()
+    {
+        var venta = await SeedVentaChequeAsync();
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        var datos = await _context.DatosCheque.FirstAsync(d => d.VentaId == venta.Id);
+        datos.RechazadoAt = DateTime.UtcNow; // rechazo posterior sin contrapartida: estado inconsistente
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
+
+        Assert.Contains("rechazado", ex.Message);
+    }
+
+    // ------------------------------------------------------------------ F-2: rechazo de un cheque ya acreditado
+
+    [Fact]
+    public async Task ChequesAcreditadosRechazables_ListaSoloLosAcreditadosSinRechazoNiCancelacion()
+    {
+        var pendiente = await RegistrarIngresoAsync(await SeedVentaChequeAsync(100m, "000001"));
+        var acreditado = await RegistrarIngresoAsync(await SeedVentaChequeAsync(200m, "000002"));
+        var rechazado = await RegistrarIngresoAsync(await SeedVentaChequeAsync(300m, "000003"));
+        await _service.AcreditarChequeAsync(acreditado.Id, CajeroA);
+        await _service.AcreditarChequeAsync(rechazado.Id, CajeroA);
+        await _service.RechazarChequeAsync(rechazado.Id, "sin fondos", CajeroA);
+
+        var lista = await _service.ObtenerChequesAcreditadosRechazablesAsync();
+
+        var fila = Assert.Single(lista);
+        Assert.Equal(acreditado.Id, fila.MovimientoId);
+        Assert.Equal(200m, fila.Monto);
+        Assert.Equal(CajeroA, fila.AcreditadoPor);
+        Assert.NotNull(fila.AcreditadoAt);
+        Assert.DoesNotContain(lista, c => c.MovimientoId == pendiente.Id || c.MovimientoId == rechazado.Id);
+        Assert.DoesNotContain(await _service.ObtenerChequesPendientesAsync(), c => c.MovimientoId == acreditado.Id);
+    }
+
+    [Fact]
+    public async Task ChequesAcreditadosRechazables_LaVisibilidadYLaBusquedaSeAplicanAntesDelLimite()
+    {
+        // Un cheque propio (de otra caja, mas antiguo) no queda fuera por haber MAS de 200 cheques ajenos mas recientes.
+        var propia = SeedApertura(CajeroB, "CJB", 0m);
+        var venta = await SeedVentaChequeAsync(50m, "777001");
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = propia.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaCheque,
+            EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado, TipoPago = TipoPago.Cheque, Monto = 50m,
+            Descripcion = "propio", Referencia = venta.Numero, VentaId = venta.Id, Usuario = CajeroB,
+            FechaMovimiento = DateTime.UtcNow.AddDays(-30)
+        });
+        for (var i = 0; i < CajaService.MaxChequesAcreditadosListados + 5; i++)
+        {
+            _context.MovimientosCaja.Add(new MovimientoCaja
+            {
+                AperturaCajaId = _aperturaA.Id, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaCheque,
+                EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado, TipoPago = TipoPago.Cheque, Monto = 10m,
+                Descripcion = "ajeno " + i, Referencia = "AJ-" + i, Usuario = CajeroA, FechaMovimiento = DateTime.UtcNow
+            });
+        }
+        await _context.SaveChangesAsync();
+        var cajaPropia = await _context.AperturasCaja.Where(a => a.Id == propia.Id).Select(a => a.CajaId).FirstAsync();
+
+        var visibles = await _service.ObtenerChequesAcreditadosRechazablesAsync(new[] { cajaPropia });
+        Assert.Equal(propia.Id, Assert.Single(visibles).AperturaId);
+
+        var global = await _service.ObtenerChequesAcreditadosRechazablesAsync();
+        Assert.Equal(CajaService.MaxChequesAcreditadosListados, global.Count);
+        Assert.DoesNotContain(global, c => c.AperturaId == propia.Id); // el limite global lo deja fuera...
+        var buscado = await _service.ObtenerChequesAcreditadosRechazablesAsync(null, "777001");
+        Assert.Equal(propia.Id, Assert.Single(buscado).AperturaId); // ...pero la busqueda lo encuentra
+    }
+
+    [Fact]
+    public async Task Rechazar_UnAcreditadoDeCajaCerrada_DesdeLaLista_AsientaLaContrapartidaSinTocarLasCajasHistoricas()
+    {
+        var venta = await SeedVentaChequeAsync(900m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        await CerrarAperturaAAsync();
+        var aperturaB = SeedApertura(CajeroB, "CJB", 200m);
+        var antes = await FotoAAsync();
+
+        var fila = Assert.Single(await _service.ObtenerChequesAcreditadosRechazablesAsync());
+        Assert.True(fila.AperturaCerrada);
+        await _service.RechazarChequeAsync(fila.MovimientoId, "devuelto por el banco", CajeroB);
+
+        Assert.Equal(antes, await FotoAAsync());
+        var egreso = await _context.MovimientosCaja.AsNoTracking().SingleAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque);
+        Assert.Equal(aperturaB.Id, egreso.AperturaCajaId);
+        Assert.Equal(fila.MovimientoId, egreso.MovimientoOrigenId);
+        Assert.Contains("devuelto por el banco", (await LeerDatosAsync(venta.Id)).MotivoRechazo);
+        Assert.Empty(await _service.ObtenerChequesAcreditadosRechazablesAsync()); // ya no es rechazable
+        var evento = Assert.Single(_grabadora.Eventos, e => e.Accion == "RechazarCheque");
+        Assert.Contains("devuelto por el banco", evento.Detalle);
+        Assert.Contains($"Apertura asiento={aperturaB.Id}", evento.Detalle);
+    }
+
+    [Fact]
+    public async Task Rechazar_UnAcreditadoDeCajaCerrada_SinCajaVigente_NoEscribeNada()
+    {
+        var venta = await SeedVentaChequeAsync(900m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        await CerrarAperturaAAsync();
+        var antes = await _context.MovimientosCaja.CountAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RechazarChequeAsync(ingreso.Id, "rebotado", CajeroB));
+
+        Assert.Contains("Abrí una caja", ex.Message);
+        Assert.Equal(antes, await _context.MovimientosCaja.CountAsync());
+        Assert.False((await LeerDatosAsync(venta.Id)).Rechazado);
+        Assert.Single(await _service.ObtenerChequesAcreditadosRechazablesAsync());
+    }
+
+    [Fact]
+    public async Task Rechazar_UnAcreditado_SinMotivo_NoHaceNada()
+    {
+        var venta = await SeedVentaChequeAsync(900m);
+        var ingreso = await RegistrarIngresoAsync(venta);
+        await _service.AcreditarChequeAsync(ingreso.Id, CajeroA);
+        await CerrarAperturaAAsync();
+        SeedApertura(CajeroB, "CJB", 0m);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RechazarChequeAsync(ingreso.Id, "   ", CajeroB));
+
+        Assert.Contains("motivo", ex.Message);
+        Assert.Equal(0, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque));
     }
 
     // ------------------------------------------------------------------ D5: cuota con cheque

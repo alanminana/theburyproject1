@@ -1,4 +1,4 @@
-@model List<TheBuryProject.ViewModels.ChequePendienteViewModel>
+﻿@model List<TheBuryProject.ViewModels.ChequePendienteViewModel>
 @{
     ViewData["Title"] = "Cheques pendientes";
     var total = Model.Sum(c => c.Monto);
@@ -16,6 +16,11 @@
         <div class="min-w-0">
             <h1 class="page-title">Cheques pendientes</h1>
             <p class="page-sub">Cheques recibidos que todavía no se acreditaron, ordenados por vencimiento. No cuentan como dinero real ni como efectivo de caja hasta acreditarse.</p>
+        </div>
+        <div class="head-actions">
+            <a asp-action="ChequesAcreditados" class="btn btn-ghost no-underline" data-cheques-acreditados-link>
+                <span class="material-symbols-outlined">undo</span>Rechazar un cheque acreditado
+            </a>
         </div>
     </div>
 

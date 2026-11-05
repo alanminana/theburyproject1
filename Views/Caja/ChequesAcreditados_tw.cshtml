@@ -1,0 +1,124 @@
+﻿@model List<TheBuryProject.ViewModels.ChequePendienteViewModel>
+@{
+    ViewData["Title"] = "Cheques acreditados";
+    var total = Model.Sum(c => c.Monto);
+}
+
+<div class="caja-page-shell space-y-4" data-cheques-acreditados>
+
+    <a asp-action="Cheques" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cheques pendientes
+    </a>
+
+    <div class="page-head">
+        <div class="min-w-0">
+            <h1 class="page-title">Cheques acreditados</h1>
+            <p class="page-sub">Cheques ya acreditados que el banco todavía puede devolver. Si uno es rechazado, se registra acá con su motivo: la contrapartida se asienta en tu caja abierta y las cajas cerradas no se modifican. La venta no se cancela: queda pendiente de cobro.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-bad" role="alert"><span class="material-symbols-outlined">error</span><span>@TempData["Error"]</span></div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-ok" role="status"><span class="material-symbols-outlined">check_circle</span><span>@TempData["Success"]</span></div>
+    }
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="kpi kpi--accent"><div class="kpi-label">Total acreditado listado</div><div class="kpi-value" data-cheques-total>$@total.ToString("N2")</div></div>
+        <div class="kpi"><div class="kpi-label">Cheques</div><div class="kpi-value">@Model.Count</div></div>
+    </div>
+
+    <form method="get" asp-action="ChequesAcreditados" class="flex flex-wrap items-end gap-2" data-cheques-buscar>
+        <div>
+            <label class="label" for="buscar">Buscar cheque</label>
+            <input id="buscar" name="buscar" class="field" maxlength="60" value="@(ViewData["Buscar"] as string)" placeholder="N° de cheque, banco, titular o venta" />
+        </div>
+        <button type="submit" class="btn btn-soft btn-sm">Buscar</button>
+        @if (!string.IsNullOrWhiteSpace(ViewData["Buscar"] as string))
+        {
+            <a asp-action="ChequesAcreditados" class="btn btn-ghost btn-sm no-underline">Limpiar</a>
+        }
+        <p class="text-xs muted-2 w-full">Se listan los 200 más recientes; usá la búsqueda para encontrar uno anterior.</p>
+    </form>
+
+    <section class="card" style="overflow:hidden">
+        @if (Model.Count == 0)
+        {
+            <div class="px-4 py-6 text-sm muted-2" data-cheques-vacio>No hay cheques acreditados para rechazar.</div>
+        }
+        else
+        {
+            <div class="tbl-wrap">
+                <table data-erp-cards class="tbl">
+                    <thead>
+                        <tr>
+                            <th data-card="title">Acreditado</th>
+                            <th data-card="half">Origen</th>
+                            <th>Cheque</th>
+                            <th data-card="half" style="text-align:right">Monto</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in Model)
+                        {
+                            <tr data-cheque-fila="@c.MovimientoId">
+                                <td>
+                                    @if (c.AcreditadoAt.HasValue)
+                                    {
+                                        <div class="text-white mono">@c.AcreditadoAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                        @if (!string.IsNullOrWhiteSpace(c.AcreditadoPor))
+                                        {
+                                            <div class="text-xs muted-2">@c.AcreditadoPor</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="muted-2">Ver detalle</span>
+                                    }
+                                </td>
+                                <td>
+                                    @c.Origen
+                                    @if (c.VentaId.HasValue && !string.IsNullOrWhiteSpace(c.Referencia))
+                                    {
+                                        <div class="text-xs mono"><a asp-controller="Venta" asp-action="Details" asp-route-id="@c.VentaId" class="cc-ref-link">@c.Referencia</a></div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(c.Referencia))
+                                    {
+                                        <div class="text-xs muted-2 mono">@c.Referencia</div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(c.Banco))
+                                    {
+                                        <div class="text-white">@c.Banco &middot; N° @c.NumeroCheque</div>
+                                        <div class="text-xs muted">@c.Titular</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-white">@c.Detalle</div>
+                                    }
+                                </td>
+                                <td style="text-align:right" class="num">$ @c.Monto.ToString("N2")</td>
+                                <td>
+                                    @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(c.MovimientoId, false, c.PuedeAccionar, "acreditados"))
+                                    @if (!c.PuedeAccionar)
+                                    {
+                                        <span class="text-xs muted-2">Sin permiso para operar esta caja</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+}

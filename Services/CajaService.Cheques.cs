@@ -574,10 +574,13 @@ namespace TheBuryProject.Services
         // ------------------------------------------------------------------ D4: devolución
 
         /// <summary>
-        /// D4. Pendiente: bloquea el reembolso en efectivo (nada se cobró). Acreditado: permitido. Rechazado: sin reembolso.
-        /// Ventas que no son de cheque, o sin ingreso de cheque, no se ven afectadas.
+        /// D4 + F-4. El reembolso sale en efectivo, así que solo se permite con evidencia válida de que el cheque se cobró:
+        /// ingreso de cheque existente, estado Acreditado, sin rechazo posterior (estado, contrapartida o marca en el cheque) y,
+        /// si hay datos del cheque, con su fecha de acreditación. Cualquier otro estado (Pendiente, Rechazado, Anulado, sin
+        /// movimiento o inconsistente) bloquea: nunca se asume que un cheque fue cobrado. No modifica datos históricos.
+        /// Ventas que no son de cheque no se ven afectadas (<paramref name="esVentaCheque"/> se resuelve antes de tomar locks).
         /// </summary>
-        private async Task ValidarReembolsoContraChequeAsync(int ventaId, string ventaNumero)
+        private async Task ValidarReembolsoContraChequeAsync(int ventaId, string ventaNumero, bool esVentaCheque)
         {
             var cheque = await _context.MovimientosCaja.AsNoTracking()
                 .Where(m => m.VentaId == ventaId && !m.IsDeleted
@@ -585,7 +588,13 @@ namespace TheBuryProject.Services
                          && m.Concepto == ConceptoMovimientoCaja.VentaCheque)
                 .OrderBy(m => m.Id)
                 .FirstOrDefaultAsync();
-            if (cheque == null) return;
+
+            if (cheque == null)
+            {
+                if (!esVentaCheque) return;
+                throw new InvalidOperationException(
+                    $"No se puede reembolsar en efectivo la venta {ventaNumero}: se pagó con cheque y no hay un movimiento de caja que acredite su cobro.");
+            }
 
             if (await ChequeRechazadoAsync(cheque))
             {
@@ -597,6 +606,14 @@ namespace TheBuryProject.Services
             {
                 throw new InvalidOperationException(
                     $"No se puede reembolsar en efectivo la venta {ventaNumero}: el cheque todavía no fue acreditado. Acreditalo antes de devolver el dinero.");
+            }
+
+            // Estado Acreditado + sin rechazo es la evidencia de cobro: la fecha en DatosCheque no la registran todas las vias
+            // historicas de acreditacion (p. ej. la generica), asi que no se exige. Cualquier otro estado bloquea.
+            if (cheque.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Acreditado)
+            {
+                throw new InvalidOperationException(
+                    $"No se puede reembolsar en efectivo la venta {ventaNumero}: no hay evidencia válida de que el cheque haya sido acreditado.");
             }
         }
 
@@ -630,15 +647,70 @@ namespace TheBuryProject.Services
         /// <inheritdoc/>
         public async Task<List<ChequePendienteViewModel>> ObtenerChequesPendientesAsync()
         {
-            var hoy = _relojComercial.HoyComercial;
-
-            var filas = await _context.MovimientosCaja
+            var query = _context.MovimientosCaja
                 .AsNoTracking()
                 .Where(m => !m.IsDeleted
                          && m.Tipo == TipoMovimientoCaja.Ingreso
                          && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
                          && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
-                             || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque)))
+                             || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque)));
+
+            var lista = await ConstruirListaChequesAsync(query);
+            return lista
+                .OrderBy(c => c.FechaVencimiento.HasValue ? 0 : 1)
+                .ThenBy(c => c.FechaVencimiento)
+                .ThenBy(c => c.MovimientoId)
+                .ToList();
+        }
+
+        /// <summary>Máximo de cheques acreditados que lista la pantalla de rechazo posterior (los más recientes).</summary>
+        internal const int MaxChequesAcreditadosListados = 200;
+
+        /// <inheritdoc/>
+        public async Task<List<ChequePendienteViewModel>> ObtenerChequesAcreditadosRechazablesAsync(
+            IReadOnlyCollection<int>? cajaIdsVisibles = null, string? buscar = null)
+        {
+            // Acreditado, sin rechazo previo (contrapartida RechazoCheque o marca en el cheque) y con la venta no cancelada:
+            // son los que RechazarChequeAsync puede rechazar (la validación definitiva se repite bajo lock).
+            var query = _context.MovimientosCaja
+                .AsNoTracking()
+                .Where(m => !m.IsDeleted
+                         && m.Tipo == TipoMovimientoCaja.Ingreso
+                         && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
+                         && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
+                             || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque))
+                         && !_context.MovimientosCaja.Any(r => r.MovimientoOrigenId == m.Id
+                                && r.Concepto == ConceptoMovimientoCaja.RechazoCheque && !r.IsDeleted)
+                         && (m.VentaId == null
+                             || (!_context.DatosCheque.Any(d => d.VentaId == m.VentaId && !d.IsDeleted && d.RechazadoAt != null)
+                                 && !_context.MovimientosCaja.Any(r => r.VentaId == m.VentaId
+                                        && r.Concepto == ConceptoMovimientoCaja.ReversionVenta && !r.IsDeleted))))
+                ;
+
+            // El alcance de visibilidad y la busqueda se aplican ANTES del limite: un cheque propio nunca queda fuera por
+            // haber cheques ajenos mas recientes.
+            if (cajaIdsVisibles != null)
+                query = query.Where(m => cajaIdsVisibles.Contains(m.AperturaCaja.CajaId));
+
+            buscar = buscar?.Trim();
+            if (!string.IsNullOrEmpty(buscar))
+            {
+                query = query.Where(m => (m.Referencia != null && m.Referencia.Contains(buscar))
+                    || _context.DatosCheque.Any(d => d.VentaId == m.VentaId && !d.IsDeleted
+                        && (d.NumeroCheque.Contains(buscar) || d.Banco.Contains(buscar) || d.Titular.Contains(buscar))));
+            }
+
+            query = query.OrderByDescending(m => m.UpdatedAt ?? m.FechaMovimiento).ThenByDescending(m => m.Id)
+                .Take(MaxChequesAcreditadosListados);
+
+            return await ConstruirListaChequesAsync(query);
+        }
+
+        private async Task<List<ChequePendienteViewModel>> ConstruirListaChequesAsync(IQueryable<MovimientoCaja> query)
+        {
+            var hoy = _relojComercial.HoyComercial;
+
+            var filas = await query
                 .Select(m => new
                 {
                     m.Id, m.AperturaCajaId, Cerrada = m.AperturaCaja.Cerrada, m.VentaId, m.Referencia, m.Concepto, m.Monto,
@@ -653,7 +725,7 @@ namespace TheBuryProject.Services
                     .Where(d => ventaIds.Contains(d.VentaId) && !d.IsDeleted)
                     .ToDictionaryAsync(d => d.VentaId);
 
-            var lista = filas.Select(f =>
+            return filas.Select(f =>
             {
                 datos.TryGetValue(f.VentaId ?? 0, out var d);
                 int? dias = d == null ? null : (DateOnly.FromDateTime(d.FechaVencimiento).DayNumber - hoy.DayNumber);
@@ -673,15 +745,11 @@ namespace TheBuryProject.Services
                     Detalle = d == null ? f.MedioPagoDetalle : null,
                     DiasParaVencer = dias,
                     Vencido = dias is < 0,
-                    PorVencer = dias is >= 0 and <= DiasAvisoChequePorVencer
+                    PorVencer = dias is >= 0 and <= DiasAvisoChequePorVencer,
+                    AcreditadoAt = d?.AcreditadoAt,
+                    AcreditadoPor = d?.AcreditadoPor
                 };
             }).ToList();
-
-            return lista
-                .OrderBy(c => c.FechaVencimiento.HasValue ? 0 : 1)
-                .ThenBy(c => c.FechaVencimiento)
-                .ThenBy(c => c.MovimientoId)
-                .ToList();
         }
 
         /// <inheritdoc/>

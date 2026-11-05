@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -23,6 +23,20 @@ public partial class FinResidualSqlServerTests
     private static GatePlan AntesDeLockearApertura() => Compuerta("antes-del-lock-de-apertura", "[AperturasCaja] WITH (UPDLOCK, HOLDLOCK, ROWLOCK)");
     private static GatePlan AntesDeInsertarMovimiento() => Compuerta("antes-de-insertar-movimiento", "INSERT INTO [MovimientosCaja]");
 
+    /// <summary>O-1: el reembolso de una devolucion solo sale del efectivo fisico de la caja; este ingreso en efectivo lo habilita.</summary>
+    private async Task FinanciarEfectivoAsync(int aperturaId, decimal monto)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        ctx.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = aperturaId, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.AjusteCaja,
+            EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.NoAplica, TipoPago = TipoPago.Efectivo, Monto = monto,
+            Descripcion = "Fondo QA", Usuario = ConcCurrentUser.Usuario, FechaMovimiento = DateTime.UtcNow
+        });
+        await ctx.SaveChangesAsync();
+    }
+
     private sealed record VentaConCheque(VentaContado Venta, int ChequeId);
 
     /// <summary>Venta Confirmada pagada con cheque ya ACREDITADO (ingreso VentaCheque $100) en una caja abierta del usuario.</summary>
@@ -34,7 +48,8 @@ public partial class FinResidualSqlServerTests
         ctx.DatosCheque.Add(new DatosCheque
         {
             VentaId = v.VentaId, NumeroCheque = Random.Shared.NextInt64(10_000_000, 99_999_999).ToString(), Banco = "GALICIA", Titular = "QA",
-            FechaEmision = DateTime.UtcNow.Date, FechaVencimiento = DateTime.UtcNow.Date.AddDays(30), Monto = 100m
+            FechaEmision = DateTime.UtcNow.Date, FechaVencimiento = DateTime.UtcNow.Date.AddDays(30), Monto = 100m,
+            AcreditadoAt = DateTime.UtcNow, AcreditadoPor = "qa"
         });
         var cheque = new MovimientoCaja
         {
@@ -228,6 +243,7 @@ public partial class FinResidualSqlServerTests
     {
         var aperturaId = await NuevaAperturaAsync();
         var c = await NuevaVentaConChequeAcreditadoAsync(aperturaId);
+        await FinanciarEfectivoAsync(aperturaId, 100m); // O-1: el reembolso sale de efectivo fisico
         var (devId, rv) = await DevolucionAprobadaConReembolsoAsync(c.Venta, cantidad: 1);
         var plan = AntesDeInsertarMovimiento();
 

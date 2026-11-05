@@ -1475,10 +1475,24 @@ namespace TheBuryProject.Services
                 // rechazó) no hay dinero recibido que devolver. El estado del cheque se valida BAJO el mismo lock que usa el
                 // rechazo (la apertura del ingreso del cheque, y luego la caja vigente): rechazo y devolución se serializan.
                 var aperturaDelCheque = await ObtenerAperturaDelChequeDeVentaAsync(ventaId);
+                // F-4: una venta es "de cheque" por su medio de pago o por tener datos de cheque; se resuelve antes de tomar locks.
+                var esVentaCheque = await _context.Ventas.AsNoTracking().AnyAsync(v => v.Id == ventaId && v.TipoPago == TipoPago.Cheque)
+                    || await _context.DatosCheque.AsNoTracking().AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted);
 
                 Task<MovimientoCaja> Registrar() => BajoLockDeAperturaAsync(apertura.Id, async () =>
                 {
-                    await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero);
+                    await ValidarReembolsoContraChequeAsync(ventaId, ventaNumero, esVentaCheque);
+
+                    // O-1: el reembolso sale en efectivo FÍSICO; bajo el lock de la apertura (sin carrera entre devoluciones
+                    // simultáneas) se mide con el mismo criterio que el arqueo y no puede dejar negativo el efectivo esperado.
+                    var movimientosApertura = await ObtenerMovimientosDeAperturaAsync(apertura.Id);
+                    var (ingresosFisicos, egresosFisicos) = CalcularTotalesMovimientosFisicos(movimientosApertura);
+                    var efectivoDisponible = apertura.MontoInicial + ingresosFisicos - egresosFisicos;
+                    if (monto > efectivoDisponible)
+                    {
+                        throw new InvalidOperationException(
+                            $"Efectivo insuficiente en la caja para reembolsar: disponible ${Math.Max(efectivoDisponible, 0m):N2}, reembolso solicitado ${monto:N2}.");
+                    }
 
                     var nuevo = new MovimientoCaja
                     {
