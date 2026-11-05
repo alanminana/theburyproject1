@@ -328,7 +328,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> PrevalidarCredito(int clienteId, decimal monto)
+        public async Task<IActionResult> PrevalidarCredito(int clienteId, decimal monto, int? ventaId = null)
         {
             try
             {
@@ -338,7 +338,7 @@ namespace TheBuryProject.Controllers
                 if (monto <= 0)
                     return BadRequest(new { error = "El monto debe ser mayor a cero" });
 
-                var resultado = await _validacionVentaService.PrevalidarAsync(clienteId, monto);
+                var resultado = await _validacionVentaService.PrevalidarAsync(clienteId, monto, ventaId);
                 return Ok(resultado);
             }
             catch (Exception ex)

@@ -1019,6 +1019,26 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<decimal> GetCupoDisponibleAsync(int clienteId, decimal saldoPropioExcluido)
+        {
+            if (saldoPropioExcluido <= 0m)
+                return await GetCupoDisponibleAsync(clienteId);
+
+            try
+            {
+                // Recalcula sobre el límite (con clamp a 0): no se suma el saldo propio al disponible ya clampeado, porque
+                // eso perdería el exceso cuando OTRA deuda ya supera el límite por sí sola.
+                var disponible = await _creditoDisponibleService.CalcularDisponibleAsync(clienteId);
+                var saldoSinPropio = Math.Max(0m, disponible.SaldoVigente - saldoPropioExcluido);
+                return Math.Max(0m, disponible.Limite - saldoSinPropio);
+            }
+            catch (CreditoDisponibleException ex)
+            {
+                _logger.LogWarning(ex, "No fue posible calcular cupo disponible para cliente {ClienteId}. Se retorna 0.", clienteId);
+                return 0;
+            }
+        }
+
         public async Task<decimal> GetCreditoUtilizadoAsync(int clienteId)
         {
             // Suma de saldo pendiente de todos los créditos activos

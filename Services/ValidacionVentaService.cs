@@ -33,7 +33,11 @@ namespace TheBuryProject.Services
         #region Prevalidación (E1 - Solo lectura, no persiste)
 
         /// <inheritdoc />
-        public async Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto)
+        public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto)
+            => PrevalidarAsync(clienteId, monto, ventaId: null);
+
+        /// <inheritdoc />
+        public async Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto, int? ventaId)
         {
             _logger.LogInformation(
                 "Iniciando prevalidación para cliente {ClienteId}, monto {Monto}",
@@ -42,8 +46,9 @@ namespace TheBuryProject.Services
             try
             {
                 // Usar evaluación unificada
-                var evaluacion = await EvaluarCreditoUnificadoAsync(clienteId, monto);
-                
+                var saldoPropio = await ObtenerSaldoCreditoPropioAsync(clienteId, ventaId);
+                var evaluacion = await EvaluarCreditoUnificadoAsync(clienteId, monto, null, saldoPropio);
+
                 // Mapear a PrevalidacionResultViewModel
                 var resultado = MapearAPrevalidacion(evaluacion);
 
@@ -100,9 +105,10 @@ namespace TheBuryProject.Services
         /// Evaluación unificada de crédito que puede mapearse a cualquier ViewModel de resultado.
         /// </summary>
         private async Task<EvaluacionCrediticiaIntermedia> EvaluarCreditoUnificadoAsync(
-            int clienteId, 
-            decimal monto, 
-            int? creditoId = null)
+            int clienteId,
+            decimal monto,
+            int? creditoId = null,
+            decimal saldoPropioExcluido = 0m)
         {
             var evaluacion = new EvaluacionCrediticiaIntermedia
             {
@@ -120,16 +126,47 @@ namespace TheBuryProject.Services
             // 3. Poblar datos básicos
             PoblarDatosBasicos(evaluacion, aptitud);
 
+            // 3b. El crédito propio de la venta que se está editando ya figura como "utilizado" (existe en
+            // PendienteConfiguracion/Configurado antes de confirmar): se excluye para no descontarlo dos veces
+            // (misma regla que VentaService al confirmar). Se recalcula con el clamp a 0 sobre el límite.
+            if (saldoPropioExcluido > 0m && evaluacion.LimiteCredito.HasValue && evaluacion.LimiteCredito.Value > 0m)
+            {
+                evaluacion.CreditoUtilizado = Math.Max(0m, evaluacion.CreditoUtilizado - saldoPropioExcluido);
+                evaluacion.CupoDisponible = Math.Max(0m, evaluacion.LimiteCredito.Value - evaluacion.CreditoUtilizado);
+            }
+
             // 4. Evaluar según estado de aptitud
             EvaluarSegunEstadoAptitud(evaluacion, aptitud);
 
             // 5. Verificar cupo para el monto específico (si no es NoViable)
             if (!evaluacion.EsNoViable)
             {
-                await VerificarCupoUnificado(evaluacion, clienteId, monto, creditoId);
+                await VerificarCupoUnificado(evaluacion, clienteId, monto, creditoId, saldoPropioExcluido);
             }
 
             return evaluacion;
+        }
+
+        /// <summary>
+        /// Saldo pendiente del crédito propio de la venta en edición (0 si no hay venta, no es del cliente o el
+        /// crédito ya está finalizado/rechazado/cancelado). Solo lectura.
+        /// </summary>
+        private async Task<decimal> ObtenerSaldoCreditoPropioAsync(int clienteId, int? ventaId)
+        {
+            if (ventaId is null or <= 0)
+                return 0m;
+
+            var credito = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.Id == ventaId.Value && !v.IsDeleted && v.ClienteId == clienteId && v.CreditoId != null)
+                .Select(v => v.Credito)
+                .FirstOrDefaultAsync();
+
+            if (credito == null || credito.IsDeleted || credito.SaldoPendiente <= 0m
+                || credito.Estado is EstadoCredito.Finalizado or EstadoCredito.Rechazado or EstadoCredito.Cancelado)
+                return 0m;
+
+            return credito.SaldoPendiente;
         }
 
         /// <summary>
@@ -438,7 +475,8 @@ namespace TheBuryProject.Services
             EvaluacionCrediticiaIntermedia evaluacion,
             int clienteId,
             decimal monto,
-            int? creditoId)
+            int? creditoId,
+            decimal saldoPropioExcluido = 0m)
         {
             // Si se especifica un crédito, verificar contra ese crédito específico
             if (creditoId.HasValue)
@@ -496,7 +534,8 @@ namespace TheBuryProject.Services
             }
 
             // Verificar contra el cupo general del cliente
-            var cupoDisponible = await _aptitudService.GetCupoDisponibleAsync(clienteId);
+            // Con crédito propio excluido, el disponible ya se recalculó sobre el límite (ver EvaluarCreditoUnificadoAsync).
+            var cupoDisponible = await _aptitudService.GetCupoDisponibleAsync(clienteId, saldoPropioExcluido);
             evaluacion.CupoDisponible = cupoDisponible;
 
             if (monto > cupoDisponible)

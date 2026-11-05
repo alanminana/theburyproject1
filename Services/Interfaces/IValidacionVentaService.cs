@@ -19,6 +19,13 @@ namespace TheBuryProject.Services.Interfaces
         Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto);
 
         /// <summary>
+        /// Prevalidación en edición: <paramref name="ventaId"/> es la venta que se está editando; su crédito propio pendiente
+        /// no cuenta como cupo ya usado. Implementación por defecto: ignora la venta (los dobles de prueba no la necesitan).
+        /// </summary>
+        Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto, int? ventaId)
+            => PrevalidarAsync(clienteId, monto);
+
+        /// <summary>
         /// Valida si una venta con crédito personal puede proceder.
         /// Evalúa documentación, cupo disponible, mora y estado de aptitud del cliente.
         /// </summary>
