@@ -111,4 +111,5 @@ public sealed record PagoMultiplePreviewResultado(
     decimal PunitorioTotal,
     decimal RecargoTotal,
     decimal TotalCaja,
-    DateOnly FechaComercial);
+    DateOnly FechaComercial,
+    decimal PorcentajeRecargoMedioPago = 0m);

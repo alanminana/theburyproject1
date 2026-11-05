@@ -213,6 +213,30 @@ public class CreditoServicePagoMultipleComandoTests : IDisposable
         Assert.Equal(recargoEsperado, preview.RecargoTotal);
         Assert.Equal(MontoCuota + recargoEsperado, preview.TotalCaja);
         Assert.Equal(recargoEsperado, preview.Cuotas.Single().RecargoMedioPago);
+        Assert.Equal(2m, preview.PorcentajeRecargoMedioPago);
+    }
+
+    [Theory]
+    [InlineData(3, "Recargo por medio de pago (3 %)")]
+    [InlineData(-5, "Descuento por medio de pago (5 %)")]
+    [InlineData(0, "Recargo por medio de pago")]
+    public async Task Preview_ExponePorcentajeYEtiquetaDelAjusteDelMedio(int porcentaje, string etiqueta)
+    {
+        _configuracionPago.AjustePorcentaje = porcentaje;
+        var cliente = await SeedClienteAsync("PREVPCT" + porcentaje);
+        var credito = await SeedCreditoAsync(cliente.Id, "PREVPCT" + porcentaje);
+        var cuota = await SeedCuotaAsync(credito.Id, 1);
+
+        var preview = await _service.PrevisualizarPagoMultipleAsync(cliente.Id, new List<int> { cuota.Id }, "Transferencia");
+
+        var vm = new TheBuryProject.ViewModels.PagoCuota.PagoMultiplePreviewViewModel
+        {
+            ClienteId = cliente.Id, Cuotas = new(), CapitalTotal = preview.CapitalTotal, PunitorioTotal = preview.PunitorioTotal,
+            RecargoTotal = preview.RecargoTotal, TotalCaja = preview.TotalCaja, FechaComercial = preview.FechaComercial,
+            PorcentajeRecargoMedioPago = preview.PorcentajeRecargoMedioPago
+        };
+        Assert.Equal(porcentaje, preview.PorcentajeRecargoMedioPago);
+        Assert.Equal(etiqueta, vm.EtiquetaAjusteMedioPago);
     }
 
     // =========================================================================

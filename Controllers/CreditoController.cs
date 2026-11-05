@@ -1732,7 +1732,8 @@ namespace TheBuryProject.Controllers
             PunitorioTotal = source.PunitorioTotal,
             RecargoTotal = source.RecargoTotal,
             TotalCaja = source.TotalCaja,
-            FechaComercial = source.FechaComercial
+            FechaComercial = source.FechaComercial,
+            PorcentajeRecargoMedioPago = source.PorcentajeRecargoMedioPago
         };
 
         private const string AdelantoResultadoTempDataKey = "AdelantoResultado";

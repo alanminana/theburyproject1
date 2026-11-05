@@ -1753,6 +1753,7 @@ namespace TheBuryProject.Services
                     TotalPagado = pagosPlanificados.Sum(p => p.Total),
                     RecargoTotal = recargoTotal,
                     TotalCaja = pagosPlanificados.Sum(p => p.Total) + recargoTotal,
+                    PorcentajeRecargoMedioPago = ajustePorcentajeMedio,
                     FechaPago = fechaPago,
                     PagoCuotaIdRecibo = pagosCuotaPorCuotaId.Count == 0 ? null : pagosCuotaPorCuotaId.Values.Min(p => p.Id),
                     Cuotas = pagosPlanificados
@@ -1881,7 +1882,8 @@ namespace TheBuryProject.Services
                 cuotasPreview.Sum(c => c.PunitorioAplicadoPendiente),
                 cuotasPreview.Sum(c => c.RecargoMedioPago),
                 cuotasPreview.Sum(c => c.TotalCaja),
-                _reloj.HoyComercial);
+                _reloj.HoyComercial,
+                ajustePorcentajeMedio);
         }
 
         /// <summary>
