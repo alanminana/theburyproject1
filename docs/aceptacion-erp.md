@@ -18,7 +18,7 @@ Evidencia = lo realmente ejecutado: tests con CI 14/14 sobre el HEAD de cada PR,
 | Devoluciones | Aprobado con limitaciones | Flujo del modal real de punta a punta, #172, #176, #206 | Venta con crédito vigente: bloqueada. Devolución de venta pagada con cheque: D4 implementada en `hito10/cheques` (cheque Pendiente o Rechazado bloquea el reembolso en efectivo). |
 | Notas de crédito | Aprobado con limitaciones | Canje como medio de pago, cancelación con restitución e idempotencia, #178, #179 | Canje solo total (parcial exige pagos múltiples por venta). |
 | Clientes | Aprobado con limitaciones | Recorrido de pantallas, #162, #202; Etapa C: edición con valores de crédito históricos | Consulta BCRA con tope de 6 s (provisorio aceptado). La solapa Referencias no existe en el modelo: se oculta en la interfaz (sin entidad ni migración; decisión del propietario si se construye). |
-| Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones; **D-1 resuelto en la base real** (`ventas.discount` y `creditos.configure` con sus asignaciones, verificado por rol en un clon) | Permisos del catálogo sin uso (~50) sin limpiar. Hallazgo D-8: a la base real también le faltan `precios.*` (Gerente) y `mora.view/manage` (Gerente, Cajero, Contador); no se tocaron (fuera de la autorización). |
+| Usuarios y Roles | Aprobado | Inventario COMPLETO, último SuperAdmin protegido, matriz de permisos con 518 acciones; **D-1 y D-8 resueltos en la base real** (`ventas.discount`, `creditos.configure` y las 10 asignaciones de Precios y Mora, verificados por rol en un clon) | Permisos del catálogo sin uso (~50) sin limpiar. |
 | Documentos | Aprobado | Plantillas, versiones, previsualización PDF, contratos | — |
 | Reportes | Aprobado con limitaciones | Ventas, Márgenes, Morosidad y Reporte de IVA contrastados con SQL, #205; ticket promedio con la definición aprobada (Hito 11) | Ventas brutas, devoluciones y netas (por fecha de devolución) y ganancia sobre neto sin IVA (H10, contrastado con SQL). Pendiente: costo con IVA, envío/armados y recargo en la ganancia; el Reporte de IVA aún no netea devoluciones. Ver `docs/iva-decisiones-contador.md`. |
 | Dashboard | Aprobado | KPIs vs SQL, #177, mobile 390; ticket promedio con la definición aprobada (Hito 11) | — |
@@ -210,7 +210,7 @@ Decisiones del propietario aplicadas: D-1 autorizado, job de borradores deshabil
 
 Los usuarios deben **volver a iniciar sesión** para que sus claims incluyan los permisos nuevos. Tests de contrato del script: `H11D1PermisosScriptContractTests`.
 
-**Hallazgo D-8 (no corregido, fuera de la autorización):** al ejecutar el sembrador en una base desechable aparecen además 10 asignaciones que la base real no tiene: `precios.view/simulate/approve/apply/revert/history` para Gerente y `mora.view` (Gerente, Cajero, Contador) y `mora.manage` (Gerente). Hasta que decidas, esos roles no acceden a esas pantallas. Mismo procedimiento disponible si lo autorizás.
+**D-8 (resuelto, ver «Hito 11 — D-8» al final):** a la base real le faltaban 10 asignaciones del sembrador (Precios y Mora para Gerente, Cajero y Contador); autorizadas y aplicadas después de este cierre.
 
 ### Ticket promedio (implementado)
 
@@ -234,6 +234,35 @@ Dos revisiones adversariales sobre el cierre. 1.ª: 2 hallazgos altos (el script
 | Cliente Apto con cupo $0 | Verificado; presentación corregida; sin cambios de reglas ni datos. |
 | Listas de precios por lotes | Diferido; el cambio directo del Catálogo es el circuito operativo. |
 | Venta 1006 / Referencias | Sin cambios / pestaña oculta. |
-| D-8 (`precios.*`, `mora.*` sin asignar) | **Abierto**, pendiente de autorización. |
+| D-8 (`precios.*`, `mora.*` sin asignar) | **Resuelto** (ver «Hito 11 — D-8»). |
 
-**Cierre funcional:** sin defectos funcionales de código sin resolver; queda el hallazgo D-8 (permisos de Precios y Mora para Gerente/Cajero/Contador) y el uso de cheques, que debe probarse con un cheque de prueba antes de operar. **Pendientes fiscales/contables:** IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia. **Preparación para producción: NO autorizada** — siguen pendientes la copia fuera del servidor, la VPN, el firewall y la seguridad básica del servidor local, la licencia de AutoMapper y la instancia única de la app; Mercado Libre fuera de alcance.
+**Cierre funcional:** sin defectos funcionales de código sin resolver; queda el uso de cheques, que debe probarse con un cheque de prueba antes de operar. **Pendientes fiscales/contables:** IVA D1, factura de crédito personal C1–C4, IVA sin netear devoluciones, costo con IVA, envío/armados y recargo en la ganancia. **Preparación para producción: NO autorizada** — siguen pendientes la copia fuera del servidor, la VPN, el firewall y la seguridad básica del servidor local, la licencia de AutoMapper y la instancia única de la app; Mercado Libre fuera de alcance.
+
+## Hito 11 — D-8: permisos de Precios y Mora (cerrado)
+
+**Autorizado por el propietario** exclusivamente para estas 10 asignaciones, que reproducen la política de `Data/Seeds/RolesPermisosSeeder.cs` (Gerente: módulos Precios y Mora salvo `precios.create/update/delete` y `mora.config`; Cajero y Contador: solo `mora.view`):
+
+| Rol | Permisos asignados |
+|---|---|
+| Gerente | `precios.view`, `precios.simulate`, `precios.approve`, `precios.apply`, `precios.revert`, `precios.history`, `mora.view`, `mora.manage` |
+| Cajero | `mora.view` |
+| Contador | `mora.view` |
+
+- **Estado previo verificado:** las 8 acciones existían y estaban activas; Gerente, Cajero y Contador no tenían ninguna fila de `precios.*` ni `mora.*` (ni dada de baja: no hubo una remoción deliberada).
+- **Procedimiento:** `scripts/sql/h11-d8-permisos-precios-mora.sql`. Solo `INSERT` en `RolPermisos` (no crea acciones), idempotente, transaccional, serializado (`sp_getapplock` + `HOLDLOCK`), con ensayo obligatorio (`-v DryRun=1|0`). Los roles se resuelven una sola vez bajo bloqueo y aborta si falta alguno, si hay homónimos, si falta una acción o si una asignación existe dada de baja; la verificación exige siempre las 10 filas. Test de contrato: `H11D8PermisosScriptContractTests`. Se endureció igual el script de D-1 (mismo patrón de roles).
+- **Clon primero:** ensayo (revierte), aplicación, reaplicación (0 inserciones), dos ejecuciones simultáneas (una inserta 10, la otra 0, sin duplicados), rol ausente y rol homónimo (abortan sin insertar nada).
+- **Acceso efectivo por rol (clon, GET sin seguir redirecciones), sin y con D-8:**
+
+| Rol | `/CambiosPrecios` y `/Simular` | `/Mora` | `/Mora/RegistrarContacto` (gestionar) |
+|---|---|---|---|
+| admin, Administrador | permitido (sin cambios) | permitido | permitido |
+| Gerente | **antes denegado → ahora permitido** | **antes denegado → ahora permitido** | **antes denegado → ahora permitido** |
+| Cajero, Contador | denegado (correcto) | **antes denegado → ahora permitido (solo ver)** | denegado (correcto) |
+| Vendedor | denegado (sin cambios) | denegado (sin cambios) | denegado (sin cambios) |
+
+- **Base real — respaldo:** `COPY_ONLY` con `CHECKSUM` y `RESTORE VERIFYONLY` correcto inmediatamente antes de aplicar (`D:\tmp\h11-d8-previo-aplicacion-TheBuryProjectDb-20261104-231304.bak`, 46.884.352 bytes).
+- **Base real — resultado:** +10 filas (RolPermisos 615 → 625); el checksum del resto de los permisos es idéntico al previo; acciones, usuarios, roles, ventas, créditos, cuotas, movimientos de caja y movimientos de stock con los mismos conteos; ningún permiso fuera de la lista (0); Administrador y SuperAdmin sin cambios. Las 13 invariantes financieras siguen en 0 violaciones; venta 1003 (PendienteFinanciacion), venta 1006 y crédito 3 (PendienteConfiguracion, saldo 256.060) sin cambios. No se ejecutó el inicializador, no se crearon usuarios, no se aplicaron migraciones ni se ejecutó el job de borradores.
+- **Revisión independiente (Codex):** 1.ª con 1 hallazgo alto (la resolución de roles no quedaba protegida frente a homónimos concurrentes) y 1 medio (un rol ausente permitía confirmar una aplicación parcial): corregidos en ambos scripts, con pruebas de rol ausente y duplicado. 2.ª, enfocada en el cambio: **aprobada, sin hallazgos**. El worktree fue idéntico antes y después de cada revisión.
+- **Los usuarios Gerente, Cajero y Contador deben volver a iniciar sesión** para que sus permisos nuevos tomen efecto.
+
+**Estado final del Hito 11:** todos los pendientes funcionales identificados están resueltos o diferidos por decisión del propietario. Quedan fuera del cierre funcional: probar cheques con un cheque de prueba antes de operar; los pendientes fiscales/contables; y la preparación para producción (copia fuera del servidor, VPN, firewall y seguridad básica del servidor local, licencia de AutoMapper, instancia única de la app). **No se autoriza la puesta en producción.**

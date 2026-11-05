@@ -70,4 +70,18 @@ public class H11D1PermisosScriptContractTests
         var configurar = Regex.Matches(sql, @"\(N'(\w+)',\s*@ModCreditos,\s*N'configure'\)").Select(m => m.Groups[1].Value).OrderBy(x => x).ToArray();
         Assert.Equal(new[] { "Administrador", "Gerente", "SuperAdmin", "Vendedor" }, configurar);
     }
+
+    [Fact]
+    public void LosRolesSeResuelvenUnaSolaVezBajoBloqueoYSeUsanSoloEsosId()
+    {
+        var sql = SinComentarios(Script());
+
+        // Una única lectura de AspNetRoles (la resolución bajo UPDLOCK/HOLDLOCK); el resto usa la variable @Roles.
+        Assert.Single(Regex.Matches(sql, @"dbo\.AspNetRoles"));
+        Assert.Contains("DECLARE @Roles TABLE", sql);
+        Assert.Matches(@"HAVING COUNT\(\*\) = 1", sql);
+        // Los esperados son siempre los de la política, nunca "los que se pudieron resolver".
+        Assert.Contains("SELECT COUNT(*) FROM @Asignaciones)", sql);
+        Assert.DoesNotMatch(@"JOIN\s+dbo\.AspNetRoles", sql);
+    }
 }
