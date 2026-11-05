@@ -13,9 +13,9 @@ namespace TheBuryProject.Tests.Concurrency;
 // ---------------------------------------------------------------------------------------------
 public partial class FinResidualSqlServerTests
 {
-    [SqlServerConcFact(DisplayName = "O-1 [R-14] dos devoluciones simultaneas sobre el mismo efectivo: solo una se paga y el efectivo esperado nunca queda negativo")]
+    [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO (CI) [R-15]: O-1 dos devoluciones simultaneas sobre el mismo efectivo: solo una se paga y el efectivo esperado nunca queda negativo")]
     [Trait("Categoria", "SqlServerRegresion")]
-    public async Task O1_DosDevolucionesSimultaneas_ConsumenElMismoEfectivo_SoloUnaSePaga()
+    public async Task R15_DosDevolucionesSimultaneas_ConsumenElMismoEfectivo_SoloUnaSePaga()
     {
         var aperturaId = await NuevaAperturaAsync();
         // Dos ventas sin ingreso propio (la caja solo tiene el fondo): cada reembolso de 1 unidad = $50 y el efectivo alcanza para uno.
@@ -48,7 +48,7 @@ public partial class FinResidualSqlServerTests
             .OrderBy(d => d.Id).Select(d => d.Estado).ToListAsync();
         var stock2 = await StockAsync(v2.ProductoId);
 
-        Informe("R-14", $"segunda bloqueada={bloqueada}", $"primera={r1}", $"segunda={r2}", $"egresos={egresos}");
+        Informe("R-15", $"segunda bloqueada={bloqueada}", $"primera={r1}", $"segunda={r2}", $"egresos={egresos}");
         SinFalloDeInfra(r1, r2);
         Assert.True(bloqueada);
         Assert.StartsWith("OK", r1);
