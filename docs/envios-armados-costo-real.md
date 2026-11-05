@@ -39,7 +39,7 @@ Actualizado 2026-11-05. **Decisión confirmada: alternativa A+B** (costo estánd
 - **Pruebas previas (clon `TheBuryProjectDb` en una instancia LocalDB aparte):** ensayo, aplicación, reaplicación, y 11 casos negativos (nombre distinto, hueco en el historial, migración extra, columna parcial, migración registrada sin columnas, columna nullable/sin default, tipo `decimal(10,2)`, columna calculada). Compatibilidad: la versión desplegada antes de esta PR (main 3b16fb51) leyó, escribió y reportó igual contra el esquema migrado; un INSERT que omite las columnas nuevas toma el default 0.
 - **Revisión independiente (Codex):** 2 pasadas sobre el SQL; 3 hallazgos (historial incompleto, definiciones no validadas, columnas calculadas) corregidos y probados.
 - **Verificación posterior:** huella (conteos y checksums de columnas preexistentes) idéntica antes y después en ventas, detalles, envíos, precios de servicios, cuotas, créditos, movimientos de caja, stock de productos, permisos (`RolPermisos`, `AccionesModulo`) y plantillas de documentos.
-- **Respaldo previo:** `D:\tmp\h12-previo-migracion-TheBuryProjectDb-<fecha>.bak` (`COPY_ONLY`, `CHECKSUM`, `RESTORE VERIFYONLY` correcto), tomado inmediatamente antes de aplicar.
+- **Respaldo previo:** `D:\tmp\h12-previo-migracion-TheBuryProjectDb-20261105-123655.bak` (`COPY_ONLY`, `CHECKSUM`, `RESTORE VERIFYONLY` correcto), tomado inmediatamente antes de aplicar.
 
 ### Recuperación
 
