@@ -2587,7 +2587,7 @@ public class DevolucionServiceTests : IDisposable
     [InlineData(TipoPago.NotaCredito)]
     [InlineData(TipoPago.CreditoPersonal)]
     [InlineData(TipoPago.CuentaCorriente)]
-    public async Task Completar_ReembolsoDeVentaNoCobradaPorCaja_NoGeneraEgreso(TipoPago tipoPago)
+    public async Task Completar_ReembolsoDeVentaNoCobradaPorCaja_SeRechazaSinEgreso(TipoPago tipoPago)
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
@@ -2601,9 +2601,11 @@ public class DevolucionServiceTests : IDisposable
         var caja = new StubCajaServiceDevolucion();
         var service = CrearServiceConCaja(caja);
 
-        await service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CompletarDevolucionAsync(dev.Id, dev.RowVersion));
 
+        Assert.Contains("no se cobró por caja", ex.Message);
         Assert.Empty(caja.Reembolsos);
+        Assert.NotEqual(EstadoDevolucion.Completada, (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).Estado);
     }
 
     [Fact]

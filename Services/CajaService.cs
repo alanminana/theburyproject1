@@ -258,6 +258,10 @@ namespace TheBuryProject.Services
 
                 // El estado se relee de la base: el change tracker pudo cargar la caja antes de esperar el lock.
                 await _context.Entry(caja).ReloadAsync();
+                if (!caja.Activa)
+                {
+                    throw new InvalidOperationException("La caja no está activa");
+                }
 
                 if (await TieneCajaAbiertaAsync(model.CajaId))
                 {

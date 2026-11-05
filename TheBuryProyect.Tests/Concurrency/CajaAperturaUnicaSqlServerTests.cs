@@ -118,8 +118,30 @@ public class CajaAperturaUnicaSqlServerTests : IClassFixture<CajaAperturaSqlHost
         return llego;
     }
 
-    private static async Task<bool> QuedaBloqueadaAsync(Task<string> operacion) =>
-        await Task.WhenAny(operacion, Task.Delay(EsperaObservacion)) != operacion;
+    /// <summary>
+    /// true si la operación quedó BLOQUEADA esperando un lock de aplicación: se observa en el motor
+    /// (sys.dm_tran_locks, request_status = WAIT) en vez de depender de una espera fija. false si terminó sin bloquearse.
+    /// </summary>
+    private async Task<bool> QuedaBloqueadaAsync(Task<string> operacion)
+    {
+        var limite = DateTime.UtcNow + EsperaObservacion * 2;
+        while (DateTime.UtcNow < limite)
+        {
+            if (operacion.IsCompleted) return false;
+            if (await HayEsperaDeLockDeAplicacionAsync()) return true;
+            await Task.Delay(100);
+        }
+        return false;
+    }
+
+    private async Task<bool> HayEsperaDeLockDeAplicacionAsync()
+    {
+        await using var cn = new SqlConnection(_fx.ConnectionString);
+        await cn.OpenAsync();
+        await using var cmd = cn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sys.dm_tran_locks WHERE resource_type = 'APPLICATION' AND request_status = 'WAIT' AND resource_database_id = DB_ID()";
+        return (int)(await cmd.ExecuteScalarAsync())! > 0;
+    }
 
     /// <summary>
     /// A se detiene justo antes de insertar; se lanza B. Devuelve (resultado de A, resultado de B, B quedó bloqueada mientras A esperaba).
@@ -154,8 +176,9 @@ public class CajaAperturaUnicaSqlServerTests : IClassFixture<CajaAperturaSqlHost
     {
         var caja = await CrearCajaAsync();
 
-        var (a, b, _) = await CarreraAsync(caja, "usuario.a", caja, "usuario.b");
+        var (a, b, bloqueada) = await CarreraAsync(caja, "usuario.a", caja, "usuario.b");
 
+        Assert.True(bloqueada, "la segunda apertura debía esperar el lock de la primera (no resolverse por RowVersion)");
         Assert.Equal(1, await ContarAperturasActivasAsync(cajaId: caja));
         Assert.Equal(1, new[] { a, b }.Count(r => r.StartsWith("OK(", StringComparison.Ordinal)));
         Assert.Equal(1, new[] { a, b }.Count(r => r.StartsWith("RECHAZADA", StringComparison.Ordinal)));
@@ -166,8 +189,11 @@ public class CajaAperturaUnicaSqlServerTests : IClassFixture<CajaAperturaSqlHost
     {
         var caja = await CrearCajaAsync();
 
-        await CarreraAsync(caja, "usuario.dup", caja, "usuario.dup");
+        var (a, b, bloqueada) = await CarreraAsync(caja, "usuario.dup", caja, "usuario.dup");
 
+        Assert.True(bloqueada, "la segunda apertura debía esperar el lock de la primera");
+        Assert.Equal(1, new[] { a, b }.Count(r => r.StartsWith("OK(", StringComparison.Ordinal)));
+        Assert.Equal(1, new[] { a, b }.Count(r => r.StartsWith("RECHAZADA", StringComparison.Ordinal)));
         Assert.Equal(1, await ContarAperturasActivasAsync(cajaId: caja));
         Assert.Equal(1, await ContarAperturasActivasAsync(usuario: "usuario.dup"));
     }
@@ -178,8 +204,9 @@ public class CajaAperturaUnicaSqlServerTests : IClassFixture<CajaAperturaSqlHost
         var cajaA = await CrearCajaAsync();
         var cajaB = await CrearCajaAsync();
 
-        var (a, b, _) = await CarreraAsync(cajaA, "usuario.multi", cajaB, "usuario.multi");
+        var (a, b, bloqueada) = await CarreraAsync(cajaA, "usuario.multi", cajaB, "usuario.multi");
 
+        Assert.True(bloqueada, "la segunda apertura del mismo usuario debía esperar el lock del usuario");
         Assert.Equal(1, await ContarAperturasActivasAsync(usuario: "usuario.multi"));
         Assert.Equal(1, new[] { a, b }.Count(r => r.StartsWith("OK(", StringComparison.Ordinal)));
     }

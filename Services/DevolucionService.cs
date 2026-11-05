@@ -656,6 +656,16 @@ public class DevolucionService : IDevolucionService
 
             await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "completar");
 
+            // H-04: un reembolso en efectivo de una venta que no se cobró por caja (nota de crédito, crédito personal, cuenta
+            // corriente) no tiene efectivo que devolver: se rechaza igual que al crearlo (antes quedaba «Completada» sin
+            // egreso ni nota de crédito, y el cliente no recibía nada).
+            if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
+                && !PermiteImpactoCaja(devolucion.Venta.TipoPago))
+            {
+                throw new InvalidOperationException(
+                    "Esta venta no se cobró por caja: no admite reembolso en efectivo. Rechazá o cancelá esta devolución y resolvela con nota de crédito.");
+            }
+
             // Marcar como completada primero (misma transacción) para evitar doble procesamiento
             devolucion.Estado = EstadoDevolucion.Completada;
             devolucion.UpdatedAt = DateTime.UtcNow;
@@ -762,9 +772,8 @@ public class DevolucionService : IDevolucionService
                     usuario);
 
             // H-04: el reembolso en efectivo siempre sale de la caja abierta, también en devoluciones creadas antes de esta regla
-            // con la marca apagada. Si la venta no se cobró por caja (crédito/cuenta corriente/nota de crédito) no hay egreso.
-            var egresoObligatorio = devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
-                && (devolucion.RegistrarEgresoCaja || PermiteImpactoCaja(devolucion.Venta.TipoPago));
+            // con la marca apagada (las ventas no cobradas por caja ya se rechazaron más arriba).
+            var egresoObligatorio = devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero;
             if (egresoObligatorio)
             {
                 devolucion.RegistrarEgresoCaja = true;
