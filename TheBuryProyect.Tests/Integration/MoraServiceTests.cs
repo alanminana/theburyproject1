@@ -3627,6 +3627,34 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(kpisAntes.DiasPromedioAtraso, kpisDespues.DiasPromedioAtraso);
     }
 
+    [Fact]
+    public async Task ProcesarMora_sin_errores_marca_UltimaEjecucion_persistida()
+    {
+        await _service.ProcesarMoraAsync();
+
+        _context.ChangeTracker.Clear();
+        var cfg = await _context.ConfiguracionesMora.AsNoTracking().SingleAsync();
+        Assert.NotNull(cfg.UltimaEjecucion);
+        Assert.True(await _context.LogsMora.AnyAsync(l => l.Exitoso));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_que_falla_no_marca_UltimaEjecucion_y_permite_reintentar_el_mismo_dia()
+    {
+        var cfg = await _service.GetConfiguracionAsync();
+        cfg.ActualizarMoraAutomaticamente = true;
+        cfg.CambiarEstadoCuotaAuto = true;
+        await _context.SaveChangesAsync();
+        _creditoServiceFake.LanzarEnActualizarEstadoCuotas = true;
+
+        await _service.ProcesarMoraAsync();   // el servicio captura el error y deja un LogMora fallido
+
+        _context.ChangeTracker.Clear();
+        var guardada = await _context.ConfiguracionesMora.AsNoTracking().SingleAsync();
+        Assert.Null(guardada.UltimaEjecucion);
+        Assert.True(await _context.LogsMora.AnyAsync(l => !l.Exitoso));
+    }
+
     /// <summary>
     /// Fake de ICreditoService que solo registra si ActualizarEstadoCuotasAsync fue invocado,
     /// para validar el wiring de MoraService sin depender del grafo completo de CreditoService.
@@ -3634,10 +3662,13 @@ public class MoraServiceTests : IDisposable
     private sealed class RecordingCreditoService : ICreditoService
     {
         public int ActualizarEstadoCuotasAsyncCallCount { get; private set; }
+        public bool LanzarEnActualizarEstadoCuotas { get; set; }
 
         public Task ActualizarEstadoCuotasAsync()
         {
             ActualizarEstadoCuotasAsyncCallCount++;
+            if (LanzarEnActualizarEstadoCuotas)
+                throw new InvalidOperationException("Fallo simulado");
             return Task.CompletedTask;
         }
 

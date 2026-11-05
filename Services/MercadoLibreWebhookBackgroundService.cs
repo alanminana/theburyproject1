@@ -14,17 +14,26 @@ namespace TheBuryProject.Services
 
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<MercadoLibreWebhookBackgroundService> _logger;
+        private readonly bool _habilitado;
 
         public MercadoLibreWebhookBackgroundService(
             IServiceProvider serviceProvider,
-            ILogger<MercadoLibreWebhookBackgroundService> logger)
+            ILogger<MercadoLibreWebhookBackgroundService> logger,
+            IConfiguration? configuration = null)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _habilitado = TheBuryProject.Helpers.MercadoLibreWebhookSwitch.Habilitado(configuration);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (!_habilitado)
+            {
+                _logger.LogInformation("MercadoLibreWebhookBackgroundService deshabilitado (MercadoLibre:Webhook:Enabled=false)");
+                return;
+            }
+
             _logger.LogInformation(
                 "MercadoLibreWebhookBackgroundService iniciado. Intervalo: {Segundos}s",
                 IntervaloEjecucion.TotalSeconds);

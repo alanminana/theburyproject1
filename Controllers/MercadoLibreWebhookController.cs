@@ -21,13 +21,16 @@ namespace TheBuryProject.Controllers
     {
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly ILogger<MercadoLibreWebhookController> _logger;
+        private readonly IConfiguration? _configuration;
 
         public MercadoLibreWebhookController(
             IDbContextFactory<AppDbContext> contextFactory,
-            ILogger<MercadoLibreWebhookController> logger)
+            ILogger<MercadoLibreWebhookController> logger,
+            IConfiguration? configuration = null)
         {
             _contextFactory = contextFactory;
             _logger = logger;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -40,6 +43,9 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         public async Task<IActionResult> Recibir(CancellationToken ct)
         {
+            if (!TheBuryProject.Helpers.MercadoLibreWebhookSwitch.Habilitado(_configuration))
+                return NotFound();
+
             if (Request.ContentLength is > MaxBodyChars * 4L)
                 return StatusCode(StatusCodes.Status413PayloadTooLarge);
 
