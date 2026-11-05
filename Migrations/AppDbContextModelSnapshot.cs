@@ -10109,6 +10109,12 @@ namespace TheBuryProject.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("Costo")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -10901,6 +10907,15 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal?>("ArmadoCostoReal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ArmadoCostoUnitarioEstandar")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<decimal>("ArmadoPrecioUnitario")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(18, 2)
@@ -11106,6 +11121,12 @@ namespace TheBuryProject.Migrations
 
                     b.Property<decimal?>("CostoEnvio")
                         .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CostoEstandarServicio")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CostoRealServicio")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")

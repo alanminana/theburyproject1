@@ -1413,6 +1413,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
                 entity.Property(e => e.ArmadoPrecioUnitario).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.ArmadoSubtotal).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.ArmadoCostoUnitarioEstandar).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.EntregaCajaCerrada).HasDefaultValue(false);
                 entity.Property(e => e.EnviarADomicilio).HasDefaultValue(true).HasSentinel(true);
                 entity.Property(e => e.PorcentajeIVA)
@@ -1978,6 +1979,7 @@ namespace TheBuryProject.Data
             {
                 entity.ToTable("ServiciosVentaPrecios");
                 entity.Property(e => e.Precio).HasPrecision(18, 2);
+                entity.Property(e => e.Costo).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.HasIndex(e => e.Tipo)
                     .IsUnique()
                     .HasFilter("IsDeleted = 0");

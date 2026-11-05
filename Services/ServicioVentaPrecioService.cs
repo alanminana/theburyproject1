@@ -30,6 +30,10 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException($"El precio de «{c.Tipo.NombreVisible()}» no puede ser negativo.");
                 if (c.Precio > Validation.MontoArgentinoAttribute.Maximo)
                     throw new InvalidOperationException($"El precio de «{c.Tipo.NombreVisible()}» no puede superar 20.000.000.");
+                if (c.Costo < 0m)
+                    throw new InvalidOperationException($"El costo de «{c.Tipo.NombreVisible()}» no puede ser negativo.");
+                if (c.Costo > Validation.MontoArgentinoAttribute.Maximo)
+                    throw new InvalidOperationException($"El costo de «{c.Tipo.NombreVisible()}» no puede superar 20.000.000.");
             }
 
             var duplicado = lista.GroupBy(c => c.Tipo).FirstOrDefault(g => g.Count() > 1);
@@ -43,9 +47,11 @@ namespace TheBuryProject.Services
             foreach (var c in lista)
             {
                 var precio = Math.Round(c.Precio, 2, MidpointRounding.AwayFromZero);
+                var costo = Math.Round(c.Costo, 2, MidpointRounding.AwayFromZero);
                 if (existentes.TryGetValue(c.Tipo, out var fila))
                 {
                     fila.Precio = precio;
+                    fila.Costo = costo;
                     fila.Activo = c.Activo;
                 }
                 else
@@ -54,6 +60,7 @@ namespace TheBuryProject.Services
                     {
                         Tipo = c.Tipo,
                         Precio = precio,
+                        Costo = costo,
                         Activo = c.Activo
                     });
                 }
@@ -78,7 +85,7 @@ namespace TheBuryProject.Services
 
             return TipoServicioVentaExtensions.Todos
                 .Select(t => filas.TryGetValue(t, out var f)
-                    ? new ServicioVentaPrecioInfo(t, f.Precio, f.Activo)
+                    ? new ServicioVentaPrecioInfo(t, f.Precio, f.Activo, f.Costo)
                     : new ServicioVentaPrecioInfo(t, 0m, true))
                 .ToList();
         }
@@ -100,6 +107,21 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException($"«{tipo.NombreVisible()}» no está disponible.");
 
             return fila?.Precio ?? 0m;
+        }
+
+        /// <summary>
+        /// Costo estándar (para el negocio) del servicio, para congelar el snapshot en la venta. 0 si no está
+        /// configurado. No valida Activo: el costo de un servicio ya vendido no depende de que siga ofrecido.
+        /// </summary>
+        public static async Task<decimal> ObtenerCostoAsync(AppDbContext context, TipoServicioVenta tipo)
+        {
+            var costo = await context.ServiciosVentaPrecios
+                .AsNoTracking()
+                .Where(s => s.Tipo == tipo && !s.IsDeleted)
+                .Select(s => (decimal?)s.Costo)
+                .FirstOrDefaultAsync();
+
+            return costo ?? 0m;
         }
     }
 }

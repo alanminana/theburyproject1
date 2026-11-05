@@ -21,6 +21,11 @@ namespace TheBuryProject.ViewModels
         [TheBuryProject.Validation.MontoSinAmbiguedad]
         public decimal Precio { get; set; }
 
+        /// <summary>Costo estándar para el negocio de prestar el servicio (no lo ve el cliente).</summary>
+        [TheBuryProject.Validation.MontoArgentino]
+        [TheBuryProject.Validation.MontoSinAmbiguedad]
+        public decimal Costo { get; set; }
+
         public bool Activo { get; set; } = true;
     }
 }

@@ -689,6 +689,12 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 };
             }
 
+            // Costo estandar de entrega/armado vigente al convertir (snapshot; no viaja en la cotizacion).
+            foreach (var linea in venta.Detalles.Where(d => d.TipoArmado.HasValue && !d.EntregaCajaCerrada))
+                linea.ArmadoCostoUnitarioEstandar = await ServiciosVentaPrecios.ObtenerCostoAsync(_context, linea.TipoArmado!.Value);
+            if (venta.Envio is { IncluidoEnTotal: true, TipoEnvio: not null } envioConvertido)
+                envioConvertido.CostoEstandarServicio = await ServiciosVentaPrecios.ObtenerCostoAsync(_context, envioConvertido.TipoEnvio!.Value);
+
             _context.Ventas.Add(venta);
             cotizacionEnTx.Estado = EstadoCotizacion.ConvertidaAVenta;
 

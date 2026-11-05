@@ -1,0 +1,100 @@
+@using TheBuryProject.Services
+@model VentaCostoServiciosInfo
+@{
+    string Dinero(decimal v) => v.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-AR"));
+    string Input(decimal? v) => v.HasValue ? v.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "";
+}
+<style>
+    @@media (max-width: 639px) {
+        #venta-costo-servicios [data-costo-servicios-tabla] thead { display: none; }
+        #venta-costo-servicios [data-costo-servicios-tabla],
+        #venta-costo-servicios [data-costo-servicios-tabla] tbody,
+        #venta-costo-servicios [data-costo-servicios-tabla] tfoot,
+        #venta-costo-servicios [data-costo-servicios-tabla] tr { display: block; }
+        #venta-costo-servicios [data-costo-servicios-tabla] td { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .25rem 0 !important; text-align: right; }
+        #venta-costo-servicios [data-costo-servicios-tabla] td[data-label]::before { content: attr(data-label); color: #94a3b8; font-size: .75rem; text-align: left; }
+        #venta-costo-servicios [data-costo-servicios-tabla] td[colspan] { display: none; }
+        #venta-costo-servicios [data-costo-servicios-tabla] tbody tr { padding: .5rem 0; }
+    }
+</style>
+<section id="venta-costo-servicios" class="venta-card p-4 space-y-3" aria-labelledby="venta-costo-servicios-titulo">
+    <div>
+        <h2 id="venta-costo-servicios-titulo" class="text-sm font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+            Costo de envío y armado
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+            Lo que le cuesta al negocio entregar y armar, distinto de lo cobrado al cliente. El costo real reemplaza al estándar (nunca se descuentan ambos);
+            vacío = usar el estándar. Se descuenta de la ganancia en Reportes.
+        </p>
+    </div>
+
+    <form method="post" asp-controller="VentaCostoServicios" asp-action="Guardar" asp-route-id="@Model.VentaId" class="space-y-2">
+        @Html.AntiForgeryToken()
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm" data-costo-servicios-tabla>
+                <thead>
+                    <tr class="text-left text-[11px] uppercase text-slate-500">
+                        <th class="py-1 pr-3 font-bold">Servicio</th>
+                        <th class="py-1 pr-3 font-bold text-right">Cobrado</th>
+                        <th class="py-1 pr-3 font-bold text-right">Costo estándar</th>
+                        <th class="py-1 pr-3 font-bold text-right">Costo real</th>
+                        <th class="py-1 font-bold text-right">Costo aplicado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Envio != null)
+                {
+                    <tr class="border-t border-slate-800" data-costo-fila="envio">
+                        <td class="py-2 pr-3 text-slate-200 font-semibold">Entrega · @Model.Envio.Descripcion</td>
+                        <td class="py-2 pr-3 text-right tabular-nums" data-label="Cobrado">@Dinero(Model.Envio.PrecioCobrado)</td>
+                        <td class="py-2 pr-3 text-right tabular-nums text-slate-400" data-label="Costo estándar">@Dinero(Model.Envio.CostoEstandar)</td>
+                        <td class="py-2 pr-3 text-right" data-label="Costo real">
+                            <input type="hidden" name="envioRv" value="@Model.Envio.RowVersionBase64" />
+                            <label class="sr-only" for="costo-real-envio">Costo real de entrega</label>
+                            <input id="costo-real-envio" name="envio" type="number" min="0" step="0.01" value="@Input(Model.Envio.CostoReal)" placeholder="estándar" class="w-28 text-right rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100" readonly="@(!Model.Editable)" />
+                        </td>
+                        <td class="py-2 text-right tabular-nums font-semibold text-white" data-costo-aplicado data-label="Costo aplicado">@Dinero(Model.Envio.CostoAplicado)@(Model.Envio.UsaCostoReal ? " (real)" : "")</td>
+                    </tr>
+                }
+                @foreach (var a in Model.Armados)
+                {
+                    <tr class="border-t border-slate-800" data-costo-fila="armado-@a.DetalleId">
+                        <td class="py-2 pr-3 text-slate-200 font-semibold">Armado · @a.Descripcion</td>
+                        <td class="py-2 pr-3 text-right tabular-nums" data-label="Cobrado">@Dinero(a.PrecioCobrado)</td>
+                        <td class="py-2 pr-3 text-right tabular-nums text-slate-400" data-label="Costo estándar">@Dinero(a.CostoEstandar)</td>
+                        <td class="py-2 pr-3 text-right" data-label="Costo real">
+                            <input type="hidden" name="armadoRv[@a.DetalleId]" value="@a.RowVersionBase64" />
+                            <label class="sr-only" for="costo-real-armado-@a.DetalleId">Costo real total del armado</label>
+                            <input id="costo-real-armado-@a.DetalleId" name="armado[@a.DetalleId]" type="number" min="0" step="0.01" value="@Input(a.CostoReal)" placeholder="estándar" class="w-28 text-right rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100" readonly="@(!Model.Editable)" />
+                        </td>
+                        <td class="py-2 text-right tabular-nums font-semibold text-white" data-costo-aplicado data-label="Costo aplicado">@Dinero(a.CostoAplicado)@(a.UsaCostoReal ? " (real)" : "")</td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                    <tr class="border-t border-slate-700 text-slate-200">
+                        <td class="py-2 pr-3 font-bold" data-label="Total">&nbsp;</td>
+                        <td class="py-2 pr-3 text-right tabular-nums font-bold" data-costo-total-cobrado data-label="Total cobrado">@Dinero(Model.TotalCobrado)</td>
+                        <td colspan="2"></td>
+                        <td class="py-2 text-right tabular-nums font-bold" data-costo-total-aplicado data-label="Costo total aplicado">@Dinero(Model.TotalCosto)</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <p class="text-[11px] text-slate-500">El importe cobrado incluye IVA; el reporte de ganancia trabaja sobre neto sin IVA. El tratamiento fiscal de envíos y armados está pendiente del contador.</p>
+        @if (Model.Editable)
+        {
+            <div class="flex justify-end">
+                <button type="submit" class="btn-erp-primary" data-costo-guardar>
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                    Guardar costos reales
+                </button>
+            </div>
+        }
+        else
+        {
+            <p class="text-xs text-amber-300">Una venta cancelada no admite cambios de costo.</p>
+        }
+    </form>
+</section>

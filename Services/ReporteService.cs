@@ -83,6 +83,7 @@ namespace TheBuryProject.Services
                     .Include(v => v.Cliente)
                     .Include(v => v.VendedorUser)
                     .Include(v => v.DatosTarjeta)
+                    .Include(v => v.Envio)
                     .Include(v => v.Detalles.Where(d =>
                         !d.IsDeleted &&
                         d.Producto != null &&
@@ -113,7 +114,8 @@ namespace TheBuryProject.Services
                         .Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
                         .ToList();
 
-                    var costo = detallesValidos.Sum(CalcularCostoTotalDetalle);
+                    // Costo de productos + costo de servicios (entrega y armados): el real reemplaza al estándar.
+                    var costo = detallesValidos.Sum(CalcularCostoTotalDetalle) + CostoServiciosVenta.Total(v);
                     var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(v);
                     // H10/D5: ganancia y margen sobre neto sin IVA (docs/reportes-ganancia-devoluciones.md).
                     var ingresoNeto = VentasNetas.CalcularIngresoNeto(v, recargoDebitoAplicado, detallesValidos);
@@ -674,6 +676,7 @@ namespace TheBuryProject.Services
 
                 var ventas = await _context.Ventas
                     .AsNoTracking()
+                    .Include(v => v.Envio)
                     .Include(v => v.Detalles.Where(d =>
                         !d.IsDeleted &&
                         d.Producto != null &&
@@ -751,7 +754,8 @@ namespace TheBuryProject.Services
                 .Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
                 .ToList();
             return VentasNetas.CalcularIngresoNeto(venta, ResolverRecargoDebitoAplicado(venta), detalles)
-                   - detalles.Sum(CalcularCostoTotalDetalle);
+                   - detalles.Sum(CalcularCostoTotalDetalle)
+                   - CostoServiciosVenta.Total(venta);
         }
 
         internal static decimal CalcularCostoDetalles(IEnumerable<VentaDetalle> detalles) =>

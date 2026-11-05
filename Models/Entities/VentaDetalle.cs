@@ -119,6 +119,17 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal ArmadoSubtotal { get; set; }
 
+        /// <summary>Snapshot del costo estándar de armado POR UNIDAD (ServicioVentaPrecio.Costo) al guardar la venta.</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ArmadoCostoUnitarioEstandar { get; set; }
+
+        /// <summary>
+        /// Costo real TOTAL del armado de esta línea, cargado a mano. Si tiene valor REEMPLAZA al estándar
+        /// (unitario × cantidad): nunca se descuentan ambos. Null = usar el estándar.
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? ArmadoCostoReal { get; set; }
+
         // Trazabilidad individual (Fase 8.2.E — nullable para compatibilidad con ventas históricas)
         public int? ProductoUnidadId { get; set; }
 

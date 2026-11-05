@@ -39,31 +39,31 @@ namespace TheBuryProject.Controllers
             // vigente por cero. Un error en cualquier Precio aborta sin tocar nada. Solo se miran los errores de Precio:
             // el formulario no envía Nombre (se muestra, no se edita) y MVC lo marca como requerido por ser no nulo.
             var errorDePrecio = ModelState
-                .Where(kv => kv.Key.EndsWith(".Precio", StringComparison.Ordinal) && kv.Value?.Errors.Count > 0)
+                .Where(kv => (kv.Key.EndsWith(".Precio", StringComparison.Ordinal) || kv.Key.EndsWith(".Costo", StringComparison.Ordinal)) && kv.Value?.Errors.Count > 0)
                 .SelectMany(kv => kv.Value!.Errors)
                 .Select(e => e.ErrorMessage)
                 .FirstOrDefault();
             if (errorDePrecio != null)
             {
                 TempData["Error"] = string.IsNullOrWhiteSpace(errorDePrecio)
-                    ? "Revisá los importes: no se guardó ningún precio."
+                    ? "Revisá los importes: no se guardó ningún precio ni costo."
                     : errorDePrecio;
                 return RedirectToAction(nameof(Index));
             }
 
             var items = (modelo.Envios ?? new()).Concat(modelo.Armados ?? new()).ToList();
 
-            if (items.Any(i => i.Precio < 0m))
+            if (items.Any(i => i.Precio < 0m || i.Costo < 0m))
             {
-                TempData["Error"] = "Los precios no pueden ser negativos.";
+                TempData["Error"] = "Los precios y costos no pueden ser negativos.";
                 return RedirectToAction(nameof(Index));
             }
 
             try
             {
                 await _servicio.GuardarAsync(items.Select(i =>
-                    new ServicioVentaPrecioComando(i.Tipo, i.Precio, i.Activo)));
-                TempData["Success"] = "Precios de envíos y armados guardados.";
+                    new ServicioVentaPrecioComando(i.Tipo, i.Precio, i.Activo, i.Costo)));
+                TempData["Success"] = "Precios y costos de envíos y armados guardados.";
             }
             catch (InvalidOperationException ex)
             {
@@ -87,6 +87,7 @@ namespace TheBuryProject.Controllers
                     Nombre = p.Tipo.NombreVisible(),
                     Domiciliario = p.Tipo.EsDomiciliario(),
                     Precio = p.Precio,
+                    Costo = p.Costo,
                     Activo = p.Activo
                 };
 

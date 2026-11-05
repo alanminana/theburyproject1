@@ -1015,6 +1015,9 @@
                     </section>
                 }
 
+                @* Costo real/estándar de entrega y armado (rentabilidad): solo con ventas.update y si hay servicios. *@
+                @await Component.InvokeAsync("VentaCostoServicios", new { ventaId = Model.Id })
+
                 <!-- Authorization Info (if applicable) -->
                 @if (Model.RequiereAutorizacion)
                 {
