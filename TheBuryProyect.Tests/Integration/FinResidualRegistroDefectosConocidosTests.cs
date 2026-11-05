@@ -129,7 +129,7 @@ public sealed class FinResidualRegistroDefectosConocidosTests
         }
     }
 
-    [Fact(DisplayName = "REGISTRO: escenarios SQL Server R-01..R-14 + CAJA-4 son regresiones (0 sin ejecutar, 0 defectos confirmados abiertos)")]
+    [Fact(DisplayName = "REGISTRO: escenarios SQL Server R-01..R-15 + CAJA-4 son regresiones (0 sin ejecutar, 0 defectos confirmados abiertos)")]
     public void Registro_EscenariosSqlServer_TodosSonRegresion()
     {
         var todos = Metodos(typeof(FinResidualSqlServerTests)).ToList();
@@ -148,7 +148,7 @@ public sealed class FinResidualRegistroDefectosConocidosTests
         foreach (var esperado in new[]
                  {
                      "R01_", "R02_", "R03_", "R04_", "R05_", "R06_", "R07_", "R08_", "R09_", "R09B_", "R10_", "R10B_", "R10C_",
-                     "R10D_", "R10E_", "R11_", "R12_", "R13_", "R14_",
+                     "R10D_", "R10E_", "R11_", "R12_", "R13_", "R14_", "R15_",
                      "C4_04_", "C4_05a_", "C4_05b_", "C4_06a_", "C4_06b_", "C4_08_", "C4_09_", "C4_10_"
                  })
             Assert.Contains(nombres, n => n.StartsWith(esperado, StringComparison.Ordinal));

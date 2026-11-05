@@ -24,6 +24,9 @@ public class ChequePendienteViewModel
     public bool Vencido { get; set; }
     /// <summary>El usuario puede acreditar/rechazar (caja.edit + operar la apertura del ingreso). Lo completa el controller.</summary>
     public bool PuedeAccionar { get; set; }
+    /// <summary>Solo en cheques ya acreditados: cuando y quien los acredito.</summary>
+    public DateTime? AcreditadoAt { get; set; }
+    public string? AcreditadoPor { get; set; }
 }
 
 /// <summary>Modelo del parcial de acciones Acreditar/Rechazar de un cheque. <c>Origen</c> = "cheques" (lista) o "apertura" (detalle de caja).</summary>

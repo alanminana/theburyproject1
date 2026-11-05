@@ -19,7 +19,7 @@ namespace TheBuryProject.Tests.Concurrency;
 // solo como ventana de observación de "queda bloqueada").
 //
 // ESTADO (medido, QA-FIN-SQL-HIST-P0, SQL Server 2022 efimero, RCSI 0 y RCSI 1): ver docs/qa-fin-residual-registro-defectos.md.
-//   R-01..R-14 (y los CAJA-4-xx de FinResidualSqlServerTests.Caja4.cs) PASAN (SqlServerRegresion). R-01 (H-CAJA-4,
+//   R-01..R-15 (y los CAJA-4-xx de FinResidualSqlServerTests.Caja4.cs) PASAN (SqlServerRegresion). R-01 (H-CAJA-4,
 //   deadlock cobro de cuota vs. cierre) estuvo en rojo hasta FIN-CAJA-4-P0; R-10 (H-FACT-1) hasta FIN-FACT-P0.
 // Requieren QA_RELEASE_TURNO=1 (turno exclusivo del stack FIN) y QA_FIN_CONC_SQL con catalogo "qa_fin_conc*". Mismo gate
 // de seguridad que el resto del harness: no pueden tocar otra base. Catalogo propio "<base>_res" (no choca con
