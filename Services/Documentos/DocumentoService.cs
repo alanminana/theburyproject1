@@ -285,6 +285,8 @@ namespace TheBuryProject.Services.Documentos
             var resultado = await ReintentarEventoAsync(EventosDocumentales.VentaConfirmada, origen);
 
             // Contrato y pagaré los emite el flujo del contrato de crédito: solo se reintentan si la venta ya pasó por ahí.
+            await ReemitirRecibosCanceladosAsync(ventaId, resultado);
+
             var pasoPorContrato = await _context.DocumentosGenerados.AsNoTracking().AnyAsync(d =>
                 d.VentaId == ventaId && d.EventoOrigen == EventosDocumentales.ContratoCreditoSolicitado && d.ContratoLegadoId == null);
             if (!pasoPorContrato)
@@ -296,6 +298,53 @@ namespace TheBuryProject.Services.Documentos
             resultado.Advertencias.AddRange(contrato.Advertencias);
             resultado.Errores.AddRange(contrato.Errores);
             return resultado;
+        }
+
+        /// <summary>
+        /// H-23: «Generar pendientes» de la venta tambien recupera los RECIBOS CANCELADOS de los pagos de su credito (el texto de ayuda
+        /// del panel dice que un documento cancelado se vuelve a emitir asi). Solo se reemiten recibos que existieron y se cancelaron:
+        /// un pago que nunca tuvo recibo no se emite retroactivamente.
+        /// </summary>
+        private async Task ReemitirRecibosCanceladosAsync(int ventaId, DocumentoEventoResultado resultado)
+        {
+            var creditoId = await _context.Ventas.AsNoTracking()
+                .Where(v => v.Id == ventaId).Select(v => v.CreditoId).FirstOrDefaultAsync();
+            if (creditoId == null)
+                return;
+
+            await ReemitirRecibosCanceladosDelCreditoAsync(creditoId.Value, resultado);
+        }
+
+        public async Task<DocumentoEventoResultado> ReintentarCreditoAsync(int creditoId)
+        {
+            var resultado = new DocumentoEventoResultado();
+            await ReemitirRecibosCanceladosDelCreditoAsync(creditoId, resultado);
+            return resultado;
+        }
+
+        private async Task ReemitirRecibosCanceladosDelCreditoAsync(int creditoId, DocumentoEventoResultado resultado)
+        {
+            var pagosConReciboCancelado = await _context.DocumentosGenerados.AsNoTracking()
+                .Where(d => d.CreditoId == creditoId && d.PagoCuotaId != null
+                            && d.EventoOrigen == EventosDocumentales.PagoRegistrado && d.Estado == EstadoDocumentoGenerado.Cancelado)
+                .Select(d => d.PagoCuotaId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            foreach (var pagoId in pagosConReciboCancelado)
+            {
+                var yaVigente = await _context.DocumentosGenerados.AsNoTracking().AnyAsync(d =>
+                    d.PagoCuotaId == pagoId && d.EventoOrigen == EventosDocumentales.PagoRegistrado
+                    && d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado);
+                if (yaVigente)
+                    continue;
+
+                var recibo = await ReintentarEventoAsync(EventosDocumentales.PagoRegistrado, new DocumentoOrigen { PagoCuotaId = pagoId });
+                resultado.Generados.AddRange(recibo.Generados);
+                resultado.YaExistentes.AddRange(recibo.YaExistentes);
+                resultado.Advertencias.AddRange(recibo.Advertencias);
+                resultado.Errores.AddRange(recibo.Errores);
+            }
         }
 
         /// <summary>

@@ -74,6 +74,10 @@
                         <input type="hidden" name="ventaId" value="@Model.VentaId" />
                         <input type="hidden" name="pagoCuotaId" value="@Model.PagoCuotaId" />
                         <input type="hidden" name="cotizacionId" value="@Model.CotizacionId" />
+                        @if (Model.VentaId == null && Model.PagoCuotaId == null && Model.CotizacionId == null)
+                        {
+                            <input type="hidden" name="creditoId" value="@Model.CreditoId" />
+                        }
                         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                         <button type="submit" class="doc-btn" title="Genera los documentos que falten (no duplica los existentes)">
                             <span class="material-symbols-outlined" aria-hidden="true">autorenew</span>

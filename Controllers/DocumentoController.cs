@@ -185,7 +185,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "generate")]
-        public async Task<IActionResult> GenerarPendientes(int? ventaId, int? pagoCuotaId, int? cotizacionId, string? returnUrl)
+        public async Task<IActionResult> GenerarPendientes(int? ventaId, int? pagoCuotaId, int? cotizacionId, int? creditoId, string? returnUrl)
         {
             try
             {
@@ -196,6 +196,8 @@ namespace TheBuryProject.Controllers
                     resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.PagoRegistrado, new DocumentoOrigen { PagoCuotaId = pago });
                 else if (ventaId is int venta)
                     resultado = await _documentos.ReintentarVentaAsync(venta);
+                else if (creditoId is int credito)
+                    resultado = await _documentos.ReintentarCreditoAsync(credito);
                 else
                     return BadRequest();
 

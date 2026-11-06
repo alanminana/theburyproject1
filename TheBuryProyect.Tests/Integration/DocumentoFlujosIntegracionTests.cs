@@ -276,6 +276,34 @@ public class DocumentoCobranzaIntegracionTests : DocumentoTestBase
     }
 
     [Fact]
+    public async Task ReintentarCredito_H23_ReemiteElReciboCancelado_SinDuplicarNiEmitirParaPagosSinRecibo()
+    {
+        await SembrarConfiguracionInicialAsync();
+        var (credito, cuota) = await SembrarCreditoConCuotaAsync(conVenta: false);
+        var servicio = CrearCreditoService();
+        var pago = await servicio.RegistrarPagoCuotaIndividualAsync(Comando(cuota, 300m));
+        var recibo = await Context.DocumentosGenerados.SingleAsync(d => d.PagoCuotaId == pago!.PagoCuotaId);
+
+        // Nada cancelado: no hay nada que recuperar.
+        var sinCambios = await Motor.ReintentarCreditoAsync(credito.Id);
+        Assert.Empty(sinCambios.Generados);
+
+        await Motor.CancelarAsync(recibo.Id, "Cancelado por error de carga");
+        var r = await Motor.ReintentarCreditoAsync(credito.Id);
+
+        var nuevo = Assert.Single(r.Generados);
+        Assert.Equal(pago!.PagoCuotaId, nuevo.PagoCuotaId);
+        Assert.NotEqual(recibo.Id, nuevo.Id);
+        Assert.Equal(EstadoDocumentoGenerado.Cancelado, (await Context.DocumentosGenerados.AsNoTracking().FirstAsync(d => d.Id == recibo.Id)).Estado);
+
+        // Idempotente: una segunda vez no emite otro.
+        var segunda = await Motor.ReintentarCreditoAsync(credito.Id);
+        Assert.Empty(segunda.Generados);
+        Assert.Single(await Context.DocumentosGenerados.AsNoTracking()
+            .Where(d => d.PagoCuotaId == pago.PagoCuotaId && d.Estado != EstadoDocumentoGenerado.Cancelado).ToListAsync());
+    }
+
+    [Fact]
     public async Task PagarCuota_ConReciboObligatorioQueFalla_RevierteElCobroCompleto()
     {
         await SembrarConfiguracionInicialAsync();
