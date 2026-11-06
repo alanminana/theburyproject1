@@ -52,17 +52,17 @@ Stock;Catalogo;AplicarCambioPrecios;POST;;funcionalidad;No verificada;;0;0;0
 Stock;Catalogo;DetalleCambioPrecio;GET;;funcionalidad;No verificada;;0;0;0
 Stock;Catalogo;HistorialCambiosPrecio;GET;;funcionalidad;No verificada;;0;0;0
 Stock;Catalogo;HistorialPrecioProductoApi;GET;;soporte;Verificada (auditoría);;4;0;0
-Stock;Catalogo;Index;GET;;funcionalidad;Verificada (auditoría);;11;2;0
+Stock;Catalogo;Index;GET;;funcionalidad;Verificada (auditoría);;34;2;0
 Stock;Catalogo;Resumen;GET;;funcionalidad;No verificada;;0;0;0
 Stock;Catalogo;RevertirCambioPrecio;POST;;funcionalidad;No verificada;;0;0;0
 Stock;Catalogo;RevertirCambioPrecioApi;POST;;soporte;Verificada (auditoría);;1;0;0
 Stock;Catalogo;SimularCambioPrecios;POST;;soporte;Verificada (auditoría);;2;0;0
 Stock;Catalogo;ToggleDestacado;POST;;funcionalidad;No verificada;;0;0;0
-Stock;Categoria;CreateAjax;POST;categorias.create;funcionalidad;No verificada;;0;0;0
-Stock;Categoria;DeleteConfirmed;POST;categorias.delete;funcionalidad;No verificada;;0;0;0
+Stock;Categoria;CreateAjax;POST;categorias.create;funcionalidad;Verificada (auditoría);;2;0;0
+Stock;Categoria;DeleteConfirmed;POST;categorias.delete;funcionalidad;Verificada (auditoría);;2;0;0
 Stock;Categoria;EditAjax;POST;categorias.update;funcionalidad;No verificada;;0;0;0
 Stock;Categoria;GetJson;GET;categorias.update;soporte;No verificada;;0;0;0
-Stock;Categoria;Index;GET;;funcionalidad;No verificada;;0;0;0
+Stock;Categoria;Index;GET;;funcionalidad;Verificada (auditoría);;1;0;0
 Clientes;Cliente;ActualizarBcra;POST;clientes.consultbcra;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;AsignarGarante;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;AsignarLimiteCredito;POST;clientes.managecreditlimits;funcionalidad;No verificada;;0;0;0
@@ -70,17 +70,17 @@ Clientes;Cliente;AsignarNivelCreditoManual;POST;clientes.managecreditlimits;func
 Clientes;Cliente;BuscarPosiblesGarantes;GET;clientes.view;soporte;No verificada;;0;0;0
 Clientes;Cliente;Create;GET+POST;clientes.create;funcionalidad;Verificada (E2E);;0;2;0
 Clientes;Cliente;CreateAjax;POST;clientes.create;funcionalidad;Verificada (auditoría);;1;0;0
-Clientes;Cliente;Delete;GET;clientes.delete;funcionalidad;No verificada;;0;0;0
-Clientes;Cliente;DeleteConfirmed;POST;clientes.delete;funcionalidad;Verificada (auditoría);;7;0;0
+Clientes;Cliente;Delete;GET;clientes.delete;funcionalidad;Verificada (auditoría);;6;0;0
+Clientes;Cliente;DeleteConfirmed;POST;clientes.delete;funcionalidad;Verificada (auditoría);;10;0;0
 Clientes;Cliente;Details;GET;;funcionalidad;Verificada (E2E);;0;65;0
 Clientes;Cliente;Edit;GET+POST;clientes.edit;funcionalidad;No verificada;;0;0;0
-Clientes;Cliente;EditAjax;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
-Clientes;Cliente;Index;GET;;funcionalidad;Verificada (auditoría);;2;23;0
+Clientes;Cliente;EditAjax;POST;clientes.edit;funcionalidad;Verificada (auditoría);;3;0;0
+Clientes;Cliente;Index;GET;;funcionalidad;Verificada (auditoría);;8;23;0
 Clientes;Cliente;LimitesPorPuntajeGuardar;POST;clientes.managecreditlimits;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;LimitesPorPuntajePartial;GET;;soporte;No verificada;;0;0;0
 Clientes;Cliente;LimpiarNivelCreditoManual;POST;clientes.managecreditlimits;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;ModalCreate;GET;;funcionalidad;Verificada (E2E);;0;9;0
-Clientes;Cliente;ModalEdit;GET;;funcionalidad;Verificada (E2E);;0;1;0
+Clientes;Cliente;ModalEdit;GET;;funcionalidad;Verificada (auditoría);;5;1;0
 Clientes;Cliente;RecalcularAptitud;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;RecalcularPuntaje;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
 Clientes;Cliente;RemoverGarante;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
@@ -153,7 +153,7 @@ Crédito;Credito;Rechazar;POST;creditos.approve;funcionalidad;No verificada;;0;0
 Crédito;Credito;RegistrarPagoMultiple;POST;cobranzas.payinstallment;funcionalidad;Verificada (E2E);;0;3;2
 Crédito;Credito;Simular;GET;;soporte;No verificada;;0;0;0
 Crédito;Credito;SimularPlanVenta;GET;;soporte;Verificada (auditoría);;2;9;0
-Dashboard;Dashboard;Index;GET;;funcionalidad;Verificada (auditoría);;174;72;0
+Dashboard;Dashboard;Index;GET;;funcionalidad;Verificada (auditoría);;202;72;0
 Devoluciones;Devolucion;Aprobar;POST;devoluciones.approve;funcionalidad;Verificada (auditoría);;5;0;0
 Devoluciones;Devolucion;Cancelar;GET;devoluciones.reject;funcionalidad;No verificada;;0;0;0
 Devoluciones;Devolucion;Completar;POST;devoluciones.complete;funcionalidad;Verificada (auditoría);;5;0;0
@@ -188,49 +188,49 @@ Documentos;Documento;Ver;GET;documentos.view;funcionalidad;Verificada (auditorí
 Documentos;Documento;VerGrupo;GET;documentos.view;funcionalidad;No verificada;;0;0;0
 Documentos;Documento;VerPorPago;GET;documentos.view;funcionalidad;No verificada;;0;0;0
 Documentos;Documento;VerVarios;GET;documentos.view;funcionalidad;Verificada (auditoría);;10;5;2
-Clientes;DocumentoCliente;Delete;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
-Clientes;DocumentoCliente;Descargar;GET;;funcionalidad;No verificada;;0;0;0
-Clientes;DocumentoCliente;Details;GET;;funcionalidad;No verificada;;0;0;0
+Clientes;DocumentoCliente;Delete;POST;clientes.edit;funcionalidad;Verificada (auditoría);;2;0;0
+Clientes;DocumentoCliente;Descargar;GET;;funcionalidad;Verificada (auditoría);;2;0;0
+Clientes;DocumentoCliente;Details;GET;;funcionalidad;Verificada (auditoría);;16;0;0
 Clientes;DocumentoCliente;GetDocumentosByCliente;GET;;soporte;No verificada;;0;0;0
 Clientes;DocumentoCliente;GetDocumentosPartial;GET;;soporte;No verificada;;0;0;0
-Clientes;DocumentoCliente;Index;GET;;funcionalidad;No verificada;;0;0;0
-Clientes;DocumentoCliente;Rechazar;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
+Clientes;DocumentoCliente;Index;GET;;funcionalidad;Verificada (auditoría);;3;0;0
+Clientes;DocumentoCliente;Rechazar;POST;clientes.edit;funcionalidad;Verificada (auditoría);;6;0;0
 Clientes;DocumentoCliente;RechazarBatch;POST;clientes.edit;funcionalidad;No verificada;;0;0;0
-Clientes;DocumentoCliente;Upload;GET+POST;clientes.uploaddocs;funcionalidad;No verificada;;0;0;0
-Clientes;DocumentoCliente;Verificar;POST;clientes.edit;soporte;No verificada;;0;0;0
+Clientes;DocumentoCliente;Upload;GET+POST;clientes.uploaddocs;funcionalidad;Verificada (auditoría);;5;0;0
+Clientes;DocumentoCliente;Verificar;POST;clientes.edit;soporte;Verificada (auditoría);;2;0;0
 Clientes;DocumentoCliente;VerificarBatch;POST;clientes.edit;soporte;No verificada;;0;0;0
 Clientes;DocumentoCliente;VerificarTodos;POST;clientes.edit;soporte;No verificada;;0;0;0
-Documentos;DocumentosConfig;Empresa;GET+POST;documentos.managetemplates;funcionalidad;No verificada;;0;0;0
+Documentos;DocumentosConfig;Empresa;GET+POST;documentos.managetemplates;funcionalidad;Verificada (auditoría);;4;0;0
 Documentos;DocumentosConfig;Index;GET;;funcionalidad;Verificada (auditoría);;1;0;0
 Documentos;DocumentosConfig;PaqueteEdit;GET+POST;documentos.managerules;funcionalidad;No verificada;;0;0;0
 Documentos;DocumentosConfig;PaqueteVistaPreviaPdf;GET;documentos.managetemplates;funcionalidad;No verificada;;0;0;0
-Documentos;DocumentosConfig;Paquetes;GET;documentos.managerules;funcionalidad;Verificada (auditoría);;1;0;0
-Documentos;DocumentosConfig;PlantillaActivar;POST;documentos.managetemplates;funcionalidad;Verificada (auditoría);;6;0;0
+Documentos;DocumentosConfig;Paquetes;GET;documentos.managerules;funcionalidad;Verificada (auditoría);;2;0;0
+Documentos;DocumentosConfig;PlantillaActivar;POST;documentos.managetemplates;funcionalidad;Verificada (auditoría);;8;0;0
 Documentos;DocumentosConfig;PlantillaEdit;GET+POST;documentos.managetemplates;funcionalidad;Verificada (auditoría);;1;0;0
-Documentos;DocumentosConfig;PlantillaPreview;POST;documentos.managetemplates;soporte;Verificada (auditoría);;4;0;0
+Documentos;DocumentosConfig;PlantillaPreview;POST;documentos.managetemplates;soporte;Verificada (auditoría);;8;0;0
 Documentos;DocumentosConfig;PlantillaPreviewPdf;POST;documentos.managetemplates;soporte;No verificada;;0;0;0
-Documentos;DocumentosConfig;PlantillaRestaurar;POST;documentos.managetemplates;funcionalidad;No verificada;;0;0;0
+Documentos;DocumentosConfig;PlantillaRestaurar;POST;documentos.managetemplates;funcionalidad;Verificada (auditoría);;2;0;0
 Documentos;DocumentosConfig;PlantillaVistaPreviaPdf;GET;documentos.managetemplates;funcionalidad;Verificada (auditoría);;2;0;0
-Documentos;DocumentosConfig;Plantillas;GET;documentos.managetemplates;funcionalidad;Verificada (auditoría);;1;0;0
-Documentos;DocumentosConfig;ReglaActivar;POST;documentos.managerules;funcionalidad;No verificada;;0;0;0
+Documentos;DocumentosConfig;Plantillas;GET;documentos.managetemplates;funcionalidad;Verificada (auditoría);;4;0;0
+Documentos;DocumentosConfig;ReglaActivar;POST;documentos.managerules;funcionalidad;Verificada (auditoría);;3;0;0
 Documentos;DocumentosConfig;ReglaEdit;GET+POST;documentos.managerules;funcionalidad;No verificada;;0;0;0
 Documentos;DocumentosConfig;ReglaEliminar;POST;documentos.managerules;funcionalidad;No verificada;;0;0;0
 Documentos;DocumentosConfig;ReglaVistaPreviaPdf;GET;documentos.managerules;funcionalidad;Verificada (auditoría);;1;0;0
-Documentos;DocumentosConfig;Reglas;GET;documentos.managerules;funcionalidad;Verificada (auditoría);;1;0;0
+Documentos;DocumentosConfig;Reglas;GET;documentos.managerules;funcionalidad;Verificada (auditoría);;6;0;0
 Documentos;DocumentosConfig;TipoEdit;GET+POST;documentos.managetypes;funcionalidad;No verificada;;0;0;0
-Documentos;DocumentosConfig;Tipos;GET;documentos.managetypes;funcionalidad;Verificada (auditoría);;1;0;0
+Documentos;DocumentosConfig;Tipos;GET;documentos.managetypes;funcionalidad;Verificada (auditoría);;2;0;0
 Documentos;DocumentosConfig;Variables;GET;documentos.managetemplates;funcionalidad;Verificada (auditoría);;1;0;0
 Dashboard;Home;Error;GET;;funcionalidad;No verificada;;0;0;0
 Dashboard;Home;Estado;GET;;funcionalidad;No verificada;;0;0;4
-Dashboard;Home;Index;GET;;funcionalidad;Verificada (auditoría);;172;72;0
+Dashboard;Home;Index;GET;;funcionalidad;Verificada (auditoría);;200;72;0
 Dashboard;Home;Privacy;GET;;funcionalidad;No verificada;;0;0;0
 Crédito;Mantenimiento;RecalcularScoringGlobal;POST;;funcionalidad;No verificada;;0;0;0
 Crédito;Mantenimiento;ScoringGlobal;GET;;funcionalidad;No verificada;;0;0;0
-Stock;Marca;CreateAjax;POST;marcas.create;funcionalidad;No verificada;;0;0;0
-Stock;Marca;DeleteConfirmed;POST;marcas.delete;funcionalidad;No verificada;;0;0;0
+Stock;Marca;CreateAjax;POST;marcas.create;funcionalidad;Verificada (auditoría);;2;0;0
+Stock;Marca;DeleteConfirmed;POST;marcas.delete;funcionalidad;Verificada (auditoría);;2;0;0
 Stock;Marca;EditAjax;POST;marcas.edit;funcionalidad;No verificada;;0;0;0
 Stock;Marca;GetJson;GET;;soporte;No verificada;;0;0;0
-Stock;Marca;Index;GET;;funcionalidad;No verificada;;0;0;0
+Stock;Marca;Index;GET;;funcionalidad;Verificada (auditoría);;1;0;0
 Fuera de alcance (Mercado Libre / diagnóstico de desarrollo);MercadoLibre;Aumento;GET;mercadolibre.sync;funcionalidad;No verificada;;0;0;0
 Fuera de alcance (Mercado Libre / diagnóstico de desarrollo);MercadoLibre;AumentoAplicar;POST;mercadolibre.sync;funcionalidad;No verificada;;0;0;0
 Fuera de alcance (Mercado Libre / diagnóstico de desarrollo);MercadoLibre;AumentoCancelar;POST;mercadolibre.sync;funcionalidad;No verificada;;0;0;0
@@ -329,11 +329,11 @@ Tickets;NotaRapidaApi;Crear;POST;;soporte;No verificada;;0;0;0
 Tickets;NotaRapidaApi;Editar;POST;;soporte;No verificada;;0;0;0
 Tickets;NotaRapidaApi;Eliminar;POST;;soporte;No verificada;;0;0;0
 Tickets;NotaRapidaApi;EliminarItem;POST;;soporte;No verificada;;0;0;0
-Tickets;NotaRapidaApi;Listar;GET;;soporte;Verificada (auditoría);;581;412;0
+Tickets;NotaRapidaApi;Listar;GET;;soporte;Verificada (auditoría);;698;412;0
 Notificaciones;Notificacion;EliminarNotificacion;POST;notificaciones.delete;funcionalidad;No verificada;;0;0;0
 Notificaciones;Notificacion;MarcarComoLeida;POST;notificaciones.update;funcionalidad;Verificada (auditoría);;1;0;0
 Notificaciones;Notificacion;MarcarTodasComoLeidas;POST;notificaciones.update;funcionalidad;Verificada (auditoría);;1;0;0
-Notificaciones;Notificacion;ObtenerCantidadNoLeidas;GET;;soporte;Verificada (auditoría);;591;415;0
+Notificaciones;Notificacion;ObtenerCantidadNoLeidas;GET;;soporte;Verificada (auditoría);;708;415;0
 Notificaciones;Notificacion;ObtenerNotificaciones;GET;;soporte;Verificada (auditoría);;7;0;0
 Compras;OrdenCompra;CambiarEstado;POST;;funcionalidad;No verificada;;0;0;0
 Compras;OrdenCompra;Create;GET+POST;;funcionalidad;Verificada (auditoría);;4;0;0
@@ -358,7 +358,7 @@ Stock;Producto;ConciliarStockUnidades;POST;productos.edit;funcionalidad;No verif
 Stock;Producto;CrearUnidad;POST;productos.edit;funcionalidad;No verificada;;0;0;0
 Stock;Producto;CrearUnidadesMasivas;POST;productos.edit;funcionalidad;No verificada;;0;0;0
 Stock;Producto;CreateAjax;POST;productos.create;funcionalidad;Verificada (auditoría);;1;0;0
-Stock;Producto;CreditoPersonalCandidatosJson;GET;;soporte;No verificada;;0;0;0
+Stock;Producto;CreditoPersonalCandidatosJson;GET;;soporte;Verificada (auditoría);;2;0;0
 Stock;Producto;DarUnidadBaja;POST;productos.edit;funcionalidad;No verificada;;0;0;0
 Stock;Producto;DeleteConfirmed;POST;productos.delete;funcionalidad;Verificada (auditoría);;1;0;0
 Stock;Producto;DesactivarTrazabilidad;POST;productos.edit;funcionalidad;No verificada;;0;0;0
@@ -370,7 +370,7 @@ Stock;Producto;GetSubmarcas;GET;;soporte;No verificada;;0;0;0
 Stock;Producto;Index;GET;;funcionalidad;Verificada (auditoría);;1;0;0
 Stock;Producto;Inventario;GET;;funcionalidad;No verificada;;0;0;0
 Stock;Producto;MarcarUnidadFaltante;POST;productos.edit;funcionalidad;No verificada;;0;0;0
-Stock;Producto;PreviewRecargoCreditoPersonal;GET;;soporte;No verificada;;0;0;0
+Stock;Producto;PreviewRecargoCreditoPersonal;GET;;soporte;Verificada (auditoría);;26;0;0
 Stock;Producto;ReintegrarUnidadAStock;POST;productos.edit;funcionalidad;No verificada;;0;0;0
 Stock;Producto;UnidadHistorial;GET;;funcionalidad;No verificada;;0;0;0
 Stock;Producto;Unidades;GET;;funcionalidad;No verificada;;0;0;0
@@ -391,7 +391,7 @@ Reportes;Reporte;ExportarMargenesExcel;GET;reportes.export;funcionalidad;Verific
 Reportes;Reporte;ExportarMorosidadExcel;GET;reportes.export;funcionalidad;Verificada (auditoría);;2;0;0
 Reportes;Reporte;ExportarMorosidadPdf;GET;reportes.export;funcionalidad;Verificada (auditoría);;1;0;0
 Reportes;Reporte;ExportarMovimientosValorizadosExcel;GET;reportes.export;funcionalidad;Verificada (auditoría);;1;0;0
-Reportes;Reporte;ExportarVentasExcel;GET;reportes.export;funcionalidad;Verificada (auditoría);;2;0;0
+Reportes;Reporte;ExportarVentasExcel;GET;reportes.export;funcionalidad;Verificada (auditoría);;3;0;0
 Reportes;Reporte;ExportarVentasPdf;GET;reportes.export;funcionalidad;Verificada (auditoría);;2;0;0
 Reportes;Reporte;Index;GET;;funcionalidad;Verificada (auditoría);;1;0;0
 Reportes;Reporte;Iva;GET;;funcionalidad;Verificada (auditoría);;2;0;0
@@ -399,17 +399,17 @@ Reportes;Reporte;Margenes;GET;;funcionalidad;Verificada (auditoría);;2;0;0
 Reportes;Reporte;Morosidad;GET;;funcionalidad;Verificada (auditoría);;2;0;0
 Reportes;Reporte;MovimientosValorizados;GET+POST;reportes.stock;funcionalidad;No verificada;;0;0;0
 Reportes;Reporte;Ventas;GET+POST;;funcionalidad;Verificada (auditoría);;3;0;0
-Reportes;Reporte;VentasAgrupadas;GET;;funcionalidad;Verificada (auditoría);;2;0;0
+Reportes;Reporte;VentasAgrupadas;GET;;funcionalidad;Verificada (auditoría);;3;0;0
 Seguridad;Seguridad;Auditoria;GET;roles.view;funcionalidad;Verificada (auditoría);;1;0;0
 Usuarios y Roles;Seguridad;CopyPermisosRol;GET+POST;roles.assignpermissions;funcionalidad;No verificada;;0;0;0
-Usuarios y Roles;Seguridad;CreateRol;GET+POST;roles.create;funcionalidad;Verificada (auditoría);;1;0;0
+Usuarios y Roles;Seguridad;CreateRol;GET+POST;roles.create;funcionalidad;Verificada (auditoría);;2;0;0
 Usuarios y Roles;Seguridad;DeleteRol;POST;roles.delete;funcionalidad;Verificada (auditoría);;6;0;0
 Usuarios y Roles;Seguridad;DuplicateRol;GET+POST;roles.create;funcionalidad;No verificada;;0;0;0
 Usuarios y Roles;Seguridad;EditRol;GET+POST;roles.update;funcionalidad;No verificada;;0;0;0
 Usuarios y Roles;Seguridad;EditUsuario;GET+POST;usuarios.update;funcionalidad;No verificada;;0;0;0
-Usuarios y Roles;Seguridad;Index;GET;;funcionalidad;Verificada (auditoría);;31;0;0
+Usuarios y Roles;Seguridad;Index;GET;;funcionalidad;Verificada (auditoría);;37;0;0
 Usuarios y Roles;Seguridad;RolDetails;GET;roles.view;funcionalidad;Verificada (auditoría);;1;0;0
-Usuarios y Roles;Seguridad;SavePermisosRol;POST;roles.assignpermissions;funcionalidad;Verificada (auditoría);;1;0;0
+Usuarios y Roles;Seguridad;SavePermisosRol;POST;roles.assignpermissions;funcionalidad;Verificada (auditoría);;3;0;0
 Usuarios y Roles;Seguridad;ToggleRolActivo;POST;roles.update;funcionalidad;Verificada (auditoría);;1;0;0
 Configuración;ServiciosVenta;Guardar;POST;configuracion.update;funcionalidad;Verificada (auditoría);;8;0;0
 Configuración;ServiciosVenta;Index;GET;;funcionalidad;Verificada (auditoría);;7;0;0
@@ -433,7 +433,7 @@ Usuarios y Roles;Usuarios;Bloquear;GET+POST;usuarios.update;funcionalidad;Verifi
 Usuarios y Roles;Usuarios;BulkAction;POST;usuarios.update;funcionalidad;No verificada;;0;0;0
 Usuarios y Roles;Usuarios;CambiarPassword;GET+POST;usuarios.resetpassword;funcionalidad;Verificada (auditoría);;13;1;0
 Usuarios y Roles;Usuarios;ConfirmarEmail;POST;usuarios.update;funcionalidad;No verificada;;0;0;0
-Usuarios y Roles;Usuarios;Create;GET+POST;usuarios.create;funcionalidad;Verificada (auditoría);;10;0;0
+Usuarios y Roles;Usuarios;Create;GET+POST;usuarios.create;funcionalidad;Verificada (auditoría);;12;0;0
 Usuarios y Roles;Usuarios;Delete;GET;usuarios.delete;funcionalidad;Verificada (auditoría);;4;0;0
 Usuarios y Roles;Usuarios;DeleteConfirmed;POST;usuarios.delete;funcionalidad;Verificada (auditoría);;4;0;0
 Usuarios y Roles;Usuarios;Desactivar;POST;usuarios.delete;funcionalidad;Verificada (auditoría);;4;0;1
@@ -452,11 +452,11 @@ Ventas y Cotizaciones;Venta;Create;GET+POST;;funcionalidad;Verificada (auditorí
 Ventas y Cotizaciones;Venta;CreateAjax;POST;;funcionalidad;Verificada (auditoría);;4;3;0
 Ventas y Cotizaciones;Venta;Delete;GET;;funcionalidad;No verificada;;0;0;0
 Ventas y Cotizaciones;Venta;DeleteConfirmed;POST;ventas.delete;funcionalidad;No verificada;;0;0;0
-Ventas y Cotizaciones;Venta;Details;GET;;funcionalidad;Verificada (auditoría);;52;22;0
+Ventas y Cotizaciones;Venta;Details;GET;;funcionalidad;Verificada (auditoría);;53;22;0
 Ventas y Cotizaciones;Venta;Edit;GET+POST;;funcionalidad;Verificada (auditoría);;8;5;0
 Ventas y Cotizaciones;Venta;EditAjax;POST;;funcionalidad;Verificada (E2E);;0;13;0
 Ventas y Cotizaciones;Venta;Facturar;GET+POST;;funcionalidad;No verificada;;0;0;0
-Ventas y Cotizaciones;Venta;Index;GET;;funcionalidad;Verificada (auditoría);;2;4;0
+Ventas y Cotizaciones;Venta;Index;GET;;funcionalidad;Verificada (auditoría);;3;4;0
 Ventas y Cotizaciones;Venta;PrepararVenta;POST;;funcionalidad;No verificada;;0;0;0
 Ventas y Cotizaciones;Venta;Rechazar;GET;;funcionalidad;No verificada;;0;0;0
 Ventas y Cotizaciones;Venta;RechazarConfirmed;POST;;funcionalidad;No verificada;;0;0;0
