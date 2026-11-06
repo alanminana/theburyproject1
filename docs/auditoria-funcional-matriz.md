@@ -1,6 +1,6 @@
-# Auditoría funcional integral — matriz de aceptación con evidencia (fase 4, 2026-11-06)
+# Auditoría funcional integral — matriz de aceptación con evidencia (fase 5, 2026-11-06)
 
-Base: `main` `3389b2b0` (PR #236, #237 y #238 fusionadas) + PR #240 de la fase 4. H-01 vive en el PR #239 (borrador). Complementa `docs/auditoria-funcional-2026-11-05.md` (tramo 1) y `docs/auditoria-funcional-reglas-h01-h04-h05.md`.
+Base: `main` `f1665855` (PR #236 a #238, #240 y #241 fusionadas) + PR de la fase 5. H-01 vive en el PR #239 (borrador). Complementa `docs/auditoria-funcional-2026-11-05.md` (tramo 1) y `docs/auditoria-funcional-reglas-h01-h04-h05.md`.
 **La auditoría NO está cerrada.** Hay **dos métricas distintas** que no deben confundirse:
 
 - **Cobertura de acciones HTTP ejercitadas con evidencia: 24,2 %** (75 de 310 funcionalidades de usuario; la base del tramo 2 recalculada con los mismos logs da 43, 13,9 %). Mide *qué se probó*, no cuánto está desarrollado. «Ejercitada» en una acción de solo lectura (GET) significa que cargó con 200: **no** prueba que su contenido sea correcto. Contenido contrastado con SQL: Reporte de ventas, Morosidad (deuda vencida total 2.296.750 = SQL) y Márgenes (muestra); los 6 exportes (Excel/PDF) se obtuvieron con 200 y tamaño > 0 sin abrir su contenido. Los POST rechazados por autorización (302 a *AccessDenied*) se excluyen del conteo: los logs de la sonda de permisos no se usan como evidencia de funcionalidad.
@@ -21,25 +21,25 @@ Todo lo no ejercitado es *no verificado*, no aprobado.
 
 | Módulo | Funcionalidades | Verificadas (auditoría) | Verificadas (E2E) | Fallidas | Incompletas | No verificadas | Cobertura |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Ventas y Cotizaciones | 27 | 8 | 1 | 0 | 0 | 18 | 33 % |
+| Ventas y Cotizaciones | 27 | 9 | 1 | 0 | 0 | 17 | 37 % |
 | Caja | 11 | 6 | 0 | 0 | 0 | 5 | 55 % |
 | Crédito | 25 | 5 | 6 | 0 | 0 | 14 | 44 % |
-| Mora y Acuerdos | Desarrollado | Ficha → contacto → promesa → acuerdo → activación → pago de entrega y cuotas; conciliación de la bandeja con SQL (H-18 corregido) | Incumplido/cancelación de acuerdos; **H-22**; H-19 |
-| Cheques | Desarrollado; medio **inactivo y solo SuperAdmin** (H-15) | Venta con cheque → pendiente → acreditar → rechazar acreditado | Cuota con cheque rechazado (decisión A/B/C); activar el medio en producción es una acción explícita |
+| Mora y Acuerdos | 21 | 9 | 0 | 0 | 0 | 12 | 43 % |
+| Cheques | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
 | Compras | 16 | 6 | 0 | 0 | 0 | 10 | 38 % |
-| Stock | 62 | 1 | 0 | 0 | 12 | 49 | 2 % |
+| Stock | Desarrollado salvo **lotes de precios (Incompleto, diferido)** | Ajuste masivo del catálogo (fase 3); (fase 5) **movimientos de stock por interfaz contra SQL**: entrada +10 (100→110), salida −4, ajuste que fija el stock (el movimiento guarda el delta −56 con stock anterior/nuevo), salida mayor al stock rechazada sin movimiento, Kardex = movimientos, **Generar alertas** (con confirmación) crea la alerta del producto bajo el mínimo y es idempotente | Alta/edición/baja de producto, categorías, marcas, unidades físicas/trazabilidad, resolver/ignorar alertas; listas de precios (§4-C) |
 | Devoluciones | 12 | 5 | 0 | 0 | 0 | 7 | 42 % |
 | Notas de crédito | 1 | 0 | 0 | 0 | 0 | 1 | 0 % |
-| Clientes | 27 | 1 | 4 | 0 | 0 | 22 | 19 % |
-| Usuarios y Roles | Desarrollado, **parcial verificado** | Alta con 4 negativos (vacía, contraseña corta, confirmación distinta, duplicado), bloquear (el login cae en *Lockout*), desbloquear, desactivar | Reactivar (el usuario inactivo desaparece de la lista por defecto: sin botón visible), reseteo de contraseña, eliminar, ABM de roles y permisos, rol con permiso parcial; **H-21** |
-| Documentos | 29 | 2 | 0 | 0 | 0 | 27 | 7 % |
+| Clientes | 27 | 2 | 4 | 0 | 0 | 21 | 22 % |
+| Usuarios y Roles | 21 | 10 | 0 | 0 | 0 | 11 | 48 % |
+| Documentos | 29 | 17 | 0 | 0 | 0 | 12 | 59 % |
 | Reportes | 14 | 13 | 0 | 0 | 0 | 1 | 93 % |
 | Dashboard | 5 | 2 | 0 | 0 | 0 | 3 | 40 % |
 | Notificaciones | 3 | 1 | 0 | 0 | 0 | 2 | 33 % |
 | Tickets | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
-| Configuración | Desarrollado | Rentabilidad, prefijos, costos de envío/armado, medio Cheque (SuperAdmin) | Medios de pago, plantillas de contrato, configuración de cliente |
+| Configuración | 25 | 11 | 0 | 0 | 0 | 14 | 44 % |
 | Seguridad | 1 | 1 | 0 | 0 | 0 | 0 | 100 % |
-| **Total** | **310** | **83** | **11** | **0** | **12** | **204** | **30.3 %** |
+| **Total** | **310** | **111** | **11** | **0** | **12** | **176** | **39.4 %** |
 
 Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Alertas. *Incompletas* = las 12 funcionalidades del módulo de cambios de precios por lotes (sin listas ni menú; diferido). *Notas de crédito* solo tiene 1 acción propia: su función real (generar al aprobar la devolución, canjear como medio de pago, restituir al cancelar) vive en Devoluciones y Ventas y se prueba en §3. *Cheques* y *Mora y Acuerdos* tienen evidencia **previa** documentada (`docs/cheques-circuito-propuesta.md` §7; Hitos 9 y 10) que **no se re-ejecutó** en esta auditoría, por eso figuran en 0.
 
@@ -114,6 +114,8 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 | H-19 | Mora | Baja | Se acepta registrar un contacto de cobranza sin observaciones | **Abierto — evaluación:** hoy no hay regla que lo prohíba y el resultado/tipo sí son obligatorios. Exigir observaciones sería una regla nueva (mejora el rastro de cobranza pero frena contactos rápidos). Propuesta: observaciones obligatorias solo para resultados «Promesa»/«No contesta» con próximo contacto; **no implementado hasta decidir** |
 | H-20 | Cotización | Baja | El endpoint de cancelar cotización no tenía botón | **Corregido** (fase 5): panel «Cancelar cotización» en *Detalles* solo para *Emitida* con permiso `cotizaciones.cancel`, motivo obligatorio y confirmación; el servicio ya validaba estados. Verificado por interfaz (sin motivo no cancela; con motivo → *Cancelada* y motivo guardado en SQL; convertida sin panel; móvil 390 px) |
 | H-21 | Seguridad (login) | Baja | La pantalla «Lockout» decía que la cuenta se bloqueó por intentos fallidos aun en un bloqueo administrativo | **Corregido** (fase 5): texto neutro que cubre ambos casos |
+| H-23 | Documentos | Baja | Tras **cancelar un recibo** de una venta, «Generar pendientes» del detalle de la venta no lo vuelve a emitir (cantidad de documentos igual); el texto de ayuda sugiere que sí. Los recibos se reintentan por pago (`pagoCuotaId`) | **Abierto — a confirmar**: probar el reintento desde la cuota/pago y ajustar el texto o el alcance |
+| H-24 | Clientes / Reportes | Media | La **baja de un cliente con crédito vigente** está permitida (la pantalla advierte «registra créditos activos o deuda» y pide una casilla de confirmación) y a partir de ahí **su deuda desaparece de la mora, las alertas y los reportes**, y sus ventas confirmadas dejan de contar en Ventas/Dashboard. Hallado porque el Reporte de ventas (Excel/PDF: 94.340) no incluía una venta confirmada de 3.800 presente en SQL: su cliente estaba dado de baja (criterio de #209: se excluyen clientes eliminados) | **Decisión de negocio (D), no cambiado:** se probó bloquear la baja con crédito vigente (regla nueva sobre un comportamiento advertido y confirmado a propósito) y se **descartó** hasta tu decisión. Opciones: (A) bloquear la baja mientras haya crédito vigente; (B) permitirla pero mantener la deuda y las ventas en mora/reportes; (C) dejar como está. Riesgo residual de (A): carrera entre la baja y el alta de un crédito (Codex) |
 | H-22 | Mora / Reportes | Media | **Tres superficies, tres reglas:** la bandeja y las alertas aplican los días de gracia (10); la **ficha del cliente** y el **Reporte de morosidad** cuentan vencida desde el día siguiente (deuda 2.296.750 en el reporte vs 2.289.400 en la bandeja). Un cliente con una cuota en gracia aparece con deuda en la ficha y no en la bandeja | **Decisión de negocio (D):** ¿la gracia debe afectar a la ficha y al reporte? No se cambió |
 | H-12 | Reportes | Baja | El «ticket» por cliente era bruto y no coincidía con el global neto | **Corregido** (mismo cálculo que el global) + prueba |
 | H-10 | Usuarios | Baja | El mensaje decía «entre 6 y 100» y la política real exige más | **Corregido** (mensaje coherente con la política vigente) |
@@ -130,27 +132,27 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 
 ## 5. Respuestas a las 10 preguntas
 
-1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 30,3 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
+1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 39,4 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
 2. **¿Completamente terminados?** Ninguno puede declararse así con esta evidencia. Los más avanzados: Caja (55 %), Devoluciones y Compras (~30 %, con sus circuitos principales completos).
 3. **¿Incompletos?** Cambios de precios por lotes y Referencias del cliente (§4-B).
 4. **¿Errores encontrados y corregidos?** H-02, H-03, H-04, H-05, H-06 y H-11 (PR #237) H-13 y H-14 (fase 3) y H-10, H-12, H-15, H-16, H-17 y H-18 (fase 4), todos sin migraciones.
 5. **¿Qué falta desarrollar?** §4-C (fuera del alcance confirmado). Nada de eso se implementó.
 6. **¿Decisiones comerciales?** §4-D; la más urgente es **H-01** (requiere autorización por migración).
 7. **¿Pruebas que faltan?** Unas 268 funcionalidades sin ejercitar. Circuitos pendientes: cotización → conversión → venta (hoy solo E2E), cliente → crédito → cuotas → cobro, mora → acuerdo → regularización, cheques (re-ejecutar), envío/armado → ganancia, cambio de precios directo y reversión, Tickets, Notificaciones, Documentos, Configuración, permisos por acción, móvil y concurrencia fuera de caja/OC.
-8. **¿Porcentaje funcional verificable?** **30,3 %** de cobertura de acciones (94 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
+8. **¿Porcentaje funcional verificable?** **39,4 %** de cobertura de acciones (122 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
 9. **¿Cuánto desarrollo queda?** Desarrollo nuevo: ninguno confirmado dentro del alcance. Lo que queda es **verificación** (unas 268 funcionalidades) y las decisiones de §4-D/E.
 10. **¿Se puede declarar finalizado el desarrollo funcional?** **No**, con la evidencia disponible.
 
 ## 6. Checklist de pendientes por prioridad
 
 1. **H-01 (PR #239, borrador):** código y pruebas listos; **migración no aplicada**. Propuesta de aplicación segura (respaldo, ensayo, recuperación) en `docs/h01-aplicacion-segura.md`. Espera tu autorización explícita.
-2. **Decisiones de negocio:** H-22 (¿la gracia de mora afecta a ficha y reporte?), H-19 (¿observaciones obligatorias en contactos?), H-20 (¿cancelar cotización a mano?), cuota con cheque rechazado (A/B/C) antes de activar el medio Cheque.
-3. **Verificación pendiente:** Documentos (7 %), Notas de crédito, Stock (2 %), Clientes (19 %), Reportes (contenido de exportes), Usuarios y Roles (reactivar, reseteo, eliminar, roles/permisos).
-4. Permisos POST: solo se probó el rol Vendedor (17 acciones); faltan los demás roles y los permisos parciales.
-5. **Móvil:** a 390 px no hay desborde horizontal en 21 pantallas y se inspeccionaron visualmente 2 (Cotización, Ficha de mora): falta la revisión visual del resto y de los modales.
-6. **Concurrencia:** pruebas SQL Server de apertura de caja ya existentes; faltan recepción de compra, devolución y venta simultáneas.
+2. **Decisiones de negocio:** H-22 (¿la gracia de mora afecta a ficha y reporte?), H-19 (¿observaciones obligatorias en contactos?), **H-24** (baja de cliente con crédito vigente: A/B/C), cuota con cheque rechazado (A/B/C) antes de activar el medio Cheque, Gerente (borrar clientes / cancelar ventas).
+3. **Verificación pendiente:** Notas de crédito, Stock (catálogo: alta/edición/baja de producto, categorías, marcas, unidades físicas), Clientes (alta, edición, documentos), ABM de roles y permisos, Reportes (Comisiones, Agrupadas, IVA con datos facturados), Documentos (activar/restaurar plantilla, reglas, paquetes, H-23).
+4. Permisos POST: matriz por rol en los anexos; faltan los permisos parciales por acción.
+5. **Móvil (390 px):** 15 pantallas inspeccionadas a mano en fase 5 (Cajas, Inventario, Cheques pendientes, Clientes, Documentos, Mora, Reportes, Seguridad, Detalle de venta, Créditos, Compras, Devoluciones, Tickets, Ventas y Cotización) sin desborde ni elementos superpuestos; la pestaña «Auditoría» de Seguridad queda recortada (desplazable). Faltan modales, wizard de venta y estados de error.
+6. **Concurrencia:** las suites SQL Server de la CI (RCSI 0 y 1, verdes en #241) cubren recepción doble de órdenes, devoluciones simultáneas (R-06, R-15), devolución vs cancelación, cobros vs cancelación, cheques, aperturas de caja, último SuperAdmin y reversión de precios; faltan cambios de permisos concurrentes.
 7. Índices únicos filtrados de apertura de caja: analizar apertura vencida y cierres entre días antes de decidir (migración).
-8. Menores abiertos: H-21. Fiscales (§4-E) e infraestructura (§4-F): fuera del cierre funcional.
+8. Menores abiertos: H-23. Fiscales (§4-E) e infraestructura (§4-F): fuera del cierre funcional.
 
 ### Anexo — sondeo de permisos por acción (rol Vendedor, clon f3)
 
