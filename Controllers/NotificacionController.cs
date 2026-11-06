@@ -146,6 +146,8 @@ public class NotificacionController : ControllerBase
                 return Unauthorized();
             }
 
+            // H-26: solo se eliminan las notificaciones PROPIAS (el servicio filtra por el usuario autenticado); una ajena o
+            // inexistente no cambia nada.
             await _notificacionService.EliminarNotificacionAsync(id, _currentUser.GetUsername(), rowVersion);
 
             return Ok(new { success = true });

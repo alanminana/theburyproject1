@@ -311,6 +311,34 @@ public class NotificacionServiceTests : IDisposable
         Assert.True(bd!.IsDeleted);
     }
 
+    [Fact]
+    public async Task EliminarNotificacion_H26_PropiaSeRegistraEnAuditoria_YAjenaNoCambiaNada()
+    {
+        var grabadora = new AuditoriaChequeGrabadora();
+        var servicio = new NotificacionService(
+            _context,
+            new UserManager<ApplicationUser>(new NoOpUserStoreNotif(), null!, null!, null!, null!, null!, null!, null!, null!),
+            NullLogger<NotificacionService>.Instance,
+            new NoOpHubContextNotif(),
+            grabadora);
+        var propia = await SeedNotificacionAsync(usuario: "user1");
+        var ajena = await SeedNotificacionAsync(usuario: "otro");
+
+        // Ajena: no se elimina y no deja evento.
+        await servicio.EliminarNotificacionAsync(ajena.Id, "user1", ajena.RowVersion);
+        Assert.Empty(grabadora.Eventos);
+        _context.ChangeTracker.Clear();
+        Assert.False((await _context.Notificaciones.IgnoreQueryFilters().FirstAsync(x => x.Id == ajena.Id)).IsDeleted);
+
+        // Propia: se elimina (baja logica) y queda el evento de auditoria con su id.
+        await servicio.EliminarNotificacionAsync(propia.Id, "user1", propia.RowVersion);
+        _context.ChangeTracker.Clear();
+        Assert.True((await _context.Notificaciones.IgnoreQueryFilters().FirstAsync(x => x.Id == propia.Id)).IsDeleted);
+        var evento = Assert.Single(grabadora.Eventos);
+        Assert.Equal(("Notificaciones", "Eliminar", "Notificacion"), (evento.Modulo, evento.Accion, evento.Entidad));
+        Assert.Contains($"Id={propia.Id}", evento.Detalle);
+    }
+
     // -------------------------------------------------------------------------
     // LimpiarNotificacionesAntiguasAsync
     // -------------------------------------------------------------------------

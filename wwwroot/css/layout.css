@@ -644,6 +644,14 @@ header a:focus:not(:focus-visible) {
     cursor: pointer;
     font: inherit;
 }
+#notificacionesPanel .notif-row { display: flex; align-items: stretch; border-bottom: 1px solid rgb(255 255 255 / 0.06); }
+#notificacionesPanel .notif-row .notif-item { border-bottom: 0; flex: 1 1 auto; min-width: 0; }
+#notificacionesPanel .notif-delete {
+    flex: none; background: transparent; border: 0; padding: 0 0.75rem; cursor: pointer;
+    color: var(--pal-neutral-300, #cbd5e1); font: inherit; font-size: 0.75rem;
+}
+#notificacionesPanel .notif-delete:hover:not(:disabled) { color: var(--pal-danger-300, #fca5a5); background-color: rgb(255 255 255 / 0.06); }
+#notificacionesPanel .notif-delete:disabled { opacity: 0.5; cursor: default; }
 #notificacionesPanel .notif-item:hover { background-color: rgb(255 255 255 / 0.06); }
 #notificacionesPanel .notif-item .notif-dot {
     flex: none;
