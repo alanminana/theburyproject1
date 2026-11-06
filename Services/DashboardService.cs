@@ -347,6 +347,7 @@ namespace TheBuryProject.Services
                              vd.Venta != null &&
                              !vd.Venta.IsDeleted &&
                              EstadosVentaComerciales.Contains(vd.Venta.Estado) &&
+                             (vd.Venta.Cliente == null || !vd.Venta.Cliente.IsDeleted) && // H-25: mismo universo que «Ventas del mes»
                              vd.Venta.FechaVenta >= inicioMes)
                 .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal, vd.SubtotalFinal })
                 .ToListAsync();

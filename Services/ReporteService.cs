@@ -674,6 +674,7 @@ namespace TheBuryProject.Services
                 // "Hasta" es un día completo (inclusivo).
                 var hastaExclusivo = fechaHasta.Date.AddDays(1);
 
+                // H-25: mismo universo de ventas que el Reporte de ventas y el Dashboard (VentasNetas.Comerciales).
                 var ventas = await _context.Ventas
                     .AsNoTracking()
                     .Include(v => v.Envio)
@@ -683,9 +684,8 @@ namespace TheBuryProject.Services
                         !d.Producto.IsDeleted))
                         .ThenInclude(d => d.Producto)
                             .ThenInclude(p => p.Categoria)
+                    .Comerciales()
                     .Where(v =>
-                        !v.IsDeleted &&
-                        EstadosVentaComerciales.Contains(v.Estado) &&
                         v.FechaVenta >= fechaDesde &&
                         v.FechaVenta < hastaExclusivo)
                     .Include(v => v.DatosTarjeta)
