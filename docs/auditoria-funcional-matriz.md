@@ -155,3 +155,18 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 ### Anexo — sondeo de permisos por acción (rol Vendedor, clon f3)
 
 POST con token antifalsificación válido hechos por un usuario Vendedor: `PrefijosNumeracion/Guardar`, `ConfiguracionRentabilidad`, `ServiciosVenta/Guardar`, `Caja/AcreditarCheque`, `Caja/RechazarCheque`, `Mora/EjecutarJob`, `Mora/CrearAcuerdo`, `Mora/CambiarEstadoAcuerdo`, `Ticket/Eliminar`, `Usuarios/Create`, `DocumentosConfig/PlantillaActivar`, `ConfiguracionCliente`, `ConfiguracionPago/CrearPlanGlobal`, `PlantillaContratoCredito/ToggleActiva`, `Catalogo/AplicarCambioPrecioDirecto`, `Venta/Cancelar`, `Cliente/Delete`: **los 17 devolvieron 302 a `/Identity/Account/AccessDenied`** y no cambiaron datos (prefijos y umbrales de rentabilidad intactos en SQL). Limitación: solo se probó un rol; los demás roles y el POST con permiso parcial quedan sin verificar.
+
+### Anexo — matriz de POST por rol (fase 4, clon f3, app :5193)
+
+POST con token válido ejecutados por cada rol sobre 17 acciones sensibles. `DENEGADO` = 302 a *AccessDenied* (sin efecto); `302/200` = la acción se **ejecutó o devolvió su flujo normal** (permitida por el rol).
+
+| Acción | Administrador | Gerente | Cajero | Contador | Repositor | Técnico |
+|---|---|---|---|---|---|---|
+| Rentabilidad / Prefijos / Servicios (config) | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+| Config. de pagos (planes, eliminar medio), plantilla de contrato, DeleteRol | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+| Acreditar / rechazar cheque | permitido | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+| Mora: ejecutar proceso, cambiar estado de acuerdo | permitido | permitido | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+| Eliminar ticket, crear usuario, ajuste de precios (catálogo) | permitido | DENEGADO | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+| Activar plantilla documental, cancelar venta, eliminar cliente | permitido | permitido | DENEGADO | DENEGADO | DENEGADO | DENEGADO |
+
+Vendedor: ver el anexo anterior (17/17 denegadas). **Observación (decisión de negocio, no defecto probado):** Gerente puede eliminar clientes y cancelar ventas, y Administrador puede crear usuarios; coincide con la descripción de los roles («todos los permisos excepto configuración crítica»), pero conviene confirmar que es lo querido. No se probó el permiso parcial dentro de un mismo rol ni los GET.
