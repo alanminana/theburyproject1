@@ -2602,6 +2602,38 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_AlertaActivaExistente_RefrescaMontoYCuotasVencidas_H18()
+    {
+        // H-18: la alerta guardaba una foto de MontoVencido/CuotasVencidas y el reproceso solo actualizaba DiasAtraso: tras un
+        // pago parcial (o con otra cuota que vence) el KPI de la bandeja seguía mostrando la deuda de cuando se creó.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota1 = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 30);
+        await _service.ProcesarMoraAsync();
+        var alerta = await AlertaVencidaDelCreditoAsync(credito.Id);
+        Assert.NotNull(alerta);
+        var montoInicial = alerta!.MontoVencido;
+        Assert.Equal(1, alerta.CuotasVencidas);
+
+        // Pago parcial de la cuota vencida + una segunda cuota que ya venció.
+        cuota1.MontoPagado = cuota1.MontoTotal / 4m;
+        await _context.SaveChangesAsync();
+        var cuota2 = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 20);
+        cuota2.NumeroCuota = 2;
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var tras = await _context.AlertasCobranza.AsNoTracking()
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida && !a.Resuelta).ToListAsync();
+        Assert.Single(tras);
+        Assert.Equal(2, tras[0].CuotasVencidas);
+        var esperado = (cuota1.MontoTotal - cuota1.MontoPagado) + (cuota2.MontoTotal - cuota2.MontoPagado);
+        Assert.Equal(esperado, tras[0].MontoVencido);
+        Assert.NotEqual(montoInicial, tras[0].MontoVencido);
+    }
+
+    [Fact]
     public async Task ProcesarMora_EjecucionRepetidaMismoDia_NoAlteraDatosManualesYMantieneDiasAtraso()
     {
         var cliente = await SeedClienteAsync();

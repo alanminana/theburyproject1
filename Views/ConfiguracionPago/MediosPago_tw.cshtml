@@ -960,7 +960,7 @@
                             <div>
                                 <label class="pay-label">Tipo</label>
                                 <select name="TipoPago" class="pay-select">
-                                    @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta).GroupBy(t => (int)t).Select(g => g.First()))
+                                    @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta && (t != TipoPago.Cheque || User.IsInRole("SuperAdmin"))).GroupBy(t => (int)t).Select(g => g.First()))
                                     {
                                         <option value="@tipo">@TipoPagoDisplay(tipo)</option>
                                     }
@@ -1045,7 +1045,7 @@
                                         <div>
                                             <label class="pay-label">Tipo</label>
                                             <select name="TipoPago" class="pay-select">
-                                                @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta).GroupBy(t => (int)t).Select(g => g.First()))
+                                                @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta && (t != TipoPago.Cheque || User.IsInRole("SuperAdmin"))).GroupBy(t => (int)t).Select(g => g.First()))
                                                 {
                                                     <option value="@tipo">@TipoPagoDisplay(tipo)</option>
                                                 }

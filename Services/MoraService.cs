@@ -244,15 +244,21 @@ namespace TheBuryProject.Services
                         // no toca ningún otro campo — ni datos manuales de gestión (Observaciones,
                         // EstadoGestion, promesas, resolución) ni UpdatedAt (del que depende
                         // AlertaCobranza.Leida; tocarlo marcaría como "leída" una alerta que nadie vio).
-                        if (alertasActivasPorCredito.TryGetValue(creditoId, out var alertaExistente))
-                        {
-                            alertaExistente.DiasAtraso = diasMora;
-                            continue;
-                        }
-
                         // Calcular datos de mora
                         var montoVencido = cuotasDelCredito.Sum(c => c.MontoTotal - c.MontoPagado);
                         var moraCalculada = CalcularMora(montoVencido, diasMora, config);
+
+                        if (alertasActivasPorCredito.TryGetValue(creditoId, out var alertaExistente))
+                        {
+                            alertaExistente.DiasAtraso = diasMora;
+                            // H-18: MontoVencido/CuotasVencidas son una FOTO de la deuda vencida; no son datos
+                            // de gestión. Antes solo se refrescaba DiasAtraso y el KPI de la bandeja seguía mostrando el monto
+                            // de cuando se creó la alerta aunque el cliente hubiera pagado parcialmente o vencieran más cuotas.
+                            alertaExistente.MontoVencido = montoVencido;
+                            alertaExistente.CuotasVencidas = cuotasDelCredito.Count;
+                            continue;
+                        }
+
                         var prioridad = DeterminarPrioridad(diasMora, montoVencido, config);
 
                         // Crear alerta con información completa

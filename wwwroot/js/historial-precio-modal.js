@@ -253,7 +253,7 @@ const HistorialPrecioModal = (() => {
     function revertir(eventoId) {
         if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
             window.TheBury.confirmAction(
-                '¿Revertir este cambio de precio? Se restaurará el precio anterior.',
+                '¿Revertir este cambio de precio? Se revierte el AJUSTE COMPLETO: se restaurará el precio anterior de todos los productos incluidos en ese ajuste, no solo de este. Si alguno cambió de precio después, no se revierte ninguno.',
                 function () {
                     executeRevertir(eventoId);
                 }

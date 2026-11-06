@@ -182,9 +182,9 @@ namespace TheBuryProject.Services
                 var productosMasVendidos = ObtenerProductosMasVendidos(ventas, filtro);
 
                 // Clientes top
-                var clientesTop = ObtenerClientesTop(ventas);
+                var clientesTop = ObtenerClientesTop(ventas, devoluciones);
                 var productosMenosVendidos = ObtenerProductosMasVendidos(ventas, filtro, menosVendidos: true);
-                var clientesFrecuentes = ObtenerClientesTop(ventas, porFrecuencia: true);
+                var clientesFrecuentes = ObtenerClientesTop(ventas, devoluciones, porFrecuencia: true);
 
                 return new ReporteVentasResultadoViewModel
                 {
@@ -1105,7 +1105,10 @@ namespace TheBuryProject.Services
             return ordenados.Take(10).ToList();
         }
 
-        private static List<ClienteTopViewModel> ObtenerClientesTop(IEnumerable<Venta> ventas, bool porFrecuencia = false)
+        // H-12: el ticket promedio por cliente descuenta lo devuelto de SUS ventas (misma fórmula que el ticket global,
+        // VentasNetas.CalcularTicketPromedio); antes era el promedio bruto y no coincidía con el global.
+        internal static List<ClienteTopViewModel> ObtenerClientesTop(
+            IEnumerable<Venta> ventas, IReadOnlyCollection<VentasNetas.DevolucionNeta> devoluciones, bool porFrecuencia = false)
         {
             var clientes = ventas
                 .Where(v => v.Cliente != null && v.ClienteId.HasValue)
@@ -1113,6 +1116,7 @@ namespace TheBuryProject.Services
                 .Select(g =>
                 {
                     var cliente = g.First().Cliente!;
+                    var idsCliente = g.Select(v => v.Id).ToHashSet();
                     return new ClienteTopViewModel
                     {
                         ClienteId = g.Key,
@@ -1121,7 +1125,7 @@ namespace TheBuryProject.Services
                         ClienteDocumento = cliente.NumeroDocumento,
                         CantidadCompras = g.Count(),
                         MontoTotal = g.Sum(v => v.Total),
-                        TicketPromedio = g.Average(v => v.Total),
+                        TicketPromedio = VentasNetas.CalcularTicketPromedio(g.Sum(v => v.Total), g.Count(), devoluciones, idsCliente),
                         UltimaCompra = g.Max(v => v.FechaVenta)
                     };
                 })

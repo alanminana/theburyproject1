@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
@@ -268,6 +269,15 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(MediosPago));
             }
 
+            // H-15: el medio Cheque solo lo habilita un SuperAdmin y nace SIEMPRE inactivo (hasta resolver la decisión pendiente de
+            // la cuota con cheque rechazado); activarlo es una acción explícita posterior.
+            var esCheque = command.TipoPago == TipoPago.Cheque;
+            if (esCheque && !User.IsInRole(Roles.SuperAdmin))
+            {
+                TempData["Error"] = "Solo un SuperAdmin puede crear el medio Cheque.";
+                return RedirectToAction(nameof(MediosPago));
+            }
+
             try
             {
                 var vm = new ConfiguracionPagoViewModel
@@ -275,10 +285,12 @@ namespace TheBuryProject.Controllers
                     TipoPago = command.TipoPago,
                     Nombre = command.Nombre.Trim(),
                     Descripcion = string.IsNullOrWhiteSpace(command.Descripcion) ? null : command.Descripcion.Trim(),
-                    Activo = command.Activo
+                    Activo = esCheque ? false : command.Activo
                 };
                 var resultado = await _configuracionPagoService.CreateAsync(vm);
-                TempData["Success"] = "Método de pago creado correctamente.";
+                TempData["Success"] = esCheque
+                    ? "Medio Cheque creado INACTIVO. Un SuperAdmin debe activarlo para que aparezca en las ventas."
+                    : "Método de pago creado correctamente.";
                 return RedirectToAction(nameof(MediosPago), new { medioId = resultado.Id });
             }
             catch (Exception ex)
@@ -297,6 +309,13 @@ namespace TheBuryProject.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo guardar el método de pago.");
+                return RedirectToAction(nameof(MediosPago), new { medioId = id });
+            }
+
+            var medioActual = await _configuracionPagoService.GetByIdAsync(id);
+            if (medioActual?.TipoPago == TipoPago.Cheque && !User.IsInRole(Roles.SuperAdmin))
+            {
+                TempData["Error"] = "Solo un SuperAdmin puede modificar o activar el medio Cheque.";
                 return RedirectToAction(nameof(MediosPago), new { medioId = id });
             }
 
