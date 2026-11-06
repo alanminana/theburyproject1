@@ -696,6 +696,24 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Convertir_CongelaElCostoDelProductoEnLaLinea_H14()
+    {
+        // Auditoría funcional H-14: antes la línea nacía con costo 0 y el reporte caía al PrecioCompra VIGENTE,
+        // de modo que la ganancia de una venta ya hecha cambiaba si luego se modificaba el costo del producto.
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 200m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
+        Assert.Equal(_producto.PrecioCompra, detalle.CostoUnitarioAlMomento);
+        Assert.Equal(_producto.PrecioCompra * detalle.Cantidad, detalle.CostoTotalAlMomento);
+        Assert.True(detalle.CostoUnitarioAlMomento > 0m);
+    }
+
+    [Fact]
     public async Task Convertir_MarcaCotizacionComoConvertida()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);
