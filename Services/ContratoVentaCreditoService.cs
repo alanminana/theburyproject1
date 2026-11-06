@@ -32,6 +32,8 @@ namespace TheBuryProject.Services
             WriteIndented = false
         };
 
+        private readonly VentaNumberGenerator? _generadorNumerosVenta;
+
         public ContratoVentaCreditoService(
             AppDbContext context,
             IFinancialCalculationService financialService,
@@ -40,8 +42,10 @@ namespace TheBuryProject.Services
             ILogger<ContratoVentaCreditoService> logger,
             IDocumentoService? documentoService = null,
             IDocumentoNumeracionService? numeracion = null,
-            IRelojComercial? reloj = null)
+            IRelojComercial? reloj = null,
+            VentaNumberGenerator? generadorNumerosVenta = null)
         {
+            _generadorNumerosVenta = generadorNumerosVenta;
             _context = context;
             _financialService = financialService;
             _configuracionPagoService = configuracionPagoService;
@@ -85,6 +89,19 @@ namespace TheBuryProject.Services
             // documento obligatorio no puede generarse, no queda un contrato a medias.
             var transaccionPropia = _documentoService != null && _context.Database.CurrentTransaction == null;
             await using var tx = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
+
+            // H-01: la venta nacida como cotización («COT-…») recibe su número «VTA-…» ANTES de emitir el contrato y el
+            // pagaré, que copian el número de la venta como instantánea; si no, quedarían impresos con el COT- viejo.
+            if (_generadorNumerosVenta != null)
+            {
+                var ventaRastreada = await _context.Ventas.FirstOrDefaultAsync(v => v.Id == datos.Venta.Id);
+                if (ventaRastreada != null && await _generadorNumerosVenta.AsegurarNumeroDeVentaAsync(ventaRastreada))
+                {
+                    await _context.SaveChangesAsync();
+                    datos.Venta.Numero = ventaRastreada.Numero;
+                    datos.Venta.NumeroOrigen = ventaRastreada.NumeroOrigen;
+                }
+            }
 
             var (numeroContrato, numeroPagare) = await ObtenerNumerosAsync();
             var fechaEmision = _reloj.AhoraUtc;

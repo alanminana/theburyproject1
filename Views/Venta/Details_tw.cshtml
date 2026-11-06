@@ -225,6 +225,10 @@
                     <div class="venta-hero-title space-y-2">
                         <div class="flex flex-wrap items-center gap-3">
                             <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
+                            @if (!string.IsNullOrWhiteSpace(Model.NumeroOrigen))
+                            {
+                                <span data-venta-numero-origen class="inline-flex items-center rounded-full border border-slate-700 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-400" title="Número que tenía la operación como cotización">Origen @Model.NumeroOrigen</span>
+                            }
                             <span data-venta-estado-badge class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
                             @if (Model.RequiereAutorizacion)
                             {

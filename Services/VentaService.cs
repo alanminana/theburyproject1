@@ -1236,6 +1236,8 @@ namespace TheBuryProject.Services
         // Tramo común de ConfirmarVentaAsync y ConfirmarVentaCreditoAsync (mismo orden en ambos).
         private async Task ValidarUnidadesYDescontarStockAsync(Venta venta)
         {
+            // H-01: el número «VTA-…» se asigna ANTES de que caja y stock copien el número como texto.
+            await _numberGenerator.AsegurarNumeroDeVentaAsync(venta);
             await ValidarUnidadesTrazablesAsync(venta);
             await DescontarStockYRegistrarMovimientos(venta);
             await MarcarUnidadesVendidasAsync(venta);

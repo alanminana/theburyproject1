@@ -567,13 +567,12 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     /// <summary>
-    /// H2-C2 (numeracion COT/VTA, solo caracteriza el comportamiento actual): una venta creada desde Venta/Create nace
-    /// como Cotizacion y por eso recibe el prefijo COT de la serie de ventas (COT-yyyyMM-NNNNNN); Confirmar NO
-    /// renumera, la venta conserva ese numero. Solo las ventas convertidas desde una Cotizacion reciben VTA
-    /// (ver Convertir_LaVentaLlevaNumeracionDeVenta_NoDeCotizacion). Ver docs/numeracion-cotizacion-venta.md.
+    /// H-01 (regla del propietario, supera la caracterizacion H2-C2): una venta creada desde Venta/Create nace como
+    /// Cotizacion con prefijo COT (COT-yyyyMM-NNNNNN); al CONFIRMAR recibe su numero VTA-yyyyMM-NNNNNN y conserva el
+    /// COT en NumeroOrigen. La referencia en caja/stock (copias de texto del numero) se verifica contra SQL en la auditoria funcional. Ver docs/numeracion-cotizacion-venta.md.
     /// </summary>
     [Fact]
-    public async Task CreateAsync_VentaNaceConPrefijoCot_YConfirmarConservaElNumero()
+    public async Task CreateAsync_VentaNaceConPrefijoCot_YConfirmarLaRenumeraAVta_ConservandoElOrigen()
     {
         var suffix = Interlocked.Increment(ref _counter).ToString();
         var cliente = new Cliente
@@ -618,8 +617,9 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
 
         var confirmada = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id);
         Assert.Equal(EstadoVenta.Confirmada, confirmada.Estado);
-        Assert.Equal(creada.Numero, confirmada.Numero);
-        Assert.StartsWith($"COT-{periodo}-", confirmada.Numero);
+        Assert.StartsWith($"VTA-{periodo}-", confirmada.Numero);
+        Assert.Equal(creada.Numero, confirmada.NumeroOrigen);
+        Assert.StartsWith($"COT-{periodo}-", confirmada.NumeroOrigen);
     }
 
     [Fact]

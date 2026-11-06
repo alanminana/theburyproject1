@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services
@@ -17,6 +18,34 @@ namespace TheBuryProject.Services
         {
             _context = context;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// H-01 (regla del propietario): una venta que nació como cotización («COT-…», wizard de Venta/Create) recibe su número
+        /// «VTA-…» en el PRIMER punto de emisión de un documento que copia el número (contrato/pagaré de crédito) o, si no hay
+        /// contrato, al confirmar, y conserva el «COT-…» en <see cref="Venta.NumeroOrigen"/>. Debe llamarse ANTES de
+        /// registrar caja/stock y dentro de la misma transacción; el llamador guarda los cambios.
+        /// No renumera: ventas ya renumeradas, que no nacieron con el prefijo de cotización, ni con prefijos configurados
+        /// iguales. Nunca toca documentos ya emitidos (las ventas confirmadas antes de H-01 conservan su número).
+        /// </summary>
+        /// <returns>true si renumeró.</returns>
+        public async Task<bool> AsegurarNumeroDeVentaAsync(Venta venta)
+        {
+            if (!string.IsNullOrEmpty(venta.NumeroOrigen))
+                return false;
+
+            var prefijoCotizacion = await ObtenerPrefijoVentaAsync(EstadoVenta.Cotizacion);
+            var prefijoVenta = await ObtenerPrefijoVentaAsync(EstadoVenta.Confirmada);
+            if (string.Equals(prefijoCotizacion, prefijoVenta, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!venta.Numero.StartsWith(prefijoCotizacion + "-", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            venta.NumeroOrigen = venta.Numero;
+            venta.Numero = await GenerarNumeroAsync(EstadoVenta.Confirmada);
+            _logger.LogInformation("Venta {Id}: renumerada {Origen} -> {Numero}", venta.Id, venta.NumeroOrigen, venta.Numero);
+            return true;
         }
 
         public async Task<string> GenerarNumeroAsync(EstadoVenta estado)

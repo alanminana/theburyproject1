@@ -257,6 +257,8 @@ namespace TheBuryProject.Helpers
 
             CreateMap<VentaViewModel, Venta>()
                 .ForMember(dest => dest.ClienteId, opt => opt.MapFrom(src => src.ClienteId > 0 ? (int?)src.ClienteId : null))
+                // H-01: el número de origen lo fija solo el servidor al renumerar; nunca viene del formulario.
+                .ForMember(dest => dest.NumeroOrigen, opt => opt.Ignore())
                 .ForMember(dest => dest.NombreClienteLibre, opt => opt.Ignore())
                 .ForMember(dest => dest.DniClienteLibre, opt => opt.Ignore())
                 .ForMember(dest => dest.TelefonoClienteLibre, opt => opt.Ignore())
