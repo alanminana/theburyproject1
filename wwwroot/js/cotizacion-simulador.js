@@ -89,6 +89,8 @@
         bestKey: null,
         pendingDeleteIndex: null,
         cotizacionGuardadaId: null,
+        guardadaParaConfirmar: null,
+        huellaUltimoGuardado: null,
         cotizacionGuardadaClienteId: null,
         busy: false,
         // Aptitud crediticia (preview, Crédito personal): cache por clienteId+monto
@@ -1466,6 +1468,36 @@
         show(els.bloqueos);
     }
 
+    // Payload de «guardar»: una sola fuente para guardarCotizacion() y para la huella con la que se decide si la
+    // cotización guardada sigue vigente antes de confirmar (H-13).
+    function construirPayloadGuardado() {
+        const payload = {
+            simulacion: buildRequest(),
+            opcionSeleccionada: state.opcionSeleccionada,
+            observaciones: els.observaciones?.value?.trim() || null,
+            nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
+            telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
+            dniClienteLibre: els.dniLibre?.value?.trim() || null,
+            fechaVencimiento: els.fechaVencimiento?.value || null,
+            // El tipo de envío viaja dentro de simulacion (tipoEnvio); el importe lo fija el servidor.
+            tieneEnvio: hayEnvioGuardado()
+        };
+        // VENTA-COTIZACION-EXCEPCION-01: sin selección normal vigente, el plan objetivo
+        // para excepción (state.excepcion) es lo que se guarda como elegido — así
+        // Cotizacion.MedioPagoSeleccionado queda en CreditoPersonal y la conversión
+        // (pasarAVenta) intenta esa alternativa en vez de caer al medio por defecto. El
+        // motivo/permiso de la excepción viajan aparte, sólo en pasarAVenta — guardar la
+        // cotización nunca autoriza nada por sí solo.
+        if (!payload.opcionSeleccionada && state.excepcion) {
+            payload.opcionSeleccionada = {
+                medioPago: state.excepcion.medioPago,
+                plan: state.excepcion.plan,
+                cantidadCuotas: state.excepcion.cantidadCuotas
+            };
+        }
+        return payload;
+    }
+
     // Persiste la cotización con la alternativa elegida y deja la UI en el estado
     // "guardado" real (mostrarAccionesPostGuardado). Devuelve el payload guardado, o
     // null si falló — así el caller decide si sigue (continuarConOpcion) o no
@@ -1495,31 +1527,10 @@
 
         setBusy(true);
         let data;
+        let huellaEnviada = null;
         try {
-            const payload = {
-                simulacion: buildRequest(),
-                opcionSeleccionada: state.opcionSeleccionada,
-                observaciones: els.observaciones?.value?.trim() || null,
-                nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
-                telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
-                dniClienteLibre: els.dniLibre?.value?.trim() || null,
-                fechaVencimiento: els.fechaVencimiento?.value || null,
-                // El tipo de envío viaja dentro de simulacion (tipoEnvio); el importe lo fija el servidor.
-                tieneEnvio: hayEnvioGuardado()
-            };
-            // VENTA-COTIZACION-EXCEPCION-01: sin selección normal vigente, el plan objetivo
-            // para excepción (state.excepcion) es lo que se guarda como elegido — así
-            // Cotizacion.MedioPagoSeleccionado queda en CreditoPersonal y la conversión
-            // (pasarAVenta) intenta esa alternativa en vez de caer al medio por defecto. El
-            // motivo/permiso de la excepción viajan aparte, sólo en pasarAVenta — guardar la
-            // cotización nunca autoriza nada por sí solo.
-            if (!payload.opcionSeleccionada && state.excepcion) {
-                payload.opcionSeleccionada = {
-                    medioPago: state.excepcion.medioPago,
-                    plan: state.excepcion.plan,
-                    cantidadCuotas: state.excepcion.cantidadCuotas
-                };
-            }
+            const payload = construirPayloadGuardado();
+            huellaEnviada = JSON.stringify(payload);
 
             data = await fetchJson(urls.guardar, {
                 method: 'POST',
@@ -1536,6 +1547,7 @@
         }
 
         state.cotizacionGuardadaId = data.id;
+        state.huellaUltimoGuardado = huellaEnviada;
         state.cotizacionGuardadaClienteId = state.clienteSeleccionado?.id || null;
         if (!silencioso) {
             setState('saved');
@@ -1666,6 +1678,9 @@
         try {
             const data = await guardarCotizacion({ silencioso: true });
             if (!data) return;
+            // Auditoría funcional (H-13): el modal de confirmación reutiliza ESTA cotización; antes
+            // continuarConOpcion() guardaba otra y la primera quedaba huérfana en estado Emitida.
+            state.guardadaParaConfirmar = { data, huella: state.huellaUltimoGuardado };
 
             const preflight = await ejecutarPreflight();
             if (!preflight) {
@@ -1705,7 +1720,18 @@
         state.confirmando = true;
         if (els.continuar) els.continuar.disabled = true;
         try {
-            const data = await guardarCotizacion({ silencioso: true });
+            // Reusa la cotización guardada por iniciarConfirmarMiVenta() mientras siga vigente (resetGuardado
+            // la invalida al editar); si no hay una vigente, guarda como antes.
+            const previa = state.guardadaParaConfirmar;
+            state.guardadaParaConfirmar = null;
+            // Se reutiliza solo si NADA de lo que se guarda cambió desde la verificación (opción de pago, observaciones,
+            // envío, cliente…): se compara contra la huella del payload; si difiere, se vuelve a guardar.
+            const vigente = previa
+                && state.cotizacionGuardadaId === previa.data.id
+                && previa.huella === JSON.stringify(construirPayloadGuardado());
+            const data = vigente
+                ? previa.data
+                : await guardarCotizacion({ silencioso: true });
             if (!data) return;
 
             showFeedback(`Cotización ${data.numero} guardada. Confirmando venta…`, 'ok');

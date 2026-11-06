@@ -1148,8 +1148,11 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 // reporte de comisiones vea esta venta (ticket 9).
                 ComisionPorcentajeAplicada = producto?.ComisionPorcentaje ?? 0m,
                 ComisionMonto = VentaComisionCalculator.Calcular(subtotal, producto?.ComisionPorcentaje ?? 0m),
-                CostoUnitarioAlMomento = 0m,
-                CostoTotalAlMomento = 0m,
+                // Auditoría funcional (H-14): el costo se congela al convertir (mismo criterio que Venta/Create);
+                // con 0 el reporte caía al PrecioCompra VIGENTE y la ganancia de ventas viejas cambiaba al
+                // modificar el costo del producto.
+                CostoUnitarioAlMomento = Redondear(producto?.PrecioCompra ?? 0m),
+                CostoTotalAlMomento = Redondear((producto?.PrecioCompra ?? 0m) * cantidad),
                 // Armado congelado en la cotización (precio global de ese momento, por unidad).
                 TipoArmado = detalle.TipoArmado,
                 EntregaCajaCerrada = detalle.EntregaCajaCerrada,

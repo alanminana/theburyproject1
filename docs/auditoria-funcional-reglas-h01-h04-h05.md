@@ -42,3 +42,16 @@ Auditoría funcional integral, tramo 2 (2026-11-05, `main` `6ad544d1`). Reglas p
 - Las facturas tienen su propia numeración (`FA-B-…`), no se tocan.
 
 **Propuesta:** (1) migración con `Ventas.NumeroOrigen` nullable; (2) renumerar en el punto único de confirmación; (3) decidir qué pasa con las ventas confirmadas existentes (base real sin ventas: nada que migrar); (4) definir el orden respecto del contrato de crédito (punto «a verificar»). **Pido autorización para la migración y para el punto (4) antes de implementar (primero verifico el orden real de generación del contrato).**
+
+### H-01 — verificación del orden de generación de documentos (fase 3, 2026-11-06)
+
+Resultado de las pruebas en clon QA (interfaz + SQL) y de la lectura del código:
+
+- **Ruta cotizador (`/Cotizacion`, «Confirmar Mi Venta» y conversión manual):** la venta nace **ya con `VTA-AAAAMM-NNNNNN`** (`CotizacionConversionService`), en estado *Cotización/Pendiente de financiación* y se confirma después. La cotización conserva su propio `COT-AAAAMMDD-NNNN`. Esta ruta **ya cumple** el criterio (el `COT-` de la cotización queda como referencia en `Cotizaciones.Numero`; la venta ya es `VTA-`).
+- **Ruta wizard (`/Venta/Create`):** la venta nace como `COT-AAAAMM-NNNNNN` (estado Cotización) y **conserva ese número aun confirmada** (probado: `COT-202611-000001` confirmada, con su ingreso de caja `COT-202611-000001`). Es la única ruta que necesita la renumeración de H-01.
+- **Contrato y pagaré de crédito personal:** se generan **antes de confirmar** la venta (en `Credito/ConfigurarVenta` → `ContratoVentaCredito/Generar`, con el número de la venta como instantánea `{{Venta.Numero}}`); `Venta/Confirmar` exige que el contrato exista. Por lo tanto, **renumerar al confirmar dejaría el contrato y el pagaré con el número `COT-…` ya impreso**.
+- **Cheque, caja y stock:** el número se copia como texto a `MovimientosCaja.Referencia` y a `MovimientosStock` **en la confirmación**; renumerar antes de ese punto no deja referencias huérfanas.
+
+**Diseño propuesto (consistente con «no alterar documentos existentes»):** asignar el número `VTA-` en el **primer punto de emisión de un documento que lo copia**: (a) al **generar el contrato/pagaré** de crédito, o (b) al **confirmar** si no hay contrato. En ambos casos antes de registrar caja/stock y dentro de la misma transacción; `NumeroOrigen` (nueva columna nullable en `Ventas`) guarda el `COT-…`. Las ventas ya confirmadas y los documentos ya emitidos **no se renumeran**.
+
+**Migración:** `Ventas.NumeroOrigen` (nvarchar(50) NULL, sin índice único). Se genera y prueba **solo en clones QA**; la aplicación a `TheBuryProjectDb` queda fuera de esta autorización.
