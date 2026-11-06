@@ -127,7 +127,7 @@ public class CambiarPasswordUsuarioViewModel
     public string UserName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "La nueva contraseña es requerida")]
-    [StringLength(100, ErrorMessage = "La contraseña debe tener entre 6 y 100 caracteres.", MinimumLength = 6)]
+    [StringLength(100, ErrorMessage = "La contraseña no cumple la longitud permitida: hasta 100 caracteres y, como mínimo, lo que exija la política de seguridad vigente.", MinimumLength = 6)]
     [DataType(DataType.Password)]
     [Display(Name = "Nueva Contraseña")]
     public string NewPassword { get; set; } = string.Empty;

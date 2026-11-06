@@ -1701,6 +1701,23 @@
         }
     }
 
+    // Cancela una cotización que este mismo flujo dejó reemplazada (H-13). Si el usuario no tiene permiso de cancelar o falla,
+    // no se interrumpe la confirmación: queda registrada como Emitida y se informa en consola.
+    async function cancelarCotizacionReemplazada(id) {
+        try {
+            await fetch(`${urls.convertirBase}/${id}/cancelar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({ motivo: 'Reemplazada por una nueva cotización antes de confirmar la venta' })
+            });
+        } catch (error) {
+            console.warn('No se pudo cancelar la cotización reemplazada', id, error);
+        }
+    }
+
     // Acción primaria dentro del modal de confirmación: crea/confirma/factura vía
     // /conversion/convertir — sólo se llama después de un preflight Listo=true.
     //
@@ -1729,9 +1746,13 @@
             const vigente = previa
                 && state.cotizacionGuardadaId === previa.data.id
                 && previa.huella === JSON.stringify(construirPayloadGuardado());
+            // Si lo guardado en la verificación ya no coincide con lo que se ve (cambió la opción de pago, etc.), la cotización
+            // previa quedaría huérfana en estado Emitida: se cancela (mejor esfuerzo) al reemplazarla por la nueva.
+            const huerfanaId = (!vigente && previa) ? previa.data.id : null;
             const data = vigente
                 ? previa.data
                 : await guardarCotizacion({ silencioso: true });
+            if (data && huerfanaId && data.id !== huerfanaId) await cancelarCotizacionReemplazada(huerfanaId);
             if (!data) return;
 
             showFeedback(`Cotización ${data.numero} guardada. Confirmando venta…`, 'ok');

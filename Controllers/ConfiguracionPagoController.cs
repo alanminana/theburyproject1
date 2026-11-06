@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
@@ -111,11 +112,36 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// H-15: el medio Cheque (y sus tarjetas/planes) lo administra solo un SuperAdmin. Devuelve true si la operación recae
+        /// sobre el medio Cheque (directamente, o por un plan/tarjeta que le pertenece) y el usuario NO es SuperAdmin.
+        /// </summary>
+        private async Task<bool> BloqueadaPorChequeAsync(int? medioId = null, int? planId = null, int? tarjetaId = null)
+        {
+            if (User.IsInRole(Roles.SuperAdmin))
+                return false;
+
+            var admin = await _configuracionPagoGlobalAdminService.ObtenerAdminGlobalAsync();
+            return admin.Medios.Any(m => m.TipoPago == TipoPago.Cheque
+                && ((medioId.HasValue && m.Id == medioId.Value)
+                    || (planId.HasValue && m.Planes.Any(p => p.Id == planId.Value))
+                    || (tarjetaId.HasValue && m.Tarjetas.Any(t => t.Id == tarjetaId.Value))));
+        }
+
+        private IActionResult ChequeSoloSuperAdmin(int medioId = 0)
+        {
+            TempData["Error"] = "El medio Cheque (sus planes y tarjetas) solo lo administra un SuperAdmin.";
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CrearTarjetaGlobal(TarjetaGlobalCommandViewModel tarjeta)
         {
+            if (await BloqueadaPorChequeAsync(medioId: tarjeta.ConfiguracionPagoId))
+                return ChequeSoloSuperAdmin(tarjeta.ConfiguracionPagoId);
+
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo crear la tarjeta.");
@@ -141,6 +167,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EditarTarjetaGlobal(int id, TarjetaGlobalCommandViewModel tarjeta)
         {
+            if (await BloqueadaPorChequeAsync(medioId: tarjeta.ConfiguracionPagoId, tarjetaId: id))
+                return ChequeSoloSuperAdmin(tarjeta.ConfiguracionPagoId);
+
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo editar la tarjeta.");
@@ -168,6 +197,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CambiarEstadoTarjetaGlobal(int id, bool activa, int medioId = 0)
         {
+            if (await BloqueadaPorChequeAsync(tarjetaId: id))
+                return ChequeSoloSuperAdmin(medioId);
+
             try
             {
                 var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoTarjetaGlobalAsync(id, activa);
@@ -189,6 +221,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CrearPlanGlobal(PlanPagoGlobalCommandViewModel plan)
         {
+            if (await BloqueadaPorChequeAsync(medioId: plan.ConfiguracionPagoId))
+                return ChequeSoloSuperAdmin(plan.ConfiguracionPagoId);
+
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo crear el plan global.");
@@ -214,6 +249,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EditarPlanGlobal(int id, PlanPagoGlobalCommandViewModel plan)
         {
+            if (await BloqueadaPorChequeAsync(medioId: plan.ConfiguracionPagoId, planId: id))
+                return ChequeSoloSuperAdmin(plan.ConfiguracionPagoId);
+
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo editar el plan global.");
@@ -241,6 +279,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EliminarTarjetaGlobal(int id, int medioId = 0)
         {
+            if (await BloqueadaPorChequeAsync(tarjetaId: id))
+                return ChequeSoloSuperAdmin(medioId);
+
             try
             {
                 var eliminado = await _configuracionPagoGlobalAdminService.EliminarTarjetaGlobalAsync(id);
@@ -268,6 +309,15 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(MediosPago));
             }
 
+            // H-15: el medio Cheque solo lo habilita un SuperAdmin y nace SIEMPRE inactivo (hasta resolver la decisión pendiente de
+            // la cuota con cheque rechazado); activarlo es una acción explícita posterior.
+            var esCheque = command.TipoPago == TipoPago.Cheque;
+            if (esCheque && !User.IsInRole(Roles.SuperAdmin))
+            {
+                TempData["Error"] = "Solo un SuperAdmin puede crear el medio Cheque.";
+                return RedirectToAction(nameof(MediosPago));
+            }
+
             try
             {
                 var vm = new ConfiguracionPagoViewModel
@@ -275,10 +325,12 @@ namespace TheBuryProject.Controllers
                     TipoPago = command.TipoPago,
                     Nombre = command.Nombre.Trim(),
                     Descripcion = string.IsNullOrWhiteSpace(command.Descripcion) ? null : command.Descripcion.Trim(),
-                    Activo = command.Activo
+                    Activo = esCheque ? false : command.Activo
                 };
                 var resultado = await _configuracionPagoService.CreateAsync(vm);
-                TempData["Success"] = "Método de pago creado correctamente.";
+                TempData["Success"] = esCheque
+                    ? "Medio Cheque creado INACTIVO. Un SuperAdmin debe activarlo para que aparezca en las ventas."
+                    : "Método de pago creado correctamente.";
                 return RedirectToAction(nameof(MediosPago), new { medioId = resultado.Id });
             }
             catch (Exception ex)
@@ -297,6 +349,13 @@ namespace TheBuryProject.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo guardar el método de pago.");
+                return RedirectToAction(nameof(MediosPago), new { medioId = id });
+            }
+
+            var medioActual = await _configuracionPagoService.GetByIdAsync(id);
+            if (medioActual?.TipoPago == TipoPago.Cheque && !User.IsInRole(Roles.SuperAdmin))
+            {
+                TempData["Error"] = "Solo un SuperAdmin puede modificar o activar el medio Cheque.";
                 return RedirectToAction(nameof(MediosPago), new { medioId = id });
             }
 
@@ -321,6 +380,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EliminarMedioPagoGlobal(int id)
         {
+            if (await BloqueadaPorChequeAsync(medioId: id))
+                return ChequeSoloSuperAdmin(id);
+
             try
             {
                 var eliminado = await _configuracionPagoGlobalAdminService.EliminarMedioPagoAsync(id);
@@ -342,6 +404,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo, int medioId = 0)
         {
+            if (await BloqueadaPorChequeAsync(planId: id))
+                return ChequeSoloSuperAdmin(medioId);
+
             try
             {
                 var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoPlanGlobalAsync(id, activo);
