@@ -584,7 +584,6 @@ namespace TheBuryProject.Services
                         .ThenInclude(cr => cr.Cliente)
                     .Where(c => !c.IsDeleted
                              && !c.Credito.IsDeleted
-                             && !c.Credito.Cliente.IsDeleted
                              && (c.Estado == EstadoCuota.Pendiente
                                  || c.Estado == EstadoCuota.Vencida
                                  || c.Estado == EstadoCuota.Parcial)

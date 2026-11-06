@@ -217,20 +217,76 @@ namespace TheBuryProject.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
+            // H-24: regla aprobada. La baja se rechaza (validación del servidor) mientras el cliente tenga créditos
+            // vigentes o deuda pendiente. Corre en una transacción con los locks de sus créditos y de la fila del
+            // cliente: el alta de créditos toma el mismo lock del cliente (ClienteConcurrencia), así que no puede colarse un
+            // crédito entre la comprobación y la baja. La baja es lógica: no toca ventas, créditos, cuotas ni documentos del cliente.
+            await using var transaccionPropia = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
+
+            // Orden de locks: Créditos del cliente (ascendente) -> Cliente. Es el mismo orden que cobros y punitorios (toman
+            // el Crédito y luego actualizan el Cliente por scoring); el alta de crédito toma solo el Cliente. Un crédito creado
+            // entre la lectura de los ids y el lock del cliente no se bloquea, pero la comprobación posterior lo ve y rechaza.
+            var idsCreditos = await _context.Creditos.AsNoTracking()
+                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
+                .Select(cr => cr.Id)
+                .ToListAsync();
+            await CreditoConcurrencia.BloquearOrdenadosAsync(_context, idsCreditos);
+            await ClienteConcurrencia.BloquearAsync(_context, id);
+
             var cliente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (cliente == null)
                 return false;
 
+            var motivo = await ObtenerMotivoBloqueoBajaInternoAsync(id);
+            if (motivo != null)
+                throw new InvalidOperationException(motivo);
+
             cliente.IsDeleted = true;
             cliente.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            if (transaccionPropia != null)
+                await transaccionPropia.CommitAsync();
 
             _logger.LogInformation("Cliente eliminado (soft-delete) - Id {ClienteId}", id);
 
             return true;
+        }
+
+        public Task<string?> ObtenerMotivoBloqueoBajaAsync(int id) => ObtenerMotivoBloqueoBajaInternoAsync(id);
+
+        /// <summary>Motivo por el que NO se puede dar de baja al cliente (créditos vigentes o cuotas impagas); null si se puede.</summary>
+        private async Task<string?> ObtenerMotivoBloqueoBajaInternoAsync(int id)
+        {
+            var creditos = await _context.Creditos
+                .AsNoTracking()
+                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
+                .Select(cr => new { cr.Numero, cr.Estado })
+                .ToListAsync();
+
+            var vigentes = creditos.Where(cr => !ClienteConcurrencia.EsCreditoCerrado(cr.Estado)).ToList();
+            if (vigentes.Count > 0)
+            {
+                var detalle = string.Join(", ", vigentes.Take(3).Select(cr => cr.Numero));
+                return $"No se puede dar de baja al cliente: tiene {vigentes.Count} crédito(s) vigente(s) o con deuda pendiente ({detalle}{(vigentes.Count > 3 ? ", …" : "")}). " +
+                       "Finalizá o cancelá esos créditos antes de darlo de baja.";
+            }
+
+            var cuotasImpagas = await _context.Cuotas.AnyAsync(cu =>
+                !cu.IsDeleted &&
+                cu.Credito.ClienteId == id &&
+                !cu.Credito.IsDeleted &&
+                cu.Estado != EstadoCuota.Pagada &&
+                cu.Estado != EstadoCuota.Cancelada &&
+                cu.Credito.Estado != EstadoCredito.Cancelado &&
+                cu.Credito.Estado != EstadoCredito.Rechazado);
+            return cuotasImpagas
+                ? "No se puede dar de baja al cliente: tiene cuotas pendientes de pago. Cobrá o cancelá esas cuotas antes de darlo de baja."
+                : null;
         }
 
         public async Task<IEnumerable<Cliente>> SearchAsync(

@@ -33,13 +33,12 @@ namespace TheBuryProject.Services
         };
 
         /// <summary>
-        /// Ventas que cuentan en Reportes y Dashboard (única definición): comerciales, no eliminadas y de un cliente no
-        /// eliminado (o sin cliente). Las devoluciones restan solo de estas ventas.
+        /// Ventas que cuentan en Reportes y Dashboard (única definición): comerciales y no eliminadas, sin importar si el
+        /// cliente fue dado de baja (H-24: el histórico y sus importes se conservan). Las devoluciones restan solo de estas ventas.
         /// </summary>
         public static IQueryable<Venta> Comerciales(this IQueryable<Venta> ventas) =>
             ventas.Where(v => !v.IsDeleted &&
-                              EstadosVentaComerciales.Contains(v.Estado) &&
-                              (v.Cliente == null || !v.Cliente.IsDeleted));
+                              EstadosVentaComerciales.Contains(v.Estado));
 
         /// <summary>
         /// Ticket promedio del período (única definición para Dashboard y Reportes): (ventas brutas del período − devoluciones

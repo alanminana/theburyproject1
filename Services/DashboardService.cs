@@ -94,7 +94,7 @@ namespace TheBuryProject.Services
                 EstadoCredito.PendienteConfiguracion
             };
             var creditosRaw = await _context.Creditos
-                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted && estadosOperativos.Contains(c.Estado))
+                .Where(c => !c.IsDeleted && c.Cliente != null && estadosOperativos.Contains(c.Estado))
                 .Select(c => new { c.TotalAPagar, c.SaldoPendiente })
                 .ToListAsync();
             var creditosActivos    = creditosRaw.Count;
@@ -104,7 +104,7 @@ namespace TheBuryProject.Services
             // Cuotas pendientes
             var cuotasPendientesRaw = await _context.Cuotas
                 .Where(c => !c.IsDeleted && c.Credito != null && !c.Credito.IsDeleted &&
-                            c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
+                            c.Credito.Cliente != null &&
                             EstadosCuotaConDeuda.Contains(c.Estado))
                 .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.MontoPagado })
                 .ToListAsync();
@@ -114,7 +114,7 @@ namespace TheBuryProject.Services
             // Cuotas pagadas: fetch raw para evitar .Value.Date
             var cuotasPagadasRaw = await _context.Cuotas
                 .Where(c => !c.IsDeleted && c.Credito != null && !c.Credito.IsDeleted &&
-                            c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
+                            c.Credito.Cliente != null &&
                             c.Estado == EstadoCuota.Pagada && c.FechaPago.HasValue &&
                             c.FechaPago >= inicioAnio)
                 .Select(c => new { c.FechaPago, c.MontoPagado })
@@ -216,7 +216,6 @@ namespace TheBuryProject.Services
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted &&
                             EstadosCuotaConDeuda.Contains(c.Estado))
                 .CountAsync();
 
@@ -227,7 +226,6 @@ namespace TheBuryProject.Services
                            c.Credito != null &&
                            !c.Credito.IsDeleted &&
                            c.Credito.Cliente != null &&
-                           !c.Credito.Cliente.IsDeleted &&
                            EstadosCuotaConDeuda.Contains(c.Estado) &&
                            c.FechaVencimiento < _reloj.InicioDiaComercial);
 
@@ -244,7 +242,6 @@ namespace TheBuryProject.Services
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted &&
                             c.FechaVencimiento >= inicioMes)
                 .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.Estado, c.FechaPago, c.MontoPagado })
                 .ToListAsync();
@@ -347,7 +344,6 @@ namespace TheBuryProject.Services
                              vd.Venta != null &&
                              !vd.Venta.IsDeleted &&
                              EstadosVentaComerciales.Contains(vd.Venta.Estado) &&
-                             (vd.Venta.Cliente == null || !vd.Venta.Cliente.IsDeleted) && // H-25: mismo universo que «Ventas del mes»
                              vd.Venta.FechaVenta >= inicioMes)
                 .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal, vd.SubtotalFinal })
                 .ToListAsync();
@@ -369,7 +365,7 @@ namespace TheBuryProject.Services
         private async Task<List<EstadoCreditoDto>> GetCreditosPorEstadoAsync()
         {
             var raw = await _context.Creditos
-                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted)
+                .Where(c => !c.IsDeleted && c.Cliente != null)
                 .Select(c => new { c.Estado, c.TotalAPagar })
                 .ToListAsync();
 
@@ -395,7 +391,6 @@ namespace TheBuryProject.Services
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted &&
                             c.FechaVencimiento >= inicioMes)
                 .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.Estado, c.MontoPagado })
                 .ToListAsync();
@@ -441,7 +436,6 @@ namespace TheBuryProject.Services
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted &&
                             (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Parcial) &&
                             c.FechaVencimiento >= hoy &&
                             c.FechaVencimiento <= en7Dias)
@@ -503,7 +497,6 @@ namespace TheBuryProject.Services
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted &&
                             (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial) &&
                             c.FechaVencimiento < hoy)
                 .OrderBy(c => c.FechaVencimiento) // Más antiguas primero

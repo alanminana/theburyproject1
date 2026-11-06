@@ -189,7 +189,6 @@ namespace TheBuryProject.Services
                         .ThenInclude(cr => cr!.Cliente)
                     .Where(c => !c.IsDeleted &&
                            !c.Credito!.IsDeleted &&
-                           !c.Credito!.Cliente!.IsDeleted &&
                            c.Estado != EstadoCuota.Pagada &&
                            c.Estado != EstadoCuota.Cancelada &&
                            c.MontoPagado < c.MontoTotal &&
@@ -436,7 +435,6 @@ namespace TheBuryProject.Services
                         .ThenInclude(cr => cr!.Cliente)
                     .Where(c => !c.IsDeleted &&
                            !c.Credito!.IsDeleted &&
-                           !c.Credito!.Cliente!.IsDeleted &&
                            c.Estado == EstadoCuota.Pendiente &&
                            c.FechaVencimiento > hoy &&
                            c.FechaVencimiento <= proximosDias)
@@ -515,7 +513,6 @@ namespace TheBuryProject.Services
             var clienteIds = await _context.Cuotas
                 .Where(c => !c.IsDeleted &&
                        !c.Credito!.IsDeleted &&
-                       !c.Credito!.Cliente!.IsDeleted &&
                        c.Estado != EstadoCuota.Pagada &&
                        c.Estado != EstadoCuota.Cancelada &&
                        c.MontoPagado < c.MontoTotal &&
@@ -859,7 +856,7 @@ namespace TheBuryProject.Services
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .Where(a => !a.IsDeleted && !a.Resuelta && a.Tipo != TipoAlertaCobranza.ProximoVencimiento
-                                && a.Cliente != null && !a.Cliente.IsDeleted)
+                                && a.Cliente != null)
                     .AsQueryable();
 
                 // Materializar alertas con datos de cliente para poder usar ToDisplayName() en memoria

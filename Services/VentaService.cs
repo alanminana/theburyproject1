@@ -125,8 +125,8 @@ namespace TheBuryProject.Services
                 .Include(v => v.Envio)
                 .Where(v =>
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)))
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)))
                 .AsQueryable();
 
             query = AplicarFiltros(query, filter);
@@ -154,8 +154,8 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(v =>
                     v.Id == id &&
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)));
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)));
 
             if (venta == null)
             {
@@ -812,6 +812,17 @@ namespace TheBuryProject.Services
         /// </summary>
         public async Task CrearCreditoPendienteParaVentaAsync(Venta venta)
         {
+            // H-24: se serializa con la baja del cliente (lock de la fila de Clientes) y se rechaza si ya fue dado de baja.
+            await using var transaccionCredito = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
+            if (venta.ClienteId is int clienteDelCredito)
+            {
+                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito);
+                if (!await ClienteConcurrencia.EstaActivoAsync(_context, clienteDelCredito))
+                    throw new InvalidOperationException("Cliente no encontrado o dado de baja: no se puede crear el crédito.");
+            }
+
             // Generar número de crédito
             var ultimoCredito = await _context.Creditos
                 .OrderByDescending(c => c.Id)
@@ -857,6 +868,8 @@ namespace TheBuryProject.Services
             // Asociar crédito a la venta
             venta.CreditoId = credito.Id;
             await _context.SaveChangesAsync();
+            if (transaccionCredito != null)
+                await transaccionCredito.CommitAsync();
 
             _logger.LogInformation(
                 "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}. CuotasPreseleccionadas:{Cuotas} AnticipoPreseleccionado:{Anticipo}",
@@ -1056,6 +1069,28 @@ namespace TheBuryProject.Services
 
         #region Flujo de Venta
 
+        /// <summary>
+        /// H-24: confirmar una venta es una operación NUEVA y no se admite sobre un cliente dado de baja. Toma el lock del cliente
+        /// (orden Crédito -> Cliente -> Venta, el mismo que usa la baja) y comprueba bajo ese lock que sigue activo,
+        /// de modo que una baja concurrente no se cuele entre la comprobación y el descuento de stock / asiento de caja.
+        /// Las ventas ya confirmadas/facturadas/entregadas no se vuelven a evaluar acá (su reintento se rechaza por estado).
+        /// </summary>
+        private async Task AsegurarClienteActivoParaConfirmarAsync(int ventaId)
+        {
+            var refs = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.Id == ventaId && !v.IsDeleted)
+                .Select(v => new { v.ClienteId, v.Estado })
+                .FirstOrDefaultAsync();
+            if (refs?.ClienteId is not int clienteId ||
+                refs.Estado is EstadoVenta.Confirmada or EstadoVenta.Facturada or EstadoVenta.Entregada)
+                return;
+
+            await ClienteConcurrencia.BloquearAsync(_context, clienteId);
+            if (!await ClienteConcurrencia.EstaActivoAsync(_context, clienteId))
+                throw new InvalidOperationException("El cliente de la venta fue dado de baja: no se puede confirmar la venta.");
+        }
+
         public async Task<bool> ConfirmarVentaAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -1065,12 +1100,14 @@ namespace TheBuryProject.Services
                 var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                     "No se puede confirmar la venta sin una caja abierta para el usuario actual.");
                 _logger.LogInformation("ConfirmarVentaAsync inicio venta {Id}", id);
+                await AsegurarClienteActivoParaConfirmarAsync(id);
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
                 {
                     _logger.LogWarning("ConfirmarVentaAsync venta {Id} no encontrada", id);
                     return false;
                 }
+
 
                 _logger.LogInformation(
                     "ConfirmarVentaAsync venta {Id} cargada. Estado:{Estado} TipoPago:{TipoPago} Detalles:{Detalles}",
@@ -1236,6 +1273,9 @@ namespace TheBuryProject.Services
                     .FirstOrDefaultAsync();
                 if (creditoIdBloqueado.HasValue)
                     await CreditoConcurrencia.BloquearAsync(_context, creditoIdBloqueado.Value);
+                // H-24: luego el lock del cliente (orden Crédito -> Cliente -> Venta, el de la baja y el del scoring de los cobros);
+                // un cliente dado de baja no financia ventas nuevas.
+                await AsegurarClienteActivoParaConfirmarAsync(id);
                 await _context.Ventas
                     .Where(v => v.Id == id && !v.IsDeleted)
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
@@ -3079,8 +3119,7 @@ namespace TheBuryProject.Services
                                           v.CreditoId != null &&
                                           v.Credito != null &&
                                           !v.Credito.IsDeleted &&
-                                          v.Credito.Cliente != null &&
-                                          !v.Credito.Cliente.IsDeleted);
+                                          v.Credito.Cliente != null);
 
             if (venta?.Credito == null)
                 return null;
@@ -3461,8 +3500,8 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(v =>
                     v.Id == id &&
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)));
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)));
         }
 
         private async Task<Venta?> ObtenerVentaPendienteAutorizacionAsync(int id)
@@ -4885,8 +4924,7 @@ namespace TheBuryProject.Services
                 .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
                 .FirstOrDefaultAsync(c => c.Id == venta.CreditoId!.Value &&
                                           !c.IsDeleted &&
-                                          c.Cliente != null &&
-                                          !c.Cliente.IsDeleted);
+                                          c.Cliente != null);
             if (credito == null)
                 return;
 

@@ -392,6 +392,22 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task ConfirmarVentaCredito_H24_ClienteDadoDeBaja_NoGeneraFinanciacionNueva()
+    {
+        await SetLimitePuntaje5Async(LimitePuntaje5);
+        var (venta, credito, cliente) = await SeedVentaCreditoConfigurableAsync(total: 2_000m, cantidadCuotas: 4);
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Contains("dado de baja", error.Message);
+        _context.ChangeTracker.Clear();
+        Assert.Empty(await _context.Cuotas.Where(c => c.CreditoId == credito.Id).ToListAsync());
+        Assert.NotEqual(EstadoCredito.Generado, (await _context.Creditos.FirstAsync(c => c.Id == credito.Id)).Estado);
+    }
+
+    [Fact]
     public async Task CancelarVentaCreditoGenerada_LiberaCupo()
     {
         await SetLimitePuntaje5Async(LimitePuntaje5);

@@ -21,6 +21,9 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<Cliente> UpdateAsync(Cliente cliente, bool actualizarConfiguracionCredito) => UpdateAsync(cliente);
         Task<bool> DeleteAsync(int id);
+
+        /// <summary>H-24: motivo por el que no se puede dar de baja al cliente (créditos vigentes / cuotas impagas); null si se puede.</summary>
+        Task<string?> ObtenerMotivoBloqueoBajaAsync(int id);
         Task<IEnumerable<Cliente>> SearchAsync(
             string? searchTerm = null,
             string? tipoDocumento = null,

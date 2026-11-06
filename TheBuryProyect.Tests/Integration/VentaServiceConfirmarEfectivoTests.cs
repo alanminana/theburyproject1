@@ -369,6 +369,22 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVenta_H24_ClienteDadoDeBaja_NoConfirmaNiCobra()
+    {
+        var (venta, _) = await SeedVentaEfectivo();
+        var cliente = await _context.Clientes.SingleAsync(c => c.Id == venta.ClienteId);
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("dado de baja", error.Message);
+        Assert.Null(_cajaStub.UltimoMontoVenta);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Presupuesto, (await _context.Ventas.FindAsync(venta.Id))!.Estado);
+    }
+
+    [Fact]
     public async Task ConfirmarVenta_Cheque_SinDatosDelCheque_NoCobra()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Cheque);

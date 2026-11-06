@@ -133,8 +133,7 @@ namespace TheBuryProject.Services
                 var query = _context.Creditos
                     .AsNoTracking()
                     .Where(c => !c.IsDeleted &&
-                                c.Cliente != null &&
-                                !c.Cliente.IsDeleted)
+                                c.Cliente != null)
                     .Include(c => c.Cliente)
                     .Include(c => c.Garante)
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
@@ -227,8 +226,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted).OrderBy(cu => cu.NumeroCuota))
                     .FirstOrDefaultAsync(c => c.Id == id &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
 
                 if (credito == null)
                     return null;
@@ -283,8 +281,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted).OrderBy(cu => cu.NumeroCuota))
                     .Where(c => c.ClienteId == clienteId &&
                                 !c.IsDeleted &&
-                                c.Cliente != null &&
-                                !c.Cliente.IsDeleted)
+                                c.Cliente != null)
                     .OrderByDescending(c => c.FechaSolicitud)
                     .ToListAsync();
 
@@ -304,7 +301,13 @@ namespace TheBuryProject.Services
         {
             try
             {
-                // Obtener cliente para validaciones
+                // H-24: el alta de un crédito se serializa con la baja del cliente (mismo lock de la fila de Clientes).
+                await using var transaccionAlta = _context.Database.CurrentTransaction == null
+                    ? await _context.Database.BeginTransactionAsync()
+                    : null;
+                await ClienteConcurrencia.BloquearAsync(_context, viewModel.ClienteId);
+
+                // Obtener cliente para validaciones (leído después del lock: si lo dieron de baja, se rechaza)
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c => c.Id == viewModel.ClienteId && !c.IsDeleted);
                 if (cliente == null)
@@ -328,6 +331,8 @@ namespace TheBuryProject.Services
                 var credito = _mapper.Map<Credito>(viewModel);
                 _context.Creditos.Add(credito);
                 await _context.SaveChangesAsync();
+                if (transaccionAlta != null)
+                    await transaccionAlta.CommitAsync();
 
                 viewModel.Id = credito.Id;
 
@@ -363,17 +368,35 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // H-24: se serializa con la baja del cliente y todo se evalúa bajo esos locks.
+                await using var transaccionUpdate = _context.Database.CurrentTransaction == null
+                    ? await _context.Database.BeginTransactionAsync()
+                    : null;
+                var clienteDelCredito = await _context.Creditos.AsNoTracking()
+                    .Where(c => c.Id == viewModel.Id && !c.IsDeleted)
+                    .Select(c => (int?)c.ClienteId)
+                    .FirstOrDefaultAsync();
+                if (clienteDelCredito == null)
+                    return false;
+                // Orden Crédito -> Cliente (igual que cobros/punitorios y la baja): nunca Cliente antes que Crédito.
+                await CreditoConcurrencia.BloquearAsync(_context, viewModel.Id);
+                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito.Value);
+
                 var credito = await _context.Creditos.FirstOrDefaultAsync(c => c.Id == viewModel.Id && !c.IsDeleted);
                 if (credito == null)
                     return false;
 
-                var clienteActivo = await _context.Clientes
-                    .AnyAsync(c => c.Id == credito.ClienteId && !c.IsDeleted);
+                var clienteActivo = await ClienteConcurrencia.EstaActivoAsync(_context, credito.ClienteId);
                 if (!clienteActivo)
                     return false;
 
+                var clienteOriginalId = credito.ClienteId;
                 _mapper.Map(viewModel, credito);
+                // H-24: un crédito no se reasigna a otro cliente (podría ser uno dado de baja ni se serializaría con su baja).
+                credito.ClienteId = clienteOriginalId;
                 await _context.SaveChangesAsync();
+                if (transaccionUpdate != null)
+                    await transaccionUpdate.CommitAsync();
                 return true;
             }
             catch (Exception ex)
@@ -392,8 +415,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == id &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
 
                 if (credito == null)
                     return false;
@@ -431,8 +453,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
 
                 if (credito == null)
                     return false;
@@ -474,8 +495,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
                 if (credito == null)
                     return false;
 
@@ -514,8 +534,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
 
                 if (credito == null)
                     return false;
@@ -570,8 +589,7 @@ namespace TheBuryProject.Services
                     .ThenInclude(c => c.Cliente)
                 .FirstOrDefaultAsync(c => c.Id == cuotaId &&
                                           !c.IsDeleted &&
-                                          !c.Credito.IsDeleted &&
-                                          !c.Credito.Cliente.IsDeleted,
+                                          !c.Credito.IsDeleted,
                     cancellationToken);
 
             if (cuota is null)
@@ -1911,8 +1929,7 @@ namespace TheBuryProject.Services
                 .Where(c => cuotaIds.Contains(c.Id) &&
                             !c.IsDeleted &&
                             !c.Credito.IsDeleted &&
-                            c.Credito.Cliente != null &&
-                            !c.Credito.Cliente.IsDeleted)
+                            c.Credito.Cliente != null)
                 .ToListAsync(cancellationToken);
 
             var cuotasEncontradas = cuotas.Select(c => c.Id).ToHashSet();
@@ -2052,7 +2069,6 @@ namespace TheBuryProject.Services
                         .ThenInclude(cr => cr.Cliente)
                     .Where(c => !c.IsDeleted &&
                                !c.Credito.IsDeleted &&
-                               !c.Credito.Cliente.IsDeleted &&
                                c.FechaVencimiento < inicioHoy &&
                                (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Parcial || c.Estado == EstadoCuota.Vencida))
                     .OrderBy(c => c.FechaVencimiento)
@@ -2186,8 +2202,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                               !c.IsDeleted &&
-                                              c.Cliente != null &&
-                                              !c.Cliente.IsDeleted);
+                                              c.Cliente != null);
 
                 if (credito == null)
                     return false;
