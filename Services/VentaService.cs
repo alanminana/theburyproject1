@@ -1069,6 +1069,28 @@ namespace TheBuryProject.Services
 
         #region Flujo de Venta
 
+        /// <summary>
+        /// H-24: confirmar una venta es una operación NUEVA y no se admite sobre un cliente dado de baja. Toma el lock del cliente
+        /// (primero en el orden Cliente -> Crédito -> Venta, el mismo que usa la baja) y comprueba bajo ese lock que sigue activo,
+        /// de modo que una baja concurrente no se cuele entre la comprobación y el descuento de stock / asiento de caja.
+        /// Las ventas ya confirmadas/facturadas/entregadas no se vuelven a evaluar acá (su reintento se rechaza por estado).
+        /// </summary>
+        private async Task AsegurarClienteActivoParaConfirmarAsync(int ventaId)
+        {
+            var refs = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.Id == ventaId && !v.IsDeleted)
+                .Select(v => new { v.ClienteId, v.Estado })
+                .FirstOrDefaultAsync();
+            if (refs?.ClienteId is not int clienteId ||
+                refs.Estado is EstadoVenta.Confirmada or EstadoVenta.Facturada or EstadoVenta.Entregada)
+                return;
+
+            await ClienteConcurrencia.BloquearAsync(_context, clienteId);
+            if (!await ClienteConcurrencia.EstaActivoAsync(_context, clienteId))
+                throw new InvalidOperationException("El cliente de la venta fue dado de baja: no se puede confirmar la venta.");
+        }
+
         public async Task<bool> ConfirmarVentaAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -1078,6 +1100,7 @@ namespace TheBuryProject.Services
                 var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                     "No se puede confirmar la venta sin una caja abierta para el usuario actual.");
                 _logger.LogInformation("ConfirmarVentaAsync inicio venta {Id}", id);
+                await AsegurarClienteActivoParaConfirmarAsync(id);
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
                 {
@@ -1085,10 +1108,6 @@ namespace TheBuryProject.Services
                     return false;
                 }
 
-                // H-24: las ventas de clientes dados de baja siguen visibles, pero no se pueden CONFIRMAR operaciones nuevas.
-                if (venta.Cliente?.IsDeleted == true &&
-                    venta.Estado is not (EstadoVenta.Confirmada or EstadoVenta.Facturada or EstadoVenta.Entregada))
-                    throw new InvalidOperationException("El cliente de la venta fue dado de baja: no se puede confirmar la venta.");
 
                 _logger.LogInformation(
                     "ConfirmarVentaAsync venta {Id} cargada. Estado:{Estado} TipoPago:{TipoPago} Detalles:{Detalles}",
@@ -1243,6 +1262,9 @@ namespace TheBuryProject.Services
                 var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                     "No se puede confirmar la venta sin una caja abierta para el usuario actual.");
                 _logger.LogInformation("ConfirmarVentaCreditoAsync inicio venta {Id}", id);
+
+                // H-24: primero el lock del cliente (orden Cliente -> Crédito -> Venta); un cliente dado de baja no financia ventas nuevas.
+                await AsegurarClienteActivoParaConfirmarAsync(id);
 
                 // FIN-ANT-P0: mismo orden de locks que CancelarVentaAsync (Crédito -> Venta). Confirmar y cancelar la
                 // misma venta se serializan: la cancelación que espera el lock del crédito lee, al despertar, la

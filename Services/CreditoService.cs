@@ -368,12 +368,24 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // H-24: se serializa con la baja del cliente (orden Cliente -> Crédito) y todo se evalúa bajo esos locks.
+                await using var transaccionUpdate = _context.Database.CurrentTransaction == null
+                    ? await _context.Database.BeginTransactionAsync()
+                    : null;
+                var clienteDelCredito = await _context.Creditos.AsNoTracking()
+                    .Where(c => c.Id == viewModel.Id && !c.IsDeleted)
+                    .Select(c => (int?)c.ClienteId)
+                    .FirstOrDefaultAsync();
+                if (clienteDelCredito == null)
+                    return false;
+                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito.Value);
+                await CreditoConcurrencia.BloquearAsync(_context, viewModel.Id);
+
                 var credito = await _context.Creditos.FirstOrDefaultAsync(c => c.Id == viewModel.Id && !c.IsDeleted);
                 if (credito == null)
                     return false;
 
-                var clienteActivo = await _context.Clientes
-                    .AnyAsync(c => c.Id == credito.ClienteId && !c.IsDeleted);
+                var clienteActivo = await ClienteConcurrencia.EstaActivoAsync(_context, credito.ClienteId);
                 if (!clienteActivo)
                     return false;
 
@@ -382,6 +394,8 @@ namespace TheBuryProject.Services
                 // H-24: un crédito no se reasigna a otro cliente (podría ser uno dado de baja ni se serializaría con su baja).
                 credito.ClienteId = clienteOriginalId;
                 await _context.SaveChangesAsync();
+                if (transaccionUpdate != null)
+                    await transaccionUpdate.CommitAsync();
                 return true;
             }
             catch (Exception ex)

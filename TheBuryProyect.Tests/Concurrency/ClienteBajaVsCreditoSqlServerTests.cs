@@ -348,4 +348,63 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         Assert.StartsWith("RECHAZADA", rBaja);
         Assert.False(eliminado);
     }
+
+    private Task<string> ActualizarCredito(int creditoId, int clienteId, string numero, GatePlan? plan = null) =>
+        Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<ICreditoService>();
+                var ok = await svc.UpdateAsync(new CreditoViewModel { Id = creditoId, ClienteId = clienteId, Numero = numero, MontoSolicitado = 0m, Estado = EstadoCredito.Aprobado });
+                return ok ? "OK" : "NO_ACTUALIZADO";
+            }
+            catch (InvalidOperationException ex)
+            {
+                return "RECHAZADA: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                return Clasificar(ex);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+        });
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-06] actualizacion en vuelo de un credito cerrado (lo reabre a Aprobado) + baja: gana la actualizacion y la baja se rechaza")]
+    public async Task ActualizacionEnVuelo_ReabreCreditoCerrado_LaBajaSeRechaza()
+    {
+        var cliente = await CrearClienteAsync();
+        int creditoId;
+        var numeroCredito = "H24U-" + Guid.NewGuid().ToString("N")[..8];
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var credito = new Credito { ClienteId = cliente, Numero = numeroCredito, Estado = EstadoCredito.Finalizado, SaldoPendiente = 0m };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+            creditoId = credito.Id;
+        }
+
+        var plan = new GatePlan("antes-del-update-credito", sql => sql.Contains("UPDATE [Creditos]", StringComparison.Ordinal));
+        var update = ActualizarCredito(creditoId, cliente, numeroCredito, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, update), "la actualizacion debia llegar a la compuerta (cliente verificado, sin guardar)");
+
+        var baja = Baja(cliente);
+        var bloqueada = await QuedaBloqueadaAsync(baja);
+
+        plan.Release.TrySetResult();
+        var rUpdate = await update;
+        var rBaja = await baja;
+        _out.WriteLine($"update: {rUpdate}; baja: {rBaja} (bloqueada: {bloqueada})");
+
+        var (eliminado, _) = await EstadoFinalAsync(cliente);
+        Assert.True(bloqueada, "la baja debia esperar el lock de la actualizacion");
+        Assert.Equal("OK", rUpdate);
+        Assert.StartsWith("RECHAZADA", rBaja);
+        Assert.False(eliminado);
+    }
 }
