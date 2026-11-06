@@ -250,12 +250,26 @@ namespace TheBuryProject.Services
 
                         if (alertasActivasPorCredito.TryGetValue(creditoId, out var alertaExistente))
                         {
-                            alertaExistente.DiasAtraso = diasMora;
-                            // H-18: MontoVencido/CuotasVencidas son una FOTO de la deuda vencida; no son datos
-                            // de gestión. Antes solo se refrescaba DiasAtraso y el KPI de la bandeja seguía mostrando el monto
-                            // de cuando se creó la alerta aunque el cliente hubiera pagado parcialmente o vencieran más cuotas.
-                            alertaExistente.MontoVencido = montoVencido;
-                            alertaExistente.CuotasVencidas = cuotasDelCredito.Count;
+                            // H-18: MontoVencido/CuotasVencidas son una FOTO de la deuda vencida (no datos de gestión): antes solo
+                            // se refrescaba DiasAtraso y el KPI de la bandeja seguía mostrando el monto de cuando se creó la
+                            // alerta aunque el cliente pagara parcialmente o vencieran más cuotas. Se actualiza con una sentencia
+                            // directa (sin SaveChanges) para NO tocar UpdatedAt, del que depende AlertaCobranza.Leida: refrescar
+                            // el monto no debe marcar como «leída» una alerta que nadie vio.
+                            if (alertaExistente.DiasAtraso != diasMora
+                                || alertaExistente.MontoVencido != montoVencido
+                                || alertaExistente.CuotasVencidas != cuotasDelCredito.Count)
+                            {
+                                var alertaId = alertaExistente.Id;
+                                var cuotasCount = cuotasDelCredito.Count;
+                                await _context.AlertasCobranza
+                                    .Where(a => a.Id == alertaId)
+                                    .ExecuteUpdateAsync(set => set
+                                        .SetProperty(a => a.DiasAtraso, diasMora)
+                                        .SetProperty(a => a.MontoVencido, montoVencido)
+                                        .SetProperty(a => a.CuotasVencidas, cuotasCount), ct);
+                                // La entidad rastreada se alinea con lo ya escrito (sin dejar cambios pendientes).
+                                await _context.Entry(alertaExistente).ReloadAsync(ct);
+                            }
                             continue;
                         }
 

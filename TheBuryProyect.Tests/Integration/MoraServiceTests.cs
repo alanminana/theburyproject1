@@ -2631,6 +2631,7 @@ public class MoraServiceTests : IDisposable
         var esperado = (cuota1.MontoTotal - cuota1.MontoPagado) + (cuota2.MontoTotal - cuota2.MontoPagado);
         Assert.Equal(esperado, tras[0].MontoVencido);
         Assert.NotEqual(montoInicial, tras[0].MontoVencido);
+        Assert.False(tras[0].Leida); // refrescar el monto no marca como «leída» una alerta que nadie vio
     }
 
     [Fact]

@@ -43,9 +43,22 @@ public class ConfiguracionPagoChequeMedioTests
     public class Admin : DispatchProxy
     {
         public int Ediciones { get; set; }
+        public List<string> Llamadas { get; } = new();
         protected override object? Invoke(MethodInfo? m, object?[]? args)
         {
             if (m!.Name == "EditarMedioPagoAsync") { Ediciones++; return Task.FromResult(true); }
+            if (m.Name == "ObtenerAdminGlobalAsync")
+            {
+                var cheque = new MedioPagoGlobalAdminViewModel { Id = 9, TipoPago = TipoPago.Cheque };
+                cheque.Planes.Add(new PlanPagoGlobalAdminViewModel { Id = 5 });
+                cheque.Tarjetas.Add(new TarjetaGlobalAdminViewModel { Id = 6 });
+                var efectivo = new MedioPagoGlobalAdminViewModel { Id = 3, TipoPago = TipoPago.Efectivo };
+                efectivo.Planes.Add(new PlanPagoGlobalAdminViewModel { Id = 15 });
+                return Task.FromResult(new ConfiguracionPagoGlobalAdminViewModel { Medios = { cheque, efectivo } });
+            }
+            Llamadas.Add(m.Name);
+            if (m.Name is "EliminarMedioPagoAsync" or "CambiarEstadoPlanGlobalAsync" or "EliminarTarjetaGlobalAsync" or "CambiarEstadoTarjetaGlobalAsync")
+                return Task.FromResult(true);
             throw new NotSupportedException(m.Name);
         }
     }
@@ -135,5 +148,30 @@ public class ConfiguracionPagoChequeMedioTests
         await c.EditarMedioPagoGlobal(3, new MedioPagoGlobalEditViewModel { Nombre = "Efectivo", Activo = true });
 
         Assert.Equal(1, a.Ediciones);
+    }
+    [Fact]
+    public async Task Eliminar_Cambiar_Cheque_ComoAdministrador_SeRechaza_ComoSuperAdminSeAplica()
+    {
+        var (cAdm, _, aAdm) = Crear(Roles.Administrador);
+        await cAdm.EliminarMedioPagoGlobal(9);
+        await cAdm.CambiarEstadoPlanGlobal(5, true, 9);
+        await cAdm.EliminarTarjetaGlobal(6, 9);
+        await cAdm.CambiarEstadoTarjetaGlobal(6, true, 9);
+        Assert.Empty(aAdm.Llamadas);
+        Assert.Contains("SuperAdmin", cAdm.TempData["Error"]?.ToString());
+
+        var (cSa, _, aSa) = Crear(Roles.SuperAdmin);
+        await cSa.EliminarMedioPagoGlobal(9);
+        await cSa.CambiarEstadoPlanGlobal(5, true, 9);
+        Assert.Equal(new[] { "EliminarMedioPagoAsync", "CambiarEstadoPlanGlobalAsync" }, aSa.Llamadas);
+    }
+
+    [Fact]
+    public async Task Eliminar_Cambiar_OtroMedio_ComoAdministrador_SeAplica()
+    {
+        var (c, _, a) = Crear(Roles.Administrador);
+        await c.EliminarMedioPagoGlobal(3);
+        await c.CambiarEstadoPlanGlobal(15, true, 3);
+        Assert.Equal(new[] { "EliminarMedioPagoAsync", "CambiarEstadoPlanGlobalAsync" }, a.Llamadas);
     }
 }
