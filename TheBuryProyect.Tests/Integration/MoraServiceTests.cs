@@ -2635,6 +2635,26 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_H24_ClienteDadoDeBajaConDeudaHeredada_SigueEnMoraSinDuplicarImportes()
+    {
+        // H-24: la deuda de un cliente dado de baja (anterior a la regla de bloqueo) no desaparece de la mora.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 30);
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+        await _service.ProcesarMoraAsync(); // idempotente: no duplica
+
+        var alertas = await _context.AlertasCobranza.AsNoTracking()
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida && !a.Resuelta).ToListAsync();
+        Assert.Single(alertas);
+        Assert.Equal(cuota.MontoTotal - cuota.MontoPagado, alertas[0].MontoVencido);
+        Assert.True((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted); // no se reactiva
+    }
+
+    [Fact]
     public async Task ProcesarMora_EjecucionRepetidaMismoDia_NoAlteraDatosManualesYMantieneDiasAtraso()
     {
         var cliente = await SeedClienteAsync();

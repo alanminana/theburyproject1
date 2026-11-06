@@ -903,7 +903,7 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ObtenerVentasAgrupadas_H25_NoCuentaVentasDeClientesDadosDeBaja_IgualQueElReporteDeVentas()
+    public async Task ObtenerVentasAgrupadas_H25_H24_VentasDeClientesDadosDeBajaSeCuentanIgualQueEnElReporteDeVentas()
     {
         var vigente = await SeedClienteAsync();
         var baja = await SeedClienteAsync();
@@ -921,9 +921,10 @@ public class ReporteServiceTests : IDisposable
             FechaHasta = hoy.AddDays(1)
         });
 
-        // Las dos superficies de Reportes deben coincidir (criterio único de VentasNetas.Comerciales).
+        // H-24 (histórico intacto) + H-25 (ambas superficies coinciden): 140 y 2 ventas en las dos.
         Assert.Equal(reporte.TotalVentas, agrupadas.Sum(g => g.Monto));
-        Assert.Equal(1, agrupadas.Sum(g => g.Cantidad));
+        Assert.Equal(140m, agrupadas.Sum(g => g.Monto));
+        Assert.Equal(2, agrupadas.Sum(g => g.Cantidad));
     }
 
     [Fact]

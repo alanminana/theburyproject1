@@ -125,8 +125,8 @@ namespace TheBuryProject.Services
                 .Include(v => v.Envio)
                 .Where(v =>
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)))
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)))
                 .AsQueryable();
 
             query = AplicarFiltros(query, filter);
@@ -154,8 +154,8 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(v =>
                     v.Id == id &&
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)));
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)));
 
             if (venta == null)
             {
@@ -812,6 +812,17 @@ namespace TheBuryProject.Services
         /// </summary>
         public async Task CrearCreditoPendienteParaVentaAsync(Venta venta)
         {
+            // H-24: se serializa con la baja del cliente (lock de la fila de Clientes) y se rechaza si ya fue dado de baja.
+            await using var transaccionCredito = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
+            if (venta.ClienteId is int clienteDelCredito)
+            {
+                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito);
+                if (!await ClienteConcurrencia.EstaActivoAsync(_context, clienteDelCredito))
+                    throw new InvalidOperationException("Cliente no encontrado o dado de baja: no se puede crear el crédito.");
+            }
+
             // Generar número de crédito
             var ultimoCredito = await _context.Creditos
                 .OrderByDescending(c => c.Id)
@@ -857,6 +868,8 @@ namespace TheBuryProject.Services
             // Asociar crédito a la venta
             venta.CreditoId = credito.Id;
             await _context.SaveChangesAsync();
+            if (transaccionCredito != null)
+                await transaccionCredito.CommitAsync();
 
             _logger.LogInformation(
                 "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}. CuotasPreseleccionadas:{Cuotas} AnticipoPreseleccionado:{Anticipo}",
@@ -3079,8 +3092,7 @@ namespace TheBuryProject.Services
                                           v.CreditoId != null &&
                                           v.Credito != null &&
                                           !v.Credito.IsDeleted &&
-                                          v.Credito.Cliente != null &&
-                                          !v.Credito.Cliente.IsDeleted);
+                                          v.Credito.Cliente != null);
 
             if (venta?.Credito == null)
                 return null;
@@ -3461,8 +3473,8 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(v =>
                     v.Id == id &&
                     !v.IsDeleted &&
-                    (v.Cliente == null || !v.Cliente.IsDeleted) &&
-                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null && !v.Credito.Cliente.IsDeleted)));
+                    // H-24: las ventas de clientes dados de baja siguen visibles (histórico)
+                    (v.Credito == null || (!v.Credito.IsDeleted && v.Credito.Cliente != null)));
         }
 
         private async Task<Venta?> ObtenerVentaPendienteAutorizacionAsync(int id)
@@ -4885,8 +4897,7 @@ namespace TheBuryProject.Services
                 .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
                 .FirstOrDefaultAsync(c => c.Id == venta.CreditoId!.Value &&
                                           !c.IsDeleted &&
-                                          c.Cliente != null &&
-                                          !c.Cliente.IsDeleted);
+                                          c.Cliente != null);
             if (credito == null)
                 return;
 

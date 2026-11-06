@@ -448,6 +448,74 @@ public class ClienteServiceTests : IDisposable
         Assert.Equal("Modificado", resultado.Nombre);
     }
 
+    [Theory]
+    [InlineData(EstadoCredito.Solicitado, true)]
+    [InlineData(EstadoCredito.Aprobado, true)]
+    [InlineData(EstadoCredito.Activo, true)]
+    [InlineData(EstadoCredito.PendienteConfiguracion, true)]
+    [InlineData(EstadoCredito.Configurado, true)]
+    [InlineData(EstadoCredito.Generado, true)]
+    [InlineData(EstadoCredito.Finalizado, false)]
+    [InlineData(EstadoCredito.Rechazado, false)]
+    [InlineData(EstadoCredito.Cancelado, false)]
+    public async Task DeleteAsync_H24_BloqueaLaBajaConCreditoVigente_YLaPermiteConCreditosCerrados(EstadoCredito estado, bool debeBloquear)
+    {
+        var cliente = BuildCliente();
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        _context.Creditos.Add(new Credito { ClienteId = cliente.Id, Numero = "CRE-H24-" + estado, Estado = estado, SaldoPendiente = 1000m });
+        await _context.SaveChangesAsync();
+
+        if (debeBloquear)
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(cliente.Id));
+            Assert.Contains("crédito", ex.Message);
+            Assert.False((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+        }
+        else
+        {
+            Assert.True(await _service.DeleteAsync(cliente.Id));
+            Assert.True((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+        }
+    }
+
+    [Fact]
+    public async Task DeleteAsync_H24_ConCuotaImpagaEnCreditoFinalizado_BloqueaLaBaja()
+    {
+        var cliente = BuildCliente();
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        var credito = new Credito { ClienteId = cliente.Id, Numero = "CRE-H24-CUOTA", Estado = EstadoCredito.Finalizado };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        _context.Cuotas.Add(new Cuota { CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = 100m, MontoTotal = 100m, Estado = EstadoCuota.Pendiente, FechaVencimiento = DateTime.UtcNow.AddDays(10) });
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(cliente.Id));
+        Assert.Contains("cuotas pendientes", ex.Message);
+        Assert.False((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_H24_LaBajaNoTocaCreditosNiImportesHistoricos()
+    {
+        var cliente = BuildCliente();
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        _context.Creditos.Add(new Credito { ClienteId = cliente.Id, Numero = "CRE-H24-HIST", Estado = EstadoCredito.Finalizado, SaldoPendiente = 0m, MontoAprobado = 5000m, TotalAPagar = 6000m });
+        await _context.SaveChangesAsync();
+
+        Assert.True(await _service.DeleteAsync(cliente.Id));
+
+        var credito = await _context.Creditos.AsNoTracking().SingleAsync(c => c.ClienteId == cliente.Id);
+        Assert.False(credito.IsDeleted);
+        Assert.Equal(5000m, credito.MontoAprobado);
+        Assert.Equal(6000m, credito.TotalAPagar);
+        // No se reactiva sola: una segunda baja no encuentra al cliente y no cambia nada.
+        Assert.False(await _service.DeleteAsync(cliente.Id));
+        Assert.True((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+    }
+
     // -------------------------------------------------------------------------
     // DeleteAsync
     // -------------------------------------------------------------------------

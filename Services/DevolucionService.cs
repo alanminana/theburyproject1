@@ -47,7 +47,7 @@ public class DevolucionService : IDevolucionService
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
-            .Where(d => !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
+            .Where(d => !d.IsDeleted && d.Cliente != null)
             .OrderByDescending(d => d.FechaDevolucion)
             .ToListAsync();
     }
@@ -59,7 +59,7 @@ public class DevolucionService : IDevolucionService
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
-            .Where(d => d.ClienteId == clienteId && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
+            .Where(d => d.ClienteId == clienteId && !d.IsDeleted && d.Cliente != null)
             .OrderByDescending(d => d.FechaDevolucion)
             .ToListAsync();
     }
@@ -72,7 +72,7 @@ public class DevolucionService : IDevolucionService
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
-            .Where(d => d.Estado == estado && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
+            .Where(d => d.Estado == estado && !d.IsDeleted && d.Cliente != null)
             .OrderByDescending(d => d.FechaDevolucion)
             .ToListAsync();
     }
@@ -88,7 +88,7 @@ public class DevolucionService : IDevolucionService
                 .ThenInclude(dd => dd.ProductoUnidad)
             .Include(d => d.NotaCredito)
             .Include(d => d.RMA).ThenInclude(r => r!.Proveedor)
-            .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);
+            .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted && d.Cliente != null);
     }
 
     public async Task<Devolucion?> ObtenerDevolucionPorNumeroAsync(string numeroDevolucion)
@@ -99,7 +99,7 @@ public class DevolucionService : IDevolucionService
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
-            .FirstOrDefaultAsync(d => d.NumeroDevolucion == numeroDevolucion && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);
+            .FirstOrDefaultAsync(d => d.NumeroDevolucion == numeroDevolucion && !d.IsDeleted && d.Cliente != null);
     }
 
     /// <summary>
@@ -1020,7 +1020,6 @@ public class DevolucionService : IDevolucionService
             .Where(g =>
                 !g.IsDeleted &&
                 g.Cliente != null &&
-                !g.Cliente.IsDeleted &&
                 g.Producto != null &&
                 !g.Producto.IsDeleted)
             .OrderByDescending(g => g.FechaInicio)
@@ -1036,7 +1035,6 @@ public class DevolucionService : IDevolucionService
             .Include(g => g.Producto)
             .Where(g => !g.IsDeleted &&
                        g.Cliente != null &&
-                       !g.Cliente.IsDeleted &&
                        g.Producto != null &&
                        !g.Producto.IsDeleted &&
                        g.Estado == EstadoGarantia.Vigente &&
@@ -1054,7 +1052,6 @@ public class DevolucionService : IDevolucionService
                 g.ClienteId == clienteId &&
                 !g.IsDeleted &&
                 g.Cliente != null &&
-                !g.Cliente.IsDeleted &&
                 g.Producto != null &&
                 !g.Producto.IsDeleted)
             .OrderByDescending(g => g.FechaInicio)
@@ -1071,7 +1068,6 @@ public class DevolucionService : IDevolucionService
                 g.Id == id &&
                 !g.IsDeleted &&
                 g.Cliente != null &&
-                !g.Cliente.IsDeleted &&
                 g.Producto != null &&
                 !g.Producto.IsDeleted);
     }
@@ -1086,7 +1082,6 @@ public class DevolucionService : IDevolucionService
                 g.NumeroGarantia == numeroGarantia &&
                 !g.IsDeleted &&
                 g.Cliente != null &&
-                !g.Cliente.IsDeleted &&
                 g.Producto != null &&
                 !g.Producto.IsDeleted);
     }
@@ -1141,7 +1136,6 @@ public class DevolucionService : IDevolucionService
             .Include(g => g.Producto)
             .Where(g => !g.IsDeleted &&
                        g.Cliente != null &&
-                       !g.Cliente.IsDeleted &&
                        g.Producto != null &&
                        !g.Producto.IsDeleted &&
                        g.Estado == EstadoGarantia.Vigente &&
@@ -1176,8 +1170,7 @@ public class DevolucionService : IDevolucionService
                 !r.IsDeleted &&
                 r.Devolucion != null &&
                 !r.Devolucion.IsDeleted &&
-                r.Devolucion.Cliente != null &&
-                !r.Devolucion.Cliente.IsDeleted)
+                r.Devolucion.Cliente != null)
             .OrderByDescending(r => r.FechaSolicitud)
             .ToListAsync();
     }
@@ -1193,8 +1186,7 @@ public class DevolucionService : IDevolucionService
                 !r.IsDeleted &&
                 r.Devolucion != null &&
                 !r.Devolucion.IsDeleted &&
-                r.Devolucion.Cliente != null &&
-                !r.Devolucion.Cliente.IsDeleted)
+                r.Devolucion.Cliente != null)
             .OrderByDescending(r => r.FechaSolicitud)
             .ToListAsync();
     }
@@ -1209,8 +1201,7 @@ public class DevolucionService : IDevolucionService
                 !r.IsDeleted &&
                 r.Devolucion != null &&
                 !r.Devolucion.IsDeleted &&
-                r.Devolucion.Cliente != null &&
-                !r.Devolucion.Cliente.IsDeleted)
+                r.Devolucion.Cliente != null)
             .OrderByDescending(r => r.FechaSolicitud)
             .ToListAsync();
     }
@@ -1231,8 +1222,7 @@ public class DevolucionService : IDevolucionService
                 !r.IsDeleted &&
                 r.Devolucion != null &&
                 !r.Devolucion.IsDeleted &&
-                r.Devolucion.Cliente != null &&
-                !r.Devolucion.Cliente.IsDeleted);
+                r.Devolucion.Cliente != null);
     }
 
     public async Task<RMA?> ObtenerRMAPorNumeroAsync(string numeroRMA)
@@ -1246,8 +1236,7 @@ public class DevolucionService : IDevolucionService
                 !r.IsDeleted &&
                 r.Devolucion != null &&
                 !r.Devolucion.IsDeleted &&
-                r.Devolucion.Cliente != null &&
-                !r.Devolucion.Cliente.IsDeleted);
+                r.Devolucion.Cliente != null);
     }
 
     public async Task<RMA> CrearRMAAsync(RMA rma, byte[] devolucionRowVersion)
@@ -1439,7 +1428,6 @@ public class DevolucionService : IDevolucionService
             .Where(nc =>
                 !nc.IsDeleted &&
                 nc.Cliente != null &&
-                !nc.Cliente.IsDeleted &&
                 (nc.Devolucion == null || !nc.Devolucion.IsDeleted))
             .OrderByDescending(nc => nc.FechaEmision)
             .ToListAsync();
@@ -1454,7 +1442,6 @@ public class DevolucionService : IDevolucionService
                 nc.ClienteId == clienteId &&
                 !nc.IsDeleted &&
                 nc.Cliente != null &&
-                !nc.Cliente.IsDeleted &&
                 (nc.Devolucion == null || !nc.Devolucion.IsDeleted))
             .OrderByDescending(nc => nc.FechaEmision)
             .ToListAsync();
@@ -1468,7 +1455,6 @@ public class DevolucionService : IDevolucionService
             .Where(nc => nc.ClienteId == clienteId &&
                         !nc.IsDeleted &&
                         nc.Cliente != null &&
-                        !nc.Cliente.IsDeleted &&
                         // MontoDisponible es propiedad computada no mapeada: usarla acá
                         // no traduce a SQL y la query explota en runtime.
                         (nc.MontoTotal - nc.MontoUtilizado) > 0 &&
@@ -1488,7 +1474,6 @@ public class DevolucionService : IDevolucionService
                 nc.Id == id &&
                 !nc.IsDeleted &&
                 nc.Cliente != null &&
-                !nc.Cliente.IsDeleted &&
                 (nc.Devolucion == null || !nc.Devolucion.IsDeleted));
     }
 
@@ -1500,8 +1485,7 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync(nc =>
                 nc.NumeroNotaCredito == numeroNotaCredito &&
                 !nc.IsDeleted &&
-                nc.Cliente != null &&
-                !nc.Cliente.IsDeleted);
+                nc.Cliente != null);
     }
 
     public async Task<NotaCredito> CrearNotaCreditoAsync(NotaCredito notaCredito)

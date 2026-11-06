@@ -485,37 +485,48 @@ public class ReporteDevolucionesNetasTests : IDisposable
     }
 
     [Fact]
-    public async Task Ventas_ClienteEliminado_NoCuentaNiEnReporteNiEnDashboardNiSuDevolucion()
+    public async Task Ventas_ClienteDadoDeBaja_ConservaImportesEnReporteDashboardYDevolucion_H24()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
-        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: new DateTime(2026, 9, 20, 10, 0, 0));
+        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: new DateTime(2026, 10, 3, 10, 0, 0));
         await SeedDevolucionAsync(venta, producto, 1, 121m, fecha: new DateTime(2026, 10, 5, 10, 0, 0));
+
+        var rAntes = await _reporte.GenerarReporteVentasAsync(Mes());
+        var dAntes = await _dashboard.GetDashboardDataAsync();
+        Assert.True(rAntes.TotalVentas > 0m);
+
         cliente.IsDeleted = true;
         await _context.SaveChangesAsync();
 
         var r = await _reporte.GenerarReporteVentasAsync(Mes());
         var d = await _dashboard.GetDashboardDataAsync();
 
-        Assert.Equal(0m, r.TotalDevoluciones);
-        Assert.Equal(0m, d.DevolucionesMes);
+        // H-24: dar de baja al cliente no altera ni duplica importes históricos.
+        Assert.Equal(rAntes.TotalVentas, r.TotalVentas);
+        Assert.Equal(rAntes.TotalDevoluciones, r.TotalDevoluciones);
+        Assert.Equal(dAntes.DevolucionesMes, d.DevolucionesMes);
+        Assert.Equal(dAntes.VentasBrutasMes, d.VentasBrutasMes);
         Assert.Equal(r.TotalVentasNetas, d.VentasTotalesMes);
+        Assert.True(cliente.IsDeleted); // nada lo reactiva
     }
 
     [Fact]
-    public async Task Dashboard_VentaDeClienteEliminadoDelMes_NoSuma()
+    public async Task Dashboard_VentaDeClienteDadoDeBajaDelMes_SigueSumando_H24()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
         await SeedVentaAsync(cliente.Id, producto);
+        var antes = (await _reporte.GenerarReporteVentasAsync(Mes())).TotalVentas;
         cliente.IsDeleted = true;
         await _context.SaveChangesAsync();
 
         var r = await _reporte.GenerarReporteVentasAsync(Mes());
         var d = await _dashboard.GetDashboardDataAsync();
 
-        Assert.Equal(0m, r.TotalVentas);
-        Assert.Equal(0m, d.VentasBrutasMes);
+        Assert.True(antes > 0m);
+        Assert.Equal(antes, r.TotalVentas);
+        Assert.Equal(antes, d.VentasBrutasMes);
     }
 
     // ------------------------------------------------- H11: ticket promedio

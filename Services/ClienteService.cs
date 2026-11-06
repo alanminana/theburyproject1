@@ -217,16 +217,55 @@ namespace TheBuryProject.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
+            // H-24: regla aprobada. La baja se rechaza (validación del servidor) mientras el cliente tenga créditos
+            // vigentes o deuda pendiente. Corre en una transacción con el lock de la fila del cliente: el alta de
+            // créditos toma el mismo lock (ClienteConcurrencia), así que no puede colarse un crédito entre la
+            // comprobación y la baja. La baja es lógica: no toca ventas, créditos, cuotas ni documentos del cliente.
+            await using var transaccionPropia = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
+
+            await ClienteConcurrencia.BloquearAsync(_context, id);
+
             var cliente = await _context.Clientes
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (cliente == null)
                 return false;
 
+            var creditos = await _context.Creditos
+                .AsNoTracking()
+                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
+                .Select(cr => new { cr.Numero, cr.Estado, cr.SaldoPendiente })
+                .ToListAsync();
+
+            var vigentes = creditos.Where(cr => !ClienteConcurrencia.EsCreditoCerrado(cr.Estado)).ToList();
+            if (vigentes.Count > 0)
+            {
+                var detalle = string.Join(", ", vigentes.Take(3).Select(cr => cr.Numero));
+                throw new InvalidOperationException(
+                    $"No se puede dar de baja al cliente: tiene {vigentes.Count} crédito(s) vigente(s) o con deuda pendiente ({detalle}{(vigentes.Count > 3 ? ", …" : "")}). " +
+                    "Finalizá o cancelá esos créditos antes de darlo de baja.");
+            }
+
+            var cuotasImpagas = await _context.Cuotas.AnyAsync(cu =>
+                !cu.IsDeleted &&
+                cu.Credito.ClienteId == id &&
+                !cu.Credito.IsDeleted &&
+                cu.Estado != EstadoCuota.Pagada &&
+                cu.Estado != EstadoCuota.Cancelada &&
+                cu.Credito.Estado != EstadoCredito.Cancelado &&
+                cu.Credito.Estado != EstadoCredito.Rechazado);
+            if (cuotasImpagas)
+                throw new InvalidOperationException(
+                    "No se puede dar de baja al cliente: tiene cuotas pendientes de pago. Cobrá o cancelá esas cuotas antes de darlo de baja.");
+
             cliente.IsDeleted = true;
             cliente.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            if (transaccionPropia != null)
+                await transaccionPropia.CommitAsync();
 
             _logger.LogInformation("Cliente eliminado (soft-delete) - Id {ClienteId}", id);
 
