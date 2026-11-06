@@ -16,12 +16,12 @@ public class MoraYPlanesCamposValidacionTests
 
     private static RegistrarPromesaViewModel Promesa(DateTime fecha, decimal monto = 1000m) => new()
     {
-        AlertaId = 1, ClienteId = 1, FechaPromesa = fecha, MontoPromesa = monto,
+        AlertaId = 1, ClienteId = 1, FechaPromesa = fecha, MontoPromesa = monto, Observaciones = "obs",
     };
 
     private static CrearAcuerdoViewModel Acuerdo(DateTime primeraCuota, decimal entrega = 0m) => new()
     {
-        AlertaId = 1, ClienteId = 1, CreditoId = 1, CantidadCuotas = 3, FechaPrimeraCuota = primeraCuota, MontoEntregaInicial = entrega,
+        AlertaId = 1, ClienteId = 1, CreditoId = 1, CantidadCuotas = 3, FechaPrimeraCuota = primeraCuota, MontoEntregaInicial = entrega, Observaciones = "obs",
     };
 
     // ---- Promesa ----
