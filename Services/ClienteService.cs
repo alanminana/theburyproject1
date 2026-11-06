@@ -223,18 +223,6 @@ namespace TheBuryProject.Services
             if (cliente == null)
                 return false;
 
-            // H-24: dar de baja a un cliente con crédito vigente oculta su deuda de la mora, de las alertas y de los reportes.
-            // Solo se permite la baja cuando todos sus créditos están cerrados (finalizado, rechazado o cancelado).
-            var tieneCreditoVigente = await _context.Creditos.AnyAsync(cr =>
-                cr.ClienteId == id &&
-                !cr.IsDeleted &&
-                cr.Estado != EstadoCredito.Finalizado &&
-                cr.Estado != EstadoCredito.Rechazado &&
-                cr.Estado != EstadoCredito.Cancelado);
-            if (tieneCreditoVigente)
-                throw new InvalidOperationException(
-                    "No se puede dar de baja al cliente: tiene créditos vigentes. Finalizá o cancelá sus créditos antes de darlo de baja.");
-
             cliente.IsDeleted = true;
             cliente.UpdatedAt = DateTime.UtcNow;
 
