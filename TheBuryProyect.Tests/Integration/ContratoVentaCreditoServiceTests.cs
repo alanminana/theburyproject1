@@ -104,6 +104,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         var periodo = DateTime.UtcNow.ToString("yyyyMM");
         var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
         ventaDb.Numero = $"COT-{periodo}-000042";
+        ventaDb.Estado = EstadoVenta.PendienteFinanciacion; // el contrato se emite antes de confirmar
         await _context.SaveChangesAsync();
 
         var servicio = new ContratoVentaCreditoService(
@@ -124,6 +125,30 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         var numeroEnSnapshot = snapshot.RootElement.GetProperty("Venta").GetProperty("Numero").GetString();
         Assert.Equal(guardada.Numero, numeroEnSnapshot);
         Assert.DoesNotContain("COT-", contrato.DatosSnapshotJson);
+    }
+
+    [Fact]
+    public async Task AsegurarNumeroDeVenta_ConContratoYaEmitidoConCot_NoRenumera_H01()
+    {
+        // Un contrato/pagaré emitido antes de H-01 copió «COT-…»: la venta no se renumera para no quedar desalineada
+        // de un documento que no se puede reescribir (hallazgo de la revisión independiente).
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m);
+        var periodo = DateTime.UtcNow.ToString("yyyyMM");
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        ventaDb.Numero = $"COT-{periodo}-000043";
+        ventaDb.Estado = EstadoVenta.PendienteFinanciacion;
+        await _context.SaveChangesAsync();
+        await _service.GenerarAsync(venta.Id, "tester"); // sin generador: emite con el número COT-
+
+        var generador = new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance);
+        var ventaRastreada = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+
+        Assert.False(await generador.AsegurarNumeroDeVentaAsync(ventaRastreada));
+        Assert.Equal($"COT-{periodo}-000043", ventaRastreada.Numero);
+        Assert.Null(ventaRastreada.NumeroOrigen);
     }
 
     private sealed class UsuarioSinDescuentoContratoStub : TheBuryProject.Services.Interfaces.ICurrentUserService

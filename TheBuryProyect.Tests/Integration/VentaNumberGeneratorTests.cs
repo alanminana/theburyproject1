@@ -250,6 +250,7 @@ public class VentaNumberGeneratorTests : IDisposable
     public async Task AsegurarNumeroDeVenta_VentaCot_SeRenumeraAVtaYConservaElOrigen()
     {
         var venta = await SeedVentaConNumeroAsync($"COT-{Periodo}-000007");
+        venta.Estado = EstadoVenta.Cotizacion;
 
         var renumero = await _generator.AsegurarNumeroDeVentaAsync(venta);
 
@@ -262,6 +263,7 @@ public class VentaNumberGeneratorTests : IDisposable
     public async Task AsegurarNumeroDeVenta_EsIdempotente_NoRenumeraDosVeces()
     {
         var venta = await SeedVentaConNumeroAsync($"COT-{Periodo}-000007");
+        venta.Estado = EstadoVenta.Cotizacion;
         Assert.True(await _generator.AsegurarNumeroDeVentaAsync(venta));
         var numero = venta.Numero;
         await _context.SaveChangesAsync();
@@ -299,8 +301,25 @@ public class VentaNumberGeneratorTests : IDisposable
         _context.PrefijosNumeracion.Add(new PrefijoNumeracion { Tipo = TipoPrefijoNumeracion.Venta, Prefijo = "VT" });
         await _context.SaveChangesAsync();
         var venta = await SeedVentaConNumeroAsync($"COT-{Periodo}-000002");
+        venta.Estado = EstadoVenta.Cotizacion;
 
         Assert.True(await _generator.AsegurarNumeroDeVentaAsync(venta));
         Assert.Equal($"VT-{Periodo}-000001", venta.Numero);
+    }
+    [Theory]
+    [InlineData(EstadoVenta.Confirmada)]
+    [InlineData(EstadoVenta.Facturada)]
+    [InlineData(EstadoVenta.Entregada)]
+    [InlineData(EstadoVenta.Cancelada)]
+    public async Task AsegurarNumeroDeVenta_VentaYaConfirmadaOCerrada_ConservaSuNumero(EstadoVenta estado)
+    {
+        // H-01: no se altera una venta ya emitida/confirmada (hallazgo de la revisión independiente).
+        var venta = await SeedVentaConNumeroAsync($"COT-{Periodo}-000007");
+        venta.Estado = estado;
+        await _context.SaveChangesAsync();
+
+        Assert.False(await _generator.AsegurarNumeroDeVentaAsync(venta));
+        Assert.Equal($"COT-{Periodo}-000007", venta.Numero);
+        Assert.Null(venta.NumeroOrigen);
     }
 }

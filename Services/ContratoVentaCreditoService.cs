@@ -87,7 +87,8 @@ namespace TheBuryProject.Services
             // La emisión de los documentos (contrato, pagaré, lo que digan las reglas) pasa por el motor
             // documental, y el registro legado + los documentos se guardan en una sola transacción: si un
             // documento obligatorio no puede generarse, no queda un contrato a medias.
-            var transaccionPropia = _documentoService != null && _context.Database.CurrentTransaction == null;
+            // H-01: la renumeración de la venta y la emisión del contrato se guardan juntas aunque no haya motor documental.
+            var transaccionPropia = _context.Database.CurrentTransaction == null;
             await using var tx = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
 
             // H-01: la venta nacida como cotización («COT-…») recibe su número «VTA-…» ANTES de emitir el contrato y el

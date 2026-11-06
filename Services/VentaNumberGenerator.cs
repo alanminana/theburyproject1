@@ -34,6 +34,17 @@ namespace TheBuryProject.Services
             if (!string.IsNullOrEmpty(venta.NumeroOrigen))
                 return false;
 
+            // Solo operaciones que todavía no se confirmaron: una venta ya confirmada/facturada/entregada/cancelada
+            // conserva su número (puede tener documentos y referencias emitidas con él).
+            if (venta.Estado is not (EstadoVenta.Cotizacion or EstadoVenta.Presupuesto
+                or EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion))
+                return false;
+
+            // Un contrato/pagaré ya emitido copió el número como instantánea: no se altera (la venta quedaría desalineada
+            // con un documento que no se puede reescribir).
+            if (venta.Id > 0 && await _context.ContratosVentaCredito.AsNoTracking().AnyAsync(c => c.VentaId == venta.Id))
+                return false;
+
             var prefijoCotizacion = await ObtenerPrefijoVentaAsync(EstadoVenta.Cotizacion);
             var prefijoVenta = await ObtenerPrefijoVentaAsync(EstadoVenta.Confirmada);
             if (string.Equals(prefijoCotizacion, prefijoVenta, StringComparison.OrdinalIgnoreCase))
