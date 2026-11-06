@@ -151,6 +151,10 @@
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido</p>
                 <p class="mc-kpi-value" data-kpi="capital-vencido">@resumen.MontoCapitalVencido.ToString("C2")</p>
                 <p class="mt-1 text-xs text-slate-500">@resumen.TotalCuotasVencidas @(resumen.TotalCuotasVencidas == 1 ? "cuota vencida" : "cuotas vencidas")</p>
+                <p class="mt-1 text-xs text-slate-400" data-kpi="desglose-gracia">
+                    En mora: <span class="font-semibold tabular-nums" data-kpi="capital-en-mora">@resumen.MontoEnMora.ToString("C2")</span>
+                    · En gracia (@resumen.DiasGracia @(resumen.DiasGracia == 1 ? "día" : "días")): <span class="font-semibold tabular-nums" data-kpi="capital-en-gracia">@resumen.MontoEnGracia.ToString("C2")</span>
+                </p>
             </div>
             <div class="card-erp-metric-warning">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Mora acumulada</p>

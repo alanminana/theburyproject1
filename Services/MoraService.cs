@@ -1045,8 +1045,18 @@ namespace TheBuryProject.Services
                 // Calcular resumen
                 var creditosParaAcuerdo = await GetCreditosParaAcuerdoAsync(clienteId);
 
+                // H-22: misma clasificacion que la bandeja y el reporte (MoraClasificacion): en gracia vs en mora.
+                var diasGraciaFicha = (await GetConfiguracionAsync()).DiasGracia;
+                var (montoEnGracia, montoEnMora) = MoraClasificacion.Separar(
+                    creditos.SelectMany(c => c.CuotasDetalle)
+                        .Select(q => (q.FechaVencimiento, q.MontoTotal - q.MontoPagado)),
+                    fechaComercial, diasGraciaFicha);
+
                 var resumen = new ResumenMoraViewModel
                 {
+                    MontoEnGracia = montoEnGracia,
+                    MontoEnMora = montoEnMora,
+                    DiasGracia = diasGraciaFicha ?? 0,
                     TotalCreditosConMora = creditos.Count,
                     TotalCuotasVencidas = creditos.Sum(c => c.CuotasVencidas),
                     DiasMaxAtraso = creditos.Any() ? creditos.Max(c => c.DiasAtraso) : 0,

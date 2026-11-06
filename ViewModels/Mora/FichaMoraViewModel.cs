@@ -50,6 +50,11 @@ namespace TheBuryProject.ViewModels.Mora
         public int TotalCuotasVencidas { get; set; }
         public int DiasMaxAtraso { get; set; }
         public decimal MontoCapitalVencido { get; set; }
+        /// <summary>H-22: parte del capital vencido DENTRO de los dias de gracia (todavia no es mora; no esta en la bandeja).</summary>
+        public decimal MontoEnGracia { get; set; }
+        /// <summary>H-22: parte del capital vencido FUERA de la gracia (la misma deuda que cuenta la bandeja de cobranza).</summary>
+        public decimal MontoEnMora { get; set; }
+        public int DiasGracia { get; set; }
         public decimal MontoMoraAcumulada { get; set; }
         public decimal MontoTotal => MontoCapitalVencido + MontoMoraAcumulada;
         public PrioridadAlerta PrioridadMaxima { get; set; }

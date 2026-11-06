@@ -47,6 +47,9 @@
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda vencida total</p>
                 <p class="mt-1 text-2xl font-bold text-red-400">$@Model.TotalDeudaVencida.ToString("N2")</p>
                 <p class="text-xs text-slate-500 mt-1">@Model.CantidadCreditosVencidos créditos</p>
+                <p class="text-xs text-slate-400 mt-1" data-kpi="desglose-gracia">
+                    En mora: $@Model.TotalDeudaEnMora.ToString("N2") · En gracia (@Model.DiasGracia d): $@Model.TotalDeudaEnGracia.ToString("N2")
+                </p>
             </div>
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda vigente</p>
@@ -56,6 +59,7 @@
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Clientes morosos</p>
                 <p class="mt-1 text-2xl font-bold text-amber-400">@Model.CantidadClientesMorosos</p>
                 <p class="text-xs text-slate-500 mt-1">promedio $@Model.PromedioDeudaPorCliente.ToString("N2")</p>
+                <p class="text-xs text-slate-400 mt-1">@Model.CantidadClientesEnMora en mora (los de la bandeja de cobranza)</p>
             </div>
             <div class="card-erp-metric card-erp-metric-danger">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda ≥90 días</p>
@@ -109,6 +113,8 @@
                                 <th class="px-4 py-3 text-left font-medium text-slate-400">Teléfono</th>
                                 <th class="px-4 py-3 text-center font-medium text-slate-400">Créditos venc.</th>
                                 <th class="px-4 py-3 text-right font-medium text-slate-400">Deuda vencida</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">En mora</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">En gracia</th>
                                 <th class="px-4 py-3 text-right font-medium text-slate-400">Deuda vigente</th>
                                 <th class="px-4 py-3 text-center font-medium text-slate-400">Días atraso</th>
                                 <th class="px-4 py-3 text-center font-medium text-slate-400">Riesgo</th>
@@ -133,6 +139,8 @@
                                     <td class="px-4 py-3 text-slate-400">@(c.ClienteTelefono ?? "—")</td>
                                     <td class="px-4 py-3 text-center text-slate-300">@c.CantidadCreditosVencidos</td>
                                     <td class="px-4 py-3 text-right font-medium text-red-400">$@c.TotalDeudaVencida.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-red-300">$@c.DeudaEnMora.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-amber-300">$@c.DeudaEnGracia.ToString("N2")</td>
                                     <td class="px-4 py-3 text-right text-slate-400">$@c.TotalDeudaVigente.ToString("N2")</td>
                                     <td class="px-4 py-3 text-center text-slate-300">@c.DiasMaximoAtraso</td>
                                     <td class="px-4 py-3 text-center">

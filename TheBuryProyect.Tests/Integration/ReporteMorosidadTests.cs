@@ -117,6 +117,37 @@ public class ReporteMorosidadTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task Morosidad_H22_SeparaDeudaEnGraciaDeDeudaEnMora_ConLaMismaReglaQueLaBandeja()
+    {
+        // 10 dias de gracia: una cuota vencida hace 4 dias esta EN GRACIA; una vencida hace 30 esta EN MORA.
+        _context.ConfiguracionesMora.Add(new ConfiguracionMora { DiasGracia = 10 });
+        SeedCliente(1, "Solo", "Gracia");
+        SeedCliente(2, "Con", "Mora");
+        SeedCredito(1, clienteId: 1);
+        SeedCredito(2, clienteId: 2);
+        SeedCuota(1, creditoId: 1, vencimiento: Hoy.AddDays(-4), monto: 1_000m, estado: EstadoCuota.Pendiente);   // gracia
+        SeedCuota(2, creditoId: 2, vencimiento: Hoy.AddDays(-4), monto: 500m, estado: EstadoCuota.Pendiente);    // gracia
+        SeedCuota(3, creditoId: 2, vencimiento: Hoy.AddDays(-30), monto: 2_000m, estado: EstadoCuota.Pendiente); // mora
+        await _context.SaveChangesAsync();
+
+        var reporte = await _service.GenerarReporteMorosidadAsync();
+
+        var c1 = reporte.ClientesMorosos.Single(c => c.ClienteId == 1);
+        Assert.Equal(1_000m, c1.DeudaEnGracia);
+        Assert.Equal(0m, c1.DeudaEnMora);
+        var c2 = reporte.ClientesMorosos.Single(c => c.ClienteId == 2);
+        Assert.Equal(500m, c2.DeudaEnGracia);
+        Assert.Equal(2_000m, c2.DeudaEnMora);
+        Assert.Equal(c2.DeudaEnGracia + c2.DeudaEnMora, c2.TotalDeudaVencida);
+
+        Assert.Equal(3_500m, reporte.TotalDeudaVencida);                 // vencida = gracia + mora
+        Assert.Equal(1_500m, reporte.TotalDeudaEnGracia);
+        Assert.Equal(2_000m, reporte.TotalDeudaEnMora);                  // = lo que cuenta la bandeja
+        Assert.Equal(1, reporte.CantidadClientesEnMora);                 // solo el cliente 2 esta en la bandeja
+        Assert.Equal(10, reporte.DiasGracia);
+    }
+
+    [Fact]
     public async Task DeudaVigente_SeCalculaCorrectamente_ParaUnCliente()
     {
         // Arrange: 1 cliente con 1 cuota vencida + 2 cuotas vigentes

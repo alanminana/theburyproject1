@@ -2635,6 +2635,30 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Ficha_H22_DesgloseGraciaMoraConcilia_ConLaBandejaYElTotalVencido()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cfg = await _service.GetConfiguracionAsync();
+        var gracia = cfg.DiasGracia ?? 0;
+        Assert.True(gracia >= 1, "el escenario necesita dias de gracia configurados");
+        var enGracia = await SeedCuotaVencidaAsync(credito.Id, diasVencido: gracia, montoTotal: 400m);   // vence exactamente en el limite: aun DENTRO de la gracia
+        var enMora = await SeedCuotaVencidaAsync(credito.Id, diasVencido: gracia + 20, montoTotal: 1_000m);                    // fuera de la gracia
+        await _service.ProcesarMoraAsync();
+
+        var ficha = await _service.GetFichaClienteAsync(cliente.Id);
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+
+        Assert.NotNull(ficha);
+        Assert.Equal(1_000m, ficha!.Resumen.MontoEnMora);
+        Assert.Equal(400m, ficha.Resumen.MontoEnGracia);
+        Assert.Equal(ficha.Resumen.MontoCapitalVencido, ficha.Resumen.MontoEnMora + ficha.Resumen.MontoEnGracia);
+        // La bandeja cuenta solo la mora: misma cifra que la ficha en «En mora».
+        var fila = Assert.Single(bandeja.Clientes);
+        Assert.Equal(ficha.Resumen.MontoEnMora, fila.MontoVencido);
+    }
+
+    [Fact]
     public async Task ProcesarMora_H24_ClienteDadoDeBajaConDeudaHeredada_SigueEnMoraSinDuplicarImportes()
     {
         // H-24: la deuda de un cliente dado de baja (anterior a la regla de bloqueo) no desaparece de la mora.
