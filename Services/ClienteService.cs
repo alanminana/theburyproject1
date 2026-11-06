@@ -218,13 +218,21 @@ namespace TheBuryProject.Services
         public async Task<bool> DeleteAsync(int id)
         {
             // H-24: regla aprobada. La baja se rechaza (validación del servidor) mientras el cliente tenga créditos
-            // vigentes o deuda pendiente. Corre en una transacción con el lock de la fila del cliente: el alta de
-            // créditos toma el mismo lock (ClienteConcurrencia), así que no puede colarse un crédito entre la
-            // comprobación y la baja. La baja es lógica: no toca ventas, créditos, cuotas ni documentos del cliente.
+            // vigentes o deuda pendiente. Corre en una transacción con los locks de sus créditos y de la fila del
+            // cliente: el alta de créditos toma el mismo lock del cliente (ClienteConcurrencia), así que no puede colarse un
+            // crédito entre la comprobación y la baja. La baja es lógica: no toca ventas, créditos, cuotas ni documentos del cliente.
             await using var transaccionPropia = _context.Database.CurrentTransaction == null
                 ? await _context.Database.BeginTransactionAsync()
                 : null;
 
+            // Orden de locks: Créditos del cliente (ascendente) -> Cliente. Es el mismo orden que cobros y punitorios (toman
+            // el Crédito y luego actualizan el Cliente por scoring); el alta de crédito toma solo el Cliente. Un crédito creado
+            // entre la lectura de los ids y el lock del cliente no se bloquea, pero la comprobación posterior lo ve y rechaza.
+            var idsCreditos = await _context.Creditos.AsNoTracking()
+                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
+                .Select(cr => cr.Id)
+                .ToListAsync();
+            await CreditoConcurrencia.BloquearOrdenadosAsync(_context, idsCreditos);
             await ClienteConcurrencia.BloquearAsync(_context, id);
 
             var cliente = await _context.Clientes
@@ -232,14 +240,6 @@ namespace TheBuryProject.Services
 
             if (cliente == null)
                 return false;
-
-            // También serializa contra cobros, punitorios y cancelaciones de sus créditos (Cliente -> Créditos en orden
-            // ascendente; ninguno de esos flujos toma el lock del cliente, así que no hay ciclos).
-            var idsCreditos = await _context.Creditos.AsNoTracking()
-                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
-                .Select(cr => cr.Id)
-                .ToListAsync();
-            await CreditoConcurrencia.BloquearOrdenadosAsync(_context, idsCreditos);
 
             var motivo = await ObtenerMotivoBloqueoBajaInternoAsync(id);
             if (motivo != null)

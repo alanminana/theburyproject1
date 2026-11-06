@@ -1071,7 +1071,7 @@ namespace TheBuryProject.Services
 
         /// <summary>
         /// H-24: confirmar una venta es una operación NUEVA y no se admite sobre un cliente dado de baja. Toma el lock del cliente
-        /// (primero en el orden Cliente -> Crédito -> Venta, el mismo que usa la baja) y comprueba bajo ese lock que sigue activo,
+        /// (orden Crédito -> Cliente -> Venta, el mismo que usa la baja) y comprueba bajo ese lock que sigue activo,
         /// de modo que una baja concurrente no se cuele entre la comprobación y el descuento de stock / asiento de caja.
         /// Las ventas ya confirmadas/facturadas/entregadas no se vuelven a evaluar acá (su reintento se rechaza por estado).
         /// </summary>
@@ -1263,9 +1263,6 @@ namespace TheBuryProject.Services
                     "No se puede confirmar la venta sin una caja abierta para el usuario actual.");
                 _logger.LogInformation("ConfirmarVentaCreditoAsync inicio venta {Id}", id);
 
-                // H-24: primero el lock del cliente (orden Cliente -> Crédito -> Venta); un cliente dado de baja no financia ventas nuevas.
-                await AsegurarClienteActivoParaConfirmarAsync(id);
-
                 // FIN-ANT-P0: mismo orden de locks que CancelarVentaAsync (Crédito -> Venta). Confirmar y cancelar la
                 // misma venta se serializan: la cancelación que espera el lock del crédito lee, al despertar, la
                 // venta ya confirmada Y su anticipo asentado (el commit es atómico), nunca un estado previo al asiento.
@@ -1276,6 +1273,9 @@ namespace TheBuryProject.Services
                     .FirstOrDefaultAsync();
                 if (creditoIdBloqueado.HasValue)
                     await CreditoConcurrencia.BloquearAsync(_context, creditoIdBloqueado.Value);
+                // H-24: luego el lock del cliente (orden Crédito -> Cliente -> Venta, el de la baja y el del scoring de los cobros);
+                // un cliente dado de baja no financia ventas nuevas.
+                await AsegurarClienteActivoParaConfirmarAsync(id);
                 await _context.Ventas
                     .Where(v => v.Id == id && !v.IsDeleted)
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));

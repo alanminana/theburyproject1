@@ -407,4 +407,60 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         Assert.StartsWith("RECHAZADA", rBaja);
         Assert.False(eliminado);
     }
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-07] cobro (Credito y luego scoring que actualiza el Cliente) en vuelo + baja: sin deadlock; el cobro termina y la baja se resuelve despues")]
+    public async Task CobroConScoring_VsBaja_SinDeadlock()
+    {
+        var cliente = await CrearClienteAsync();
+        int creditoId;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var credito = new Credito { ClienteId = cliente, Numero = "H24C-" + Guid.NewGuid().ToString("N")[..8], Estado = EstadoCredito.Finalizado, SaldoPendiente = 0m };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+            creditoId = credito.Id;
+        }
+
+        await using var cn = new SqlConnection(_fx.ConnectionString);
+        await cn.OpenAsync();
+        await using var tx = (SqlTransaction)await cn.BeginTransactionAsync();
+        await using (var cmd = cn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT [Id] FROM [Creditos] WITH (UPDLOCK, HOLDLOCK, ROWLOCK) WHERE [Id] = @id";
+            cmd.Parameters.AddWithValue("@id", creditoId);
+            await cmd.ExecuteScalarAsync();
+        }
+
+        var baja = Baja(cliente);
+        var bloqueada = await QuedaBloqueadaAsync(baja);
+
+        // El cobro recalcula el scoring: actualiza la fila del Cliente MIENTRAS la baja espera. Con el orden Cliente -> Credito
+        // (la baja ya tendria el lock del cliente) esto formaba un ciclo; con Credito -> Cliente no.
+        var scoringOk = true;
+        try
+        {
+            await using var cmd2 = cn.CreateCommand();
+            cmd2.Transaction = tx;
+            cmd2.CommandText = "SET LOCK_TIMEOUT 5000; UPDATE [Clientes] SET [UpdatedAt] = SYSUTCDATETIME() WHERE [Id] = @c";
+            cmd2.Parameters.AddWithValue("@c", cliente);
+            await cmd2.ExecuteNonQueryAsync();
+        }
+        catch (SqlException ex)
+        {
+            scoringOk = false;
+            _out.WriteLine("scoring fallo: " + ex.Number + " " + ex.Message);
+        }
+        if (scoringOk) await tx.CommitAsync(); else await tx.RollbackAsync();
+
+        var rBaja = await baja;
+        _out.WriteLine($"baja: {rBaja} (bloqueada: {bloqueada}); scoringOk: {scoringOk}");
+
+        Assert.True(bloqueada, "la baja debia esperar el lock del credito");
+        Assert.True(scoringOk, "el scoring del cobro no debe quedar bloqueado por la baja (ciclo de locks)");
+        Assert.NotEqual("DEADLOCK_VICTIMA", rBaja);
+        Assert.Equal("OK", rBaja);
+        Assert.True((await EstadoFinalAsync(cliente)).eliminado);
+    }
 }

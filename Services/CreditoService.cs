@@ -368,7 +368,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                // H-24: se serializa con la baja del cliente (orden Cliente -> Crédito) y todo se evalúa bajo esos locks.
+                // H-24: se serializa con la baja del cliente y todo se evalúa bajo esos locks.
                 await using var transaccionUpdate = _context.Database.CurrentTransaction == null
                     ? await _context.Database.BeginTransactionAsync()
                     : null;
@@ -378,8 +378,9 @@ namespace TheBuryProject.Services
                     .FirstOrDefaultAsync();
                 if (clienteDelCredito == null)
                     return false;
-                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito.Value);
+                // Orden Crédito -> Cliente (igual que cobros/punitorios y la baja): nunca Cliente antes que Crédito.
                 await CreditoConcurrencia.BloquearAsync(_context, viewModel.Id);
+                await ClienteConcurrencia.BloquearAsync(_context, clienteDelCredito.Value);
 
                 var credito = await _context.Creditos.FirstOrDefaultAsync(c => c.Id == viewModel.Id && !c.IsDeleted);
                 if (credito == null)

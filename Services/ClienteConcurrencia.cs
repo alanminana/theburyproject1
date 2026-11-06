@@ -10,8 +10,9 @@ namespace TheBuryProject.Services
     /// "no tiene créditos vigentes" (baja) y "el cliente está activo" (alta de crédito) no se evalúan sobre estados
     /// intermedios: o el crédito se crea y la baja se rechaza, o la baja se confirma y el crédito se rechaza.
     ///
-    /// Orden de locks: Cliente primero, nunca después de Crédito/Venta (el cobro y la cancelación toman Crédito y no
-    /// leen Clientes con lock), así que no introduce deadlocks. Debe invocarse con una transacción abierta.
+    /// Orden de locks (global): Crédito -> Cliente -> Venta. El cobro y los punitorios toman el Crédito y después ACTUALIZAN el
+    /// Cliente (scoring), así que ningún flujo puede pedir el lock del Cliente y luego el de un Crédito. El alta de crédito toma
+    /// solo el Cliente (el crédito aún no existe). Debe invocarse con una transacción abierta.
     /// SQL Server: <c>UPDLOCK, HOLDLOCK, ROWLOCK</c> sobre la PK; otros proveedores (SQLite de tests): no-op.
     /// </summary>
     internal static class ClienteConcurrencia
