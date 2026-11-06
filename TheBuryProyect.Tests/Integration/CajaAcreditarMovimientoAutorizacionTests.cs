@@ -77,7 +77,7 @@ public class CajaAcreditarMovimientoAutorizacionTests : IDisposable
         return controller;
     }
 
-    private async Task<(Caja Caja, AperturaCaja Apertura, MovimientoCaja Pendiente)> SeedCajaConIngresoPendienteAsync(string miembro)
+    private async Task<(Caja Caja, AperturaCaja Apertura, MovimientoCaja Pendiente)> SeedCajaConIngresoPendienteAsync(string miembro, string? abridor = null)
     {
         var codigo = Guid.NewGuid().ToString("N")[..8];
         var caja = new Caja { Codigo = codigo, Nombre = "Caja-" + codigo, Activa = true, Estado = EstadoCaja.Cerrada };
@@ -96,7 +96,8 @@ public class CajaAcreditarMovimientoAutorizacionTests : IDisposable
         _context.CajaVendedores.Add(new CajaVendedor { CajaId = caja.Id, VendedorUserId = miembro });
         await _context.SaveChangesAsync();
 
-        var apertura = await _service.AbrirCajaAsync(new ViewModels.AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 100m }, miembro);
+        // H-05: un usuario abre una sola caja a la vez; para sembrar dos cajas del mismo miembro, la segunda la abre otro usuario.
+        var apertura = await _service.AbrirCajaAsync(new ViewModels.AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 100m }, abridor ?? miembro);
         var mov = new MovimientoCaja
         {
             AperturaCajaId = apertura.Id,
@@ -164,7 +165,7 @@ public class CajaAcreditarMovimientoAutorizacionTests : IDisposable
     public async Task N4_MiembroDeAmbasCajas_AperturaEnviadaDistintaDeLaReal_SeRechazaPorMismatch()
     {
         var a = await SeedCajaConIngresoPendienteAsync("cajero-ab");
-        var b = await SeedCajaConIngresoPendienteAsync("cajero-ab");
+        var b = await SeedCajaConIngresoPendienteAsync("cajero-ab", abridor: "cajero-ab-otro");
 
         var controller = ControllerPara("cajero-ab");
         await controller.AcreditarMovimiento(b.Pendiente.Id, a.Apertura.Id);

@@ -826,7 +826,7 @@ public class DevolucionServiceTests : IDisposable
 
         var movimiento = await _context.MovimientosStock
             .AsNoTracking()
-            .SingleAsync(m => m.ProductoId == producto.Id && m.Referencia == $"DEV-{dev.NumeroDevolucion}");
+            .SingleAsync(m => m.ProductoId == producto.Id && m.Referencia == dev.NumeroDevolucion);
         Assert.Equal(17.50m, movimiento.CostoUnitarioAlMomento);
         Assert.Equal(35.00m, movimiento.CostoTotalAlMomento);
         Assert.Equal("VentaDetalleSnapshot", movimiento.FuenteCosto);
@@ -2540,8 +2540,9 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal("testuser", reembolso.Usuario);
     }
 
+    // H-04: el reembolso en efectivo SIEMPRE sale de la caja, aunque la devolución se haya creado con la marca apagada.
     [Fact]
-    public async Task Completar_ReembolsoSinEgresoCaja_NoTocaCaja()
+    public async Task Completar_ReembolsoConMarcaApagada_IgualRegistraEgresoEnCaja()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
@@ -2556,7 +2557,55 @@ public class DevolucionServiceTests : IDisposable
         var resultado = await service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
 
         Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
+        var reembolso = Assert.Single(caja.Reembolsos);
+        Assert.Equal(dev.Id, reembolso.DevolucionId);
+        Assert.True((await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).RegistrarEgresoCaja);
+    }
+
+    // H-04: la nota de crédito no devuelve efectivo: nunca genera egreso de caja.
+    [Fact]
+    public async Task Completar_NotaDeCredito_NoGeneraEgresoDeCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.NotaCredito);
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion();
+        var service = CrearServiceConCaja(caja);
+
+        var resultado = await service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
         Assert.Empty(caja.Reembolsos);
+    }
+
+    // H-04: una venta que no se cobró por caja (nota de crédito, crédito, cuenta corriente) no tiene efectivo que devolver.
+    [Theory]
+    [InlineData(TipoPago.NotaCredito)]
+    [InlineData(TipoPago.CreditoPersonal)]
+    [InlineData(TipoPago.CuentaCorriente)]
+    public async Task Completar_ReembolsoDeVentaNoCobradaPorCaja_SeRechazaSinEgreso(TipoPago tipoPago)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        venta.TipoPago = tipoPago;
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.ReembolsoDinero);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion();
+        var service = CrearServiceConCaja(caja);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CompletarDevolucionAsync(dev.Id, dev.RowVersion));
+
+        Assert.Contains("no se cobró por caja", ex.Message);
+        Assert.Empty(caja.Reembolsos);
+        Assert.NotEqual(EstadoDevolucion.Completada, (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).Estado);
     }
 
     [Fact]

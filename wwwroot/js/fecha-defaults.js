@@ -1,6 +1,8 @@
 /*
  * Reglas globales para inputs de fecha, declaradas con data-fecha:
  *   hoy        -> min = hoy y, si está vacío, se completa con la fecha de hoy.
+ *   hoy-libre  -> si está vacío se completa con hoy, SIN mínimo (campos que admiten fecha pasada con confirmación
+ *                 explícita, p. ej. la vigencia retroactiva de punitorios: el servidor valida la regla).
  *   futura     -> min = hoy, sin completar (campos opcionales como "vence" o "hasta").
  *   nacimiento -> max = hoy, min = 01/01/1900 (el mismo piso que valida el servidor).
  * Si el input ya trae un valor pasado (edición de un registro histórico) no se impone
@@ -35,9 +37,9 @@
         }
 
         var esPasado = valor !== '' && valor.slice(0, 10) < hoy;
-        if (!esPasado) input.min = minimo;
+        if (!esPasado && regla !== 'hoy-libre') input.min = minimo;
 
-        if (regla === 'hoy' && valor === '' && !input.readOnly && !input.disabled) {
+        if ((regla === 'hoy' || regla === 'hoy-libre') && valor === '' && !input.readOnly && !input.disabled) {
             input.value = esLocal ? hoy + 'T' + pad(ahora.getHours()) + ':' + pad(ahora.getMinutes()) : hoy;
         }
     }

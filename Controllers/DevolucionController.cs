@@ -259,9 +259,19 @@ public class DevolucionController : Controller
                 }
             }
 
-            var registrarEgresoCaja = model.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
-                && model.RegistrarEgresoCaja
-                && _devolucionService.PermiteImpactoCaja(venta.TipoPago);
+            // H-04: el reembolso en efectivo SIEMPRE se refleja en caja (no depende de lo que envíe el navegador); la nota de
+            // crédito y los cambios nunca generan egreso. Una venta que no se cobró por caja no admite reembolso en efectivo.
+            if (model.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
+                && !_devolucionService.PermiteImpactoCaja(venta.TipoPago))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Esta venta no se cobró por caja: no admite reembolso en efectivo. Resolvela con nota de crédito."
+                });
+            }
+
+            var registrarEgresoCaja = model.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero;
 
             var devolucion = new Devolucion
             {

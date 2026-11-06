@@ -422,9 +422,11 @@ html.dark .ordencompra-summary-totals {
 .oc-items-details__icon { transition: transform 0.15s ease; }
 .oc-items-details[open] .oc-items-details__icon { transform: rotate(180deg); }
 
-/* Details con recepción a 1024-1279px (sidebar abierta): tabla de 7 columnas + panel lateral no
-   entran lado a lado y el input "A recepcionar" quedaba fuera de vista. Se apila el panel debajo. */
-@media (min-width: 1024px) and (max-width: 1279.98px) {
+/* Details con recepción a 1024-1535px (sidebar abierta): tabla de 7 columnas + panel lateral no
+   entran lado a lado y el input "A recepcionar" quedaba fuera de vista. Se apila el panel debajo.
+   H-06 (auditoría 2026-11-05): el rango llegaba solo a 1279px, pero a 1280-1366px la tabla (735px) seguía
+   desbordando su contenedor (623-680px) y ocultaba la columna clave; se extiende hasta 1535px. */
+@media (min-width: 1024px) and (max-width: 1535.98px) {
     .oc-details-grid {
         grid-template-columns: minmax(0, 1fr);
     }

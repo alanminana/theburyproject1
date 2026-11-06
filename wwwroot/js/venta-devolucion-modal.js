@@ -163,13 +163,12 @@
         const permiteImpactoCaja = Boolean(context?.permiteImpactoCaja);
 
         if (tipoResolucion === 1) {
+            // H-04: el reembolso en efectivo SIEMPRE sale de la caja abierta (el servidor lo impone; acá solo se informa).
             helperBox.textContent = permiteImpactoCaja
-                ? 'El reembolso puede generar un egreso en caja cuando completes la devolución.'
-                : 'El reembolso no impactará caja automáticamente para esta venta.';
-            cajaCheckbox.disabled = !permiteImpactoCaja;
-            if (!permiteImpactoCaja) {
-                cajaCheckbox.checked = false;
-            }
+                ? 'Reembolso en efectivo: al completar la devolución sale de la caja abierta (con efectivo suficiente). No genera nota de crédito.'
+                : 'Esta venta no se cobró por caja: no admite reembolso en efectivo. Resolvela con nota de crédito.';
+            cajaCheckbox.checked = permiteImpactoCaja;
+            cajaCheckbox.disabled = true;
             return;
         }
 
@@ -181,7 +180,7 @@
         } else if (tipoResolucion === 3) {
             helperBox.textContent = 'Cambio por otro producto: la devolución queda registrada, pero la salida del reemplazo debe resolverse manualmente.';
         } else {
-            helperBox.textContent = 'Nota de crédito: se genera crédito a favor del cliente al aprobar la devolución.';
+            helperBox.textContent = 'Nota de crédito: se genera crédito a favor del cliente al aprobar la devolución. No genera egreso de caja.';
         }
     }
 

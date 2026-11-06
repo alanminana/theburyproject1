@@ -579,10 +579,11 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
     // =====================================================================================
 
     /// <summary>
-    /// R-05. Dos aperturas simultáneas de la MISMA caja: no existe índice único filtrado (CajaId, Cerrada=0); la
-    /// defensa es que ambas actualizan Caja.Estado con RowVersion. La primera se detiene antes de insertar la
-    /// apertura, la segunda completa, y al liberar la primera el UPDATE de Caja debe fallar por RowVersion
-    /// (rechazo de concurrencia, no timeout ni deadlock). Una sola apertura abierta y la caja Abierta.
+    /// R-05. Dos aperturas simultáneas de la MISMA caja. No existe índice único filtrado (CajaId, Cerrada=0); antes de H-11 la
+    /// única defensa era el RowVersion de Caja (la perdedora fallaba con DbUpdateConcurrencyException crudo). Ahora AbrirCajaAsync
+    /// serializa con locks de aplicación (usuario y caja): la primera se detiene antes de insertar con el lock tomado, la segunda
+    /// queda BLOQUEADA, y al liberar la primera la segunda ve la apertura y se rechaza con un mensaje de negocio. Una sola
+    /// apertura abierta y la caja Abierta.
     /// </summary>
     [SqlServerConcFact(DisplayName = "SQL SERVER EFIMERO [R-05]: DosAperturasSimultaneasDeLaMismaCaja_DejanUnaSolaAbierta")]
     [Trait("Categoria", "SqlServerRegresion")]
@@ -598,17 +599,24 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
             cajaId = caja.Id;
         }
 
-        Task<string> Abrir(GatePlan? p) => Lanzar(p, async sp =>
-            (await sp.GetRequiredService<ICajaService>().AbrirCajaAsync(new AbrirCajaViewModel { CajaId = cajaId, MontoInicial = 0m }, ConcCurrentUser.Usuario)).Id);
+        // H-05/H-11: un usuario mantiene una sola apertura activa, así que cada apertura la hace un usuario distinto (el usuario fijo del
+        // harness ya tiene la suya sembrada). El choque de la MISMA caja ahora se resuelve con un lock de aplicación, no por azar.
+        Task<string> Abrir(GatePlan? p, string usuario) => Lanzar(p, async sp =>
+            (await sp.GetRequiredService<ICajaService>().AbrirCajaAsync(new AbrirCajaViewModel { CajaId = cajaId, MontoInicial = 0m }, usuario)).Id);
 
         var plan = Compuerta("apertura/antes-de-insertar", "INSERT INTO [AperturasCaja]");
         Task<string>? primera = null;
         string segunda;
         try
         {
-            primera = Abrir(plan);
+            primera = Abrir(plan, "r05.usuario.a");
             Assert.True(await LlegoALaCompuertaAsync(plan, primera), "La primera apertura no llegó a la compuerta.");
-            segunda = await ResultadoAsync("segunda apertura", Abrir(null), plan);   // no hay lock compartido: completa
+            var segundaTarea = Abrir(null, "r05.usuario.b");
+            // La segunda debe quedar BLOQUEADA en el lock de la caja que retiene la primera (antes completaba sin esperar).
+            Assert.True(await Task.WhenAny(segundaTarea, Task.Delay(TimeSpan.FromSeconds(5))) != segundaTarea,
+                "La segunda apertura de la misma caja debía esperar el lock de la primera.");
+            plan.Release.TrySetResult();
+            segunda = await ResultadoAsync("segunda apertura", segundaTarea, plan);
         }
         finally
         {
@@ -624,12 +632,13 @@ public partial class FinResidualSqlServerTests : IClassFixture<FinResidualSqlHos
             abiertas = await ctx.AperturasCaja.CountAsync(a => a.CajaId == cajaId && !a.Cerrada && !a.IsDeleted);
             estadoCaja = await ctx.Cajas.AsNoTracking().Where(c => c.Id == cajaId).Select(c => c.Estado).FirstAsync();
         }
-        Informe("R-05", $"segunda(completa)={segunda}", $"primera(liberada)={resPrimera}", $"aperturas abiertas={abiertas} caja={estadoCaja}");
+        Informe("R-05", $"segunda(esperó el lock)={segunda}", $"primera(liberada)={resPrimera}", $"aperturas abiertas={abiertas} caja={estadoCaja}");
 
         NoEsFalloDeInfraestructura("segunda apertura", segunda);
         NoEsFalloDeInfraestructura("primera apertura", resPrimera);
-        Assert.Equal(1, new[] { segunda, resPrimera }.Count(x => x.StartsWith("OK(", StringComparison.Ordinal)));
-        Assert.Contains("DbUpdateConcurrencyException", resPrimera);
+        Assert.StartsWith("OK(", resPrimera);
+        Assert.Contains("La caja ya tiene una apertura activa", segunda);   // rechazo de negocio, no DbUpdateConcurrencyException
+        Assert.DoesNotContain("DbUpdateConcurrencyException", resPrimera + segunda);
         Assert.Equal(1, abiertas);
         Assert.Equal(EstadoCaja.Abierta, estadoCaja);
     }

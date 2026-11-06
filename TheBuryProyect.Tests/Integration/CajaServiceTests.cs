@@ -751,6 +751,46 @@ public class CajaServiceTests : IDisposable
         Assert.Null(activa);
     }
 
+    // H-05: un usuario mantiene UNA sola apertura activa a la vez.
+    [Fact]
+    public async Task AbrirCaja_UsuarioConAperturaVigente_NoPuedeAbrirOtraCaja()
+    {
+        var cajaA = await SeedCajaAsync();
+        var cajaB = await SeedCajaAsync();
+        await AbrirCajaAsync(cajaA);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => AbrirCajaAsync(cajaB));
+
+        Assert.Contains("Ya tenés una caja abierta", ex.Message);
+        Assert.Equal(1, await _context.AperturasCaja.CountAsync(a => !a.Cerrada && a.UsuarioApertura == "testuser"));
+    }
+
+    [Fact]
+    public async Task AbrirCaja_OtroUsuario_PuedeAbrirOtraCaja()
+    {
+        var cajaA = await SeedCajaAsync();
+        var cajaB = await SeedCajaAsync();
+        await AbrirCajaAsync(cajaA);
+
+        var otra = await _service.AbrirCajaAsync(new AbrirCajaViewModel { CajaId = cajaB.Id, MontoInicial = 10m }, "otro.usuario");
+
+        Assert.NotEqual(0, otra.Id);
+    }
+
+    [Fact]
+    public async Task AbrirCaja_TrasCerrarLaAnterior_PuedeAbrirOtra()
+    {
+        var cajaA = await SeedCajaAsync();
+        var cajaB = await SeedCajaAsync();
+        var primera = await AbrirCajaAsync(cajaA);
+        primera.Cerrada = true;
+        await _context.SaveChangesAsync();
+
+        var segunda = await AbrirCajaAsync(cajaB);
+
+        Assert.NotEqual(primera.Id, segunda.Id);
+    }
+
     [Fact]
     public async Task ObtenerAperturaActivaParaVenta_HayVencidaYHoy_RetornaLaDeHoy()
     {

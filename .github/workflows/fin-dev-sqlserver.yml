@@ -137,6 +137,15 @@ jobs:
           export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
           dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~FinCajaSqlServerTests"             --logger "trx;LogFileName=fin-caja-sql-rcsi${{ matrix.rcsi }}.trx"             --logger "console;verbosity=detailed"             --results-directory ./TestResults
 
+      - name: Apertura de caja unica H-11 / H-05 (una apertura activa por caja y por usuario)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~CajaAperturaUnicaSqlServerTests"             --logger "trx;LogFileName=caja-apertura-sql-rcsi${{ matrix.rcsi }}.trx"             --logger "console;verbosity=detailed"             --results-directory ./TestResults
+
       - name: Idempotencia de movimientos manuales FIN-IDEM-P0 (H-IDEM-1)
         env:
           QA_RELEASE_TURNO: '1'
