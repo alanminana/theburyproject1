@@ -448,6 +448,31 @@ public class ClienteServiceTests : IDisposable
         Assert.Equal("Modificado", resultado.Nombre);
     }
 
+    [Theory]
+    [InlineData(EstadoCredito.Activo, true)]
+    [InlineData(EstadoCredito.Aprobado, true)]
+    [InlineData(EstadoCredito.Finalizado, false)]
+    [InlineData(EstadoCredito.Cancelado, false)]
+    public async Task DeleteAsync_H24_BloqueaLaBajaConCreditoVigente(EstadoCredito estado, bool debeBloquear)
+    {
+        var cliente = BuildCliente();
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        _context.Creditos.Add(new Credito { ClienteId = cliente.Id, Numero = "CRE-H24-" + estado, Estado = estado, SaldoPendiente = 1000m });
+        await _context.SaveChangesAsync();
+
+        if (debeBloquear)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(cliente.Id));
+            Assert.False((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+        }
+        else
+        {
+            Assert.True(await _service.DeleteAsync(cliente.Id));
+            Assert.True((await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cliente.Id)).IsDeleted);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // DeleteAsync
     // -------------------------------------------------------------------------
