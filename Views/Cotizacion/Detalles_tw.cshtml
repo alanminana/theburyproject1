@@ -7,6 +7,8 @@
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
     var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso("cotizaciones", "convert");
+    // H-20: cancelación manual de una cotización Emitida (el servicio valida el estado y exige el motivo).
+    var puedeCancelar = Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso("cotizaciones", "cancel");
     // DESCUENTO-PERMISO-01: sin ventas.discount no se muestra el descuento manual de la cotización.
     var puedeDescuentos = User.PuedeAplicarDescuentos();
 
@@ -235,6 +237,30 @@
                 <p class="text-sm text-slate-400">Esta cotizacion esta cancelada y no puede convertirse.</p>
             </div>
         </section>
+    }
+
+    @if (puedeCancelar)
+    {
+        <section id="cotizacion-cancelar-panel" data-cotizacion-id="@Model.Id"
+                 data-cancelar-url="@Url.Content("~/api/cotizacion/" + Model.Id + "/cancelar")"
+                 class="rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+            <form id="cotizacion-cancelar-form" method="post" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                @Html.AntiForgeryToken()
+                <div class="flex-1">
+                    <label for="cotizacion-cancelar-motivo" class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cancelar esta cotización</label>
+                    <input id="cotizacion-cancelar-motivo" type="text" maxlength="300" required
+                           placeholder="Motivo de la cancelación (obligatorio)"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+                    <p id="cotizacion-cancelar-error" class="mt-1 hidden text-xs text-rose-400" role="alert"></p>
+                </div>
+                <button id="cotizacion-cancelar-btn" type="submit"
+                        class="inline-flex shrink-0 items-center gap-2 rounded-lg border border-rose-500/40 px-4 py-2 text-sm font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-50">
+                    <span class="material-symbols-outlined text-lg">cancel</span>
+                    Cancelar cotización
+                </button>
+            </form>
+        </section>
+        <script src="~/js/cotizacion-cancelar.js" asp-append-version="true"></script>
     }
 
     <section class="grid grid-cols-1 gap-3 @(puedeDescuentos ? "md:grid-cols-4" : "md:grid-cols-3")">

@@ -74,6 +74,22 @@ public sealed class CotizacionControllerUiTests
     }
 
     [Fact]
+    public void Detalles_H20_ExponeCancelacionSoloParaEmitidasConPermisoYMotivo()
+    {
+        var root = FindRepoRoot();
+        var view = File.ReadAllText(Path.Combine(root, "Views", "Cotizacion", "Detalles_tw.cshtml"));
+        var script = File.ReadAllText(Path.Combine(root, "wwwroot", "js", "cotizacion-cancelar.js"));
+
+        Assert.Contains("Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso(\"cotizaciones\", \"cancel\")", view);
+        Assert.Contains("cotizacion-cancelar.js", view);
+        Assert.Contains("/cancelar", view);
+        Assert.Contains("required", view);
+        Assert.Contains("RequestVerificationToken", script);
+        Assert.Contains("motivo", script);
+        Assert.Contains("confirm(", script);
+    }
+
+    [Fact]
     public void Script_PosteaCotizacionReadOnlyYNoDependeDeVentaCreate()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
