@@ -903,6 +903,30 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ObtenerVentasAgrupadas_H25_NoCuentaVentasDeClientesDadosDeBaja_IgualQueElReporteDeVentas()
+    {
+        var vigente = await SeedClienteAsync();
+        var baja = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(vigente.Id, producto.Id, precioUnitario: 100m, cantidad: 1, fecha: hoy);
+        await SeedVentaAsync(baja.Id, producto.Id, precioUnitario: 40m, cantidad: 1, fecha: hoy);
+        baja.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var agrupadas = await _service.ObtenerVentasAgrupadasAsync(hoy.AddDays(-1), hoy.AddDays(1), "dia");
+        var reporte = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel
+        {
+            FechaDesde = hoy.AddDays(-1),
+            FechaHasta = hoy.AddDays(1)
+        });
+
+        // Las dos superficies de Reportes deben coincidir (criterio único de VentasNetas.Comerciales).
+        Assert.Equal(reporte.TotalVentas, agrupadas.Sum(g => g.Monto));
+        Assert.Equal(1, agrupadas.Sum(g => g.Cantidad));
+    }
+
+    [Fact]
     public async Task ObtenerVentasAgrupadas_AgrupadoPorDia_DiasDiferentesProducenGruposSeparados()
     {
         var cliente = await SeedClienteAsync();
