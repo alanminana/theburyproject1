@@ -3,7 +3,7 @@
 Base: `main` `69c61106` (PR #236 y #237 fusionadas) + PR de la fase 3. Complementa `docs/auditoria-funcional-2026-11-05.md` (tramo 1) y `docs/auditoria-funcional-reglas-h01-h04-h05.md`.
 **La auditoría NO está cerrada.** Hay **dos métricas distintas** que no deben confundirse:
 
-- **Cobertura de acciones HTTP ejercitadas con evidencia: 23,9 %** (74 de 310 funcionalidades de usuario; era 13,9 % al recalcular la base del tramo 2 con los mismos logs: 43). Mide *qué se probó*, no cuánto está desarrollado.
+- **Cobertura de acciones HTTP ejercitadas con evidencia: 24,2 %** (75 de 310 funcionalidades de usuario; la base del tramo 2 recalculada con los mismos logs da 43, 13,9 %). Mide *qué se probó*, no cuánto está desarrollado. Los POST rechazados por autorización (302 a *AccessDenied*) se excluyen del conteo: los logs de la sonda de permisos no se usan como evidencia de funcionalidad.
 - **Desarrollo funcional completado**: tabla cualitativa de la §2-bis. No es un porcentaje porque no hay un denominador de «alcance aprobado» cerrado; se informa por módulo con su estado y lo que falta.
 
 Todo lo no ejercitado es *no verificado*, no aprobado.
@@ -21,16 +21,16 @@ Todo lo no ejercitado es *no verificado*, no aprobado.
 
 | Módulo | Funcionalidades | Verificadas (auditoría) | Verificadas (E2E) | Fallidas | Incompletas | No verificadas | Cobertura |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Ventas y Cotizaciones | 27 | 6 | 3 | 0 | 0 | 18 | 33 % |
+| Ventas y Cotizaciones | 27 | 7 | 2 | 0 | 0 | 18 | 33 % |
 | Caja | 11 | 6 | 0 | 0 | 0 | 5 | 55 % |
-| Crédito | 25 | 4 | 7 | 0 | 0 | 14 | 44 % |
+| Crédito | 25 | 5 | 6 | 0 | 0 | 14 | 44 % |
 | Mora y Acuerdos | 21 | 9 | 0 | 0 | 0 | 12 | 43 % |
 | Cheques | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
 | Compras | 16 | 6 | 0 | 0 | 0 | 10 | 38 % |
 | Stock | 62 | 1 | 0 | 0 | 12 | 49 | 2 % |
-| Devoluciones | 12 | 4 | 0 | 0 | 0 | 8 | 33 % |
+| Devoluciones | 12 | 5 | 0 | 0 | 0 | 7 | 42 % |
 | Notas de crédito | 1 | 0 | 0 | 0 | 0 | 1 | 0 % |
-| Clientes | 27 | 0 | 5 | 0 | 0 | 22 | 19 % |
+| Clientes | 27 | 1 | 4 | 0 | 0 | 22 | 19 % |
 | Usuarios y Roles | 21 | 2 | 0 | 0 | 0 | 19 | 10 % |
 | Documentos | 29 | 1 | 0 | 0 | 0 | 28 | 3 % |
 | Reportes | 14 | 1 | 0 | 0 | 0 | 13 | 7 % |
@@ -39,7 +39,7 @@ Todo lo no ejercitado es *no verificado*, no aprobado.
 | Tickets | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
 | Configuración | 25 | 7 | 0 | 0 | 0 | 18 | 28 % |
 | Seguridad | 1 | 1 | 0 | 0 | 0 | 0 | 100 % |
-| **Total** | **310** | **59** | **15** | **0** | **12** | **224** | **23.9 %** |
+| **Total** | **310** | **63** | **12** | **0** | **12** | **223** | **24.2 %** |
 
 Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Alertas. *Incompletas* = las 12 funcionalidades del módulo de cambios de precios por lotes (sin listas ni menú; diferido). *Notas de crédito* solo tiene 1 acción propia: su función real (generar al aprobar la devolución, canjear como medio de pago, restituir al cancelar) vive en Devoluciones y Ventas y se prueba en §3. *Cheques* y *Mora y Acuerdos* tienen evidencia **previa** documentada (`docs/cheques-circuito-propuesta.md` §7; Hitos 9 y 10) que **no se re-ejecutó** en esta auditoría, por eso figuran en 0.
 
@@ -128,14 +128,14 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 
 ## 5. Respuestas a las 10 preguntas
 
-1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 23,9 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
+1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 24,2 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
 2. **¿Completamente terminados?** Ninguno puede declararse así con esta evidencia. Los más avanzados: Caja (55 %), Devoluciones y Compras (~30 %, con sus circuitos principales completos).
 3. **¿Incompletos?** Cambios de precios por lotes y Referencias del cliente (§4-B).
 4. **¿Errores encontrados y corregidos?** H-02, H-03, H-04, H-05, H-06 y H-11 (PR #237) y H-13 y H-14 (fase 3), todos sin migraciones.
 5. **¿Qué falta desarrollar?** §4-C (fuera del alcance confirmado). Nada de eso se implementó.
 6. **¿Decisiones comerciales?** §4-D; la más urgente es **H-01** (requiere autorización por migración).
 7. **¿Pruebas que faltan?** Unas 268 funcionalidades sin ejercitar. Circuitos pendientes: cotización → conversión → venta (hoy solo E2E), cliente → crédito → cuotas → cobro, mora → acuerdo → regularización, cheques (re-ejecutar), envío/armado → ganancia, cambio de precios directo y reversión, Tickets, Notificaciones, Documentos, Configuración, permisos por acción, móvil y concurrencia fuera de caja/OC.
-8. **¿Porcentaje funcional verificable?** **23,9 %** de cobertura de acciones (74 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
+8. **¿Porcentaje funcional verificable?** **24,2 %** de cobertura de acciones (75 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
 9. **¿Cuánto desarrollo queda?** Desarrollo nuevo: ninguno confirmado dentro del alcance. Lo que queda es **verificación** (unas 268 funcionalidades) y las decisiones de §4-D/E.
 10. **¿Se puede declarar finalizado el desarrollo funcional?** **No**, con la evidencia disponible.
 
@@ -144,8 +144,12 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 1. **H-01**: implementar la renumeración `COT-` → `VTA-` (solo la ruta wizard la necesita) con `NumeroOrigen`; migración únicamente en clones QA; **no aplicar a la base real**.
 2. **H-15**: decidir cómo se habilita el medio Cheque (sembrar la configuración o permitir crearla); hoy la venta con cheque no es seleccionable.
 3. **H-18**: conciliar el KPI de la bandeja de mora contra SQL cliente por cliente.
-4. Probar permisos por acción (POST) por rol y los módulos con baja cobertura: Documentos (3 %), Reportes (7 %), Usuarios y Roles (10 %), Clientes (19 %), Stock (2 %).
+4. Ampliar permisos por acción (POST): el rol Vendedor fue rechazado (AccessDenied, sin efecto en SQL) en 17 POST protegidos; falta probar el resto de los roles y los módulos con baja cobertura: Documentos (3 %), Reportes (7 %), Usuarios y Roles (10 %), Clientes (19 %), Stock (2 %).
 5. Móvil (390×844) de los circuitos principales y concurrencia de recepción, devolución y venta.
 6. Índices únicos filtrados de apertura de caja: analizar apertura vencida y cierres entre días antes de decidir (migración).
 7. Menores abiertos: H-10, H-12, H-16, H-17, H-19, H-20.
 8. Fiscales (§4-E) e infraestructura (§4-F): fuera del cierre funcional.
+
+### Anexo — sondeo de permisos por acción (rol Vendedor, clon f3)
+
+POST con token antifalsificación válido hechos por un usuario Vendedor: `PrefijosNumeracion/Guardar`, `ConfiguracionRentabilidad`, `ServiciosVenta/Guardar`, `Caja/AcreditarCheque`, `Caja/RechazarCheque`, `Mora/EjecutarJob`, `Mora/CrearAcuerdo`, `Mora/CambiarEstadoAcuerdo`, `Ticket/Eliminar`, `Usuarios/Create`, `DocumentosConfig/PlantillaActivar`, `ConfiguracionCliente`, `ConfiguracionPago/CrearPlanGlobal`, `PlantillaContratoCredito/ToggleActiva`, `Catalogo/AplicarCambioPrecioDirecto`, `Venta/Cancelar`, `Cliente/Delete`: **los 17 devolvieron 302 a `/Identity/Account/AccessDenied`** y no cambiaron datos (prefijos y umbrales de rentabilidad intactos en SQL). Limitación: solo se probó un rol; los demás roles y el POST con permiso parcial quedan sin verificar.
