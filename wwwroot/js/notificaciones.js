@@ -103,9 +103,9 @@
                     x.disabled = true;
                     del(API + '/' + encodeURIComponent(n.id) + '?rowVersion=' + encodeURIComponent(n.rowVersion)).then(function () {
                         items = items.filter(function (i) { return i !== n; });
-                        if (!n.leida) noLeidas = Math.max(0, noLeidas - 1);
                         pintarLista();
-                        pintarContador();
+                        // El contador sale del servidor (no se resta a mano): evita doble descuento si una recarga cruza con la baja.
+                        refrescarContador();
                     }).catch(function () {
                         x.disabled = false;
                         mostrarEstado('No se pudo eliminar la notificación. Recargá e intentá de nuevo.');

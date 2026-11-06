@@ -463,6 +463,25 @@ public class MoraServiceTests : IDisposable
         Assert.True(id > 0);
     }
 
+    [Fact]
+    public async Task CrearAcuerdo_H19_GuardaLasObservacionesDelAcuerdo()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var id = await _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30),
+                Observaciones = "  Acordado por telefono con el titular  "
+            }, "g");
+
+        var acuerdo = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id);
+        Assert.Equal("Acordado por telefono con el titular", acuerdo.Observaciones);
+    }
+
     // Pago de acuerdos: el dinero se imputa a las cuotas vencidas del crédito (más vieja primero), con el cobro de cuotas.
     private async Task<(Cliente cliente, Credito credito, AlertaCobranza alerta, AcuerdoPago acuerdo)> SeedAcuerdoActivoConDeudaAsync(
         decimal entrega = 500m, int cuotasAcuerdo = 2, decimal totalAcuerdo = 2_500m)

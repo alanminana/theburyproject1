@@ -595,8 +595,9 @@ namespace TheBuryProject.Services
                     .ToList();
 
                 // H-22: misma definicion que la bandeja de cobranza (MoraClasificacion): en gracia vs en mora.
-                var diasGraciaMora = await _context.ConfiguracionesMora.AsNoTracking()
-                    .Select(c => c.DiasGracia).FirstOrDefaultAsync();
+                // Igual que MoraService.GetConfiguracionAsync: sin configuracion guardada rige la gracia por defecto.
+                var configMora = await _context.ConfiguracionesMora.AsNoTracking().FirstOrDefaultAsync();
+                var diasGraciaMora = configMora == null ? MoraClasificacion.DiasGraciaPorDefecto : configMora.DiasGracia;
 
                 var deudaVigenteDict = cuotasConSaldo
                     .Where(c => c.FechaVencimiento >= hoy)

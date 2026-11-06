@@ -11,6 +11,9 @@ namespace TheBuryProject.Services
     /// </summary>
     public static class MoraClasificacion
     {
+        /// <summary>Dias de gracia que rigen cuando todavia no hay configuracion de mora guardada (los mismos que crea MoraService).</summary>
+        public const int DiasGraciaPorDefecto = 3;
+
         /// <summary>Fecha de corte: una cuota con vencimiento ANTERIOR a este día está en mora (misma regla que ProcesarMora).</summary>
         public static DateTime FechaLimiteMora(DateTime hoy, int? diasGracia) => hoy.AddDays(-Math.Max(0, diasGracia ?? 0));
 
