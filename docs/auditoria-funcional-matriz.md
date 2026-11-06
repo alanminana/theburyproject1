@@ -1,6 +1,6 @@
 # Auditoría funcional integral — matriz de aceptación con evidencia (fase 5, 2026-11-06)
 
-Base: `main` `f1665855` (PR #236 a #238, #240 y #241 fusionadas) + PR de la fase 5. H-01 vive en el PR #239 (borrador). Complementa `docs/auditoria-funcional-2026-11-05.md` (tramo 1) y `docs/auditoria-funcional-reglas-h01-h04-h05.md`.
+Base: `main` (PR #236 a #238 y #240 a #243 fusionadas) + PR de cierre de la fase 5. H-01 vive en el PR #239 (borrador). Complementa `docs/auditoria-funcional-2026-11-05.md` (tramo 1) y `docs/auditoria-funcional-reglas-h01-h04-h05.md`.
 **La auditoría NO está cerrada.** Hay **dos métricas distintas** que no deben confundirse:
 
 - **Cobertura de acciones HTTP ejercitadas con evidencia: 24,2 %** (75 de 310 funcionalidades de usuario; la base del tramo 2 recalculada con los mismos logs da 43, 13,9 %). Mide *qué se probó*, no cuánto está desarrollado. «Ejercitada» en una acción de solo lectura (GET) significa que cargó con 200: **no** prueba que su contenido sea correcto. Contenido contrastado con SQL: Reporte de ventas, Morosidad (deuda vencida total 2.296.750 = SQL) y Márgenes (muestra); los 6 exportes (Excel/PDF) se obtuvieron con 200 y tamaño > 0 sin abrir su contenido. Los POST rechazados por autorización (302 a *AccessDenied*) se excluyen del conteo: los logs de la sonda de permisos no se usan como evidencia de funcionalidad.
@@ -27,19 +27,19 @@ Todo lo no ejercitado es *no verificado*, no aprobado.
 | Mora y Acuerdos | 21 | 9 | 0 | 0 | 0 | 12 | 43 % |
 | Cheques | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
 | Compras | 16 | 6 | 0 | 0 | 0 | 10 | 38 % |
-| Stock | Desarrollado salvo **lotes de precios (Incompleto, diferido)** | Ajuste masivo del catálogo (fase 3); (fase 5) **movimientos de stock por interfaz contra SQL**: entrada +10 (100→110), salida −4, ajuste que fija el stock (el movimiento guarda el delta −56 con stock anterior/nuevo), salida mayor al stock rechazada sin movimiento, Kardex = movimientos, **producto: alta** (vacío rechazado con «categoría y marca obligatorias», código duplicado rechazado, stock inicial genera movimiento), **edición** y **baja** (bloqueada con stock > 0; con stock 0 queda eliminada), **Generar alertas** (con confirmación) crea la alerta del producto bajo el mínimo y es idempotente | categorías, marcas, unidades físicas/trazabilidad, resolver/ignorar alertas; listas de precios (§4-C) |
+| Stock | 62 | 9 | 0 | 0 | 12 | 41 | 15 % |
 | Devoluciones | 12 | 5 | 0 | 0 | 0 | 7 | 42 % |
-| Notas de crédito | 1 | 0 | 0 | 0 | 0 | 1 | 0 % |
-| Clientes | Parcial verificado | E2E; (fase 5) **alta por el asistente de 5 pasos**: vacía rechazada con los 3 mensajes obligatorios, alta válida persiste (SQL), DNI duplicado rechazado; baja con crédito vigente permitida con advertencia (**H-24**, decisión) | Edición, documentos del cliente, historial, scoring; pestaña Referencias (oculta, sin modelo) |
-| Usuarios y Roles | 21 | 10 | 0 | 0 | 0 | 11 | 48 % |
+| Notas de crédito | 1 | 1 | 0 | 0 | 0 | 0 | 100 % |
+| Clientes | 27 | 3 | 4 | 0 | 0 | 20 | 26 % |
+| Usuarios y Roles | 21 | 14 | 0 | 0 | 0 | 7 | 67 % |
 | Documentos | 29 | 17 | 0 | 0 | 0 | 12 | 59 % |
 | Reportes | 14 | 13 | 0 | 0 | 0 | 1 | 93 % |
 | Dashboard | 5 | 2 | 0 | 0 | 0 | 3 | 40 % |
-| Notificaciones | 3 | 1 | 0 | 0 | 0 | 2 | 33 % |
+| Notificaciones | 3 | 2 | 0 | 0 | 0 | 1 | 67 % |
 | Tickets | 5 | 4 | 0 | 0 | 0 | 1 | 80 % |
 | Configuración | 25 | 11 | 0 | 0 | 0 | 14 | 44 % |
 | Seguridad | 1 | 1 | 0 | 0 | 0 | 0 | 100 % |
-| **Total** | **310** | **111** | **11** | **0** | **12** | **176** | **39.4 %** |
+| **Total** | **310** | **121** | **11** | **0** | **12** | **166** | **42.6 %** |
 
 Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Alertas. *Incompletas* = las 12 funcionalidades del módulo de cambios de precios por lotes (sin listas ni menú; diferido). *Notas de crédito* solo tiene 1 acción propia: su función real (generar al aprobar la devolución, canjear como medio de pago, restituir al cancelar) vive en Devoluciones y Ventas y se prueba en §3. *Cheques* y *Mora y Acuerdos* tienen evidencia **previa** documentada (`docs/cheques-circuito-propuesta.md` §7; Hitos 9 y 10) que **no se re-ejecutó** en esta auditoría, por eso figuran en 0.
 
@@ -56,7 +56,7 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 | Cheques | Desarrollado, **medio no habilitable desde la UI** (H-15) | Venta con cheque → pendiente → acreditar (confirmación) → rechazar acreditado con motivo obligatorio (egreso reversor) | Habilitación del medio; cuota con cheque rechazado (decisión A/B/C) |
 | Compras | Desarrollado | Tramo 2 (OC, recepción parcial/total, sobre-recepción rechazada) | Resto de acciones |
 | Stock | Desarrollado salvo **lotes de precios (Incompleto, diferido)** | Ajuste masivo del catálogo: simular → aplicar (+10 % solo a los seleccionados) → historial → revertir el evento completo | H-16 (mensaje de reversión); listas de precios (§4-C) |
-| Devoluciones / Notas de crédito | Desarrollado | Tramo 2 | — |
+| Devoluciones / Notas de crédito | Desarrollado | Tramo 2; (fase 5) **circuito por interfaz contra SQL**: «Crear devolución» desde la venta (sin ítems y con descripción corta no se crea), aprobar → completar: devolución DEV-…002 por 1.900 (1 de 2 unidades de 3.800), **nota de crédito NC-202611-000001 por 1.900 al cliente, vigente a un año, sin egreso de caja**, stock 81 → 82, y el listado de notas de crédito del cliente lo muestra | Rechazar/cancelar, uso de la nota de crédito en una venta (cubierto por la suite SQL Server), reembolso en otros medios |
 | Clientes | Parcial verificado | E2E | Pestaña Referencias (oculta, sin modelo) |
 | Usuarios y Roles | Desarrollado | Tramo 2 (matriz 8×34 por GET) | Permisos por acción POST |
 | Documentos | Desarrollado, poca evidencia | Contrato de crédito generado y verificado en el circuito de crédito | Configuración documental (3 %) |
@@ -117,6 +117,7 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 | H-23 | Documentos | Baja | Tras **cancelar un recibo** de una venta, «Generar pendientes» del detalle de la venta no lo vuelve a emitir (cantidad de documentos igual); el texto de ayuda sugiere que sí. Los recibos se reintentan por pago (`pagoCuotaId`) | **Abierto — a confirmar**: probar el reintento desde la cuota/pago y ajustar el texto o el alcance |
 | H-24 | Clientes / Reportes | Media | La **baja de un cliente con crédito vigente** está permitida (la pantalla advierte «registra créditos activos o deuda» y pide una casilla de confirmación) y a partir de ahí **su deuda desaparece de la mora, las alertas y los reportes**, y sus ventas confirmadas dejan de contar en Ventas/Dashboard. Hallado porque el Reporte de ventas (Excel/PDF: 94.340) no incluía una venta confirmada de 3.800 presente en SQL: su cliente estaba dado de baja (criterio de #209: se excluyen clientes eliminados) | **Decisión de negocio (D), no cambiado:** se probó bloquear la baja con crédito vigente (regla nueva sobre un comportamiento advertido y confirmado a propósito) y se **descartó** hasta tu decisión. Opciones: (A) bloquear la baja mientras haya crédito vigente; (B) permitirla pero mantener la deuda y las ventas en mora/reportes; (C) dejar como está. Riesgo residual de (A): carrera entre la baja y el alta de un crédito (Codex) |
 | H-25 | Reportes / Dashboard | Media | **«Ventas agrupadas» no coincidía con el Reporte de ventas**: sumaba 12 ventas / 98.140 contra 11 / 94.340 porque no excluía las de clientes dados de baja (el resto de Reportes y el Dashboard sí, con `VentasNetas.Comerciales`); lo mismo en el top de productos del Dashboard | **Corregido** (fase 5): ambas consultas usan el criterio único; prueba que falla con el código anterior; verificado por interfaz (94.340 / 11 / ganancia 28.966,96 = Reporte de ventas y SQL). Sigue pendiente la decisión H-24 sobre qué hacer con esas ventas |
+| H-26 | Notificaciones | Baja | La acción `EliminarNotificacion` (permiso `notificaciones.delete`) **no tiene interfaz**: el panel solo ofrece «Marcar todas como leídas» | **Abierto (B, función solo backend):** decisión: exponer «Eliminar» en el panel o retirar el endpoint. Verificado: marcar todas afecta solo a las del usuario y las de otros usuarios no se pueden marcar ni eliminar (404) |
 | H-22 | Mora / Reportes | Media | **Tres superficies, tres reglas:** la bandeja y las alertas aplican los días de gracia (10); la **ficha del cliente** y el **Reporte de morosidad** cuentan vencida desde el día siguiente (deuda 2.296.750 en el reporte vs 2.289.400 en la bandeja). Un cliente con una cuota en gracia aparece con deuda en la ficha y no en la bandeja | **Decisión de negocio (D):** ¿la gracia debe afectar a la ficha y al reporte? No se cambió |
 | H-12 | Reportes | Baja | El «ticket» por cliente era bruto y no coincidía con el global neto | **Corregido** (mismo cálculo que el global) + prueba |
 | H-10 | Usuarios | Baja | El mensaje decía «entre 6 y 100» y la política real exige más | **Corregido** (mensaje coherente con la política vigente) |
@@ -133,14 +134,14 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 
 ## 5. Respuestas a las 10 preguntas
 
-1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 39,4 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
+1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 42,6 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
 2. **¿Completamente terminados?** Ninguno puede declararse así con esta evidencia. Los más avanzados: Caja (55 %), Devoluciones y Compras (~30 %, con sus circuitos principales completos).
 3. **¿Incompletos?** Cambios de precios por lotes y Referencias del cliente (§4-B).
 4. **¿Errores encontrados y corregidos?** H-02, H-03, H-04, H-05, H-06 y H-11 (PR #237) H-13 y H-14 (fase 3) y H-10, H-12, H-15, H-16, H-17 y H-18 (fase 4), todos sin migraciones.
 5. **¿Qué falta desarrollar?** §4-C (fuera del alcance confirmado). Nada de eso se implementó.
 6. **¿Decisiones comerciales?** §4-D; la más urgente es **H-01** (requiere autorización por migración).
 7. **¿Pruebas que faltan?** Unas 268 funcionalidades sin ejercitar. Circuitos pendientes: cotización → conversión → venta (hoy solo E2E), cliente → crédito → cuotas → cobro, mora → acuerdo → regularización, cheques (re-ejecutar), envío/armado → ganancia, cambio de precios directo y reversión, Tickets, Notificaciones, Documentos, Configuración, permisos por acción, móvil y concurrencia fuera de caja/OC.
-8. **¿Porcentaje funcional verificable?** **39,4 %** de cobertura de acciones (122 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
+8. **¿Porcentaje funcional verificable?** **42,6 %** de cobertura de acciones (132 de 310; denominador y criterio en §1). Es cobertura de *prueba*, no porcentaje de *desarrollo completado*: ese estado va por módulo en §2-bis.
 9. **¿Cuánto desarrollo queda?** Desarrollo nuevo: ninguno confirmado dentro del alcance. Lo que queda es **verificación** (unas 268 funcionalidades) y las decisiones de §4-D/E.
 10. **¿Se puede declarar finalizado el desarrollo funcional?** **No**, con la evidencia disponible.
 
