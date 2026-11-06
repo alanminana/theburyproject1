@@ -103,7 +103,7 @@
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
     var puedeEditarCliente = User.TienePermiso("clientes", "edit");
-    var puedeEliminarCliente = User.TienePermiso("clientes", "delete");
+    var puedeEliminarCliente = User.PuedeEliminarClientes();
     var puedeVerCreditos = User.TienePermiso("creditos", "view");
     var puedeConsultarBcra = User.TienePermiso("clientes", "consultbcra");
     var puedeAdministrarLimites = User.TienePermiso("clientes", "managecreditlimits");

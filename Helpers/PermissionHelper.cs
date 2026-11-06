@@ -15,6 +15,16 @@ namespace TheBuryProject.Helpers
         /// <param name="modulo">Módulo requerido (ej: "ventas", "clientes")</param>
         /// <param name="accion">Acción requerida (ej: "create", "view", "delete")</param>
         /// <returns>True si tiene el permiso, False si no</returns>
+        /// <summary>
+        /// Regla de negocio aprobada: la baja de clientes esta reservada a Administrador y SuperAdmin. Ademas del permiso
+        /// <c>clientes.delete</c>, exige uno de esos roles: asi un rol con el permiso asignado a mano (p. ej. Gerente en bases
+        /// anteriores a la regla) no puede dar de baja clientes.
+        /// </summary>
+        public static bool PuedeEliminarClientes(this ClaimsPrincipal user) =>
+            user != null
+            && user.TienePermiso("clientes", "delete")
+            && (user.IsInRole("SuperAdmin") || user.IsInRole("Administrador"));
+
         public static bool TienePermiso(this ClaimsPrincipal user, string modulo, string accion)
         {
             if (user == null || !user.Identity?.IsAuthenticated == true)
