@@ -940,6 +940,34 @@ public class CreditoServiceConsultasTests : IDisposable
     }
 
     [Fact]
+    public async Task Update_H24_NoReasignaElCreditoAOtroCliente_NiSiEstaDadoDeBaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        otro.IsDeleted = true;
+        await _context.SaveChangesAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var vm = new CreditoViewModel
+        {
+            Id = credito.Id,
+            Numero = credito.Numero,
+            ClienteId = otro.Id, // intento de reasignación a un cliente dado de baja
+            MontoSolicitado = credito.MontoSolicitado,
+            MontoAprobado = credito.MontoAprobado,
+            SaldoPendiente = credito.SaldoPendiente,
+            TasaInteres = credito.TasaInteres,
+            CantidadCuotas = credito.CantidadCuotas,
+            Estado = EstadoCredito.Aprobado
+        };
+
+        Assert.True(await _service.UpdateAsync(vm));
+
+        var guardado = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == credito.Id);
+        Assert.Equal(cliente.Id, guardado.ClienteId);
+    }
+
+    [Fact]
     public async Task Update_CreditoInexistente_RetornaFalse()
     {
         var vm = new CreditoViewModel

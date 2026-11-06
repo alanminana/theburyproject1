@@ -17,7 +17,8 @@
     string Dash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
     string Money(decimal? value) => (value ?? 0m).ToString("C");
     // H-24: con créditos vigentes o deuda la baja se rechaza en el servidor; la pantalla lo anticipa (el servidor manda).
-    var bajaBloqueada = Model.CreditosActivos > 0 || (Model.MontoAdeudado ?? 0m) > 0m;
+    var motivoBloqueoBaja = ViewData["MotivoBloqueoBaja"] as string;
+    var bajaBloqueada = !string.IsNullOrWhiteSpace(motivoBloqueoBaja);
     var errorBaja = TempData["Error"] as string;
 }
 
@@ -79,11 +80,11 @@
             <div class="minimetric"><div class="mm-label">Créditos totales</div><div class="mm-value num">@Model.CreditosTotales</div></div>
             <div class="minimetric"><div class="mm-label">Monto adeudado</div><div class="mm-value num">@Money(Model.MontoAdeudado)</div></div>
         </div>
-        @if (Model.CreditosActivos > 0 || (Model.MontoAdeudado ?? 0m) > 0m)
+        @if (bajaBloqueada)
         {
             <div class="alert alert-warn" style="margin-top:1rem" role="alert" id="baja-bloqueada">
                 <span class="material-symbols-outlined">block</span>
-                <div>No se puede dar de baja al cliente mientras tenga créditos vigentes o deuda pendiente. Finalizá o cancelá esos créditos primero.</div>
+                <div>@motivoBloqueoBaja</div>
             </div>
         }
         else

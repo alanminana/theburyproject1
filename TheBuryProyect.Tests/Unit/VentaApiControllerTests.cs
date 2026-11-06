@@ -1095,6 +1095,7 @@ public class VentaApiControllerTests
         public Task<Cliente> CreateAsync(Cliente cliente) => throw new NotImplementedException();
         public Task<Cliente> UpdateAsync(Cliente cliente) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
+        public Task<string?> ObtenerMotivoBloqueoBajaAsync(int id) => Task.FromResult<string?>(null);
         public Task<IEnumerable<Cliente>> SearchAsync(string? searchTerm = null, string? tipoDocumento = null, bool? soloActivos = null, bool? conCreditosActivos = null, decimal? puntajeMinimo = null, string? orderBy = null, string? orderDirection = null, string? nivelRiesgo = null) => Task.FromResult<IEnumerable<Cliente>>(Clientes);
         public Task<(List<Cliente> Items, int Total, int PageNumber)> SearchPagedAsync(string? searchTerm = null, string? tipoDocumento = null, bool? soloActivos = null, bool? conCreditosActivos = null, decimal? puntajeMinimo = null, string? nivelRiesgo = null, string? orderBy = null, string? orderDirection = null, int page = 1, int pageSize = 25) => Task.FromResult((Clientes, Clientes.Count, page));
         public Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null) => throw new NotImplementedException();

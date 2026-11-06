@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 using Xunit;
@@ -237,5 +238,114 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         Assert.StartsWith("RECHAZADA", await AltaCredito(libre));
         Assert.True((await EstadoFinalAsync(libre)).eliminado);
         Assert.Equal("NO_ENCONTRADO", await Baja(libre));
+    }
+
+    private async Task<Venta> CrearVentaACreditoAsync(int clienteId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var venta = new Venta
+        {
+            Numero = "H24-" + Guid.NewGuid().ToString("N")[..8],
+            ClienteId = clienteId,
+            FechaVenta = DateTime.UtcNow,
+            Estado = EstadoVenta.PendienteFinanciacion,
+            TipoPago = TipoPago.CreditoPersonal,
+            Subtotal = 1000m,
+            Total = 1000m
+        };
+        ctx.Ventas.Add(venta);
+        await ctx.SaveChangesAsync();
+        return venta;
+    }
+
+    private Task<string> AltaCreditoDeVenta(Venta venta, GatePlan? plan = null) =>
+        Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<IVentaService>();
+                await svc.CrearCreditoPendienteParaVentaAsync(venta);
+                return "OK";
+            }
+            catch (InvalidOperationException ex)
+            {
+                return "RECHAZADA: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                return Clasificar(ex);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+        });
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-04] baja en vuelo + credito pendiente creado desde una VENTA: gana la baja y el credito se rechaza")]
+    public async Task BajaEnVuelo_CreditoDesdeVenta_SeRechaza()
+    {
+        var cliente = await CrearClienteAsync();
+        var venta = await CrearVentaACreditoAsync(cliente);
+        var plan = AntesDelUpdateDeLaBaja();
+        var baja = Baja(cliente, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, baja));
+
+        var alta = AltaCreditoDeVenta(venta);
+        var bloqueada = await QuedaBloqueadaAsync(alta);
+
+        plan.Release.TrySetResult();
+        var rBaja = await baja;
+        var rAlta = await alta;
+        _out.WriteLine($"baja: {rBaja}; alta desde venta: {rAlta} (bloqueada: {bloqueada})");
+
+        var (eliminado, creditos) = await EstadoFinalAsync(cliente);
+        Assert.True(bloqueada, "el alta desde la venta debia esperar el lock de la baja");
+        Assert.Equal("OK", rBaja);
+        Assert.StartsWith("RECHAZADA", rAlta);
+        Assert.True(eliminado);
+        Assert.Equal(0, creditos);
+    }
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-05] cuota que se reabre bajo el lock del credito (punitorio/cobro) mientras se da de baja: la baja espera y se rechaza por la deuda")]
+    public async Task CuotaReabiertaBajoLockDelCredito_LaBajaEsperaYSeRechaza()
+    {
+        var cliente = await CrearClienteAsync();
+        int creditoId;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var credito = new Credito { ClienteId = cliente, Numero = "H24-" + Guid.NewGuid().ToString("N")[..8], Estado = EstadoCredito.Finalizado, SaldoPendiente = 0m };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+            creditoId = credito.Id;
+            ctx.Cuotas.Add(new Cuota { CreditoId = credito.Id, NumeroCuota = 1, MontoCapital = 100m, MontoTotal = 100m, MontoPagado = 100m, Estado = EstadoCuota.Pagada, FechaVencimiento = DateTime.UtcNow.AddDays(-5) });
+            await ctx.SaveChangesAsync();
+        }
+
+        // Un "punitorio" toma el lock del credito y reabre la cuota, pero todavia no confirma.
+        await using var cn = new SqlConnection(_fx.ConnectionString);
+        await cn.OpenAsync();
+        await using var tx = (SqlTransaction)await cn.BeginTransactionAsync();
+        await using (var cmd = cn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT [Id] FROM [Creditos] WITH (UPDLOCK, HOLDLOCK, ROWLOCK) WHERE [Id] = @id; UPDATE [Cuotas] SET [Estado] = 0, [MontoPagado] = 0 WHERE [CreditoId] = @id";
+            cmd.Parameters.AddWithValue("@id", creditoId);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        var baja = Baja(cliente);
+        var bloqueada = await QuedaBloqueadaAsync(baja);
+        await tx.CommitAsync();
+        var rBaja = await baja;
+        _out.WriteLine($"baja: {rBaja} (bloqueada: {bloqueada})");
+
+        var (eliminado, _) = await EstadoFinalAsync(cliente);
+        Assert.True(bloqueada, "la baja debia esperar el lock del credito");
+        Assert.StartsWith("RECHAZADA", rBaja);
+        Assert.False(eliminado);
     }
 }

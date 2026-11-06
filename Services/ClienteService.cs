@@ -233,32 +233,17 @@ namespace TheBuryProject.Services
             if (cliente == null)
                 return false;
 
-            var creditos = await _context.Creditos
-                .AsNoTracking()
+            // También serializa contra cobros, punitorios y cancelaciones de sus créditos (Cliente -> Créditos en orden
+            // ascendente; ninguno de esos flujos toma el lock del cliente, así que no hay ciclos).
+            var idsCreditos = await _context.Creditos.AsNoTracking()
                 .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
-                .Select(cr => new { cr.Numero, cr.Estado, cr.SaldoPendiente })
+                .Select(cr => cr.Id)
                 .ToListAsync();
+            await CreditoConcurrencia.BloquearOrdenadosAsync(_context, idsCreditos);
 
-            var vigentes = creditos.Where(cr => !ClienteConcurrencia.EsCreditoCerrado(cr.Estado)).ToList();
-            if (vigentes.Count > 0)
-            {
-                var detalle = string.Join(", ", vigentes.Take(3).Select(cr => cr.Numero));
-                throw new InvalidOperationException(
-                    $"No se puede dar de baja al cliente: tiene {vigentes.Count} crédito(s) vigente(s) o con deuda pendiente ({detalle}{(vigentes.Count > 3 ? ", …" : "")}). " +
-                    "Finalizá o cancelá esos créditos antes de darlo de baja.");
-            }
-
-            var cuotasImpagas = await _context.Cuotas.AnyAsync(cu =>
-                !cu.IsDeleted &&
-                cu.Credito.ClienteId == id &&
-                !cu.Credito.IsDeleted &&
-                cu.Estado != EstadoCuota.Pagada &&
-                cu.Estado != EstadoCuota.Cancelada &&
-                cu.Credito.Estado != EstadoCredito.Cancelado &&
-                cu.Credito.Estado != EstadoCredito.Rechazado);
-            if (cuotasImpagas)
-                throw new InvalidOperationException(
-                    "No se puede dar de baja al cliente: tiene cuotas pendientes de pago. Cobrá o cancelá esas cuotas antes de darlo de baja.");
+            var motivo = await ObtenerMotivoBloqueoBajaInternoAsync(id);
+            if (motivo != null)
+                throw new InvalidOperationException(motivo);
 
             cliente.IsDeleted = true;
             cliente.UpdatedAt = DateTime.UtcNow;
@@ -270,6 +255,38 @@ namespace TheBuryProject.Services
             _logger.LogInformation("Cliente eliminado (soft-delete) - Id {ClienteId}", id);
 
             return true;
+        }
+
+        public Task<string?> ObtenerMotivoBloqueoBajaAsync(int id) => ObtenerMotivoBloqueoBajaInternoAsync(id);
+
+        /// <summary>Motivo por el que NO se puede dar de baja al cliente (créditos vigentes o cuotas impagas); null si se puede.</summary>
+        private async Task<string?> ObtenerMotivoBloqueoBajaInternoAsync(int id)
+        {
+            var creditos = await _context.Creditos
+                .AsNoTracking()
+                .Where(cr => cr.ClienteId == id && !cr.IsDeleted)
+                .Select(cr => new { cr.Numero, cr.Estado })
+                .ToListAsync();
+
+            var vigentes = creditos.Where(cr => !ClienteConcurrencia.EsCreditoCerrado(cr.Estado)).ToList();
+            if (vigentes.Count > 0)
+            {
+                var detalle = string.Join(", ", vigentes.Take(3).Select(cr => cr.Numero));
+                return $"No se puede dar de baja al cliente: tiene {vigentes.Count} crédito(s) vigente(s) o con deuda pendiente ({detalle}{(vigentes.Count > 3 ? ", …" : "")}). " +
+                       "Finalizá o cancelá esos créditos antes de darlo de baja.";
+            }
+
+            var cuotasImpagas = await _context.Cuotas.AnyAsync(cu =>
+                !cu.IsDeleted &&
+                cu.Credito.ClienteId == id &&
+                !cu.Credito.IsDeleted &&
+                cu.Estado != EstadoCuota.Pagada &&
+                cu.Estado != EstadoCuota.Cancelada &&
+                cu.Credito.Estado != EstadoCredito.Cancelado &&
+                cu.Credito.Estado != EstadoCredito.Rechazado);
+            return cuotasImpagas
+                ? "No se puede dar de baja al cliente: tiene cuotas pendientes de pago. Cobrá o cancelá esas cuotas antes de darlo de baja."
+                : null;
         }
 
         public async Task<IEnumerable<Cliente>> SearchAsync(

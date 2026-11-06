@@ -377,7 +377,10 @@ namespace TheBuryProject.Services
                 if (!clienteActivo)
                     return false;
 
+                var clienteOriginalId = credito.ClienteId;
                 _mapper.Map(viewModel, credito);
+                // H-24: un crédito no se reasigna a otro cliente (podría ser uno dado de baja ni se serializaría con su baja).
+                credito.ClienteId = clienteOriginalId;
                 await _context.SaveChangesAsync();
                 return true;
             }

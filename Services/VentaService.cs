@@ -1085,6 +1085,11 @@ namespace TheBuryProject.Services
                     return false;
                 }
 
+                // H-24: las ventas de clientes dados de baja siguen visibles, pero no se pueden CONFIRMAR operaciones nuevas.
+                if (venta.Cliente?.IsDeleted == true &&
+                    venta.Estado is not (EstadoVenta.Confirmada or EstadoVenta.Facturada or EstadoVenta.Entregada))
+                    throw new InvalidOperationException("El cliente de la venta fue dado de baja: no se puede confirmar la venta.");
+
                 _logger.LogInformation(
                     "ConfirmarVentaAsync venta {Id} cargada. Estado:{Estado} TipoPago:{TipoPago} Detalles:{Detalles}",
                     id,

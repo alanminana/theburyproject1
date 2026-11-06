@@ -478,6 +478,8 @@ namespace TheBuryProject.Controllers
                     return this.RedirectToReturnUrlOrIndex(returnUrl);
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
+                // H-24: el motivo de bloqueo lo decide el servicio (misma regla que DeleteAsync), no el resumen de la vista.
+                ViewData["MotivoBloqueoBaja"] = await _clienteService.ObtenerMotivoBloqueoBajaAsync(id);
                 return View("Delete_tw", viewModel);
             }
             catch (Exception ex)
