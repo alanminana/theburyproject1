@@ -102,7 +102,7 @@ if (-not $ts) {
     $svc = Safe { Get-CimInstance Win32_Service -Filter "Name='Tailscale'" }
     if ($svc) {
         $okSvc = ($svc.State -eq 'Running' -and $svc.StartMode -eq 'Auto')
-        Add-R ($(if ($okSvc) { 'OK' } else { 'ATENCION' })) 'Servicio Tailscale' "estado=$($svc.State) inicio=$($svc.StartMode) (debe ser Running/Auto para conectar antes de iniciar sesion)"
+        Add-R ($(if ($okSvc) { 'OK' } else { 'ATENCION' })) 'Servicio Tailscale' "estado=$($svc.State) inicio=$($svc.StartMode) (Running/Auto es necesario pero no suficiente: 'Run unattended' y la conexion tras reiniciar sin sesion se prueban a mano)"
     } else { Add-R 'ATENCION' 'Servicio Tailscale' 'servicio no encontrado' }
     $ip4 = Safe { (& $tsExe ip -4 2>$null | Select-Object -First 1) }
     if ($ip4 -match '^100\.') {
@@ -128,8 +128,11 @@ if ($l443.Count -gt 0) {
 
 $fwTb = @(Safe { Get-NetFirewallRule -DisplayName 'TheBury*' -ErrorAction Stop })
 Add-R 'INFO' 'Reglas de firewall TheBury*' $(if ($fwTb.Count) { ($fwTb | ForEach-Object { "$($_.DisplayName)=$($_.Action)/$($_.Enabled)" }) -join '; ' } else { 'ninguna (la crea install-windows.ps1)' })
-$fwDocker = @(Safe { Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -ErrorAction Stop | Where-Object { $_.DisplayName -match 'docker' } })
-if ($fwDocker.Count -gt 0) {
+$fwDockerAll = Safe { Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -ErrorAction Stop }
+$fwDocker = @($fwDockerAll | Where-Object { $_.DisplayName -match 'docker' })
+if ($null -eq $fwDockerAll) {
+    Add-R 'ATENCION' 'Reglas Allow de Docker entrantes' 'no se pudo consultar el firewall (permisos o proveedor): revisar a mano con Get-NetFirewallRule'
+} elseif ($fwDocker.Count -gt 0) {
     Add-R 'ATENCION' 'Reglas Allow de Docker entrantes' "$($fwDocker.Count) regla(s) (perfil/direccion amplios pueden anular -AllowFrom; ver docs/red-privada-lan-vpn.md seccion 6)"
 } else { Add-R 'OK' 'Sin reglas Allow de Docker entrantes' 'nada que anule el filtro por origen' }
 
@@ -143,9 +146,9 @@ if ($pw -match 'Current AC Power Setting Index:\s*0x([0-9a-fA-F]+)') {
     $v = [Convert]::ToInt32($Matches[1], 16)
     Add-R ($(if ($v -eq 0) { 'OK' } else { 'ATENCION' })) 'Suspension con corriente' $(if ($v -eq 0) { 'nunca' } else { "$v s (install-windows.ps1 la desactiva)" })
 }
-$wl = Safe { Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -ErrorAction Stop }
-$auto = ($wl -and $wl.AutoAdminLogon -eq '1')
-Add-R ($(if ($auto) { 'OK' } else { 'ATENCION' })) 'Inicio de sesion automatico' $(if ($auto) { 'activo' } else { 'inactivo: tras un corte de luz Docker y los backups no vuelven solos hasta que alguien inicie sesion (docs/instalacion-servidor.md seccion 3.3). No se lee ninguna clave.' })
+$autoVal = Safe { (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name AutoAdminLogon -ErrorAction Stop).AutoAdminLogon }
+$auto = ($autoVal -eq '1')
+Add-R ($(if ($auto) { 'OK' } else { 'ATENCION' })) 'Inicio de sesion automatico' $(if ($auto) { 'activo' } else { 'inactivo: tras un corte de luz Docker y los backups no vuelven solos hasta que alguien inicie sesion (docs/instalacion-servidor.md seccion 3.3). Solo se lee AutoAdminLogon.' })
 Add-R 'INFO' 'UPS / BIOS "Restore on AC Power Loss"' 'no verificable por software: confirmar a mano (hoy: sin UPS)'
 
 # --- Informe -----------------------------------------------------------------
