@@ -100,7 +100,7 @@ namespace TheBuryProject.Controllers
                 // esa verificación, solo evita ofrecer una acción que el backend va a rechazar.
                 ViewBag.PuedeCrearClientes = _currentUser.HasPermission("clientes", "create");
                 ViewBag.PuedeEditarClientes = _currentUser.HasPermission("clientes", "edit");
-                ViewBag.PuedeEliminarClientes = _currentUser.HasPermission("clientes", "delete");
+                ViewBag.PuedeEliminarClientes = User.PuedeEliminarClientes();
 
                 CargarDropdowns();
                 return View("Index_tw", filter);
@@ -469,6 +469,8 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "delete")]
         public async Task<IActionResult> Delete(int id, string? returnUrl = null)
         {
+            if (!User.PuedeEliminarClientes())
+                return Forbid();
             try
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -495,6 +497,8 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
+            if (!User.PuedeEliminarClientes())
+                return Forbid();
             try
             {
                 await _clienteService.DeleteAsync(id);

@@ -21,6 +21,7 @@
 
     var API = '/api/Notificacion';
     var puedeActualizar = root.getAttribute('data-notif-can-update') === 'true';
+    var puedeEliminar = root.getAttribute('data-notif-can-delete') === 'true';
     var items = [];
     var noLeidas = 0;
     var seq = 0;
@@ -34,6 +35,12 @@
 
     function post(url) {
         return fetch(url, { method: 'POST', credentials: 'same-origin' }).then(function (res) {
+            if (!res.ok) throw new Error('http ' + res.status);
+        });
+    }
+
+    function del(url) {
+        return fetch(url, { method: 'DELETE', credentials: 'same-origin' }).then(function (res) {
             if (!res.ok) throw new Error('http ' + res.status);
         });
     }
@@ -86,6 +93,26 @@
             btn.appendChild(body);
             btn.addEventListener('click', function () { abrirNotificacion(n); });
             li.appendChild(btn);
+            if (puedeEliminar && n.rowVersion) {
+                li.className = 'notif-row';
+                var x = nodo('button', 'notif-delete', 'Eliminar');
+                x.type = 'button';
+                x.setAttribute('aria-label', 'Eliminar notificación: ' + (n.titulo || ''));
+                x.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    x.disabled = true;
+                    del(API + '/' + encodeURIComponent(n.id) + '?rowVersion=' + encodeURIComponent(n.rowVersion)).then(function () {
+                        items = items.filter(function (i) { return i !== n; });
+                        pintarLista();
+                        // El contador sale del servidor (no se resta a mano): evita doble descuento si una recarga cruza con la baja.
+                        refrescarContador();
+                    }).catch(function () {
+                        x.disabled = false;
+                        mostrarEstado('No se pudo eliminar la notificación. Recargá e intentá de nuevo.');
+                    });
+                });
+                li.appendChild(x);
+            }
             lista.appendChild(li);
         });
         noMsg.hidden = items.length > 0 || !estado.hidden;

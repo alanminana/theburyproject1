@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
@@ -39,11 +41,13 @@ namespace TheBuryProject.ViewComponents
     {
         private readonly IDocumentoService _documentos;
         private readonly IDescuentoVisibilidadService _descuentoVisibilidad;
+        private readonly AppDbContext _context;
 
-        public DocumentosOperacionViewComponent(IDocumentoService documentos, IDescuentoVisibilidadService descuentoVisibilidad)
+        public DocumentosOperacionViewComponent(IDocumentoService documentos, IDescuentoVisibilidadService descuentoVisibilidad, AppDbContext context)
         {
             _documentos = documentos;
             _descuentoVisibilidad = descuentoVisibilidad;
+            _context = context;
         }
 
         public async Task<IViewComponentResult> InvokeAsync(int? ventaId = null, int? creditoId = null, int? pagoCuotaId = null, int? cotizacionId = null, bool compacto = false, bool ofrecerPresupuesto = false)
@@ -63,13 +67,25 @@ namespace TheBuryProject.ViewComponents
             else
                 return Content(string.Empty);
 
+            // H-23: «Generar pendientes» necesita una operacion de origen (venta, pago o cotizacion). Desde el detalle de un
+            // credito se usa la venta que lo origino; sin origen no se ofrece el boton (antes enviaba un POST vacio y respondia 400).
+            var ventaOrigen = ventaId;
+            if (ventaOrigen == null && pagoCuotaId == null && cotizacionId == null && creditoId is int creditoOrigen)
+            {
+                ventaOrigen = await _context.Ventas.AsNoTracking()
+                    .Where(v => v.CreditoId == creditoOrigen && !v.IsDeleted)
+                    .Select(v => (int?)v.Id)
+                    .FirstOrDefaultAsync();
+            }
+            var hayOrigen = ventaOrigen != null || pagoCuotaId != null || cotizacionId != null || creditoId != null;
+
             var request = ViewContext.HttpContext.Request;
             var model = new DocumentosOperacionViewModel
             {
                 Documentos = docs,
                 Restringidos = await _descuentoVisibilidad.DocumentosRestringidosAsync(docs.Select(d => d.Id).ToList()),
                 NombresDePaquete = await _documentos.ObtenerNombresDePaqueteAsync(docs),
-                VentaId = ventaId,
+                VentaId = ventaOrigen,
                 CreditoId = creditoId,
                 PagoCuotaId = pagoCuotaId,
                 CotizacionId = cotizacionId,
@@ -78,7 +94,7 @@ namespace TheBuryProject.ViewComponents
                 PuedeReimprimir = UserClaimsPrincipal.TienePermiso("documentos", "reprint"),
                 PuedeFirmar = UserClaimsPrincipal.TienePermiso("documentos", "sign"),
                 PuedeCancelar = UserClaimsPrincipal.TienePermiso("documentos", "cancel"),
-                PuedeGenerar = UserClaimsPrincipal.TienePermiso("documentos", "generate"),
+                PuedeGenerar = hayOrigen && UserClaimsPrincipal.TienePermiso("documentos", "generate"),
                 OfrecerPresupuesto = ofrecerPresupuesto && ventaId != null && !await _descuentoVisibilidad.DebeDenegarVentaAsync(ventaId.Value),
                 ReturnUrl = $"{request.Path}{request.QueryString}"
             };

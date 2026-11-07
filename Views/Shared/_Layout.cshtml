@@ -67,6 +67,7 @@
 
         var canViewNotifications = User.TienePermiso("notificaciones", "view");
         var canUpdateNotifications = User.TienePermiso("notificaciones", "update");
+        var canDeleteNotifications = User.TienePermiso("notificaciones", "delete");
         var canViewVentas = User.TienePermiso("ventas", "view");
         var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
         var canViewClientes = User.TienePermiso("clientes", "view");
@@ -318,7 +319,7 @@
                     @if (canViewNotifications)
                     {
                         <!-- Notificaciones del usuario (API /api/Notificacion + hub SignalR). Lógica en wwwroot/js/notificaciones.js -->
-                        <div class="relative" data-notif-root data-notif-can-update="@(canUpdateNotifications ? "true" : "false")">
+                        <div class="relative" data-notif-root data-notif-can-update="@(canUpdateNotifications ? "true" : "false")" data-notif-can-delete="@(canDeleteNotifications ? "true" : "false")">
                             <button id="btn-open-notificaciones" type="button"
                                     class="p-2 text-slate-400 hover:text-white transition-colors" title="Notificaciones"
                                     aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" aria-controls="notificacionesPanel">

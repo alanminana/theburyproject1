@@ -32,7 +32,8 @@
     // en vez de colapsar todo error en "Pendiente". apt.Bcra ya resuelve la
     // situacion/descripcion efectiva (ultimo exito cuando el ultimo intento
     // fallo) via el mismo clasificador puro que usa la aptitud crediticia.
-    var tieneCuil = !string.IsNullOrWhiteSpace(c.CuilCuit);
+    // El CUIL «sin cargar» se guarda como 00…0 (ver ClienteViewModel): no cuenta como CUIL ni se muestra como tal.
+    var tieneCuil = !string.IsNullOrWhiteSpace(c.CuilCuit) && !c.CuilCuit.StartsWith("00", StringComparison.Ordinal);
     var bcraOk = c.SituacionCrediticiaConsultaOk == true;
     var bcraTieneUltimoExito = c.SituacionCrediticiaUltimoExitoUtc.HasValue && c.SituacionCrediticiaBcraUltimoExito.HasValue;
     var bcraNuncaConsultado = tieneCuil && !c.SituacionCrediticiaUltimaConsultaUtc.HasValue && !bcraTieneUltimoExito;
@@ -103,7 +104,7 @@
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
     var puedeEditarCliente = User.TienePermiso("clientes", "edit");
-    var puedeEliminarCliente = User.TienePermiso("clientes", "delete");
+    var puedeEliminarCliente = User.PuedeEliminarClientes();
     var puedeVerCreditos = User.TienePermiso("creditos", "view");
     var puedeConsultarBcra = User.TienePermiso("clientes", "consultbcra");
     var puedeAdministrarLimites = User.TienePermiso("clientes", "managecreditlimits");
@@ -282,7 +283,7 @@ else
                     </div>
                     <p class="page-sub" style="margin-top:.3rem">
                         @c.TipoDocumento <span class="mono">@c.NumeroDocumento</span>
-                        <span class="muted-2"> · </span> CUIL <span class="mono">@Dash(c.CuilCuit)</span>
+                        <span class="muted-2"> · </span> CUIL <span class="mono">@Dash(tieneCuil ? c.CuilCuit : null)</span>
                         @if (c.FechaNacimiento.HasValue)
                         {
                             <span class="muted-2"> · </span><span>@c.FechaNacimiento.Value.ToString("dd/MM/yyyy")</span>
@@ -660,7 +661,7 @@ else
                    3 métricas compactas en fila en vez de kv-rows apiladas — mismo dt/dd,
                    sólo cambia el layout via .kv--metrics (ver kv--metrics mas abajo en Crédito). *@
                 <dl class="kv kv--metrics mt-3">
-                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
+                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(tieneCuil ? c.CuilCuit : null)</dd></div>
                     <div class="kv-row"><dt>Período informado</dt><dd>@Dash(bcraPeriodo)</dd></div>
                     <div class="kv-row">
                         <dt>Última consulta</dt>
@@ -1076,7 +1077,7 @@ else
                 <dl class="kv kv--fields">
                     <div class="kv-row"><dt>Nombre completo</dt><dd>@clienteNombre</dd></div>
                     <div class="kv-row"><dt>Documento</dt><dd class="mono">@c.TipoDocumento @c.NumeroDocumento</dd></div>
-                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
+                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(tieneCuil ? c.CuilCuit : null)</dd></div>
                     <div class="kv-row"><dt>Fecha de nacimiento</dt><dd>@(c.FechaNacimiento.HasValue ? c.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "-")@(c.Edad.HasValue ? $" · {c.Edad} anos" : string.Empty)</dd></div>
                     <div class="kv-row"><dt>Estado civil</dt><dd>@Dash(c.EstadoCivil)</dd></div>
                     <div class="kv-row"><dt>Conyuge</dt><dd>@Dash(c.ConyugeNombreCompleto)</dd></div>

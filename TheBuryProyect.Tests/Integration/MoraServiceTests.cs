@@ -463,6 +463,25 @@ public class MoraServiceTests : IDisposable
         Assert.True(id > 0);
     }
 
+    [Fact]
+    public async Task CrearAcuerdo_H19_GuardaLasObservacionesDelAcuerdo()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var id = await _service.CrearAcuerdoPagoAsync(
+            new CrearAcuerdoViewModel
+            {
+                AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30),
+                Observaciones = "  Acordado por telefono con el titular  "
+            }, "g");
+
+        var acuerdo = await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id);
+        Assert.Equal("Acordado por telefono con el titular", acuerdo.Observaciones);
+    }
+
     // Pago de acuerdos: el dinero se imputa a las cuotas vencidas del crédito (más vieja primero), con el cobro de cuotas.
     private async Task<(Cliente cliente, Credito credito, AlertaCobranza alerta, AcuerdoPago acuerdo)> SeedAcuerdoActivoConDeudaAsync(
         decimal entrega = 500m, int cuotasAcuerdo = 2, decimal totalAcuerdo = 2_500m)
@@ -2632,6 +2651,30 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(esperado, tras[0].MontoVencido);
         Assert.NotEqual(montoInicial, tras[0].MontoVencido);
         Assert.False(tras[0].Leida); // refrescar el monto no marca como «leída» una alerta que nadie vio
+    }
+
+    [Fact]
+    public async Task Ficha_H22_DesgloseGraciaMoraConcilia_ConLaBandejaYElTotalVencido()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cfg = await _service.GetConfiguracionAsync();
+        var gracia = cfg.DiasGracia ?? 0;
+        Assert.True(gracia >= 1, "el escenario necesita dias de gracia configurados");
+        var enGracia = await SeedCuotaVencidaAsync(credito.Id, diasVencido: gracia, montoTotal: 400m);   // vence exactamente en el limite: aun DENTRO de la gracia
+        var enMora = await SeedCuotaVencidaAsync(credito.Id, diasVencido: gracia + 20, montoTotal: 1_000m);                    // fuera de la gracia
+        await _service.ProcesarMoraAsync();
+
+        var ficha = await _service.GetFichaClienteAsync(cliente.Id);
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+
+        Assert.NotNull(ficha);
+        Assert.Equal(1_000m, ficha!.Resumen.MontoEnMora);
+        Assert.Equal(400m, ficha.Resumen.MontoEnGracia);
+        Assert.Equal(ficha.Resumen.MontoCapitalVencido, ficha.Resumen.MontoEnMora + ficha.Resumen.MontoEnGracia);
+        // La bandeja cuenta solo la mora: misma cifra que la ficha en «En mora».
+        var fila = Assert.Single(bandeja.Clientes);
+        Assert.Equal(ficha.Resumen.MontoEnMora, fila.MontoVencido);
     }
 
     [Fact]

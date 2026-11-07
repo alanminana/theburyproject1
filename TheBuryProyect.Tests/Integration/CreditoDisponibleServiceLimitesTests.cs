@@ -50,6 +50,31 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task GuardarLimitesPorPuntaje_LimiteNoCrecienteONegativo_SeRechazaSinGuardar()
+    {
+        // Puntaje 2 con un limite menor que el del puntaje 1: un puntaje mayor no puede tener menos credito.
+        var noCreciente = new[] { (0, 0m, true), (1, 100_000m, true), (2, 50_000m, true), (3, 300_000m, true), (4, 400_000m, true), (5, 500_000m, true) }
+            .ToList().AsReadOnly();
+        var (ok, errores) = await _service.GuardarLimitesPorPuntajeAsync(noCreciente, "admin");
+        Assert.False(ok);
+        Assert.Contains(errores, e => e.Contains("puntaje 2") && e.Contains("puntaje 1"));
+        Assert.DoesNotContain(await _context.PuntajesCreditoLimite.ToListAsync(), p => p.LimiteMonto is 50_000m or 100_000m);   // nada se guardo
+
+        var negativo = new[] { (0, 0m, true), (1, -1m, true), (2, 0m, true), (3, 0m, true), (4, 0m, true), (5, 0m, true) }
+            .ToList().AsReadOnly();
+        (ok, errores) = await _service.GuardarLimitesPorPuntajeAsync(negativo, "admin");
+        Assert.False(ok);
+        Assert.Contains(errores, e => e.Contains("negativos"));
+
+        // Iguales o crecientes: validos.
+        var valido = new[] { (0, 0m, true), (1, 100_000m, true), (2, 100_000m, true), (3, 300_000m, true), (4, 400_000m, true), (5, 500_000m, true) }
+            .ToList().AsReadOnly();
+        (ok, errores) = await _service.GuardarLimitesPorPuntajeAsync(valido, "admin");
+        Assert.True(ok);
+        Assert.Empty(errores);
+    }
+
+    [Fact]
     public async Task GuardarLimitesPorPuntaje_InsertaDesde0_TodosLosPuntajes()
     {
         var items = ItemsCompletos(5_000m);

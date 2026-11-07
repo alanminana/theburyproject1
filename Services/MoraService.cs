@@ -166,7 +166,8 @@ namespace TheBuryProject.Services
                 // proceso, no de Argentina). InicioDiaComercial es la cota diseñada para comparar
                 // contra Cuota.FechaVencimiento (DateTime a medianoche).
                 var hoy = _reloj.InicioDiaComercial;
-                var fechaLimite = hoy.AddDays(-(config.DiasGracia ?? 0));
+                // H-22: misma funcion que usan la ficha y el reporte (MoraClasificacion), incluido el tratamiento de gracia negativa.
+                var fechaLimite = MoraClasificacion.FechaLimiteMora(hoy, config.DiasGracia);
                 // PUN-ML7 (cierre): DateOnly equivalente de "hoy", requerido por
                 // EstadoCuotaResolver.DiasAtrasoDerivado (autoridad canónica para AlertaCobranza.DiasAtraso).
                 var fechaComercial = _reloj.HoyComercial;
@@ -1045,8 +1046,18 @@ namespace TheBuryProject.Services
                 // Calcular resumen
                 var creditosParaAcuerdo = await GetCreditosParaAcuerdoAsync(clienteId);
 
+                // H-22: misma clasificacion que la bandeja y el reporte (MoraClasificacion): en gracia vs en mora.
+                var diasGraciaFicha = (await GetConfiguracionAsync()).DiasGracia;
+                var (montoEnGracia, montoEnMora) = MoraClasificacion.Separar(
+                    creditos.SelectMany(c => c.CuotasDetalle)
+                        .Select(q => (q.FechaVencimiento, q.MontoTotal - q.MontoPagado)),
+                    fechaComercial, diasGraciaFicha);
+
                 var resumen = new ResumenMoraViewModel
                 {
+                    MontoEnGracia = montoEnGracia,
+                    MontoEnMora = montoEnMora,
+                    DiasGracia = diasGraciaFicha ?? 0,
                     TotalCreditosConMora = creditos.Count,
                     TotalCuotasVencidas = creditos.Sum(c => c.CuotasVencidas),
                     DiasMaxAtraso = creditos.Any() ? creditos.Max(c => c.DiasAtraso) : 0,
@@ -1566,6 +1577,8 @@ namespace TheBuryProject.Services
                     CantidadCuotas = acuerdo.CantidadCuotas,
                     FechaPrimeraCuota = acuerdo.FechaPrimeraCuota,
                     MontoCuotaAcuerdo = (acuerdo.MontoTotalAcuerdo - acuerdo.MontoEntregaInicial) / acuerdo.CantidadCuotas,
+                    // H-19: las observaciones (obligatorias en el formulario) quedan registradas en el acuerdo.
+                    Observaciones = string.IsNullOrWhiteSpace(acuerdo.Observaciones) ? null : acuerdo.Observaciones.Trim(),
                     CreatedAt = DateTime.UtcNow
                 };
 

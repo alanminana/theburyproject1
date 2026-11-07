@@ -16,13 +16,16 @@ namespace TheBuryProject.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<NotificacionService> _logger;
         private readonly IHubContext<NotificacionesHub> _hubContext;
+        private readonly ISeguridadAuditoriaService? _auditoria;
 
         public NotificacionService(
             AppDbContext context,
             UserManager<ApplicationUser> userManager,
             ILogger<NotificacionService> logger,
-            IHubContext<NotificacionesHub> hubContext)
+            IHubContext<NotificacionesHub> hubContext,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _context = context;
             _userManager = userManager;
             _logger = logger;
@@ -259,6 +262,10 @@ namespace TheBuryProject.Services
                 _context.Entry(notificacion).Property(n => n.RowVersion).OriginalValue = rowVersion;
 
                 notificacion.IsDeleted = true;
+
+                // H-26: trazabilidad. El evento se guarda en el MISMO SaveChanges que la baja: no hay baja sin su registro.
+                _auditoria?.AgregarEvento("Notificaciones", "Eliminar", "Notificacion",
+                    $"Id={notificacion.Id}; usuario={usuario}; tipo={notificacion.Tipo}; titulo={notificacion.Titulo}; leida={notificacion.Leida}");
 
                 try
                 {

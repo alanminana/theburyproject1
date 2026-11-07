@@ -594,6 +594,11 @@ namespace TheBuryProject.Services
                     .Where(c => c.FechaVencimiento < hoy)
                     .ToList();
 
+                // H-22: misma definicion que la bandeja de cobranza (MoraClasificacion): en gracia vs en mora.
+                // Igual que MoraService.GetConfiguracionAsync: sin configuracion guardada rige la gracia por defecto.
+                var configMora = await _context.ConfiguracionesMora.AsNoTracking().FirstOrDefaultAsync();
+                var diasGraciaMora = configMora == null ? MoraClasificacion.DiasGraciaPorDefecto : configMora.DiasGracia;
+
                 var deudaVigenteDict = cuotasConSaldo
                     .Where(c => c.FechaVencimiento >= hoy)
                     .GroupBy(c => c.Credito.ClienteId)
@@ -607,6 +612,8 @@ namespace TheBuryProject.Services
                         var cuotaMasAntigua = g.OrderBy(c => c.FechaVencimiento).First();
                         var cliente = cuotaMasAntigua.Credito.Cliente;
                         var diasMaxAtraso = (hoy - cuotaMasAntigua.FechaVencimiento).Days;
+                        var (enGracia, enMora) = MoraClasificacion.Separar(
+                            g.Select(c => (c.FechaVencimiento, CalcularSaldoCuota(c))), hoy, diasGraciaMora);
 
                         return new ClienteMorosoViewModel
                         {
@@ -617,6 +624,8 @@ namespace TheBuryProject.Services
                             ClienteTelefono = cliente.Telefono,
                             CantidadCreditosVencidos = g.Select(c => c.CreditoId).Distinct().Count(),
                             TotalDeudaVencida = g.Sum(CalcularSaldoCuota),
+                            DeudaEnGracia = enGracia,
+                            DeudaEnMora = enMora,
                             TotalDeudaVigente = deudaVigenteDict.GetValueOrDefault(g.Key, 0m),
                             FechaPrimerVencimiento = cuotaMasAntigua.FechaVencimiento,
                             DiasMaximoAtraso = diasMaxAtraso,
@@ -641,6 +650,10 @@ namespace TheBuryProject.Services
                 {
                     ClientesMorosos = clientesMorosos,
                     TotalDeudaVencida = totalDeudaVencida,
+                    TotalDeudaEnGracia = clientesMorosos.Sum(c => c.DeudaEnGracia),
+                    TotalDeudaEnMora = clientesMorosos.Sum(c => c.DeudaEnMora),
+                    DiasGracia = diasGraciaMora ?? 0,
+                    CantidadClientesEnMora = clientesMorosos.Count(c => c.DeudaEnMora > 0m),
                     TotalDeudaVigente = totalDeudaVigente,
                     CantidadClientesMorosos = clientesMorosos.Count,
                     CantidadCreditosVencidos = clientesMorosos.Sum(c => c.CantidadCreditosVencidos),
@@ -1370,8 +1383,10 @@ namespace TheBuryProject.Services
                 worksheet.Cell(1, 6).Value = "Deuda Vigente";
                 worksheet.Cell(1, 7).Value = "Días Atraso";
                 worksheet.Cell(1, 8).Value = "Nivel Riesgo";
+                worksheet.Cell(1, 9).Value = "Deuda en Mora";
+                worksheet.Cell(1, 10).Value = "Deuda en Gracia";
 
-                var headerRange = worksheet.Range("A1:H1");
+                var headerRange = worksheet.Range("A1:J1");
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightCoral;
 
@@ -1386,6 +1401,8 @@ namespace TheBuryProject.Services
                     worksheet.Cell(row, 6).Value = cliente.TotalDeudaVigente;
                     worksheet.Cell(row, 7).Value = cliente.DiasMaximoAtraso;
                     worksheet.Cell(row, 8).Value = cliente.NivelRiesgo;
+                    worksheet.Cell(row, 9).Value = cliente.DeudaEnMora;
+                    worksheet.Cell(row, 10).Value = cliente.DeudaEnGracia;
                     row++;
                 }
 
@@ -1526,6 +1543,12 @@ namespace TheBuryProject.Services
                             {
                                 row.RelativeItem().Text($"Deuda Vencida: ${reporte.TotalDeudaVencida:N2}").Bold();
                                 row.RelativeItem().Text($"Clientes: {reporte.CantidadClientesMorosos}").Bold();
+                            });
+
+                            col.Item().Row(row =>
+                            {
+                                row.RelativeItem().Text($"En mora: ${reporte.TotalDeudaEnMora:N2} ({reporte.CantidadClientesEnMora} clientes)");
+                                row.RelativeItem().Text($"En gracia ({reporte.DiasGracia} dias): ${reporte.TotalDeudaEnGracia:N2}");
                             });
 
                             col.Item().PaddingVertical(5);

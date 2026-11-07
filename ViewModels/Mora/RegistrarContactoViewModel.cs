@@ -7,7 +7,7 @@ namespace TheBuryProject.ViewModels.Mora
     /// <summary>
     /// ViewModel para registrar un nuevo contacto con cliente moroso
     /// </summary>
-    public class RegistrarContactoViewModel
+    public class RegistrarContactoViewModel : IValidatableObject
     {
         [Required(ErrorMessage = "El cliente es obligatorio")]
         public int ClienteId { get; set; }
@@ -58,6 +58,26 @@ namespace TheBuryProject.ViewModels.Mora
         public string? DocumentoCliente { get; set; }
         public decimal? MontoVencido { get; set; }
         public int? DiasAtraso { get; set; }
+
+        /// <summary>
+        /// H-19: las observaciones son obligatorias cuando el contacto deja un compromiso (promesa de pago o solicitud de acuerdo,
+        /// o se informan fecha/monto prometidos): sin ellas se pierde el rastro de lo acordado. En contactos sin respuesta
+        /// (no contesta, numero equivocado, mensaje dejado) NO son obligatorias.
+        /// </summary>
+        public bool ObservacionesObligatorias =>
+            Resultado is ResultadoContacto.PromesaPago or ResultadoContacto.SolicitaAcuerdo
+            || FechaPromesaPago.HasValue
+            || MontoPromesaPago.HasValue;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (ObservacionesObligatorias && string.IsNullOrWhiteSpace(Observaciones))
+            {
+                yield return new ValidationResult(
+                    "Las observaciones son obligatorias cuando el contacto deja una promesa, un compromiso o una solicitud de acuerdo",
+                    new[] { nameof(Observaciones) });
+            }
+        }
     }
 
     /// <summary>
@@ -81,6 +101,7 @@ namespace TheBuryProject.ViewModels.Mora
         [MontoArgentino(Minimo = 0.01)]
         public decimal MontoPromesa { get; set; }
         
+        [Required(ErrorMessage = "Las observaciones son obligatorias en una promesa de pago (dejá constancia de lo prometido)")]
         [Display(Name = "Observaciones")]
         [StringLength(1000)]
         public string? Observaciones { get; set; }
@@ -144,6 +165,7 @@ namespace TheBuryProject.ViewModels.Mora
         [DataType(DataType.Date)]
         public DateTime FechaPrimeraCuota { get; set; }
         
+        [Required(ErrorMessage = "Las observaciones son obligatorias en un acuerdo de pago (dejá constancia de lo acordado)")]
         [Display(Name = "Observaciones")]
         [StringLength(2000)]
         public string? Observaciones { get; set; }

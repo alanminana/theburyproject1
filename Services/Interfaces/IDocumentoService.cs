@@ -150,6 +150,12 @@ namespace TheBuryProject.Services.Interfaces
         /// también contrato y pagaré (los cancelados se reemiten con las reglas y plantillas actuales).
         /// </summary>
         Task<DocumentoEventoResultado> ReintentarVentaAsync(int ventaId);
+
+        /// <summary>
+        /// H-23: reemite los recibos CANCELADOS de los pagos de un credito (util cuando el credito no nace de una venta). No emite
+        /// recibos para pagos que nunca tuvieron uno.
+        /// </summary>
+        Task<DocumentoEventoResultado> ReintentarCreditoAsync(int creditoId);
     }
 
     public interface IDocumentoPdfService
