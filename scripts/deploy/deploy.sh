@@ -62,6 +62,10 @@ log INFO "release anterior conocida: ${PREVIOUS_IMAGE:-<ninguna, bootstrap>}"
 export ERP_IMAGE="$IMAGE"
 
 # --- 1) levantar db ---
+# BACKUP_DIR debe existir ANTES de `up db` (db monta $BACKUP_DIR/sql): si no, Docker lo crea root:root. Crea/valida sin cambiar permisos
+# de un directorio existente (scripts/backup/prepare-dir.sh).
+COMPOSE_PROJECT_NAME="$DP_PROJECT" COMPOSE_ENV_FILES="$DP_ENV_FILE" bash "$REPO_DIR/scripts/backup/prepare-dir.sh" \
+  || die $EX_PREREQ "BACKUP_DIR no esta listo (ver mensaje de prepare-dir.sh): deploy no iniciado"
 log INFO "--- db ---"
 dc up -d db || die $EX_PREREQ "no se pudo levantar db"
 for i in $(seq 1 30); do

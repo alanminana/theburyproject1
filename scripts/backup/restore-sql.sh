@@ -49,6 +49,17 @@ fi
 [[ -z "$STOPAT" || $WITH_LOGS == 1 ]] || die $EX_USAGE "--stopat requiere --with-logs"
 [[ "$TARGET" != "master" && "$TARGET" != "model" && "$TARGET" != "msdb" && "$TARGET" != "tempdb" ]] || die $EX_USAGE "--target-db no puede ser una base del sistema"
 
+# Restaurar la base de PRODUCCION no puede correr a la vez que un backup (que detiene/arranca `app` y puede recuperarla por la marca
+# .app-stopped-by-backup). Se toma el mismo lock y el operador asume el control de `app`: se borra la marca bajo el lock. Restaurar a otro
+# nombre (restore-test, verificaciones) no afecta a `app` y no toma el lock.
+# Sin distinguir mayusculas: con la collation habitual de SQL Server (insensible) "theburyprojectdb" ES la base de produccion.
+if [[ "${TARGET,,}" == "${DB_NAME,,}" ]]; then
+  lrc=0; acquire_lock || lrc=$?
+  (( lrc == 0 )) || { (( lrc == 1 )) && die $EX_BUSY "hay un backup o un restore en curso (lock): esperar a que termine"; die $EX_PREREQ "no se pudo tomar el lock (ver el mensaje anterior)"; }
+  trap release_lock EXIT
+  rm -f "$BACKUP_DIR/.app-stopped-by-backup"
+fi
+
 log INFO "=== restore-sql inicio: $BACKUP -> [$TARGET] logs=$WITH_LOGS stopat='${STOPAT:-}' ==="
 
 # 1) el archivo existe, no esta vacio y coincide con su sha256
@@ -66,7 +77,7 @@ exists=$(sql_scalar "SELECT CASE WHEN DB_ID(N'$TARGET') IS NULL THEN 0 ELSE 1 EN
 if [[ "$exists" == "1" ]]; then
   (( OVERWRITE )) || die $EX_RESTORE "la base [$TARGET] YA EXISTE: no se sobrescribe. Para reemplazarla: --overwrite --confirm-overwrite $TARGET"
   [[ "$CONFIRM" == "$TARGET" ]] || die $EX_RESTORE "--overwrite requiere --confirm-overwrite $TARGET (mismo nombre, escrito a mano)"
-  if [[ "$TARGET" == "$DB_NAME" ]] && service_running app; then
+  if [[ "${TARGET,,}" == "${DB_NAME,,}" ]] && service_running app; then
     die $EX_RESTORE "app esta corriendo: detenerla antes de reemplazar [$TARGET] (docker compose stop app)"
   fi
   log WARN "SE REEMPLAZARA la base [$TARGET] con $BACKUP"
@@ -127,6 +138,6 @@ if [[ "$exists" == "1" ]]; then sql_exec "ALTER DATABASE [$TARGET] SET MULTI_USE
 state=$(sql_scalar "SELECT state_desc FROM sys.databases WHERE name = N'$TARGET'")
 [[ "$state" == "ONLINE" ]] || die $EX_RESTORE "[$TARGET] no quedo ONLINE (estado: ${state:-?})"
 log INFO "=== restore-sql OK: [$TARGET] ONLINE ==="
-if [[ "$TARGET" == "$DB_NAME" ]]; then
+if [[ "${TARGET,,}" == "${DB_NAME,,}" ]]; then
   log INFO "Siguiente paso: docker compose up -d   (db-init re-vincula los usuarios de la app; migrate valida el esquema)"
 fi

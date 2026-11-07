@@ -73,6 +73,11 @@ Alternativa a cron: un `systemd` timer que ejecute los mismos tres comandos.
 
 ## 5. Ubicación
 
+> **Antes de levantar contenedores**: `scripts/backup/prepare-dir.sh` (lo invocan `install.sh` y `deploy.sh`). Si `BACKUP_DIR` no existe, `docker compose up db`
+> lo crea como `root:root` y los scripts (usuario normal) dejan de poder escribir (reproducido). El script crea el directorio con tu usuario (700) o, si ya existe,
+> **solo valida**: nunca cambia modo ni dueño de un directorio con datos; si es de root imprime el comando exacto de remediación sin ejecutarlo.
+
+
 `BACKUP_DIR` en `.env` (default `./backups`; **en producción usar una ruta fuera del repo, idealmente otro disco**, p. ej.
 `/srv/bury-backups`):
 
@@ -143,8 +148,10 @@ y, en SFTP, la host key (`KNOWN_HOSTS_FILE`); el centinela no hace falta.
   descarga (`failed to authenticate decrypted block`, exit 6) — probado.
 - La subida cubre **todos los backups locales aún no subidos** (no solo los de esta corrida): si un `.trn` no pudo subirse (remoto caído),
   la corrida siguiente lo repone y la cadena de logs remota no queda con un hueco. La verificación activa solo cubre los archivos de la corrida.
-- Retención remota: `BACKUP_REMOTE_RETENTION_DAYS` (30) borra por antigüedad **solo** nombres del sistema (`*_full_*.bak*`, `*_log_*.trn*`, `files_*.tar.gz*`);
-  archivos ajenos se conservan (probado). No hay mínimo de copias en el remoto: si se necesita, usar la retención del proveedor.
+- Retención remota (ver §8.1): por **tipo**, por el timestamp del nombre, con un **mínimo de copias completas** (`BACKUP_REMOTE_MIN_KEEP`, 3) y solo
+  tras subir y verificar lo de esa corrida. Archivos ajenos, otras bases y subdirectorios no se tocan (probado). Con crypt/SFTP el borrado se hace por
+  nombre exacto (`rclone deletefile`), nunca con comodines. La cuenta del servidor sigue pudiendo borrar el remoto: para ransomware o un servidor
+  comprometido usar además la retención/inmutabilidad del proveedor (versionado u «object lock»); esta guarda no la reemplaza.
 - `BACKUP_REQUIRE_OFFSITE=true`: exit 6 si `BACKUP_REMOTE` está vacío **o** el remoto no responde (SFTP caído, disco sin centinela, credenciales
   inválidas); el mensaje de `backup.log` incluye la causa real (`connection refused`, `no such host`, `permission denied`).
   No se ejecuta la retención local tras un fallo y no se borra ningún backup histórico.
@@ -158,6 +165,24 @@ Solo `app` escribe en `keys`, `uploads` y `App_Data`. Se eligió la opción más
 volumen/LVM lo evitarían, pero exigen infraestructura que no se asume. `caddy-data` se lee sin detener Caddy (escrituras raras y
 atómicas). Para no detener `app`: `BACKUP_STOP_APP=false` (aceptando que el par SQL/archivos puede diferir por segundos).
 
+### 7.1 Si el backup muere con `app` detenida
+
+`stop_app` escribe `$BACKUP_DIR/.app-stopped-by-backup` **antes** de detener `app` y la borra solo cuando `app` vuelve `healthy`. Si el proceso muere
+(SIGKILL, corte de luz) la marca queda. **Cualquier** corrida siguiente de `backup.sh` (incluido `log`, cada 15 min) toma el lock, ve la marca y
+levanta `app` (probado con SIGKILL real: marca + `app` detenida → `backup.sh log` la recupera y borra la marca). Con `restart: unless-stopped`, Docker
+**no** reinicia un contenedor detenido a mano tras reiniciar el host; por eso hace falta la marca. Reglas:
+
+- Sin marca, `backup.sh` **no** arranca una `app` detenida (p. ej. detenida por el operador para un restore).
+- `restore-files.sh` (con el lock tomado y `app` detenida) borra la marca: el operador asume el control. `--list` no la toca.
+- Si `app` no llega a `healthy`, la marca **persiste** y se reintenta en la siguiente corrida (exit 10; no queda en silencio).
+- El lock es `flock` (el kernel lo libera aunque el proceso muera; los hijos de `docker` no heredan el descriptor). `restore-files.sh` y `restore-sql.sh`
+  (este último solo cuando el destino es la base de producción) toman **el mismo lock** y borran la marca bajo él: un restore no corre a la vez que un backup
+  ni deja que una corrida programada arranque `app` a mitad (probado: `restore-sql` con un backup en curso sale con exit 4). **Sin `flock` (util-linux) los
+  scripts rechazan operar** (exit 8); el lock por directorio solo existe con `BURY_ALLOW_DIR_LOCK=1` para tests/desarrollo porque dos recuperadores sucesivos de un
+  lock huérfano podrían entrar a la vez.
+- Cobertura real: un corte del **host completo** se recupera en la siguiente corrida programada; si el Programador de tareas o Docker no arrancan tras el
+  reinicio, nada corre: hace falta la alerta por ausencia de éxito reciente (`docs/monitoreo-alertas.md`).
+
 ## 8. Retención
 
 `backup.sh` la aplica al final de cada `all`/`full`/`files` exitoso:
@@ -169,7 +194,27 @@ atómicas). Para no detener `app`: `BACKUP_STOP_APP=false` (aceptando que el par
 - Los `.trn` solo se borran si son anteriores al full más antiguo que se conserva.
 - Guardas: `RETENTION_DAYS` entero ≥ 1, `DB_NAME` validado, rutas literales dentro del contenedor y marca `.bury-backup-root`
   obligatoria (si el volumen no está montado, no borra nada).
-- Remoto: `BACKUP_REMOTE_RETENTION_DAYS` (30; `0` = no borrar) con `rclone delete --min-age` filtrado por esos mismos nombres.
+
+### 8.1 Retención remota (reescrita 2026-11-07)
+
+Antes borraba por `mtime` **ambos tipos en cualquier modo ≠ `log`** y sin mínimo: una corrida `files` borraba también los fulls SQL remotos
+(reproducido). Ahora (`backup.sh`, `remote_retention` + `remote_prune_plan` en `lib.sh`):
+
+| Regla | Detalle |
+|---|---|
+| Por tipo | `full` y `files` se podan solo si **esta corrida** subió **y verificó** ese tipo (modos `all`/`full` → fulls y logs; `all`/`files` → tars). El modo `log` **nunca** borra. Un `files` jamás toca `sql/`. |
+| Edad | Por el **timestamp del nombre** (UTC), no por `mtime`; `BACKUP_REMOTE_RETENTION_DAYS=0` = no borrar nada. |
+| Mínimo | Se conservan **siempre** los `BACKUP_REMOTE_MIN_KEEP` (3) más recientes por tipo. Con menos de ese número de copias *completas* no se borra nada (`GUARD`). |
+| «Completa» | Principal y `.sha256` presentes y no vacíos. **No** prueba que se restaure (eso lo hacen `VERIFYONLY` + `rclone check` de la corrida que lo subió y `restore-test.sh`): `MIN_KEEP` garantiza *N copias completas*, no *N restaurables*. |
+| Logs `.trn` | Solo se borran los anteriores al full retenido más antiguo **y** al corte de edad. |
+| Dos fases | Primero se listan y planifican **todos** los tipos; solo si todo salió bien se ejecuta. Un fallo de subida, verificación, listado o plan ⇒ **cero borrados** (probado, incluso «SQL bien y files fallido»). Si `deletefile` falla a mitad, se detiene y el mensaje dice cuántos se borraron. |
+| Listado válido | Debe contener principal y `.sha256` de lo de esta corrida; un listado vacío/parcial sin ellos aborta. Con password `crypt` equivocada el remoto «parece» casi vacío y la guarda de mínimo impide borrar (probado). |
+| Reloj | Un nombre con fecha futura (> ahora + 10 min) o imposible (`02-30`) en el remoto anula la poda de ese tipo. Un reloj *adelantado* en el servidor haría «viejas» copias válidas, pero el mínimo de 3 y el principio «solo tras subir esta corrida» acotan el daño; mantener NTP. |
+| Pares conservados | El manifiesto `set_<ts-tar>_<ts-full>.txt` (§10.2) se borra junto con su tar. Los **fulls que referencia el manifiesto de un tar que se conserva no se borran** (ni local ni remotamente): si no, fulls independientes más nuevos (p. ej. previos a un deploy) desplazarían el full de un par recuperable. Se calcula después de decidir qué tars se podan en la misma corrida; el piso de los logs incluye esos fulls protegidos. Probado local y remoto. |
+| Ajenos | Otras bases, sufijos extra, subdirectorios, `*.failed-verify`, notas: nunca se proponen. |
+
+Límites conocidos: un lock local no coordina **otro servidor** que escriba el mismo remoto (un solo escritor por destino); y el timestamp del
+nombre no es evidencia de cadena LSN, por eso la poda de logs es conservadora (solo anteriores al full más antiguo retenido).
 
 ## 9. Restore
 
@@ -217,6 +262,8 @@ las claves, genera claves nuevas y las cookies/tokens viejos quedan invalidados.
 ```bash
 # 1. Código y secretos
 git clone <repo> /opt/bury && cd /opt/bury
+#    ANTES de cualquier `docker compose up`: crear/validar BACKUP_DIR con tu usuario (si no existe, Docker lo crea root:root y los scripts fallan)
+scripts/backup/prepare-dir.sh        # no cambia permisos de un directorio existente; si es de root te dice el comando exacto
 #    restaurar .env y backup-offsite.env desde el gestor de contraseñas (chmod 600); BACKUP_DIR con espacio suficiente
 
 # 2. Traer los backups desde la copia externa (verifica hashes y sha256)
@@ -233,6 +280,21 @@ scripts/backup/restore-sql.sh --backup TheBuryProjectDb_full_<ultimo>.bak --targ
 # 5. Resto del stack: db-init re-vincula los usuarios SQL (SIDs nuevos), migrate valida el esquema (no-op si está al día), app, caddy
 docker compose up -d --build --wait
 ```
+
+### 10.2 ¿Qué full y qué tar van juntos? (decisión explícita)
+
+`restore-files.sh --list` marca los tars que tienen **par acreditado**: `backup.sh all` escribe `set_<ts-tar>_<ts-full>.txt` (nombres exactos, sha256 y si `app`
+estuvo detenida) y lo sube con los archivos. `backup.sh full` (p. ej. el backup previo a un deploy) crea fulls *más nuevos* que el último tar: **«el
+último de cada uno» no es un par**. Hay dos recuperaciones válidas; elegir y registrar cuál:
+
+| Opción | Cómo | Resultado |
+|---|---|---|
+| **A. Par coherente** | tar con par acreditado + **su** full, `restore-sql.sh --backup <full-del-par>` **sin** `--with-logs` | Estado exacto de esa corrida: SQL y archivos coinciden. Se pierde lo posterior (hasta 24 h). |
+| **B. SQL lo más reciente** | último full + `--with-logs` | Mínima pérdida de datos SQL, pero la base puede **referenciar documentos subidos después del tar** (que no existen) y datos cifrados con claves Data Protection posteriores al tar. |
+
+Demostrado el 2026-11-07 (stack aislado): con logs, la fila posterior al tar existe en SQL y su documento no está en `uploads`; sin logs, ambos faltan y el
+estado es coherente. Hoy el RPO de SQL (15 min) **no** es el RPO del ERP: documentos y claves tienen hasta 24 h. Para tars sin manifiesto (anteriores a este
+cambio o de `backup.sh files`), el par con un full **no está acreditado**: tratarlo como opción B.
 
 Usar el **último full anterior al desastre** y los logs posteriores. Si el último full o algún log estuviera dañado, el script lo
 rechaza (`sha256`/`VERIFYONLY`) y hay que retroceder a un full anterior (el remoto conserva 30 días).
@@ -285,11 +347,11 @@ contrato de `App_Data`; y comprobar que una sesión abierta **antes** del desast
 | 3 | verificación falló: archivo ausente/vacío, `VERIFYONLY`, `sha256` (el `.bak` sospechoso se pone en cuarentena como `*.failed-verify`) |
 | 4 | otra ejecución en curso (omitido) |
 | 5 | backup de archivos falló |
-| 6 | copia externa falló, no se pudo verificar, o es obligatoria y no está configurada |
+| 6 | copia externa falló, no se pudo verificar, es obligatoria y no está configurada, o la **retención remota** se omitió/interrumpió (el mensaje dice si se borró algo) |
 | 7 | retención falló |
 | 8 | prerequisito: docker/compose ausente, `db` detenido o SQL sin responder |
 | 9 | restore rechazado o fallido (`restore-*.sh`, `restore-test.sh`) |
-| 10 | `app` no volvió a `healthy` tras detenerla para el backup |
+| 10 | `app` no volvió a `healthy` tras detenerla para el backup, o falló la recuperación de una corrida interrumpida (§7.1) |
 
 Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta retención. Logs en `$BACKUP_DIR/logs/backup.log`
 (sin passwords ni connection strings: `sa` se lee dentro del contenedor `db`; el proveedor externo solo en `backup-offsite`).
@@ -315,3 +377,8 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 - El aviso activo ante fallos depende del monitor (`docs/monitoreo-alertas.md`); sin él, un `exit 6` solo queda en `backup.log` y `monitor-status/`.
 - Sin retención "mensual/anual": si se necesita histórico largo, definirla (p. ej. conservar el full del día 1 de cada mes).
 - El backup no incluye `.env`/`backup-offsite.env`: mantener su copia manual y actualizada.
+- **Retención remota, BACKUP_DIR, recuperación de `app` y manifiesto del par (2026-11-07)**: probados con datos sintéticos en un stack aislado con `crypt` sobre un
+  remoto `local` y `app` ficticia (incluido SIGKILL real). **No probado con SFTP/proveedor real**: `rclone deletefile` sobre SFTP y `crypt`+SFTP (permiso
+  denegado, interrupción entre principal y `.sha256`), ni con Docker Desktop/Task Scheduler tras un reinicio del host.
+- Un lock local no coordina otro servidor que escriba el mismo remoto: un solo escritor por destino. La cuenta del servidor puede borrar el remoto
+  (ransomware/servidor comprometido): usar retención/inmutabilidad del proveedor además de esta guarda.

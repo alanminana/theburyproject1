@@ -23,8 +23,8 @@ load_config
 [[ "$BACKUP_REMOTE" =~ ^[A-Za-z0-9_-]+:.+ ]] || die $EX_USAGE "BACKUP_REMOTE debe tener la forma <remoto>:<ruta>"
 command -v docker >/dev/null 2>&1 || die $EX_PREREQ "docker no esta disponible"
 
-mkdir -p "$BACKUP_DIR/sql" "$BACKUP_DIR/files" "$BACKUP_DIR/logs"
-chmod 700 "$BACKUP_DIR" 2>/dev/null || true
+mkdir_new_mode 700 "$BACKUP_DIR" "$BACKUP_DIR/files" "$BACKUP_DIR/logs"   # modo 700 SOLO a lo que se crea; un directorio existente no se toca
+[[ -d "$BACKUP_DIR/sql" ]] || mkdir -p "$BACKUP_DIR/sql"
 [[ -f "$BACKUP_DIR/.bury-backup-root" ]] || echo "Directorio administrado por scripts/backup. NO borrar este archivo." >"$BACKUP_DIR/.bury-backup-root"
 
 if (( LIST )); then
