@@ -489,6 +489,18 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         cli.Sueldo = 900000m;
         cli.TieneReciboSueldo = true;
         cli.PuntajeRiesgo = 9m;
+        // Consulta BCRA exitosa y vigente: el test no debe depender de la API externa (con ServiceUnavailable la venta pasaba a
+        // PendienteAutorizacion y el credito no se insertaba nunca).
+        var ahoraBcra = DateTime.UtcNow;
+        cli.SituacionCrediticiaBcra = 1;
+        cli.SituacionCrediticiaDescripcion = "Normal";
+        cli.SituacionCrediticiaPeriodo = ahoraBcra.ToString("yyyyMM");
+        cli.SituacionCrediticiaUltimaConsultaUtc = ahoraBcra;
+        cli.SituacionCrediticiaConsultaOk = true;
+        cli.SituacionCrediticiaBcraUltimoExito = 1;
+        cli.SituacionCrediticiaDescripcionUltimoExito = "Normal";
+        cli.SituacionCrediticiaPeriodoUltimoExito = ahoraBcra.ToString("yyyyMM");
+        cli.SituacionCrediticiaUltimoExitoUtc = ahoraBcra;
         foreach (var tipo in new[] { TipoDocumentoCliente.DNI, TipoDocumentoCliente.ReciboSueldo, TipoDocumentoCliente.Servicio, TipoDocumentoCliente.ConstanciaCUIL })
             ctx.DocumentosCliente.Add(new DocumentoCliente
             {
@@ -579,7 +591,13 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         if (!llego)
         {
             // La conversion no llego a crear el credito (p. ej. validacion crediticia del entorno): se informa el motivo real.
-            Assert.Fail("la conversion no llego a insertar el credito: " + await conversion);
+            var resultado = await conversion;
+            using var diag = _fx.Services.CreateScope();
+            var dctx = diag.ServiceProvider.GetRequiredService<AppDbContext>();
+            var v = await dctx.Ventas.AsNoTracking().Where(x => x.ClienteId == cliente)
+                .Select(x => new { x.Estado, x.RequiereAutorizacion, x.EstadoAutorizacion, x.CreditoId, x.TipoPago, x.MotivoAutorizacion }).ToListAsync();
+            Assert.Fail("la conversion no llego a insertar el credito: " + resultado + " | ventas: "
+                + string.Join("; ", v.Select(x => $"{x.Estado}/{x.TipoPago}/RequiereAut={x.RequiereAutorizacion}/{x.EstadoAutorizacion}/Credito={x.CreditoId}/{x.MotivoAutorizacion}")));
         }
 
         var baja = Baja(cliente);
