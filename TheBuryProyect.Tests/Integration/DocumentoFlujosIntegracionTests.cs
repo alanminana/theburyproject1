@@ -304,6 +304,33 @@ public class DocumentoCobranzaIntegracionTests : DocumentoTestBase
     }
 
     [Fact]
+    public async Task ReintentarCredito_H23_NoReemiteReciboDePagoNoAplicado_NiDuplicaImportesDeUnaCobranzaVecina()
+    {
+        await SembrarConfiguracionInicialAsync();
+        var (credito, cuota) = await SembrarCreditoConCuotaAsync(conVenta: false);
+        var servicio = CrearCreditoService();
+        var pagoA = await servicio.RegistrarPagoCuotaIndividualAsync(Comando(cuota, 100m));
+        var cuota2 = await Context.Cuotas.AsNoTracking().FirstAsync(c => c.Id == cuota.Id);
+        var pagoB = await servicio.RegistrarPagoCuotaIndividualAsync(Comando(cuota2, 100m));
+        var reciboA = await Context.DocumentosGenerados.SingleAsync(d => d.PagoCuotaId == pagoA!.PagoCuotaId && d.Estado != EstadoDocumentoGenerado.Cancelado);
+        var reciboB = await Context.DocumentosGenerados.SingleAsync(d => d.PagoCuotaId == pagoB!.PagoCuotaId && d.Estado != EstadoDocumentoGenerado.Cancelado);
+
+        // A cancelado y B vigente, mismos cliente y medio en la misma ventana: un recibo combinado A+B duplicaria el importe de B.
+        await Motor.CancelarAsync(reciboA.Id, "Error de carga A");
+        var r = await Motor.ReintentarCreditoAsync(credito.Id);
+        Assert.Empty(r.Generados);
+        Assert.Equal(EstadoDocumentoGenerado.Generado, (await Context.DocumentosGenerados.AsNoTracking().FirstAsync(d => d.Id == reciboB.Id)).Estado);
+
+        // Con B tambien cancelado, A pasa a anulado: un pago que ya no esta aplicado no tiene recibo que reemitir.
+        await Motor.CancelarAsync(reciboB.Id, "Error de carga B");
+        var pagoADb = await Context.PagosCuota.FirstAsync(p => p.Id == pagoA!.PagoCuotaId);
+        pagoADb.Estado = EstadoPagoCuota.Anulado;
+        await Context.SaveChangesAsync();
+        var r2 = await Motor.ReintentarCreditoAsync(credito.Id);
+        Assert.DoesNotContain(r2.Generados, d => d.PagoCuotaId == pagoA!.PagoCuotaId);
+    }
+
+    [Fact]
     public async Task PagarCuota_ConReciboObligatorioQueFalla_RevierteElCobroCompleto()
     {
         await SembrarConfiguracionInicialAsync();
