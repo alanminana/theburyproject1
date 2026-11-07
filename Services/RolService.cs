@@ -721,6 +721,21 @@ public class RolService : IRolService
 
         if (resultado.Value is int rc && rc < 0)
             throw new InvalidOperationException("No se pudieron guardar los permisos del rol (otra operación lo está procesando). Reintentá.");
+
+        // Con el lock tomado, lo que este contexto ya tenía rastreado del rol (p. ej. el controlador cargó el rol antes de llamar)
+        // puede estar viejo: se suelta para releerlo de la base (ConcurrencyStamp, claims y permisos vigentes).
+        foreach (var entrada in _context.ChangeTracker.Entries().ToList())
+        {
+            var esDelRol = entrada.Entity switch
+            {
+                IdentityRole r => r.Id == roleId,
+                IdentityRoleClaim<string> c => c.RoleId == roleId,
+                RolPermiso p => p.RoleId == roleId,
+                _ => false
+            };
+            if (esDelRol && entrada.State == EntityState.Unchanged)
+                entrada.State = EntityState.Detached;
+        }
     }
 
     public async Task<(bool Ok, string? Error, int PermisosAsignados)> SyncPermisosForRoleAsync(
