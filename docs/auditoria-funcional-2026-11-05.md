@@ -46,6 +46,8 @@ Cada fila: operación hecha desde la interfaz (o POST forjado con el token real 
 
 No se omitió ni se desactivó ningún spec. Lo no re-ejecutado en limpio (specs consumibles) queda **NO VERIFICADO** hasta restaurar el clon y correrlos de a uno.
 
+**Contraste posterior (C-03, 2026-11-07).** Las fallas locales se explican por el entorno (clon con configuración de la base real, dataset consumido, variable de entorno de seeds, contraseñas de desarrollo), no por defectos del producto: el workflow *Playwright Tests* de CI (base efímera sembrada, 1366×768) está en verde sobre `main` en tres corridas consecutivas (`7b7873fd`, `f084227d`, `0ecd8f43`; la última: 203 correctos, 20 omitidos, 0 fallidos), con `cotizacion-simulador` T9, `venta-descuento-permiso` y `venta-excepcion-documental-reload` incluidos. Limitación: este informe no registra el nombre del cuarto spec fallido (el de la variable de seeds), así que su resolución se infiere del CI verde completo y no de una re-ejecución puntual en el clon. Sin defecto pendiente demostrado.
+
 ## 5. Hallazgos
 
 Clases: A defecto · B incompleta · C no desarrollada · D decisión de negocio · E fiscal · F infraestructura/pruebas.
