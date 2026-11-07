@@ -51,8 +51,8 @@ Para la venta de prueba `@VentaId`, verificar y archivar el resultado:
 1. Exactamente un `DatosCheque` con `Monto = Venta.TotalACobrar` (tolerancia 0,01) y estado esperado.
 2. Exactamente un ingreso de cheque (`TipoPago = Cheque`, no físico) y, si fue acreditado en otra caja, exactamente un `AcreditacionCheque` con `MovimientoOrigenId` válido (índice único `(MovimientoOrigenId, Concepto)`).
 3. Sin movimientos huérfanos ni duplicados para el mismo banco+número.
-4. Cajas cerradas previas: checksums de movimientos y cierre idénticos a la línea base.
-5. Suma de acreditaciones de cheque del día = créditos bancarios de cheques del extracto.
+4. Cajas cerradas previas: `CierreCaja`, totales, efectivo esperado y arqueo idénticos a la línea base. El **estado del movimiento de cheque original** sí puede cambiar de forma auditada (Pendiente→Acreditado/Rechazado/Anulado, `docs/cheques-circuito-propuesta.md` §6.3); comparar el checksum excluyendo ese campo y verificar que el cambio corresponde solo al cheque de la prueba.
+5. Cobros acreditados del día = créditos bancarios de cheques del extracto, contando **ambos caminos**: (a) caja original aún abierta: el ingreso original cambia a `Acreditado` en el lugar (no hay asiento nuevo); (b) caja original cerrada: asiento `AcreditacionCheque` sin `VentaId`, localizado por `MovimientoOrigenId` = ingreso original (y `ReferenciaId` = venta). Sumar el ingreso original solo una vez por cheque.
 6. Auditoría: eventos `Caja/AcreditarCheque` (o `RechazarCheque`) con usuario y hora.
 
 ## 6. Plan de reversión
@@ -61,7 +61,7 @@ Para la venta de prueba `@VentaId`, verificar y archivar el resultado:
 |---|---|
 | Error antes de acreditar, sin dinero movido | Cancelar la venta desde la interfaz (cheque Pendiente: ingreso `Anulado`, stock +1). Devolver el cheque físico al cliente. |
 | Cheque acreditado por error en el sistema, banco aún no acreditó | Rechazar con motivo (egreso `RechazoCheque` en la caja vigente). No editar filas por SQL. |
-| Cheque acreditado por el banco y venta a deshacer | Cancelar la venta (contrapartida `ReversionVenta` en la caja vigente) o devolución con reembolso **solo** tras acreditación verificable; devolver el dinero por canal bancario fuera del sistema. |
+| Cheque acreditado por el banco y venta a deshacer | Cancelar la venta (contrapartida `ReversionVenta` en la caja vigente, no física). **No usar la devolución con reembolso en efectivo** para devolver por banco: el sistema registra ese reembolso como egreso de efectivo físico (exige efectivo disponible en la caja) y generaría una salida de caja ficticia. Si hay que devolver el dinero por transferencia, hacerlo fuera del sistema tras la cancelación y dejar constancia (referencia bancaria) en la observación. |
 | Datos inconsistentes o corrupción | Detener operación y **restaurar el backup previo** (§3) en una base nueva, comparar con la línea base, y recién entonces decidir el reemplazo con autorización del propietario. Se pierde cualquier operación posterior al backup. |
 | Medio «Cheque» | Desactivarlo (SuperAdmin) si no se continúa operando. |
 
