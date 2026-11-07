@@ -1125,6 +1125,47 @@ public class MoraServiceTests : IDisposable
     private async Task<AlertaCobranza> LeerAlertaAsync(int id) =>
         await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == id);
 
+    // ---- Promesa incumplida / cumplida desde la ficha (fase 7) ----
+
+    [Theory]
+    [InlineData(null, "Prom | Promesa incumplida")]
+    [InlineData("   ", "Prom | Promesa incumplida")]
+    [InlineData("  No pago el viernes ", "Prom | Promesa incumplida: No pago el viernes")]
+    public async Task PromesaIncumplida_ObservacionOpcional_NoDejaSufijoVacio(string? observaciones, string esperado)
+    {
+        var alerta = await SeedPromesaAsync(new DateTime(2026, 10, 10), dias: null);
+        var viva = await _context.AlertasCobranza.SingleAsync(a => a.Id == alerta.Id);
+        viva.Observaciones = "Prom";
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, alerta.ClienteId, observaciones);
+
+        var leida = await LeerAlertaAsync(alerta.Id);
+        Assert.Equal(esperado, leida.Observaciones);
+        Assert.Equal(EstadoGestionCobranza.EnGestion, leida.EstadoGestion);
+        Assert.Null(leida.FechaPromesaPago);
+    }
+
+    [Fact]
+    public async Task PromesaCumplidaEIncumplida_ExigenPromesaVigenteYClienteDeLaAlerta()
+    {
+        var alerta = await SeedPromesaAsync(new DateTime(2026, 10, 10), dias: null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaCumplidaDelClienteAsync(alerta.Id, alerta.ClienteId + 999));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, alerta.ClienteId + 999, "x"));
+
+        Assert.True(await _service.MarcarPromesaCumplidaDelClienteAsync(alerta.Id, alerta.ClienteId));
+        var leida = await LeerAlertaAsync(alerta.Id);
+        Assert.True(leida.Resuelta);
+        Assert.Equal(EstadoGestionCobranza.Regularizado, leida.EstadoGestion);
+
+        // Una vez cumplida ya no hay promesa vigente que marcar: no se puede incumplir ni cumplir de nuevo.
+        var sinPromesa = await SeedAlertaAsync(alerta.ClienteId, (await _context.Creditos.AsNoTracking().FirstAsync()).Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaCumplidaDelClienteAsync(sinPromesa.Id, sinPromesa.ClienteId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.MarcarPromesaIncumplidaDelClienteAsync(sinPromesa.Id, sinPromesa.ClienteId, "x"));
+    }
+
     [Fact]
     public async Task Promesas_LimiteExacto_UltimoDiaDeEsperaNoIncumple_ElSiguienteSi()
     {

@@ -195,6 +195,27 @@ public class DevolucionServiceTests : IDisposable
         Assert.True(creada.Id > 0);
     }
 
+    [Fact]
+    public async Task Crear_TrasCancelarUnaDevolucion_LasUnidadesVuelvenAEstarDisponibles()
+    {
+        // H-31: una devolución cancelada (como una rechazada) no devolvió nada; antes contaba como «ya devuelta».
+        var (cliente, producto, venta) = await SeedVentaEnEstadoAsync(EstadoVenta.Confirmada);
+        var vendida = (await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.VentaId == venta.Id)).Cantidad;
+
+        var primera = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = vendida } });
+        await _service.CancelarDevolucionAsync(primera.Id, "Cargada por error", primera.RowVersion);
+
+        var segunda = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = vendida } });
+        Assert.True(segunda.Id > 0);
+
+        // Una devolución vigente sí bloquea: ya está todo devuelto.
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } }));
+        Assert.Contains("excede lo disponible", ex.Message);
+    }
+
     [Theory]
     [InlineData(EstadoVenta.Cotizacion, true)]
     [InlineData(EstadoVenta.PendienteFinanciacion, true)]

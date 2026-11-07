@@ -521,6 +521,36 @@
                     </dl>
                 </section>
             }
+            else if (ViewBag.ProveedoresRma is List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> proveedoresRma)
+            {
+                <section class="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 shadow-sm" data-devolucion-rma-form>
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-400">Solicitar RMA</p>
+                        <span class="material-symbols-outlined text-base text-sky-400">sync_alt</span>
+                    </div>
+                    <form asp-action="CrearRMA" method="post" class="space-y-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="devolucionId" value="@dev.Id" />
+                        <input type="hidden" name="devolucionRowVersion" value="@rowVersionBase64" />
+                        <div>
+                            <label for="rma-proveedor" class="mb-1 block text-[11px] font-semibold text-slate-400">Proveedor</label>
+                            <select id="rma-proveedor" name="proveedorId" required class="input-erp w-full">
+                                <option value="">Seleccioná un proveedor…</option>
+                                @foreach (var proveedor in proveedoresRma)
+                                {
+                                    <option value="@proveedor.Value">@proveedor.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label for="rma-motivo" class="mb-1 block text-[11px] font-semibold text-slate-400">Motivo de la solicitud</label>
+                            <textarea id="rma-motivo" name="motivoSolicitud" rows="3" maxlength="1000" required class="input-erp w-full"
+                                      placeholder="Describí la falla o el motivo del reclamo al proveedor"></textarea>
+                        </div>
+                        <button type="submit" class="btn-erp-secondary w-full">Crear RMA</button>
+                    </form>
+                </section>
+            }
 
         </aside>
     </div>

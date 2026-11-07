@@ -217,11 +217,13 @@ public class DevolucionService : IDevolucionService
                 .Where(g => g.Count() == 1)
                 .ToDictionary(g => g.Key, g => g.First().ProductoUnidadId!.Value);
 
-            // Devoluciones previas (incluye pendientes/en revisión/aprobadas/completadas; excluye rechazadas)
+            // Devoluciones previas (incluye pendientes/en revisión/aprobadas/completadas; excluye rechazadas y canceladas: ninguna de las
+            // dos devuelve nada, y contarlas bloqueaba para siempre devolver esas unidades — H-31)
             var devueltoPorProducto = await _context.DevolucionDetalles
                 .Where(dd => !dd.IsDeleted)
                 .Join(
-                    _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId && d.Estado != EstadoDevolucion.Rechazada),
+                    _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == devolucion.VentaId
+                        && d.Estado != EstadoDevolucion.Rechazada && d.Estado != EstadoDevolucion.Cancelada),
                     dd => dd.DevolucionId,
                     d => d.Id,
                     (dd, d) => new { dd.ProductoId, dd.Cantidad, dd.Subtotal })
