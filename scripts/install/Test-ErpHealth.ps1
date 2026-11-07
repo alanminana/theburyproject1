@@ -145,6 +145,20 @@ $s.Status['full'] = (@{ time = $ahoraUnix - 50 * 3600; exit = 0; verified = $tru
 $s.Status['log'] = (@{ time = $ahoraUnix - 300; exit = 6; verified = $false } | ConvertTo-Json -Compress)
 Invoke-Escenario 'full desactualizado y log fallido' $s 2 @('FALLA|Backup full', 'FALLA|Backup log', 'OK|Backup files')
 
+# 10b. log atrasado: 40 min = atencion, 50 min = falla
+$s = New-Base; $s.Status['log'] = (@{ time = $ahoraUnix - 40 * 60; exit = 0; verified = $true } | ConvertTo-Json -Compress)
+Invoke-Escenario 'log verificado hace 40 min' $s 1 @('ATENCION|Backup log')
+$s = New-Base; $s.Status['log'] = (@{ time = $ahoraUnix - 50 * 60; exit = 0; verified = $true } | ConvertTo-Json -Compress)
+Invoke-Escenario 'log verificado hace 50 min' $s 2 @('FALLA|Backup log')
+
+# 10c. offsite viejo (>30 h) = falla; tarea Ready con ultima corrida vieja y sin proxima = falla
+$s = New-Base; $s.Status['offsite-sql'] = (@{ time = $ahoraUnix - 40 * 3600; exit = 0; verified = $true } | ConvertTo-Json -Compress)
+Invoke-Escenario 'offsite desactualizado' $s 2 @('FALLA|Copia offsite-sql')
+$s = New-Base; $s.Tasks = @([pscustomobject]@{ Name = 'TheBury Backup Log'; State = 'Ready'; LastRun = (Get-Date).AddDays(-60); LastResult = 0; NextRun = $null })
+Invoke-Escenario 'tarea Ready sin correr hace meses' $s 2 @("FALLA|Backup Log")
+$s = New-Base; $s.Tasks = @([pscustomobject]@{ Name = 'TheBury Backup Full'; State = 'Ready'; LastRun = (Get-Date).AddHours(-3); LastResult = 0; NextRun = $null })
+Invoke-Escenario 'tarea sin proxima ejecucion' $s 1 @("ATENCION|Backup Full")
+
 # 11. Sin monitor-status (scheduler nunca instalado)
 $s = New-Base; $s.Status = @{}
 Invoke-Escenario 'backups nunca corrieron' $s 2 @('FALLA|Estado de backups')
@@ -199,7 +213,9 @@ Invoke-Escenario 'Tailscale no instalado' $s 1 @('ATENCION|Tailscale')
 $s = New-Base; $script:Sim = $s; $s.LiveCode = '200'
 Invoke-HealthCheck
 $Json = [switch]$true
+Show-Resultados | Out-Null
 $salida = @(Show-Resultados)
+if ($script:Codigo -ne 0) { $script:Fallos++; Write-Host '[FALLA] Show-Resultados no dejo codigo 0' -ForegroundColor Red }
 $Json = [switch]$false
 $txt = ($salida | Where-Object { $_ -is [string] }) -join "`n"
 try {

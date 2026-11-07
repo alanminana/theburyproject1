@@ -69,7 +69,10 @@ $ErrorActionPreference = 'Continue'
 
 # Umbrales (segundos) de frescura de los backups. Coinciden con el calendario de install-windows.ps1
 # (full diario 02:30, log cada 15 min, restore-test semanal); el margen cubre una corrida omitida.
-$script:MaxEdad = @{ 'full' = 30 * 3600; 'files' = 30 * 3600; 'log' = 3 * 3600; 'restore-test' = 8 * 86400 }
+$script:MaxEdad = @{ 'full' = 30 * 3600; 'files' = 30 * 3600; 'log' = 45 * 60; 'restore-test' = 8 * 86400 }
+# Umbral previo a FALLA (coincide con scripts/monitoring/config.example.json: log 30 min aviso / 45 min critico).
+$script:AvisoEdad = @{ 'log' = 30 * 60 }
+$script:Codigo = 0
 $script:Resultados = New-Object System.Collections.Generic.List[object]
 
 function Add-R([string]$Estado, [string]$Item, [string]$Detalle) {
@@ -241,6 +244,7 @@ function Test-Backups {
         if ($edad -lt -300) { Add-R 'ATENCION' "Backup $k" 'fecha en el futuro (reloj desfasado)'; continue }
         if ([int]$d.exit -ne 0 -or -not $d.verified) { Add-R 'FALLA' "Backup $k" "ultima corrida con exit=$($d.exit) verified=$($d.verified), hace $(Format-Edad $edad)" }
         elseif ($edad -gt $script:MaxEdad[$k]) { Add-R 'FALLA' "Backup $k" "verificado pero desactualizado: hace $(Format-Edad $edad) (maximo $(Format-Edad $script:MaxEdad[$k]))" }
+        elseif ($script:AvisoEdad.ContainsKey($k) -and $edad -gt $script:AvisoEdad[$k]) { Add-R 'ATENCION' "Backup $k" "verificado hace $(Format-Edad $edad) (se espera cada 15 min)" }
         else { Add-R 'OK' "Backup $k" "verificado hace $(Format-Edad $edad)" }
     }
     if ($datos.ContainsKey('restore-test')) {
@@ -260,7 +264,7 @@ function Test-Backups {
     foreach ($k in $offs) {
         $d = $datos[$k]; $edad = $ahora - [int64]$d.time
         if ([int]$d.exit -ne 0) { Add-R 'FALLA' "Copia $k" "ultima corrida con exit=$($d.exit), hace $(Format-Edad $edad)" }
-        elseif ($edad -gt $script:MaxEdad['full']) { Add-R 'ATENCION' "Copia $k" "ultima subida hace $(Format-Edad $edad)" }
+        elseif ($edad -gt $script:MaxEdad['full']) { Add-R 'FALLA' "Copia $k" "ultima subida hace $(Format-Edad $edad)" }
         else { Add-R 'OK' "Copia $k" "verificada hace $(Format-Edad $edad)" }
     }
     # run-<modo> solo se escribe cuando una corrida fallo: si es mas nueva que el ultimo exito del mismo modo, sigue fallando.
@@ -280,6 +284,9 @@ function Test-Tareas {
         if ($t.State -eq 'Disabled') { Add-R 'FALLA' "Tarea '$($t.Name)'" 'deshabilitada'; continue }
         if (-not $t.LastRun -or $t.LastRun.Year -lt 2000 -or $t.LastResult -eq 267011) { Add-R 'ATENCION' "Tarea '$($t.Name)'" 'todavia no corrio'; continue }
         $edad = ($ahora - $t.LastRun).TotalSeconds
+        $clave = if ($t.Name -match 'Restore') { 'restore-test' } elseif ($t.Name -match 'Log') { 'log' } elseif ($t.Name -match 'Full') { 'full' } else { $null }
+        if ($clave -and $edad -gt $script:MaxEdad[$clave]) { Add-R 'FALLA' "Tarea '$($t.Name)'" "sin correr hace $(Format-Edad $edad) (maximo $(Format-Edad $script:MaxEdad[$clave])): el programador no la esta ejecutando"; continue }
+        if (-not $t.NextRun -and $t.State -ne 'Running') { Add-R 'ATENCION' "Tarea '$($t.Name)'" 'sin proxima ejecucion programada'; continue }
         if ($t.LastResult -ne 0 -and $t.LastResult -ne 267009) { Add-R 'FALLA' "Tarea '$($t.Name)'" ("ultimo resultado 0x{0:X} hace {1}" -f [uint32]$t.LastResult, (Format-Edad $edad)) }
         else { Add-R 'OK' "Tarea '$($t.Name)'" "ultima corrida hace $(Format-Edad $edad), estado $($t.State)" }
     }
@@ -346,11 +353,12 @@ function Show-Resultados {
         Write-Host ('=' * 78)
         Write-Host "FALLA=$f  ATENCION=$a  OK=$o  (codigo de salida $codigo)"
     }
-    return $codigo
+    $script:Codigo = $codigo
 }
 
 # Permite cargar las funciones con '. .\Check-ErpHealth.ps1' (pruebas) sin ejecutar nada.
 if ($MyInvocation.InvocationName -eq '.') { return }
 
 Invoke-HealthCheck
-exit (Show-Resultados)
+Show-Resultados
+exit $script:Codigo

@@ -21,8 +21,8 @@ Parámetros: `-Dominio tbp`, `-Puerto 443`, `-Proyecto theburyproject`, `-Distro
 | Equipo | disco del sistema, reinicio pendiente | < `-DiscoMinGB` | < 2× mínimo; reinicio pendiente |
 | Docker | daemon; `db`, `app`, `caddy` corriendo y sanos; `db-init`/`migrate` terminados con éxito | daemon caído, contenedor ausente/caído/unhealthy/en bucle, tarea única con error | `health: starting` |
 | ERP | `https://<dominio>/health/live` y `/health/ready` contra `127.0.0.1` (cuerpo `Healthy`) | sin respuesta, 503/`Unhealthy`, otro código | — (certificado no confiable = INFO) |
-| Backups | `monitor-status/*.json` (los escribe `scripts/backup`) | `full`/`files` > 30 h o no verificado; `log` > 3 h o no verificado; sin registros; copia offsite con error; corrida `run-*` fallida posterior al último éxito | restore-test > 8 días o sin hacer; sin registro offsite; no se pudo leer |
-| Tareas | `TheBury*` | deshabilitada, último resultado ≠ 0 | no corrió todavía; no hay tareas |
+| Backups | `monitor-status/*.json` (los escribe `scripts/backup`) | `full`/`files` > 30 h o no verificado; `log` > 45 min o no verificado; sin registros; copia offsite con error o > 30 h; corrida `run-*` fallida posterior al último éxito | restore-test > 8 días o sin hacer; `log` > 30 min; sin registro offsite; no se pudo leer |
+| Tareas | `TheBury*` | deshabilitada, último resultado ≠ 0, última corrida más vieja que el umbral de su tipo (Full 30 h, Log 45 min, Restore 8 días) | no corrió todavía; sin próxima ejecución; no hay tareas |
 | Tailscale | servicio, `BackendState`, vencimiento de clave | servicio detenido, desconectado, clave vencida | clave vence en < 30 días; no instalado |
 
 ## Límites (no vender más de lo que hace)
@@ -37,7 +37,7 @@ Parámetros: `-Dominio tbp`, `-Puerto 443`, `-Proyecto theburyproject`, `-Distro
 ## Pruebas
 
 `scripts/install/Test-ErpHealth.ps1` carga el script por *dot-source*, reemplaza las funciones de acceso al sistema
-(`Invoke-Native`, `Get-DiskInfo`, `Get-TaskInfoList`, …) y recorre 22 escenarios simulados (Docker apagado, contenedor unhealthy,
+(`Invoke-Native`, `Get-DiskInfo`, `Get-TaskInfoList`, …) y recorre 27 escenarios simulados (Docker apagado, contenedor unhealthy,
 `/health/ready` 503, backup viejo/fallido, offsite fallido, restore atrasado, disco bajo, tareas deshabilitadas, Tailscale caído o con clave vencida, salida JSON…).
 No usa Docker, WSL, Tailscale ni red reales. Compatible con Windows PowerShell 5.1.
 
