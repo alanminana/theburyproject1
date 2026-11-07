@@ -55,3 +55,5 @@ Resultado de las pruebas en clon QA (interfaz + SQL) y de la lectura del código
 **Diseño propuesto (consistente con «no alterar documentos existentes»):** asignar el número `VTA-` en el **primer punto de emisión de un documento que lo copia**: (a) al **generar el contrato/pagaré** de crédito, o (b) al **confirmar** si no hay contrato. En ambos casos antes de registrar caja/stock y dentro de la misma transacción; `NumeroOrigen` (nueva columna nullable en `Ventas`) guarda el `COT-…`. Las ventas ya confirmadas y los documentos ya emitidos **no se renumeran**.
 
 **Migración:** `Ventas.NumeroOrigen` (nvarchar(50) NULL, sin índice único). Se genera y prueba **solo en clones QA**; la aplicación a `TheBuryProjectDb` queda fuera de esta autorización.
+
+> **Actualización (2026-11-06):** el propietario autorizó expresamente la aplicación; la migración `H01NumeroOrigenVenta` se aplicó a `TheBuryProjectDb` (columna `nvarchar(20)` nula) y el PR #239 se fusionó. Registro en `docs/h01-aplicacion-segura.md`.

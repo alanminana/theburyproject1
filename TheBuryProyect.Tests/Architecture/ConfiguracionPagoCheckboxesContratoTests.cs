@@ -65,4 +65,20 @@ public class ConfiguracionPagoCheckboxesContratoTests
         Assert.True(i >= 0);
         Assert.Contains($"<input type=\"hidden\" name=\"{nombre}\" value=\"false\"", lineas[i + 1]);
     }
+
+    [Fact]
+    public void Catalogo_LosInterruptoresActivo_LlevanHiddenFalseDespues()
+    {
+        // H-34: los modales de Producto (alta y edición) y de Marca (edición) enviaban el formulario con FormData: un switch
+        // «Activo» desmarcado no se envía y el modelo asume true, así que nunca se podía desactivar desde el modal.
+        var lineas = File.ReadAllLines(Path.Combine(Raiz(), "Views", "Catalogo", "Index_tw.cshtml"));
+        var indices = lineas.Select((l, i) => (l, i)).Where(x => Regex.IsMatch(x.l, "<input [^>]*name=\"Activo\"[^>]*type=\"checkbox\"")).Select(x => x.i).ToList();
+        Assert.True(indices.Count >= 3);
+        foreach (var i in indices)
+        {
+            var siguientes = string.Join("\n", lineas.Skip(i + 1).Take(3));
+            Assert.True(Regex.IsMatch(siguientes, "<input type=\"hidden\" name=\"Activo\" value=\"false\""),
+                $"Catalogo/Index_tw.cshtml:{i + 1}: el switch «Activo» necesita un hidden con value=\"false\" justo después.");
+        }
+    }
 }
