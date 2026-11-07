@@ -100,7 +100,18 @@ function Nuevo-Clon {
 }
 function Dentro-De([string]$ruta, [string]$base) {
     $f = [IO.Path]::GetFullPath($ruta)
-    return $f.StartsWith($base.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
+    if (-not $f.StartsWith($base.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    # Rechaza junctions/symlinks: ninguna parte existente de la ruta (desde la base hacia abajo) puede ser un reparse point
+    $baseFull = [IO.Path]::GetFullPath($base).TrimEnd('\')
+    $cur = $f
+    while ($cur -and $cur.Length -gt $baseFull.Length) {
+        if (Test-Path -LiteralPath $cur) {
+            $it = Get-Item -LiteralPath $cur -Force
+            if (($it.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return $false }
+        }
+        $cur = [IO.Path]::GetDirectoryName($cur)
+    }
+    return $true
 }
 function Quitar-Clon {
     Assert-Clon $BaseClon
