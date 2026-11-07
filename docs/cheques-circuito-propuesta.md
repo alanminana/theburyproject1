@@ -205,6 +205,8 @@ Consulta de solo lectura sobre los cuatro hallazgos: F-2 confirmado (media), O-1
 
 ### Qué falta para una prueba con un cheque bancario auténtico (no ejecutar sin autorización específica)
 
+Procedimiento detallado (respaldo, pasos, conciliación, reversión y criterios de cierre): `docs/cheques-procedimiento-supervisado-real.md`.
+
 1. **Autorización explícita** del propietario para operar sobre la base real, con ventana acotada, un operador y **una sola venta con un cheque real**; respaldo verificado inmediatamente antes y plan de retorno (restaurar la copia).
 2. **F-1:** crear el medio «Cheque» en Configuración de pagos (SuperAdmin) en la base real.
 3. **Caja y permisos:** el operador necesita una caja abierta **a su nombre y vigente** (hoy la base real tiene 5 turnos vencidos desde el 02/10 y el 13/10 que el propietario debe cerrar con arqueo) y `caja.update` (Administrador ya lo tiene; Gerente, Cajero y Vendedor no). Quien acredita debe ser titular de la caja o supervisor.
