@@ -1549,7 +1549,9 @@ public class DevolucionService : IDevolucionService
     {
         var productosIds = await _context.DevolucionDetalles
             .AsNoTracking()
-            .Where(dd => !dd.IsDeleted)
+            .Where(dd => !dd.IsDeleted
+                && _context.Devoluciones.Any(d => d.Id == dd.DevolucionId && !d.IsDeleted
+                    && d.Estado != EstadoDevolucion.Rechazada && d.Estado != EstadoDevolucion.Cancelada))
             .GroupBy(dd => dd.ProductoId)
             .OrderByDescending(g => g.Sum(dd => dd.Cantidad))
             .Take(top)

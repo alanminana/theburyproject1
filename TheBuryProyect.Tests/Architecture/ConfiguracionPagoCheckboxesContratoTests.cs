@@ -53,4 +53,16 @@ public class ConfiguracionPagoCheckboxesContratoTests
         Assert.Contains("name=\"activo\" value=\"@(plan.Activo ? \"false\" : \"true\")\"", texto);
         Assert.Contains("name=\"activa\" value=\"@(tarjeta.Activa ? \"false\" : \"true\")\"", texto);
     }
+
+    [Theory]
+    [InlineData("nuevoPerfilActivo")]
+    [InlineData("nuevaCuotaActivo")]
+    public void CreditoPersonal_LosCheckboxesDeAltaRapida_LlevanHiddenFalseDespues(string nombre)
+    {
+        // El POST declara estos parámetros con valor por defecto true: desmarcar no enviaba nada y el alta quedaba activa.
+        var lineas = File.ReadAllLines(Path.Combine(Raiz(), "Views", "ConfiguracionPago", "CreditoPersonal_tw.cshtml"));
+        var i = Array.FindIndex(lineas, l => l.Contains($"name=\"{nombre}\"") && l.Contains("type=\"checkbox\""));
+        Assert.True(i >= 0);
+        Assert.Contains($"<input type=\"hidden\" name=\"{nombre}\" value=\"false\"", lineas[i + 1]);
+    }
 }

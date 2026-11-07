@@ -216,6 +216,24 @@ public class DevolucionServiceTests : IDisposable
         Assert.Contains("excede lo disponible", ex.Message);
     }
 
+    [Fact]
+    public async Task ProductosMasDevueltos_NoCuentaDevolucionesCanceladasNiRechazadas()
+    {
+        var (cliente, producto, venta) = await SeedVentaEnEstadoAsync(EstadoVenta.Confirmada);
+        var vendida = (await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.VentaId == venta.Id)).Cantidad;
+
+        var cancelada = await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = vendida } });
+        await _service.CancelarDevolucionAsync(cancelada.Id, "Cargada por error", cancelada.RowVersion);
+        Assert.Empty(await _service.ObtenerProductosMasDevueltosAsync());
+
+        await _service.CrearDevolucionAsync(
+            NuevaDevolucion(venta, cliente), new List<DevolucionDetalle> { new() { ProductoId = producto.Id, Cantidad = 1 } });
+        var ranking = await _service.ObtenerProductosMasDevueltosAsync();
+        Assert.Single(ranking);
+        Assert.Equal(producto.Id, ranking[0].Id);
+    }
+
     [Theory]
     [InlineData(EstadoVenta.Cotizacion, true)]
     [InlineData(EstadoVenta.PendienteFinanciacion, true)]
