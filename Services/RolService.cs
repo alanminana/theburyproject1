@@ -1,6 +1,7 @@
 ﻿// Services/RolService.cs
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
@@ -703,17 +704,40 @@ public class RolService : IRolService
         return role.Name;
     }
 
+    /// <summary>
+    /// Serializa los reemplazos de permisos de un mismo rol (borrar + insertar) con un lock de aplicación (<c>sp_getapplock</c>,
+    /// dueño = transacción). Sin él, dos guardados concurrentes sobre el mismo rol (sobre todo vacío) podían chocar y devolver 500.
+    /// DEBE llamarse con la transacción abierta. Otros proveedores (SQLite de tests): un único escritor ya serializa, no-op.
+    /// </summary>
+    private async Task BloquearPermisosRolAsync(string roleId)
+    {
+        if (!_context.Database.IsSqlServer())
+            return;
+
+        var resultado = new SqlParameter("@rc", System.Data.SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output };
+        await _context.Database.ExecuteSqlRawAsync(
+            "EXEC @rc = sp_getapplock @Resource = @r, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 20000",
+            new object[] { resultado, new SqlParameter("@r", "permisos-rol:" + roleId) });
+
+        if (resultado.Value is int rc && rc < 0)
+            throw new InvalidOperationException("No se pudieron guardar los permisos del rol (otra operación lo está procesando). Reintentá.");
+    }
+
     public async Task<(bool Ok, string? Error, int PermisosAsignados)> SyncPermisosForRoleAsync(
         string roleId, List<int> accionIds)
     {
-        var role = await _roleManager.FindByIdAsync(roleId);
-        if (role == null)
-            return (false, "Rol no encontrado.", 0);
-
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
+            // Primero el lock y recién después se lee el rol: el RoleManager rastrea la entidad (con su ConcurrencyStamp) y la
+            // sincronización de claims la actualiza; leerla antes del lock dejaba un stamp viejo y el guardado fallaba.
+            await BloquearPermisosRolAsync(roleId);
+
+            var role = await _roleManager.FindByIdAsync(roleId);
+            if (role == null)
+                return (false, "Rol no encontrado.", 0);
+
             // Filtrar acciones válidas (activas, no eliminadas)
             var acciones = await _context.AccionesModulo
                 .AsNoTracking()
@@ -743,18 +767,20 @@ public class RolService : IRolService
     public async Task<(bool Ok, string? Error, int PermisosCopiados)> CopyPermisosFromRoleAsync(
         string sourceRoleId, string targetRoleId)
     {
-        var sourceRole = await _roleManager.FindByIdAsync(sourceRoleId);
-        if (sourceRole == null)
-            return (false, "Rol origen no encontrado.", 0);
-
-        var targetRole = await _roleManager.FindByIdAsync(targetRoleId);
-        if (targetRole == null)
-            return (false, "Rol destino no encontrado.", 0);
-
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
+            await BloquearPermisosRolAsync(targetRoleId);
+
+            var sourceRole = await _roleManager.FindByIdAsync(sourceRoleId);
+            if (sourceRole == null)
+                return (false, "Rol origen no encontrado.", 0);
+
+            var targetRole = await _roleManager.FindByIdAsync(targetRoleId);
+            if (targetRole == null)
+                return (false, "Rol destino no encontrado.", 0);
+
             var permisosOrigen = await GetPermissionsForRoleAsync(sourceRole.Id);
             await ClearPermissionsForRoleAsync(targetRole.Id);
 

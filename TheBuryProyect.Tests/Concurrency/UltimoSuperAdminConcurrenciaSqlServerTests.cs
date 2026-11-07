@@ -368,6 +368,58 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
             Task.FromResult(IdentityResult.Failed(new IdentityError { Description = "Fallo simulado." }));
     }
 
+    [SuperAdminSqlServerFact(DisplayName = "H-35 [SA-PERM] guardados simultaneos de permisos del mismo rol: sin errores, sin duplicados, un conjunto completo")]
+    public async Task GuardadosSimultaneosDePermisosDelMismoRol_NoFallanNiDuplican()
+    {
+        string roleId;
+        List<int> a, b;
+        await using (var ctx = NuevoContexto())
+        {
+            var modulo = new ModuloSistema { Nombre = "h35", Clave = "h35" + Guid.NewGuid().ToString("N")[..6], Orden = 1 };
+            ctx.ModulosSistema.Add(modulo);
+            await ctx.SaveChangesAsync();
+            var acciones = Enumerable.Range(0, 8).Select(i => new AccionModulo { ModuloId = modulo.Id, Nombre = "a" + i, Clave = "a" + i, Orden = i, Activa = true }).ToList();
+            ctx.AccionesModulo.AddRange(acciones);
+            roleId = Guid.NewGuid().ToString();
+            ctx.Roles.Add(new IdentityRole { Id = roleId, Name = "H35-" + Guid.NewGuid().ToString("N")[..6], NormalizedName = "H35-" + Guid.NewGuid().ToString("N")[..6] });
+            await ctx.SaveChangesAsync();
+            a = acciones.Take(4).Select(x => x.Id).ToList();
+            b = acciones.Skip(4).Select(x => x.Id).ToList();
+        }
+
+        for (var i = 0; i < Iteraciones; i++)
+        {
+            var resultados = await Task.WhenAll(Enumerable.Range(0, 4).Select(async n =>
+            {
+                await using var ctx = NuevoContexto();
+                var roleManager = new RoleManager<IdentityRole>(new RoleStore<IdentityRole>(ctx), [new RoleValidator<IdentityRole>()],
+                    new UpperInvariantLookupNormalizer(), new IdentityErrorDescriber(), NullLogger<RoleManager<IdentityRole>>.Instance);
+                var servicio = new RolService(roleManager, null!, ctx, NullLogger<RolService>.Instance);
+                return await servicio.SyncPermisosForRoleAsync(roleId, n % 2 == 0 ? a : b);
+            }));
+            Assert.All(resultados, r => Assert.True(r.Ok));
+
+            await using var verif = NuevoContexto();
+            var vigentes = await verif.RolPermisos.Where(rp => rp.RoleId == roleId && !rp.IsDeleted).Select(rp => rp.AccionId).ToListAsync();
+            Assert.Equal(vigentes.Count, vigentes.Distinct().Count());
+            var conjunto = vigentes.OrderBy(x => x).ToList();
+            Assert.True(conjunto.SequenceEqual(a.OrderBy(x => x)) || conjunto.SequenceEqual(b.OrderBy(x => x)),
+                "El rol quedó con una mezcla de los dos conjuntos: " + string.Join(",", conjunto));
+
+            // vuelve a vacío para que cada ronda arranque como un rol sin permisos
+            var vacio = await VaciarAsync(roleId);
+            Assert.True(vacio);
+        }
+    }
+
+    private static async Task<bool> VaciarAsync(string roleId)
+    {
+        await using var ctx = NuevoContexto();
+        var roleManager = new RoleManager<IdentityRole>(new RoleStore<IdentityRole>(ctx), [new RoleValidator<IdentityRole>()],
+            new UpperInvariantLookupNormalizer(), new IdentityErrorDescriber(), NullLogger<RoleManager<IdentityRole>>.Instance);
+        return (await new RolService(roleManager, null!, ctx, NullLogger<RolService>.Instance).SyncPermisosForRoleAsync(roleId, [])).Ok;
+    }
+
     // ───────────────────────── infraestructura ─────────────────────────
 
     private static AppDbContext NuevoContexto() =>
