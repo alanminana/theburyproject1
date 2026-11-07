@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using Xunit;
 using Xunit.Abstractions;
@@ -462,5 +463,138 @@ public class ClienteBajaVsCreditoSqlServerTests : IClassFixture<ClienteBajaSqlHo
         Assert.NotEqual("DEADLOCK_VICTIMA", rBaja);
         Assert.Equal("OK", rBaja);
         Assert.True((await EstadoFinalAsync(cliente)).eliminado);
+    }
+
+    private async Task<int> CrearCotizacionCreditoAsync(int clienteId)
+    {
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var suf = Guid.NewGuid().ToString("N")[..6];
+        var categoria = new Categoria { Nombre = "CatH24" + suf, Codigo = "H24C" + suf };
+        var marca = new Marca { Nombre = "MarH24" + suf, Codigo = "H24M" + suf };
+        ctx.Categorias.Add(categoria);
+        ctx.Marcas.Add(marca);
+        await ctx.SaveChangesAsync();
+        var producto = new Producto
+        {
+            Codigo = "H24P" + suf, Nombre = "Producto H24 " + suf, CategoriaId = categoria.Id, MarcaId = marca.Id,
+            PrecioCompra = 50m, PrecioVenta = 100m, StockActual = 10m, StockMinimo = 0m, Activo = true
+        };
+        ctx.Productos.Add(producto);
+        await ctx.SaveChangesAsync();
+        // Cliente apto para credito personal: CUIL y documentacion verificada.
+        var cli = await ctx.Clientes.SingleAsync(c => c.Id == clienteId);
+        cli.CuilCuit = "20301112225";
+        cli.TipoEmpleo = "Relacion de dependencia";
+        cli.Sueldo = 900000m;
+        cli.TieneReciboSueldo = true;
+        cli.PuntajeRiesgo = 9m;
+        foreach (var tipo in new[] { TipoDocumentoCliente.DNI, TipoDocumentoCliente.ReciboSueldo, TipoDocumentoCliente.Servicio, TipoDocumentoCliente.ConstanciaCUIL })
+            ctx.DocumentosCliente.Add(new DocumentoCliente
+            {
+                ClienteId = clienteId, TipoDocumento = tipo, NombreArchivo = tipo + ".pdf", RutaArchivo = "/tmp/" + tipo + ".pdf",
+                TipoMIME = "application/pdf", TamanoBytes = 10, Estado = EstadoDocumento.Verificado,
+                FechaVerificacion = DateTime.UtcNow, VerificadoPor = "h24"
+            });
+        await ctx.SaveChangesAsync();
+
+        var cot = new Cotizacion
+        {
+            Numero = "COT-H24-" + suf, Fecha = DateTime.UtcNow, Estado = EstadoCotizacion.Emitida, ClienteId = clienteId,
+            Subtotal = 200m, TotalBase = 200m, MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal,
+            Detalles =
+            {
+                new CotizacionDetalle
+                {
+                    ProductoId = producto.Id, CodigoProductoSnapshot = producto.Codigo, NombreProductoSnapshot = producto.Nombre,
+                    Cantidad = 2, PrecioUnitarioSnapshot = 100m, Subtotal = 200m
+                }
+            }
+        };
+        ctx.Cotizaciones.Add(cot);
+        await ctx.SaveChangesAsync();
+        return cot.Id;
+    }
+
+    private Task<string> ConvertirCotizacion(int cotizacionId, GatePlan? plan = null) =>
+        Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<ICotizacionConversionService>();
+                var r = await svc.ConvertirAVentaAsync(cotizacionId, new CotizacionConversionRequest { UsarPrecioCotizado = true, ConfirmarAdvertencias = true }, "h24");
+                return r.Exitoso ? $"OK({r.VentaId})" : "RECHAZADA: " + string.Join(" | ", r.Errores);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return "RECHAZADA: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                return Clasificar(ex);
+            }
+            finally
+            {
+                ConcGateInterceptor.Plan.Value = null;
+            }
+        });
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-08] baja en vuelo + conversion de cotizacion a venta con credito personal: gana la baja; no queda venta ni credito")]
+    public async Task BajaEnVuelo_ConversionDeCotizacionACredito_SeRechazaSinResiduos()
+    {
+        var cliente = await CrearClienteAsync();
+        var cotizacion = await CrearCotizacionCreditoAsync(cliente);
+        var plan = AntesDelUpdateDeLaBaja();
+        var baja = Baja(cliente, plan);
+        Assert.True(await LlegoALaCompuertaAsync(plan, baja));
+
+        var conversion = ConvertirCotizacion(cotizacion);
+        await Task.WhenAny(conversion, Task.Delay(TimeSpan.FromSeconds(8)));   // puede bloquearse o rechazarse antes (cliente ya validado)
+        plan.Release.TrySetResult();
+        var rBaja = await baja;
+        var rConv = await conversion;
+        _out.WriteLine($"baja: {rBaja}; conversion: {rConv}");
+
+        var (eliminado, creditos) = await EstadoFinalAsync(cliente);
+        using var scope = _fx.Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ventas = await ctx.Ventas.AsNoTracking().CountAsync(v => v.ClienteId == cliente);
+        Assert.Equal("OK", rBaja);
+        Assert.StartsWith("RECHAZADA", rConv);
+        Assert.True(eliminado);
+        Assert.Equal(0, creditos);
+        Assert.Equal(0, ventas);
+    }
+
+    [SqlServerConcFact(DisplayName = "H-24 [BAJA-09] conversion de cotizacion con credito en vuelo (sin insertar el credito) + baja: gana la conversion y la baja se rechaza")]
+    public async Task ConversionEnVuelo_ConCreditoPersonal_LaBajaSeRechaza()
+    {
+        var cliente = await CrearClienteAsync();
+        var cotizacion = await CrearCotizacionCreditoAsync(cliente);
+        var plan = AntesDelInsertDelCredito();
+        var conversion = ConvertirCotizacion(cotizacion, plan);
+        var llego = await LlegoALaCompuertaAsync(plan, conversion);
+        if (!llego)
+        {
+            // La conversion no llego a crear el credito (p. ej. validacion crediticia del entorno): se informa el motivo real.
+            Assert.Fail("la conversion no llego a insertar el credito: " + await conversion);
+        }
+
+        var baja = Baja(cliente);
+        var bloqueada = await QuedaBloqueadaAsync(baja);
+
+        plan.Release.TrySetResult();
+        var rConv = await conversion;
+        var rBaja = await baja;
+        _out.WriteLine($"conversion: {rConv}; baja: {rBaja} (bloqueada: {bloqueada})");
+
+        var (eliminado, creditos) = await EstadoFinalAsync(cliente);
+        Assert.True(bloqueada, "la baja debia esperar el lock de la conversion");
+        Assert.StartsWith("OK(", rConv);
+        Assert.StartsWith("RECHAZADA", rBaja);
+        Assert.False(eliminado);
+        Assert.Equal(1, creditos);
     }
 }

@@ -182,6 +182,14 @@ namespace TheBuryProject.ViewModels
     {
         public List<ClienteMorosoViewModel> ClientesMorosos { get; set; } = new();
         public decimal TotalDeudaVencida { get; set; }
+        /// <summary>H-22: parte de la deuda vencida DENTRO de los dias de gracia (todavia no es mora).</summary>
+        public decimal TotalDeudaEnGracia { get; set; }
+        /// <summary>H-22: parte de la deuda vencida FUERA de la gracia: la misma que muestra la bandeja de cobranza.</summary>
+        public decimal TotalDeudaEnMora { get; set; }
+        /// <summary>Dias de gracia vigentes con los que se clasifico.</summary>
+        public int DiasGracia { get; set; }
+        /// <summary>Clientes con deuda EN MORA (los que estan en la bandeja de cobranza).</summary>
+        public int CantidadClientesEnMora { get; set; }
         public decimal TotalDeudaVigente { get; set; }
         public int CantidadClientesMorosos { get; set; }
         public int CantidadCreditosVencidos { get; set; }
@@ -202,6 +210,10 @@ namespace TheBuryProject.ViewModels
         public string? ClienteTelefono { get; set; }
         public int CantidadCreditosVencidos { get; set; }
         public decimal TotalDeudaVencida { get; set; }
+        /// <summary>H-22: deuda vencida dentro de los dias de gracia.</summary>
+        public decimal DeudaEnGracia { get; set; }
+        /// <summary>H-22: deuda vencida fuera de la gracia (mora).</summary>
+        public decimal DeudaEnMora { get; set; }
         public decimal TotalDeudaVigente { get; set; }
         public DateTime? FechaPrimerVencimiento { get; set; }
         public int DiasMaximoAtraso { get; set; }

@@ -505,7 +505,9 @@ public static class RolesPermisosSeeder
                 {
                     VentaConstants.PermisoDescuento.Claim,
                     // La configuración de mora y el alta/edición/baja de listas de precios siguen siendo administrativas.
-                    "mora.config", "precios.create", "precios.update", "precios.delete"
+                    "mora.config", "precios.create", "precios.update", "precios.delete",
+                    // Regla aprobada: la baja de clientes se reserva a Administrador/SuperAdmin (Gerente cancela ventas, no da de baja clientes).
+                    "clientes.delete"
                 });
 
             // Documentos: gestiona plantillas y reglas, pero no los tipos documentales (alta/baja de clases de documento).

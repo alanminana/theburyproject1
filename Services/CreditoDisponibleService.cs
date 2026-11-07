@@ -296,6 +296,17 @@ namespace TheBuryProject.Services
                 || puntajesEsperados.Except(puntajesRecibidos).Any())
                 errores.Add("La configuracion debe contener exactamente los puntajes del 0 al 5.");
 
+            if (items.Any(i => i.LimiteMonto < 0m))
+                errores.Add("Los limites por puntaje no pueden ser negativos.");
+
+            // Un puntaje mayor nunca puede tener un limite menor que uno inferior (los puntajes inactivos no cuentan).
+            var activos = items.Where(i => i.Activo).OrderBy(i => i.Puntaje).ToList();
+            for (var k = 1; k < activos.Count; k++)
+            {
+                if (activos[k].LimiteMonto < activos[k - 1].LimiteMonto)
+                    errores.Add($"El limite del puntaje {activos[k].Puntaje} no puede ser menor que el del puntaje {activos[k - 1].Puntaje}.");
+            }
+
             if (errores.Any())
                 return (false, errores);
 

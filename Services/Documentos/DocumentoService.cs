@@ -285,6 +285,8 @@ namespace TheBuryProject.Services.Documentos
             var resultado = await ReintentarEventoAsync(EventosDocumentales.VentaConfirmada, origen);
 
             // Contrato y pagaré los emite el flujo del contrato de crédito: solo se reintentan si la venta ya pasó por ahí.
+            await ReemitirRecibosCanceladosAsync(ventaId, resultado);
+
             var pasoPorContrato = await _context.DocumentosGenerados.AsNoTracking().AnyAsync(d =>
                 d.VentaId == ventaId && d.EventoOrigen == EventosDocumentales.ContratoCreditoSolicitado && d.ContratoLegadoId == null);
             if (!pasoPorContrato)
@@ -296,6 +298,70 @@ namespace TheBuryProject.Services.Documentos
             resultado.Advertencias.AddRange(contrato.Advertencias);
             resultado.Errores.AddRange(contrato.Errores);
             return resultado;
+        }
+
+        /// <summary>
+        /// H-23: «Generar pendientes» de la venta tambien recupera los RECIBOS CANCELADOS de los pagos de su credito (el texto de ayuda
+        /// del panel dice que un documento cancelado se vuelve a emitir asi). Solo se reemiten recibos que existieron y se cancelaron:
+        /// un pago que nunca tuvo recibo no se emite retroactivamente.
+        /// </summary>
+        private async Task ReemitirRecibosCanceladosAsync(int ventaId, DocumentoEventoResultado resultado)
+        {
+            var creditoId = await _context.Ventas.AsNoTracking()
+                .Where(v => v.Id == ventaId).Select(v => v.CreditoId).FirstOrDefaultAsync();
+            if (creditoId == null)
+                return;
+
+            await ReemitirRecibosCanceladosDelCreditoAsync(creditoId.Value, resultado);
+        }
+
+        public async Task<DocumentoEventoResultado> ReintentarCreditoAsync(int creditoId)
+        {
+            var resultado = new DocumentoEventoResultado();
+            await ReemitirRecibosCanceladosDelCreditoAsync(creditoId, resultado);
+            return resultado;
+        }
+
+        private async Task ReemitirRecibosCanceladosDelCreditoAsync(int creditoId, DocumentoEventoResultado resultado)
+        {
+            // Solo pagos que siguen APLICADOS: un pago anulado o revertido no tiene recibo que reemitir.
+            var pagosConReciboCancelado = await _context.DocumentosGenerados.AsNoTracking()
+                .Where(d => d.CreditoId == creditoId && d.PagoCuotaId != null
+                            && d.EventoOrigen == EventosDocumentales.PagoRegistrado && d.Estado == EstadoDocumentoGenerado.Cancelado)
+                .Select(d => d.PagoCuotaId!.Value)
+                .Distinct()
+                .ToListAsync();
+            pagosConReciboCancelado = await _context.PagosCuota.AsNoTracking()
+                .Where(p => pagosConReciboCancelado.Contains(p.Id) && !p.IsDeleted && p.Estado == EstadoPagoCuota.Aplicado)
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            var atendidos = new HashSet<int>();
+            foreach (var pagoId in pagosConReciboCancelado.OrderBy(x => x))
+            {
+                if (atendidos.Contains(pagoId))
+                    continue;
+
+                // Misma cobranza que usa el reintento por pago (varios pagos de una operacion = un recibo). Se resuelve ACA para
+                // poder comprobar todos los pagos que cubriria el recibo combinado antes de emitirlo.
+                var origen = await ExpandirCobranzaAsync(pagoId, new DocumentoOrigen { PagoCuotaId = pagoId });
+                var ids = (origen.PagoCuotaIds ?? new List<int> { pagoId }).ToList();
+                foreach (var id in ids) atendidos.Add(id);
+
+                // Si alguno de los pagos que cubriria ya tiene un recibo vigente, reemitir duplicaria importes ya documentados.
+                var yaVigente = await _context.DocumentosGenerados.AsNoTracking().AnyAsync(d =>
+                    d.PagoCuotaId != null && ids.Contains(d.PagoCuotaId.Value) && d.EventoOrigen == EventosDocumentales.PagoRegistrado
+                    && d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado);
+                if (yaVigente)
+                    continue;
+
+                var recibo = await ReintentarEventoAsync(EventosDocumentales.PagoRegistrado,
+                    ids.Count > 1 ? origen : new DocumentoOrigen { PagoCuotaId = pagoId, PagoCuotaIds = ids });
+                resultado.Generados.AddRange(recibo.Generados);
+                resultado.YaExistentes.AddRange(recibo.YaExistentes);
+                resultado.Advertencias.AddRange(recibo.Advertencias);
+                resultado.Errores.AddRange(recibo.Errores);
+            }
         }
 
         /// <summary>
