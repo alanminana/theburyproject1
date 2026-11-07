@@ -1687,7 +1687,7 @@ public class DevolucionService : IDevolucionService
 
             sb.AppendLine(string.Join(";",
                 EscapeCsv(devolucion.NumeroDevolucion),
-                EscapeCsv(devolucion.Cliente != null ? devolucion.Cliente.ToDisplayName() : null),
+                EscapeCsv(NombreClienteCsv(devolucion.Cliente)),
                 EscapeCsv(devolucion.Cliente?.NumeroDocumento),
                 EscapeCsv(devolucion.Venta?.Numero),
                 EscapeCsv(devolucion.Motivo.GetDisplayName()),
@@ -1698,7 +1698,7 @@ public class DevolucionService : IDevolucionService
                 EscapeCsv(devolucion.TotalDevolucion.ToString("F2", CultureInfo.InvariantCulture))));
         }
 
-        return Encoding.UTF8.GetBytes(sb.ToString());
+        return CsvConBom(sb.ToString());
     }
 
     public byte[] GenerarCsvGarantias(IEnumerable<Garantia> garantias)
@@ -1710,7 +1710,7 @@ public class DevolucionService : IDevolucionService
         {
             sb.AppendLine(string.Join(";",
                 EscapeCsv(garantia.NumeroGarantia),
-                EscapeCsv(garantia.Cliente != null ? garantia.Cliente.ToDisplayName() : null),
+                EscapeCsv(NombreClienteCsv(garantia.Cliente)),
                 EscapeCsv(garantia.Cliente?.NumeroDocumento),
                 EscapeCsv(garantia.Producto?.Nombre),
                 EscapeCsv(garantia.Producto?.Codigo),
@@ -1722,7 +1722,7 @@ public class DevolucionService : IDevolucionService
                 EscapeCsv(garantia.ObservacionesActivacion)));
         }
 
-        return Encoding.UTF8.GetBytes(sb.ToString());
+        return CsvConBom(sb.ToString());
     }
 
     private static bool Contiene(string? source, string search)
@@ -1730,6 +1730,19 @@ public class DevolucionService : IDevolucionService
         return !string.IsNullOrWhiteSpace(source) &&
                source.Contains(search, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// El CSV se abre en Excel: sin BOM, Excel lo interpreta como ANSI y rompe tildes y eñes (clientes, productos, motivos).
+    /// </summary>
+    private static byte[] CsvConBom(string contenido)
+    {
+        var utf8ConBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        return utf8ConBom.GetPreamble().Concat(utf8ConBom.GetBytes(contenido)).ToArray();
+    }
+
+    /// <summary>"Apellido, Nombre" sin el "- DNI: ..." de ToDisplayName(): el documento ya tiene su propia columna.</summary>
+    private static string? NombreClienteCsv(Cliente? cliente) =>
+        cliente == null ? null : $"{cliente.Apellido}, {cliente.Nombre}";
 
     private static string EscapeCsv(string? value)
     {

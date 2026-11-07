@@ -1407,6 +1407,7 @@ namespace TheBuryProject.Services
                 }
 
                 worksheet.Range($"E2:F{row}").Style.NumberFormat.Format = "$#,##0.00";
+                worksheet.Range($"I2:J{row}").Style.NumberFormat.Format = "$#,##0.00";   // Deuda en Mora / Deuda en Gracia
                 worksheet.Columns().AdjustToContents();
 
                 using var stream = new MemoryStream();
@@ -1423,6 +1424,13 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Exportación PDF
+
+        /// <summary>
+        /// Filas de detalle del PDF de ventas: TODAS las del reporte (la tabla pagina sola). Antes se truncaba en 50 filas
+        /// sin avisar, mientras el resumen del encabezado sumaba todas las ventas y el Excel las listaba completas.
+        /// </summary>
+        internal static IReadOnlyList<VentaReporteItemViewModel> FilasDelPdfDeVentas(ReporteVentasResultadoViewModel reporte) =>
+            reporte.Ventas;
 
         public async Task<byte[]> GenerarVentasPdfAsync(ReporteVentasFiltroViewModel filtro)
         {
@@ -1485,7 +1493,7 @@ namespace TheBuryProject.Services
                                     header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Margen %").FontSize(8).Bold();
                                 });
 
-                                foreach (var venta in reporte.Ventas.Take(50)) // Limitar a 50 para PDF
+                                foreach (var venta in FilasDelPdfDeVentas(reporte))
                                 {
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.NumeroVenta).FontSize(8);
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.FechaVenta.ToString("dd/MM/yy")).FontSize(8);
