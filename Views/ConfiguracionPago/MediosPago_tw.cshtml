@@ -972,6 +972,7 @@
                             </div>
                             <label class="pay-check">
                                 <input name="Activo" type="checkbox" value="true" checked />
+                                <input type="hidden" name="Activo" value="false" />
                                 Activo
                             </label>
                         </div>
@@ -1057,6 +1058,7 @@
                                         </div>
                                         <label class="pay-check">
                                             <input name="Activo" type="checkbox" value="true" checked />
+                                            <input type="hidden" name="Activo" value="false" />
                                             Activo
                                         </label>
                                     </div>
@@ -1168,6 +1170,7 @@
                                                         </div>
                                                         <label class="pay-check">
                                                             <input name="Activo" type="checkbox" value="true" @(medio.Activo ? "checked" : "") />
+                                                            <input type="hidden" name="Activo" value="false" />
                                                             Activo
                                                         </label>
                                                         @if (cobraCuotasCredito)
@@ -1338,6 +1341,7 @@
                                                                                 </div>
                                                                                 <label class="pay-check">
                                                                                     <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                                    <input type="hidden" name="Activo" value="false" />
                                                                                     Activo
                                                                                 </label>
                                                                                 <div>
@@ -1358,7 +1362,7 @@
                                                                         </form>
                                                                         <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                                             @Html.AntiForgeryToken()
-                                                                            <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                                            <input type="hidden" name="activo" value="@(plan.Activo ? "false" : "true")" />
                                                                             <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
                                                                                 <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
                                                                                 @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
@@ -1401,6 +1405,7 @@
                                                                         </div>
                                                                         <label class="pay-check">
                                                                             <input name="Activo" type="checkbox" value="true" checked />
+                                                                            <input type="hidden" name="Activo" value="false" />
                                                                             Activo
                                                                         </label>
                                                                         <div>
@@ -1452,6 +1457,7 @@
                                                                         </div>
                                                                         <label class="pay-check">
                                                                             <input name="Activa" type="checkbox" value="true" checked="@tarjeta.Activa" />
+                                                                            <input type="hidden" name="Activa" value="false" />
                                                                             Activa
                                                                         </label>
                                                                         <div class="span-2">
@@ -1476,7 +1482,7 @@
                                                     <div class="payment-card-footer">
                                                         <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
                                                             @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="activa" value="@(!tarjeta.Activa)" />
+                                                            <input type="hidden" name="activa" value="@(tarjeta.Activa ? "false" : "true")" />
                                                             <button type="submit" class="pay-mini-button @(tarjeta.Activa ? "danger" : "")">
                                                                 <span class="material-symbols-outlined text-[17px]">@(tarjeta.Activa ? "toggle_off" : "toggle_on")</span>
                                                                 @(tarjeta.Activa ? "Quitar tarjeta" : "Reactivar tarjeta")
@@ -1620,6 +1626,7 @@
                                                     </div>
                                                     <label class="pay-check">
                                                         <input name="Activa" type="checkbox" value="true" checked />
+                                                        <input type="hidden" name="Activa" value="false" />
                                                         Activa
                                                     </label>
                                                     <div class="span-2">
@@ -1688,6 +1695,7 @@
                                                                 </div>
                                                                 <label class="pay-check">
                                                                     <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                    <input type="hidden" name="Activo" value="false" />
                                                                     Activo
                                                                 </label>
                                                                 <div>
@@ -1708,7 +1716,7 @@
                                                         </form>
                                                         <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                             @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                            <input type="hidden" name="activo" value="@(plan.Activo ? "false" : "true")" />
                                                             <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
                                                                 <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
                                                                 @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
@@ -1749,6 +1757,7 @@
                                                             </div>
                                                             <label class="pay-check">
                                                                 <input name="Activo" type="checkbox" value="true" checked />
+                                                                <input type="hidden" name="Activo" value="false" />
                                                                 Activo
                                                             </label>
                                                             <div>
@@ -1822,6 +1831,7 @@
                                                                     </div>
                                                                     <label class="pay-check">
                                                                         <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                        <input type="hidden" name="Activo" value="false" />
                                                                         Activo
                                                                     </label>
                                                                     <div>
@@ -1842,7 +1852,7 @@
                                                             </form>
                                                             <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                                 @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                                <input type="hidden" name="activo" value="@(plan.Activo ? "false" : "true")" />
                                                                 <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
                                                                     <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
                                                                     @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
@@ -1883,6 +1893,7 @@
                                                                 </div>
                                                                 <label class="pay-check">
                                                                     <input name="Activo" type="checkbox" value="true" checked />
+                                                                    <input type="hidden" name="Activo" value="false" />
                                                                     Activo
                                                                 </label>
                                                                 <div>

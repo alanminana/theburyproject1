@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -20,6 +21,7 @@ public class DevolucionController : Controller
     private readonly IDevolucionService _devolucionService;
     private readonly IClienteService _clienteService;
     private readonly IVentaService _ventaService;
+    private readonly IProveedorService _proveedorService;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<DevolucionController> _logger;
 
@@ -27,12 +29,14 @@ public class DevolucionController : Controller
         IDevolucionService devolucionService,
         IClienteService clienteService,
         IVentaService ventaService,
+        IProveedorService proveedorService,
         ICurrentUserService currentUser,
         ILogger<DevolucionController> logger)
     {
         _devolucionService = devolucionService;
         _clienteService = clienteService;
         _ventaService = ventaService;
+        _proveedorService = proveedorService;
         _currentUser = currentUser;
         _logger = logger;
     }
@@ -332,6 +336,17 @@ public class DevolucionController : Controller
             NotaCredito = devolucion.NotaCredito,
             RMA = devolucion.RMA
         };
+
+        // RMA: el formulario de solicitud solo se ofrece sobre una devolución aprobada sin RMA, a quien puede crearlo.
+        if (devolucion.Estado == EstadoDevolucion.Aprobada && devolucion.RMA == null && User.TienePermiso("rmas", "create"))
+        {
+            var proveedores = await _proveedorService.GetAllAsync();
+            ViewBag.ProveedoresRma = proveedores
+                .Where(p => p.Activo && !p.IsDeleted)
+                .OrderBy(p => p.RazonSocial)
+                .Select(p => new SelectListItem(p.RazonSocial, p.Id.ToString()))
+                .ToList();
+        }
 
         return View(viewModel);
     }

@@ -409,12 +409,22 @@
                                 <p class="mt-1 text-xs text-slate-400">Para el @p.FechaPromesa.ToString("dd/MM/yyyy") · registrada @p.FechaRegistro.ToString("dd/MM/yyyy")</p>
                                 @if (puedeGestionar)
                                 {
-                                    <form method="post" asp-controller="Mora" asp-action="MarcarPromesaIncumplida" asp-route-returnUrl="@volverUrl" class="mt-2" data-mora-promesa-incumplida>
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="alertaId" value="@p.AlertaId" />
-                                        <input type="hidden" name="clienteId" value="@Model.ClienteId" />
-                                        <button type="submit" class="btn-erp-ghost">Marcar incumplida</button>
-                                    </form>
+                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                        <form method="post" asp-controller="Mora" asp-action="MarcarPromesaCumplida" asp-route-returnUrl="@volverUrl" data-mora-promesa-cumplida
+                                              onsubmit="return confirm('¿Marcar la promesa como cumplida? La alerta quedará regularizada y resuelta.');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="alertaId" value="@p.AlertaId" />
+                                            <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                            <button type="submit" class="btn-erp-ghost">Marcar cumplida</button>
+                                        </form>
+                                        <form method="post" asp-controller="Mora" asp-action="MarcarPromesaIncumplida" asp-route-returnUrl="@volverUrl" class="flex flex-wrap items-center gap-2" data-mora-promesa-incumplida>
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="alertaId" value="@p.AlertaId" />
+                                            <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                            <input type="text" name="observaciones" maxlength="300" class="input-erp" placeholder="Observación (opcional)" aria-label="Observación de la promesa incumplida" />
+                                            <button type="submit" class="btn-erp-ghost">Marcar incumplida</button>
+                                        </form>
+                                    </div>
                                 }
                             </li>
                         }

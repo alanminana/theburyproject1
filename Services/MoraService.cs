@@ -1435,7 +1435,9 @@ namespace TheBuryProject.Services
                 alerta.EstadoGestion = EstadoGestionCobranza.EnGestion;
                 alerta.FechaPromesaPago = null;
                 alerta.MontoPromesaPago = null;
-                alerta.Observaciones = (alerta.Observaciones ?? "") + $" | Promesa incumplida: {observaciones}";
+                alerta.Observaciones = (alerta.Observaciones ?? "") + (string.IsNullOrWhiteSpace(observaciones)
+                    ? " | Promesa incumplida"
+                    : $" | Promesa incumplida: {observaciones.Trim()}");
                 alerta.UpdatedAt = DateTime.UtcNow;
 
                 // Escalar prioridad
