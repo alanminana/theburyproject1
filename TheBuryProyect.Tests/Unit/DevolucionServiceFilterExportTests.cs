@@ -289,7 +289,7 @@ public class DevolucionServiceFilterExportTests
     public void GenerarCsvDevoluciones_ContieneHeader()
     {
         var csv = System.Text.Encoding.UTF8.GetString(
-            _sut.GenerarCsvDevoluciones(Array.Empty<Devolucion>()));
+            _sut.GenerarCsvDevoluciones(Array.Empty<Devolucion>())).TrimStart('﻿');
 
         Assert.StartsWith("Id;Cliente;Documento;Venta;Motivo;Resolucion;Impacto;Estado;Fecha;Monto", csv);
     }
@@ -321,6 +321,57 @@ public class DevolucionServiceFilterExportTests
         Assert.Contains("1500.50", csv);
     }
 
+    // QA exportaciones: el CSV se abre en Excel. Sin BOM Excel lo lee como ANSI y rompe tildes/eñes; y el cliente
+    // salía como "Apellido, Nombre - DNI: n" con el documento repetido en la columna siguiente.
+    [Fact]
+    public void GenerarCsv_EmpiezaConBomUtf8_YConservaTildesYEnies()
+    {
+        var devolucion = new Devolucion
+        {
+            NumeroDevolucion = "DEV-ÑU",
+            Motivo = MotivoDevolucion.DefectoFabrica,
+            Estado = EstadoDevolucion.Pendiente,
+            FechaDevolucion = new DateTime(2026, 3, 20),
+            Cliente = new Cliente { Nombre = "José", Apellido = "Muñoz", NumeroDocumento = "12345678" }
+        };
+        var garantia = new Garantia
+        {
+            NumeroGarantia = "GAR-1",
+            FechaInicio = new DateTime(2026, 1, 1),
+            FechaVencimiento = new DateTime(2027, 1, 1),
+            Cliente = new Cliente { Nombre = "José", Apellido = "Muñoz", NumeroDocumento = "12345678" },
+            Producto = new Producto { Codigo = "P-1", Nombre = "Cámara" }
+        };
+
+        foreach (var bytes in new[] { _sut.GenerarCsvDevoluciones(new[] { devolucion }), _sut.GenerarCsvGarantias(new[] { garantia }) })
+        {
+            Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes.Take(3).ToArray());
+            var texto = new System.Text.UTF8Encoding(false).GetString(bytes, 3, bytes.Length - 3);
+            Assert.Contains("Muñoz, José", texto);
+        }
+    }
+
+    [Fact]
+    public void GenerarCsv_ClienteSinDniRepetido_ElDocumentoVaSoloEnSuColumna()
+    {
+        var cliente = new Cliente { Nombre = "Juan", Apellido = "Perez", NumeroDocumento = "12345678" };
+        var csvDev = System.Text.Encoding.UTF8.GetString(_sut.GenerarCsvDevoluciones(new[]
+        {
+            new Devolucion { NumeroDevolucion = "DEV-1", FechaDevolucion = new DateTime(2026, 3, 20), Cliente = cliente }
+        }));
+        var csvGar = System.Text.Encoding.UTF8.GetString(_sut.GenerarCsvGarantias(new[]
+        {
+            new Garantia { NumeroGarantia = "GAR-1", FechaInicio = new DateTime(2026, 1, 1), FechaVencimiento = new DateTime(2027, 1, 1), Cliente = cliente }
+        }));
+
+        foreach (var csv in new[] { csvDev, csvGar })
+        {
+            Assert.DoesNotContain("DNI:", csv);
+            Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(csv, "12345678").Count);
+            Assert.Contains("\"Perez, Juan\";\"12345678\"", csv);
+        }
+    }
+
     // ---------------------------------------------------------------
     // GenerarCsvGarantias
     // ---------------------------------------------------------------
@@ -329,7 +380,7 @@ public class DevolucionServiceFilterExportTests
     public void GenerarCsvGarantias_ContieneHeader()
     {
         var csv = System.Text.Encoding.UTF8.GetString(
-            _sut.GenerarCsvGarantias(Array.Empty<Garantia>()));
+            _sut.GenerarCsvGarantias(Array.Empty<Garantia>())).TrimStart('﻿');
 
         Assert.StartsWith("Garantia;Cliente;Documento;Producto;Codigo;Estado;Inicio;Vencimiento;CoberturaMeses;Extendida;Observacion", csv);
     }

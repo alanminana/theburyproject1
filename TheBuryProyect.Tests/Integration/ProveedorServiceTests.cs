@@ -45,7 +45,12 @@ public class ProveedorServiceTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static string UniqueCuit() => Guid.NewGuid().ToString("N")[..11];
+    private static long _cuitSeq;
+
+    // CUIT único y con dígito verificador válido. Antes salía de un GUID hex: si los 11 caracteres
+    // resultaban numéricos (~0,6 %), el validador real del servicio lo rechazaba y el test era intermitente.
+    private static string UniqueCuit()
+        => CuitValido("30" + Interlocked.Increment(ref _cuitSeq).ToString("D8"));
 
     private async Task<Proveedor> SeedProveedorAsync(string? cuit = null)
     {
