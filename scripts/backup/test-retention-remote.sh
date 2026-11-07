@@ -437,7 +437,7 @@ check "lock sin flock: con BURY_ALLOW_DIR_LOCK=1 (solo desarrollo/tests) funcion
 
 # 7.3 restore-sql sobre la base de produccion toma el lock y borra la marca bajo el, antes de restaurar nada
 check "restore-sql.sh: acquire_lock -> borrado de marca -> RESTORE (en ese orden)" bash -c 'awk "/acquire_lock \\|\\| lrc/{a=NR} /app-stopped-by-backup/{m=NR} /RESTORE DATABASE \\[/{r=NR} END{exit !(a&&m&&r&&a<m&&m<r)}" "$1"' _ "$HERE/restore-sql.sh"
-check "restore-sql.sh: el lock solo aplica cuando el destino ES la base de produccion (restore-test no lo toma)" grep -qE 'if \[\[ "\$TARGET" == "\$DB_NAME" \]\]; then' "$HERE/restore-sql.sh"
+check "restore-sql.sh: el destino se compara SIN distinguir mayusculas (lock, marca y app detenida usan la misma decision)" bash -c 'test "$(grep -c "\${TARGET,,}\" == \"\${DB_NAME,,}\"" "$1")" = 3' _ "$HERE/restore-sql.sh"
 unset -f dc log fail rclone_errtext
 
 echo; echo "resultado test-retention-remote: $PASS OK, $FAIL fallos"; (( FAIL == 0 ))
