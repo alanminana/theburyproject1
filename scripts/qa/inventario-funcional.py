@@ -198,13 +198,18 @@ def main():
                 base[(fila['controlador'], fila['accion'])] = fila
         for r in resultados:
             previo = base.get((r['controlador'], r['accion']))
-            if previo and r['estado'] == 'No verificada' and previo['estado'] != 'No verificada':
+            if not previo:
+                continue
+            if r['estado'] == 'No verificada' and previo['estado'] != 'No verificada':
+                if r['rechazos_4xx_5xx'] > 0 and previo['estado'].startswith('Verificada'):
+                    # La corrida actual solo vio rechazos: no se hereda el «verificada» anterior (podria ocultar una regresion).
+                    r['nota'] = 'rechazos nuevos tras una verificacion previa: revisar'
+                    continue
                 r['estado'], r['nota'] = previo['estado'], previo.get('nota', '')
+            if r['estado'].startswith('Verificada') or r['estado'] == previo['estado']:
+                # max y no suma: reutilizar los mismos logs no puede inflar la evidencia.
                 r['ok_auditoria'] = max(r['ok_auditoria'], int(previo.get('ok_auditoria') or 0))
                 r['ok_e2e'] = max(r['ok_e2e'], int(previo.get('ok_e2e') or 0))
-            elif previo and r['estado'].startswith('Verificada'):
-                r['ok_auditoria'] += int(previo.get('ok_auditoria') or 0)
-                r['ok_e2e'] += int(previo.get('ok_e2e') or 0)
 
     with open(args.csv, 'w', encoding='utf-8-sig', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=list(resultados[0].keys()), delimiter=';')

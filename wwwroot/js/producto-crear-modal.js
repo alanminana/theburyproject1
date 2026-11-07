@@ -478,8 +478,19 @@ const ProductoModal = (() => {
         divIcon.appendChild(iconSpan);
         var divText = mkEl('div');
         var spanNombre = mkEl('span', 'text-sm font-semibold text-white');
+        spanNombre.setAttribute('data-prod-nombre', '');
         spanNombre.textContent = entity.nombre || '';
-        divText.appendChild(spanNombre);
+        // Un producto creado inactivo (switch desmarcado) debe verse inactivo en el listado, y el editor puede alternar este
+        // indicador sin recargar (mismo atributo que la fila renderizada por el servidor).
+        var inactivo = entity.activo === false;
+        var badgeInactivo = mkEl('span', 'shrink-0 rounded-full border border-red-500/20 bg-red-500/5 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-400/90 ml-2 ' + (inactivo ? 'inline-flex' : 'hidden'));
+        badgeInactivo.setAttribute('data-prod-inactivo-badge', '');
+        badgeInactivo.textContent = 'Inactivo';
+        var lineaNombre = mkEl('div', 'flex min-w-0 items-center');
+        lineaNombre.appendChild(spanNombre);
+        lineaNombre.appendChild(badgeInactivo);
+        divText.appendChild(lineaNombre);
+        if (inactivo) tr.classList.add('bg-slate-950/40');
         if (entity.descripcion) {
             var pDesc = mkEl('p', 'text-[10px] text-slate-400 truncate max-w-[200px]');
             pDesc.textContent = entity.descripcion;

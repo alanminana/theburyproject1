@@ -41,7 +41,7 @@ Todo lo no ejercitado es *no verificado*, no aprobado.
 | Seguridad | 1 | 1 | 0 | 0 | 0 | 0 | 100 % |
 | **Total** | **310** | **288** | **7** | **0** | **12** | **3** | **95.2 %** |
 
-Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Alertas. *Incompletas* = las 12 funcionalidades del módulo de cambios de precios por lotes (sin listas ni menú; diferido). *Notas de crédito* solo tiene 1 acción propia: su función real (generar al aprobar la devolución, canjear como medio de pago, restituir al cancelar) vive en Devoluciones y Ventas y se prueba en §3. *Cheques* y *Mora y Acuerdos* tienen evidencia **previa** documentada (`docs/cheques-circuito-propuesta.md` §7; Hitos 9 y 10) que **no se re-ejecutó** en esta auditoría, por eso figuran en 0.
+Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Alertas. *Incompletas* = las 12 funcionalidades del módulo de cambios de precios por lotes (sin listas ni menú; diferido). *Notas de crédito* solo tiene 1 acción propia: su función real (generar al aprobar la devolución, canjear como medio de pago, restituir al cancelar) vive en Devoluciones y Ventas y se prueba en §3. *Cheques* y *Mora y Acuerdos* tenían evidencia **previa** documentada (`docs/cheques-circuito-propuesta.md` §7; Hitos 9 y 10) que no se había re-ejecutado (aparecían en 0); en las fases 5 a 7 se re-ejecutaron: Mora quedó con todas sus acciones verificadas y en Cheques solo falta acreditar un cheque real (el medio está inactivo, D5).
 
 ## 2-bis. Estado de desarrollo funcional por módulo (métrica distinta de la cobertura)
 
@@ -144,7 +144,7 @@ Notas: *Stock* incluye Catálogo, Productos, Categorías, Marcas, Precios y Aler
 ## 5. Respuestas a las 10 preguntas
 
 1. **¿Los 19 módulos funcionan?** Lo verificado funciona y no quedan defectos abiertos graves en lo probado, pero solo se verificó el 95,2 % de las funcionalidades: **no se puede afirmar que los 19 funcionen**.
-2. **¿Completamente terminados?** Ninguno puede declararse así con esta evidencia. Los más avanzados: Caja (55 %), Devoluciones y Compras (~30 %, con sus circuitos principales completos).
+2. **¿Completamente terminados?** Ninguno puede declararse así con esta evidencia. Con la fase 7 la cobertura de acciones es alta en casi todos los módulos (tabla de §2), pero «verificada» no equivale a «completa»: faltan los casos listados en la pregunta 7.
 3. **¿Incompletos?** Cambios de precios por lotes y Referencias del cliente (§4-B).
 4. **¿Errores encontrados y corregidos?** H-02…H-06 y H-11 (PR #237), H-13/H-14 (fase 3), H-10, H-12, H-15…H-18 (fase 4), H-19…H-28 (fases 5–6) y, en la fase 7, **H-29 a H-34** (mora legacy sin validar, devoluciones canceladas que bloqueaban, desactivar con checkbox en pagos/catálogo, reactivar cuota/tarjeta, marca que no cambiaba de estado) más la pantalla de RMA y «Marcar promesa cumplida». Ninguno con migraciones.
 5. **¿Qué falta desarrollar?** §4-C (fuera del alcance confirmado). Nada de eso se implementó.
