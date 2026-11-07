@@ -15,9 +15,14 @@
   Uso (sqlcmd; -v obligatorio):
     sqlcmd -S <servidor> -d TheBuryProjectDb -I -b -f 65001 -i vendedor-sin-ventas-authorize.sql -v DryRun=1 BaseEsperada=TheBuryProjectDb   (ensayo)
     sqlcmd -S <servidor> -d TheBuryProjectDb -I -b -f 65001 -i vendedor-sin-ventas-authorize.sql -v DryRun=0 BaseEsperada=TheBuryProjectDb   (aplica)
-  Reversion (usar los Id impresos al aplicar):
+  Reversion (idempotente y atomica; usar el Id de RolPermisos impreso al aplicar y la misma BaseEsperada):
+    BEGIN TRANSACTION;
+    IF DB_NAME() <> N'TheBuryProjectDb' THROW 51077, 'Base de destino incorrecta.', 1;
     UPDATE dbo.RolPermisos SET IsDeleted = 0 WHERE Id = <Id de RolPermisos impreso>;
-    INSERT dbo.AspNetRoleClaims (RoleId, ClaimType, ClaimValue) SELECT Id, N'Permission', N'ventas.authorize' FROM dbo.AspNetRoles WHERE Name = N'Vendedor';
+    INSERT dbo.AspNetRoleClaims (RoleId, ClaimType, ClaimValue)
+      SELECT r.Id, N'Permission', N'ventas.authorize' FROM dbo.AspNetRoles r WHERE r.Name = N'Vendedor'
+        AND NOT EXISTS (SELECT 1 FROM dbo.AspNetRoleClaims c WHERE c.RoleId = r.Id AND c.ClaimType = N'Permission' AND c.ClaimValue = N'ventas.authorize');
+    COMMIT TRANSACTION;
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

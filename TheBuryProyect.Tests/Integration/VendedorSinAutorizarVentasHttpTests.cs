@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
 /// Regla aprobada: autorizar ventas (<c>ventas.authorize</c>) se reserva a Gerente y superiores; el rol Vendedor no lo tiene.
-/// Cubre (1) lo que entrega el sembrador, (2) que un Vendedor con el permiso heredado de una base antigua queda denegado
+/// Alcance honesto: usa una venta inexistente (el filtro de permiso responde antes de buscarla) y reconstruye la identidad en cada solicitud; la sesión con cookie real y las ventas ajenas se verificaron además en un clon con Playwright. Cubre (1) lo que entrega el sembrador, (2) que un Vendedor con el permiso heredado de una base antigua queda denegado
 /// en la SOLICITUD SIGUIENTE a la baja del permiso (sesión ya abierta) aunque la venta sea de otro usuario, y (3) el
 /// contrato del script de datos <c>scripts/sql/vendedor-sin-ventas-authorize.sql</c> (solo Vendedor + ventas.authorize).
 /// </summary>
@@ -83,8 +83,8 @@ public class VendedorSinAutorizarVentasHttpTests : IClassFixture<CustomWebApplic
         var client = _factory.CreateClientWithUserId(userId);
         const int ventaDeOtroUsuario = 987654; // el filtro de permiso responde antes de buscar la venta
 
-        // Con el permiso vigente el filtro NO deniega (la venta inexistente se resuelve después, con un redirect normal).
-        Assert.False(await AutorizarDenegadoAsync(client, ventaDeOtroUsuario));
+        // Con el permiso vigente el filtro NO deniega: el POST llega a la acción y redirige (no a AccessDenied, no 4xx/5xx).
+        Assert.False(await AutorizarDenegadoAsync(client, ventaDeOtroUsuario, exigirRedirectNormal: true));
 
         // Se da de baja el permiso (lo que hace el script de datos) con la sesión ya abierta.
         using (var scope = _factory.Services.CreateScope())
@@ -99,7 +99,7 @@ public class VendedorSinAutorizarVentasHttpTests : IClassFixture<CustomWebApplic
         Assert.True(await AutorizarDenegadoAsync(client, ventaDeOtroUsuario));
     }
 
-    private static async Task<bool> AutorizarDenegadoAsync(HttpClient client, int ventaId)
+    private static async Task<bool> AutorizarDenegadoAsync(HttpClient client, int ventaId, bool exigirRedirectNormal = false)
     {
         var login = await client.GetAsync("/Identity/Account/Login");
         var html = await login.Content.ReadAsStringAsync();
@@ -126,6 +126,8 @@ public class VendedorSinAutorizarVentasHttpTests : IClassFixture<CustomWebApplic
         var getDenegado = Denegado(get) || (get.RequestMessage?.RequestUri?.AbsolutePath.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase) ?? false);
         var postDenegado = Denegado(postResp);
         Assert.Equal(getDenegado, postDenegado);
+        if (exigirRedirectNormal)
+            Assert.True((int)postResp.StatusCode is >= 300 and < 400, $"Se esperaba un redirect de la acción, llegó HTTP {(int)postResp.StatusCode}.");
         return postDenegado;
     }
 
@@ -146,9 +148,10 @@ public class VendedorSinAutorizarVentasHttpTests : IClassFixture<CustomWebApplic
         Assert.Matches(@"DELETE FROM dbo\.AspNetRoleClaims[\s\S]*?WHERE RoleId = @RoleId AND ClaimType = N'Permission' AND ClaimValue = N'ventas\.authorize'", sql);
         Assert.DoesNotContain("DELETE FROM dbo.RolPermisos", sql);
         Assert.DoesNotContain("TRUNCATE", sql, StringComparison.OrdinalIgnoreCase);
-        // Solo hay un UPDATE y un DELETE.
-        Assert.Single(Regex.Matches(sql, @"^UPDATE ", RegexOptions.Multiline));
-        Assert.Single(Regex.Matches(sql, @"^DELETE FROM ", RegexOptions.Multiline));
+        // Solo hay un UPDATE y un DELETE (también se detectan escrituras indentadas) y ningún INSERT/MERGE/ALTER/DROP fuera del comentario.
+        Assert.Single(Regex.Matches(codigo, @"^\s*UPDATE ", RegexOptions.Multiline));
+        Assert.Single(Regex.Matches(codigo, @"^\s*DELETE FROM ", RegexOptions.Multiline));
+        Assert.DoesNotMatch(@"(?im)^\s*(INSERT|MERGE|ALTER|DROP|CREATE)", codigo);
     }
 
     private static string Raiz()
