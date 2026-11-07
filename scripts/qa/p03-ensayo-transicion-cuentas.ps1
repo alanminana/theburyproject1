@@ -33,6 +33,7 @@ param(
     [string]$DirectorioBuild = '',
     [string[]]$CuentasDemoADesactivar = @('administrador', 'cajero', 'contador', 'gerente', 'repositor', 'tecnico', 'vendedor'),
     [string]$SalidaJson = '',
+    [switch]$ModoSeco,   # solo valida parametros y muestra el plan; no toca SQL ni la app
     [switch]$CrearClon,
     [switch]$Ejecutar,
     [switch]$Limpiar
@@ -42,18 +43,33 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
 $raiz = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not $DirectorioBuild) { $DirectorioBuild = Join-Path $raiz 'bin\p03run' }
-$bak = Join-Path $CarpetaTrabajo "$Prefijo.bak"
-$mdf = Join-Path $CarpetaTrabajo "$Prefijo.mdf"
-$ldf = Join-Path $CarpetaTrabajo "${Prefijo}_log.ldf"
 
 # ---------------------------------------------------------------- guardas
 function Assert-Clon([string]$nombre) {
+    if ($nombre -notmatch '^[A-Za-z0-9_]+_(p03|qa)$') { throw "GUARDA: '$nombre' no cumple ^[A-Za-z0-9_]+_(p03|qa)$. Abortado." }
     if ($nombre -ieq 'TheBuryProjectDb' -or $nombre -ieq $BaseOrigen) { throw "GUARDA: '$nombre' es la base real. Abortado." }
-    if ($nombre -notmatch '(?i)_(p03|qa)$') { throw "GUARDA: la base '$nombre' no termina en _p03 o _qa. Abortado." }
 }
+# Validacion estricta de TODO parametro que termina en SQL, rutas o procesos
+if ($BaseOrigen -notmatch '^[A-Za-z0-9_]+$') { throw 'GUARDA: BaseOrigen invalida.' }
+if ($ServidorSql -notmatch '^[A-Za-z0-9_.()\\-]+$') { throw 'GUARDA: ServidorSql invalido.' }
+if ($Prefijo -notmatch '^tbp_p03[A-Za-z0-9_]*$') { throw 'GUARDA: Prefijo debe empezar con tbp_p03 y usar [A-Za-z0-9_].' }
+if ($CarpetaTrabajo -notmatch '^[A-Za-z]:\\[A-Za-z0-9_ .\\-]+$') { throw 'GUARDA: CarpetaTrabajo invalida.' }
+foreach ($u in $CuentasDemoADesactivar) { if ($u -notmatch '^[A-Za-z0-9._@+-]{3,50}$') { throw "GUARDA: nombre de usuario invalido '$u'." } }
 Assert-Clon $BaseClon
+$CarpetaTrabajo = [IO.Path]::GetFullPath($CarpetaTrabajo).TrimEnd('\')
+$DirectorioBuild = [IO.Path]::GetFullPath($DirectorioBuild).TrimEnd('\')
+if (($raiz + '\').StartsWith($CarpetaTrabajo + '\', [StringComparison]::OrdinalIgnoreCase) -or ($CarpetaTrabajo + '\').StartsWith($raiz + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'GUARDA: CarpetaTrabajo no puede contener ni estar dentro del repositorio.' }
+$bak = Join-Path $CarpetaTrabajo "$Prefijo.bak"; $mdf = Join-Path $CarpetaTrabajo "$Prefijo.mdf"; $ldf = Join-Path $CarpetaTrabajo "${Prefijo}_log.ldf"
+$sentinelaClon = Join-Path $CarpetaTrabajo "$Prefijo.sentinel"
+$marcaBuild = Join-Path $DirectorioBuild '.p03-sentinel'
+
+# Cadena de conexion: se arma y se parsea con SqlConnectionStringBuilder; debe apuntar EXACTAMENTE al clon
 $cadena = "Server=$ServidorSql;Database=$BaseClon;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
-if ($cadena -match '(?i)Database=TheBuryProjectDb(;|$)') { throw 'GUARDA: la cadena de conexion apunta a TheBuryProjectDb exacta. Abortado.' }
+$sb = New-Object System.Data.SqlClient.SqlConnectionStringBuilder($cadena)
+if ($sb.InitialCatalog -cne $BaseClon -or $sb.AttachDBFilename) { throw 'GUARDA: la cadena de conexion no apunta exactamente al clon. Abortado.' }
+if ($sb.InitialCatalog -ieq 'TheBuryProjectDb') { throw 'GUARDA: la cadena apunta a TheBuryProjectDb. Abortado.' }
+
+function Lit([string]$v) { "N'" + $v.Replace("'", "''") + "'" }   # literal SQL escapado (los valores ya estan en whitelist)
 
 function Invoke-SqlMaster([string]$q) {
     $out = & sqlcmd -S $ServidorSql -E -C -b -h -1 -W -Q "SET NOCOUNT ON; $q" 2>&1
@@ -61,7 +77,8 @@ function Invoke-SqlMaster([string]$q) {
     return $out
 }
 function Get-Sql([string]$q) {   # solo lectura sobre el clon
-    if ($q -notmatch '^\s*SELECT\b') { throw 'Get-Sql solo admite SELECT.' }
+    # Consultas fijas del script; defensa en profundidad (no es garantia de solo lectura a nivel motor)
+    if ($q -notmatch '^\s*SELECT\b' -or $q -match ';|\b(INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|EXECUTE|MERGE|TRUNCATE|CREATE|INTO|GRANT|BACKUP|RESTORE|xp_)\b') { throw 'Get-Sql solo admite un SELECT simple.' }
     Assert-Clon $BaseClon
     $out = & sqlcmd -S $ServidorSql -E -C -b -d $BaseClon -h -1 -W -s '|' -Q "SET NOCOUNT ON; $q" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "sqlcmd fallo: $($out -join ' ')" }
@@ -72,18 +89,33 @@ function Get-Sql([string]$q) {   # solo lectura sobre el clon
 function Nuevo-Clon {
     Assert-Clon $BaseClon
     Write-Host "Backup COPY_ONLY de $BaseOrigen (solo lectura) -> $bak"
-    Invoke-SqlMaster "BACKUP DATABASE [$BaseOrigen] TO DISK='$bak' WITH COPY_ONLY, INIT, FORMAT" | Out-Null
-    $lf = Invoke-SqlMaster "RESTORE FILELISTONLY FROM DISK='$bak'"
+    if (-not (Test-Path -LiteralPath $CarpetaTrabajo -PathType Container)) { throw "No existe $CarpetaTrabajo." }
+    Set-Content -LiteralPath $sentinelaClon -Value ([guid]::NewGuid().ToString()) -Encoding ascii   # marca: estos archivos los crea el ensayo
+    Invoke-SqlMaster "BACKUP DATABASE [$BaseOrigen] TO DISK=$(Lit $bak) WITH COPY_ONLY, INIT, FORMAT" | Out-Null
+    $lf = Invoke-SqlMaster "RESTORE FILELISTONLY FROM DISK=$(Lit $bak)"
     $logico = @($lf | ForEach-Object { ($_ -split '\s+')[0] })
+    if ($logico[0] -notmatch '^[A-Za-z0-9_]+$' -or $logico[1] -notmatch '^[A-Za-z0-9_]+$') { throw 'Nombres logicos inesperados en el backup.' }
     Write-Host "Restore como $BaseClon"
-    Invoke-SqlMaster "RESTORE DATABASE [$BaseClon] FROM DISK='$bak' WITH MOVE '$($logico[0])' TO '$mdf', MOVE '$($logico[1])' TO '$ldf', REPLACE" | Out-Null
+    Invoke-SqlMaster "RESTORE DATABASE [$BaseClon] FROM DISK=$(Lit $bak) WITH MOVE $(Lit $logico[0]) TO $(Lit $mdf), MOVE $(Lit $logico[1]) TO $(Lit $ldf), REPLACE" | Out-Null
+}
+function Dentro-De([string]$ruta, [string]$base) {
+    $f = [IO.Path]::GetFullPath($ruta)
+    return $f.StartsWith($base.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 function Quitar-Clon {
     Assert-Clon $BaseClon
     Write-Host "DROP $BaseClon y archivos propios"
-    Invoke-SqlMaster "IF DB_ID('$BaseClon') IS NOT NULL BEGIN ALTER DATABASE [$BaseClon] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$BaseClon]; END" | Out-Null
-    foreach ($f in @($bak, $mdf, $ldf)) { if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force } }
-    if (Test-Path -LiteralPath $DirectorioBuild) { Remove-Item -LiteralPath $DirectorioBuild -Recurse -Force }
+    Invoke-SqlMaster "DECLARE @n sysname = $(Lit $BaseClon); IF @n LIKE N'%[_]p03' OR @n LIKE N'%[_]qa' BEGIN IF DB_ID(@n) IS NOT NULL BEGIN DECLARE @s nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@n) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ' + QUOTENAME(@n); EXEC(@s); END END" | Out-Null
+    # Solo se borra lo que el propio ensayo creo (sentinela) y dentro de rutas propias
+    if (Test-Path -LiteralPath $sentinelaClon) {
+        foreach ($f in @($bak, $mdf, $ldf, $sentinelaClon)) {
+            if ((Dentro-De $f $CarpetaTrabajo) -and (Split-Path -Leaf $f).StartsWith($Prefijo) -and (Test-Path -LiteralPath $f -PathType Leaf)) { Remove-Item -LiteralPath $f -Force }
+        }
+    } else { Write-Warning "Sin sentinela ${sentinelaClon}: no se borran archivos de la carpeta de trabajo." }
+    $buildPermitido = Join-Path $raiz 'bin'
+    if ((Test-Path -LiteralPath $marcaBuild) -and (Dentro-De $DirectorioBuild $buildPermitido) -and ((Split-Path -Leaf $DirectorioBuild) -match '^p03[A-Za-z0-9_]*$')) {
+        Remove-Item -LiteralPath $DirectorioBuild -Recurse -Force
+    } elseif (Test-Path -LiteralPath $DirectorioBuild) { Write-Warning "Sin marca .p03-sentinel o fuera de bin\p03*: no se borra $DirectorioBuild." }
 }
 
 # ---------------------------------------------------------------- contrasenas
@@ -150,6 +182,10 @@ function Aceptar-Terminos([object]$s, [string]$nombreCompleto) {
     $r = Send $s 'POST' '/Identity/Account/Login' @{ 'Input.NombreCompleto' = $nombreCompleto; 'Input.AceptaTerminos' = 'true'; '__RequestVerificationToken' = $t; 'ReturnUrl' = '/' }
     return ($r.Status -eq 302)
 }
+function Redirige-Login([object]$s, [string]$ruta = '/Seguridad') {
+    $r = Send $s 'GET' $ruta $null
+    return [pscustomobject]@{ Ok = (($r.Status -eq 302 -or $r.Status -eq 303) -and $r.Location -match '/Identity/Account/Login'); Detalle = "$($r.Status) $($r.Location)" }
+}
 # 'OK' si responde 200; 'SIN-ACCESO(<status> <loc>)' si redirige/401/403
 function Acceso([object]$s, [string]$ruta = '/Seguridad') {
     $r = Send $s 'GET' $ruta $null
@@ -160,8 +196,9 @@ function Post-Accion([object]$s, [string]$ruta, [hashtable]$campos) {
     $campos['__RequestVerificationToken'] = Token-De $s '/Seguridad'
     Send $s 'POST' $ruta $campos
 }
-function Id-De([string]$usuario) { (Get-Sql "SELECT Id FROM AspNetUsers WHERE UserName='$usuario'")[0].Trim() }
-function Activo-De([string]$usuario) { (Get-Sql "SELECT Activo FROM AspNetUsers WHERE UserName='$usuario'")[0].Trim() -eq '1' }
+function Assert-Usuario([string]$u) { if ($u -notmatch '^[A-Za-z0-9._@+-]{3,50}$') { throw "usuario invalido '$u'" } }
+function Id-De([string]$usuario) { Assert-Usuario $usuario; (Get-Sql "SELECT Id FROM AspNetUsers WHERE UserName='$usuario'")[0].Trim() }
+function Activo-De([string]$usuario) { Assert-Usuario $usuario; (Get-Sql "SELECT Activo FROM AspNetUsers WHERE UserName='$usuario'")[0].Trim() -eq '1' }
 function SuperAdmins-Activos {
     [int](Get-Sql "SELECT COUNT(DISTINCT u.Id) FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId=u.Id JOIN AspNetRoles r ON r.Id=ur.RoleId WHERE r.Name='SuperAdmin' AND u.Activo=1")[0]
 }
@@ -191,6 +228,7 @@ function Ejecutar-Ensayo {
     if (Get-NetTCPConnection -LocalPort $Puerto -State Listen -ErrorAction SilentlyContinue) { throw "El puerto $Puerto esta ocupado." }
     if ((Get-Sql "SELECT DB_NAME()")[0].Trim() -ine $BaseClon) { throw 'La base consultada no es el clon.' }
 
+    Set-Content -LiteralPath $marcaBuild -Value 'p03' -Encoding ascii   # el ensayo adopta este directorio de build
     $claveAdmin = [Environment]::GetEnvironmentVariable('P03_ADMIN_PASSWORD')
     $claveOwner = Clave 'P03_PWD_OWNER'; $claveRec = Clave 'P03_PWD_RECOVERY'; $claveAdminNueva = Clave 'P03_PWD_ADMIN_NUEVA'; $claveAdminRec = Nueva-Clave
     $owner = 'p03.propietario'; $rec = 'p03.recuperacion'
@@ -242,8 +280,8 @@ function Ejecutar-Ensayo {
 
         # --- Paso 2: rotar admin, desactivar administrador y demo
         Verificar '2.1' 'Rotar contrasena de admin (con la cuenta propia)' (Cambiar-Clave $sO 'admin' $claveAdminNueva) 'POST /Usuarios/CambiarPassword'
-        $accA = Acceso $sA
-        Verificar '3.1' 'Sesion previa de admin pierde acceso en el siguiente request tras rotar' ($accA -ne 'OK') $accA
+        $accA = Redirige-Login $sA
+        Verificar '3.1' 'Sesion previa de admin: el siguiente request redirige (302/303) al login tras rotar' $accA.Ok $accA.Detalle
         $viejo = Login (Nueva-Sesion 'admin-vieja') 'admin' $claveAdmin
         $nuevo = Login (Nueva-Sesion 'admin-nueva') 'admin' $claveAdminNueva
         Verificar '2.2' 'La clave anterior de admin ya no ingresa y la nueva si' ((-not $viejo) -and $nuevo) "anterior=$viejo; nueva=$nuevo"
@@ -254,8 +292,8 @@ function Ejecutar-Ensayo {
         if (Terminos-Pendientes $sA2) { Aceptar-Terminos $sA2 'Administrador Ensayo' | Out-Null }
         $previo = Acceso $sA2
         Post-Accion $sO '/Usuarios/Desactivar' @{ id = (Id-De 'admin'); returnUrl = '/Seguridad' } | Out-Null
-        $accA2 = Acceso $sA2
-        Verificar '3.2' 'Desactivar admin: su sesion abierta cae en el siguiente request' ($previo -eq 'OK' -and -not (Activo-De 'admin') -and $accA2 -ne 'OK') "antes=$previo; despues=$accA2; Activo=$(Activo-De 'admin')"
+        $accA2 = Redirige-Login $sA2
+        Verificar '3.2' 'Desactivar admin: el siguiente request de su sesion redirige (302/303) al login' ($previo -eq 'OK' -and -not (Activo-De 'admin') -and $accA2.Ok) "antes=$previo; despues=$($accA2.Detalle); Activo=$(Activo-De 'admin')"
         Verificar '3.3' 'admin desactivado no puede iniciar sesion' (-not (Login (Nueva-Sesion 'x') 'admin' $claveAdminNueva)) 'login rechazado'
 
         $falla = @()
@@ -272,7 +310,8 @@ function Ejecutar-Ensayo {
         # --- Paso 4: ultimo SuperAdmin (activos ahora: propietario y recuperacion)
         Post-Accion $sR '/Usuarios/Desactivar' @{ id = (Id-De $owner); returnUrl = '/Seguridad' } | Out-Null
         Verificar '4.1' 'Con 2 SuperAdmin se puede desactivar uno (queda 1)' ((-not (Activo-De $owner)) -and (SuperAdmins-Activos) -eq 1) "SuperAdmin activos=$(SuperAdmins-Activos)"
-        Verificar '3.4' 'Sesion del propietario desactivado cae en el siguiente request' ((Acceso $sO) -ne 'OK') (Acceso $sO)
+        $accO = Redirige-Login $sO
+        Verificar '3.4' 'Propietario desactivado: el siguiente request de su sesion redirige (302/303) al login' $accO.Ok $accO.Detalle
         Post-Accion $sR '/Usuarios/Desactivar' @{ id = (Id-De $rec); returnUrl = '/Seguridad' } | Out-Null
         Verificar '4.2' 'Desactivar al ultimo SuperAdmin es rechazado' ((Activo-De $rec) -and (SuperAdmins-Activos) -eq 1) "recuperacion Activo=$(Activo-De $rec); SuperAdmin activos=$(SuperAdmins-Activos)"
         Post-Accion $sR '/Usuarios/Delete' @{ id = (Id-De $rec); motivo = 'ensayo P-03'; returnUrl = '/Seguridad' } | Out-Null
@@ -306,6 +345,10 @@ function Ejecutar-Ensayo {
 }
 
 # ---------------------------------------------------------------- main
+if ($ModoSeco) {
+    Write-Host "MODO SECO: parametros validados. BaseClon=$BaseClon; InitialCatalog=$($sb.InitialCatalog); CarpetaTrabajo=$CarpetaTrabajo; Build=$DirectorioBuild; CrearClon=$CrearClon; Ejecutar=$Ejecutar; Limpiar=$Limpiar"
+    exit 0
+}
 try {
     if ($CrearClon) { Nuevo-Clon }
     if ($Ejecutar) {

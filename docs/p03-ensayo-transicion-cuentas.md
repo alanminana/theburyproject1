@@ -7,8 +7,8 @@ Sin credenciales en este documento: el script genera las contraseñas en memoria
 
 ## 1. Método
 
-- Script reutilizable: `scripts/qa/p03-ensayo-transicion-cuentas.ps1` (`-CrearClon`, `-Ejecutar`, `-Limpiar`, `-Entorno Development|Staging`). Guardas: aborta si la base no termina en `_p03`/`_qa`, si es `TheBuryProjectDb`, o si la cadena apunta a esa base; las consultas SQL del ensayo solo admiten `SELECT`.
-- Las acciones se ejecutan por HTTP contra la app real (login, antiforgery, `Usuarios/Create`, `CambiarPassword`, `Desactivar`, `Reactivar`, `Delete`), con sesiones independientes (cookies separadas) y evidencia SQL de solo lectura.
+- Script reutilizable: `scripts/qa/p03-ensayo-transicion-cuentas.ps1` (`-CrearClon`, `-Ejecutar`, `-Limpiar`, `-Entorno Development|Staging`). Guardas: `BaseClon` debe cumplir `^[A-Za-z0-9_]+_(p03|qa)$` y no ser `TheBuryProjectDb` (sin distinguir mayúsculas); la cadena de conexión se arma y se parsea con `SqlConnectionStringBuilder` y debe tener `InitialCatalog` igual a `BaseClon` y ningún `AttachDBFilename`; el resto de los parámetros (servidor, prefijo, carpeta de trabajo, cuentas demo) se validan con listas blancas y el SQL dinámico usa literales escapados y `QUOTENAME`. El borrado de archivos solo ocurre sobre lo que el propio ensayo creó (archivo sentinela en la carpeta de trabajo y marca `.p03-sentinel` en `bin\p03*`), nunca sobre el repositorio. `-ModoSeco` valida parámetros sin tocar SQL ni la app. Las consultas de verificación son `SELECT` fijos con un filtro de defensa en profundidad: **no es una garantía de solo lectura a nivel del motor**; el script no emite DML sobre el clon y las escrituras las hace únicamente la app.
+- Las acciones se ejecutan por HTTP contra la app real (login, antiforgery, `Usuarios/Create`, `CambiarPassword`, `Desactivar`, `Reactivar`, `Delete`), con sesiones independientes (cookies separadas) y verificación por consultas `SELECT` fijas sobre el clon.
 - Se corrió dos veces sobre clones recién restaurados: **Development** y **Staging** (mismo código; Staging sirve para el punto 6). **Production no es ejecutable en LocalDB** (exige `ErpDb:User/Password`, login SQL).
 
 ## 2. Resultado por paso
@@ -22,9 +22,9 @@ Sin credenciales en este documento: el script genera las contraseñas en memoria
 | 2.1–2.2 | Rotar la contraseña de `admin` | OK | La clave anterior ya no ingresa; la nueva sí |
 | 2.3 | Desactivar `administrador` y las 6 cuentas demo restantes | OK | `Activo=0` por SQL; `JAVIER`, `Javier2`, `nikky` (correos personales) siguen activas, a propósito |
 | 2.5 / 5.3 | ≥ 2 SuperAdmin activos tras la limpieza | OK | 2 (propietario y recuperación) |
-| 3.1 | Sesión previa de `admin` pierde acceso tras rotar la contraseña | OK | Siguiente request a `/Seguridad`: 302 al login (antes: 200) |
-| 3.2–3.3 | Idem al desactivar `admin`; `admin` desactivado no puede ingresar | OK | 302 al login; login rechazado |
-| 3.4 | Idem para el propietario desactivado por la recuperación | OK | 302 al login |
+| 3.1 | Sesión previa de `admin` pierde acceso tras rotar la contraseña | OK | Se exige explícitamente 302/303 con `Location` al login en el siguiente request a `/Seguridad` (antes: 200) |
+| 3.2–3.3 | Idem al desactivar `admin`; `admin` desactivado no puede ingresar | OK | Mismo criterio (302/303 al login); además el login de `admin` desactivado se rechaza |
+| 3.4 | Idem para el propietario desactivado por la recuperación | OK | 302/303 al login (exigido explícitamente) |
 | 4.1 | Con 2 SuperAdmin se puede desactivar uno | OK | SuperAdmin activos: 2 → 1 |
 | 4.2 | No se puede desactivar al último | OK | La cuenta sigue `Activo=1`; SuperAdmin activos = 1 |
 | 4.3 | No se puede eliminar al último | OK | La cuenta sigue activa |
