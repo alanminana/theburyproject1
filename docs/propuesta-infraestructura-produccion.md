@@ -64,3 +64,23 @@ Otros pendientes: alerta activa ante fallo (webhook + observador externo tipo Up
 4. Destino de las alertas (correo/WhatsApp/webhook) y observador externo.
 5. Retención histórica requerida (¿1 año de mensuales?) y presupuesto mensual aceptado.
 6. ¿Hay UPS? ¿Cuál es la conectividad del local (IP pública/CGNAT, proveedor)?
+
+## 7. Decisiones del propietario (2026-11-07)
+
+| Tema | Decisión | Qué queda pendiente (configuración externa al repo) |
+|---|---|---|
+| Host | **Windows 11 + Docker Desktop (WSL2)** con `install-windows.ps1` | Preparar el equipo; desactivar reinicios automáticos fuera de horario |
+| Acceso remoto | **Tailscale** | Instalarlo en servidor y equipos; ACL solo hacia el servidor; verificar CGNAT no es necesario con Tailscale |
+| Copia externa | **SFTP** | Un servidor SFTP en **otro sitio** (no la misma máquina ni el mismo local); fijar su host key (`known_hosts_file`) |
+| Alertas | **Ninguna por ahora** | Sin aviso activo, un backup fallido pasa inadvertido: revisar a mano `monitor-status/` o activar el webhook más adelante |
+| Clave de cifrado y recovery package | Hoy **se guardan en el disco del servidor** | Ver riesgo 1 |
+| UPS | **No hay** | Ver riesgo 2 |
+
+### Riesgos aceptados que conviene conocer
+
+1. **Clave de cifrado y recovery package en el mismo disco**: si el disco muere, se pierden el servidor *y* la clave, y la copia SFTP cifrada queda ilegible. Mínimo recomendado: copiar la password `crypt` y la passphrase del recovery package a un gestor de contraseñas o un pendrive guardado aparte (basta una vez, no cambia).
+2. **Sin UPS**: un corte de luz puede dejar la base SQL en recuperación o dañada. Mitigación sin hardware: backups de log cada 15 min (ya diseñados) y la prueba semanal de restore. Un UPS básico es la mejora de mayor valor por costo.
+3. **Sin alertas**: el scheduler y la copia externa pueden fallar en silencio. Mitigación: revisión manual semanal de `scripts/backup/fetch-offsite.sh --list` (debe mostrar el backup de ayer).
+4. **SFTP no expone hash remoto**: la verificación es byte a byte (más lenta, pero válida).
+
+Nada de esto bloquea el código ni el repo; son tareas de puesta en marcha del host. El drill de recuperación completo sigue siendo el criterio de aceptación.
