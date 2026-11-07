@@ -102,7 +102,11 @@ namespace TheBuryProject.Services
         private async Task ConsultarBcraAsync(AppDbContext context, TheBuryProject.Models.Entities.Cliente cliente)
         {
             var cuil = cliente.CuilCuit;
-            if (string.IsNullOrWhiteSpace(cuil) || cuil.Length != 11 || !cuil.All(char.IsDigit))
+            // Un CUIL/CUIT real nunca empieza con 0 (prefijos 20/23/24/27/30/33/34). CuilHelper.Componer
+            // completa con ceros el prefijo vacío ("00" + DNI + "0"); la Central de Deudores responde
+            // HTTP 400 ("Ingresar 11 dígitos") a cualquier identificador con cero inicial, así que
+            // no se consulta: se trata como no consultable en vez de registrar "Error API (400)".
+            if (string.IsNullOrWhiteSpace(cuil) || cuil.Length != 11 || !cuil.All(char.IsDigit) || cuil[0] == '0')
             {
                 // Sin CUIL válido: marcar como no consultable
                 cliente.SituacionCrediticiaBcra = null;
