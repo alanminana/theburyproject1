@@ -185,6 +185,8 @@ namespace TheBuryProject.Services
                 existing.Descripcion = marca.Descripcion;
                 existing.ParentId = marca.ParentId;
                 existing.PaisOrigen = marca.PaisOrigen;
+                // H-34: editar una marca nunca cambiaba su estado (Activo no se copiaba) aunque el modal informaba éxito.
+                existing.Activo = marca.Activo;
 
                 // IMPORTANTE: Copiar el RowVersion para que funcione el control de concurrencia
                 if (marca.RowVersion != null)

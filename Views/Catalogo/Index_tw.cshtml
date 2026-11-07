@@ -1796,6 +1796,8 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" type="checkbox" value="true" checked class="sr-only peer" />
+                                @* H-34: un checkbox desmarcado no se envía y el modelo asume Activo=true; el hidden va DESPUÉS (el binder toma el primer valor). *@
+                                <input type="hidden" name="Activo" value="false" />
                                 <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
@@ -2238,6 +2240,8 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input id="prod-edit-activo" name="Activo" type="checkbox" value="true" aria-label="Producto activo" class="sr-only peer" />
+                                @* H-34: un checkbox desmarcado no se envía y el modelo asume Activo=true; el hidden va DESPUÉS (el binder toma el primer valor). *@
+                                <input type="hidden" name="Activo" value="false" />
                                 <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
@@ -2532,6 +2536,8 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" id="marca-edit-activo" type="checkbox" value="true" class="sr-only peer" />
+                                @* H-34: un checkbox desmarcado no se envía y el modelo asume Activo=true; el hidden va DESPUÉS (el binder toma el primer valor). *@
+                                <input type="hidden" name="Activo" value="false" />
                                 <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>

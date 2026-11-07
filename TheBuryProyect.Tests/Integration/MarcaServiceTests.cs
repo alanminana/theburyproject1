@@ -160,6 +160,25 @@ public class MarcaServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task Update_CambiaElEstadoActivo_ConservandoLoDemas()
+    {
+        // H-34: UpdateAsync no copiaba Activo: desactivar (o reactivar) una marca desde el modal de edición no tenía efecto.
+        var marca = await SeedMarcaAsync();
+        Assert.True(marca.Activo);
+
+        marca.Activo = false;
+        await _service.UpdateAsync(marca);
+        _context.ChangeTracker.Clear();
+        Assert.False((await _context.Marcas.AsNoTracking().SingleAsync(m => m.Id == marca.Id)).Activo);
+
+        marca.Activo = true;
+        marca.RowVersion = (await _context.Marcas.AsNoTracking().SingleAsync(m => m.Id == marca.Id)).RowVersion;
+        await _service.UpdateAsync(marca);
+        _context.ChangeTracker.Clear();
+        Assert.True((await _context.Marcas.AsNoTracking().SingleAsync(m => m.Id == marca.Id)).Activo);
+    }
+
+    [Fact]
     public async Task Update_CamposValidos_Actualiza()
     {
         var marca = await SeedMarcaAsync();
