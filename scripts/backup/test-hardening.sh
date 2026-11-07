@@ -11,7 +11,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 # --- sintaxis -------------------------------------------------------------------------------------------------------------
-for f in lib.sh backup.sh restore-test.sh restore-sql.sh install-schedule.sh test-hardening.sh; do
+for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh test-hardening.sh; do
   check "bash -n $f" bash -n "$HERE/$f"
 done
 
@@ -120,12 +120,13 @@ check "centinela ausente -> exit 6 y no se sube nada" bash -c '[[ "$1" == 6 && "
 FAILCODE=""; : >"$CALLS"
 dc() { echo "$*" >>"$CALLS"; if [[ "$*" == *" lsf "* ]]; then echo ".bury-offsite-ok"; fi; return 0; }
 rclone_verify() { return 0; }
+remote_retention() { echo "remote_retention" >>"$CALLS"; }   # la logica real de borrado se prueba en test-retention-remote.sh
 RUN_SQL=(TheBuryProjectDb_full_2026-01-01_000000Z.bak); DB_NAME=TheBuryProjectDb; REMOTE_RETENTION_DAYS=30; MODE=all
 offsite
 check "centinela presente -> sin fallo" test -z "$FAILCODE"
 check "la subida incluye backups pendientes (full+log) y respeta --max-age" bash -c 'grep -q "_log_\*.trn" "$1" && grep -q "_full_\*.bak" "$1" && grep -q -- "--max-age 30d" "$1"' _ "$CALLS"
-check "la retencion remota crea el directorio antes de borrar (mkdir)" bash -c 'grep -q " mkdir offsite:bucket/erp/sql" "$1"' _ "$CALLS"
-unset -f dc fail rclone_verify
+check "la retencion remota se ejecuta solo DESPUES de subir y verificar" bash -c 'grep -n " copy " "$1" | head -1 | cut -d: -f1 > "$1.c"; grep -n remote_retention "$1" | head -1 | cut -d: -f1 > "$1.r"; [[ $(cat "$1.c") -lt $(cat "$1.r") ]]' _ "$CALLS"
+unset -f dc fail rclone_verify remote_retention
 BACKUP_OFFSITE_MARKER=""; REMOTE_RETENTION_DAYS=0
 source "$HERE/lib.sh" >/dev/null 2>&1; set +e   # restaura rclone_verify real
 
@@ -161,5 +162,10 @@ BD="$T/e2e"; PATH="$T/fakebin:$PATH" BACKUP_DIR="$BD" bash "$HERE/restore-test.s
 check "restore-test.sh sin docker: exit 8" test "$rc" = 8
 check "restore-test.sh publica estado failed (exit 8, verified false)" grep -q '"exit":8,"verified":false' "$BD/monitor-status/restore-test.json"
 check "restore-test.sh: mensaje del fallo en el estado" grep -q 'docker' "$BD/monitor-status/restore-test.json"
+
+# --- P-06: retencion remota por tipo, BACKUP_DIR, lock y recuperacion de app (archivo propio) ----------------------------------
+out=$(bash "$HERE/test-retention-remote.sh" 2>&1); rc=$?
+grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
+check "test-retention-remote.sh ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0
 
 echo; echo "resultado: $PASS OK, $FAIL fallos"; (( FAIL == 0 ))

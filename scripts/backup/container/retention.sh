@@ -44,6 +44,7 @@ prune() {
     t=$(ts_of "$f")
     if [ "$t" \< "$cutoff" ] && ! echo "$protected" | grep -qxF "$f"; then
       rm -f -- "$dir/$f" "$dir/$f.sha256"
+      case "$f" in files_*.tar.gz) s="set_${f#files_}"; rm -f -- "$dir/${s%.tar.gz}.txt" ;; esac   # manifiesto del par (modo all)
       echo "  DELETE $dir/$f"
       deleted=$((deleted + 1))
     fi

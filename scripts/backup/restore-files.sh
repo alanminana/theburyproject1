@@ -23,18 +23,33 @@ done
 
 load_config
 command -v docker >/dev/null 2>&1 || die $EX_PREREQ "docker no esta disponible"
-mkdir -p "$BACKUP_DIR/logs"
+mkdir_new_mode 700 "$BACKUP_DIR" "$BACKUP_DIR/logs"
+backup_dir_usable
 
 if (( LIST )); then
-  echo "Archivos en $BACKUP_DIR/files:"; ls -1 "$BACKUP_DIR/files" 2>/dev/null | grep -E '\.tar\.gz$' | sort || true
+  echo "Archivos en $BACKUP_DIR/files (el manifiesto set_<ts>.txt acredita el PAR full+tar de una corrida 'all'):"
+  tools sh -c 'cd /backups/files 2>/dev/null || exit 0
+    for t in $(ls -1 files_*.tar.gz 2>/dev/null | sort); do
+      s="set_${t#files_}"; s="${s%.tar.gz}.txt"
+      if [ -f "$s" ]; then echo "  $t   <- PAR acreditado con $(sed -n "s/^full=\([^ ]*\) .*/\1/p" "$s")"; else echo "  $t   (sin manifiesto: su par con un full NO esta acreditado)"; fi
+    done' || true
   exit 0
 fi
 
 [[ -n "$ARCHIVE" ]] || die $EX_USAGE "falta --archive (usar --list)"
 [[ "$ARCHIVE" =~ ^files_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.tar\.gz$ ]] || die $EX_USAGE "--archive debe ser el NOMBRE de un archivo files_AAAA-MM-DD_HHMMSSZ.tar.gz (sin ruta)"
+# Un restore destructivo no puede correr a la vez que un backup (que detiene/arranca `app`) ni que otro restore.
+lrc=0; acquire_lock || lrc=$?
+(( lrc == 0 )) || { (( lrc == 1 )) && die $EX_BUSY "hay un backup o un restore en curso (lock): esperar a que termine"; die $EX_PREREQ "no se pudo tomar el lock (permisos de BACKUP_DIR)"; }
+trap release_lock EXIT
 service_running app && die $EX_RESTORE "app esta corriendo: detenerla antes (docker compose stop app)"
+# El operador toma el control de `app`: si un backup anterior murio con ella detenida, esa marca ya no debe provocar un arranque
+# automatico mientras se restaura. Se borra recien aqui (no en --list) y con el lock tomado.
+rm -f "$BACKUP_DIR/.app-stopped-by-backup"
 
 log INFO "=== restore-files inicio: $ARCHIVE (force=$FORCE) ==="
+pair=$(tools sh -c 's="set_${0#files_}"; s="${s%.tar.gz}.txt"; [ -f "/backups/files/$s" ] && sed -n "s/^full=\([^ ]*\) .*/\1/p" "/backups/files/$s"' "$ARCHIVE" 2>/dev/null | tr -d '\r' || true)
+if [[ -n "$pair" ]]; then log INFO "par acreditado de este tar: $pair (restaurarlo SIN logs da el estado coherente de esa corrida; con logs la base avanza mas que los archivos)"; else log WARN "este tar no tiene manifiesto de par: nada garantiza que corresponda al full que se restaure"; fi
 if ! out=$(dc run --rm -T --no-deps --quiet-pull -e FORCE="$FORCE" restore-files sh /opt/bury-backup/files-restore.sh "$ARCHIVE" 2>&1); then
   log ERROR "$out"; die $EX_RESTORE "restore-files fallo"
 fi

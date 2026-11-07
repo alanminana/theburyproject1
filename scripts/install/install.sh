@@ -169,12 +169,10 @@ ensure_scripts_executable() {
 prepare_backup_dir() {
   local dir; dir=$(grep -E '^BACKUP_DIR=' "$DP_ENV_FILE" | tail -n1 | cut -d= -f2-)
   [[ -n "$dir" && "$dir" == /* ]] || { log WARN "BACKUP_DIR no es una ruta absoluta ($dir): se omite su preparacion"; return 0; }
-  if mkdir -p "$dir" 2>/dev/null; then
-    chmod 700 "$dir" 2>/dev/null || true
-    log INFO "OK   BACKUP_DIR listo: $dir"
-  else
-    die $EX_PREREQ "no se pudo crear BACKUP_DIR=$dir. Crearlo con: sudo mkdir -p $dir && sudo chown $(id -un): $dir && chmod 700 $dir (o usar --backup-dir con una ruta propia) y repetir"
-  fi
+  # prepare-dir.sh crea el directorio con el usuario actual (700) o, si ya existe, SOLO lo valida: nunca cambia modo/dueño de un
+  # directorio existente con backups.
+  COMPOSE_ENV_FILES="$DP_ENV_FILE" bash "$REPO_DIR/scripts/backup/prepare-dir.sh" \
+    || die $EX_PREREQ "BACKUP_DIR=$dir no esta listo (ver el mensaje anterior). Si no existe: sudo mkdir -p $dir && sudo chown $(id -un): $dir && chmod 700 $dir (o usar --backup-dir con una ruta propia) y repetir"
 }
 
 # ---------------------------------------------------------------- imagen
