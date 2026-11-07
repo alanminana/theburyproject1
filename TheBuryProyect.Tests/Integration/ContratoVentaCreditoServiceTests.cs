@@ -92,6 +92,65 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.Equal(1_210m, productos[0].GetProperty("Subtotal").GetDecimal());
     }
 
+    [Fact]
+    public async Task GenerarAsync_VentaNacidaComoCotizacion_SeRenumeraAVtaAntesDeEmitirElContrato_H01()
+    {
+        // H-01: el contrato/pagaré copian el número de la venta como instantánea; si la venta sigue «COT-…» al emitirlos,
+        // quedarían impresos con el número viejo. Se renumera ANTES y se conserva el COT- como referencia.
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m);
+        var periodo = DateTime.UtcNow.ToString("yyyyMM");
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        ventaDb.Numero = $"COT-{periodo}-000042";
+        ventaDb.Estado = EstadoVenta.PendienteFinanciacion; // el contrato se emite antes de confirmar
+        await _context.SaveChangesAsync();
+
+        var servicio = new ContratoVentaCreditoService(
+            _context,
+            new StubFinancialCalculationService(),
+            _configuracionPagoService,
+            new StubWebHostEnvironment(),
+            NullLogger<ContratoVentaCreditoService>.Instance,
+            generadorNumerosVenta: new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance));
+
+        var contrato = await servicio.GenerarAsync(venta.Id, "tester");
+
+        var guardada = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.StartsWith($"VTA-{periodo}-", guardada.Numero);
+        Assert.Equal($"COT-{periodo}-000042", guardada.NumeroOrigen);
+
+        using var snapshot = System.Text.Json.JsonDocument.Parse(contrato.DatosSnapshotJson);
+        var numeroEnSnapshot = snapshot.RootElement.GetProperty("Venta").GetProperty("Numero").GetString();
+        Assert.Equal(guardada.Numero, numeroEnSnapshot);
+        Assert.DoesNotContain("COT-", contrato.DatosSnapshotJson);
+    }
+
+    [Fact]
+    public async Task AsegurarNumeroDeVenta_ConContratoYaEmitidoConCot_NoRenumera_H01()
+    {
+        // Un contrato/pagaré emitido antes de H-01 copió «COT-…»: la venta no se renumera para no quedar desalineada
+        // de un documento que no se puede reescribir (hallazgo de la revisión independiente).
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m);
+        var periodo = DateTime.UtcNow.ToString("yyyyMM");
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        ventaDb.Numero = $"COT-{periodo}-000043";
+        ventaDb.Estado = EstadoVenta.PendienteFinanciacion;
+        await _context.SaveChangesAsync();
+        await _service.GenerarAsync(venta.Id, "tester"); // sin generador: emite con el número COT-
+
+        var generador = new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance);
+        var ventaRastreada = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+
+        Assert.False(await generador.AsegurarNumeroDeVentaAsync(ventaRastreada));
+        Assert.Equal($"COT-{periodo}-000043", ventaRastreada.Numero);
+        Assert.Null(ventaRastreada.NumeroOrigen);
+    }
+
     private sealed class UsuarioSinDescuentoContratoStub : TheBuryProject.Services.Interfaces.ICurrentUserService
     {
         public string GetUsername() => "sin.descuento";

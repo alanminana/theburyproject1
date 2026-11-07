@@ -32,6 +32,10 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Número")]
         public string Numero { get; set; } = string.Empty;
 
+        /// <summary>H-01: «COT-…» original cuando la venta fue renumerada a «VTA-…» (solo lectura).</summary>
+        [Display(Name = "Número de cotización de origen")]
+        public string? NumeroOrigen { get; set; }
+
         [Display(Name = "Cliente")]
         [Required(ErrorMessage = "El cliente es requerido")]
         public int ClienteId { get; set; }

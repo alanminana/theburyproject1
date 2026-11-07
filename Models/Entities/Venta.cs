@@ -25,6 +25,14 @@ namespace TheBuryProject.Models.Entities
         [StringLength(20)]
         public string Numero { get; set; } = string.Empty;
 
+        /// <summary>
+        /// H-01: número original de cotización («COT-…») cuando la venta nació como cotización y fue renumerada a «VTA-…»
+        /// al emitir el primer documento que copia el número (contrato/pagaré) o al confirmarse. Referencia histórica:
+        /// null en ventas que nunca se renumeraron (nacieron «VTA-» o ya estaban confirmadas).
+        /// </summary>
+        [StringLength(20)]
+        public string? NumeroOrigen { get; set; }
+
         public int? ClienteId { get; set; }
 
         [StringLength(200)]

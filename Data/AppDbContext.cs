@@ -1323,6 +1323,7 @@ namespace TheBuryProject.Data
                     .IsUnique()
                     .HasFilter("[IdempotencyKey] IS NOT NULL");
                 entity.Property(e => e.IdempotencyHuella).HasMaxLength(64);
+                entity.Property(e => e.NumeroOrigen).HasMaxLength(20);
 
                 entity.HasOne(e => e.NotaCredito)
                     .WithMany()
