@@ -200,13 +200,17 @@ prepare_dirs() {
 # Exclusion entre backups y restores destructivos.
 # Con `flock` (util-linux: Linux/WSL, el camino de produccion) el kernel libera el lock aunque el proceso muera con SIGKILL y no hay
 # "lock huerfano" ni carreras de recuperacion. `dc()` cierra el descriptor 9 en los hijos para que docker no lo herede.
-# Sin `flock` (p. ej. Git Bash) se usa un lock por directorio: atomico para tomarlo, y un lock sin pid solo se considera huerfano
-# si sigue sin pid tras ~3 s (mkdir y escritura del pid no son atomicos juntos).
+# Sin `flock` (p. ej. Git Bash) las operaciones DESTRUCTIVAS no tienen exclusion fiable (la recuperacion de un lock huerfano por directorio
+# admite dos recuperadores sucesivos): se rechaza con rc 2. Solo con BURY_ALLOW_DIR_LOCK=1 (tests/desarrollo, nunca produccion) se usa el
+# lock por directorio, con las mitigaciones razonables (espera ~3 s a que el dueño escriba su pid; recuperacion por rename atomico).
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
     exec 9>>"$BACKUP_DIR/.lock.flock" || { log ERROR "no se pudo abrir $BACKUP_DIR/.lock.flock (permisos de BACKUP_DIR): no es 'otra ejecucion en curso'"; return 2; }
     if ! flock -n 9; then log WARN "otra ejecucion en curso (lock $BACKUP_DIR/.lock.flock)"; exec 9>&-; return 1; fi
     BK_LOCK_FD=1; return 0
+  fi
+  if [[ "${BURY_ALLOW_DIR_LOCK:-0}" != 1 ]]; then
+    log ERROR "flock (util-linux) no esta disponible: sin el no hay exclusion fiable entre backup y restore. Instalar util-linux (en Linux/WSL ya viene)"; return 2
   fi
   local lock="$BACKUP_DIR/.lock" pid="" i
   if ! mkdir "$lock" 2>/dev/null; then
@@ -301,6 +305,8 @@ bk_ts_epoch() {
 # extra, otras bases y archivos ajenos: nunca los propone). La antiguedad sale del TIMESTAMP DEL NOMBRE (UTC), no del mtime.
 # Salida (una linea por decision):
 #   DELETE <nombre>   el ejecutor borra el principal y despues su <nombre>.sha256
+# Para `full`, el 6to argumento es una lista (separada por espacios) de timestamps de fulls PROTEGIDOS: los que referencia el manifiesto de un
+# tar que se conserva (par recuperable, ver docs §10.2). Para `log`, el 6to argumento es el piso (FLOOR) calculado para los fulls.
 #   FLOOR <ts>        (full) timestamp del full completo mas antiguo que SOBREVIVE: los .trn anteriores a el no sirven a ningun full retenido
 #   GUARD <motivo>    no se borra NADA de este tipo
 #   WARN <texto>      incompleto/huerfano/ignorado (informativo)
@@ -309,7 +315,7 @@ bk_ts_epoch() {
 # Guardas: se conservan SIEMPRE los min_keep completos mas recientes; si hay menos que min_keep no se borra nada; cualquier nombre con
 # fecha imposible o futura (> ahora + 10 min: reloj adelantado o nombres manipulados) anula el prune del tipo. rc 0 plan valido | 2 argumentos.
 remote_prune_plan() {
-  local kind=${1:-} now=${2:-} days=${3:-} keep=${4:-} db=${5:-} floor=${6-}
+  local kind=${1:-} now=${2:-} days=${3:-} keep=${4:-} db=${5:-} floor=${6-} prot=${6-}
   case "$kind" in full|files|log) ;; *) echo "GUARD tipo invalido"; return 2 ;; esac
   [[ "$now" =~ ^[0-9]{9,11}$ && "$days" =~ ^[0-9]{1,5}$ && "$keep" =~ ^[0-9]{1,3}$ ]] || { echo "GUARD argumentos numericos invalidos"; return 2; }
   (( 10#$days >= 1 && 10#$keep >= 1 )) || { echo "GUARD dias y min_keep deben ser >= 1"; return 2; }
@@ -373,7 +379,7 @@ remote_prune_plan() {
   local i oldest_kept=""
   for (( i = 0; i < total; i++ )); do
     m=${complete[$i]}; ts=${m%%|*}; name=${m#*|}; ep=$(bk_ts_epoch "$ts")
-    if (( i < total - keep )) && (( ep < cutoff )); then
+    if (( i < total - keep )) && (( ep < cutoff )) && [[ " $prot " != *" $ts "* ]]; then
       echo "DELETE $name"
     elif [[ -z "$oldest_kept" ]]; then
       oldest_kept=$ts

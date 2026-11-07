@@ -30,8 +30,8 @@ if (( LIST )); then
   echo "Archivos en $BACKUP_DIR/files (el manifiesto set_<ts>.txt acredita el PAR full+tar de una corrida 'all'):"
   tools sh -c 'cd /backups/files 2>/dev/null || exit 0
     for t in $(ls -1 files_*.tar.gz 2>/dev/null | sort); do
-      s="set_${t#files_}"; s="${s%.tar.gz}.txt"
-      if [ -f "$s" ]; then echo "  $t   <- PAR acreditado con $(sed -n "s/^full=\([^ ]*\) .*/\1/p" "$s")"; else echo "  $t   (sin manifiesto: su par con un full NO esta acreditado)"; fi
+      ts="${t#files_}"; ts="${ts%.tar.gz}"; s=$(ls -1 "set_${ts}"_*.txt 2>/dev/null | head -n1)
+      if [ -n "$s" ] && [ -f "$s" ]; then echo "  $t   <- PAR acreditado con $(sed -n "s/^full=\([^ ]*\) .*/\1/p" "$s")"; else echo "  $t   (sin manifiesto: su par con un full NO esta acreditado)"; fi
     done' || true
   exit 0
 fi
@@ -48,7 +48,7 @@ service_running app && die $EX_RESTORE "app esta corriendo: detenerla antes (doc
 rm -f "$BACKUP_DIR/.app-stopped-by-backup"
 
 log INFO "=== restore-files inicio: $ARCHIVE (force=$FORCE) ==="
-pair=$(tools sh -c 's="set_${0#files_}"; s="${s%.tar.gz}.txt"; [ -f "/backups/files/$s" ] && sed -n "s/^full=\([^ ]*\) .*/\1/p" "/backups/files/$s"' "$ARCHIVE" 2>/dev/null | tr -d '\r' || true)
+pair=$(tools sh -c 'ts="${0#files_}"; ts="${ts%.tar.gz}"; s=$(ls -1 /backups/files/set_"${ts}"_*.txt 2>/dev/null | head -n1); [ -n "$s" ] && sed -n "s/^full=\([^ ]*\) .*/\1/p" "$s"' "$ARCHIVE" 2>/dev/null | tr -d '\r' || true)
 if [[ -n "$pair" ]]; then log INFO "par acreditado de este tar: $pair (restaurarlo SIN logs da el estado coherente de esa corrida; con logs la base avanza mas que los archivos)"; else log WARN "este tar no tiene manifiesto de par: nada garantiza que corresponda al full que se restaure"; fi
 if ! out=$(dc run --rm -T --no-deps --quiet-pull -e FORCE="$FORCE" restore-files sh /opt/bury-backup/files-restore.sh "$ARCHIVE" 2>&1); then
   log ERROR "$out"; die $EX_RESTORE "restore-files fallo"

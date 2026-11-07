@@ -49,6 +49,16 @@ fi
 [[ -z "$STOPAT" || $WITH_LOGS == 1 ]] || die $EX_USAGE "--stopat requiere --with-logs"
 [[ "$TARGET" != "master" && "$TARGET" != "model" && "$TARGET" != "msdb" && "$TARGET" != "tempdb" ]] || die $EX_USAGE "--target-db no puede ser una base del sistema"
 
+# Restaurar la base de PRODUCCION no puede correr a la vez que un backup (que detiene/arranca `app` y puede recuperarla por la marca
+# .app-stopped-by-backup). Se toma el mismo lock y el operador asume el control de `app`: se borra la marca bajo el lock. Restaurar a otro
+# nombre (restore-test, verificaciones) no afecta a `app` y no toma el lock.
+if [[ "$TARGET" == "$DB_NAME" ]]; then
+  lrc=0; acquire_lock || lrc=$?
+  (( lrc == 0 )) || { (( lrc == 1 )) && die $EX_BUSY "hay un backup o un restore en curso (lock): esperar a que termine"; die $EX_PREREQ "no se pudo tomar el lock (ver el mensaje anterior)"; }
+  trap release_lock EXIT
+  rm -f "$BACKUP_DIR/.app-stopped-by-backup"
+fi
+
 log INFO "=== restore-sql inicio: $BACKUP -> [$TARGET] logs=$WITH_LOGS stopat='${STOPAT:-}' ==="
 
 # 1) el archivo existe, no esta vacio y coincide con su sha256

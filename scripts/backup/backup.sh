@@ -202,7 +202,8 @@ write_set() {
   fsha=$(tools sh -c 'cut -d" " -f1 "/backups/sql/$0.sha256"' "$full" 2>/dev/null | tr -d '\r' || true)
   tsha=$(tools sh -c 'cut -d" " -f1 "/backups/files/$0.sha256"' "$tar" 2>/dev/null | tr -d '\r' || true)
   [[ "$fsha" =~ ^[0-9a-f]{64}$ && "$tsha" =~ ^[0-9a-f]{64}$ ]] || { log WARN "manifiesto del par NO escrito: no se pudieron leer los sha256"; return 0; }
-  name="set_${tar#files_}"; name="${name%.tar.gz}.txt"
+  local tts fts; tts=${tar#files_}; tts=${tts%.tar.gz}; fts=${full#${DB_NAME}_full_}; fts=${fts%.bak}
+  name="set_${tts}_${fts}.txt"   # lleva AMBOS timestamps: la retencion sabe que full protege cada tar sin leer el contenido
   content=$(printf 'bury-backup-set v1\ncreated=%s\nfull=%s sha256=%s\nfiles=%s sha256=%s\napp_stopped=%s\n' \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$full" "$fsha" "$tar" "$tsha" "$SET_APP_STOPPED")
   if tools sh -c 'umask 077; printf "%s\n" "$1" > "/backups/files/$0.partial" && mv -f "/backups/files/$0.partial" "/backups/files/$0"' "$name" "$content" >/dev/null 2>&1; then
@@ -288,42 +289,17 @@ remote_retention() {
     log INFO "retencion remota: omitida (esta corrida no subio ni verifico ningun full ni tar)"; return 0
   fi
   log INFO "retencion remota: >${REMOTE_RETENTION_DAYS} dias por nombre, minimo ${REMOTE_MIN_KEEP} copias completas por tipo (solo nombres de este sistema)"
-  local now plan sub n line floor="" guard=0
-  local -a dels=()   # "sub|nombre"
+  local now plan sub n line floor="" fguard=0 tts setn pts prot=""
+  local -a dels=()        # "sub|nombre"
+  local -a gone_tars=()   # timestamps de los tars que ESTA corrida va a borrar
   now=$(date -u +%s)
 
-  # ---- fase 1: listados + planes (sin borrar nada)
-  if (( OFF_FULL_OK )); then
-    remote_list sql || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: no se pudo listar sql/ ($RCLONE_ERR)"; return 1; }
-    for n in "${RUN_SQL[@]}"; do
-      [[ "$n" == *_full_* ]] || continue
-      remote_list_has sql _ "$n" && remote_list_has sql _ "$n.sha256" \
-        || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: el listado de sql/ no contiene $n y su .sha256 (listado incompleto o remoto distinto)"; return 1; }
-    done
-    plan=$(remote_prune_plan full "$now" "$REMOTE_RETENTION_DAYS" "$REMOTE_MIN_KEEP" "$DB_NAME" <<<"${REMOTE_LIST[sql]}") \
-      || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: plan de fulls invalido"; return 1; }
-    local fguard=0
-    while IFS= read -r line; do
-      case "$line" in
-        DELETE\ *) dels+=("sql|${line#DELETE }") ;;
-        FLOOR\ *)  floor=${line#FLOOR } ;;
-        GUARD\ *)  fguard=1; guard=1; log WARN "retencion remota (fulls): ${line#GUARD }" ;;
-        WARN\ *)   log WARN "retencion remota (fulls): ${line#WARN }" ;;
-      esac
-    done <<<"$plan"
-    if (( ! fguard )); then
-      plan=$(remote_prune_plan log "$now" "$REMOTE_RETENTION_DAYS" "$REMOTE_MIN_KEEP" "$DB_NAME" "$floor" <<<"${REMOTE_LIST[sql]}") \
-        || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: plan de logs invalido"; return 1; }
-      while IFS= read -r line; do
-        case "$line" in
-          DELETE\ *) dels+=("sql|${line#DELETE }") ;;
-          GUARD\ *)  guard=1; log WARN "retencion remota (logs): ${line#GUARD }" ;;
-        esac
-      done <<<"$plan"
-    fi
+  # ---- fase 1: listados + planes (sin borrar nada). Primero los tars: los fulls que referencian los manifiestos de tars que
+  # SOBREVIVEN no se pueden borrar (si no, un par recuperable quedaria sin su full).
+  if (( OFF_FILES_OK || OFF_FULL_OK )); then
+    remote_list files || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: no se pudo listar files/ ($RCLONE_ERR)"; return 1; }
   fi
   if (( OFF_FILES_OK )); then
-    remote_list files || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: no se pudo listar files/ ($RCLONE_ERR)"; return 1; }
     for n in "${RUN_FILES[@]}"; do
       remote_list_has files _ "$n" && remote_list_has files _ "$n.sha256" \
         || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: el listado de files/ no contiene $n y su .sha256"; return 1; }
@@ -332,11 +308,52 @@ remote_retention() {
       || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: plan de archivos invalido"; return 1; }
     while IFS= read -r line; do
       case "$line" in
-        DELETE\ *) dels+=("files|${line#DELETE }") ;;
-        GUARD\ *)  guard=1; log WARN "retencion remota (archivos): ${line#GUARD }" ;;
+        DELETE\ *)
+          n=${line#DELETE }; dels+=("files|$n")
+          tts=${n#files_}; tts=${tts%.tar.gz}; gone_tars+=("$tts")
+          # el manifiesto del par se va con su tar (set_<ts-tar>_<ts-full>.txt)
+          while IFS= read -r setn; do [[ -n "$setn" ]] && dels+=("files|$setn"); done < <(cut -d'|' -f2- <<<"${REMOTE_LIST[files]}" | grep -E "^set_${tts}_${BK_TS}\.txt\$" || true) ;;
+        GUARD\ *)  log WARN "retencion remota (archivos): ${line#GUARD }" ;;
         WARN\ *)   log WARN "retencion remota (archivos): ${line#WARN }" ;;
       esac
     done <<<"$plan"
+  fi
+  if (( OFF_FULL_OK )); then
+    remote_list sql || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: no se pudo listar sql/ ($RCLONE_ERR)"; return 1; }
+    for n in "${RUN_SQL[@]}"; do
+      [[ "$n" == *_full_* ]] || continue
+      remote_list_has sql _ "$n" && remote_list_has sql _ "$n.sha256" \
+        || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: el listado de sql/ no contiene $n y su .sha256 (listado incompleto o remoto distinto)"; return 1; }
+    done
+    # fulls protegidos = referenciados por un manifiesto cuyo tar (completo) sobrevive a esta corrida
+    while IFS= read -r setn; do
+      [[ "$setn" =~ ^set_(${BK_TS})_(${BK_TS})\.txt$ ]] || continue
+      tts=${BASH_REMATCH[1]}; pts=${BASH_REMATCH[2]}
+      remote_list_has files _ "files_${tts}.tar.gz" && remote_list_has files _ "files_${tts}.tar.gz.sha256" || continue
+      [[ " ${gone_tars[*]-} " == *" $tts "* ]] && continue
+      prot+="$pts "
+    done < <(cut -d'|' -f2- <<<"${REMOTE_LIST[files]}" | grep -E "^set_${BK_TS}_${BK_TS}\.txt\$" || true)
+    plan=$(remote_prune_plan full "$now" "$REMOTE_RETENTION_DAYS" "$REMOTE_MIN_KEEP" "$DB_NAME" "$prot" <<<"${REMOTE_LIST[sql]}") \
+      || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: plan de fulls invalido"; return 1; }
+    while IFS= read -r line; do
+      case "$line" in
+        DELETE\ *) dels+=("sql|${line#DELETE }") ;;
+        FLOOR\ *)  floor=${line#FLOOR } ;;
+        GUARD\ *)  fguard=1; log WARN "retencion remota (fulls): ${line#GUARD }" ;;
+        WARN\ *)   log WARN "retencion remota (fulls): ${line#WARN }" ;;
+      esac
+    done <<<"$plan"
+    [[ -z "$prot" ]] || log INFO "retencion remota: fulls protegidos por pares conservados: ${prot}"
+    if (( ! fguard )); then
+      plan=$(remote_prune_plan log "$now" "$REMOTE_RETENTION_DAYS" "$REMOTE_MIN_KEEP" "$DB_NAME" "$floor" <<<"${REMOTE_LIST[sql]}") \
+        || { fail $EX_OFFSITE "retencion remota OMITIDA, no se borro nada: plan de logs invalido"; return 1; }
+      while IFS= read -r line; do
+        case "$line" in
+          DELETE\ *) dels+=("sql|${line#DELETE }") ;;
+          GUARD\ *)  log WARN "retencion remota (logs): ${line#GUARD }" ;;
+        esac
+      done <<<"$plan"
+    fi
   fi
 
   # ---- fase 2: ejecutar (principal primero; si se interrumpe queda, como mucho, un .sha256 huerfano e inofensivo)
@@ -344,10 +361,8 @@ remote_retention() {
   local d done_n=0 rout target
   for d in "${dels[@]}"; do
     sub=${d%%|*}; n=${d#*|}
-    local setn=""
-    if [[ "$sub" == files ]]; then setn="set_${n#files_}"; setn="${setn%.tar.gz}.txt"; fi   # el manifiesto del par se va con su tar
-    for target in "$n" "$n.sha256" $setn; do
-      [[ "$target" == "$n" ]] || remote_list_has "$sub" _ "$target" || continue   # .sha256 / manifiesto pueden no existir
+    for target in "$n" "$n.sha256"; do
+      [[ "$target" == "$n" ]] || remote_list_has "$sub" _ "$target" || continue   # el .sha256 puede no existir (logs, manifiestos)
       if ! rout=$(dc run --rm -T --no-deps --quiet-pull backup-offsite deletefile "$BACKUP_REMOTE/$sub/$target" 2>&1); then
         fail $EX_OFFSITE "retencion remota INTERRUMPIDA tras borrar $done_n archivo(s); fallo en $sub/$target: $(rclone_errtext "$rout")"; return 1
       fi
@@ -355,7 +370,7 @@ remote_retention() {
     log INFO "  remoto: borrado $sub/$n"
     done_n=$((done_n + 1))
   done
-  log INFO "retencion remota: $done_n copia(s) borrada(s)"
+  log INFO "retencion remota: $done_n archivo(s) borrado(s)"
 }
 
 # ---------------------------------------------------------------- retencion local

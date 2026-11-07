@@ -3,6 +3,7 @@
 # Sin docker, rclone, cron ni root reales: todo en un temp dir, con un remoto SIMULADO (un directorio) y datos sinteticos.
 #   bash scripts/backup/test-retention-remote.sh        (exit 0 = todo OK; lo invoca test-hardening.sh, que corre en CI)
 set -uo pipefail
+export BURY_ALLOW_DIR_LOCK=1   # el lock por directorio (sin flock) solo existe para desarrollo/tests; ver acquire_lock
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 PASS=0 FAIL=0
@@ -366,9 +367,9 @@ tools() { # tools sh -c <script> <a0> [a1]: lee sha (a0 = nombre) o escribe el m
 log() { :; }
 rm -f "$T/set_out" "$T/set_name"; RUN_SQL=("${DB}_full_2026-11-07_200000Z.bak"); RUN_FILES=("files_2026-11-07_200003Z.tar.gz"); SET_APP_STOPPED=true; RUN_SET=""
 write_set
-check "write_set: nombre set_<ts-del-tar>.txt" test "$(cat "$T/set_name" 2>/dev/null)" = "set_2026-11-07_200003Z.txt"
+check "write_set: nombre set_<ts-tar>_<ts-full>.txt" test "$(cat "$T/set_name" 2>/dev/null)" = "set_2026-11-07_200003Z_2026-11-07_200000Z.txt"
 check "write_set: acredita full y tar con sus sha256 y app_stopped" bash -c 'grep -q "^full=$1 sha256=$3\$" "$5" && grep -q "^files=$2 sha256=$4\$" "$5" && grep -q "^app_stopped=true\$" "$5" && grep -q "^bury-backup-set v1\$" "$5"' _ "${DB}_full_2026-11-07_200000Z.bak" "files_2026-11-07_200003Z.tar.gz" "$H1" "$H2" "$T/set_out"
-check "write_set: RUN_SET queda definido (se sube con los archivos)" test "$RUN_SET" = "set_2026-11-07_200003Z.txt"
+check "write_set: RUN_SET queda definido (se sube con los archivos)" test "$RUN_SET" = "set_2026-11-07_200003Z_2026-11-07_200000Z.txt"
 rm -f "$T/set_out"; RUN_SQL=(); RUN_FILES=("files_2026-11-07_200003Z.tar.gz"); RUN_SET=""; write_set
 check "write_set: sin full en la corrida no escribe nada" bash -c '[[ ! -e "$1" && -z "$2" ]]' _ "$T/set_out" "$RUN_SET"
 check "backup.sh: solo el modo all escribe el manifiesto" bash -c 'grep -q "all)   sql_full && files_backup && write_set ;;" "$1" && ! grep -E "^    (full|files|log)\).*write_set" "$1"' _ "$HERE/backup.sh"
@@ -385,9 +386,58 @@ dc() {
   return 0
 }
 BACKUP_DIR="$T/bk"; mkdir -p "$BACKUP_DIR/logs"; BACKUP_REMOTE="offsite:erp"; REMOTE_RETENTION_DAYS=30; REMOTE_MIN_KEEP=3; DB_NAME=$DB; rclone_errtext() { echo "$1"; }
-reset; for d in 1 5 31 40 60; do mktar $d; t=$(stamp $d); mk files "set_${t#files_}.txt" 300; done
+reset; for d in 1 5 31 40 60; do mktar $d; mk files "set_$(stamp $d)_$(stamp $d 3).txt" 300; done
 MODE=files; RUN_FILES=("files_$(stamp 1).tar.gz"); OFF_FILES_OK=1; remote_retention
-check "retencion remota: al borrar un tar se borra tambien su set_<ts>.txt (y los que sobreviven conservan el suyo)" bash -c '[[ ! -e "$1/files/set_$2.txt" && -e "$1/files/set_$3.txt" ]]' _ "$REM" "$(stamp 60)" "$(stamp 1)"
+check "retencion remota: al borrar un tar se borra tambien su set_<ts>.txt (y los que sobreviven conservan el suyo)" bash -c '[[ ! -e "$1/files/set_$2_$4.txt" && -e "$1/files/set_$3_$5.txt" ]]' _ "$REM" "$(stamp 60)" "$(stamp 1)" "$(stamp 60 3)" "$(stamp 1 3)"
 unset -f dc log fail
+
+
+# ------------------------------------------------------------------------------------------------------ 7. hallazgos de la revision adversarial (Codex)
+# 7.1 un par recuperable no pierde su full aunque lleguen fulls independientes mas nuevos (planificador + ejecutor remoto)
+PL=$( { for d in 1 2 3 4 40 45 50; do full $d; done; } )
+out=$(plan full "$NOW" 30 3 "$DB" "$(stamp 40) $(stamp 45) $(stamp 50)" <<<"$PL")
+check "pares: los fulls protegidos (40,45,50 d) NO se borran aunque haya 4 fulls independientes mas nuevos" test "$(grep -c '^DELETE' <<<"$out")" = 0
+check "pares: FLOOR = full protegido mas antiguo (los logs de ese rango se conservan)" grep -qx "FLOOR $(stamp 50)" <<<"$out"
+out=$(plan full "$NOW" 30 3 "$DB" "" <<<"$PL")
+check "pares: sin proteccion, esos mismos fulls antiguos si se borrarian (regresion que se cierra)" test "$(grep -c '^DELETE' <<<"$out")" = 3
+
+eval "$(sed -n '/^remote_retention() {/,/^}/p' "$HERE/backup.sh")"
+BACKUP_DIR="$T/bk"; mkdir -p "$BACKUP_DIR/logs"; BACKUP_REMOTE="offsite:erp"; REMOTE_RETENTION_DAYS=30; REMOTE_MIN_KEEP=3; DB_NAME=$DB
+log() { :; }; fail() { FAILCODE=$1; FAILMSG=$2; }; rclone_errtext() { echo "$1"; }
+dc() {
+  echo "$*" >>"$CALLS"
+  local sub f
+  if [[ "$*" == *" lsf "* ]]; then sub=$(sed -E 's#.*lsf offsite:erp/([a-z]+) .*#\1#' <<<"$*"); for f in "$REM/$sub"/*; do [[ -f "$f" ]] && echo "$(stat -c %s "$f")|$(basename "$f")"; done; return 0; fi
+  if [[ "$*" == *" deletefile "* ]]; then f=$(sed -E 's#.*deletefile offsite:erp/##' <<<"$*"); rm -f "$REM/$f"; return 0; fi
+  return 0
+}
+# escenario de Codex: 3 pares `all` de >30 d (tar + set + su full) y despues solo fulls independientes diarios
+reset
+for d in 40 45 50; do mktar $d; mk files "set_$(stamp $d)_$(stamp $d 3).txt" 300; mk sql "${DB}_full_$(stamp $d 3).bak" 5000; mk sql "${DB}_full_$(stamp $d 3).bak.sha256" 100; done
+for d in 1 2 3 4; do mkfull $d; done
+MODE=full; RUN_SQL=("${DB}_full_$(stamp 1).bak"); OFF_FULL_OK=1; remote_retention
+n_pair_fulls=0; for d in 40 45 50; do [[ -e "$REM/sql/${DB}_full_$(stamp $d 3).bak" ]] && n_pair_fulls=$((n_pair_fulls+1)); done
+check "remoto: sobreviven los 3 fulls de los 3 pares (tars y sets intactos)" test "$n_pair_fulls" = 3 -a "$(nfiles)" = 9
+# si el tar del par SE BORRA en esta misma corrida, su full deja de estar protegido
+reset
+for d in 40 45 50 60; do mktar $d; mk files "set_$(stamp $d)_$(stamp $d 3).txt" 300; mk sql "${DB}_full_$(stamp $d 3).bak" 5000; mk sql "${DB}_full_$(stamp $d 3).bak.sha256" 100; done
+for d in 1 2 3; do mkfull $d; mktar $d; done
+MODE=all; RUN_SQL=("${DB}_full_$(stamp 1).bak"); RUN_FILES=("files_$(stamp 1).tar.gz"); OFF_FULL_OK=1 OFF_FILES_OK=1; remote_retention
+check "remoto: el par cuyo tar se poda en ESTA corrida pierde tambien su full (ya no esta protegido)" bash -c '[[ ! -e "$1/files/files_$2.tar.gz" && ! -e "$1/files/set_$2_$3.txt" && ! -e "$1/sql/${4}_full_$3.bak" ]]' _ "$REM" "$(stamp 60)" "$(stamp 60 3)" "$DB"
+
+# 7.2 sin flock no hay lock para operaciones destructivas (salvo opt-in explicito de desarrollo)
+(
+  BACKUP_DIR="$T/nolock"; mkdir -p "$BACKUP_DIR"; log() { :; }
+  command() { if [[ "${1-}" == "-v" && "${2-}" == "flock" ]]; then return 1; fi; builtin command "$@"; }
+  unset BURY_ALLOW_DIR_LOCK; acquire_lock; echo "sin_optin=$?" >"$T/nolock.out"
+  BURY_ALLOW_DIR_LOCK=1 acquire_lock; echo "con_optin=$?" >>"$T/nolock.out"; release_lock
+)
+check "lock sin flock: rc 2 (rechazado) sin opt-in explicito" grep -qx "sin_optin=2" "$T/nolock.out"
+check "lock sin flock: con BURY_ALLOW_DIR_LOCK=1 (solo desarrollo/tests) funciona" grep -qx "con_optin=0" "$T/nolock.out"
+
+# 7.3 restore-sql sobre la base de produccion toma el lock y borra la marca bajo el, antes de restaurar nada
+check "restore-sql.sh: acquire_lock -> borrado de marca -> RESTORE (en ese orden)" bash -c 'awk "/acquire_lock \\|\\| lrc/{a=NR} /app-stopped-by-backup/{m=NR} /RESTORE DATABASE \\[/{r=NR} END{exit !(a&&m&&r&&a<m&&m<r)}" "$1"' _ "$HERE/restore-sql.sh"
+check "restore-sql.sh: el lock solo aplica cuando el destino ES la base de produccion (restore-test no lo toma)" grep -qE 'if \[\[ "\$TARGET" == "\$DB_NAME" \]\]; then' "$HERE/restore-sql.sh"
+unset -f dc log fail rclone_errtext
 
 echo; echo "resultado test-retention-remote: $PASS OK, $FAIL fallos"; (( FAIL == 0 ))

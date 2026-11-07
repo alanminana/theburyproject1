@@ -32,9 +32,10 @@ deleted=0
 
 ts_of() { echo "$1" | grep -oE "$TS"; }
 
-# prune <dir> <regex-del-nombre>: borra los mas viejos que el corte, salvo los MIN_KEEP mas recientes.
+# prune <dir> <regex-del-nombre> [timestamps-protegidos]: borra los mas viejos que el corte, salvo los MIN_KEEP mas recientes y salvo los
+# timestamps protegidos (fulls que referencia el manifiesto de un tar que se CONSERVA: sin su full el par no se puede recuperar).
 prune() {
-  dir="$1"; rx="$2"
+  dir="$1"; rx="$2"; prot="${3:-}"
   [ -d "$dir" ] || return 0
   files=$(ls -1 "$dir" | grep -E "^${rx}$" | sort || true)
   [ -n "$files" ] || { echo "  $dir: sin archivos que coincidan"; return 0; }
@@ -42,9 +43,10 @@ prune() {
   protected=$(echo "$files" | tail -n "$MIN_KEEP")
   for f in $files; do
     t=$(ts_of "$f")
+    case " $prot " in *" $t "*) echo "  KEEP $dir/$f (full de un par conservado)"; continue ;; esac
     if [ "$t" \< "$cutoff" ] && ! echo "$protected" | grep -qxF "$f"; then
       rm -f -- "$dir/$f" "$dir/$f.sha256"
-      case "$f" in files_*.tar.gz) s="set_${f#files_}"; rm -f -- "$dir/${s%.tar.gz}.txt" ;; esac   # manifiesto del par (modo all)
+      case "$f" in files_*.tar.gz) rm -f -- "$dir"/set_"${t}"_*.txt ;; esac   # manifiesto del par (modo all)
       echo "  DELETE $dir/$f"
       deleted=$((deleted + 1))
     fi
@@ -52,8 +54,15 @@ prune() {
   echo "  $dir: $total archivo(s) evaluados para $rx"
 }
 
-prune /backups/sql "${DB_NAME}_full_${TS}\.bak"
+# Primero los tars (y sus manifiestos): los fulls que referencian los manifiestos SUPERVIVIENTES quedan protegidos.
 prune /backups/files "files_${TS}\.tar\.gz"
+prot_full=""
+for s in $(ls -1 /backups/files 2>/dev/null | grep -E "^set_${TS}_${TS}\.txt$" || true); do
+  tts=$(echo "$s" | sed -E "s/^set_(${TS})_.*/\1/"); fts=$(echo "$s" | sed -E "s/^set_${TS}_(${TS})\.txt$/\1/")
+  [ -f "/backups/files/files_${tts}.tar.gz" ] && prot_full="$prot_full $fts"
+done
+[ -z "$prot_full" ] || echo "  fulls protegidos por pares conservados:$prot_full"
+prune /backups/sql "${DB_NAME}_full_${TS}\.bak" "$prot_full"
 
 # Logs: solo los anteriores al full mas antiguo que sobrevive.
 oldest_full=$(ls -1 /backups/sql | grep -E "^${DB_NAME}_full_${TS}\.bak$" | sort | head -n1 || true)

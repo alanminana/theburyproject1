@@ -175,8 +175,11 @@ levanta `app` (probado con SIGKILL real: marca + `app` detenida → `backup.sh l
 - Sin marca, `backup.sh` **no** arranca una `app` detenida (p. ej. detenida por el operador para un restore).
 - `restore-files.sh` (con el lock tomado y `app` detenida) borra la marca: el operador asume el control. `--list` no la toca.
 - Si `app` no llega a `healthy`, la marca **persiste** y se reintenta en la siguiente corrida (exit 10; no queda en silencio).
-- El lock es `flock` (el kernel lo libera aunque el proceso muera; los hijos de `docker` no heredan el descriptor). Un restore de archivos no corre a la vez
-  que un backup. Sin `flock` (Git Bash) se usa un lock por directorio.
+- El lock es `flock` (el kernel lo libera aunque el proceso muera; los hijos de `docker` no heredan el descriptor). `restore-files.sh` y `restore-sql.sh`
+  (este último solo cuando el destino es la base de producción) toman **el mismo lock** y borran la marca bajo él: un restore no corre a la vez que un backup
+  ni deja que una corrida programada arranque `app` a mitad (probado: `restore-sql` con un backup en curso sale con exit 4). **Sin `flock` (util-linux) los
+  scripts rechazan operar** (exit 8); el lock por directorio solo existe con `BURY_ALLOW_DIR_LOCK=1` para tests/desarrollo porque dos recuperadores sucesivos de un
+  lock huérfano podrían entrar a la vez.
 - Cobertura real: un corte del **host completo** se recupera en la siguiente corrida programada; si el Programador de tareas o Docker no arrancan tras el
   reinicio, nada corre: hace falta la alerta por ausencia de éxito reciente (`docs/monitoreo-alertas.md`).
 
@@ -207,7 +210,7 @@ Antes borraba por `mtime` **ambos tipos en cualquier modo ≠ `log`** y sin mín
 | Dos fases | Primero se listan y planifican **todos** los tipos; solo si todo salió bien se ejecuta. Un fallo de subida, verificación, listado o plan ⇒ **cero borrados** (probado, incluso «SQL bien y files fallido»). Si `deletefile` falla a mitad, se detiene y el mensaje dice cuántos se borraron. |
 | Listado válido | Debe contener principal y `.sha256` de lo de esta corrida; un listado vacío/parcial sin ellos aborta. Con password `crypt` equivocada el remoto «parece» casi vacío y la guarda de mínimo impide borrar (probado). |
 | Reloj | Un nombre con fecha futura (> ahora + 10 min) o imposible (`02-30`) en el remoto anula la poda de ese tipo. Un reloj *adelantado* en el servidor haría «viejas» copias válidas, pero el mínimo de 3 y el principio «solo tras subir esta corrida» acotan el daño; mantener NTP. |
-| Manifiesto del par | `set_<ts>.txt` (§10.2) se borra junto con su tar. |
+| Pares conservados | El manifiesto `set_<ts-tar>_<ts-full>.txt` (§10.2) se borra junto con su tar. Los **fulls que referencia el manifiesto de un tar que se conserva no se borran** (ni local ni remotamente): si no, fulls independientes más nuevos (p. ej. previos a un deploy) desplazarían el full de un par recuperable. Se calcula después de decidir qué tars se podan en la misma corrida; el piso de los logs incluye esos fulls protegidos. Probado local y remoto. |
 | Ajenos | Otras bases, sufijos extra, subdirectorios, `*.failed-verify`, notas: nunca se proponen. |
 
 Límites conocidos: un lock local no coordina **otro servidor** que escriba el mismo remoto (un solo escritor por destino); y el timestamp del
@@ -280,7 +283,7 @@ docker compose up -d --build --wait
 
 ### 10.2 ¿Qué full y qué tar van juntos? (decisión explícita)
 
-`restore-files.sh --list` marca los tars que tienen **par acreditado**: `backup.sh all` escribe `set_<ts>.txt` (nombres exactos, sha256 y si `app`
+`restore-files.sh --list` marca los tars que tienen **par acreditado**: `backup.sh all` escribe `set_<ts-tar>_<ts-full>.txt` (nombres exactos, sha256 y si `app`
 estuvo detenida) y lo sube con los archivos. `backup.sh full` (p. ej. el backup previo a un deploy) crea fulls *más nuevos* que el último tar: **«el
 último de cada uno» no es un par**. Hay dos recuperaciones válidas; elegir y registrar cuál:
 
