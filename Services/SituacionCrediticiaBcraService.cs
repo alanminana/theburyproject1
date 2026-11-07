@@ -160,7 +160,7 @@ namespace TheBuryProject.Services
                     return;
                 }
 
-                if (!results.TryGetProperty("periodos", out var periodos) || periodos.GetArrayLength() == 0)
+                if (!results.TryGetProperty("periodos", out var periodos) || periodos.ValueKind != JsonValueKind.Array || periodos.GetArrayLength() == 0)
                 {
                     // Sin deudas registradas
                     MarcarExito(cliente, 0, DescripcionSinDeudas, null);

@@ -278,6 +278,22 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         Assert.Equal("Sin deudas registradas", bd.SituacionCrediticiaDescripcion);
     }
 
+    [Fact]
+    public async Task ConsultarYActualizar_PeriodosNull_NoLanzaYMarcaSinDeudas()
+    {
+        // Respuesta 200 con "periodos": null (no es un arreglo): no debe lanzar InvalidOperationException.
+        _fakeHttp.SetResponse(HttpStatusCode.OK, """{"status":200,"results":{"identificacion":20123456789,"periodos":null}}""");
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(0, bd.SituacionCrediticiaBcra);
+    }
+
     // -------------------------------------------------------------------------
     // Respuesta BCRA — peor situación
     // -------------------------------------------------------------------------
