@@ -171,6 +171,22 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         Assert.Equal(0, _fakeHttp.CallCount);
     }
 
+    [Fact]
+    public async Task ConsultarYActualizar_CuilConCeroInicial_NoConsultaBcraNiRegistraError400()
+    {
+        // CuilHelper.Componer completa con ceros un prefijo vacio ("00" + DNI + "0").
+        // BCRA real responde HTTP 400 a cualquier identificador con cero inicial (V-01).
+        var cliente = await SeedClienteAsync(cuil: "00123456780");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal("CUIL/CUIT no cargado", bd.SituacionCrediticiaDescripcion);
+        Assert.Equal(0, _fakeHttp.CallCount);
+    }
+
     // -------------------------------------------------------------------------
     // Cache vigente — no reconsulta
     // -------------------------------------------------------------------------
@@ -260,6 +276,22 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         Assert.True(bd!.SituacionCrediticiaConsultaOk);
         Assert.Equal(0, bd.SituacionCrediticiaBcra);
         Assert.Equal("Sin deudas registradas", bd.SituacionCrediticiaDescripcion);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_PeriodosNull_NoLanzaYMarcaSinDeudas()
+    {
+        // Respuesta 200 con "periodos": null (no es un arreglo): no debe lanzar InvalidOperationException.
+        _fakeHttp.SetResponse(HttpStatusCode.OK, """{"status":200,"results":{"identificacion":20123456789,"periodos":null}}""");
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(0, bd.SituacionCrediticiaBcra);
     }
 
     // -------------------------------------------------------------------------
