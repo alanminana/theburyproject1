@@ -56,6 +56,19 @@ namespace TheBuryProject.Data
             }
         }
 
+        /// <summary>Diseño (CLI de EF): apuntar a la base real exige la misma habilitación explícita que el arranque.</summary>
+        public static void ValidarDestinoDeDiseno(string connectionString, IConfiguration configuration)
+        {
+            var catalogo = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString).InitialCatalog;
+            if (string.Equals(catalogo, "TheBuryProjectDb", StringComparison.OrdinalIgnoreCase)
+                && !configuration.GetValue(ClaveConfiguracion, false))
+            {
+                throw new MigracionesNoAutorizadasException(
+                    "El CLI de EF apunta a la base real 'TheBuryProjectDb' sin habilitación explícita. Para operar contra ella usar un respaldo/clon " +
+                    $"o habilitar {ClaveConfiguracion}=true (env Database__AllowMigrations=true) con autorización del propietario.");
+            }
+        }
+
         private static async Task<bool> TieneTablasDeUsuarioAsync(AppDbContext context)
         {
             var sql = context.Database.IsSqlServer()

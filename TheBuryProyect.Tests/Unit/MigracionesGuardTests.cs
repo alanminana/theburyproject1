@@ -91,4 +91,18 @@ public class MigracionesGuardTests : IDisposable
         await using var ctx = Ctx();
         await MigracionesGuard.AsegurarAutorizadoAsync(ctx, Cfg(null), explicitoPorComando: true);
     }
+
+    [Theory]
+    [InlineData("Server=.;Database=TheBuryProjectDb;Trusted_Connection=True", null, true)]
+    [InlineData("Server=.;Database=theburyprojectdb;Trusted_Connection=True", null, true)]
+    [InlineData("Server=.;Database=TheBuryProjectDb_DesignTime;Trusted_Connection=True", null, false)]
+    [InlineData("Server=.;Database=TheBuryProjectDb_qa;Trusted_Connection=True", null, false)]
+    [InlineData("Server=.;Database=TheBuryProjectDb;Trusted_Connection=True", true, false)]
+    public void CliDeEf_ContraLaBaseReal_ExigeHabilitacion(string cs, bool? allow, bool debeFallar)
+    {
+        if (debeFallar)
+            Assert.Throws<MigracionesNoAutorizadasException>(() => MigracionesGuard.ValidarDestinoDeDiseno(cs, Cfg(allow)));
+        else
+            MigracionesGuard.ValidarDestinoDeDiseno(cs, Cfg(allow));
+    }
 }
