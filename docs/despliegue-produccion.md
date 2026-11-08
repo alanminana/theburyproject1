@@ -126,6 +126,14 @@ powershell -NoProfile -File scripts\respaldo-local.ps1 -Accion Probar    -Raiz D
 - **Producción real no puede usar LocalDB**: `Production` exige `ErpDb:User/Password` (login SQL) y LocalDB no admite autenticación SQL. Producción =
   la pila Docker de este documento (SQL Server en contenedor) o un SQL Server Express/Standard instalado.
 
+## 7.9 Migraciones: protección de bases reales (2026-11-08)
+
+Mecanismos que pueden migrar: (1) arranque normal (`Database:InitializeOnStartup`, por defecto `true` en LocalDB/desarrollo → `DbInitializer`),
+(2) `TheBuryProyect.dll --migrate` (servicio `migrate` de docker-compose), (3) `--configurar-documentos`. **Una base con historial de migraciones y
+migraciones pendientes NO se migra** ni se siembra salvo habilitación explícita: `Database:AllowMigrations=true` (env `Database__AllowMigrations=true`)
+o el modo `--migrate` (explícito por definición). El arranque se detiene con un error `Critical` que lista las pendientes. Base nueva/vacía: se crea sin pedir nada.
+Procedimiento: respaldo → ensayo en clon → habilitar y arrancar (o `--migrate`) → quitar la habilitación.
+
 ## 8. Deuda conocida / mejoras pendientes
 
 - **CSP (Content-Security-Policy)** (D-05, 2026-11-08): implementada pero **apagada por defecto** (`Csp:Mode` = `Off`/`ReportOnly`/`Enforce`;
