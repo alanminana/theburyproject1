@@ -43,4 +43,20 @@ public class CspHandlersInlineContractTests
     {
         Assert.Contains("csp-actions.js", File.ReadAllText(Path.Combine(Root(), "Views", "Shared", "_Layout.cshtml")));
     }
+
+    [Fact]
+    public void FuncionesInvocadasPorDataAttributes_EstanEnLaListaPermitidaDeCspActions()
+    {
+        var root = Root();
+        var js = File.ReadAllText(Path.Combine(root, "wwwroot", "js", "csp-actions.js"));
+        var lista = Regex.Match(js, @"PERMITIDAS = \[(.*?)\]", RegexOptions.Singleline).Groups[1].Value;
+        var permitidas = Regex.Matches(lista, "'([A-Za-z0-9_]+)'").Select(m => m.Groups[1].Value).ToHashSet();
+        var usadas = new HashSet<string>();
+        var attr = new Regex(@"data-(?:fn|input-fn|change-fn|key-fn|submit-fn)=""([A-Za-z0-9_]+)""");
+        foreach (var f in Directory.EnumerateFiles(Path.Combine(root, "Views"), "*.cshtml", SearchOption.AllDirectories)
+                     .Concat(Directory.EnumerateFiles(Path.Combine(root, "Areas"), "*.cshtml", SearchOption.AllDirectories))
+                     .Concat(Directory.EnumerateFiles(Path.Combine(root, "wwwroot", "js"), "*.js").Where(x => !x.EndsWith("csp-actions.js"))))
+            foreach (Match m in attr.Matches(File.ReadAllText(f))) usadas.Add(m.Groups[1].Value);
+        Assert.Empty(usadas.Except(permitidas));
+    }
 }

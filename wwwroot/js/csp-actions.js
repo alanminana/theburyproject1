@@ -22,8 +22,16 @@
         } catch (e) { return []; }
     }
 
+    // Lista cerrada: solo estas funciones globales pueden invocarse por data-*. Evita que HTML inyectado llame a
+    // cualquier global (fetch, eval, ...). Al migrar un handler nuevo hay que agregar su función aquí (lo exige un test).
+    var PERMITIDAS = [
+        'activateTab', 'closeModal', 'documentoClienteAbrirModal', 'documentoClienteCerrarModal', 'fiUfConfirm',
+        'kdxApplyFilters', 'kdxClearFilters', 'puCloseModal', 'puConfirmManage', 'puDispoChange', 'puOpenManage',
+        'puSelectResolution', 'puUpdateManageAction', 'setMonto', 'toggleVendorDetail', 'stepRow'
+    ];
+
     function callFn(el, name, extra) {
-        var fn = name ? window[name] : null;
+        var fn = name && PERMITIDAS.indexOf(name) !== -1 ? window[name] : null;
         if (typeof fn !== 'function') return undefined;
         return fn.apply(window, extra || args(el));
     }
