@@ -64,8 +64,8 @@ else
                                 <a asp-action="Aumento" asp-route-id="@batch.Id" class="iconbtn go" title="Abrir lote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
                                 @if (batch.Estado == MercadoLibrePriceBatchEstado.Simulado)
                                 {
-                                    <button type="button" class="iconbtn danger" title="Cancelar lote" onclick="this.closest('tr').querySelector('.ml-cancel-form').requestSubmit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"></path></svg></button>
-                                    <form asp-action="AumentoCancelar" asp-route-id="@batch.Id" method="post" class="ml-cancel-form" onsubmit="return confirm('¿Cancelar este lote simulado?');" style="display:none">
+                                    <button type="button" class="iconbtn danger" title="Cancelar lote" data-action="submit-closest-form" data-closest="tr" data-form=".ml-cancel-form"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"></path></svg></button>
+                                    <form asp-action="AumentoCancelar" asp-route-id="@batch.Id" method="post" class="ml-cancel-form" data-confirm="¿Cancelar este lote simulado?" style="display:none">
                                         @Html.AntiForgeryToken()
                                     </form>
                                 }

@@ -104,7 +104,7 @@
                                         </svg>Importar listings</button>
                                     </form>
                                     <form asp-action="Desconectar" method="post" style="margin-left:auto"
-                                          onsubmit="return confirm('¿Desconectar la cuenta @cuenta.Nickname? Se eliminarán los tokens guardados.');">
+                                          data-confirm="¿Desconectar la cuenta @cuenta.Nickname? Se eliminarán los tokens guardados.">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@cuenta.Id" />
                                         <button type="submit" class="btn ghost" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none"

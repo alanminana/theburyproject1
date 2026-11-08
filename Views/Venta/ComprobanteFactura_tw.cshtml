@@ -250,8 +250,8 @@
 </head>
 <body>
     <div class="actions">
-        <button type="button" class="button button-secondary" onclick="history.back()">Volver</button>
-        <button type="button" class="button" onclick="window.print()">Imprimir</button>
+        <button type="button" class="button button-secondary" data-action="history-back">Volver</button>
+        <button type="button" class="button" data-action="print">Imprimir</button>
     </div>
 
     <main class="page">
@@ -456,5 +456,6 @@
             </section>
         }
     </main>
+    <script src="~/js/csp-actions.js" asp-append-version="true"></script>
 </body>
 </html>

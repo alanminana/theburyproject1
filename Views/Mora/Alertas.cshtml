@@ -316,7 +316,7 @@
                                                         </form>
                                                     }
                                                     <form asp-controller="Mora" asp-action="Resolver" asp-route-id="@a.Id" method="post"
-                                                          onsubmit="return confirm('¿Marcar esta alerta como resuelta?');">
+                                                          data-confirm="¿Marcar esta alerta como resuelta?">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="rowVersion" value="@rowVersion" />
                                                         <input type="hidden" name="returnUrl" value="@urlActual" />

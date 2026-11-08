@@ -162,7 +162,7 @@
                                     <button type="submit"
                                             class="@(p.Activa ? "btn-erp-ghost" : "btn-erp-warning") btn-sm"
                                             title="@(p.Activa ? "Desactivar plantilla" : "Activar plantilla")"
-                                            onclick="return confirm('@(p.Activa ? "¿Desactivar esta plantilla?" : "¿Activar esta plantilla?")')">
+                                            data-confirm="@(p.Activa ? "¿Desactivar esta plantilla?" : "¿Activar esta plantilla?")">
                                         <span class="material-symbols-outlined text-sm" aria-hidden="true">@(p.Activa ? "toggle_off" : "toggle_on")</span>
                                         @(p.Activa ? "Desactivar" : "Activar")
                                     </button>

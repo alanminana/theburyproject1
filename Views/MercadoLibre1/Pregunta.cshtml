@@ -34,8 +34,8 @@
 
             @if (puedeResponder)
             {
-                var onsubmitPregunta = esSimulada ? "" : "return confirm('Enviar esta respuesta REAL a Mercado Libre? Esta acción es visible para el comprador.');";
-                <form asp-action="PreguntaResponder" method="post" onsubmit="@onsubmitPregunta">
+                var confirmPregunta = esSimulada ? null : "Enviar esta respuesta REAL a Mercado Libre? Esta acción es visible para el comprador.";
+                <form asp-action="PreguntaResponder" method="post" data-confirm="@confirmPregunta">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="id" value="@Model.Id" />
                     <div class="field full" style="margin-top:16px">

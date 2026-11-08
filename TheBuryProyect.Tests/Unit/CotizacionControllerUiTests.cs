@@ -466,9 +466,11 @@ public sealed class CotizacionControllerUiTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
 
-        Assert.Contains("window.print()", view);
+        // D-05: sin handlers inline (CSP); csp-actions.js ejecuta window.print() / history.back() por data-action.
+        Assert.Contains("data-action=\"print\"", view);
         Assert.Contains("Imprimir", view);
-        Assert.Contains("history.back()", view);
+        Assert.Contains("data-action=\"history-back\"", view);
+        Assert.DoesNotContain("onclick=", view);
     }
 
     [Fact]

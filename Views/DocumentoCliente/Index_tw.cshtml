@@ -272,11 +272,11 @@
                             @foreach (var grupo in Model.ClientesAgrupados)
                             {
                                 <tr class="documento-grouped-row transition-colors hover:bg-slate-800/30 cursor-pointer"
-                                    onclick="documentoClienteAbrirModal(@grupo.ClienteId)"
+                                    data-action="call" data-fn="documentoClienteAbrirModal" data-args='[@grupo.ClienteId]'
                                     role="button"
                                     tabindex="0"
                                     aria-label="Ver documentos de @grupo.ClienteNombre"
-                                    onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); documentoClienteAbrirModal(@grupo.ClienteId); }">
+                                    data-key-fn="documentoClienteAbrirModal" data-keys="Enter, " data-args='[@grupo.ClienteId]'>
                                     <td class="px-6 py-4" data-label="Cliente">
                                         <div class="flex items-center gap-3">
                                             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
@@ -361,7 +361,7 @@
 
                                     <td class="px-6 py-4 text-right" data-label="Acciones">
                                         <button type="button"
-                                                onclick="event.stopPropagation(); documentoClienteAbrirModal(@grupo.ClienteId)"
+                                                data-action="call" data-fn="documentoClienteAbrirModal" data-args='[@grupo.ClienteId]' data-stop
                                                 class="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/20"
                                                 aria-label="Ver documentos de @grupo.ClienteNombre">
                                             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">folder_open</span>
@@ -448,7 +448,7 @@
                     @if (puedeSubirDocs)
                     {
                     <button type="button"
-                            onclick="document.getElementById('btn-abrir-upload-modal')?.click()"
+                            data-action="click-id" data-target-id="btn-abrir-upload-modal"
                             class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
                         <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                         Subir Documento
@@ -472,7 +472,7 @@
                  aria-modal="true"
                  aria-label="Documentos de @grupo.ClienteNombre">
                 <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"
-                     onclick="documentoClienteCerrarModal(@grupo.ClienteId)"></div>
+                     data-action="call" data-fn="documentoClienteCerrarModal" data-args='[@grupo.ClienteId]'></div>
 
                 <div class="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
                     <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
@@ -509,7 +509,7 @@
                             </a>
 
                             <button type="button"
-                                    onclick="documentoClienteCerrarModal(@grupo.ClienteId)"
+                                    data-action="call" data-fn="documentoClienteCerrarModal" data-args='[@grupo.ClienteId]'
                                     class="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
                                     aria-label="Cerrar modal">
                                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -693,7 +693,7 @@
                         </div>
 
                         <button type="button"
-                                onclick="documentoClienteCerrarModal(@grupo.ClienteId)"
+                                data-action="call" data-fn="documentoClienteCerrarModal" data-args='[@grupo.ClienteId]'
                                 class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white">
                             Cerrar
                         </button>

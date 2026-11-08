@@ -175,7 +175,7 @@
         <div role="status" class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
             <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-emerald-600/20">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded hover:bg-emerald-600/20">
                 <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -185,7 +185,7 @@
         <div role="alert" class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
             <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-red-600/20">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded hover:bg-red-600/20">
                 <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -254,7 +254,7 @@
                         Ver unidades físicas
                     </a>
                 }
-                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" onclick="window.print()">
+                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" data-action="print">
                     <span class="material-symbols-outlined" style="font-size:18px">print</span>
                     Imprimir / PDF
                 </button>
@@ -353,22 +353,22 @@
                 <h2 class="text-sm font-semibold text-white flex items-center gap-2">
                     <span class="material-symbols-outlined text-slate-400" style="font-size:18px">filter_alt</span> Filtros
                 </h2>
-                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" onclick="kdxClearFilters()">
+                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" data-action="call" data-fn="kdxClearFilters">
                     <span class="material-symbols-outlined" style="font-size:14px">backspace</span> Limpiar
                 </button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                     <label class="kdx-label" for="kdx-f-desde">Desde</label>
-                    <input id="kdx-f-desde" type="date" class="kdx-field" oninput="kdxApplyFilters()" />
+                    <input id="kdx-f-desde" type="date" class="kdx-field" data-input-fn="kdxApplyFilters" />
                 </div>
                 <div>
                     <label class="kdx-label" for="kdx-f-hasta">Hasta</label>
-                    <input id="kdx-f-hasta" type="date" class="kdx-field" oninput="kdxApplyFilters()" />
+                    <input id="kdx-f-hasta" type="date" class="kdx-field" data-input-fn="kdxApplyFilters" />
                 </div>
                 <div>
                     <label class="kdx-label" for="kdx-f-tipo">Tipo</label>
-                    <select id="kdx-f-tipo" class="kdx-field" onchange="kdxApplyFilters()">
+                    <select id="kdx-f-tipo" class="kdx-field" data-change-fn="kdxApplyFilters">
                         <option value="">Todos</option>
                         <option value="Entrada">Entradas</option>
                         <option value="Salida">Salidas</option>
@@ -380,7 +380,7 @@
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:16px">search</span>
                         <input id="kdx-f-busca" type="search" class="kdx-field" style="padding-left:2.25rem"
-                               placeholder="FAC-0001, ajuste…" oninput="kdxApplyFilters()" />
+                               placeholder="FAC-0001, ajuste…" data-input-fn="kdxApplyFilters" />
                     </div>
                 </div>
             </div>
@@ -535,7 +535,7 @@
                         <tr id="kdx-empty-row" hidden>
                             <td colspan="10" class="text-center text-slate-400" style="padding:2rem 1rem">
                                 Ningún movimiento coincide con los filtros.
-                                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" style="margin-left:.5rem" onclick="kdxClearFilters()">Limpiar filtros</button>
+                                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" style="margin-left:.5rem" data-action="call" data-fn="kdxClearFilters">Limpiar filtros</button>
                             </td>
                         </tr>
                     </tbody>

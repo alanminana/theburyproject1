@@ -12,6 +12,10 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/palette.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/standalone-tokens.css" asp-append-version="true" />
+    <style>
+        /* Reemplaza onmouseover/onmouseout inline (CSP): el box-shadow en línea del enlace se pisa con !important al pasar el mouse. */
+        a[data-hover-glow]:hover { box-shadow: 0 0 20px color-mix(in srgb, var(--pal-info-600) 40%, transparent) !important; }
+    </style>
 }
 
 <div class="relative flex items-center justify-center min-h-full -m-8"
@@ -56,11 +60,10 @@
                style="background-color: var(--c-primary-container);
                       color: var(--c-on-primary);
                       box-shadow: 0 0 20px color-mix(in srgb, var(--pal-info-600) 0%, transparent);"
-               onmouseover="this.style.boxShadow='0 0 20px color-mix(in srgb, var(--pal-info-600) 40%, transparent)'"
-               onmouseout="this.style.boxShadow='0 0 20px color-mix(in srgb, var(--pal-info-600) 0%, transparent)'">
+               data-hover-glow>
                 Volver al Dashboard
             </a>
-            <a href="javascript:history.back()"
+            <a href="#" data-action="history-back"
                class="flex items-center gap-2 font-medium transition-colors no-underline group"
                style="color: var(--c-primary-light);">
                 <span>Volver atrás</span>

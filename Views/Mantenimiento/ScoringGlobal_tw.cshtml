@@ -61,7 +61,7 @@
                 </button>
             </form>
             <form asp-action="RecalcularScoringGlobal" method="post"
-                  onsubmit="return confirm('Esto va a recalcular y persistir el scoring de TODOS los clientes activos. Continuar?');">
+                  data-confirm="Esto va a recalcular y persistir el scoring de TODOS los clientes activos. Continuar?">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="preview" value="false" />
                 <button type="submit" class="btn-erp-success">

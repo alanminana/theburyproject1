@@ -643,7 +643,7 @@
 
                                                 <!-- ============================ MODAL: PLAN DETAIL (drawer) ============================ -->
                                                 <div id="modal-plan" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="plan-title">
-                                                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('modal-plan')"></div>
+                                                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-action="call" data-fn="closeModal" data-args='["modal-plan"]'></div>
                                                     <aside
                                                         class="absolute right-0 top-0 h-full w-full sm:w-105 bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
                                                         <header class="px-4 py-3.5 border-b border-slate-800 flex items-start justify-between gap-3">
@@ -653,7 +653,7 @@
                                                                     <span id="plan-cuotas">—</span>
                                                                 </h3>
                                                             </div>
-                                                            <button type="button" onclick="closeModal('modal-plan')" aria-label="Cerrar"
+                                                            <button type="button" data-action="call" data-fn="closeModal" data-args='["modal-plan"]' aria-label="Cerrar"
                                                                     class="icon-btn btn btn-ghost"><span class="material-symbols-outlined text-slate-400"
                                                                                                      style="font-size:18px">close</span></button>
                                                             </header>
@@ -810,7 +810,7 @@
                                                                             </div>
                                                                         </div>
                                                                         <footer class="px-4 py-3.5 border-t border-slate-800 flex gap-2 justify-end">
-                                                                            <button type="button" class="btn btn-ghost" onclick="closeModal('modal-plan')">Cerrar</button>
+                                                                            <button type="button" class="btn btn-ghost" data-action="call" data-fn="closeModal" data-args='["modal-plan"]'>Cerrar</button>
                                                                             @* Elige la alternativa abierta y cierra: mismo camino que "Elegir" en la
                    fila (data-cotizacion-elegir), para que el drawer no sea un callejón
                    sin salida cuando se llegó a él explorando el detalle. *@
@@ -828,7 +828,7 @@
        precarga desde el cliente seleccionado sólo si el campo todavía está vacío (ver
        precargarEnvioDesdeCliente() en cotizacion-simulador.js). *@
                                                                 <div id="modal-envio" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-                                                                     onclick="if(event.target===this)closeModal('modal-envio')" role="dialog" aria-modal="true"
+                                                                     data-action="call-self" data-fn="closeModal" data-args='["modal-envio"]' role="dialog" aria-modal="true"
                                                                      aria-labelledby="cotizacion-envio-modal-title">
                                                                     <div class="min-h-full flex items-center justify-center p-4">
                                                                         <div class="cotz-modal panel w-full max-w-lg p-4">
@@ -914,7 +914,7 @@
        /conversion/factura-preview (mismo cálculo que ConvertirAVentaAsync, ver
        CotizacionConversionService.PreviewFacturaAsync) — nunca se recalculan en este JS. *@
                                                                     <div id="modal-facturar-config" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-                                                                         onclick="if(event.target===this)closeModal('modal-facturar-config')" role="dialog" aria-modal="true"
+                                                                         data-action="call-self" data-fn="closeModal" data-args='["modal-facturar-config"]' role="dialog" aria-modal="true"
                                                                          aria-labelledby="cotizacion-facturar-modal-title">
                                                                         <div class="min-h-full flex items-center justify-center p-4">
                                                                             <div class="cotz-modal panel w-full max-w-lg p-4">
@@ -957,7 +957,7 @@
        pedido lo pide explícitamente para la POC; no reemplaza ninguna validación real, sólo
        resume lo que ya se va a enviar. *@
                                                                             <div id="modal-confirmar-venta" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-                                                                                 onclick="if(event.target===this)closeModal('modal-confirmar-venta')" role="dialog" aria-modal="true"
+                                                                                 data-action="call-self" data-fn="closeModal" data-args='["modal-confirmar-venta"]' role="dialog" aria-modal="true"
                                                                                  aria-labelledby="confirmar-venta-title">
                                                                                 <div class="min-h-full flex items-center justify-center p-4">
                                                                                     <div class="cotz-modal panel w-full max-w-md p-4">
@@ -1039,7 +1039,7 @@
 
                                                                                         <!-- ============================ MODAL: QUITAR PRODUCTO ============================ -->
                                                                                         <div id="modal-quitar-producto" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-                                                                                             onclick="if(event.target===this)closeModal('modal-quitar-producto')" role="dialog" aria-modal="true"
+                                                                                             data-action="call-self" data-fn="closeModal" data-args='["modal-quitar-producto"]' role="dialog" aria-modal="true"
                                                                                              aria-labelledby="quitar-title">
                                                                                             <div class="min-h-full flex items-center justify-center p-4">
                                                                                                 <div class="cotz-modal panel w-full max-w-md p-4">
@@ -1055,7 +1055,7 @@
                                                                                                     </div>
                                                                                                     <div class="mt-4 flex justify-end gap-2">
                                                                                                         <button type="button" class="btn btn-ghost"
-                                                                                                                onclick="closeModal('modal-quitar-producto')">Cancelar</button>
+                                                                                                                data-action="call" data-fn="closeModal" data-args='["modal-quitar-producto"]'>Cancelar</button>
                                                                                                         <button type="button" id="cotizacion-quitar-confirm" class="btn btn-amber">
                                                                                                             <span class="material-symbols-outlined" style="font-size:18px">delete</span> Quitar
                                                                                                         </button>
