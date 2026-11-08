@@ -1,15 +1,15 @@
 const { chromium } = require('playwright');
-const BASE = process.env.CSP_BASE_URL || 'http://127.0.0.1:5199';
+const G = require('./guard');
+const BASE = G.BASE;
 const res = []; const ok = (n, c, d) => res.push([c ? 'OK  ' : 'FAIL', n, d || ''].join(' | '));
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
-  const page = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
+  const page = await (await G.newContext(browser, { viewport: { width: 1366, height: 900 } })).newPage();
   const viol = []; await page.exposeFunction('__v', x => viol.push(x));
   await page.addInitScript(() => document.addEventListener('securitypolicyviolation', e => window.__v(e.effectiveDirective + ' @' + location.pathname)));
   const errs = []; page.on('pageerror', e => errs.push(e.message.slice(0, 140)));
-  await page.goto(BASE + '/Identity/Account/Login');
-  await page.fill('input[name="Input.UserName"]', 'admin'); await page.fill('input[name="Input.Password"]', 'Admin123!');
-  await Promise.all([page.waitForNavigation(), page.click('form[method=post] button[type=submit]')]);
+  await G.login(page);
+  await G.assertSentinel(page, '/DocumentoCliente', 'Sintetica');
   for (const vp of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(vp); const tag = vp.width + 'px';
     await page.goto(BASE + '/DocumentoCliente', { waitUntil: 'networkidle' });

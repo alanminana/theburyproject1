@@ -1,18 +1,20 @@
 const { chromium } = require('playwright');
-const BASE = process.env.CSP_BASE_URL || 'http://127.0.0.1:5199';
+const G = require('./guard');
+const BASE = G.BASE;
 const res = []; const ok = (n, c, d) => res.push([c ? 'OK  ' : 'FAIL', n, d || ''].join(' | '));
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
-  const page = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
+  const page = await (await G.newContext(browser, { viewport: { width: 1366, height: 900 } })).newPage();
   const viol = []; await page.exposeFunction('__v', x => viol.push(x));
   await page.addInitScript(() => document.addEventListener('securitypolicyviolation', e => window.__v(e.effectiveDirective + ' @' + location.pathname)));
   const errs = []; page.on('pageerror', e => errs.push(e.message.slice(0, 140)));
-  await page.goto(BASE + '/Identity/Account/Login');
-  await page.fill('input[name="Input.UserName"]', 'admin'); await page.fill('input[name="Input.Password"]', 'Admin123!');
-  await Promise.all([page.waitForNavigation(), page.click('form[method=post] button[type=submit]')]);
+  await G.login(page);
+  await G.assertSentinel(page, '/Devolucion', 'DEV-SINT-1');
+  const detHref = await page.$$eval('a[href*="/Devolucion/Detalles/"]', as => as.map(a => a.getAttribute('href')));
+  const detUrl = detHref.find(h => /Detalles\/\d+/.test(h)) || '/Devolucion/Detalles/1';
   for (const vp of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(vp); const tag = vp.width + 'px';
-    const r = await page.goto(BASE + '/Devolucion/Detalles/2', { waitUntil: 'networkidle' });
+    const r = await page.goto(BASE + detUrl, { waitUntil: 'networkidle' });
     ok(`[${tag}] Detalles carga`, r.status() === 200 && /Detalles/.test(page.url()), page.url());
     const hid = id => page.evaluate(i => { const e = document.getElementById(i); return e ? e.classList.contains('hidden') : null; }, id);
     const bR = await page.$('[data-action="toggle-hide"][data-toggle="rechazar-panel"]');
