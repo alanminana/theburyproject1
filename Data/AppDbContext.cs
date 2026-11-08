@@ -2384,6 +2384,14 @@ namespace TheBuryProject.Data
                     .WithMany(c => c.Aperturas)
                     .HasForeignKey(e => e.CajaId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                // D-04: defensa en la base. AbrirCajaAsync ya serializa con locks de aplicación (H-05/H-11), pero nada impedía que
+                // otra vía de escritura dejara dos aperturas vigentes de la misma caja. Como máximo UNA apertura sin cerrar por caja.
+                entity.HasIndex(e => new { e.CajaId, e.Cerrada }).HasDatabaseName("IX_AperturasCaja_CajaId_Cerrada");
+                entity.HasIndex(e => e.CajaId)
+                    .IsUnique()
+                    .HasFilter("[Cerrada] = 0 AND [IsDeleted] = 0")
+                    .HasDatabaseName("UX_AperturasCaja_CajaId_Abierta");
             });
 
             // =======================

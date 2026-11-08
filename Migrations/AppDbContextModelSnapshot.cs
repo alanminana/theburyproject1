@@ -947,7 +947,13 @@ namespace TheBuryProject.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CajaId");
+                    b.HasIndex("CajaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AperturasCaja_CajaId_Abierta")
+                        .HasFilter("[Cerrada] = 0 AND [IsDeleted] = 0");
+
+                    b.HasIndex("CajaId", "Cerrada")
+                        .HasDatabaseName("IX_AperturasCaja_CajaId_Cerrada");
 
                     b.ToTable("AperturasCaja");
                 });
