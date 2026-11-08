@@ -132,4 +132,11 @@ public class MigracionesGuardTests : IDisposable
         var ex = Record.Exception(() => ctx.Database.OpenConnection());
         Assert.IsNotType<MigracionesNoAutorizadasException>(ex); // falla por servidor inaccesible, no por el guard
     }
+
+    [Fact]
+    public async Task Interceptor_BloqueaTambienLaAperturaAsincrona()
+    {
+        await using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        await Assert.ThrowsAsync<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnectionAsync());
+    }
 }
