@@ -364,8 +364,8 @@
                     @foreach (var unidad in Model.Unidades)
                     {
                         var _hasMobileActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
-                        var _mCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
-                        var _mSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                        var _mCode = unidad.CodigoInternoUnidad;
+                        var _mSerial = (unidad.NumeroSerie ?? "—");
                         var _mLabel = BChipLabel(unidad.Estado);
                         var _mChipClass = BChipClass(unidad.Estado);
                         var _mAcciones = new List<object>();
@@ -485,8 +485,8 @@
                             @foreach (var unidad in Model.Unidades)
                             {
                                 var _hasActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
-                                var _dCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
-                                var _dSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                                var _dCode = unidad.CodigoInternoUnidad;
+                                var _dSerial = (unidad.NumeroSerie ?? "—");
                                 var _dLabel = BChipLabel(unidad.Estado);
                                 var _dChipClass = BChipClass(unidad.Estado);
                                 var _dAcciones = new List<object>();
