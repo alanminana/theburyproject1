@@ -34,7 +34,7 @@
         }
         @if (puedeGenerarOrdenOperativaSimulada)
         {
-            <form asp-action="OrdenGenerarOperativaSimulada" method="post" onsubmit="return confirm('Generar una orden operativa simulada local? No llama a Mercado Libre, pero permite crear venta interna y descontar stock ERP.');">
+            <form asp-action="OrdenGenerarOperativaSimulada" method="post" data-confirm="Generar una orden operativa simulada local? No llama a Mercado Libre, pero permite crear venta interna y descontar stock ERP.">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M7 8h10M7 12h10M7 16h6"></path></svg>Operativa simulada</button>
             </form>

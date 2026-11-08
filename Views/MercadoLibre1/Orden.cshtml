@@ -22,7 +22,7 @@
     <div class="acts">
         @if (Model.PuedeCrearVenta)
         {
-            <form asp-action="OrdenCrearVenta" method="post" onsubmit="return confirm('¿Crear la venta interna y descontar stock? Descuenta stock real del ERP.');">
+            <form asp-action="OrdenCrearVenta" method="post" data-confirm="¿Crear la venta interna y descontar stock? Descuenta stock real del ERP.">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Crear venta</button>
@@ -30,7 +30,7 @@
         }
         @if (Model.EstadoInterno == MercadoLibreOrderEstadoInterno.Importada && Model.VentaId is null)
         {
-            <form asp-action="OrdenIgnorar" method="post" onsubmit="return confirm('¿Marcar esta orden como ignorada?');">
+            <form asp-action="OrdenIgnorar" method="post" data-confirm="¿Marcar esta orden como ignorada?">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <button type="submit" class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M15 9l-6 6M9 9l6 6"></path></svg>Ignorar</button>
@@ -123,9 +123,9 @@
                 </div>
             }
             @{
-                var onsubmitMensaje = mensajeEsSimulado ? "" : "return confirm('Enviar este mensaje REAL a Mercado Libre? Es visible para el comprador.');";
+                var confirmMensaje = mensajeEsSimulado ? null : "Enviar este mensaje REAL a Mercado Libre? Es visible para el comprador.";
             }
-            <form asp-action="MensajeResponder" method="post" onsubmit="@onsubmitMensaje">
+            <form asp-action="MensajeResponder" method="post" data-confirm="@confirmMensaje">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="orderId" value="@Model.Id" />
                 @if (!mensajeEsSimulado)
@@ -158,7 +158,7 @@
                 }
                 else if (Model.PuedeLiquidar)
                 {
-                    <form asp-action="OrdenLiquidar" method="post" style="margin-top:12px" onsubmit="return confirm('¿Registrar la liquidación como ingreso de caja? Requiere caja abierta.');">
+                    <form asp-action="OrdenLiquidar" method="post" style="margin-top:12px" data-confirm="¿Registrar la liquidación como ingreso de caja? Requiere caja abierta.">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="id" value="@Model.Id" />
                         <div class="field"><label>Neto real acreditado</label><div class="suffix"><input type="number" step="0.01" min="0.01" name="netoReal" required value="@(Model.NetoEstimado?.ToString("0.##"))" /><span class="u">ARS</span></div></div>
@@ -178,7 +178,7 @@
         <div class="railcard"><div class="rh">Reclamos @if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.Ninguna && !Model.TieneClaimPendiente) {<span class="chip ok"><span class="dot"></span>Ninguno</span>} else {<span class="chip warn"><span class="dot"></span>Pendiente</span>}</div><div class="rb">
             @if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision)
             {
-                <form asp-action="OrdenDevolucion" method="post" onsubmit="return confirm('¿Confirmar la decisión sobre esta devolución?');">
+                <form asp-action="OrdenDevolucion" method="post" data-confirm="¿Confirmar la decisión sobre esta devolución?">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="id" value="@Model.Id" />
                     <div class="field"><label>Decisión de devolución</label>

@@ -92,7 +92,7 @@
                         }
                         <button type="submit" class="btn primary" id="ml-publish-btn" disabled="@(Model.PuedeSimular ? null : "disabled")"><span class="material-symbols-outlined" data-ml-btn-icon style="font-size:16px">science</span><span data-ml-btn-text>Simular publicación</span></button>
                     </form>
-                    <form asp-action="BorradorDescartar" method="post" onsubmit="return confirm('¿Descartar el borrador? Si no se publicó en ML, solo se oculta localmente.');">
+                    <form asp-action="BorradorDescartar" method="post" data-confirm="¿Descartar el borrador? Si no se publicó en ML, solo se oculta localmente.">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="id" value="@Model.Id" />
                         <button type="submit" class="btn ghost" disabled="@(Model.PuedeDescartar ? null : "disabled")" style="color:var(--red)">Descartar</button>

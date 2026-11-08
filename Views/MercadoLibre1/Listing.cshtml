@@ -80,7 +80,7 @@
                 <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:6px">
                     @if (Model.EstaActiva)
                     {
-                        <form asp-action="ListingCambiarEstado" method="post" onsubmit="return confirm('¿Pausar la publicación en Mercado Libre?');">
+                        <form asp-action="ListingCambiarEstado" method="post" data-confirm="¿Pausar la publicación en Mercado Libre?">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="accion" value="pausar" /><input type="hidden" name="confirmarReal" value="true" />
                             <button type="submit" class="btn sm">Pausar publicación</button>
@@ -88,13 +88,13 @@
                     }
                     @if (Model.EstaPausada)
                     {
-                        <form asp-action="ListingCambiarEstado" method="post" onsubmit="return confirm('¿Reactivar la publicación?');">
+                        <form asp-action="ListingCambiarEstado" method="post" data-confirm="¿Reactivar la publicación?">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="accion" value="reactivar" /><input type="hidden" name="confirmarReal" value="true" />
                             <button type="submit" class="btn sm">Reactivar publicación</button>
                         </form>
                     }
-                    <form asp-action="ListingCambiarEstado" method="post" onsubmit="return confirm('FINALIZAR es IRREVERSIBLE en Mercado Libre. ¿Continuar?');">
+                    <form asp-action="ListingCambiarEstado" method="post" data-confirm="FINALIZAR es IRREVERSIBLE en Mercado Libre. ¿Continuar?">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="accion" value="finalizar" /><input type="hidden" name="confirmarReal" value="true" />
                         <button type="submit" class="btn sm ghost" style="color:var(--red)">Finalizar (irreversible)</button>
@@ -129,7 +129,7 @@
 <div data-li-panel="editar" class="hide">
     <div class="card"><div class="cardpad">
         <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>Editar publicación</div>
-        <form asp-action="ListingEditar" method="post" onsubmit="return confirm('¿Aplicar los cambios a la publicación?');">
+        <form asp-action="ListingEditar" method="post" data-confirm="¿Aplicar los cambios a la publicación?">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
             <div class="formgrid">
@@ -155,7 +155,7 @@
     <div class="card"><div class="cardpad">
         <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M7 12h10M10 19h4"></path></svg>Categoría</div>
         <p class="hint" style="margin-bottom:10px">Categoría actual: <span style="font-family:var(--mono);color:var(--ink)">@(string.IsNullOrWhiteSpace(Model.CategoryId) ? "sin categoría" : Model.CategoryId)</span>. Solo se publica en categorías hoja.</p>
-        <form asp-action="ListingEditarCategoria" method="post" onsubmit="return confirm('¿Cambiar la categoría de la publicación en Mercado Libre?');">
+        <form asp-action="ListingEditarCategoria" method="post" data-confirm="¿Cambiar la categoría de la publicación en Mercado Libre?">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
             <input type="hidden" id="Titulo" value="@Model.Titulo" />
@@ -191,7 +191,7 @@
         {
             <p class="hint" style="color:var(--amber);margin-bottom:8px">No se pudo consultar la descripción actual en Mercado Libre.</p>
         }
-        <form asp-action="ListingEditarDescripcion" method="post" onsubmit="return confirm('¿Reemplazar la descripción de la publicación?');">
+        <form asp-action="ListingEditarDescripcion" method="post" data-confirm="¿Reemplazar la descripción de la publicación?">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
             <div class="field full"><textarea name="descripcion" rows="6" placeholder="Descripción en texto plano...">@Model.Descripcion</textarea></div>
@@ -230,7 +230,7 @@
         }
 
         <div class="subsec" style="cursor:default;margin-top:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Reemplazar fotos</div>
-        <form asp-action="ListingEditarImagenes" method="post" data-ml-listing-img data-url-subir="@Url.Action("ListingSubirImagen")" onsubmit="return confirm('¿Reemplazar TODAS las imágenes de la publicación en Mercado Libre?');">
+        <form asp-action="ListingEditarImagenes" method="post" data-ml-listing-img data-url-subir="@Url.Action("ListingSubirImagen")" data-confirm="¿Reemplazar TODAS las imágenes de la publicación en Mercado Libre?">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">

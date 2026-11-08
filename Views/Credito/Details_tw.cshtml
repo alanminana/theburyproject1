@@ -127,7 +127,7 @@
                 </p>
             </div>
             <div data-credito-header-actions class="head-actions">
-                <button type="button" class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
+                <button type="button" class="btn btn-ghost" data-action="print"><span class="material-symbols-outlined">print</span>Imprimir</button>
                 <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar</a>
                 @if (puedeAprobarCredito && cr.Estado == EstadoCredito.Solicitado)
                 {

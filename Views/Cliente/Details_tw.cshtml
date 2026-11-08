@@ -293,7 +293,7 @@ else
             </div>
         </div>
         <div class="head-actions">
-            <button type="button" class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
+            <button type="button" class="btn btn-ghost" data-action="print"><span class="material-symbols-outlined">print</span>Imprimir</button>
             @if (puedeEditarCliente)
             {
                 <a asp-action="Edit" asp-route-id="@c.Id" asp-route-returnUrl="@returnToDetails" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar perfil</a>

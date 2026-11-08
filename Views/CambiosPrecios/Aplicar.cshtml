@@ -68,7 +68,7 @@
             <div class="flex justify-end gap-3 pt-2">
                 <a asp-action="Preview" asp-route-id="@Model.BatchId" class="btn-erp-ghost">Cancelar</a>
                 <button type="submit" class="btn-erp-primary"
-                        onclick="return confirm('¿Confirmar la aplicación de este batch? Los precios serán actualizados inmediatamente.')">
+                        data-confirm="¿Confirmar la aplicación de este batch? Los precios serán actualizados inmediatamente.">
                     <span class="material-symbols-outlined text-base">bolt</span>
                     Aplicar batch
                 </button>

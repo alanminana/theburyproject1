@@ -25,7 +25,7 @@
     <div class="acts">
         @if (Model.Estado == MercadoLibrePriceBatchEstado.Simulado)
         {
-            <form asp-action="AumentoAplicar" method="post" style="display:flex;align-items:center;gap:9px" onsubmit="return confirm('¿Aplicar el lote de precios?');">
+            <form asp-action="AumentoAplicar" method="post" style="display:flex;align-items:center;gap:9px" data-confirm="¿Aplicar el lote de precios?">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 @if (!Model.ModoSimulacion)
@@ -34,7 +34,7 @@
                 }
                 <button type="submit" class="btn primary" disabled="@(Model.PuedeAplicar ? null : "disabled")"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"></path></svg>Aplicar</button>
             </form>
-            <form asp-action="AumentoCancelar" method="post" onsubmit="return confirm('¿Cancelar el lote?');">
+            <form asp-action="AumentoCancelar" method="post" data-confirm="¿Cancelar el lote?">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <button type="submit" class="btn ghost">Cancelar</button>
@@ -42,7 +42,7 @@
         }
         else if (Model.PuedeRevertir)
         {
-            <form asp-action="AumentoRevertir" method="post" style="display:flex;align-items:center;gap:9px" onsubmit="return confirm('ROLLBACK: se re-publican los precios anteriores del snapshot. ¿Continuar?');">
+            <form asp-action="AumentoRevertir" method="post" style="display:flex;align-items:center;gap:9px" data-confirm="ROLLBACK: se re-publican los precios anteriores del snapshot. ¿Continuar?">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <input type="text" name="motivo" maxlength="500" placeholder="Motivo del rollback" style="background:var(--bg);border:1px solid var(--line-3);border-radius:9px;padding:8px 10px;color:var(--ink);font-size:12.5px;width:180px" />
