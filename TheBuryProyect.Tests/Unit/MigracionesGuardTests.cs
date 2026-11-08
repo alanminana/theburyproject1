@@ -44,6 +44,23 @@ public class MigracionesGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task BaseConTablasPeroSinHistorial_SinHabilitar_Falla()
+    {
+        using (var cmd = _conn.CreateCommand()) { cmd.CommandText = "CREATE TABLE Clientes (Id INTEGER PRIMARY KEY)"; cmd.ExecuteNonQuery(); }
+        await using var ctx = Ctx();
+        var ex = await Assert.ThrowsAsync<MigracionesNoAutorizadasException>(() => MigracionesGuard.AsegurarAutorizadoAsync(ctx, Cfg(null)));
+        Assert.Contains("historial", ex.Message);
+    }
+
+    [Fact]
+    public async Task ErrorAlVerificar_FallaCerrado()
+    {
+        var ctx = Ctx();
+        await ctx.DisposeAsync();
+        await Assert.ThrowsAsync<MigracionesNoAutorizadasException>(() => MigracionesGuard.AsegurarAutorizadoAsync(ctx, Cfg(null)));
+    }
+
+    [Fact]
     public async Task ConfiguracionFalse_TambienFalla()
     {
         SimularBaseConHistorial();

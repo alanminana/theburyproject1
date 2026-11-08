@@ -20,19 +20,58 @@ namespace TheBuryProject.Data
             if (explicitoPorComando || configuration.GetValue(ClaveConfiguracion, false))
                 return;
 
-            var pendientes = (await context.Database.GetPendingMigrationsAsync()).ToList();
-            if (pendientes.Count == 0)
-                return;
+            try
+            {
+                // Sin conexión (p. ej. la base aún no existe y el servicio migrate la crea): no hay nada real que proteger.
+                if (!await context.Database.CanConnectAsync())
+                    return;
 
-            var aplicadas = (await context.Database.GetAppliedMigrationsAsync()).Any();
-            if (!aplicadas)
-                return; // base nueva o vacía: crear el esquema inicial no es tocar una base real
+                var pendientes = (await context.Database.GetPendingMigrationsAsync()).ToList();
+                if (pendientes.Count == 0)
+                    return;
 
-            throw new MigracionesNoAutorizadasException(
-                $"La base tiene {pendientes.Count} migración(es) pendiente(s) ({string.Join(", ", pendientes.Take(5))}" +
-                $"{(pendientes.Count > 5 ? ", …" : "")}) y NO están habilitadas. El arranque no modificó el esquema ni sembró datos. " +
-                $"Para aplicarlas: hacer respaldo y habilitar explícitamente con {ClaveConfiguracion}=true (env Database__AllowMigrations=true) " +
-                "o ejecutar TheBuryProyect.dll --migrate.");
+                var aplicadas = (await context.Database.GetAppliedMigrationsAsync()).Any();
+                if (!aplicadas && !await TieneTablasDeUsuarioAsync(context))
+                    return; // base realmente vacía: crear el esquema inicial no es tocar una base real
+
+                var detalle = aplicadas
+                    ? $"tiene {pendientes.Count} migración(es) pendiente(s) ({string.Join(", ", pendientes.Take(5))}{(pendientes.Count > 5 ? ", …" : "")})"
+                    : "tiene tablas pero NO tiene historial de migraciones";
+                throw new MigracionesNoAutorizadasException(
+                    $"La base {detalle} y la migración NO está habilitada. El arranque no modificó el esquema ni sembró datos. " +
+                    $"Para aplicarla: hacer respaldo y habilitar explícitamente con {ClaveConfiguracion}=true (env Database__AllowMigrations=true) " +
+                    "o ejecutar TheBuryProyect.dll --migrate.");
+            }
+            catch (MigracionesNoAutorizadasException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Si no se puede verificar el estado del esquema tampoco se arranca (falla cerrada).
+                throw new MigracionesNoAutorizadasException(
+                    "No se pudo verificar el estado de las migraciones de la base; el arranque se detiene sin modificar nada: " + ex.Message);
+            }
+        }
+
+        private static async Task<bool> TieneTablasDeUsuarioAsync(AppDbContext context)
+        {
+            var sql = context.Database.IsSqlServer()
+                ? "SELECT COUNT(*) FROM sys.tables WHERE name <> '__EFMigrationsHistory'"
+                : "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name <> '__EFMigrationsHistory' AND name NOT LIKE 'sqlite_%'";
+            var conn = context.Database.GetDbConnection();
+            var abierta = conn.State == System.Data.ConnectionState.Open;
+            if (!abierta) await conn.OpenAsync();
+            try
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+            }
+            finally
+            {
+                if (!abierta) await conn.CloseAsync();
+            }
         }
     }
 }
