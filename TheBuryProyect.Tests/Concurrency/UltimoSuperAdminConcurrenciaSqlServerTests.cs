@@ -2,11 +2,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using TheBuryProject.Models.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using Xunit;
@@ -459,7 +459,6 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         }
     }
 
-<<<<<<< HEAD
     [SuperAdminSqlServerFact(DisplayName = "H-35 [SA-PERM-ORIGEN] copia mientras el rol ORIGEN se modifica: el destino queda con un conjunto completo, nunca mezclado")]
     public async Task CopiaMientrasElOrigenCambia_DestinoNuncaQedaMezclado()
     {
@@ -518,7 +517,8 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         Assert.True(mezclas.Count == 0, $"{mezclas.Count} mezclas. Ej.: {mezclas.FirstOrDefault()} | errores: {string.Join(" ; ", errores.Distinct().Take(3))}");
         Assert.Empty(errores.Distinct());
         Assert.True(mezclas.Count == 0, $"{mezclas.Count} copias dejaron el destino mezclado. Ej.: {mezclas.FirstOrDefault()}");
-=======
+    }
+
     private static AperturaCaja Apertura(int cajaId, string usuario, bool cerrada = false, bool eliminada = false) => new()
     {
         CajaId = cajaId, FechaApertura = DateTime.UtcNow, MontoInicial = 0, UsuarioApertura = usuario,
@@ -584,7 +584,6 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
         Assert.Equal(1, resultados.Count(r => r));
         await using var verif = NuevoContexto();
         Assert.Equal(1, await verif.AperturasCaja.CountAsync(a => a.CajaId == cajaId && !a.Cerrada && !a.IsDeleted));
->>>>>>> bfecaa36 (D-04: tests en la clase SQL Server compartida (sin DROP concurrente), SET QUOTED_IDENTIFIER en la migracion y CI 16 escenarios (revision Codex))
     }
 
     private static RolService NuevoServicio()
