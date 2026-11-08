@@ -16,7 +16,7 @@ namespace TheBuryProject.Data
 
             try
             {
-                await DbInitializer.Initialize(services);
+                await DbInitializer.Initialize(services, migracionesExplicitas: true);
 
                 if (app.Services.GetRequiredService<IHostEnvironment>().IsDevelopment())
                 {
