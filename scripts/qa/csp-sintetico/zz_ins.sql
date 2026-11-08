@@ -20,22 +20,36 @@ BEGIN
     IF @table NOT IN (N'ProductoUnidades', N'Clientes', N'DocumentosCliente', N'Ventas', N'VentaDetalles', N'Devoluciones', N'MercadoLibreAccounts',
                       N'MercadoLibreOrders', N'MercadoLibreOrderItems', N'MercadoLibreQuestions', N'MercadoLibreListings', N'MercadoLibrePriceBatches', N'MercadoLibrePriceBatchItems')
         THROW 52002, 'zz_ins: tabla no permitida.', 1;
-    -- @ov solo admite literales/funciones simples: se quitan los literales entre comillas y se rechaza todo lo que parezca otra sentencia.
-    DECLARE @chk nvarchar(max) = REPLACE(ISNULL(@ov, N''), N'''''', N''), @p int, @q int;
-    WHILE 1 = 1
+    -- @ov: 'Col=valor|Col2=valor'. Se SEPARA primero (igual que el armado posterior) y se valida CADA campo: la columna debe existir en la tabla y
+    -- el valor, tras quitar los literales entre comillas y SYSUTCDATETIME()/DATEADD(day,1,SYSUTCDATETIME())/NEWID(), solo puede contener [A-Za-z0-9_ ]
+    -- (colación binaria): sin parentesis, ';', operadores, tabulaciones ni saltos de línea. Un literal que contenga '|' queda con comillas sin cerrar y se rechaza.
+    DECLARE @campo nvarchar(max), @cn nvarchar(max), @cv nvarchar(max), @chk nvarchar(max), @p int, @q int;
+    DECLARE vc CURSOR LOCAL FAST_FORWARD FOR SELECT value FROM STRING_SPLIT(ISNULL(@ov, N''), N'|') WHERE LEN(value) > 0;
+    OPEN vc; FETCH NEXT FROM vc INTO @campo;
+    WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @p = CHARINDEX(N'''', @chk);
-        IF @p = 0 BREAK;
-        SET @q = CHARINDEX(N'''', @chk, @p + 1);
-        IF @q = 0 THROW 52003, 'zz_ins: comillas sin cerrar en @ov.', 1;
-        SET @chk = STUFF(@chk, @p, @q - @p + 1, N'');
+        SET @p = CHARINDEX(N'=', @campo);
+        IF @p < 2 THROW 52005, 'zz_ins: campo de @ov sin formato Col=valor.', 1;
+        SET @cn = LEFT(@campo, @p - 1);
+        SET @cv = SUBSTRING(@campo, @p + 1, 4000);
+        IF @cn LIKE N'%[^A-Za-z0-9_]%' COLLATE Latin1_General_BIN
+           OR NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.' + QUOTENAME(@table)) AND name = @cn)
+            THROW 52006, 'zz_ins: columna no valida en @ov.', 1;
+        SET @chk = REPLACE(@cv, N'''''', N'');
+        WHILE 1 = 1
+        BEGIN
+            SET @p = CHARINDEX(N'''', @chk);
+            IF @p = 0 BREAK;
+            SET @q = CHARINDEX(N'''', @chk, @p + 1);
+            IF @q = 0 THROW 52003, 'zz_ins: comillas sin cerrar en @ov.', 1;
+            SET @chk = STUFF(@chk, @p, @q - @p + 1, N'');
+        END;
+        SET @chk = REPLACE(REPLACE(REPLACE(@chk, N'DATEADD(day,1,SYSUTCDATETIME())', N' '), N'SYSUTCDATETIME()', N' '), N'NEWID()', N' ');
+        IF @chk LIKE N'%[^A-Za-z0-9_ ]%' COLLATE Latin1_General_BIN
+            THROW 52004, 'zz_ins: valor de @ov con construcciones no permitidas.', 1;
+        FETCH NEXT FROM vc INTO @campo;
     END;
-    -- Lista blanca de caracteres: tras quitar los literales entre comillas y las dos funciones permitidas solo pueden quedar letras, digitos,
-    -- guion bajo, '|', '=' y espacios. Sin parentesis, punto y coma, operadores, tabulaciones ni saltos de linea: no cabe una sentencia ni una subconsulta.
-    SET @chk = REPLACE(REPLACE(@chk, N'DATEADD(day,1,SYSUTCDATETIME())', N' '), N'SYSUTCDATETIME()', N' ');
-    SET @chk = REPLACE(@chk, N'NEWID()', N' ');
-    IF @chk LIKE N'%[^A-Za-z0-9_|= ]%' COLLATE Latin1_General_BIN
-        THROW 52004, 'zz_ins: @ov contiene construcciones no permitidas.', 1;
+    CLOSE vc; DEALLOCATE vc;
     DECLARE @cols nvarchar(max) = N'', @vals nvarchar(max) = N'';
     DECLARE @name sysname, @type sysname, @len int, @nullable bit, @hasdef bit, @val nvarchar(max);
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR

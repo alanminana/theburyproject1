@@ -22,7 +22,7 @@ SET @ov = N'ClienteId=' + CAST(@c AS nvarchar(20)) + N'|TipoDocumento=1|NombreAr
 SET @ov = N'ClienteId=' + CAST(@c AS nvarchar(20)) + N'|Numero=N''VTA-SINT-1''|Estado=0'; EXEC zz_ins 'Ventas', @ov, @v OUT;
 SET @ov = N'VentaId=' + CAST(@v AS nvarchar(20)) + N'|ClienteId=' + CAST(@c AS nvarchar(20)) + N'|NumeroDevolucion=N''DEV-SINT-1''|Estado=0'; EXEC zz_ins 'Devoluciones', @ov, @d OUT;
 SET @ov = N'ClienteId=' + CAST(@c AS nvarchar(20)) + N'|Numero=N''VTA-SINT-C1''|Estado=2|VendedorUserId=N''' + REPLACE(@adm, N'''', N'''''') + N'''|FechaVenta=SYSUTCDATETIME()'; EXEC zz_ins 'Ventas', @ov, @v OUT;
-SET @ov = N'VentaId=' + CAST(@v AS nvarchar(20)) + N'|ProductoId=1|Cantidad=2|PrecioUnitario=1000|Subtotal=2000|PorcentajeComision=5|ComisionMonto=100'; EXEC zz_ins 'VentaDetalles', @ov, @d OUT;
+SET @ov = N'VentaId=' + CAST(@v AS nvarchar(20)) + N'|ProductoId=1|Cantidad=2|PrecioUnitario=1000|Subtotal=2000|ComisionPorcentajeAplicada=5|ComisionMonto=100'; EXEC zz_ins 'VentaDetalles', @ov, @d OUT;
 SET @ov = N'ClienteId=' + CAST(@c AS nvarchar(20)) + N'|Numero=N''VTA-SINT-C2''|Estado=2|VendedorUserId=N''' + REPLACE(@adm, N'''', N'''''') + N'''|FechaVenta=SYSUTCDATETIME()'; EXEC zz_ins 'Ventas', @ov, @v OUT;
 SET @ov = N'VentaId=' + CAST(@v AS nvarchar(20)) + N'|ProductoId=2|Cantidad=1|PrecioUnitario=3000|Subtotal=3000'; EXEC zz_ins 'VentaDetalles', @ov, @d OUT;
 -- Mercado Libre (cuenta ficticia con tokens falsos; NO usar contra la API real)
