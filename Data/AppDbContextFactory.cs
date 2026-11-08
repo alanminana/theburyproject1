@@ -18,7 +18,7 @@ namespace TheBuryProject.Data;
 public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     private const string FallbackDevConnection =
-        "Server=(localdb)\\mssqllocaldb;Database=TheBuryProjectDb;Trusted_Connection=true;MultipleActiveResultSets=true";
+        "Server=(localdb)\\mssqllocaldb;Database=TheBuryProjectDb_DesignTime;Trusted_Connection=true;MultipleActiveResultSets=true";
 
     public AppDbContext CreateDbContext(string[] args)
     {
@@ -34,12 +34,19 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            // Sin configuración explícita: fallback a LocalDB de desarrollo.
+            // Sin configuración explícita: fallback a una base de diseño SEPARADA (nunca la real). Así `dotnet ef database update`
+            // sin conexión explícita no puede tocar TheBuryProjectDb; `migrations add/script/list` no necesitan la base.
             connectionString = FallbackDevConnection;
         }
 
+        // Protección de bases reales (ver MigracionesGuard): el CLI de EF no pasa por DbInitializer. Apuntar a la base real
+        // (TheBuryProjectDb) exige la misma habilitación explícita que el arranque.
+        MigracionesGuard.ValidarDestinoDeDiseno(connectionString, configuration);
+
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString);
+        // Cubre `dotnet ef database update --connection …`, que cambia el destino DESPUÉS de crear el contexto.
+        optionsBuilder.AddInterceptors(new GuardConexionRealInterceptor(configuration));
 
         // Crear el contexto sin IHttpContextAccessor (no está disponible en tiempo de diseño)
         return new AppDbContext(optionsBuilder.Options, null);

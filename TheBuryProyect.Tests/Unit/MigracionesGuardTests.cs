@@ -91,4 +91,52 @@ public class MigracionesGuardTests : IDisposable
         await using var ctx = Ctx();
         await MigracionesGuard.AsegurarAutorizadoAsync(ctx, Cfg(null), explicitoPorComando: true);
     }
+
+    [Theory]
+    [InlineData("Server=.;Database=TheBuryProjectDb;Trusted_Connection=True", null, true)]
+    [InlineData("Server=.;Database=theburyprojectdb;Trusted_Connection=True", null, true)]
+    [InlineData("Server=.;Database=TheBuryProjectDb_DesignTime;Trusted_Connection=True", null, false)]
+    [InlineData("Server=.;Database=TheBuryProjectDb_qa;Trusted_Connection=True", null, false)]
+    [InlineData("Server=.;Database=TheBuryProjectDb;Trusted_Connection=True", true, false)]
+    public void CliDeEf_ContraLaBaseReal_ExigeHabilitacion(string cs, bool? allow, bool debeFallar)
+    {
+        if (debeFallar)
+            Assert.Throws<MigracionesNoAutorizadasException>(() => MigracionesGuard.ValidarDestinoDeDiseno(cs, Cfg(allow)));
+        else
+            MigracionesGuard.ValidarDestinoDeDiseno(cs, Cfg(allow));
+    }
+
+    private static AppDbContext ContextoDiseno(string cs, bool? allow) => new(new DbContextOptionsBuilder<AppDbContext>()
+        .UseSqlServer(cs).AddInterceptors(new GuardConexionRealInterceptor(Cfg(allow))).Options);
+
+    [Fact]
+    public void Interceptor_BloqueaAbrirConexionAlaBaseReal_AunqueSeCambieElDestinoDespues()
+    {
+        // simula `dotnet ef database update --connection <real>`: contexto creado contra _DesignTime y destino cambiado luego
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb_DesignTime;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        ctx.Database.SetConnectionString("Server=127.0.0.1,1;Database=TheBuryProjectDb;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True");
+        Assert.Throws<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnection());
+    }
+
+    [Fact]
+    public void Interceptor_ConexionSinCatalogo_SeTrataComoReal()
+    {
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        Assert.Throws<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnection());
+    }
+
+    [Fact]
+    public void Interceptor_BaseDeDiseno_NoBloquea()
+    {
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb_DesignTime;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        var ex = Record.Exception(() => ctx.Database.OpenConnection());
+        Assert.IsNotType<MigracionesNoAutorizadasException>(ex); // falla por servidor inaccesible, no por el guard
+    }
+
+    [Fact]
+    public async Task Interceptor_BloqueaTambienLaAperturaAsincrona()
+    {
+        await using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        await Assert.ThrowsAsync<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnectionAsync());
+    }
 }

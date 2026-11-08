@@ -110,7 +110,7 @@ jobs:
             echo "| Escenario | Resultado |"
             echo "|-----------|-----------|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for R in SA-00 SA-01 SA-02 SA-03 SA-04 SA-05 SA-06 SA-07 SA-08 SA-09 SA-10 SA-PERM SA-PERM-COPY SA-PERM-ORIGEN; do
+          for R in SA-00 SA-01 SA-02 SA-03 SA-04 SA-05 SA-06 SA-07 SA-08 SA-09 SA-10 SA-PERM SA-PERM-COPY SA-PERM-ORIGEN IDX-1 IDX-2 IDX-3; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "| $R | $OUT |" >> "$GITHUB_STEP_SUMMARY"
@@ -119,10 +119,10 @@ jobs:
           done
           TOTAL=$(grep -o '<UnitTestResult ' "$TRX" | wc -l)
           PASSED=$(grep -o '<UnitTestResult [^>]*outcome="Passed"' "$TRX" | wc -l)
-          echo "Total=$TOTAL Passed=$PASSED (esperado 14/14)"
+          echo "Total=$TOTAL Passed=$PASSED (esperado 17/17)"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Total: $TOTAL, Passed: $PASSED (esperado 14 / 14)" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$TOTAL" != "14" ] || [ "$PASSED" != "14" ]; then RC=1; fi
+          echo "Total: $TOTAL, Passed: $PASSED (esperado 17 / 17)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TOTAL" != "17" ] || [ "$PASSED" != "17" ]; then RC=1; fi
           exit $RC
 
       - name: Subir TRX
