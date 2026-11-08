@@ -25,12 +25,10 @@ IF EXISTS (SELECT 1 FROM AperturasCaja WHERE Cerrada = 0 AND IsDeleted = 0 GROUP
                 table: "AperturasCaja",
                 columns: new[] { "CajaId", "Cerrada" });
 
-            migrationBuilder.CreateIndex(
-                name: "UX_AperturasCaja_CajaId_Abierta",
-                table: "AperturasCaja",
-                column: "CajaId",
-                unique: true,
-                filter: "[Cerrada] = 0 AND [IsDeleted] = 0");
+            // SQL explícito: un índice filtrado exige QUOTED_IDENTIFIER ON; al aplicarlo como script (sqlcmd sin -I) la sesión
+            // lo trae en OFF y el CREATE INDEX generado por EF falla. El SET viaja en el mismo lote que el CREATE.
+            migrationBuilder.Sql(@"SET QUOTED_IDENTIFIER ON;
+CREATE UNIQUE INDEX [UX_AperturasCaja_CajaId_Abierta] ON [AperturasCaja] ([CajaId]) WHERE [Cerrada] = 0 AND [IsDeleted] = 0;");
         }
 
         /// <inheritdoc />
