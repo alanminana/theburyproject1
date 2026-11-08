@@ -127,7 +127,7 @@
         <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
             <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar notificacion">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar notificacion">
                 <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -137,7 +137,7 @@
         <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
             <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar notificacion">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar notificacion">
                 <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -175,14 +175,14 @@
                     <span class="material-symbols-outlined" style="font-size:18px">receipt_long</span>
                     Ver Kardex
                 </a>
-                <button type="button" onclick="activateTab('conciliar')"
+                <button type="button" data-action="call" data-fn="activateTab" data-args='["conciliar"]'
                         class="pu-btn pu-btn-soft">
                     <span class="material-symbols-outlined" style="font-size:18px">balance</span>
                     Conciliar stock
                 </button>
                 @if (altaComunBloqueada)
                 {
-                    <button type="button" onclick="activateTab('agregar')"
+                    <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
                             class="pu-btn pu-btn-soft" title="Stock completo — usá Conciliación para agregar unidades adicionales">
                         <span class="material-symbols-outlined" style="font-size:18px">block</span>
                         Stock completo
@@ -190,7 +190,7 @@
                 }
                 else
                 {
-                    <button type="button" onclick="activateTab('agregar')"
+                    <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
                             class="pu-btn pu-btn-primary">
                         <span class="material-symbols-outlined" style="font-size:18px">add</span>
                         Agregar unidades
@@ -306,19 +306,19 @@
                         <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
                             <input type="radio" class="accent-blue-500" value="todas"
                                    @(dispoFilter == "todas" ? "checked" : "")
-                                   onchange="puDispoChange('todas')" />
+                                   data-change-fn="puDispoChange" data-args='["todas"]' />
                             Todas
                         </label>
                         <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
                             <input type="radio" class="accent-blue-500" value="disponibles"
                                    @(dispoFilter == "disponibles" ? "checked" : "")
-                                   onchange="puDispoChange('disponibles')" />
+                                   data-change-fn="puDispoChange" data-args='["disponibles"]' />
                             Disponibles
                         </label>
                         <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
                             <input type="radio" class="accent-blue-500" value="vendidas"
                                    @(dispoFilter == "vendidas" ? "checked" : "")
-                                   onchange="puDispoChange('vendidas')" />
+                                   data-change-fn="puDispoChange" data-args='["vendidas"]' />
                             Vendidas
                         </label>
                     </div>
@@ -364,16 +364,16 @@
                     @foreach (var unidad in Model.Unidades)
                     {
                         var _hasMobileActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
-                        var _mCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
-                        var _mSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                        var _mCode = unidad.CodigoInternoUnidad;
+                        var _mSerial = (unidad.NumeroSerie ?? "—");
                         var _mLabel = BChipLabel(unidad.Estado);
                         var _mChipClass = BChipClass(unidad.Estado);
-                        var _mActionsJson = new System.Text.StringBuilder("[");
-                        if (unidad.PuedeReintegrarAStock) _mActionsJson.Append("{value:'reintegrar',label:'Reintegrar a stock'},");
-                        if (unidad.PuedeDarBaja) _mActionsJson.Append("{value:'baja',label:'Dar de baja'},");
-                        if (unidad.PuedeMarcarFaltante) _mActionsJson.Append("{value:'faltante',label:'Marcar faltante'},");
-                        if (unidad.PuedeFinalizarReparacion) _mActionsJson.Append("{value:'reparacion',label:'Finalizar reparacion'},");
-                        var _mActStr = _mActionsJson.ToString().TrimEnd(',') + "]";
+                        var _mAcciones = new List<object>();
+                        if (unidad.PuedeReintegrarAStock) _mAcciones.Add(new { value = "reintegrar", label = "Reintegrar a stock" });
+                        if (unidad.PuedeDarBaja) _mAcciones.Add(new { value = "baja", label = "Dar de baja" });
+                        if (unidad.PuedeMarcarFaltante) _mAcciones.Add(new { value = "faltante", label = "Marcar faltante" });
+                        if (unidad.PuedeFinalizarReparacion) _mAcciones.Add(new { value = "reparacion", label = "Finalizar reparacion" });
+                        var _mArgs = System.Text.Json.JsonSerializer.Serialize(new object[] { unidad.Id.ToString(), _mCode, _mSerial, _mLabel, _mChipClass, _mAcciones });
                         <article class="pu-card p-4 space-y-3">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
@@ -432,7 +432,7 @@
                                 @if (_hasMobileActions)
                                 {
                                     <button type="button"
-                                            onclick="puOpenManage('@unidad.Id','@_mCode','@_mSerial','@_mLabel','@_mChipClass',@_mActStr)"
+                                            data-action="call" data-fn="puOpenManage" data-args="@_mArgs"
                                             class="pu-btn pu-btn-soft pu-btn-sm justify-center">
                                         <span class="material-symbols-outlined" style="font-size:16px">settings</span>
                                         Gestionar
@@ -455,7 +455,7 @@
                                class="pu-btn pu-btn-ghost">
                                 Limpiar filtros
                             </a>
-                            <button type="button" onclick="activateTab('agregar')"
+                            <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
                                     class="pu-btn pu-btn-primary">
                                 Agregar unidad
                             </button>
@@ -485,16 +485,16 @@
                             @foreach (var unidad in Model.Unidades)
                             {
                                 var _hasActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
-                                var _dCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
-                                var _dSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                                var _dCode = unidad.CodigoInternoUnidad;
+                                var _dSerial = (unidad.NumeroSerie ?? "—");
                                 var _dLabel = BChipLabel(unidad.Estado);
                                 var _dChipClass = BChipClass(unidad.Estado);
-                                var _dActionsJson = new System.Text.StringBuilder("[");
-                                if (unidad.PuedeReintegrarAStock) _dActionsJson.Append("{value:'reintegrar',label:'Reintegrar a stock'},");
-                                if (unidad.PuedeDarBaja) _dActionsJson.Append("{value:'baja',label:'Dar de baja'},");
-                                if (unidad.PuedeMarcarFaltante) _dActionsJson.Append("{value:'faltante',label:'Marcar faltante'},");
-                                if (unidad.PuedeFinalizarReparacion) _dActionsJson.Append("{value:'reparacion',label:'Finalizar reparacion'},");
-                                var _dActStr = _dActionsJson.ToString().TrimEnd(',') + "]";
+                                var _dAcciones = new List<object>();
+                                if (unidad.PuedeReintegrarAStock) _dAcciones.Add(new { value = "reintegrar", label = "Reintegrar a stock" });
+                                if (unidad.PuedeDarBaja) _dAcciones.Add(new { value = "baja", label = "Dar de baja" });
+                                if (unidad.PuedeMarcarFaltante) _dAcciones.Add(new { value = "faltante", label = "Marcar faltante" });
+                                if (unidad.PuedeFinalizarReparacion) _dAcciones.Add(new { value = "reparacion", label = "Finalizar reparacion" });
+                                var _dArgs = System.Text.Json.JsonSerializer.Serialize(new object[] { unidad.Id.ToString(), _dCode, _dSerial, _dLabel, _dChipClass, _dAcciones });
                                 <tr class="hover:bg-slate-900/40">
                                     <td class="px-4 py-3 font-mono text-sm text-slate-200">@unidad.CodigoInternoUnidad</td>
                                     <td class="px-4 py-3 font-mono text-sm text-slate-400">@(unidad.NumeroSerie ?? "—")</td>
@@ -541,7 +541,7 @@
                                             @if (_hasActions)
                                             {
                                                 <button type="button"
-                                                        onclick="puOpenManage('@unidad.Id','@_dCode','@_dSerial','@_dLabel','@_dChipClass',@_dActStr)"
+                                                        data-action="call" data-fn="puOpenManage" data-args="@_dArgs"
                                                         class="pu-btn pu-btn-soft pu-btn-sm">
                                                     <span class="material-symbols-outlined" style="font-size:16px">settings</span>
                                                     Gestionar
@@ -567,7 +567,7 @@
                                class="pu-btn pu-btn-ghost">
                                 Limpiar filtros
                             </a>
-                            <button type="button" onclick="activateTab('agregar')"
+                            <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
                                     class="pu-btn pu-btn-primary">
                                 Agregar unidad
                             </button>
@@ -603,7 +603,7 @@
                         <p class="mt-1 text-sm text-amber-100/80">No podés agregar más unidades físicas porque ya registraste todas las unidades disponibles según el stock lógico (@conciliacion.UnidadesEnStock de @Model.StockActual.ToString("G29")). Usá Conciliación si encontraste una unidad adicional.</p>
                     }
                     <div class="mt-3">
-                        <button type="button" onclick="activateTab('conciliar')"
+                        <button type="button" data-action="call" data-fn="activateTab" data-args='["conciliar"]'
                                 class="pu-btn pu-btn-amber pu-btn-sm">
                             <span class="material-symbols-outlined" style="font-size:16px">balance</span>
                             Ir a Conciliación
@@ -890,7 +890,7 @@
 
                 @* Opcion 1 *@
                 <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
-                       onclick="puSelectResolution(1)">
+                       data-action="call" data-fn="puSelectResolution" data-args='[1]'>
                     <input type="radio" name="reso" value="1" class="mt-1 accent-blue-500" checked />
                     <div class="flex-1">
                         <div class="font-medium text-white">Mantener diferencia visible</div>
@@ -900,7 +900,7 @@
 
                 @* Opcion 2 *@
                 <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
-                       onclick="puSelectResolution(2)">
+                       data-action="call" data-fn="puSelectResolution" data-args='[2]'>
                     <input type="radio" name="reso" value="2" class="mt-1 accent-blue-500" />
                     <div class="flex-1">
                         <div class="font-medium text-white flex items-center gap-2">
@@ -909,7 +909,7 @@
                         </div>
                         <p class="text-sm text-slate-400 mt-0.5">Ir a la pestana de agregar unidades para registrar fisicamente el stock no identificado.</p>
                         <button type="button" class="mt-2 pu-btn pu-btn-primary pu-btn-sm"
-                                onclick="event.stopPropagation(); activateTab('agregar')">
+                                data-action="call" data-fn="activateTab" data-args='["agregar"]' data-stop>
                             <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
                             Ir a Agregar unidades
                         </button>
@@ -925,7 +925,7 @@
                         : $"Igualar el stock del producto a las {conciliacion.UnidadesEnStock} unidades fisicas disponibles. Generara movimiento en Kardex.";
                 }
                 <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 @(opt3Disabled ? "opacity-50" : "cursor-pointer")"
-                       @(opt3Disabled ? "" : "onclick=\"puSelectResolution(3)\"")>
+                       @(opt3Disabled ? Html.Raw("") : Html.Raw("data-action=\"call\" data-fn=\"puSelectResolution\" data-args='[3]'"))>
                     <input type="radio" name="reso" value="3" class="mt-1 accent-blue-500" @(opt3Disabled ? "disabled" : "") />
                     <div class="flex-1">
                         <div class="font-medium text-white">@opt3Label</div>
@@ -1032,7 +1032,7 @@
                             No se puede desactivar todavia. Existen <strong>@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")</strong>.
                             Primero tenes que revisar, vender, dar de baja o resolver esas unidades.
                             <div class="mt-1.5">
-                                <button type="button" onclick="activateTab('ver')" class="text-amber-300 underline underline-offset-2 hover:text-amber-200 text-sm">
+                                <button type="button" data-action="call" data-fn="activateTab" data-args='["ver"]' class="text-amber-300 underline underline-offset-2 hover:text-amber-200 text-sm">
                                     Ver unidades activas &rarr;
                                 </button>
                             </div>
@@ -1136,7 +1136,7 @@
        ================================================================ *@
     <div id="modal-manage"
          class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-         onclick="if(event.target===this)puCloseModal('modal-manage')"
+         data-action="call-self" data-fn="puCloseModal" data-args='["modal-manage"]'
          role="dialog" aria-modal="true" aria-labelledby="manage-title">
         <div class="min-h-full flex items-center justify-center p-4">
             <div class="pu-modal-card pu-card w-full max-w-md p-5">
@@ -1145,7 +1145,7 @@
                         <h3 id="manage-title" class="text-lg font-semibold text-white">Gestionar Unidad</h3>
                         <p class="text-xs text-slate-400 mt-0.5">Aplicar cambio de estado a esta unidad.</p>
                     </div>
-                    <button type="button" onclick="puCloseModal('modal-manage')" aria-label="Cerrar modal"
+                    <button type="button" data-action="call" data-fn="puCloseModal" data-args='["modal-manage"]' aria-label="Cerrar modal"
                             class="p-1.5 rounded hover:bg-slate-800">
                         <span class="material-symbols-outlined text-slate-400">close</span>
                     </button>
@@ -1169,7 +1169,7 @@
                 <div class="mt-4 space-y-3">
                     <div>
                         <label for="manage-action" class="pu-label">Accion a ejecutar</label>
-                        <select id="manage-action" class="pu-field" onchange="puUpdateManageAction()"></select>
+                        <select id="manage-action" class="pu-field" data-change-fn="puUpdateManageAction"></select>
                     </div>
                     <div id="manage-destino-wrap" class="hidden">
                         <label for="manage-destino" class="pu-label">Destino de la reparacion</label>
@@ -1192,8 +1192,8 @@
                 </div>
 
                 <div class="mt-5 flex flex-col-reverse sm:flex-row justify-end gap-2">
-                    <button type="button" class="pu-btn pu-btn-ghost" onclick="puCloseModal('modal-manage')">Cancelar</button>
-                    <button type="button" id="manage-confirm-btn" class="pu-btn pu-btn-success" onclick="puConfirmManage()">
+                    <button type="button" class="pu-btn pu-btn-ghost" data-action="call" data-fn="puCloseModal" data-args='["modal-manage"]'>Cancelar</button>
+                    <button type="button" id="manage-confirm-btn" class="pu-btn pu-btn-success" data-action="call" data-fn="puConfirmManage">
                         <span class="material-symbols-outlined" style="font-size:18px" id="manage-confirm-icon">undo</span>
                         <span id="manage-confirm-label">Reintegrar a stock</span>
                     </button>

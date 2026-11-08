@@ -466,9 +466,9 @@
                     <div class="cart-row__field cart-row__field--qty">
                         <span class="cart-row__label">Cant.</span>
                         <div class="qty-step">
-                            <button type="button" aria-label="Restar" onclick="stepRow(this,-1)"${producto.productoUnidadId ? ' disabled' : ''}>−</button>
+                            <button type="button" aria-label="Restar" data-action="call" data-fn="stepRow" data-args='["$el",-1]'${producto.productoUnidadId ? ' disabled' : ''}>−</button>
                             <input type="number" min="1"${producto.productoUnidadId ? ' max="1" readonly' : ''} value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
-                            <button type="button" aria-label="Sumar" onclick="stepRow(this,1)"${producto.productoUnidadId ? ' disabled' : ''}>+</button>
+                            <button type="button" aria-label="Sumar" data-action="call" data-fn="stepRow" data-args='["$el",1]'${producto.productoUnidadId ? ' disabled' : ''}>+</button>
                         </div>
                     </div>
                     ${!puedeDescuentos ? '' : `<div class="cart-row__field">

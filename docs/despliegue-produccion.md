@@ -140,7 +140,7 @@ Procedimiento: respaldo → ensayo en clon → habilitar y arrancar (o `--migrat
   variable `Csp__Mode`). `ReportOnly` envía `Content-Security-Policy-Report-Only` con nonce por request (`script-src 'self' 'nonce-…'`, sin
   `unsafe-eval`) y las violaciones se registran en el log (`/csp-report`, WARN `CSP violation`). Medición en clon aislado (151 páginas, Chrome,
   sesión admin): **solo 1 tipo de violación, `script-src-attr` (atributos `onclick=`/`onsubmit=`…, ~98 en 34 vistas)**; ninguna de scripts/estilos
-  de elemento, fuentes, imágenes, conexiones ni SignalR. **No pasar a `Enforce` hasta migrar esos handlers** (o fijar `Csp:EstrictoAtributosScript=false`
+  de elemento, fuentes, imágenes, conexiones ni SignalR. **Actualización 2026-11-08: los ~98 handlers se migraron a `data-action` (`wwwroot/js/csp-actions.js`) y el recorrido de 161 páginas en `ReportOnly` dio 0 violaciones; un test de contrato impide reintroducirlos. `Enforce` sigue sin activarse hasta validar los recorridos con datos reales (Unidades, DocumentoCliente, Devolución, Mercado Libre, comisiones) y revisar las cargas dinámicas.** Antes: **No pasar a `Enforce` hasta migrar esos handlers** (o fijar `Csp:EstrictoAtributosScript=false`
   como excepción consciente, que deja `script-src-attr 'unsafe-inline'`). `style-src-attr 'unsafe-inline'` queda permitido a propósito (>1200 `style=""`).
 - **Endpoints de diagnóstico** (`/Diagnostico/*`): ahora solo responden en Development
   (404 en producción). No reactivar sin necesidad.

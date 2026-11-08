@@ -411,7 +411,7 @@
                                 {
                                     <div class="mt-2 flex flex-wrap items-center gap-2">
                                         <form method="post" asp-controller="Mora" asp-action="MarcarPromesaCumplida" asp-route-returnUrl="@volverUrl" data-mora-promesa-cumplida
-                                              onsubmit="return confirm('¿Marcar la promesa como cumplida? La alerta quedará regularizada y resuelta.');">
+                                              data-confirm="¿Marcar la promesa como cumplida? La alerta quedará regularizada y resuelta.">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="alertaId" value="@p.AlertaId" />
                                             <input type="hidden" name="clienteId" value="@Model.ClienteId" />

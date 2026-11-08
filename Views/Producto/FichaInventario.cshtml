@@ -111,7 +111,7 @@
         <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
             <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar">
                 <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -121,7 +121,7 @@
         <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
             <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
-            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar">
+            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar">
                 <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
             </button>
         </div>
@@ -522,7 +522,7 @@
                 </div>
 
                 <form method="post" asp-controller="Producto" asp-action="AgregarUnidadesFisicasInline"
-                      class="mt-4 space-y-4" onsubmit="return fiUfConfirm(this)">
+                      class="mt-4 space-y-4" data-submit-fn="fiUfConfirm">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
                     <input type="hidden" name="ReturnUrl"

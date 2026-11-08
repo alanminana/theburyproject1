@@ -68,7 +68,7 @@
                         <input type="hidden" name="id" value="@Model.BatchId" />
                         <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion ?? Array.Empty<byte>())" />
                         <button type="submit" class="btn-erp-danger"
-                                onclick="return confirm('¿Cancelar esta simulación?')">
+                                data-confirm="¿Cancelar esta simulación?">
                             <span class="material-symbols-outlined text-base">cancel</span>
                             Cancelar
                         </button>
