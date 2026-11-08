@@ -395,6 +395,8 @@ if (args.Contains("--configurar-documentos"))
     using var scopeDocumentos = app.Services.CreateScope();
     var contextoDocumentos = scopeDocumentos.ServiceProvider.GetRequiredService<TheBuryProject.Data.AppDbContext>();
     var loggerDocumentos = scopeDocumentos.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("ConfiguracionDocumental");
+    // Aplica migraciones: exige habilitación explícita igual que el arranque (Database:AllowMigrations=true).
+    await TheBuryProject.Data.MigracionesGuard.AsegurarAutorizadoAsync(contextoDocumentos, app.Configuration);
     await contextoDocumentos.Database.MigrateAsync();
     var resumenDocumentos = await TheBuryProject.Services.Documentos.DocumentoConfiguracionCredito.ConfigurarAsync(contextoDocumentos, loggerDocumentos);
     Console.WriteLine(resumenDocumentos);
@@ -566,6 +568,11 @@ else if (!app.Environment.IsEnvironment("Testing"))
         {
             await DbInitializer.CreateTestUsersAsync(services);
         }
+    }
+    catch (TheBuryProject.Data.MigracionesNoAutorizadasException)
+    {
+        // Ya registrado como Critical por DbInitializer. Nunca seguir arrancando con el esquema desactualizado, en ningún entorno.
+        return 1;
     }
     catch (Exception ex)
     {

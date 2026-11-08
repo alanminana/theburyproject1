@@ -18,7 +18,7 @@ namespace TheBuryProject.Data
         /// <summary>
         /// Inicializa roles, módulos, permisos y usuario administrador
         /// </summary>
-        public static async Task Initialize(IServiceProvider serviceProvider)
+        public static async Task Initialize(IServiceProvider serviceProvider, bool migracionesExplicitas = false)
         {
             using var scope = serviceProvider.CreateScope();
             var services = scope.ServiceProvider;
@@ -30,6 +30,9 @@ namespace TheBuryProject.Data
                 var logger = services.GetRequiredService<ILogger<Program>>();
 
                 logger.LogInformation("Iniciando inicialización de base de datos...");
+
+                // Protección de bases reales: sin habilitación explícita no se migra una base con historial (ver MigracionesGuard).
+                await MigracionesGuard.AsegurarAutorizadoAsync(context, services.GetRequiredService<IConfiguration>(), migracionesExplicitas);
 
                 // Aplicar migraciones pendientes
                 // Evitar intentar aplicar migraciones si las tablas ya existen pero falta la tabla __EFMigrationsHistory
@@ -130,7 +133,7 @@ namespace TheBuryProject.Data
             catch (Exception ex)
             {
                 var logger = services.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "Error durante la inicialización de la base de datos");
+                if (ex is MigracionesNoAutorizadasException) logger.LogCritical("{Mensaje}", ex.Message); else logger.LogError(ex, "Error durante la inicialización de la base de datos");
                 throw;
             }
         }
