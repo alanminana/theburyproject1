@@ -20,6 +20,21 @@ BEGIN
     IF @table NOT IN (N'ProductoUnidades', N'Clientes', N'DocumentosCliente', N'Ventas', N'VentaDetalles', N'Devoluciones', N'MercadoLibreAccounts',
                       N'MercadoLibreOrders', N'MercadoLibreOrderItems', N'MercadoLibreQuestions', N'MercadoLibreListings', N'MercadoLibrePriceBatches', N'MercadoLibrePriceBatchItems')
         THROW 52002, 'zz_ins: tabla no permitida.', 1;
+    -- @ov solo admite literales/funciones simples: se quitan los literales entre comillas y se rechaza todo lo que parezca otra sentencia.
+    DECLARE @chk nvarchar(max) = REPLACE(ISNULL(@ov, N''), N'''''', N''), @p int, @q int;
+    WHILE 1 = 1
+    BEGIN
+        SET @p = CHARINDEX(N'''', @chk);
+        IF @p = 0 BREAK;
+        SET @q = CHARINDEX(N'''', @chk, @p + 1);
+        IF @q = 0 THROW 52003, 'zz_ins: comillas sin cerrar en @ov.', 1;
+        SET @chk = STUFF(@chk, @p, @q - @p + 1, N'');
+    END;
+    DECLARE @tok nvarchar(max) = N' ' + REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@chk, N'|', N' '), N'=', N' '), N'(', N' '), N')', N' '), N',', N' ') + N' ';
+    IF @chk LIKE N'%;%' OR @chk LIKE N'%--%' OR @chk LIKE N'%/*%'
+       OR @tok LIKE N'% exec %' OR @tok LIKE N'% execute %' OR @tok LIKE N'% drop %' OR @tok LIKE N'% alter %' OR @tok LIKE N'% insert %' OR @tok LIKE N'% update %'
+       OR @tok LIKE N'% delete %' OR @tok LIKE N'% create %' OR @tok LIKE N'% select %' OR @tok LIKE N'% truncate %' OR @tok LIKE N'% merge %' OR @tok LIKE N'%xp[_]%' OR @tok LIKE N'%sp[_]%'
+        THROW 52004, 'zz_ins: @ov contiene construcciones no permitidas.', 1;
     DECLARE @cols nvarchar(max) = N'', @vals nvarchar(max) = N'';
     DECLARE @name sysname, @type sysname, @len int, @nullable bit, @hasdef bit, @val nvarchar(max);
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR

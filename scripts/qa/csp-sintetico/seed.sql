@@ -27,7 +27,9 @@ SET @ov = N'ClienteId=' + CAST(@c AS nvarchar(20)) + N'|Numero=N''VTA-SINT-C2''|
 SET @ov = N'VentaId=' + CAST(@v AS nvarchar(20)) + N'|ProductoId=2|Cantidad=1|PrecioUnitario=3000|Subtotal=3000'; EXEC zz_ins 'VentaDetalles', @ov, @d OUT;
 -- Mercado Libre (cuenta ficticia con tokens falsos; NO usar contra la API real)
 -- El clon puede traer cuentas reales de ML: se desactivan y se les borran los tokens ANTES de crear la cuenta ficticia (nada sale a la API real).
-UPDATE MercadoLibreAccounts SET Activa = 0, AccessTokenEncrypted = NULL, RefreshTokenEncrypted = NULL;
+UPDATE MercadoLibreAccounts SET Activa = 0, AccessTokenEncrypted = N'', RefreshTokenEncrypted = N'';
+IF EXISTS (SELECT 1 FROM MercadoLibreAccounts WHERE Activa <> 0 OR AccessTokenEncrypted <> N'' OR RefreshTokenEncrypted <> N'')
+    THROW 52010, 'seed: no se pudieron desactivar las cuentas de Mercado Libre del clon; se aborta antes de sembrar.', 1;
 DECLARE @acc int, @accs nvarchar(20);
 EXEC zz_ins 'MercadoLibreAccounts', 'Nickname=N''SINT_USER''|Activa=1|AccessTokenEncrypted=N''x''|RefreshTokenEncrypted=N''x''|AccessTokenExpiresAtUtc=DATEADD(day,1,SYSUTCDATETIME())', @acc OUT;
 SET @accs = CAST(@acc AS nvarchar(20));
