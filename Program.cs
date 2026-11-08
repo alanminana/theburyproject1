@@ -243,6 +243,12 @@ builder.Services.AddSignalR();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // D-05: /csp-report es anónimo; un límite por IP evita que inunde el log.
+    options.AddPolicy(TheBuryProject.Security.CspPolicy.PoliticaRateLimit, ctx =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            { Window = TimeSpan.FromMinutes(1), PermitLimit = 30, QueueLimit = 0 }));
     options.AddFixedWindowLimiter("mercadolibre-webhook", o =>
     {
         o.Window = TimeSpan.FromMinutes(1);

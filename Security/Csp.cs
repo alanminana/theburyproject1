@@ -21,6 +21,7 @@ public static class CspPolicy
 {
     public const string NonceItemKey = "csp-nonce";
     public const string RutaReporte = "/csp-report";
+    public const string PoliticaRateLimit = "csp-report";
 
     public static string NuevoNonce() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(18));
 
@@ -86,15 +87,41 @@ public sealed class CspNonceTagHelper(IHttpContextAccessor accessor) : TagHelper
 
 public static class CspReportEndpoint
 {
+    private static readonly string[] CamposPermitidos =
+        ["document-uri", "blocked-uri", "effective-directive", "violated-directive", "source-file", "line-number", "disposition"];
+
     public static void MapCspReport(this IEndpointRouteBuilder app) =>
-        app.MapPost(CspPolicy.RutaReporte, async (HttpContext ctx, ILoggerFactory lf) =>
+        app.MapPost(CspPolicy.RutaReporte, async (HttpContext ctx, ILoggerFactory lf, Microsoft.Extensions.Options.IOptionsMonitor<CspOptions> opciones) =>
         {
-            if (ctx.Request.ContentLength is > 16_384) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            // Sin CSP activa el endpoint no existe de cara al exterior.
+            if (opciones.CurrentValue.Mode == CspMode.Off) return Results.NotFound();
+            if (ctx.Request.ContentLength is null or > 8_192) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
             using var lector = new StreamReader(ctx.Request.Body, Encoding.UTF8, leaveOpen: true);
-            var buffer = new char[16_384];
+            var buffer = new char[8_193];
             var n = await lector.ReadBlockAsync(buffer, 0, buffer.Length);
-            var texto = new string(buffer, 0, n).Replace('\r', ' ').Replace('\n', ' ');
-            lf.CreateLogger("CspReport").LogWarning("CSP violation: {Reporte}", texto);
+            if (n > 8_192) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(new string(buffer, 0, n));
+                if (!doc.RootElement.TryGetProperty("csp-report", out var rep) || rep.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    return Results.BadRequest();
+                var partes = new List<string>();
+                foreach (var campo in CamposPermitidos)
+                    if (rep.TryGetProperty(campo, out var v))
+                        partes.Add($"{campo}={Sanear(v.ToString())}");
+                lf.CreateLogger("CspReport").LogWarning("CSP violation: {Reporte}", string.Join(" | ", partes));
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return Results.BadRequest();
+            }
             return Results.NoContent();
-        }).AllowAnonymous().DisableAntiforgery();
+        }).AllowAnonymous().DisableAntiforgery().RequireRateLimiting(CspPolicy.PoliticaRateLimit);
+
+    private static string Sanear(string valor)
+    {
+        var sb = new StringBuilder(Math.Min(valor.Length, 200));
+        foreach (var c in valor.Take(200)) sb.Append(char.IsControl(c) ? '?' : c);
+        return sb.ToString();
+    }
 }

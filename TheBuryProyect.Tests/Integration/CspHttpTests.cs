@@ -50,8 +50,21 @@ public class CspHttpTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ReporteCsp_AceptaPostAnonimoYResponde204()
     {
-        var r = await Cliente(null).PostAsync("/csp-report",
+        var cliente = Cliente("ReportOnly");
+        var r = await cliente.PostAsync("/csp-report",
             new StringContent("{\"csp-report\":{\"violated-directive\":\"script-src-attr\"}}", Encoding.UTF8, "application/csp-report"));
         Assert.Equal(HttpStatusCode.NoContent, r.StatusCode);
+        var basura = await cliente.PostAsync("/csp-report", new StringContent("no es json", Encoding.UTF8, "application/csp-report"));
+        Assert.Equal(HttpStatusCode.BadRequest, basura.StatusCode);
+        var enorme = await cliente.PostAsync("/csp-report", new StringContent(new string('x', 20_000), Encoding.UTF8, "application/csp-report"));
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, enorme.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReporteCsp_ConCspApagada_Devuelve404()
+    {
+        var r = await Cliente(null).PostAsync("/csp-report",
+            new StringContent("{\"csp-report\":{}}", Encoding.UTF8, "application/csp-report"));
+        Assert.Equal(HttpStatusCode.NotFound, r.StatusCode);
     }
 }
