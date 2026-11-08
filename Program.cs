@@ -235,6 +235,7 @@ builder.Services.AddHttpClient<ISituacionCrediticiaBcraService, SituacionCrediti
 });
 
 // 5.5 SignalR
+builder.Services.Configure<TheBuryProject.Security.CspOptions>(builder.Configuration.GetSection(TheBuryProject.Security.CspOptions.Seccion));
 builder.Services.AddSignalR();
 
 // 5.7 Rate limiting: protege el webhook anónimo de Mercado Libre de floods que
@@ -242,6 +243,12 @@ builder.Services.AddSignalR();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // D-05: /csp-report es anónimo; un límite por IP evita que inunde el log.
+    options.AddPolicy(TheBuryProject.Security.CspPolicy.PoliticaRateLimit, ctx =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            { Window = TimeSpan.FromMinutes(1), PermitLimit = 30, QueueLimit = 0 }));
     options.AddFixedWindowLimiter("mercadolibre-webhook", o =>
     {
         o.Window = TimeSpan.FromMinutes(1);
@@ -399,8 +406,9 @@ if (args.Contains("--configurar-documentos"))
 app.UseForwardedHeaders();
 
 
-// Security headers (defensa básica). CSP se omite a propósito: requiere QA visual
-// porque las vistas usan estilos/scripts inline y SignalR; ver docs/despliegue-produccion.md.
+// Security headers (defensa básica). CSP (D-05): Csp:Mode = Off (defecto) / ReportOnly / Enforce; ver docs/seguridad-web.md.
+// No activar Enforce sin haber medido ReportOnly en un entorno aislado.
+app.UseMiddleware<TheBuryProject.Security.CspMiddleware>();
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
@@ -532,6 +540,7 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 app.MapHub<NotificacionesHub>("/hubs/notificaciones");
+TheBuryProject.Security.CspReportEndpoint.MapCspReport(app);
 // Respuesta de texto plano (Healthy/Unhealthy) sin detalle de checks ni excepciones; Unhealthy -> 503.
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") }).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") }).AllowAnonymous();

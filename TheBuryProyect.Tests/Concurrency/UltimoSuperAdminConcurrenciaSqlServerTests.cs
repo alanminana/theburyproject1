@@ -51,6 +51,7 @@ internal static class SuperAdminSqlEnv
 public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
 {
     private const int Iteraciones = 12;
+    private static readonly int CopiadoresOrigen = int.TryParse(Environment.GetEnvironmentVariable("H35_COPIADORES"), out var c) ? c : 1;
 
     public async Task InitializeAsync()
     {
@@ -455,6 +456,66 @@ public class UltimoSuperAdminConcurrenciaSqlServerTests : IAsyncLifetime
             Assert.True(conjunto.SequenceEqual(a.OrderBy(x => x)) || conjunto.SequenceEqual(b.OrderBy(x => x)),
                 "El rol destino quedó con una mezcla: " + string.Join(",", conjunto));
         }
+    }
+
+    [SuperAdminSqlServerFact(DisplayName = "H-35 [SA-PERM-ORIGEN] copia mientras el rol ORIGEN se modifica: el destino queda con un conjunto completo, nunca mezclado")]
+    public async Task CopiaMientrasElOrigenCambia_DestinoNuncaQedaMezclado()
+    {
+        string origen, destino;
+        List<int> a, b;
+        await using (var ctx = NuevoContexto())
+        {
+            var modulo = new ModuloSistema { Nombre = "h35o", Clave = "h35o" + Guid.NewGuid().ToString("N")[..6], Orden = 1 };
+            ctx.ModulosSistema.Add(modulo);
+            await ctx.SaveChangesAsync();
+            var acciones = Enumerable.Range(0, 40).Select(i => new AccionModulo { ModuloId = modulo.Id, Nombre = "a" + i, Clave = "a" + i, Orden = i, Activa = true }).ToList();
+            ctx.AccionesModulo.AddRange(acciones);
+            origen = Guid.NewGuid().ToString(); destino = Guid.NewGuid().ToString();
+            foreach (var (id, n) in new[] { (origen, "or"), (destino, "de") })
+            {
+                var nombre = $"H35{n}-{Guid.NewGuid().ToString("N")[..6]}";
+                ctx.Roles.Add(new IdentityRole { Id = id, Name = nombre, NormalizedName = nombre.ToUpperInvariant() });
+            }
+            await ctx.SaveChangesAsync();
+            a = acciones.Take(20).Select(x => x.Id).ToList();
+            b = acciones.Skip(20).Select(x => x.Id).ToList();
+        }
+        Assert.True((await NuevoServicio().SyncPermisosForRoleAsync(origen, a)).Ok);
+
+        var mezclas = new List<string>();
+        var errores = new List<string>();
+        var fin = DateTime.UtcNow.AddSeconds(20);
+        var escritor = Task.Run(async () =>
+        {
+            var i = 0;
+            while (DateTime.UtcNow < fin)
+            {
+                try { await NuevoServicio().SyncPermisosForRoleAsync(origen, i++ % 2 == 0 ? b : a); }
+                catch (Exception ex) { lock (errores) errores.Add("escritor: " + ex.GetType().Name + " " + (ex.InnerException?.Message ?? ex.Message)); }
+            }
+        });
+        var copiadores = Enumerable.Range(0, CopiadoresOrigen).Select(_ => Task.Run(async () =>
+        {
+            while (DateTime.UtcNow < fin)
+            {
+                try
+                {
+                    var r = await NuevoServicio().CopyPermisosFromRoleAsync(origen, destino);
+                    if (!r.Ok) { lock (errores) errores.Add("copia: " + r.Error); continue; }
+                    await using var verif = NuevoContexto();
+                    var conjunto = await verif.RolPermisos.Where(rp => rp.RoleId == destino && !rp.IsDeleted).Select(rp => rp.AccionId).OrderBy(x => x).ToListAsync();
+                    // el destino puede cambiar por otra copia; solo importa que lo observado sea A o B completo
+                    if (conjunto.Count > 0 && !conjunto.SequenceEqual(a.OrderBy(x => x)) && !conjunto.SequenceEqual(b.OrderBy(x => x)))
+                        lock (mezclas) mezclas.Add($"{conjunto.Count} permisos: " + string.Join(",", conjunto));
+                }
+                catch (Exception ex) { lock (errores) errores.Add("copiador: " + ex.GetType().Name + " " + (ex.InnerException?.Message ?? ex.Message)); }
+            }
+        })).ToList();
+        await Task.WhenAll(copiadores.Append(escritor));
+
+        Assert.True(mezclas.Count == 0, $"{mezclas.Count} mezclas. Ej.: {mezclas.FirstOrDefault()} | errores: {string.Join(" ; ", errores.Distinct().Take(3))}");
+        Assert.Empty(errores.Distinct());
+        Assert.True(mezclas.Count == 0, $"{mezclas.Count} copias dejaron el destino mezclado. Ej.: {mezclas.FirstOrDefault()}");
     }
 
     private static RolService NuevoServicio()

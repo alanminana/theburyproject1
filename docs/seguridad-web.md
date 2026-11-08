@@ -128,7 +128,7 @@ líneas ya modificadas por otro agente donde fue posible.
 |---|---|---|
 | `Strict-Transport-Security` | Configurado (`UseHsts` fuera de Development/Testing) | — |
 | `X-Content-Type-Options` | `nosniff` configurado | — |
-| `Content-Security-Policy` | No configurado (deuda documentada explícitamente en código) | Pendiente #6, requiere QA visual |
+| `Content-Security-Policy` | Implementada, apagada por defecto (`Csp:Mode`); `ReportOnly` medido en clon (D-05) | Pendiente: migrar handlers inline (`script-src-attr`) antes de `Enforce`; ver `docs/despliegue-produccion.md` §8 |
 | `X-Frame-Options` | `SAMEORIGIN` configurado | — |
 | `Referrer-Policy` | `no-referrer` configurado | — |
 | `Permissions-Policy` | No configurado | Pendiente #6 |

@@ -786,7 +786,10 @@ public class RolService : IRolService
 
         try
         {
-            await BloquearPermisosRolAsync(targetRoleId);
+            // H-35 (D-05): además del destino se bloquea el ORIGEN, siempre en orden ordinal de id para que dos copias cruzadas
+            // (A→B y B→A) no se bloqueen entre sí. Sin esto, guardar el origen mientras se copia producía un deadlock (RCSI apagado).
+            foreach (var idRol in new[] { sourceRoleId, targetRoleId }.Distinct().OrderBy(x => x, StringComparer.Ordinal))
+                await BloquearPermisosRolAsync(idRol);
 
             var sourceRole = await _roleManager.FindByIdAsync(sourceRoleId);
             if (sourceRole == null)
