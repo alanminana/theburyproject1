@@ -45,6 +45,8 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString);
+        // Cubre `dotnet ef database update --connection …`, que cambia el destino DESPUÉS de crear el contexto.
+        optionsBuilder.AddInterceptors(new GuardConexionRealInterceptor(configuration));
 
         // Crear el contexto sin IHttpContextAccessor (no está disponible en tiempo de diseño)
         return new AppDbContext(optionsBuilder.Options, null);

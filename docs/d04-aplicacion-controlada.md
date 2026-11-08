@@ -51,7 +51,7 @@ Además: 3 pruebas de SQL Server (`D-04 [IDX-1..3]`, incluye 8 inserciones simul
 |---|---|
 | Arranque normal de la app (`InitializeOnStartup=true`) | `MigracionesGuard`: base con historial y pendientes → exit 1, sin migrar ni sembrar |
 | `--configurar-documentos` | mismo guard antes de `MigrateAsync` |
-| `dotnet ef database update` | `AppDbContextFactory` rechaza apuntar a `TheBuryProjectDb` sin `Database:AllowMigrations=true`; sin conexión explícita usa `TheBuryProjectDb_DesignTime` (nunca la real) |
+| `dotnet ef database update` (con o sin `--connection`) | `AppDbContextFactory` rechaza el destino `TheBuryProjectDb` (o sin catálogo explícito) sin `Database:AllowMigrations=true`, y un interceptor de conexión (`GuardConexionRealInterceptor`) bloquea **abrir** la conexión aunque `--connection` cambie el destino después; sin conexión explícita usa `TheBuryProjectDb_DesignTime`. Verificado: los tres casos fallan y el historial real sigue en 136 |
 | `--migrate` / Docker (`migrate` service) | explícito por diseño; apunta al SQL del stack, no a la LocalDB de desarrollo. Un deploy aplicaría D-04: **no desplegar sin aprobación** |
 | Variable de usuario `Database__InitializeOnStartup=False` | primera capa ya presente en esta máquina |
 

@@ -105,4 +105,31 @@ public class MigracionesGuardTests : IDisposable
         else
             MigracionesGuard.ValidarDestinoDeDiseno(cs, Cfg(allow));
     }
+
+    private static AppDbContext ContextoDiseno(string cs, bool? allow) => new(new DbContextOptionsBuilder<AppDbContext>()
+        .UseSqlServer(cs).AddInterceptors(new GuardConexionRealInterceptor(Cfg(allow))).Options);
+
+    [Fact]
+    public void Interceptor_BloqueaAbrirConexionAlaBaseReal_AunqueSeCambieElDestinoDespues()
+    {
+        // simula `dotnet ef database update --connection <real>`: contexto creado contra _DesignTime y destino cambiado luego
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb_DesignTime;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        ctx.Database.SetConnectionString("Server=127.0.0.1,1;Database=TheBuryProjectDb;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True");
+        Assert.Throws<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnection());
+    }
+
+    [Fact]
+    public void Interceptor_ConexionSinCatalogo_SeTrataComoReal()
+    {
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        Assert.Throws<MigracionesNoAutorizadasException>(() => ctx.Database.OpenConnection());
+    }
+
+    [Fact]
+    public void Interceptor_BaseDeDiseno_NoBloquea()
+    {
+        using var ctx = ContextoDiseno("Server=127.0.0.1,1;Database=TheBuryProjectDb_DesignTime;Connect Timeout=1;User Id=u;Password=p;TrustServerCertificate=True", null);
+        var ex = Record.Exception(() => ctx.Database.OpenConnection());
+        Assert.IsNotType<MigracionesNoAutorizadasException>(ex); // falla por servidor inaccesible, no por el guard
+    }
 }

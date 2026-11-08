@@ -57,16 +57,24 @@ namespace TheBuryProject.Data
         }
 
         /// <summary>Diseño (CLI de EF): apuntar a la base real exige la misma habilitación explícita que el arranque.</summary>
-        public static void ValidarDestinoDeDiseno(string connectionString, IConfiguration configuration)
+        public static void ValidarDestinoDeDiseno(string? connectionString, IConfiguration configuration)
         {
-            var catalogo = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString).InitialCatalog;
-            if (string.Equals(catalogo, "TheBuryProjectDb", StringComparison.OrdinalIgnoreCase)
-                && !configuration.GetValue(ClaveConfiguracion, false))
+            if (EsBaseRealOIndeterminada(connectionString) && !configuration.GetValue(ClaveConfiguracion, false))
             {
                 throw new MigracionesNoAutorizadasException(
-                    "El CLI de EF apunta a la base real 'TheBuryProjectDb' sin habilitación explícita. Para operar contra ella usar un respaldo/clon " +
-                    $"o habilitar {ClaveConfiguracion}=true (env Database__AllowMigrations=true) con autorización del propietario.");
+                    "El CLI de EF apunta a la base real 'TheBuryProjectDb' (o a una conexión sin base explícita) sin habilitación explícita. " +
+                    $"Para operar contra ella usar un respaldo/clon o habilitar {ClaveConfiguracion}=true (env Database__AllowMigrations=true) " +
+                    "con autorización del propietario.");
             }
+        }
+
+        /// <summary>Catálogo = TheBuryProjectDb, o vacío (el login podría caer en su base predeterminada): se trata como real.</summary>
+        public static bool EsBaseRealOIndeterminada(string? connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString)) return true;
+            var catalogo = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString).InitialCatalog;
+            return string.IsNullOrWhiteSpace(catalogo)
+                || string.Equals(catalogo, "TheBuryProjectDb", StringComparison.OrdinalIgnoreCase);
         }
 
         private static async Task<bool> TieneTablasDeUsuarioAsync(AppDbContext context)
@@ -87,6 +95,30 @@ namespace TheBuryProject.Data
             {
                 if (!abierta) await conn.CloseAsync();
             }
+        }
+    }
+
+
+    /// <summary>
+    /// Solo en tiempo de diseño (lo agrega AppDbContextFactory): bloquea ABRIR una conexión a la base real sin habilitación, aunque el destino
+    /// se haya cambiado después de crear el contexto (<c>dotnet ef database update --connection …</c>).
+    /// </summary>
+    public sealed class GuardConexionRealInterceptor(IConfiguration configuration) : Microsoft.EntityFrameworkCore.Diagnostics.DbConnectionInterceptor
+    {
+        public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult ConnectionOpening(
+            System.Data.Common.DbConnection connection, Microsoft.EntityFrameworkCore.Diagnostics.ConnectionEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult result)
+        {
+            MigracionesGuard.ValidarDestinoDeDiseno(connection.ConnectionString, configuration);
+            return result;
+        }
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult> ConnectionOpeningAsync(
+            System.Data.Common.DbConnection connection, Microsoft.EntityFrameworkCore.Diagnostics.ConnectionEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult result, CancellationToken cancellationToken = default)
+        {
+            MigracionesGuard.ValidarDestinoDeDiseno(connection.ConnectionString, configuration);
+            return ValueTask.FromResult(result);
         }
     }
 }
