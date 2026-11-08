@@ -61,6 +61,14 @@ public class MigracionesGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task ServidorInaccesible_NoEsBaseInexistente_FallaCerrado()
+    {
+        await using var ctx = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer("Server=127.0.0.1,1;Database=x;User Id=u;Password=p;Connect Timeout=2;TrustServerCertificate=True").Options);
+        await Assert.ThrowsAsync<MigracionesNoAutorizadasException>(() => MigracionesGuard.AsegurarAutorizadoAsync(ctx, Cfg(null)));
+    }
+
+    [Fact]
     public async Task ConfiguracionFalse_TambienFalla()
     {
         SimularBaseConHistorial();

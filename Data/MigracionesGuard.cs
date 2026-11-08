@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace TheBuryProject.Data
 {
@@ -22,8 +23,9 @@ namespace TheBuryProject.Data
 
             try
             {
-                // Sin conexión (p. ej. la base aún no existe y el servicio migrate la crea): no hay nada real que proteger.
-                if (!await context.Database.CanConnectAsync())
+                // La base todavía no existe: no hay nada real que proteger. Una base inaccesible NO es "no existe": ExistsAsync lanza
+                // y se falla cerrado más abajo (antes CanConnectAsync devolvía false ante un fallo transitorio y dejaba migrar).
+                if (!await context.GetService<Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator>().ExistsAsync())
                     return;
 
                 var pendientes = (await context.Database.GetPendingMigrationsAsync()).ToList();
