@@ -128,8 +128,12 @@ powershell -NoProfile -File scripts\respaldo-local.ps1 -Accion Probar    -Raiz D
 
 ## 8. Deuda conocida / mejoras pendientes
 
-- **CSP (Content-Security-Policy)**: no se aplica todavía porque las vistas usan
-  estilos/scripts inline y SignalR; requiere QA visual antes de activar.
+- **CSP (Content-Security-Policy)** (D-05, 2026-11-08): implementada pero **apagada por defecto** (`Csp:Mode` = `Off`/`ReportOnly`/`Enforce`;
+  variable `Csp__Mode`). `ReportOnly` envía `Content-Security-Policy-Report-Only` con nonce por request (`script-src 'self' 'nonce-…'`, sin
+  `unsafe-eval`) y las violaciones se registran en el log (`/csp-report`, WARN `CSP violation`). Medición en clon aislado (151 páginas, Chrome,
+  sesión admin): **solo 1 tipo de violación, `script-src-attr` (atributos `onclick=`/`onsubmit=`…, ~98 en 34 vistas)**; ninguna de scripts/estilos
+  de elemento, fuentes, imágenes, conexiones ni SignalR. **No pasar a `Enforce` hasta migrar esos handlers** (o fijar `Csp:EstrictoAtributosScript=false`
+  como excepción consciente, que deja `script-src-attr 'unsafe-inline'`). `style-src-attr 'unsafe-inline'` queda permitido a propósito (>1200 `style=""`).
 - **Endpoints de diagnóstico** (`/Diagnostico/*`): ahora solo responden en Development
   (404 en producción). No reactivar sin necesidad.
 - **Una sola instancia de la aplicación (verificado 2026-10-29)**: el compose corre una única instancia de `app` y es la
