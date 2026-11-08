@@ -36,7 +36,7 @@ public class CspHttpTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("object-src 'none'", csp);
         var nonce = System.Text.RegularExpressions.Regex.Match(csp, "'nonce-([^']+)'").Groups[1].Value;
         Assert.NotEmpty(nonce);
-        var html = await r.Content.ReadAsStringAsync();
+        var html = System.Net.WebUtility.HtmlDecode(await r.Content.ReadAsStringAsync()); // el nonce base64 puede traer + o / (codificados en el atributo)
         Assert.Contains($"nonce=\"{nonce}\"", html);
     }
 
