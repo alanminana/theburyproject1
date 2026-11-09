@@ -222,7 +222,25 @@ jobs:
           E2E_BASE_URL: "http://127.0.0.1:${{ env.APP_PORT_CI }}"
           E2E_USER: administrador
           E2E_PASS: "Admin123!"
+          # D-05: medicion (solo lectura) de violaciones CSP del navegador durante la suite; la app corre con Csp__Mode=ReportOnly
+          # (docker-compose.ci.yml). No altera las pruebas: ver scripts/qa/csp-medicion/preload.js.
+          CSP_MEDIR_OUT: ${{ runner.temp }}/csp-medicion.jsonl
+          NODE_OPTIONS: --require ${{ github.workspace }}/scripts/qa/csp-medicion/preload.js
         run: npx playwright test --project=1366x768
+
+      # D-05: resumen de la medicion CSP. Informativo respecto de las violaciones (Report-Only no bloquea ni debe romper el gate),
+      # pero falla si la medicion no se enganchó (0 contextos instrumentados), para que un resultado vacio no parezca "0 violaciones".
+      - name: Resumen de violaciones CSP (ReportOnly)
+        if: ${{ !cancelled() }}
+        run: |
+          set -u
+          mkdir -p qa-evidence/e2e/csp
+          cp "$RUNNER_TEMP/csp-medicion.jsonl" qa-evidence/e2e/csp/ 2>/dev/null || true
+          rc=0
+          node scripts/qa/csp-medicion/resumen.js "$RUNNER_TEMP/csp-medicion.jsonl" > qa-evidence/e2e/csp/resumen.txt || rc=$?
+          cat qa-evidence/e2e/csp/resumen.txt
+          { echo '### CSP ReportOnly durante la suite E2E'; echo '```'; cat qa-evidence/e2e/csp/resumen.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
 
       - name: Logs del stack (diagnostico)
         if: ${{ !cancelled() }}
@@ -245,6 +263,7 @@ jobs:
             qa-evidence/e2e/playwright-report/
             qa-evidence/e2e/test-results/
             qa-evidence/e2e/docker-logs/
+            qa-evidence/e2e/csp/
           retention-days: 30
           if-no-files-found: warn
 

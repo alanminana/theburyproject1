@@ -25,3 +25,6 @@ services:
       # E2E/CI: el reloj de la app no cruza la medianoche comercial del dia de arranque (TimeProviderDiaComercialAcotado).
       # Evita que las aperturas de caja sembradas pasen a "turno vencido" a mitad del suite. NO definir en produccion.
       E2E__AcotarDiaComercial: "true"
+      # D-05: la suite E2E corre con la CSP en ReportOnly (no bloquea nada) para medir violaciones; solo en este stack efimero de CI.
+      # El valor por defecto de la aplicacion sigue siendo Off. Ver scripts/qa/csp-medicion y docs/csp-enforce-pendientes.md.
+      Csp__Mode: "ReportOnly"

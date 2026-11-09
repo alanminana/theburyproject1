@@ -278,3 +278,11 @@ y `qa-evidence/`); usar un worktree/stack por corrida.
 - El fallo único de `venta-functional-audit.spec.js` registrado el 2026-09-23 no aparece en esa corrida. Este documento no atribuye la resolución a un cambio concreto; los fixes listados arriba de ese spec corresponden al flujo Edit.
 - Los 14 skips siguen existiendo: son skips explícitos y documentados (permisos de la sesión QA, datos ausentes, sin egreso a BCRA, escenario no alcanzable por UI). No están solucionados ni se consideran validados.
 - Esta sección no cubre corridas posteriores del workflow en GitHub Actions; solo resume lo medido y registrado arriba.
+
+## Medicion de violaciones CSP (D-05)
+
+El stack efimero corre con `Csp__Mode=ReportOnly` (solo este overlay; el valor por defecto de la aplicacion sigue siendo `Off`). El paso
+`Run Playwright tests` se ejecuta con `NODE_OPTIONS=--require scripts/qa/csp-medicion/preload.js` y `CSP_MEDIR_OUT`, que registra violaciones
+`securitypolicyviolation`, errores de pagina y errores de consola CSP de cada contexto sin modificar los specs. El paso siguiente publica el resumen
+(`$GITHUB_STEP_SUMMARY` y artefacto `qa-evidence/e2e/csp/`) y falla solo si la medicion no se engancho (0 contextos instrumentados). Las violaciones son
+informativas hasta acordar un umbral (`node scripts/qa/csp-medicion/resumen.js <jsonl> --max-violaciones 0`). Ver `docs/csp-enforce-pendientes.md`.
