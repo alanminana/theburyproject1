@@ -53,6 +53,10 @@ const res = []; const ok = (n, c, d) => res.push([c ? 'OK  ' : 'FAIL', n, d || '
         await page.click('#manage-title'); await page.waitForTimeout(100);
         const sigueAbierto = await page.evaluate(() => !document.getElementById('modal-manage').classList.contains('hidden'));
         ok(`[${tag}] clic dentro de la tarjeta no cierra`, sigueAbierto);
+        // gesto que empieza dentro de la tarjeta y termina fuera (p. ej. seleccionar texto) NO debe cerrar
+        const bb = await page.locator('#manage-title').boundingBox();
+        await page.mouse.move(bb.x + 2, bb.y + 2); await page.mouse.down(); await page.mouse.move(5, 5); await page.mouse.up(); await page.waitForTimeout(150);
+        ok(`[${tag}] mousedown dentro y mouseup fuera no cierra`, await page.evaluate(() => !document.getElementById('modal-manage').classList.contains('hidden')));
         await page.mouse.click(5, 5); await page.waitForTimeout(150);
         const cerrado2 = await page.evaluate(() => { const el = document.getElementById('modal-manage'); return el.classList.contains('hidden') || getComputedStyle(el).display === 'none'; });
         ok(`[${tag}] clic en el fondo cierra el modal`, cerrado2);

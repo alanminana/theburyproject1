@@ -22,7 +22,16 @@ if (OUT) {
     const instrumentar = async (ctx) => {
       if (ctx.__cspMedir) return;
       ctx.__cspMedir = true;
-      escribir({ t: 'contexto' });
+      const vigilar = (p) => {
+        if (p.__cspMedirP) return;
+        p.__cspMedirP = true;
+        p.on('pageerror', (err) => escribir({ t: 'pageerror', mensaje: String(err && err.message || err).slice(0, 200), pagina: p.url() }));
+        p.on('console', (m) => {
+          if (m.type() === 'error' && /content security policy/i.test(m.text())) escribir({ t: 'consola-csp', mensaje: m.text().slice(0, 200), pagina: p.url() });
+        });
+      };
+      ctx.on('page', vigilar);
+      ctx.pages().forEach(vigilar);
       try {
         await ctx.exposeBinding('__cspMedirV', (src, v) => escribir({ t: 'violacion', ...v, pagina: src.page ? src.page.url() : null }));
         await ctx.addInitScript(() => {
@@ -35,13 +44,12 @@ if (OUT) {
             } catch { /* ignorar */ }
           });
         });
-      } catch { /* contexto ya cerrado */ }
-      ctx.on('page', (p) => {
-        p.on('pageerror', (err) => escribir({ t: 'pageerror', mensaje: String(err && err.message || err).slice(0, 200), pagina: p.url() }));
-        p.on('console', (m) => {
-          if (m.type() === 'error' && /content security policy/i.test(m.text())) escribir({ t: 'consola-csp', mensaje: m.text().slice(0, 200), pagina: p.url() });
-        });
-      });
+        // Solo se cuenta el contexto si ambos mecanismos quedaron instalados.
+        escribir({ t: 'contexto', pid: process.pid });
+      } catch (err) {
+        // Contexto ya cerrado o fallo de instalacion: invalida la medicion (resumen.js sale con codigo 3).
+        escribir({ t: 'fallo-instrumentacion', mensaje: String(err && err.message || err).slice(0, 200), pid: process.pid });
+      }
     };
 
     const launch = chromium.launch.bind(chromium);

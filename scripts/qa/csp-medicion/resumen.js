@@ -13,6 +13,7 @@ const ev = lineas.map((l) => { try { return JSON.parse(l); } catch { return null
 const viol = ev.filter((e) => e.t === 'violacion');
 const errs = ev.filter((e) => e.t === 'pageerror');
 const ctxs = ev.filter((e) => e.t === 'contexto').length;
+const fallos = ev.filter((e) => e.t === 'fallo-instrumentacion');
 const cons = ev.filter((e) => e.t === 'consola-csp');
 
 const agrupar = (arr, clave) => {
@@ -21,10 +22,11 @@ const agrupar = (arr, clave) => {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 };
 
-console.log(`Contextos instrumentados: ${ctxs}`);
+console.log(`Contextos instrumentados: ${ctxs} (procesos: ${new Set(ev.filter((e) => e.t === 'contexto').map((e) => e.pid)).size}); fallos de instrumentación: ${fallos.length}`);
 console.log(`Eventos: violaciones CSP=${viol.length}, errores de página=${errs.length}, consola CSP=${cons.length}`);
 if (!ctxs) console.log('(ningún contexto instrumentado: la medición no se enganchó; verificar NODE_OPTIONS/CSP_MEDIR_OUT)');
 for (const [k, n] of agrupar(viol, (e) => `${e.directiva} | ${e.bloqueado} | ${e.ruta} | ${e.disposicion}`).slice(0, 60)) console.log(`  VIOLACION x${n}: ${k}`);
 for (const [k, n] of agrupar(errs, (e) => e.mensaje).slice(0, 30)) console.log(`  PAGEERROR x${n}: ${k}`);
+if (fallos.length) { for (const f of fallos.slice(0, 5)) console.error('Fallo de instrumentación: ' + f.mensaje); console.error('Medición inválida: hubo contextos sin instrumentar.'); process.exit(3); }
 if (!ctxs) { console.error('Medición inválida: 0 contextos instrumentados.'); process.exit(3); }
 if (max !== null && viol.length > max) { console.error(`Violaciones CSP (${viol.length}) > máximo permitido (${max}).`); process.exit(1); }

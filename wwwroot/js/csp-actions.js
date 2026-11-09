@@ -36,6 +36,9 @@
         return fn.apply(window, extra || args(el));
     }
 
+    var downTarget = null;
+    document.addEventListener('mousedown', function (ev) { downTarget = ev.target; }, true);
+
     function run(el, ev) {
         var action = el.getAttribute('data-action');
         switch (action) {
@@ -63,7 +66,8 @@
                 break;
             case 'call': callFn(el, el.getAttribute('data-fn')); break;
             case 'call-self':
-                if (ev.target === el) callFn(el, el.getAttribute('data-fn'));
+                // Solo si el gesto empezó y terminó en el propio elemento (seleccionar texto dentro y soltar fuera no debe cerrar).
+                if (ev.target === el && (downTarget === null || downTarget === el)) callFn(el, el.getAttribute('data-fn'));
                 break;
         }
         if (el.hasAttribute('data-stop')) return 'stop';
@@ -99,9 +103,10 @@
     document.addEventListener('click', function (ev) {
         var el = ev.target.closest ? ev.target.closest('[data-action]') : null;
         while (el) {
-            if (run(el, ev) === 'stop') { ev.stopPropagation(); return; }
+            if (run(el, ev) === 'stop') { downTarget = null; ev.stopPropagation(); return; }
             el = el.parentElement ? el.parentElement.closest('[data-action]') : null;
         }
+        downTarget = null;
     });
 
     document.addEventListener('input', function (ev) {
