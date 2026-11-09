@@ -43,15 +43,26 @@ const res = []; const ok = (n, c, d) => res.push([c ? 'OK  ' : 'FAIL', n, d || '
         // cambiar acción -> puUpdateManageAction (data-change-fn)
         if (opts.length > 1) { await page.selectOption('#manage-action', { index: 1 }); await page.waitForTimeout(100); ok(`[${tag}] cambio de accion sin error`, true); }
         // cerrar: boton Cancelar
-        await page.click('#modal-manage [data-fn="puCloseModal"]:has-text("Cancelar")').catch(() => { });
+        await page.click('#modal-manage button[data-fn="puCloseModal"]:has-text("Cancelar")').catch(() => { });
         await page.waitForTimeout(150);
         const cerrado = await page.evaluate(() => { const el = document.getElementById('modal-manage'); return el.classList.contains('hidden') || getComputedStyle(el).display === 'none'; });
         ok(`[${tag}] Cancelar cierra el modal`, cerrado);
         // abrir de nuevo y cerrar clickeando el fondo (call-self)
         await m.click(); await page.waitForTimeout(150);
+        // clic DENTRO de la tarjeta (texto y select) no debe cerrar; clic fuera si (DEF-UNI-01 corregido)
+        await page.click('#manage-title'); await page.waitForTimeout(100);
+        const sigueAbierto = await page.evaluate(() => !document.getElementById('modal-manage').classList.contains('hidden'));
+        ok(`[${tag}] clic dentro de la tarjeta no cierra`, sigueAbierto);
+        // gesto que empieza dentro de la tarjeta y termina fuera (p. ej. seleccionar texto) NO debe cerrar
+        const bb = await page.locator('#manage-title').boundingBox();
+        await page.mouse.move(bb.x + 2, bb.y + 2); await page.mouse.down(); await page.mouse.move(5, 5); await page.mouse.up(); await page.waitForTimeout(150);
+        ok(`[${tag}] mousedown dentro y mouseup fuera no cierra`, await page.evaluate(() => !document.getElementById('modal-manage').classList.contains('hidden')));
         await page.mouse.click(5, 5); await page.waitForTimeout(150);
         const cerrado2 = await page.evaluate(() => { const el = document.getElementById('modal-manage'); return el.classList.contains('hidden') || getComputedStyle(el).display === 'none'; });
-        ok(`[${tag}] click en fondo cierra el modal (call-self)`, true, cerrado2 ? 'cierra' : 'NO cierra: DEF-UNI-01 conocido (docs/csp-enforce-pendientes.md)');
+        ok(`[${tag}] clic en el fondo cierra el modal`, cerrado2);
+        await m.click(); await page.waitForTimeout(150);
+        await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+        ok(`[${tag}] Escape cierra el modal`, await page.evaluate(() => document.getElementById('modal-manage').classList.contains('hidden')));
         break;
       }
     }

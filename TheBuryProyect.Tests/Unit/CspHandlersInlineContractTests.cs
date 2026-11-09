@@ -59,4 +59,18 @@ public class CspHandlersInlineContractTests
             foreach (Match m in attr.Matches(File.ReadAllText(f))) usadas.Add(m.Groups[1].Value);
         Assert.Empty(usadas.Except(permitidas));
     }
+
+    /// <summary>DEF-UNI-01: el contenedor interior (min-h-full) cubre todo el fondo; si no cierra por sí mismo, clic fuera del modal «Gestionar» no lo cierra.</summary>
+    [Fact]
+    public void Unidades_ModalGestionar_CierraConClicEnElFondoInterior()
+    {
+        var html = File.ReadAllText(Path.Combine(Root(), "Views", "Producto", "Unidades.cshtml"));
+        var inicio = html.IndexOf("id=\"modal-manage\"", StringComparison.Ordinal);
+        Assert.True(inicio > 0);
+        var tarjeta = html.IndexOf("pu-modal-card", inicio, StringComparison.Ordinal);
+        var cabecera = html.Substring(inicio, tarjeta - inicio);
+        // overlay (fixed inset-0) y contenedor interior (min-h-full): ambos cierran solo si el destino del clic es el propio elemento.
+        Assert.Equal(2, Regex.Matches(cabecera, @"data-action=""call-self""\s+data-fn=""puCloseModal""\s+data-args='\[""modal-manage""\]'").Count);
+        Assert.Contains("min-h-full", cabecera);
+    }
 }
