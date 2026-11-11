@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.E2ESeeding
 {
@@ -17,6 +18,10 @@ namespace TheBuryProject.Tests.E2ESeeding
     ///    <c>ConfiguracionPunitorioHttpTests</c>.
     /// 2) <c>cotizacion-credito-personal-aptitud-contradiccion.spec.js</c>: cliente con DNI numérico, BCRA "OK" y mora de capital
     ///    ≥ 30 días (evaluación real "No apto", sin depender de internet). Se exporta como <c>E2E_CLIENTE_NOAPTO_DNI</c>.
+    /// 4) <c>cotizacion-conversion.spec.js</c> T9–T12: cuatro cotizaciones «Emitida» con cliente y sin convertir (Detalles → modal de
+    ///    conversión). Desde el simulador ya no se pueden crear: guardar con cliente del sistema encadena a Venta/Edit
+    ///    (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01). Cada test convierte la suya (T11 con descuento por importe), por eso se siembran 4.
+    ///    <b>No idempotente respecto de la suite</b>: una cotización ya convertida no sirve para repetir el test (base nueva por corrida).
     /// 3) <c>caja-abrir-monto-inicial.spec.js</c>: una caja activa sin turno abierto, para que <c>/Caja/Abrir</c> muestre el selector.
     ///
     /// Idempotente. Sembrar DESPUÉS de <see cref="ClienteAptitudPunitorioE2ESeeder"/> (configura DiasParaNoApto = 30).
@@ -27,6 +32,9 @@ namespace TheBuryProject.Tests.E2ESeeding
         public const string UsuarioConPermisos = "administrador";
         public const string DniNoApto = "90000502";
         public const string CodigoCajaLibre = "E2ECAJALIBRE";
+        public const string PrefijoCotizacionConversion = "E2ECONV-";
+        private const string ClienteDocumentoGenerico = "90000001";
+        private const string ProductoCodigoGenerico = "E2EGENERIC-01";
         private static readonly string[] ClaimsPunitorio =
             { "configuracion.managepunitorio", "configuracion.retroactivepunitorio" };
 
@@ -35,7 +43,12 @@ namespace TheBuryProject.Tests.E2ESeeding
             await OtorgarPermisosPunitorioAsync(db);
             await AsegurarClienteNoAptoAsync(db);
             await AsegurarCajaLibreAsync(db);
-            return new Dictionary<string, string> { ["E2E_CLIENTE_NOAPTO_DNI"] = DniNoApto };
+            var cotizaciones = await AsegurarCotizacionesConversionAsync(db);
+            return new Dictionary<string, string>
+            {
+                ["E2E_CLIENTE_NOAPTO_DNI"] = DniNoApto,
+                ["E2E_COTIZACION_CONV_IDS"] = string.Join(",", cotizaciones)
+            };
         }
 
         private static async Task OtorgarPermisosPunitorioAsync(AppDbContext db)
@@ -128,6 +141,54 @@ namespace TheBuryProject.Tests.E2ESeeding
                 Estado = EstadoCuota.Vencida
             });
             await db.SaveChangesAsync();
+        }
+
+        private static async Task<List<int>> AsegurarCotizacionesConversionAsync(AppDbContext db)
+        {
+            var cliente = await db.Clientes.FirstOrDefaultAsync(c => c.NumeroDocumento == ClienteDocumentoGenerico)
+                ?? throw new InvalidOperationException($"Falta el cliente genérico {ClienteDocumentoGenerico}: ejecutar GenericE2ESeedRunner.Sembrar antes.");
+            var producto = await db.Productos.FirstOrDefaultAsync(p => p.Codigo == ProductoCodigoGenerico)
+                ?? throw new InvalidOperationException($"Falta el producto genérico {ProductoCodigoGenerico}: ejecutar GenericE2ESeedRunner.Sembrar antes.");
+
+            var ids = new List<int>();
+            for (var i = 1; i <= 4; i++)
+            {
+                var numero = $"{PrefijoCotizacionConversion}{i:0000}";
+                var existente = await db.Cotizaciones.Where(c => c.Numero == numero).Select(c => (int?)c.Id).FirstOrDefaultAsync();
+                if (existente.HasValue) { ids.Add(existente.Value); continue; }
+
+                // T11 (índice 3) lleva un descuento por importe en la línea; el resto, sin descuento.
+                var descuento = i == 3 ? 50m : 0m;
+                var subtotal = producto.PrecioVenta - descuento;
+                var cotizacion = new Cotizacion
+                {
+                    Numero = numero,
+                    Fecha = DateTime.UtcNow,
+                    FechaVencimiento = DateTime.UtcNow.AddDays(30),
+                    Estado = EstadoCotizacion.Emitida,
+                    ClienteId = cliente.Id,
+                    Subtotal = producto.PrecioVenta,
+                    DescuentoTotal = descuento,
+                    TotalBase = subtotal,
+                    MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo,
+                    PlanSeleccionado = "Efectivo",
+                    TotalSeleccionado = subtotal
+                };
+                cotizacion.Detalles.Add(new CotizacionDetalle
+                {
+                    ProductoId = producto.Id,
+                    CodigoProductoSnapshot = producto.Codigo,
+                    NombreProductoSnapshot = producto.Nombre,
+                    Cantidad = 1m,
+                    PrecioUnitarioSnapshot = producto.PrecioVenta,
+                    DescuentoImporteSnapshot = i == 3 ? 50m : null,
+                    Subtotal = subtotal
+                });
+                db.Cotizaciones.Add(cotizacion);
+                await db.SaveChangesAsync();
+                ids.Add(cotizacion.Id);
+            }
+            return ids;
         }
 
         private static async Task AsegurarCajaLibreAsync(AppDbContext db)
