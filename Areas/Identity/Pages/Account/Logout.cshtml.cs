@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 
@@ -44,15 +45,18 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
         private readonly ILogger<LogoutModel> _logger;
         private readonly ISeguridadAuditoriaService _auditoria;
         private readonly IAntiforgery _antiforgery;
+        private readonly AppDbContext _db;
 
         public LogoutModel(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
             ILogger<LogoutModel> logger,
             IAntiforgery antiforgery,
+            AppDbContext db,
             ISeguridadAuditoriaService auditoria = null)
         {
             _antiforgery = antiforgery;
+            _db = db;
             _signInManager = signInManager;
             _userManager = userManager;
             _logger = logger;
@@ -83,8 +87,13 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                     revocadas = resultado.Succeeded;
                     if (!revocadas)
                     {
+                        // La actualización fallida queda pendiente en el DbContext de la solicitud y haría fallar el INSERT de auditoría de abajo.
+                        _db.ChangeTracker.Clear();
                         // Típico: otro logout simultáneo del mismo usuario ya rotó el stamp (concurrencia optimista) → ya está revocado.
-                        _logger.LogWarning("Logout de {UserId}: no se pudo rotar el SecurityStamp ({Errores}).", userId,
+                        var colision = resultado.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.ConcurrencyFailure));
+                        revocadas = colision;
+                        _logger.Log(colision ? LogLevel.Information : LogLevel.Warning,
+                            "Logout de {UserId}: no se pudo rotar el SecurityStamp ({Errores}).", userId,
                             string.Join(", ", resultado.Errors.Select(e => e.Code)));
                     }
                 }
@@ -100,7 +109,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
             if (userId != null && _auditoria != null)
             {
                 await _auditoria.RegistrarEventoAsync("Seguridad", "Logout", $"Usuario:{userId}",
-                    revocadas ? "Cierre de sesión: todas las sesiones previas del usuario quedaron invalidadas." : "Cierre de sesión (la revocación global no se pudo confirmar).");
+                    revocadas ? "Cierre de sesión: todas las sesiones previas del usuario quedaron invalidadas." : "Cierre de sesión (la revocación global NO se pudo confirmar: revisar el log).");
             }
 
             if (returnUrl != null && Url.IsLocalUrl(returnUrl))
