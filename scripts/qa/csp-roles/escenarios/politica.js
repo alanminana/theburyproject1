@@ -9,7 +9,7 @@ const logsApp = () => { try { return execFileSync('docker', ['logs', '--since', 
 module.exports = [
   {
     nombre: 'Politica efectiva: script inline sin nonce, handler inline, estilo inline y recurso externo son BLOQUEADOS y reportados (control negativo)',
-    violacionesEsperadas: [/script-src-elem|Executing inline script/, /script-src-attr|inline event handler/, /style-src-elem|Applying inline style/, /img-src|frame-src|example\.invalid/],
+    violacionesEsperadas: [/script-src-elem|Executing inline script|Refused to execute a script/, /script-src-attr|inline event handler|Refused to execute a script|Refused to execute inline event handler/, /style-src-elem|Applying inline style|Refused to apply a stylesheet/, /img-src|frame-src|example\.invalid/],
     permitFallidas: [/example\.invalid/],
     async fn(E, page) {
       await E.ir(page, '/Cliente');

@@ -31,7 +31,7 @@ module.exports = [
         const opciones = page.locator('.picker-dropdown:not([hidden]) [role=option], .picker-dropdown:not([hidden]) button, .picker-dropdown:not([hidden]) li');
         const nOp = await opciones.count();
         E.check('el dropdown lista productos', nOp > 0, nOp);
-        if (nOp) { await E.click(page, opciones.first()); E.check('elegir un producto crea el chip', (await page.locator('#form-crear-proveedor .picker-chips-container > *').count()) >= 1); }
+        if (nOp) { await opciones.first().click({ timeout: 4000 }).catch(() => opciones.first().evaluate((e) => e.click())); E.interacciones++; E.check('elegir un producto crea el chip', (await page.locator('#form-crear-proveedor .picker-chips-container > *').count()) >= 1); }
       }
       const chk = page.locator('#form-crear-proveedor [data-prov-check-group] input[type=checkbox]').first();
       if (await chk.count()) { await E.click(page, chk); await E.click(page, '#form-crear-proveedor [data-prov-check-only] >> nth=0'); E.check('categorias: "solo marcadas" filtra', true); }

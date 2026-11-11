@@ -57,7 +57,7 @@ const defs = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'lib.j
     try {
       const page = await E.nuevaPagina();
       await def.fn(E, page);
-    } catch (e) { error = String(e && e.message || e).split('\n').filter((l) => /locator|waiting for|expect|Error|Timeout|page\./.test(l)).slice(0, 3).join(' / ').slice(0, 300) + ` [ultimo click: ${E.ultimo}]`; }
+    } catch (e) { error = String(e && e.message || e).split('\n').filter((l) => /locator|waiting for|expect|Error|Timeout|page\./.test(l)).slice(0, 8).join(" / ").slice(0, 900) + ` [ultimo click: ${E.ultimo}]`; }
     // Escenarios de control negativo (F2.2): violaciones PROVOCADAS a proposito. Cada patron esperado debe ocurrir al menos una vez;
     // las coincidencias dejan de contar como fallo, el resto de violaciones sigue siendo fallo.
     if (def.violacionesEsperadas) {

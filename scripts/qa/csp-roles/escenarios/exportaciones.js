@@ -54,9 +54,9 @@ module.exports = [
       const exp = page.locator('a:has-text("Exportar"), button:has-text("Exportar")').first();
       E.check('CuotasVencidas ofrece Exportar', (await exp.count()) > 0);
       if (await exp.count()) {
-        const tag = await exp.evaluate((e) => e.tagName + ' ' + (e.getAttribute('href') || e.getAttribute('data-action') || ''));
-        const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), E.click(page, exp)]);
-        E.check('Exportar de CuotasVencidas dispara descarga o accion sin error', !!dl || true, `${tag} descarga=${!!dl}`);
+        const esPrint = (await exp.getAttribute('data-action')) === 'print';
+        if (esPrint) { await E.click(page, exp); E.check('"Exportar" de CuotasVencidas es data-action=print y llama a window.print() bajo Enforce', (await page.evaluate(() => window.__printCalls)) === 1); }
+        else { const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), E.click(page, exp)]); E.check('Exportar de CuotasVencidas dispara una descarga', !!dl); }
       }
     },
   },

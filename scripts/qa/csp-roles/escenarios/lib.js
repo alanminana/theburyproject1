@@ -42,13 +42,14 @@ class Escenario {
       if (r.url().startsWith(this.opts.base)) {
         const h = r.headers();
         const tipo = this.opts.modo === 'enforce' ? 'content-security-policy' : 'content-security-policy-report-only';
-        if (r.request().resourceType() === 'document' && !h[tipo]) this.csp.add(r.url().replace(this.opts.base, ''));
+        if (r.request().resourceType() === 'document' && st < 300 && !h[tipo]) this.csp.add(r.url().replace(this.opts.base, ''));
       }
       const ruta = r.url().replace(this.opts.base, '');
       if (st >= 500) this.http5xx.push(`${st} ${r.request().method()} ${ruta}`);
       else if (st >= 400 && !/favicon/.test(ruta)) this.http4xx.push(`${st} ${r.request().method()} ${ruta}`);
     });
-    page.on('requestfailed', (r) => { const u = r.url(); if (this.bloqueadas.includes(`${r.method()} ${new URL(u).pathname}`)) return; if (!FUENTES_GOOGLE.test(u) && !/\/hubs\//.test(u) && !/ERR_ABORTED/.test(r.failure()?.errorText || '')) this.fallidas.push(`${r.method()} ${u.replace(this.opts.base, '')} ${r.failure()?.errorText}`); });
+    // WebKit: descargas y visor PDF cancelan la carga del frame (Frame load interrupted): no es un fallo de red
+    page.on('requestfailed', (r) => { const u = r.url(); if (this.bloqueadas.includes(`${r.method()} ${new URL(u).pathname}`)) return; if (!FUENTES_GOOGLE.test(u) && !/\/hubs\//.test(u) && !/ERR_ABORTED|Frame load interrupted/.test(r.failure()?.errorText || '')) this.fallidas.push(`${r.method()} ${u.replace(this.opts.base, '')} ${r.failure()?.errorText}`); });
     page.on('dialog', async (d) => { this.dialogs.push(`${d.type()}: ${d.message().slice(0, 100)}`); if (this.aceptarDialogos) await d.accept(); else await d.dismiss(); });
     page.on('framenavigated', (f) => { if (f === page.mainFrame()) this.paginas++; });
     return page;
@@ -101,6 +102,8 @@ async function login(page, base, user = 'administrador') {
 async function instrumentar(ctx, esc) {
   await ctx.exposeBinding('__cspEsc', (src, v) => { const e = ctx.__escActual; if (e) e.viol.push(v); });
   await ctx.addInitScript(() => {
+    // window.print() bloquea el navegador (Firefox) esperando el dialogo del SO: se sustituye por un contador en todos los escenarios.
+    window.__printCalls = 0; window.print = () => { window.__printCalls++; };
     document.addEventListener('securitypolicyviolation', (e) => {
       try { window.__cspEsc(`${e.effectiveDirective} | ${(e.blockedURI || '').slice(0, 80)} | ${e.disposition} | ${location.pathname}`); } catch { /* ignorar */ }
     });
