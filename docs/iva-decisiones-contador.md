@@ -79,3 +79,39 @@ Estado: **PENDIENTE** (sin criterio fiscal) o **PENDIENTE DE VALIDACIÓN** (crit
 ## 3. Qué llevar a la reunión
 
 Una factura de ejemplo con descuento, una con recargo de tarjeta en cuotas, un cobro de cuota por transferencia con recargo (pantalla y recibo), una venta a crédito personal con su contrato, la tabla de alícuotas configuradas y el Reporte de IVA de un mes.
+
+
+## 5. Lista mínima de decisiones imprescindibles (2026-11-11)
+
+Base: resumen preliminar del contador transmitido por el propietario el 2026-11-11 (sin validación fiscal definitiva ni autorización de implementación) y los tests `FiscalCalculosF4Tests` / `FiscalConciliacionF4Tests`. **P-02 sigue ABIERTA.** Nada de lo siguiente está implementado.
+
+### 5-a. Preguntas para el contador (responder sí/no o con un número)
+
+| # | Pregunta | Ejemplo numérico reproducible (test) |
+|---|---|---|
+| C1 | ¿Con ítems de $1.000,50 el total cobrado es $1.000 (hacia abajo) en lugar de $1.001? | `Caracteriza_RedondeoVigenteVsDescritoPorElContador`: 1.000,50 → hoy 1.000 |
+| C2 | Con ítems de $1.000,51, ¿corresponde $1.001 (hoy se cobra $1.000)? ¿Y con $1.000,99? | mismo test: delta +1,00 en ,51 y ,99 |
+| C3 | La diferencia de redondeo, ¿se absorbe en el IVA (hoy) y no en el neto? | `TruncadoAPesos_CasosBorde`: 1.000,49 → neto 826,85 + IVA 173,15 |
+| C4 | ¿El descuento en efectivo reduce la base imponible (hoy sí)? | 3.000 con −5 % = 2.850 = 2.355,37 + 494,63 (`Persistido_VentaFacturada…`) |
+| C5 | ¿El descuento en efectivo alcanza también al envío y al armado (hoy sí)? | `VentaServiciosEnvioArmadoTests.Preview_ElRecargoDelPlanAlcanzaAProductosArmadosYEnvio` |
+| C6 | ¿El envío y el armado van al 21 % siempre (hoy sí)? | envío 200 = 165,29 + 34,71; armado 450 = 371,90 + 78,10 (`ServiciosVentaIva_Separar…`) |
+| C7 | El recargo por tarjeta o transferencia, ¿se grava a la alícuota de cada ítem (hoy)? | 1.500 (21 % + 10,5 %) con +3 % = 1.545 = 1.317,30 + 227,70 (`Persistido_VentaFacturada…` caso 2) |
+| C8 | ¿Se admiten recargos para todas las tarjetas y planes configurados? | tarjeta +10 % sobre 1.000 = 1.100 = 909,09 + 190,91 |
+| C9 | Sobre cada cuota cobrada (600 por transferencia, recargo 18), ¿se factura solo el interés (100)? ¿El recargo (18)? ¿Nada (el capital ya está en la factura de la venta)? | `Cuotas_Recargo3PorCiento…`: Caja 618, sin factura |
+| C10 | ¿Los punitorios llevan IVA? | `PunitorioCalculator` no genera IVA ni comprobante |
+| C11 | ¿El interés del crédito (300 sobre una venta de 2.000) debe figurar en la factura o en el contrato? | venta 2.000 + interés 300; IVA solo sobre 2.000 (347,11) |
+| C12 | ¿El IVA de compra es crédito fiscal recuperable? | venta neta 826,45, costo 400 → ganancia 426,45; con costo sin IVA 330,58 → 495,87 |
+| C13 | ¿El IVA de lo devuelto se resta del período de la devolución (fecha en que se aprueba la devolución)? | devolución de 950,00 (IVA 164,88): reporte 1.260,35 → 1.095,47 (`Caracteriza_ReporteIva_NoNetea…`) |
+| C14 | El plazo de 7 días para restituir dinero, ¿corre desde la compra? Pasado el plazo, ¿solo corresponde nota de crédito? | el ERP hoy limita a 30 días desde la venta y deja elegir reembolso o NC |
+| C15 | El período fiscal de una venta, ¿es el día comercial argentino (UTC−3)? | venta 31/10 22:30 ART = 01/11 01:30 UTC; hoy cae en noviembre (`Caracteriza_VentaDeLas2230…`) |
+
+### 5-b. Decisiones del propietario
+
+| # | Decisión | Por qué bloquea |
+|---|---|---|
+| P1 | ¿Las facturas fiscales (con CAE) se emiten fuera del ERP (sí/no)? | Hoy el ERP no tiene CAE ni integración ARCA/AFIP (`docs/iva-preservacion-historica.md` §4). Si se emiten fuera, el IVA del ERP es informativo y varias filas se reducen a leyendas y reportes. |
+| P2 | ¿Se pretende que el ERP emita facturación electrónica (sí/no)? Si sí: proyecto aparte (WSAA/WSFE, certificados, CAE, controlador de numeración), no un ajuste de reglas. | Sin esto, la nota de crédito fiscal (resp. 5) y la factura de cuotas (resp. 4) no se pueden implementar. |
+| P3 | ¿Se autoriza netear devoluciones en el Reporte de IVA por fecha de la devolución (fila 2.5a, «clara, lista para autorizar») (sí/no)? | Cambia un reporte, no importes persistidos. Ver D-F4-1. |
+| P4 | ¿Se autoriza agregar al impreso de factura interna la leyenda «documento no válido como factura» (sí/no)? Texto legal a definir por el contador. | Hallazgo F4.4: el impreso muestra la letra A/B/C sin leyenda (`docs/iva-preservacion-historica.md` §4). |
+| P5 | ¿Se autoriza versionar el criterio de cálculo por operación (sí/no)? | Sin versión, un cambio fiscal futuro reescribe en lectura el Reporte de IVA y el comprobante de ventas históricas (`docs/iva-preservacion-historica.md` §2–3). Debe decidirse **antes** de implementar cualquier fila. |
+| P6 | Autorización por fila: cuál de 2.1–2.8 se implementa y desde qué fecha de corte. | Ninguna se implementa sin autorización expresa. |
