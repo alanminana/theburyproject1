@@ -8,7 +8,7 @@ namespace TheBuryProject.Tests.Integration;
 /// garantiza que los 2 partials nuevos rendericen sin excepción en runtime — esto sí lo
 /// verifica.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CatalogoTabsHttpSmokeTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

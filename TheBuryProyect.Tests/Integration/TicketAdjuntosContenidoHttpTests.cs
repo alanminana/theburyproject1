@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Los adjuntos de ticket validan, además del tamaño y la extensión, que el contenido real corresponda al tipo declarado
 /// (un ejecutable renombrado a .pdf se rechaza), igual que ya hacían los documentos de cliente.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class TicketAdjuntosContenidoHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime, IDisposable
 {
     private static readonly byte[] Pdf = "%PDF-1.4\n% adjunto sintetico\n%%EOF\n"u8.ToArray();

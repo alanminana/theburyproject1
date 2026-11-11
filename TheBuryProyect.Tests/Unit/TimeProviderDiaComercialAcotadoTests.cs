@@ -10,7 +10,7 @@ namespace TheBuryProject.Tests.Unit;
 /// las aperturas sembradas antes de las 00:00 ART pasan a "turno vencido"; con el reloj acotado (solo CI) no. La regla
 /// <c>CajaService.EsAperturaVencida</c> no cambia: lo unico que cambia es el reloj que se le inyecta.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public sealed class TimeProviderDiaComercialAcotadoTests
 {
     // 2026-10-28 23:55 ART == 2026-10-29 02:55 UTC

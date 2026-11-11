@@ -25,7 +25,7 @@ namespace TheBuryProject.Tests.Integration;
 /// La concurrencia real (interleavings) vive en Concurrency/FinResidualSqlServerTests (SQL Server, BLOCKED
 /// hasta que exista un turno exclusivo del stack FIN).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public sealed class FinResidualCajaDevolucionAnticipoTests : IClassFixture<CustomWebApplicationFactory>
 {
     // Sin HttpContext el usuario actual es "Sistema" (CurrentUserService).

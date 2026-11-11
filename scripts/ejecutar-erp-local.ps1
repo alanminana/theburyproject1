@@ -20,6 +20,9 @@ param(
     [int]$Puerto = 18787,
     [string]$ConnectionString = "",
     [ValidateSet('Development', 'Production')][string]$Entorno = 'Development',
+    # D-05: modo de la CSP (Csp__Mode). Vacio = no se define (la app usa Off salvo que haya una Csp__Mode heredada del entorno).
+    # Solo admite los tres nombres exactos: un valor invalido (typo) ni siquiera llega a la app. Ver docs/csp-enforce-activacion.md.
+    [ValidateSet('', 'Off', 'ReportOnly', 'Enforce')][string]$CspMode = '',
     [switch]$NoActualizar
 )
 $ErrorActionPreference = 'Stop'
@@ -46,6 +49,8 @@ if ($LASTEXITCODE -ne 0) { throw "Fallo la compilacion." }
 
 $env:ASPNETCORE_ENVIRONMENT = $Entorno
 $env:Database__InitializeOnStartup = 'false'
+if ($CspMode) { $env:Csp__Mode = $CspMode }
+elseif ($env:Csp__Mode) { Write-Warning "Hay Csp__Mode='$($env:Csp__Mode)' heredada del entorno; se usara esa (use -CspMode para fijarla de forma explicita)." }
 if ($ConnectionString) { $env:ConnectionStrings__DefaultConnection = $ConnectionString }
 elseif ($env:ConnectionStrings__DefaultConnection) { Write-Warning "Hay ConnectionStrings__DefaultConnection heredada del entorno; se usara esa base." }
 $args2 = @('exec', 'bin/app/TheBuryProyect.dll', '--contentRoot', "`"$raiz`"", '--urls', "http://127.0.0.1:$Puerto")
@@ -59,4 +64,4 @@ for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
     try { $ok = (Invoke-WebRequest "http://127.0.0.1:$Puerto/Identity/Account/Login" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200 } catch { }
 }
 if (-not $ok) { Stop-Process -Id $p.Id -Force; throw "La aplicacion no respondio a tiempo; se detuvo." }
-"TheBuryProject $($head.Substring(0,8)) ($Entorno) en http://127.0.0.1:$Puerto (PID $($p.Id)). Logs: bin\app.log / bin\app.err"
+"TheBuryProject $($head.Substring(0,8)) ($Entorno) en http://127.0.0.1:$Puerto (PID $($p.Id)). CSP: $(if ($env:Csp__Mode) { $env:Csp__Mode } else { 'Off (sin definir)' }). Logs: bin\app.log / bin\app.err"

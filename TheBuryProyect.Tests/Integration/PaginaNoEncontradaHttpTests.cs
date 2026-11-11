@@ -10,7 +10,7 @@ namespace TheBuryProject.Tests.Integration;
 /// FE-D-002: un 404 en navegación HTML mostraba una página en blanco. Ahora se muestra una página con el layout,
 /// conservando el código 404; las llamadas AJAX/fetch siguen recibiendo un 404 sin cuerpo.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class PaginaNoEncontradaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

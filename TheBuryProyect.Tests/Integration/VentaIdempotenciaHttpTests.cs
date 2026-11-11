@@ -21,7 +21,7 @@ namespace TheBuryProject.Tests.Integration;
 /// pipeline HTTP real (antiforgery + autorización + binding + servicio). La concurrencia real (índice único) se prueba
 /// contra SQL Server en FinS002VentaSqlServerTests [FS2-IDEM]: SQLite comparte una sola conexión y no admite altas paralelas.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 18000;

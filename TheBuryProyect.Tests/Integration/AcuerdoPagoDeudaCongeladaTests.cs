@@ -22,7 +22,7 @@ namespace TheBuryProject.Tests.Integration;
 /// imputan solo a esa deuda, y mientras está Activo no se cobra por otro circuito ni se aplican/anulan punitorios.
 /// Servicios REALES (cobro, punitorios, mora) sobre SQLite; el usuario sin contexto es "Sistema".
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public sealed class AcuerdoPagoDeudaCongeladaTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string Usuario = "Sistema";

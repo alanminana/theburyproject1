@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// financieros de esa caja (fondo inicial, ingresos, egresos, esperado, responsable, nombre y saldo). Ahora se autoriza
 /// primero. Pipeline HTTP completo: autenticación, permisos por claims, antiforgery, controller y servicio.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CajaModeloInvalidoAutorizacionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string User = CustomWebApplicationFactory.CajaCierrePermsUserId;

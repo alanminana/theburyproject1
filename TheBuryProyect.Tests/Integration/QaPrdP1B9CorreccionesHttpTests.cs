@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// QA-PRD-P1 B9: la UI del catálogo ofrece exactamente lo que el servidor va a aceptar (camino positivo y
 /// negativo) para productos y marcas, y el servidor sigue rechazando el POST sin permiso.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int ProductoId = 9210;

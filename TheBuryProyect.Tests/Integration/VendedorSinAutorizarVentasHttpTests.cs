@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// en la SOLICITUD SIGUIENTE a la baja del permiso (sesión ya abierta) aunque la venta sea de otro usuario, y (3) el
 /// contrato del script de datos <c>scripts/sql/vendedor-sin-ventas-authorize.sql</c> (solo Vendedor + ventas.authorize).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VendedorSinAutorizarVentasHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

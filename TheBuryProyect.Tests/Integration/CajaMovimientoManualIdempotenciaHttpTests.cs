@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// FIN-IDEM-P0 (H-IDEM-1), extremo a extremo por HTTP: el formulario de movimiento manual emite una clave de
 /// idempotencia en un campo oculto, la conserva al reenviar el POST y el servidor no duplica el asiento.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class CajaMovimientoManualIdempotenciaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

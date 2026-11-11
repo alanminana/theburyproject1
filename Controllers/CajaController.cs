@@ -848,6 +848,14 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // F3.1: un supervisor pasa la guarda anterior aunque la apertura no exista (POST fabricado o formulario viejo);
+            // sin esta comprobación, rearmar el formulario lanzaba "Apertura no encontrada" y la acción terminaba en HTTP 500.
+            if (await _cajaService.ObtenerAperturaPorIdAsync(model.AperturaCajaId) == null)
+            {
+                TempData["Error"] = "La apertura de caja no existe.";
+                return RedirectToAction(nameof(Index));
+            }
+
             if (!ModelState.IsValid)
             {
                 await TryPopulateCerrarModelAsync(model);

@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// persistían como 1,50 (subestimación x1000). Ahora se rechazan por ambiguos y no se registra ningún movimiento;
 /// los formatos no ambiguos se siguen aceptando. Comprueba además que el binder ve el atributo en ejecución real.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class MontoAmbiguoCajaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string User = CustomWebApplicationFactory.CajaCierrePermsUserId;

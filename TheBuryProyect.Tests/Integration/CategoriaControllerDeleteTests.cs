@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// de Catalogo/Index_tw) — el grep de la auditoría original no cubría rutas embebidas como
 /// string literal en JS. El botón quedó 404 en producción hasta este fix.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CategoriaControllerDeleteTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

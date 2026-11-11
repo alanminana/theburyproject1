@@ -7,7 +7,7 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -46,6 +46,44 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
         Assert.Contains("Factura B", html);
         Assert.Contains("FC-", html);
         Assert.Contains("121", html);
+    }
+
+    [Fact]
+    public async Task ComprobanteFactura_IncluyeLeyendaDeComprobanteInternoNoValidoComoFactura()
+    {
+        await _factory.SeedTestUserAsync();
+        var facturaId = await SeedFacturaAsync(new[]
+        {
+            new DetalleSeed("P21L", "Producto leyenda", 1, 121m, 21m, "IVA 21%", 100m, 21m, 121m)
+        });
+        var client = _factory.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync($"/Venta/ComprobanteFactura?facturaId={facturaId}");
+        var html = System.Net.WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("COMPROBANTE INTERNO — DOCUMENTO NO VÁLIDO COMO FACTURA",
+            TheBuryProject.Helpers.ComprobanteInternoLeyenda.Texto);
+        // Arriba y al pie del impreso: si alguien la quita, este contrato falla.
+        Assert.Contains("id=\"leyenda-comprobante-interno\"", html);
+        Assert.Contains("id=\"leyenda-comprobante-interno-pie\"", html);
+        Assert.Equal(2, CountOccurrences(html, TheBuryProject.Helpers.ComprobanteInternoLeyenda.Texto));
+        // La leyenda no reemplaza lo que el impreso ya mostraba (IVA discriminado informativo).
+        Assert.Contains("Subtotal neto", html);
+        Assert.DoesNotContain("CAE", html);
+        Assert.DoesNotContain("CUIT", html);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+        return count;
     }
 
     [Fact]

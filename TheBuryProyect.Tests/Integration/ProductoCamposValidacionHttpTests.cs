@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L3 — campos editables de Producto y de los cambios de precio por el pipeline HTTP real (antiforgery +
 /// autorización + binding + servicio). Cada caso fuera de regla debe rechazarse sin persistir; los de borde se aceptan.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class ProductoCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 94000;

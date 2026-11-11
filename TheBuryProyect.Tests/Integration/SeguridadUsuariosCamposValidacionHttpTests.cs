@@ -10,7 +10,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L6 — alta de usuarios, roles y bloqueo por el pipeline HTTP real (antiforgery + permisos + binding + servicio).
 /// Los valores fuera de regla no deben persistirse.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class SeguridadUsuariosCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 97000;

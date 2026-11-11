@@ -319,7 +319,7 @@ public class ChequeRecibidoAutorizacionTests : IDisposable
 }
 
 /// <summary>El POST sin token antiforgery se rechaza en el pipeline real (antes de llegar a la acción).</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ChequeRecibidoAntiforgeryHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

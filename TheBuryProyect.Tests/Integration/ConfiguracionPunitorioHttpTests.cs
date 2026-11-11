@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 //   - ConfiguracionPunitorioUiContractTests (lectura de archivo, sin HTTP)
 // ---------------------------------------------------------------------------
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class ConfiguracionPunitorioHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string CreditoPersonalUrl = "/ConfiguracionPago/CreditoPersonal";
@@ -92,6 +92,37 @@ public class ConfiguracionPunitorioHttpTests : IClassFixture<CustomWebApplicatio
         }));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // C-03 (2026-11-11): cobertura real del negativo del E2E configuracion-punitorio «sin permiso especifico de punitorios, la
+    // pestana no se renderiza» (omitido en CI por diseno: el usuario E2E si tiene viewpunitorio). Se renderiza la pagina real con
+    // un usuario que ve Configuracion pero NO tiene viewpunitorio, y con otro que si lo tiene.
+    [Fact]
+    public async Task CreditoPersonal_SinViewpunitorio_NoRenderizaLaPestanaDePunitorios()
+    {
+        await _factory.SeedUserWithConfiguracionViewOnlyPermissionAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.PunitorioNoAccessUserId);
+
+        var response = await client.GetAsync(CreditoPersonalUrl);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("data-target=\"s7\"", html);
+        Assert.DoesNotContain("id=\"s7\"", html);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_ConViewpunitorio_RenderizaLaPestanaDePunitorios()
+    {
+        await _factory.SeedUserWithPunitorioManagePermissionAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.PunitorioManagePermsUserId);
+
+        var response = await client.GetAsync(CreditoPersonalUrl);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-target=\"s7\"", html);
+        Assert.Contains("id=\"s7\"", html);
     }
 
     // ── Flujo completo ───────────────────────────────────────────────────

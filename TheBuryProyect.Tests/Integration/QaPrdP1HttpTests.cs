@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Cada test aserta el comportamiento DESEADO: mientras el defecto siga abierto el test FALLA y esa
 /// falla es la reproducción. Los tests "guarda" fijan lo que NO debe cambiar al corregir.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class QaPrdP1HttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int ProductoId = 9200;

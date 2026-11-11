@@ -24,7 +24,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Contrato: la emisión de una factura nueva solo acepta A, B o C; un tipo inválido se rechaza ANTES de
 /// confirmar la venta o guardar cambios, sin dejar efectos (estado, stock, facturas, caja).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string TestUser = "testuser";

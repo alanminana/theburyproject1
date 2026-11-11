@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// B13 por HTTP real (autenticación, permisos, antiforgery, controller, servicios): cancelar una venta pagada con cheque cuya caja
 /// ya cerró deja una contrapartida auditada en la caja vigente del usuario y no toca la caja cerrada.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class VentaCancelarChequeCajaCerradaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string Usuario = "testuser";

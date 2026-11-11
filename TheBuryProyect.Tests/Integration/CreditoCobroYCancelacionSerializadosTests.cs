@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 /// La concurrencia real vive en Concurrency/CancelarVsPagoServiciosRealesSqlServerTests (SQL Server).
 /// Sin HttpContext el usuario actual es "Sistema" (CurrentUserService), de ahí la apertura de caja.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public sealed class CreditoCobroYCancelacionSerializadosTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string UsuarioSinContexto = "Sistema";

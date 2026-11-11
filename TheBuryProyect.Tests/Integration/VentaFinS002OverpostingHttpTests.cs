@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// PROMPT 85 — FIN-S-002 (A1/A2/F1/F2/F3) por el pipeline HTTP real: formularios forjados contra
 /// Venta/CreateAjax y Venta/EditAjax (antiforgery + autorización + model binding + servicio).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaFinS002OverpostingHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 85000;

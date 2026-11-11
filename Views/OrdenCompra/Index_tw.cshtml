@@ -255,7 +255,7 @@
                         <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@o.FechaEmision.ToString("dd/MM/yyyy")</td>
                         @{
                             var entregaVencida = o.FechaEntregaEstimada.HasValue
-                                && o.FechaEntregaEstimada.Value.Date < DateTime.Today
+                                && o.FechaEntregaEstimada.Value.Date < Reloj.HoyComercial()
                                 && (o.Estado == EstadoOrdenCompra.Enviada || o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito);
                         }
                         <td class="px-3 py-2.5 whitespace-nowrap @(entregaVencida ? "text-rose-300 font-semibold" : "text-slate-400")">

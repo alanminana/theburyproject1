@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// HTTP real (antiforgery + autorización + binding + servicio). Los valores fuera de regla no deben guardarse.
 /// SQLite no hace cumplir los largos de columna: los tests miran que el valor excesivo no llegue a persistirse.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ConfigDocumentosPagoCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 96000;

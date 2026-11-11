@@ -19,7 +19,7 @@ namespace TheBuryProject.Tests.Integration;
 /// POST /Venta/Confirmar/{id}): confirmar una venta debe cambiar su Estado, descontar stock
 /// exactamente una vez, y repetir la confirmación no debe duplicar ese descuento.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaConfirmarStockHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string TestUser = "testuser";

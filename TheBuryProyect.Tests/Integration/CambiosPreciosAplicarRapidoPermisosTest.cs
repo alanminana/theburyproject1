@@ -10,7 +10,7 @@ namespace TheBuryProject.Tests.Integration;
 /// El cambio rápido de precios simula, APRUEBA y aplica en un solo paso. Con solo precios.apply se saltaba la aprobación que el
 /// circuito normal reserva a precios.approve (separación de funciones). Ahora exige también simular y aprobar.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class CambiosPreciosAplicarRapidoPermisosTest : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

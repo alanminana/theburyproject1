@@ -1,7 +1,7 @@
 @model IEnumerable<TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel>
 @{
     ViewData["Title"] = "Plantillas de contrato";
-    var hoy = DateTime.Today;
+    var hoy = Reloj.HoyComercial();
     var puedeEditar = User.TienePermiso("configuracion", "update");
 
     // Regla de vigencia REAL (idéntica al canónico): no se modifica.

@@ -69,7 +69,7 @@ public class UrlOrigenSeguraTests
     }
 }
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class LoteABacklogSeguridadHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

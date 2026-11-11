@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// La verificación diaria del incumplimiento corre sola, una vez por fecha comercial y sin depender de
 /// ProcesoAutomaticoActivo (la configuración por defecto lo deja apagado).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public sealed class AcuerdoIncumplimientoBackgroundServiceTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
