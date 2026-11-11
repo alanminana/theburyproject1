@@ -22,6 +22,7 @@ if (OUT) {
     const instrumentar = async (ctx) => {
       if (ctx.__cspMedir) return;
       ctx.__cspMedir = true;
+      escribir({ t: 'contexto-creado', pid: process.pid }); // resumen.js exige creados == instrumentados + fallos
       const vigilar = (p) => {
         if (p.__cspMedirP) return;
         p.__cspMedirP = true;
@@ -52,6 +53,11 @@ if (OUT) {
       }
     };
 
+    // launchPersistentContext devuelve directamente un contexto: tambien se mide (si no, quedaria fuera sin avisar).
+    if (typeof chromium.launchPersistentContext === 'function') {
+      const lpc = chromium.launchPersistentContext.bind(chromium);
+      chromium.launchPersistentContext = async (...a) => { const ctx = await lpc(...a); await instrumentar(ctx); return ctx; };
+    }
     const launch = chromium.launch.bind(chromium);
     chromium.launch = async (...a) => {
       const browser = await launch(...a);

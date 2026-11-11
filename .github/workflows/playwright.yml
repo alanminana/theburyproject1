@@ -267,7 +267,11 @@ jobs:
           mkdir -p qa-evidence/e2e/csp
           cp "$RUNNER_TEMP/csp-medicion.jsonl" qa-evidence/e2e/csp/ 2>/dev/null || true
           rc=0
-          node scripts/qa/csp-medicion/resumen.js "$RUNNER_TEMP/csp-medicion.jsonl" --max-violaciones 0 > qa-evidence/e2e/csp/resumen.txt 2>&1 || rc=$?
+          # F2.3: auto-prueba del gate (falsos verdes: medicion vacia/truncada/corrupta/incompleta); sin navegador, <1 s.
+          node scripts/qa/csp-medicion/selftest.js > qa-evidence/e2e/csp/selftest.txt 2>&1 || { cat qa-evidence/e2e/csp/selftest.txt; echo '::error::selftest del gate CSP fallo'; exit 1; }
+          tail -1 qa-evidence/e2e/csp/selftest.txt
+          # --playwright-json: ademas exige que los contextos medidos acompañen a los tests ejecutados (>= 0.5 por test; calibrado 1.06).
+          node scripts/qa/csp-medicion/resumen.js "$RUNNER_TEMP/csp-medicion.jsonl" --max-violaciones 0 --playwright-json "$RUNNER_TEMP/playwright-e2e.json" > qa-evidence/e2e/csp/resumen.txt 2>&1 || rc=$?
           cat qa-evidence/e2e/csp/resumen.txt
           { echo '### CSP ReportOnly durante la suite E2E'; echo '```'; cat qa-evidence/e2e/csp/resumen.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $rc

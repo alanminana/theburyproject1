@@ -22,6 +22,7 @@ const USERS = {
   administrador: 'Admin123!', gerente: 'Gerente123!', vendedor: 'Vendedor123!', cajero: 'Cajero123!',
   repositor: 'Repositor123!', tecnico: 'Tecnico123!', contador: 'Contador123!',
 };
+const MIN_PAGINAS = Number(arg('--min-paginas', '10')); // un recorrido con menos paginas por rol (inventario vacio/menu roto) NO es verde
 const roles = (arg('--roles', Object.keys(USERS).join(','))).split(',');
 const NO_VISITAR = /logout|logoff|signout|\/delete|\/eliminar|\/anular|\/cancelar|\/borrar|descargar|exportar|\.(pdf|xlsx|csv)(\?|$)|\/api\/|\/hubs?\/|health|swagger/i;
 const DETALLE = /\/(details|detalles|detalle|edit|ver|imprimir|comprobante|print|ficha)[a-z]*(\/|\?|$)/i;
@@ -69,7 +70,7 @@ async function enlaces(page, soloDetalle) {
   for (const rol of roles) {
     const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'es-AR' });
     const page = await ctx.newPage();
-    const r = { rol, visitadas: 0, http4xx: [], http5xx: [], errores: [], violaciones: [], notas: 0 };
+    const r = { rol, visitadas: 0, pocas: false, http4xx: [], http5xx: [], errores: [], violaciones: [], notas: 0 };
     // Medicion propia (independiente de preload.js, que solo engancha Chromium): securitypolicyviolation + consola.
     await ctx.addInitScript(() => {
       window.__cspViol = [];
@@ -106,6 +107,7 @@ async function enlaces(page, soloDetalle) {
     } catch (e) {
       r.errores.push(`login/recorrido: ${String(e.message).slice(0, 160)}`);
     }
+    if (r.visitadas < MIN_PAGINAS) { r.pocas = true; r.errores.push(`inventario insuficiente: ${r.visitadas} paginas visitadas (minimo ${MIN_PAGINAS})`); }
     await ctx.close();
     resumen.push(r);
     console.log(`${rol}: ${r.visitadas} paginas, 4xx=${r.http4xx.length}, 5xx=${r.http5xx.length}, errores=${r.errores.length}, violaciones CSP=${r.violaciones.length}`);
@@ -116,5 +118,6 @@ async function enlaces(page, soloDetalle) {
   await browser.close();
   const total = resumen.reduce((n, r) => n + r.visitadas, 0);
   console.log(`TOTAL ${browserName}: ${total} paginas en ${resumen.length} roles; 5xx=${resumen.reduce((n, r) => n + r.http5xx.length, 0)}, violaciones CSP=${resumen.reduce((n, r) => n + r.violaciones.length, 0)}, avisos frame-ancestors (solo Report-Only)=${resumen.reduce((n, r) => n + r.notas, 0)}`);
+  if (!resumen.length || total === 0) { console.error('Recorrido vacio: 0 roles o 0 paginas visitadas.'); process.exit(1); }
   process.exit(resumen.some((r) => r.http5xx.length || r.errores.length || r.violaciones.length) ? 1 : 0);
 })();
