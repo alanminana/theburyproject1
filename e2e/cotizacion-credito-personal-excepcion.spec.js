@@ -24,11 +24,27 @@
  * "Autorizada"/"Excepción documental" vía _VentaAutorizacionPanel.cshtml, el
  * mismo parcial que ya usa Venta/Create, sin código nuevo ahí).
  *
- * Cliente de prueba: se crea uno nuevo en cada corrida (DNI único derivado de
- * Date.now()) sin documentación cargada — self-contained, no depende de un
- * fixture externo ni de otro spec.
+ * Cliente de prueba:
+ *  - Modo CI (E2E_CONFIG_AISLADA=1, C-03 2026-11-11): cliente sembrado por OmitidosE2ESeeder
+ *    (E2E_CLIENTE_EXCEPCION_DNI): sin documentación, sin créditos y con consulta BCRA «OK» vigente (cache
+ *    de 7 días del servicio real, que no llama a internet). La aptitud es la REAL (IClienteAptitudService); solo
+ *    hace falta ValidarDocumentacion=true y Crédito personal configurado, que el dataset compartido no tiene. El
+ *    workflow los activa SOLO para los tests @config-aislada (ConfiguracionAisladaE2ESeedRunner.Activar, Playwright
+ *    con 1 worker) y los restaura con `if: always()`. En este modo NO hay skips: cualquier precondición ausente es un fallo.
+ *  - Modo local/legacy: se crea uno nuevo en cada corrida (DNI único derivado de Date.now()) sin documentación
+ *    cargada; depende de que la base tenga ValidarDocumentacion=true y BCRA alcanzable, si no se omite.
  */
 const { test, expect } = require('playwright/test');
+
+const MODO_CI = process.env.E2E_CONFIG_AISLADA === '1';
+const DNI_FIXTURE = process.env.E2E_CLIENTE_EXCEPCION_DNI || '';
+
+/** En modo CI una precondición ausente rompe el test; fuera de CI se omite con el motivo. */
+function exigirOOmitir(condicionOk, motivo) {
+    if (condicionOk) return;
+    if (MODO_CI) throw new Error(`Precondición de CI no cumplida: ${motivo}`);
+    test.skip(true, motivo);
+}
 
 test.use({ storageState: 'e2e/.auth/user.json' });
 
@@ -90,12 +106,18 @@ async function dejarSoloCreditoPersonal(page) {
 }
 
 test.describe('Cotización — excepción documental de Crédito personal (COTIZ-EXCEPCION-01)', () => {
-    test('Cliente No apto por documentación (sin mora): Solicitar excepción → Continuar con excepción crea la venta autorizada', async ({ page }) => {
+    test('@config-aislada Cliente No apto por documentación (sin mora): Solicitar excepción → Continuar con excepción crea la venta autorizada', async ({ page }) => {
         await page.setViewportSize({ width: 1366, height: 768 });
 
-        const dni = String(Date.now()).slice(-8);
-        const clienteId = await crearClienteSinDocumentacion(page, dni);
-        expect(clienteId).toBeTruthy();
+        let dni;
+        if (MODO_CI) {
+            expect(DNI_FIXTURE, 'Falta E2E_CLIENTE_EXCEPCION_DNI (OmitidosE2ESeeder)').toBeTruthy();
+            dni = DNI_FIXTURE;
+        } else {
+            dni = String(Date.now()).slice(-8);
+            const clienteId = await crearClienteSinDocumentacion(page, dni);
+            expect(clienteId).toBeTruthy();
+        }
 
         await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
         await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
@@ -103,7 +125,7 @@ test.describe('Cotización — excepción documental de Crédito personal (COTIZ
         // El botón sólo debe ofrecerse si el usuario actual tiene ventas.authorize — mismo gate
         // que Venta/Create (@if (User.TienePermiso("ventas","authorize")) en _VentaWizardForm).
         const puedeExcepcion = await page.locator('[data-cotizacion-simulador]').getAttribute('data-puede-excepcion-documental');
-        test.skip(puedeExcepcion !== 'true', 'El usuario E2E actual no tiene ventas.authorize en este entorno.');
+        exigirOOmitir(puedeExcepcion === 'true', 'El usuario E2E actual no tiene ventas.authorize en este entorno.');
 
         await seleccionarCliente(page, dni);
         expect(await agregarPrimerProducto(page)).toBeTruthy();
@@ -123,16 +145,25 @@ test.describe('Cotización — excepción documental de Crédito personal (COTIZ
         const aptitudTexto = page.locator('#cotizacion-aptitud-credito');
         await expect(aptitudTexto).not.toBeEmpty({ timeout: 10_000 });
         const sinAccesoABcra = await aptitudTexto.locator('text=/No se pudo validar BCRA/').count() > 0;
-        test.skip(sinAccesoABcra, 'BCRA no es alcanzable desde la red Docker CI aislada (sin egreso a internet); ver comentario arriba.');
+        exigirOOmitir(!sinAccesoABcra, 'BCRA no es alcanzable desde la red Docker CI aislada (sin egreso a internet) y el cliente no tiene consulta BCRA vigente; ver comentario arriba.');
         await expect(aptitudTexto).toContainText('No apto', { timeout: 10_000 });
 
-        const filaCredito = page.locator('#cotizacion-resultados-tbody tr').filter({ hasText: 'Credito personal' }).first();
+        const filaCredito = page.locator('#cotizacion-resultados-tbody tr').filter({ hasText: /Cr[eé]dito personal/ }).first();
         // "No apto" sigue viéndose como "No apto" (§5 del pedido) — la excepción no lo cambia.
         await expect(filaCredito.locator('.pill')).toHaveText(/No apto/);
 
-        const btnExcepcion = filaCredito.locator('[data-cotizacion-excepcion]');
+        // Con varios planes (Crédito personal configurado) la fila de Crédito personal es el GRUPO («Ver planes») y la acción vive en
+        // cada plan hijo (tr.detail[data-g]); con un solo plan la acción está en la misma fila.
+        const grupo = await filaCredito.getAttribute('data-group');
+        const filasPlan = grupo
+            ? page.locator(`#cotizacion-resultados-tbody tr.detail[data-g="${grupo}"]`)
+            : filaCredito;
+        const filaPlan = filasPlan.first();
+        await expect(filaPlan).toBeVisible();
+
+        const btnExcepcion = filaPlan.locator('[data-cotizacion-excepcion]');
         await expect(btnExcepcion).toBeVisible();
-        await expect(filaCredito.locator('[data-cotizacion-elegir]')).toHaveCount(0);
+        await expect(filasPlan.locator('[data-cotizacion-elegir]')).toHaveCount(0);
         await btnExcepcion.click();
 
         // El formulario vive en el drawer (§4 del pedido), no en un modal nuevo.
@@ -143,35 +174,38 @@ test.describe('Cotización — excepción documental de Crédito personal (COTIZ
         // La fila vuelve a "Excepción solicitada" (nunca "Disponible"/"Elegir") y la barra de
         // cierre ofrece "Continuar con excepción" — no "Continuar con esta opción" (§6: nunca
         // se trata como una selección normal).
-        await expect(filaCredito.locator('[data-cotizacion-ver-excepcion]')).toBeVisible();
+        await expect(filaPlan.locator('[data-cotizacion-ver-excepcion]')).toBeVisible();
         const continuar = page.locator('#cotizacion-continuar');
         await expect(continuar).toBeEnabled();
         await expect(page.locator('[data-continuar-label]')).toHaveText('Continuar con excepción');
         await expect(page.locator('#cotizacion-seleccion-resumen')).toContainText('Excepción solicitada');
 
-        // COTIZACION-MIVENTA-02: "Confirmar Mi Venta"/"Continuar con excepción" corre primero
-        // el preflight (§NUEVA REGLA FUNDAMENTAL) — Crédito personal SIEMPRE se reporta como
-        // bloqueo real (nunca se auto-confirma en el mismo paso; necesita configurar el plan
-        // primero, igual que Venta/Create), así que acá nunca se abre el modal de confirmación:
-        // se queda en Mi Venta mostrando el bloqueo con "Continuar con wizard" como elección
-        // explícita del usuario (§NO HACER del pedido: nunca derivar sola al wizard).
+        // Crédito personal desde "Mi Venta" (cotizacion-simulador.js, «Crédito personal desde Mi Venta»): "Continuar con excepción"
+        // abre el modal «Confirmar venta a crédito» (fecha de la 1ª cuota → «Generar contrato» → «Confirmar venta»), con la excepción
+        // documental declarada en el resumen y aplicada por el backend en Venta/Confirmar. Nunca se autoriza desde el frontend (§9 del
+        // pedido): se verifica el resultado real en Venta/Details.
         await continuar.click();
-        await expect(page.locator('#cotizacion-bloqueos')).toBeVisible({ timeout: 10_000 });
+        const modalCredito = page.locator('#modal-confirmar-credito');
+        await expect(modalCredito).toBeVisible({ timeout: 15_000 });
+        await expect(page.locator('#cotizacion-credito-resumen')).toContainText('Documental — se aplica al confirmar');
         await expect(page.locator('#modal-confirmar-venta')).toBeHidden();
-        const btnContinuarWizard = page.locator('#cotizacion-bloqueos-lista button', { hasText: 'Continuar con wizard' });
-        await expect(btnContinuarWizard).toBeVisible();
-        await btnContinuarWizard.click();
 
-        // El backend es la autoridad real (§9 del pedido: nunca autorizar desde el frontend) —
-        // se verifica el resultado real navegando a Venta/Details de la venta creada. Crédito
-        // personal nunca se auto-confirma en el mismo paso (necesita configurar el plan primero,
-        // igual que Venta/Create), así que el destino sigue siendo Venta/Edit.
-        await page.waitForURL(/\/Venta\/Edit\/\d+/, { timeout: 15_000 });
-        const ventaId = Number(page.url().match(/\/Venta\/Edit\/(\d+)/)?.[1]);
+        // «Generar contrato» crea la venta, configura el crédito y abre el contrato en otra pestaña (se descarta: no se evalúa acá).
+        await page.locator('#cotizacion-credito-generar').click();
+        const btnConfirmarCredito = page.locator('#cotizacion-credito-confirmar');
+        await expect(btnConfirmarCredito).toBeVisible({ timeout: 30_000 });
+        await expect(page.locator('#cotizacion-credito-error')).toBeHidden();
+        for (const extra of page.context().pages()) {
+            if (extra !== page) await extra.close().catch(() => null);
+        }
+        await btnConfirmarCredito.click();
+
+        await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 30_000 });
+        const ventaId = Number(page.url().match(/\/Venta\/Details\/(\d+)/)?.[1]);
         expect(ventaId).toBeGreaterThan(0);
 
         await page.goto(`/Venta/Details/${ventaId}`, { waitUntil: 'domcontentloaded' });
-        const panelAutorizacion = page.locator('section').filter({ hasText: 'Autorización' }).first();
+        const panelAutorizacion = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Autorización', exact: true }) });
         await expect(panelAutorizacion).toContainText('Autorizada');
         await expect(panelAutorizacion).toContainText('Excepción documental');
         await expect(panelAutorizacion).toContainText('E2E COTIZ-EXCEPCION-01: motivo de prueba automatizada.');
