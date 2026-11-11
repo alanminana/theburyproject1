@@ -69,7 +69,7 @@ async function agregarPrimerProducto(page) {
 }
 
 test.describe('Cotización — aptitud crediticia vs. tabla de comparación (COTIZ-APTITUD-01)', () => {
-    test('Cliente No apto: la tabla nunca ofrece "Elegir" en Crédito personal, ni auto-selecciona sus planes', async ({ page }) => {
+    test('@config-aislada Cliente No apto: la tabla nunca ofrece "Elegir" en Crédito personal, ni auto-selecciona sus planes', async ({ page }) => {
         await page.setViewportSize({ width: 1366, height: 768 });
         await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
         await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
@@ -90,7 +90,13 @@ test.describe('Cotización — aptitud crediticia vs. tabla de comparación (COT
         // La fila/grupo "Crédito personal" en la tabla de comparación tiene que reflejar el
         // MISMO veredicto — nunca "Disponible" con "Elegir" habilitado (la contradicción
         // reportada). Puede no tener fila (sin planes) o tenerla ya bloqueada.
-        const filaCredito = page.locator('#cotizacion-resultados-tbody tr').filter({ hasText: 'Credito personal' });
+        // C-03 (2026-11-11): la etiqueta de la fila es «Crédito personal» (con tilde): el filtro anterior ('Credito personal') nunca
+        // coincidía y estas aserciones eran vacuas. Con E2E_CONFIG_AISLADA=1 (Crédito personal configurado por
+        // ConfiguracionAisladaE2ESeedRunner.Activar) la fila DEBE existir; fuera de CI, sin planes puede no haber fila.
+        const filaCredito = page.locator('#cotizacion-resultados-tbody tr').filter({ hasText: /Cr[eé]dito personal/ });
+        if (process.env.E2E_CONFIG_AISLADA === '1') {
+            expect(await filaCredito.count(), 'Con E2E_CONFIG_AISLADA=1 debe haber una fila de Crédito personal').toBeGreaterThan(0);
+        }
         if (await filaCredito.count() > 0) {
             await expect(filaCredito.first().locator('.pill')).toHaveText(/No apto/);
             await expect(filaCredito.first().locator('[data-cotizacion-elegir]')).toHaveCount(0);
@@ -105,7 +111,7 @@ test.describe('Cotización — aptitud crediticia vs. tabla de comparación (COT
         for (let i = 0; i < totalHijas; i++) {
             const fila = filasHijasCredito.nth(i);
             const grupo = await fila.getAttribute('data-g');
-            const esCreditoPersonal = await page.locator(`tr.parent[data-group="${grupo}"]`).filter({ hasText: 'Credito personal' }).count() > 0;
+            const esCreditoPersonal = await page.locator(`tr.parent[data-group="${grupo}"]`).filter({ hasText: /Cr[eé]dito personal/ }).count() > 0;
             if (!esCreditoPersonal) continue;
             await expect(fila.locator('button[data-cotizacion-elegir]')).toHaveCount(0);
             await expect(fila.locator('.rt-accion-bloqueada')).toBeVisible();

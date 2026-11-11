@@ -141,7 +141,9 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
         expect(detallesUrl).toMatch(/\/Cotizacion\/Detalles\/\d+/);
 
         // 2. El badge debe ser "Emitida" antes de convertir
-        await expect(page.locator('.quote-state-badge--emitida')).toBeVisible({ timeout: 5_000 });
+        // F1.2: una segunda corrida sobre la misma base encuentra la cotización ya convertida; debe fallar con un mensaje claro.
+        expect(await page.locator('.quote-state-badge--emitida').isVisible({ timeout: 5_000 }).catch(() => false),
+            'La cotización sembrada ya no está Emitida (¿fixture ya consumido por otra corrida? Estas cotizaciones se convierten una sola vez: usar base nueva por corrida).').toBeTruthy();
 
         // 3. Abrir modal y esperar preview
         const convertible = await abrirModalYEsperarPreview(page);
