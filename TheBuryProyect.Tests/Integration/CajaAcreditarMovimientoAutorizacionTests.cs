@@ -224,16 +224,16 @@ public class CajaAcreditarMovimientoAutorizacionTests : IDisposable
 
         // Caso de los demás endpoints que usan PuedeOperarAperturaAsync: apertura inexistente.
         var rComun = await comun.Cerrar(new ViewModels.CerrarCajaViewModel { AperturaCajaId = 987_654 });
-        // Residual preexistente (fuera de FIN-S-006): para un supervisor, Cerrar con apertura inexistente deja pasar
-        // la excepción "Apertura no encontrada" desde TryPopulateCerrarModelAsync. Lo que importa acá es que NO es
-        // un rechazo por permiso: la decisión de autorización del supervisor no cambió.
-        var exSup = await Record.ExceptionAsync(() => supervisor.Cerrar(new ViewModels.CerrarCajaViewModel { AperturaCajaId = 987_654 }));
+        // F3.1 (2026-11-11): para un supervisor, Cerrar con apertura inexistente dejaba pasar la excepción "Apertura no
+        // encontrada" desde TryPopulateCerrarModelAsync (HTTP 500). Ahora vuelve a Caja con un error propio. Lo que importa
+        // acá es que NO es un rechazo por permiso: la decisión de autorización del supervisor no cambió.
+        var rSup = await supervisor.Cerrar(new ViewModels.CerrarCajaViewModel { AperturaCajaId = 987_654 });
 
         Assert.Contains("habilitado para operar", Error(comun), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("habilitado para operar", Error(supervisor), StringComparison.OrdinalIgnoreCase);
         Assert.IsType<RedirectToActionResult>(rComun);
-        Assert.IsType<InvalidOperationException>(exSup);
-        Assert.Contains("no encontrada", exSup!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.IsType<RedirectToActionResult>(rSup);
+        Assert.Contains("no existe", Error(supervisor), StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- positivos ----------------------------------------------------------------------------------------------
