@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// de 20.000.000) no debe impedir editar datos ajenos al crédito, pero cambiarlo a un valor fuera de tope se rechaza igual.
 /// Por el pipeline HTTP real (antiforgery + autorización + binding + servicio).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ClienteEditValoresHistoricosCreditoHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private const decimal MaximoHistorico = 100_000_000m;

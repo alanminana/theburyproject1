@@ -18,7 +18,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Pipeline REAL de cookie de Identity + antiforgery + ActiveUserCookieValidator; cada HttpClient con su cookie jar
 /// equivale a un navegador distinto, y la «cookie copiada» es el valor crudo enviado por otro cliente sin jar.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class LogoutRevocaSesionesHttpTests : IClassFixture<CookieAuthWebApplicationFactory>
 {
     private const string Password = "Test1234!";

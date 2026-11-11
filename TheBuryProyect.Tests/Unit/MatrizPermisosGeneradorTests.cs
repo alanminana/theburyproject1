@@ -63,7 +63,7 @@ public class MatrizPermisosGeneradorTests
     }
 }
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class MatrizPermisosCatalogoGeneradorTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

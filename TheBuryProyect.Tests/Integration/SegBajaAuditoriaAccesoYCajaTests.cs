@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// SEG-BAJA: la auditoría de seguridad registra login fallido, bloqueo y cierre de caja, sin datos sensibles y con un
 /// tope por usuario+IP+ventana para el tráfico anónimo.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public sealed class SegBajaAuditoriaAccesoYCajaTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

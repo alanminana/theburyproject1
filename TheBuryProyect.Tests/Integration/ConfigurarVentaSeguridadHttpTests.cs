@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 /// - creditos.view NO alcanza para ver ni modificar la configuración (exige creditos.configure);
 /// - con permiso, ids cruzados (GET/POST) y ClienteId manipulado se rechazan sin modificar datos.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ConfigurarVentaSeguridadHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -87,7 +87,7 @@ public sealed class FaultyUserManager : UserManager<ApplicationUser>
             : base.AddToRoleAsync(user, role);
 }
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class BulkActionAtomicidadHttpTests : IClassFixture<FaultyUserManagerFactory>, IAsyncLifetime
 {
     private readonly FaultyUserManagerFactory _factory;

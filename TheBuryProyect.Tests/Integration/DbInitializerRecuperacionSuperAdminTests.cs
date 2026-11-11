@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// flujo de inicialización (DbInitializer) para la cuenta administradora configurada; no se crean cuentas ni
 /// contraseñas, y con al menos un SuperAdmin activo no se revierte una baja deliberada.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class DbInitializerRecuperacionSuperAdminTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

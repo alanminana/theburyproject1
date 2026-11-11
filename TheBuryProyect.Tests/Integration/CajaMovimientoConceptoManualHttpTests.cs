@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// sistema, como la liquidación de Mercado Libre o la reversión de venta) y combinaciones incoherentes con el tipo.
 /// El select del formulario era la única barrera. Ahora el servidor exige el mismo catálogo que ofrece la UI.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CajaMovimientoConceptoManualHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string User = CustomWebApplicationFactory.CajaCierrePermsUserId;

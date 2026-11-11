@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L2 — campos editables de Cliente por el pipeline HTTP real (antiforgery + autorización + binding + servicio):
 /// alta (CreateAjax), límite de crédito y puntaje manual. Cada caso fuera de regla debe rechazarse sin persistir.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ClienteCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 93000;

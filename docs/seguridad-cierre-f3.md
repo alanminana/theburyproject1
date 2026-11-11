@@ -109,6 +109,18 @@ Hechos del código: `vendedor2` **no existe en la siembra** (`RolesPermisosSeede
 - **Auditoría:** cada logout de una sesión viva registra `Seguridad/Logout` con `Usuario:<id>`.
 - **Costo (medido en xUnit con registro de comandos EF):** una solicitud autenticada normal ejecuta 3 comandos SQL (el SELECT del validador por PK más roles/claims del usuario); **el camino normal no cambia**. El logout ejecuta 5: los 3 de la propia solicitud más 1 UPDATE del stamp y 1 INSERT de auditoría (no relee el usuario ni consulta unicidades). No hay costo adicional por solicitud.
 - **Pruebas:** `LogoutRevocaSesionesHttpTests` (16: cookie copiada, varios navegadores del mismo usuario, otro usuario intacto, nuevo login, logout con cookie vieja, stamp y auditoría, GET, CSRF propio y cruzado, `returnUrl` solo local, doble envío, usuario legado con email inválido/duplicado, escritor concurrente que no puede deshacer la revocación, costo SQL). Sin la corrección fallan 9 de las 13 originales; el test del usuario legado falla con el primer diseño. En vivo: `scripts/qa/seguridad/sondeo-logout-multinavegador.js` (Chromium, Firefox y WebKit con sesiones propias y cookies clonadas entre motores, y logouts simultáneos contra SQL Server) (25 casos, incluidas 5 rondas de logout simultáneo con 3 logins del mismo usuario: la cookie de la sesión que cerró queda revocada siempre) y `sondeo-sesiones.js`, donde el reuso de la cookie previa pasó de informativo a **fallo estricto**. La carrera de escritura concurrente dentro de la solicitud no es reproducible de forma determinista en SQLite: se cubre en vivo contra SQL Server.
-- **Revisión independiente:** Codex no tuvo cupo (2026-11-11); se hizo una revisión adicional con el agente revisor de C# del repo (no sustituye a Codex), que halló los dos problemas medios descritos arriba, ya corregidos. **Pendiente: revisión de Codex antes de fusionar.**
+- **Revisión independiente:** por decisión del propietario (2026-11-11) se revisó con agentes Sonnet independientes, sin Codex: revisor C# del repo (halló los dos problemas medios descritos arriba, ya corregidos) y un segundo revisor adversarial sobre el diff final (APROBAR CON OBSERVACIONES, sin bloqueantes; observaciones bajas: carrera login/logout falla seguro, el logout cierra todos los dispositivos incluidas cuentas compartidas, aserción de costo por rango frágil).
 - **No cubierto:** `Secure` sobre https y dispositivos móviles físicos.
 
+
+---
+
+## 8. Actualización 2026-11-11 (ronda 2): rol `vendedor2` — eliminación PREPARADA, NO APLICADA
+
+Se preparó y ensayó en un clon la opción B de §2 y §6. Detalle, evidencias y procedimiento en `docs/vendedor2-eliminacion.md`; scripts `scripts/sql/vendedor2-preflight.sql`, `vendedor2-eliminar.sql`, `vendedor2-rollback.sql` y `vendedor2-huella-global.sql`. **No se aplicó nada a `TheBuryProjectDb`; falta autorización expresa del propietario y una ventana.**
+
+- **Veredicto: eliminar.** Rol inactivo, 0 usuarios (incluidos inactivos), sin referencias en ninguna otra tabla; solo 5 eventos de auditoría (texto, sin FK) que se conservan. Reversión exacta probada.
+- **Corrección a §2/§6:** `vendedor2` **no es un duplicado exacto** de `Vendedor` (13 permisos solo en `vendedor2`, entre ellos `ventas.delete` y `ventas.authorize`; 19 solo en `Vendedor`) y **sí tuvo un usuario** (JAVIER, 2026-09-29/30, vuelto luego a `Cajero + Vendedor`).
+- **Corrección a §6:** mientras el rol esté inactivo, asignarlo **no** hace efectivo `ventas.authorize`: `GetUserEffectivePermissionsAsync` descarta los roles con `RolesMetadata.Activo = 0`. El riesgo real es su **reactivación** (`ToggleRolActivo`, permiso `roles.update`).
+- **Vía:** SQL transaccional con respaldo, no la UI: `DeleteRol` no registra auditoría de éxito y borra por cascade sin copia (medido en el clon). El estado final es idéntico al del script.
+- El historial de este documento (secciones 1-7) se conserva sin cambios.

@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L10 — precios de envíos y armados: tope 20.000.000 y 2 decimales (antes admitía hasta 999.999.999,99 y el
 /// servicio redondeaba en silencio). Un valor fuera de regla no pisa el precio vigente.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class ServiciosVentaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

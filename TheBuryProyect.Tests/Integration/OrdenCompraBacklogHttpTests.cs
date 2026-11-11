@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// COM-S-007 (backlog de la auditoría QA): marcar una orden de compra como Recibida desde CambiarEstado alcanzaba con
 /// ordenescompra.update, saltándose el permiso de recepción (ordenescompra.receive) que sí exige Recepcionar.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class OrdenCompraBacklogHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

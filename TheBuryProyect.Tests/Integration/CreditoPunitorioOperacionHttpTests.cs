@@ -10,7 +10,7 @@ using TheBuryProject.ViewModels.Punitorio;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CreditoPunitorioOperacionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int ConfiguracionId = 997_800;

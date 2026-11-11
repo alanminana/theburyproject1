@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// afectada avise y ofrezca "Limpiar filtros" aunque el listado no esté vacío, sin alterar
 /// resultados ni conteos.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class VentaIndexFiltrosActivosHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private static readonly string[] PestanasDerivadas = { "pendientes", "cotizaciones", "devoluciones", "envios" };

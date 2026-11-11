@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L7 — Mercado Libre: respuestas a compradores, devoluciones, lotes de precios y ediciones de publicación.
 /// Los valores fuera de regla no deben guardarse ni recortarse en silencio.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class MercadoLibreCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 98000;

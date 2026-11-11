@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// ventas.invoice o documentos.view/reprint), tanto en documentos históricos como nuevos y por URL directa. Los
 /// documentos sin descuentos siguen entregándose con los permisos de siempre. La denegación nunca incluye importes.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class DocumentosDescuentoPermisoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private static int _counter = 76300;

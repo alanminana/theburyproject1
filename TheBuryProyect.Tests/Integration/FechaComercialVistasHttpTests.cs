@@ -34,7 +34,7 @@ public sealed class FactoryRelojFranjaCritica : CustomWebApplicationFactory
 /// contenedor). Entre las 21:00 y las 24:00 de Argentina el día UTC ya es el de mañana: el <c>min</c> de un
 /// input date quedaba en mañana (el navegador impedía elegir hoy) y los valores por defecto salían corridos un día.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class FechaComercialVistasHttpTests : IClassFixture<FactoryRelojFranjaCritica>
 {
     private const string TestUser = "testuser";

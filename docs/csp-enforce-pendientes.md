@@ -164,3 +164,15 @@ WebKit imprime en consola, una vez por documento, `The Content Security Policy d
 - **Sin exposición mientras tanto:** la aplicación envía además `X-Frame-Options: SAMEORIGIN` en todas las respuestas (`Program.cs`, middleware de cabeceras), que sí aplica en cualquier modo. El recorrido ahora **falla** si falta esa cabecera.
 - **Contraste con Enforce:** con la política en Enforce (stack QA aislado) WebKit emite **0** avisos (administrador y repositor, 60 páginas).
 - **Control:** el arnés solo tolera estos avisos con la política en Report-Only; con Enforce, cualquier aviso es error.
+
+## Ronda 2026-11-11 (ronda 2): activación de Enforce PREPARADA, NO ACTIVADA
+
+**Preparado, no activado; requiere autorización posterior del propietario.** `Csp:Mode` sigue en `Off` en el entorno real (no se cambió ninguna configuración real ni se tocó la base real). El ítem 8 de la tabla (ventana en `ReportOnly` en uso real) **sigue pendiente**: lo único que se hizo es dejar listo cómo se hace.
+
+Procedimiento, criterios y ensayo: **`docs/csp-enforce-activacion.md`**. En resumen:
+
+- **Cómo se activa y revierte:** una línea de configuración + reinicio, sin redeploy de código. Local: `scripts\ejecutar-erp-local.ps1 -CspMode Enforce|ReportOnly|Off`; Docker: `CSP_MODE=` en el `.env` (nuevo; antes la app no recibía `Csp__Mode`) + `docker compose up -d --no-deps app` (`restart` no aplica el cambio). Un valor inválido impide el arranque; `preflight.sh` lo valida antes del deploy.
+- **Observación:** `scripts/ops/csp-observacion.ps1` (solo lectura) resume el WARN `CSP violation` por directiva/URI/página/día, separa ruido de extensiones y devuelve exit 0 solo con 0 violaciones propias y medición válida (sin log, sin días suficientes o sin centinela = exit 3).
+- **GO/NO-GO:** ≥ 10 días hábiles de uso real que incluyan un cierre de mes, 0 violaciones propias, centinela visto, 12 áreas críticas y todos los navegadores/dispositivos reales cubiertos, SignalR/impresión/descargas OK, respaldo verificado, reversión ensayada ≤ 5 min y autorización escrita.
+- **Verificación inmediata:** `scripts/ops/csp-humo-lectura.js` (solo lectura) más un humo manual guiado.
+- **No lo cubre la evidencia de QA:** Safari/iOS/Android reales, el host y Caddy definitivos, fuentes de Google con salida a Internet, extensiones/impresoras reales y datos reales (ver §4 de ese documento).

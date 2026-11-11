@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Reutiliza el mismo flujo real ("desafiar a los dioses") que <see cref="DesafioALosDiosesTests"/>
 /// porque ya ejercita OnPostDesafiarAsync con autenticación + antiforgery reales.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class LoginReturnUrlSeguridadTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
