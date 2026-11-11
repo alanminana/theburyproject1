@@ -2,6 +2,7 @@
 @{
     Layout = null;
     var tituloFactura = $"Factura {Model.Factura.Tipo} {Model.Factura.Numero}";
+    var leyendaInterna = TheBuryProject.Helpers.ComprobanteInternoLeyenda.Texto;
 }
 <!doctype html>
 <html lang="es">
@@ -56,6 +57,32 @@
         .button-secondary {
             background: #ffffff;
             color: #111827;
+        }
+
+        /* Leyenda "comprobante interno": borde grueso + texto en negrita, sin depender del color
+           para que se lea igual en pantalla, impresión y blanco y negro. */
+        .leyenda-interna {
+            border: 3px solid #111827;
+            padding: 10px 14px;
+            margin: 0 0 20px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1.3;
+            color: #111827;
+            background: #ffffff;
+            break-inside: avoid;
+        }
+
+        .leyenda-interna-pie {
+            margin: 24px 0 0;
+        }
+
+        /* Totales + leyenda de pie viajan juntos: no se parten entre páginas ni queda la leyenda sola. */
+        .cierre {
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
 
         .header {
@@ -240,6 +267,18 @@
                 display: none;
             }
 
+            .leyenda-interna {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Sin "imprimir fondos" el Total (texto blanco sobre fondo oscuro) quedaba ilegible: en papel va en negro con filete. */
+            .total-row:last-child {
+                background: #ffffff;
+                color: #111827;
+                border-top: 2px solid #111827;
+            }
+
             .page {
                 width: 100%;
                 border: 0;
@@ -255,10 +294,11 @@
     </div>
 
     <main class="page">
+        <div class="leyenda-interna" id="leyenda-comprobante-interno" role="note">@leyendaInterna</div>
         <header class="header">
             <div>
                 <div class="brand">The Bury Project</div>
-                <p class="muted">Comprobante de factura</p>
+                <p class="muted">Comprobante interno de venta</p>
                 @if (Model.Factura.Anulada)
                 {
                     <span class="badge">Factura anulada</span>
@@ -410,6 +450,7 @@
             </section>
         }
 
+        <div class="cierre">
         <section class="totals">
             <div class="total-row"><span>Subtotal neto</span><strong>@Model.Totales.SubtotalNeto.ToString("C2")</strong></div>
             <div class="total-row"><span>IVA</span><strong>@Model.Totales.IVA.ToString("C2")</strong></div>
@@ -440,6 +481,9 @@
             }
             <div class="total-row"><span>Total</span><strong>@Model.Totales.Total.ToString("C2")</strong></div>
         </section>
+
+        <div class="leyenda-interna leyenda-interna-pie" id="leyenda-comprobante-interno-pie" role="note">@leyendaInterna</div>
+        </div>
 
         @if (Model.Factura.Anulada ||
              !string.IsNullOrWhiteSpace(Model.Venta.Observaciones))
