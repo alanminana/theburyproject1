@@ -28,6 +28,7 @@ class Escenario {
   async nuevaPagina() {
     const page = await this.ctx.newPage();
     this.pages.add(page);
+    page.setDefaultTimeout(10000);
     page.on('pageerror', (e) => this.pageerrors.push(`${page.url().replace(this.opts.base, '')} :: ${String(e.message).slice(0, 160)}`));
     page.on('console', (m) => {
       if (m.type() !== 'error' && m.type() !== 'warning') return;
@@ -57,6 +58,7 @@ class Escenario {
     return r;
   }
   async click(page, sel, desc) {
+    this.ultimo = typeof sel === 'string' ? sel : String(sel);
     const loc = typeof sel === 'string' ? page.locator(sel).first() : sel;
     await loc.click({ timeout: 8000 });
     this.interacciones++;

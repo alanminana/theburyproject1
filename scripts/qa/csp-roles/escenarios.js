@@ -57,7 +57,7 @@ const defs = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'lib.j
     try {
       const page = await E.nuevaPagina();
       await def.fn(E, page);
-    } catch (e) { error = String(e && e.message || e).split('\n')[0].slice(0, 220); }
+    } catch (e) { error = String(e && e.message || e).split('\n').filter((l) => /locator|waiting for|expect|Error|Timeout|page\./.test(l)).slice(0, 3).join(' / ').slice(0, 300) + ` [ultimo click: ${E.ultimo}]`; }
     const permit = (E.permit4xx || []);
     const http4xx = E.http4xx.filter((x) => !permit.some((re) => re.test(x)));
     const fallos = [];
