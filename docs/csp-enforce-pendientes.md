@@ -56,6 +56,93 @@ Se levantó el stack con la política **realmente aplicada** (cabecera `Content-
 
 Lectura honesta: es evidencia fuerte de que `Enforce` no rompe las pantallas que cubre la suite y el menú de cada rol. **No** demuestra ausencia de bloqueos en: modales remotos fuera de la suite (ítem 2), estados sin datos (ítem 5), Safari/móvil real (ítem 6), host real (ítem 7) ni uso real prolongado (ítem 8). Por eso `Enforce` sigue sin activarse en el entorno real; la decisión y la ventana de observación (ítem 8) son del propietario.
 
+
+## Ronda F2 (2026-11-11): escenarios sin cobertura, compatibilidad funcional con Enforce y gate sin falsos verdes
+
+Stack QA aislado (`bury-mb`, `APP_PORT=18220`, base SQL Server sintética propia, nunca la real), política **realmente aplicada** (`Content-Security-Policy`, no `-Report-Only`; el script lo verifica antes de empezar y aborta si no). `Csp__Mode=Enforce` se fijó solo en un compose propio fuera del repo; el default del repo sigue siendo `Off`. **No se activa ni se propone activar `Enforce` en el entorno real.**
+
+### (a) Validación técnica ejecutable en QA (lo que se cierra con esta ronda)
+
+Herramienta nueva: `scripts/qa/csp-roles/escenarios.js` + `scripts/qa/csp-roles/escenarios/*.js` (reutiliza el medidor `securitypolicyviolation`/consola/`pageerror` de `csp-roles`; agrega comprobaciones **funcionales** por escenario). Cada escenario falla ante: violación CSP, `pageerror`, error de consola, 5xx, 4xx no declarado, documento HTML sin cabecera CSP, request fallida, check funcional en falso, o un escenario sin comprobaciones/interacciones (exit 3 si no corrió ninguno). Guardas: solo `127.0.0.1`/`localhost`, `CSP_QA_STACK_AISLADO=1` obligatorio, no corre en CI; las escrituras solo se permiten en escenarios que las declaran (`escribe:true`), en el resto el arnés aborta todo POST y lo registra.
+
+Comando: `CSP_QA_STACK_AISLADO=1 E2E_BASE_URL=http://127.0.0.1:18220 node scripts/qa/csp-roles/escenarios.js [--browser chromium|firefox|webkit] [--modo enforce|reportonly] [--solo <regex>] [--out r.json]`.
+
+| # | Escenario | Qué se ejercita y qué se comprueba (funcionamiento, no solo ausencia de violaciones) |
+|---|---|---|
+| 1 | Producto: modal de edición AJAX (`GetJson`/`EditAjax`) | GetJson 200 JSON, formulario poblado, 5 solapas, característica agregada/quitada (`innerHTML`), cálculo de precios, validación fallida, guardado 2xx y fila actualizada sin recargar, cierre por X/fondo/Escape/Cancelar |
+| 2 | Producto: alta AJAX, ajuste masivo (wizard), comisión, menú de fila, historial de precio | validación client-side, autocompletes, `CreateAjax` 2xx, wizard siguiente/atrás, modal de comisión, API de historial |
+| 3 | Categoría y Marca | alta AJAX con validación fallida y alta real, edición remota (`GetJson`), baja con `confirmAction` (cancelar no borra; confirmar da de baja vía `form.submit()` bajo `form-action 'self'`) |
+| 4 | Proveedor (drawer) | alta con validación fallida, picker de productos (dropdown/chips por JS), edición remota (`GetEditData`), validación de edición, baja con confirmación |
+| 5 | Cliente (modal AJAX por partial + `innerHTML`) | `ModalCreate`/`ModalEdit` 200 HTML, wizard por pasos, validación fallida, `confirm()` nativo por cambios sin guardar (cancelar mantiene, aceptar cierra), modal de límites por puntaje |
+| 6 | Seguridad: usuarios, roles, permisos | modales inyectados por `fetch` (nuevo usuario, bloquear, cambiar contraseña, nuevo/editar/duplicar rol, copiar permisos), validación fallida (POST inválido real), `RolDetails`, matriz de permisos, filtros/pestañas |
+| 7 | Cotizador / carrito (`Venta/Create`) | búsqueda de cliente y producto (dropdowns por JS), aviso `<dialog>` de actualizar datos, alta al carrito |
+| 8 | Cotización: listado, detalle, impresión, PDF | `DescargarPdf` 200 `application/pdf` con CSP y firma `%PDF`, descarga real desde el botón, `Imprimir` HTML con `data-action=print` |
+| 9 | Exportaciones | Reportes Ventas (xlsx+pdf), Márgenes (xlsx), Morosidad (xlsx+pdf), Devolución (CSV): descarga real, extensión, tamaño y firma de archivo (`PK`/`%PDF`); `CuotasVencidas` «Exportar» es un `data-action=print` |
+| 10 | DocumentosConfig: vista previa PDF (iframe `blob:`) | plantilla/paquete/regla: 200 PDF, iframe recibe el blob, enlace «abrir», Escape cierra. **Defecto real, ver abajo** |
+| 11 | Estados especiales | DocumentoCliente vacío (`click-id` abre el modal de subida), Unidades (pestañas `activateTab`, «ver» vacío), POST inválido que re-renderiza la página completa (`Cliente/Create`, `OrdenCompra/Create`) con cabecera CSP y errores de servidor |
+| 12 | Layout compartido | notificaciones, notas rápidas (alta, checklist), panel de tickets (alta con modal, lista por `innerHTML`, detalle) |
+| 13 | Manejadores `data-confirm`/`data-action` | `confirm()` declarativo en formulario y botón (cancelar no envía; aceptar envía), `toggle-hide`, `remove-closest`, `print`, `history-back` |
+| 14 | Barridos de controles (21 pantallas) | clic en cada control distinto (hasta 2 por firma, escrituras bloqueadas, diálogos descartados): Catálogo (5 pestañas), Proveedor, Cliente, Seguridad, Crédito, Caja, Cotización, Venta, OrdenCompra, Ticket, Mora, Devolución, Documento, MovimientoStock, AlertaStock, Reporte, Dashboard |
+| 15 | Política efectiva (control negativo) | script inline sin nonce, `onclick` inline, `<style>` inline, imagen e iframe externos: **bloqueados y detectados** (no se ejecutan) y el log de la app registra `CSP violation` (WARN) para `script-src-elem`, `script-src-attr` y `style-src-elem` |
+| 16 | Política: nonce, errores, SignalR | nonce distinto por solicitud y coincidente con los `<script nonce>`, 404 HTML y 404 de API con cabecera, WebSocket `/hubs/notificaciones` abierto |
+| 17 | `/csp-report`: rate limit | 204 mientras no se supera el límite (30/min por IP), 429 después, nada fuera de 204/429, cuerpo > 8 KB rechazado |
+
+Cifras exactas por navegador: ver «Resultados de la corrida» al final de esta sección.
+
+**Defectos reales encontrados en esta ronda (reproducir → causa → corrección → test):**
+
+1. **DocumentosConfig: la vista previa PDF quedaba bloqueada bajo `Enforce`.** Reproducido: `DocumentosConfig/Plantillas|Paquetes|Reglas` → «Vista previa» → violación `frame-src | blob | enforce` (una por listado, 3 en total, más el aviso de consola «Framing 'blob:…' violates … frame-src 'self'») y el iframe vacío. Causa: `documentos-preview.js` descarga el PDF con `fetch`, crea un `blob:` same-origin y lo carga en un `<iframe>`; `frame-src 'self'` no cubre `blob:`. Corrección **mínima**: `frame-src 'self' blob:` (sin `unsafe-inline`, sin orígenes externos; un `blob:` solo lo crea JavaScript del propio origen, ya limitado a `'self'`+nonce). Alternativas descartadas: cargar la URL del PDF directo en el iframe (el editor de plantillas pasa una `Promise<Blob>` de contenido sin guardar, no hay URL) y relajar `object-src` (medido en Chromium con el visor PDF real: el PDF se renderiza dentro del iframe `blob:` con `object-src 'none'`, así que `object-src` no cambia). Test: `CspHttpTests.Politica_FrameSrcPermiteBlobPorLaVistaPreviaPdf_SinAmpliarAOrigenesExternos`; revalidado con el escenario 10 (0 violaciones en los 3 listados). Evidencia: `D:\tmp\mision\b\pdf-B-blob.png` y el experimento aislado `D:\tmp\mision\b\pdftest.js`.
+2. **`Csp:Mode` inválido degradaba la política en silencio.** Reproducido (mutación): `Csp__Mode=5` o `ReportOnly,Enforce` (el binder acepta números y listas) emitían **Report-Only** sin avisar, y `Csp__Mode=` (vacío) quedaba en **Off**. Causa: `Configure<CspOptions>` sin validación. Corrección: `AddCspOptions` con `ValidateOnStart` (nombre exacto `Off|ReportOnly|Enforce`, sin distinguir mayúsculas); un valor inválido **impide el arranque**. Una clave presente pero vacía también falla (quitar la clave = `Off`). Tests: `CspHttpTests.ModoInvalido_ImpideElArranque_NoDegradaEnSilencio` (6 valores) y `Enforce_NoDependeDeMayusculas`; los 6 casos inválidos fallan al revertir la corrección.
+3. **El gate de CSP del job de CI daba verde con mediciones rotas** (F2.3, abajo).
+
+Pruebas xUnit nuevas (`TheBuryProyect.Tests/Integration/CspHttpTests.cs`, 23 en total): modo inválido/mayúsculas, nonce único por solicitud y coincidente con el de `style-src`, cabecera en 404 HTML/AJAX/API, 302 a login y `/csp-report` con error, reporte → WARN en el log con rate limit exacto (30 aceptados, luego 429), política de `frame-src`.
+
+### F2.3 — el gate de CSP no da falsos verdes
+
+`scripts/qa/csp-medicion/selftest.js` (corre en el paso «Resumen de violaciones CSP» del workflow existente, sin navegador, <1 s; con `--con-navegador` usa un servidor local con CSP y ejecuta `preload.js`, `crawl.js` e `impresion.js` reales) demuestra que el gate falla cuando corresponde y pasa con datos sanos: 25 casos, 0 discrepancias. Contra la versión anterior de `resumen.js`, 9 de los 17 casos sin navegador daban resultado equivocado; defectos reales corregidos:
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| archivo truncado (última línea cortada) o con líneas corruptas (podían ocultar una violación) | exit 0 (verde) | exit 3 |
+| contextos creados sin instrumentar | exit 0 | exit 3 (`contexto-creado` vs `contexto`) |
+| error de consola CSP sin evento `securitypolicyviolation` | exit 0 | exit 1 (cuenta como violación) |
+| pocos contextos medidos para los tests ejecutados / 0 tests / reporte ilegible | sin control | exit 3 con `--playwright-json` (cociente ≥ 0,5; calibrado en 1,06 contextos por test en una corrida real de 17 tests) |
+| `crawl.js` con inventario vacío (0 páginas) | exit 0 | exit 1 (cobertura esperada por rol, `cobertura-esperada.json`; ver la ronda siguiente: reemplaza el mínimo fijo de 10 páginas, que era incorrecto para Repositor/Técnico) |
+| umbral inválido (`--max-violaciones abc`) | verde | exit 2 |
+
+Ya fallaban bien (confirmado): instrumentación no instalada/archivo inexistente, resumen vacío, 0 contextos, fallo de instalación, 1 violación; `impresion.js` con botones ausentes o sin `--rutas`. `--max-pageerrors N` es un gate opt-in (no se activó en CI para no cambiar el criterio vigente; el resumen siempre informa los errores de página).
+
+### F2.4 — límites explícitos de cobertura
+
+- **Mercado Libre: diferido por el propietario.** No se trabajó (incluye DEF-ML-01 y el modo real de mensajes de ML).
+- Los `data-confirm` de pantallas reales (medios de pago, plantillas, alertas de mora/stock, lotes de precios) necesitan datos que la base sintética no tiene: se probó el **mismo manejador** (`csp-actions.js`) sobre elementos con el mismo marcado en una pantalla real, no cada pantalla.
+- Reporte *Movimientos valorizados*: el enlace de Excel solo aparece con movimientos valorizados; sin datos sembrados **no se probó** su descarga.
+- Recibos, contratos y comprobantes de caja se entregan como **PDF** (`Documento/Ver`, `ContratoVentaCredito/Generar`, `Cotizacion/DescargarPdf`); no hay HTML con CSP para ellos. Se verificó la descarga/preview de PDF de plantillas, paquetes, reglas y cotización; **no se emitieron** recibos/contratos reales (requiere flujos de cobro/crédito con efectos).
+- El visor PDF del escenario 10 se probó solo en Chromium; Firefox/WebKit se ejercitan hasta la carga del iframe `blob:`, sin prueba de que su visor renderice.
+- Los escenarios corren como `administrador`; los menús por rol ya están en `crawl.js`.
+- `innerHTML` (`wwwroot/js`, 39 archivos): ejercitados dinámicamente por esta ronda o por la suite E2E: catálogo (producto crear/editar, categoría, marca, precio, historial), cliente (modal, index), proveedor (módulo, base, picker), seguridad (index, módulo, roles), venta-create, cotización (simulador, ui), layout (tickets, notas). **Solo cubiertos por la suite o estáticamente** (sin escenario propio): `cliente-garante`, `cliente-details`, `credito-*`, `caja-*`, `configurar-venta-credito`, `venta-credito-embebido`, `venta-facturar`, `venta-devolucion-modal`, `ordencompra-form`, `inventario-global`, `plantillas-contrato`, `contrato-venta-credito-preparar`, `movimientos-inventario-modal`. **Fuera de alcance (ML diferido):** `mercadolibre-*`.
+
+### (b) Pendientes operativos que dependen del entorno real (no cerrables en QA)
+
+1. Safari real e iOS/Android físicos (el WebKit de Playwright no equivale a Safari iOS; visor PDF y `print()` reales).
+2. Servidor definitivo y nombre de host real (`ERP_DOMAIN`), Caddy con certificados definitivos (CA raíz instalada en los clientes), fuentes de Google con salida a Internet del servidor, `frame-ancestors` tras el proxy real.
+3. Ventana en `ReportOnly` con usuarios reales durante el período que acuerde el propietario y revisión del WARN `CSP violation` (`/csp-report`): es la única evidencia sobre datos y flujos que la base sintética no reproduce.
+4. Decisión del propietario sobre `Enforce`: este documento **no** la propone; la reversión sigue siendo volver a `Off`/`ReportOnly` por configuración.
+
+### Resultados de la corrida (2026-11-11, Enforce, 1366x900, stack `bury-mb`)
+
+Un contexto de navegador por escenario (44 por navegador, instrumentados con el medidor de violaciones/consola/`pageerror`) más 2 de arranque (sonda de cabecera y login). Una «página» es una navegación de documento del frame principal.
+
+| Navegador | Escenarios | Correctos | Checks funcionales | Interacciones | Páginas | Violaciones CSP | `pageerror` | Errores de consola | 5xx |
+|---|---|---|---|---|---|---|---|---|---|
+| Chromium | 44 | 44 | 257 | 342 | 244 | 0 | 0 | 0 | 0 |
+| Firefox | 44 | 44 | 257 | 350 | 250 | 0 | 0 | 0 | 0 |
+| WebKit (Playwright) | 44 | 43 (+1 repetido) | 253 | 345 | 246 | 0 | 0 | 0 | 0 |
+
+WebKit: el escenario «Exportaciones: /Reporte/Ventas» falló en esa corrida por una carrera del arnés (el enlace aún no estaba tras el POST de «Generar»; sin violaciones ni errores); se corrigió la espera y se repitió el bloque de exportaciones: 4/4 correctos, 34 checks. Salvo esa espera, los ajustes de arnés para Firefox/WebKit (stub de `window.print()` que bloquea Firefox, cargas canceladas por descargas, reintento de `goto` tras la navegación automática de un alta AJAX) no afectan a la política.
+
+Evidencia (fuera del repo): `D:\tmp\mision\b\final-{chromium,firefox,webkit}.{txt,json}`, `esc-chromium.txt` (corrida previa), `selftest-antes.txt` / `selftest-despues.txt`, `pdf-B-blob.png`, `pdftest.js`.
+
 ## Ronda 2026-11-11 (cierre funcional): recorrido por roles con descargas y cobertura por rol
 
 Causa de un rojo en CI al agregar los specs de configuración aislada (C-03): el spec de excepción documental ahora **genera un contrato**, y el recorrido de roles encontró el enlace `/ContratoVentaCredito/Ver?ventaId=N`, que responde con un PDF adjunto. Para el navegador eso no es una navegación (`page.goto: Download is starting`) y el arnés lo contaba como error. No era una falla de la aplicación ni de la CSP (0 violaciones).
