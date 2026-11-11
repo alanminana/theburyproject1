@@ -143,6 +143,9 @@ services:
       AUTOMAPPER_LICENSE_KEY: ${AUTOMAPPER_LICENSE_KEY:-}
       # Forwarded Headers (Program.cs): solo se confia en X-Forwarded-* que vengan de esta subred (Caddy). No usar ASPNETCORE_FORWARDEDHEADERS_ENABLED (confia en cualquiera).
       ForwardedHeaders__KnownNetworks: ${BURY_NET_SUBNET:-172.29.88.0/24}
+      # D-05: modo de la CSP (Off | ReportOnly | Enforce). Por defecto Off (o con CSP_MODE vacio en .env). Un valor invalido IMPIDE el arranque
+      # de la app (ValidateOnStart): ver docs/csp-enforce-activacion.md antes de cambiarlo. Cambiarlo = editar .env + `docker compose up -d app`.
+      Csp__Mode: ${CSP_MODE:-Off}
     volumes:
       - bury-keys:/keys
       - bury-uploads:/app/wwwroot/uploads

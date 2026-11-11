@@ -88,6 +88,21 @@ if [[ -f "$DP_ENV_FILE" ]]; then
     log ERROR "FAIL Required production setting AUTOMAPPER_LICENSE_KEY is missing (falta o esta vacia en env-file; para licencia Community definir AUTOMAPPER_LICENSE_MODE=community)"; FAIL=1
   fi
   unset am_mode_line am_mode am_line am_val
+  # D-05: CSP_MODE ausente o vacio = Off. Cualquier otro valor debe ser EXACTAMENTE Off, ReportOnly o Enforce (sin distinguir mayusculas):
+  # un typo hace que la app NO arranque (Csp:Mode se valida al iniciar). Detectarlo aqui evita descubrirlo con la app ya reemplazada.
+  csp_line=$(grep -E '^[[:space:]]*CSP_MODE=' "$DP_ENV_FILE" | tail -n1 || true)
+  csp_val=${csp_line#*=}
+  csp_val=$(printf '%s' "$csp_val" | tr -d '\r' | sed -E "s/^[[:space:]]+//; s/[[:space:]]+$//; s/^(['\"])(.*)\1$/\2/")
+  csp_low=$(printf '%s' "$csp_val" | tr 'A-Z' 'a-z')
+  if [[ -z "$csp_val" ]]; then
+    log INFO "OK   CSP_MODE ausente o vacio (CSP apagada: Off)"
+  elif [[ "$csp_low" == "off" || "$csp_low" == "reportonly" || "$csp_low" == "enforce" ]]; then
+    log INFO "OK   CSP_MODE=$csp_val"
+    [[ "$csp_low" == "enforce" ]] && log WARN "CSP_MODE=Enforce: confirmar que se cumplio docs/csp-enforce-activacion.md (observacion en ReportOnly y GO firmado)"
+  else
+    log ERROR "FAIL CSP_MODE='$csp_val' invalido: use Off, ReportOnly o Enforce (la app no arrancaria)"; FAIL=1
+  fi
+  unset csp_line csp_val csp_low
 else
   log ERROR "FAIL env-file no existe: $DP_ENV_FILE"; FAIL=1
 fi
