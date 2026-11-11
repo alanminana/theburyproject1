@@ -361,32 +361,27 @@ public class DevolucionService : IDevolucionService
     {
         var productos = cobradoPorLinea.Sum();
         var bruto = productos + serviciosBruto;
-        if (productos <= 0m)
+        if (productos <= 0m || totalVenta <= 0m)
             return new decimal[cobradoPorLinea.Count];
 
-        var recargo = RecargoMedioPagoIva.CalcularRecargo(totalVenta, bruto);
-        if (recargo > 0m)
-        {
-            var parteProductos = serviciosBruto <= 0m
-                ? recargo
-                : Math.Round(recargo * productos / bruto, 2, MidpointRounding.AwayFromZero);
-            return RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
-        }
+        // Ajuste NETO del total cobrado respecto de lo que suman los ítems (con signo), igual que RecargoMedioPagoIva.Discriminar:
+        // recargo o interés (+), descuento del medio de pago (−) y el truncado a pesos del total (los centavos de los ítems que el
+        // total entero no cobra, siempre −). Así devolver todo reintegra EXACTAMENTE lo cobrado por los productos y nunca más
+        // (antes, un total truncado de 999 sobre ítems de 999,99 reintegraba 999,99: +0,99 sobre Caja).
+        // Un total con centavos (venta no truncada) no fue truncado: el ajuste es la diferencia exacta, sin recargo espurio.
+        var neto = totalVenta - bruto;
+        if (neto == 0m)
+            return new decimal[cobradoPorLinea.Count];
 
-        // Ajuste NEGATIVO del medio de pago (descuento de Efectivo/Transferencia, etc.): el total cobrado es menor que
-        // los ítems (más allá del truncado a pesos). Lo reintegrable por productos es su parte proporcional de lo
-        // realmente cobrado, de modo que devolver todo reintegre exactamente Venta.Total - servicios y nunca más.
-        if (totalVenta > 0m && totalVenta < Math.Floor(bruto))
-        {
-            var descuento = serviciosBruto <= 0m
-                ? productos - Math.Max(0m, totalVenta)
-                : Math.Round((bruto - totalVenta) * productos / bruto, 2, MidpointRounding.AwayFromZero);
-            descuento = Math.Min(descuento, productos);
-            var partes = RecargoMedioPagoIva.Prorratear(cobradoPorLinea, descuento);
-            return partes.Select(x => -x).ToArray();
-        }
+        var parteProductos = serviciosBruto <= 0m
+            ? Math.Abs(neto)
+            : Math.Round(Math.Abs(neto) * productos / bruto, 2, MidpointRounding.AwayFromZero);
+        // Un descuento nunca devuelve menos que cero por producto.
+        if (neto < 0m)
+            parteProductos = Math.Min(parteProductos, productos);
 
-        return new decimal[cobradoPorLinea.Count];
+        var partes = RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+        return neto > 0m ? partes : partes.Select(x => -x).ToArray();
     }
 
     internal static decimal ImporteCobradoDeLinea(int cantidad, decimal precioUnitario, decimal descuento, decimal subtotal, decimal subtotalFinal)
