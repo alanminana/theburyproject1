@@ -22,7 +22,7 @@
             @if (hayDisponibles)
             {
             <p class="page-sub">Iniciá un turno declarando el fondo inicial. A partir de la apertura quedan registrados todos los movimientos hasta el cierre.</p>
-            <p class="page-sub" style="margin-top:.25rem">Responsable: <strong>@usuarioActual</strong> · Apertura: <span class="num">@DateTime.Now.ToString("dd/MM · HH:mm")</span></p>
+            <p class="page-sub" style="margin-top:.25rem">Responsable: <strong>@usuarioActual</strong> · Apertura: <span class="num">@Reloj.AhoraComercial.ToString("dd/MM · HH:mm")</span></p>
             }
         </div>
     </div>

@@ -1563,7 +1563,7 @@
                 <div id="envio-fecha-bloque" class="hidden">
                     <label for="envio-fecha-programada" class="venta-label">Nueva fecha de entrega</label>
                     <input type="date" data-fecha="hoy" id="envio-fecha-programada" name="fechaProgramada" class="venta-input"
-                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                           min="@Reloj.HoyIso()" />
                 </div>
 
                 <div id="envio-motivo-bloque" class="hidden">
