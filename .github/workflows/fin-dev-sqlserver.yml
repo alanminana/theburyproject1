@@ -180,7 +180,7 @@ jobs:
           exit $RC
 
       # H10: cheque recibido (acreditar / rechazar, orden de locks, duplicado concurrente). Un omitido no es un aprobado.
-      - name: H10 - cheque recibido, concurrencia e integridad contable (CHQ-01..06, H1a..H4b, B13a..B13l)
+      - name: H10 - cheque recibido, concurrencia e integridad contable (CHQ-01..06, H1a..H4b, B13a..B13m)
         env:
           QA_RELEASE_TURNO: '1'
           QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
@@ -194,7 +194,7 @@ jobs:
             --results-directory ./TestResults
           TRX=./TestResults/h10-cheques-sql-rcsi${{ matrix.rcsi }}.trx
           RC=0
-          for R in CHQ-01 CHQ-02 CHQ-03 CHQ-04 CHQ-05 CHQ-06 H1a H1b H1c H2a H2b H3 H4a H4b B13a B13b B13c B13d B13e B13f B13g B13h B13i B13j B13k B13l; do
+          for R in CHQ-01 CHQ-02 CHQ-03 CHQ-04 CHQ-05 CHQ-06 H1a H1b H1c H2a H2b H3 H4a H4b B13a B13b B13c B13d B13e B13f B13g B13h B13i B13j B13k B13l B13m; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*\[$R\][^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "$R -> $OUT"

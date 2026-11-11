@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
@@ -245,6 +245,12 @@ public class ConcSqlHostFixture : IAsyncLifetime
     public IServiceProvider Services => _factory!.Services;
     public int AperturaCajaId { get; private set; }
 
+    /// <summary>
+    /// Reloj del host: no cruza la medianoche comercial del día en que se creó el fixture (ver <see cref="RelojConcurrencia"/>).
+    /// Sin esto, una corrida que pasa por las 00:00 de Argentina deja «vencidas» las cajas sembradas antes del cruce.
+    /// </summary>
+    public RelojConcurrencia Reloj { get; } = new();
+
     /// <summary>Punto de extensión para que un fixture derivado reemplace servicios (no cambia el comportamiento por defecto).</summary>
     protected virtual void ConfigurarServicios(IServiceCollection services) { }
 
@@ -305,6 +311,9 @@ public class ConcSqlHostFixture : IAsyncLifetime
                                                       && d.ImplementationType != null
                                                       && BackgroundServicesToRemove.Contains(d.ImplementationType)).ToList())
                     services.Remove(d);
+
+                services.RemoveAll<TimeProvider>();
+                services.AddSingleton<TimeProvider>(Reloj);
 
                 services.RemoveAll<ICurrentUserService>();
                 services.AddScoped<ICurrentUserService, ConcCurrentUser>();
