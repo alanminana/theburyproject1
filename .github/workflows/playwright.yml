@@ -144,6 +144,14 @@ jobs:
             --filter "FullyQualifiedName~DescuentoPermisoE2ESeedRunner.Sembrar" \
             --logger "console;verbosity=normal"
 
+      # C-03: fixtures de specs que se omitian por falta de datos/permisos (permisos de punitorio para el usuario E2E,
+      # cliente No apto con DNI numerico, caja libre). Corre DESPUES del seed de punitorios (configura DiasParaNoApto).
+      - name: Sembrar fixtures de specs antes omitidos (C-03)
+        env:
+          E2E_SEED_CONNECTION: "Server=127.0.0.1,${{ env.MSSQL_HOST_PORT_CI }};Database=TheBuryProjectDb;User Id=${{ env.ERP_DB_USER }};Password=${{ env.ERP_DB_PASSWORD }};TrustServerCertificate=True;MultipleActiveResultSets=true"
+        run: |
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~OmitidosE2ESeedRunner.Sembrar"             --logger "console;verbosity=normal"
+
       - name: Exportar ids del seed como variables de entorno
         run: |
           SEED_JSON="e2e/.auth/pun-ml10g-seed-ids.json"
@@ -187,6 +195,14 @@ jobs:
           echo "E2E_SIN_DESCUENTO_PASS=Gerente123!" >> "$GITHUB_ENV"
           echo "E2E_REQUIRE_DESCUENTO_PERMISO=1" >> "$GITHUB_ENV"
 
+          # C-03: variables de los specs antes omitidos (E2E_CLIENTE_NOAPTO_DNI).
+          OMI_JSON="e2e/.auth/omitidos-seed-ids.json"
+          if [ ! -f "$OMI_JSON" ]; then
+            echo "::error::No se genero $OMI_JSON (fallo el seed C-03)."
+            exit 1
+          fi
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' "$OMI_JSON" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: npm ci
 
@@ -226,7 +242,20 @@ jobs:
           # (docker-compose.ci.yml). No altera las pruebas: ver scripts/qa/csp-medicion/preload.js.
           CSP_MEDIR_OUT: ${{ runner.temp }}/csp-medicion.jsonl
           NODE_OPTIONS: --require ${{ github.workspace }}/scripts/qa/csp-medicion/preload.js
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-e2e.json
         run: npx playwright test --project=1366x768
+
+      # C-03: un test omitido no es un test aprobado. Falla si hay omitidos fuera de la lista clasificada en
+      # docs/e2e-omitidos-clasificacion.md (un skip nuevo, o un spec que deja de correr, no pasa inadvertido).
+      - name: Control de omitidos (C-03)
+        if: ${{ !cancelled() }}
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-e2e.json
+        run: |
+          set -o pipefail
+          mkdir -p qa-evidence
+          node scripts/qa/control-omitidos.js "$PLAYWRIGHT_JSON_OUTPUT_NAME" | tee qa-evidence/omitidos.txt
+          { echo '### Omitidos de la suite E2E'; echo '```'; cat qa-evidence/omitidos.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       # D-05: resumen de la medicion CSP. Informativo respecto de las violaciones (Report-Only no bloquea ni debe romper el gate),
       # pero falla si la medicion no se enganchó (0 contextos instrumentados), para que un resultado vacio no parezca "0 violaciones".

@@ -46,6 +46,16 @@ function assertSinFallos(fallos) {
     expect(fallos.failedResponses, `HTTP 5xx: ${fallos.failedResponses.join(' | ')}`).toHaveLength(0);
 }
 
+/**
+ * Fecha comercial (yyyy-MM-dd) desplazada `offsetDias` respecto de HOY COMERCIAL de la app (UTC-3, `IRelojComercial.HoyComercial`).
+ * No usar la fecha UTC: entre 00:00 y 03:00 UTC el día UTC ya cambió pero el comercial no, y "ayer UTC" dejaba de ser retroactivo.
+ */
+function fechaComercial(offsetDias) {
+    const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    d.setUTCDate(d.getUTCDate() + offsetDias);
+    return d.toISOString().slice(0, 10);
+}
+
 /** Fecha futura única por test (yyyy-MM-dd), lejos de cualquier otra corrida para no chocar con el invariante monotónico append-only. */
 function vigenciaFutura(offsetDias) {
     const d = new Date();
@@ -120,9 +130,7 @@ test.describe('Punitorios por mora — retroactividad', () => {
         const form = page.locator('#punitorio-form');
         test.skip(!(await form.count()), 'La sesion de QA no tiene configuracion.managepunitorio.');
 
-        const ayer = new Date();
-        ayer.setUTCDate(ayer.getUTCDate() - 1);
-        const vigenciaRetro = ayer.toISOString().slice(0, 10);
+        const vigenciaRetro = fechaComercial(-1);
 
         await page.locator('#pun-vigente-desde').fill(vigenciaRetro);
         await page.locator('#pun-porcentaje').fill('3');
@@ -168,9 +176,7 @@ test.describe('Punitorios por mora — retroactividad', () => {
         const form = page.locator('#punitorio-form');
         test.skip(!(await form.count()), 'La sesion de QA no tiene configuracion.managepunitorio o configuracion.retroactivepunitorio.');
 
-        const ayer = new Date();
-        ayer.setUTCDate(ayer.getUTCDate() - 2);
-        const vigenciaRetro = ayer.toISOString().slice(0, 10);
+        const vigenciaRetro = fechaComercial(-2);
         const motivo = `E2E retroactiva confirmada ${Date.now()}`;
 
         await page.locator('#pun-vigente-desde').fill(vigenciaRetro);
