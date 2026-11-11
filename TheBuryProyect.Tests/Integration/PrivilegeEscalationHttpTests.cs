@@ -18,7 +18,7 @@ namespace TheBuryProject.Tests.Integration;
 /// atacante con la cookie de un usuario real, sin pasar por la UI) y además verifica en BD
 /// que la operación rechazada no dejó escrituras.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class PrivilegeEscalationHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private const string ClaimConfiguracionUpdate = "configuracion.update";

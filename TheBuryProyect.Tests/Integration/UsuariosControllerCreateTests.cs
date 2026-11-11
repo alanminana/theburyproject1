@@ -9,7 +9,7 @@ using TheBuryProject.Models.Entities;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class UsuariosControllerCreateTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

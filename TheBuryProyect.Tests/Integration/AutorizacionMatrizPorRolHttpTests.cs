@@ -25,7 +25,7 @@ namespace TheBuryProject.Tests.Integration;
 /// permisos sembrados, y se verifica por HTTP que TODAS esas respuestas son denegaciones. Solo se envían las
 /// peticiones que deben ser denegadas (si el filtro funciona, ningún handler corre).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class AutorizacionMatrizPorRolHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private const string SinPermisos = "H2B2_SinPermisos";

@@ -50,7 +50,7 @@ public class MontoSinAmbiguedadContratoTests
     }
 }
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class ServiciosVentaPrecioAmbiguoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

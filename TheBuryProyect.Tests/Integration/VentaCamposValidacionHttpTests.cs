@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// binding + servicio). Cada caso manda un valor fuera de regla contra Venta/CreateAjax y exige que se rechace
 /// sin persistir la venta; los casos válidos de borde exigen que se acepten.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class VentaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 91000;

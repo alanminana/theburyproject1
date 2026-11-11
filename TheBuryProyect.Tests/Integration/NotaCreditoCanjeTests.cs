@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Servicios reales (VentaService, CajaService) sobre SQLite; el usuario actual es el del harness (ConcCurrentUser) para
 /// que existan sesión y caja. Cada prueba verifica el ESTADO FINAL en la base (saldo de la nota, uso, venta, caja).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public sealed class NotaCreditoCanjeTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

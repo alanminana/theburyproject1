@@ -6,7 +6,7 @@ namespace TheBuryProject.Tests.Integration;
 /// MOBILE-DEBT-01: los estaticos se sirven con Cache-Control explicito y la fuente de iconos que carga el sitio
 /// es la instancia recortada (0.77 MB) y no la variable completa (3.9 MB).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class StaticAssetsCacheHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

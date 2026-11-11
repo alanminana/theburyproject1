@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// propio (GUID) para no depender ni contaminar el estado de otros tests del
 /// mismo fixture compartido.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class DesafioALosDiosesTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

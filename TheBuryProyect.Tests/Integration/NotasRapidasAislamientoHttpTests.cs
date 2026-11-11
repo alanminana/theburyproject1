@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// H9-M6 — NotaRapidaApi queda fuera de la matriz de permisos por rol (es "solo el dueño"): este test fija el aislamiento
 /// por HTTP real (IDOR) y el rechazo anónimo, que ninguna otra suite cubría.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class NotasRapidasAislamientoHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

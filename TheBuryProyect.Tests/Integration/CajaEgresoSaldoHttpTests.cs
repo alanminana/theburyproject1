@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// FIN-S-007: la carga manual de egresos no validaba el saldo y dejaba la caja en negativo. Ahora un egreso no puede
 /// superar el saldo real en efectivo de la apertura, salvo que lo cargue un supervisor de caja (Administrador/SuperAdmin).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CajaEgresoSaldoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string User = CustomWebApplicationFactory.CajaCierrePermsUserId;

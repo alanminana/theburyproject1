@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// adjunto siguiera vigente. El acceso es ahora exclusivamente la descarga autenticada
 /// /Ticket/DescargarAdjunto/{id} (tickets.view), por identificador y con la ruta tomada de la DB.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class TicketAdjuntosAccesoHttpTests :
     IClassFixture<CustomWebApplicationFactory>, IClassFixture<CookieAuthWebApplicationFactory>, IDisposable
 {

@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// armaba la respuesta con el CajaViewModel de entrada (nunca asignado) en vez del Caja
 /// persistido devuelto por CrearCajaAsync.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CajaControllerCreateHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

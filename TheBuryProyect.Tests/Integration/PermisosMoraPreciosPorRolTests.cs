@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Permisos por defecto de los módulos Mora y Precios: Gerente gestiona cobranza y precios (sin configurar mora ni
 /// administrar listas), Cajero y Contador solo consultan mora, Vendedor no recibe ninguno de los dos.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class PermisosMoraPreciosPorRolTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

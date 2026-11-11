@@ -7,7 +7,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L8 — filtros de fecha de los reportes. Un rango invertido devolvía un reporte vacío (o en cero) sin avisar
 /// y las fechas extremas terminaban en un error genérico: ahora se rechazan con un mensaje claro.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class ReportesCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

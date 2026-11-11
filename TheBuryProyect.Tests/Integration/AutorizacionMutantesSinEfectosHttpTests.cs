@@ -27,7 +27,7 @@ namespace TheBuryProject.Tests.Integration;
 ///  - SuperAdmin como control positivo y como prueba de "nunca 500" con ids inexistentes, negativos y fuera de rango.
 /// El inventario sale de los descriptores del runtime (<see cref="MutantesInventario"/>), así que una acción nueva queda cubierta sola.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class AutorizacionMutantesSinEfectosHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private const string SinPermisos = "F31_SinPermisos";

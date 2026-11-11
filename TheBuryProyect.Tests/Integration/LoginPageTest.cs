@@ -2,7 +2,7 @@ using System.Net;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class LoginPageTest : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;

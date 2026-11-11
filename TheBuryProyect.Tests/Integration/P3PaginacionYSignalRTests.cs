@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>FE-D-007 (paginación fuera de rango en CambiosPrecios) y SignalR sin ruido de consola (flaky de E2E).</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class P3PaginacionYSignalRTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

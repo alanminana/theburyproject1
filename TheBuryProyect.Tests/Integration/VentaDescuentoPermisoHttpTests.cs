@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// POST manipulados. Los permisos viven en BD y se releen en cada request (PermissionClaimsTransformation),
 /// de modo que retirar el permiso a mitad de sesión tiene efecto inmediato.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class VentaDescuentoPermisoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string TestUser = "testuser"; // ClaimTypes.Name que emite TestAuthHandler para todos

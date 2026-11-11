@@ -10,7 +10,7 @@ using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaContactoLibreTests
 {
     [Fact]

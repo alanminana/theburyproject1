@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>H9-M6 — el índice de Seguridad (y la auditoría) por el pipeline HTTP real.</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class SeguridadIndiceHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// (/Usuarios/Create). Pipeline REAL de cookie de Identity + antiforgery; cada HttpClient con su cookie jar
 /// equivale a un navegador distinto. Después de cada intento se verifica directamente el contenido de la base.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class RegistroPublicoDeshabilitadoHttpTests : IClassFixture<CookieAuthWebApplicationFactory>
 {
     private const string Password = "Test1234!";

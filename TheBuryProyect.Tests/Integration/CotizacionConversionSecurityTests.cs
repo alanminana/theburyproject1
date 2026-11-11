@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// - NoPermsUserId: no seedeado en DB → PermissionClaimsTransformation limpia SuperAdmin y permisos → 403
 /// - ConvertPermsUserId: seedeado con RolPermiso(cotizaciones.convert) → PermissionClaimsTransformation agrega el claim → no 403
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CotizacionConversionSecurityTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

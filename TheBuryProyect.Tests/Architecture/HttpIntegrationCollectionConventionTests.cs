@@ -64,11 +64,20 @@ public sealed partial class HttpIntegrationCollectionConventionTests
             .Where(attribute => attribute.AttributeType == typeof(CollectionAttribute))
             .Any(attribute =>
                 attribute.ConstructorArguments.Count == 1
-                && string.Equals(
-                    attribute.ConstructorArguments[0].Value as string,
-                    RequiredCollectionName,
-                    StringComparison.Ordinal));
+                && IsHttpIntegrationCollectionName(attribute.ConstructorArguments[0].Value as string));
     }
+
+    /// <summary>
+    /// "HttpIntegration" (grupo serial histórico) o "HttpIntegration.N" (particiones). Las clases de una MISMA colección se ejecutan en serie
+    /// (nunca dos hosts web de la misma colección a la vez); colecciones distintas corren en paralelo, así que el número de particiones
+    /// acota cuántos hosts web arrancan simultáneamente. Quitar la colección por completo dejó la suite sin límite de hosts concurrentes:
+    /// medido el 2026-11-11, un GET simple de CspHttpTests expiró a los 100 s por inanición de CPU.
+    /// </summary>
+    private static bool IsHttpIntegrationCollectionName(string? name) =>
+        name != null
+        && (string.Equals(name, RequiredCollectionName, StringComparison.Ordinal)
+            || (name.StartsWith(RequiredCollectionName + ".", StringComparison.Ordinal)
+                && int.TryParse(name.AsSpan(RequiredCollectionName.Length + 1), out var n) && n > 0));
 
     private static IReadOnlyCollection<string> FindSourceBasedHttpTestClasses()
     {

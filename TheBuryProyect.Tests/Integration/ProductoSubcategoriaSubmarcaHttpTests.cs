@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// RESCATE-PRODUCTO-P0 a nivel HTTP (SQLite en memoria): el modal Editar del catálogo envía
 /// SubcategoriaId/SubmarcaId a Producto/EditAjax y deben persistirse y volver a presentarse en GetJson.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class ProductoSubcategoriaSubmarcaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int ProductoId = 9300;

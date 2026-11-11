@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 //   - ConfiguracionPunitorioUiContractTests (lectura de archivo, sin HTTP)
 // ---------------------------------------------------------------------------
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class ConfiguracionPunitorioHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string CreditoPersonalUrl = "/ConfiguracionPago/CreditoPersonal";

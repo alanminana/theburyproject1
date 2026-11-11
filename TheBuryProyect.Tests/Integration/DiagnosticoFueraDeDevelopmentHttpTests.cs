@@ -8,7 +8,7 @@ namespace TheBuryProject.Tests.Integration;
 /// volcado de usuarios/connection string) solo existen en Development. Fuera de Development (aqui: Testing, igual que
 /// Production en esta regla) deben responder 404 incluso a un SuperAdmin autenticado, para cada accion.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class DiagnosticoFueraDeDevelopmentHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -9,7 +9,7 @@ namespace TheBuryProject.Tests.Integration;
 /// SEG-BAJA: un usuario con cookie ya emitida que no aceptó los términos vigentes no puede hacer POST ni llamar APIs
 /// (antes el middleware solo redirigía GET con Accept text/html).
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public sealed class TerminosCondicionesBloqueoTotalHttpTests : IDisposable
 {
     private readonly CustomWebApplicationFactory _factory = new() { ExigirTerminosEnTodasLasPeticiones = true };

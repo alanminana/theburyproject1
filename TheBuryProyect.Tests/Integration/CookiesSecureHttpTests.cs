@@ -7,7 +7,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Las cookies de antiforgery y de TempData salían sin `Secure` detrás de Caddy (HTTPS). Con X-Forwarded-Proto: https deben
 /// llevar `Secure`; sin él (HTTP directo, desarrollo) no.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class CookiesSecureHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

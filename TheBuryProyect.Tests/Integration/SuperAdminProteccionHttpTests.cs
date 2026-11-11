@@ -18,7 +18,7 @@ namespace TheBuryProject.Tests.Integration;
 /// HTTP a mano y verifica en BD que el rechazo no dejó escrituras (ni parciales en las masivas).
 /// Esta clase usa su propia fábrica, de modo que puede fijar el conjunto exacto de SuperAdmin.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class SuperAdminProteccionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

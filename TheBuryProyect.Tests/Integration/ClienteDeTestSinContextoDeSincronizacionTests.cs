@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// (67/128/145 s medidos con 2 núcleos; en CI superó los 300 s del timeout del cliente, que cuenta ese tiempo de cola).
 /// El cliente de test no debe depender del contexto de quien llama.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class ClienteDeTestSinContextoDeSincronizacionTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
