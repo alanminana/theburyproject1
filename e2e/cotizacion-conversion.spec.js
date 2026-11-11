@@ -8,25 +8,18 @@
  *   T11. Conversión con descuento por producto importe — no rompe el flujo
  *   T12. Panel de conversión ausente si cotización ya fue convertida (regresión)
  *
- * COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario, decisión
- * confirmada: Guardar pasa directo a venta siempre que se pueda): con un cliente
- * de sistema seleccionado — precondición que estos 4 tests ya armaban vía
- * seleccionarPrimerCliente() —, Guardar ahora guarda y convierte en un solo paso,
- * navegando derecho a /Venta/Edit/{id}. El escenario que T9-T12 necesitan como
- * punto de partida (cotización "Emitida" SIN convertir, visible en Detalles, para
- * ejercitar ahí el modal de conversión manual) ya no es alcanzable por UI desde el
- * simulador — crearCotizacionYNavegar() devuelve '' y los 4 tests skipean con el
- * motivo real. La pantalla de conversión manual de Detalles (#cotizacion-btn-
- * convertir, #cotizacion-conversion-modal) no se tocó y sigue funcionando para una
- * cotización que haya quedado guardada sin cliente de sistema en el momento de
- * guardar; reescribir estos 4 tests para llegar a ese estado (por API directa en
- * vez de conducir el simulador) queda pendiente como seguimiento, fuera de este
- * lote.
+ * COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (decisión confirmada: Guardar pasa directo a venta): con un cliente del sistema, Guardar guarda y
+ * convierte en un solo paso, así que desde el simulador ya no se llega a una cotización «Emitida» sin convertir. Esa pantalla de
+ * conversión manual (Detalles: #cotizacion-btn-convertir, #cotizacion-conversion-modal) sigue existiendo, por lo que estos 4 tests parten de
+ * cotizaciones «Emitida» SEMBRADAS (OmitidosE2ESeeder → E2E_COTIZACION_CONV_IDS), una por test porque cada uno la convierte.
+ * Son fixtures CONSUMIBLES (una conversión por cotización): valen para UNA corrida por base y por proyecto de viewport (CI corre solo
+ * 1366x768 sobre una base efímera). Un fixture ya consumido hace FALLAR el test (no se omite en silencio).
+ * Antes se omitían los 4 (C-03: ver docs/e2e-omitidos-clasificacion.md).
  *
  * Prerrequisitos:
  *   - App corriendo en E2E_BASE_URL (default: http://localhost:5187)
  *   - E2E_USER y E2E_PASS configurados (ver global-setup.js)
- *   - Al menos 1 producto y 1 cliente en la DB
+ *   - E2E_COTIZACION_CONV_IDS (4 ids de cotizaciones Emitidas sembradas); sin ella los tests se omiten con motivo
  *   - Usuario Admin con permiso cotizaciones:convert
  *
  * Selectores usados (todos existentes en producción):
@@ -67,136 +60,24 @@ fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 
 const VIEWPORT_DESKTOP = { width: 1366, height: 768 };
 
-const TERMINOS_BUSQUEDA = ['an', 'el', 'or', 'is', 'ar', 'ro', 'al'];
-const TERMINOS_CLIENTE  = ['ma', 'ro', 'an', 'pe', 'ju', 'ca', 'lu', 'al'];
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Navega a /Cotizacion y espera que el simulador esté listo.
+ * Abre el Detalles de una cotización «Emitida» sembrada (OmitidosE2ESeeder, E2E_COTIZACION_CONV_IDS = 4 ids separados por coma).
+ * Desde el simulador ya no se puede dejar una cotización con cliente sin convertir (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01: guardar
+ * encadena a Venta/Edit), por eso este flujo manual de Detalles se ejercita con cotizaciones sembradas: una por test, porque cada
+ * test la convierte (índice 2 = T11 lleva un descuento por importe de $50 en la línea). Sin la variable el test se omite con motivo.
+ * Retorna la URL de Detalles, o '' si no hay cotización sembrada.
  * @param {import('playwright/test').Page} page
- */
-async function gotoCotizacion(page) {
-    await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded', timeout: 20_000 });
-    await page.evaluate(() => document.fonts?.ready).catch(() => null);
-    await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
-}
-
-/**
- * Busca y agrega el primer producto disponible al simulador.
- * @param {import('playwright/test').Page} page
- * @returns {Promise<boolean>}
- */
-async function agregarProductoSimulador(page) {
-    const input    = page.locator('#cotizacion-producto-buscar');
-    const dropdown = page.locator('#cotizacion-productos-dropdown');
-    const tbody    = page.locator('#cotizacion-productos-tbody');
-
-    for (const term of TERMINOS_BUSQUEDA) {
-        await input.fill(term);
-        await page.waitForTimeout(600);
-
-        const visible = await dropdown.isVisible({ timeout: 3_000 }).catch(() => false);
-        if (!visible) continue;
-
-        const firstBtn = dropdown.locator('button').first();
-        const hasBtn = await firstBtn.isVisible({ timeout: 2_000 }).catch(() => false);
-        if (!hasBtn) continue;
-
-        await firstBtn.click();
-
-        await page.waitForTimeout(300);
-
-        const rowCount = await tbody.locator('.cart-row').count();
-        if (rowCount > 0) return true;
-    }
-    return false;
-}
-
-/**
- * Busca y selecciona el primer cliente disponible en el simulador.
- * Necesario porque la conversión siempre requiere ClienteId.
- * @param {import('playwright/test').Page} page
- * @returns {Promise<boolean>}
- */
-async function seleccionarPrimerCliente(page) {
-    const buscar   = page.locator('#cotizacion-cliente-buscar');
-    const dropdown = page.locator('#cotizacion-clientes-dropdown');
-
-    for (const term of TERMINOS_CLIENTE) {
-        await buscar.fill(term);
-        await page.waitForTimeout(600);
-
-        const visible = await dropdown.isVisible({ timeout: 3_000 }).catch(() => false);
-        if (!visible) continue;
-
-        const firstBtn = dropdown.locator('button').first();
-        const hasBtn = await firstBtn.isVisible({ timeout: 2_000 }).catch(() => false);
-        if (!hasBtn) continue;
-
-        await firstBtn.click();
-        await page.waitForTimeout(200);
-
-        const clienteId = await page.locator('#cotizacion-cliente-id').inputValue().catch(() => '');
-        if (clienteId) return true;
-    }
-    return false;
-}
-
-/**
- * Crea una cotización completa (cliente + producto + simular + guardar).
- * Retorna '' — y el test debe skipear — si no hay productos/clientes en el
- * entorno, O si Guardar convirtió sola a venta (siempre que hay cliente de
- * sistema, ver COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 más arriba): ya no hay
- * Detalles sin convertir que visitar en ese caso.
- * @param {import('playwright/test').Page} page
- * @param {{ descImporte?: number }} [opts]
+ * @param {number} indice 0..3
  * @returns {Promise<string>}
  */
-async function crearCotizacionYNavegar(page, opts = {}) {
-    await gotoCotizacion(page);
-
-    const added = await agregarProductoSimulador(page);
-    if (!added) return '';
-
-    // Asignar cliente (requerido para conversión)
-    const clienteOk = await seleccionarPrimerCliente(page);
-    if (!clienteOk) return '';
-
-    // Aplicar descuento por producto si se indica
-    if (opts.descImporte != null) {
-        // El descuento en pesos está detrás del selector % / $ de la línea (COTIZACION-MOCKUP-01).
-        await page.locator('[data-cotizacion-dto-modo="importe"][data-index="0"]').click();
-        const descInput = page.locator('[data-cotizacion-desc-importe-index="0"]');
-        await expect(descInput).toBeVisible({ timeout: 3_000 });
-        await descInput.fill(String(opts.descImporte));
-    }
-
-    await page.evaluate(() => document.getElementById('cotizacion-simular').click());
-    await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-    await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
-
-    // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario): Guardar
-    // ya no abre un modal — guarda directo y, como acá siempre hay un cliente de
-    // sistema seleccionado (seleccionarPrimerCliente arriba), encadena solo a
-    // pasarAVenta() y navega derecho a /Venta/Edit/{id}, sin pasar por Detalles.
-    // Esto vuelve irrepetible por UI el escenario que T9-T12 necesitan (cotización
-    // "Emitida" sin convertir en Detalles, con cliente ya asignado, para ejercitar
-    // el modal de conversión manual de esa pantalla) — devolver '' hace que esos
-    // tests skipeen con el motivo real en vez de fallar contra un contrato que ya
-    // no es alcanzable desde el simulador.
-    const guardarBtn = page.locator('#cotizacion-guardar');
-    await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
-    await guardarBtn.click();
-
-    try {
-        await page.waitForURL(/\/Venta\/Edit\/\d+/, { timeout: 20_000 });
-        return '';
-    } catch {
-        // No convirtió sola (p.ej. la llamada a pasarAVenta falló) — cae al estado
-        // post-guardado normal, sin navegar. No hay Detalles que visitar tampoco.
-        return '';
-    }
+async function irADetallesSembrada(page, indice) {
+    const ids = (process.env.E2E_COTIZACION_CONV_IDS || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (ids.length <= indice) return '';
+    const url = `/Cotizacion/Detalles/${ids[indice]}`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    return page.url();
 }
 
 /**
@@ -254,8 +135,8 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
 
         // 1. Crear cotización con cliente y navegar a Detalles
-        const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
+        const detallesUrl = await irADetallesSembrada(page, 0);
+        test.skip(!detallesUrl, 'Falta E2E_COTIZACION_CONV_IDS (cotizaciones Emitidas sembradas por OmitidosE2ESeeder) en este entorno.');
 
         expect(detallesUrl).toMatch(/\/Cotizacion\/Detalles\/\d+/);
 
@@ -264,7 +145,7 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
 
         // 3. Abrir modal y esperar preview
         const convertible = await abrirModalYEsperarPreview(page);
-        test.skip(!convertible, 'Modal de conversión no disponible o cotización no convertible');
+        expect(convertible, 'La cotización sembrada no es convertible (¿fixture ya consumido por otro proyecto/intento? Estas cotizaciones se convierten una sola vez: usar base nueva por corrida).').toBeTruthy();
 
         // 4. El total cotizado debe mostrarse en el modal
         await expect(page.locator('#cotizacion-total-cotizado')).not.toBeEmpty({ timeout: 3_000 });
@@ -290,12 +171,12 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
 
         // 1. Crear cotización
-        const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
+        const detallesUrl = await irADetallesSembrada(page, 1);
+        test.skip(!detallesUrl, 'Falta E2E_COTIZACION_CONV_IDS (cotizaciones Emitidas sembradas por OmitidosE2ESeeder) en este entorno.');
 
         // 2. Abrir modal y confirmar conversión
         const convertible = await abrirModalYEsperarPreview(page);
-        test.skip(!convertible, 'Modal de conversión no disponible');
+        expect(convertible, 'La cotización sembrada no es convertible (¿fixture ya consumido por otro proyecto/intento? Estas cotizaciones se convierten una sola vez: usar base nueva por corrida).').toBeTruthy();
 
         const btnConfirmar = page.locator('#cotizacion-btn-confirmar-conversion');
         await Promise.all([
@@ -332,12 +213,12 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
 
         // 1. Crear cotización con descuento importe $50 en primer producto
-        const detallesUrl = await crearCotizacionYNavegar(page, { descImporte: 50 });
-        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
+        const detallesUrl = await irADetallesSembrada(page, 2);
+        test.skip(!detallesUrl, 'Falta E2E_COTIZACION_CONV_IDS (cotizaciones Emitidas sembradas por OmitidosE2ESeeder) en este entorno.');
 
         // 2. Abrir modal de conversión
         const convertible = await abrirModalYEsperarPreview(page);
-        test.skip(!convertible, 'Modal de conversión no disponible');
+        expect(convertible, 'La cotización sembrada no es convertible (¿fixture ya consumido por otro proyecto/intento? Estas cotizaciones se convierten una sola vez: usar base nueva por corrida).').toBeTruthy();
 
         // 3. Confirmar conversión
         const btnConfirmar = page.locator('#cotizacion-btn-confirmar-conversion');
@@ -360,11 +241,11 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
 
         // 1. Crear y convertir cotización
-        const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
+        const detallesUrl = await irADetallesSembrada(page, 3);
+        test.skip(!detallesUrl, 'Falta E2E_COTIZACION_CONV_IDS (cotizaciones Emitidas sembradas por OmitidosE2ESeeder) en este entorno.');
 
         const convertible = await abrirModalYEsperarPreview(page);
-        test.skip(!convertible, 'Modal de conversión no disponible');
+        expect(convertible, 'La cotización sembrada no es convertible (¿fixture ya consumido por otro proyecto/intento? Estas cotizaciones se convierten una sola vez: usar base nueva por corrida).').toBeTruthy();
 
         const btnConfirmar = page.locator('#cotizacion-btn-confirmar-conversion');
         await Promise.all([
