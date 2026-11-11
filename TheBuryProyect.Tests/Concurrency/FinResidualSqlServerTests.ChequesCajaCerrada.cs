@@ -483,4 +483,65 @@ public partial class FinResidualSqlServerTests
         Assert.Equal(antesV, await LibroAsync(e.Vigente));
         Assert.Equal(eventosAntes, eventosDespues);
     }
+
+    // =====================================================================================
+    // B13-F  Medianoche comercial (causa del fallo intermitente de [B13e] en CI)
+    // =====================================================================================
+
+    /// <summary>
+    /// Reproduce de forma determinista lo que le pasó a [B13e] en la corrida de CI 42948109750 (02:59:54–03:00:01 UTC): mismo
+    /// escenario (cheque Pendiente de caja cerrada, acreditado por otro usuario en su caja), pero la medianoche de Argentina pasa
+    /// mientras la cancelación real espera, con la caja vigente sembrada el día anterior. La regla de turno vencido la rechaza
+    /// (correcto) y no deja ningún efecto. Con el reloj del harness acotado esto ya no puede ocurrir por accidente.
+    /// </summary>
+    [SqlServerConcFact(DisplayName = "H10-B13 [B13m] cancelacion REAL tras cruzar la medianoche comercial con la caja vigente del dia anterior: rechazo por turno vencido, rollback completo")]
+    public async Task B13m_TrasLaMedianocheComercial_LaCajaVigenteDeAyerRechazaLaCancelacion()
+    {
+        var e = await SembrarCerradaAsync(EstadoAcreditacionMovimientoCaja.Pendiente);
+        var usuarioB = UsuarioNuevo();
+        var cajaB = await NuevaAperturaDeAsync(usuarioB);
+        Assert.StartsWith("OK", await AcreditarComoAsync(e.C.ChequeId, usuarioB));
+        var antesO = await LibroAsync(e.Origen);
+        var antesB = await LibroAsync(cajaB);
+        var antesV = await LibroAsync(e.Vigente);
+        var stockAntes = await StockAsync(e.C.Venta.ProductoId);
+
+        // La cancelación resuelve su caja vigente ANTES de la medianoche y se detiene antes de pedir el primer lock de apertura;
+        // la medianoche comercial pasa en esa ventana (en CI fueron 7 s de espera real) y la vigencia se revalida bajo el lock.
+        var plan = AntesDeLockearApertura();
+        Task<string>? cancelar = null;
+        IDisposable? diaSiguiente = null;
+        string r;
+        try
+        {
+            try
+            {
+                cancelar = CancelarVentaAsync(e.C.Venta.VentaId, plan);
+                Assert.True(await LlegoALaCompuertaAsync(plan, cancelar), "La cancelación no llegó a pedir el lock de la apertura.");
+                diaSiguiente = _fx.Reloj.EnElDiaComercialSiguiente();
+            }
+            finally { plan.Release.TrySetResult(); }
+            r = await ResultadoAsync("cancelación", cancelar!, plan);
+        }
+        finally { diaSiguiente?.Dispose(); }
+
+        Informe("B13m", $"cancelación tras la medianoche={r}", $"estado venta={await EstadoVentaAsync(e.C.Venta.VentaId)}");
+        NoEsFalloDeInfraestructura("cancelación", r);
+        // Mismo resultado que dejó en rojo a [B13e] en CI.
+        Assert.StartsWith("InvalidOperationException: La caja quedó abierta desde el día anterior", r);
+        Assert.Equal(EstadoVenta.Confirmada, await EstadoVentaAsync(e.C.Venta.VentaId));
+        Assert.Equal(stockAntes, await StockAsync(e.C.Venta.ProductoId));
+        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoChequeAsync(e.C.ChequeId));
+        Assert.Equal(antesO, await LibroAsync(e.Origen));
+        Assert.Equal(antesB, await LibroAsync(cajaB));
+        Assert.Equal(antesV, await LibroAsync(e.Vigente));
+
+        // El adelanto no se filtra: de vuelta en el día del fixture la misma cancelación se completa (lo que afirma [B13e]).
+        var r2 = await CancelarVentaAsync(e.C.Venta.VentaId);
+        NoEsFalloDeInfraestructura("cancelación (mismo día)", r2);
+        Assert.StartsWith("OK", r2);
+        Assert.Equal(EstadoVenta.Cancelada, await EstadoVentaAsync(e.C.Venta.VentaId));
+        Assert.Equal(1, (await LibroAsync(e.Vigente)).Reversiones);
+        Assert.Empty(await ViolacionesCierreAsync(e.Origen));
+    }
 }
