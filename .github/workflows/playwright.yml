@@ -315,9 +315,11 @@ jobs:
           npx playwright install --with-deps firefox webkit
           mkdir -p qa-evidence/e2e/csp
           rc=0
+          # Auto-prueba de la validacion de descargas (adjuntos legitimos vs errores): sin navegador ni stack, <2 s.
+          node scripts/qa/csp-roles/descargas.selftest.js 2>&1 | tee qa-evidence/e2e/csp/descargas-selftest.txt || rc=1
           for b in chromium firefox webkit; do
             echo "== roles ($b)" | tee -a qa-evidence/e2e/csp/roles.txt
-            node scripts/qa/csp-roles/crawl.js --browser "$b" 2>&1 | tee -a qa-evidence/e2e/csp/roles.txt || rc=1
+            node scripts/qa/csp-roles/crawl.js --browser "$b" --salida "qa-evidence/e2e/csp/crawl-$b.json" 2>&1 | tee -a qa-evidence/e2e/csp/roles.txt || rc=1
             echo "== impresion ($b)" | tee -a qa-evidence/e2e/csp/roles.txt
             node scripts/qa/csp-roles/impresion.js --browser "$b" --rutas "/Cotizacion/Imprimir/${COTIZACION_ID:-1},/Venta/ComprobanteFactura?facturaId=${FACTURA_ID:-1}" 2>&1 | tee -a qa-evidence/e2e/csp/roles.txt || rc=1
           done

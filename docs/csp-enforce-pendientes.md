@@ -55,3 +55,25 @@ Se levantó el stack con la política **realmente aplicada** (cabecera `Content-
 - HTTPS + SignalR (wss) con Caddy local: conectado en los 3 navegadores, 0 violaciones.
 
 Lectura honesta: es evidencia fuerte de que `Enforce` no rompe las pantallas que cubre la suite y el menú de cada rol. **No** demuestra ausencia de bloqueos en: modales remotos fuera de la suite (ítem 2), estados sin datos (ítem 5), Safari/móvil real (ítem 6), host real (ítem 7) ni uso real prolongado (ítem 8). Por eso `Enforce` sigue sin activarse en el entorno real; la decisión y la ventana de observación (ítem 8) son del propietario.
+
+## Ronda 2026-11-11 (cierre funcional): recorrido por roles con descargas y cobertura por rol
+
+Causa de un rojo en CI al agregar los specs de configuración aislada (C-03): el spec de excepción documental ahora **genera un contrato**, y el recorrido de roles encontró el enlace `/ContratoVentaCredito/Ver?ventaId=N`, que responde con un PDF adjunto. Para el navegador eso no es una navegación (`page.goto: Download is starting`) y el arnés lo contaba como error. No era una falla de la aplicación ni de la CSP (0 violaciones).
+
+| Cambio en `scripts/qa/csp-roles/` | Qué garantiza |
+|---|---|
+| `descargas.js` | Un inicio de descarga solo es válido si la misma ruta, pedida con la sesión del rol, responde **200** (no 302 a Login ni 403/5xx), es un **adjunto** (`Content-Disposition: attachment` o tipo de archivo conocido), **no está vacía** y su **firma** coincide con el tipo (`%PDF-`, `PK` para xlsx/zip). Cualquier otra cosa sigue siendo error. Los permisos se validan con esa misma sesión: un rol sin permiso no obtiene un 200 con archivo. |
+| `descargas.selftest.js` | 12 casos con servidor local (PDF/XLSX válidos; vacío, firma rota, HTML, 403, 302, 500, 404 inválidos). Corre en el paso del workflow. |
+| `cobertura-esperada.json` | **Reemplaza el mínimo fijo de páginas.** Cada rol registra las pantallas de menú estables que debe ver (administrador 15, gerente 10, vendedor 9, cajero 8, repositor 4, técnico 4, contador 8). Falla si falta alguna (inventario incompleto o vacío), si responde ≥ 400, o si el rol no tiene cobertura registrada; avisa (sin fallar) si aparece una pantalla nueva sin registrar. Un mínimo común de 10 páginas era incorrecto: Repositor y Técnico solo tienen 4 pantallas de menú por permisos. |
+| `crawl.js --salida` | Guarda rutas visitadas, menú, descargas y avisos por rol (artefacto `crawl-<navegador>.json`). |
+
+Verificación (stack QA de CI, ReportOnly): el arnés original reproduce el error (`ERR /ContratoVentaCredito/Ver?ventaId=43: page.goto: Download is starting`, exit 1); con el cambio, 3 navegadores × 7 roles × 175 páginas, 0 errores, 0 violaciones, 2 descargas válidas (PDF de ~47 KB) por cada rol con permiso y 0 para Repositor/Técnico. Mutación: agregar una ruta inexistente a la cobertura de Técnico hace fallar el recorrido (exit 1, «inventario incompleto»).
+
+### Avisos `frame-ancestors` de WebKit (clasificados)
+
+WebKit imprime en consola, una vez por documento, `The Content Security Policy directive 'frame-ancestors' is ignored when delivered in a report-only policy.` (196 avisos en el recorrido completo en ReportOnly; 0 en Chromium y Firefox).
+
+- **Naturaleza:** informativo, **no es una violación**. La directiva `frame-ancestors` solo se evalúa con la política en Enforce; la política declara `frame-ancestors 'self'`.
+- **Sin exposición mientras tanto:** la aplicación envía además `X-Frame-Options: SAMEORIGIN` en todas las respuestas (`Program.cs`, middleware de cabeceras), que sí aplica en cualquier modo. El recorrido ahora **falla** si falta esa cabecera.
+- **Contraste con Enforce:** con la política en Enforce (stack QA aislado) WebKit emite **0** avisos (administrador y repositor, 60 páginas).
+- **Control:** el arnés solo tolera estos avisos con la política en Report-Only; con Enforce, cualquier aviso es error.
