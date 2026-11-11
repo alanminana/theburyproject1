@@ -257,8 +257,9 @@ jobs:
           node scripts/qa/control-omitidos.js "$PLAYWRIGHT_JSON_OUTPUT_NAME" | tee qa-evidence/omitidos.txt
           { echo '### Omitidos de la suite E2E'; echo '```'; cat qa-evidence/omitidos.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
-      # D-05: resumen de la medicion CSP. Informativo respecto de las violaciones (Report-Only no bloquea ni debe romper el gate),
-      # pero falla si la medicion no se enganchó (0 contextos instrumentados), para que un resultado vacio no parezca "0 violaciones".
+      # D-05: resumen de la medicion CSP. GATE: umbral de cero violaciones (--max-violaciones 0) medido sobre toda la suite E2E con la app en
+      # Report-Only (acordado tras 3 corridas en 0 violaciones; ver docs/csp-enforce-pendientes.md). Falla tambien si la medicion no se enganchó
+      # (0 contextos instrumentados, exit 3), para que un resultado vacio nunca parezca "0 violaciones": falla de forma segura.
       - name: Resumen de violaciones CSP (ReportOnly)
         if: ${{ !cancelled() }}
         run: |
@@ -266,9 +267,30 @@ jobs:
           mkdir -p qa-evidence/e2e/csp
           cp "$RUNNER_TEMP/csp-medicion.jsonl" qa-evidence/e2e/csp/ 2>/dev/null || true
           rc=0
-          node scripts/qa/csp-medicion/resumen.js "$RUNNER_TEMP/csp-medicion.jsonl" > qa-evidence/e2e/csp/resumen.txt || rc=$?
+          node scripts/qa/csp-medicion/resumen.js "$RUNNER_TEMP/csp-medicion.jsonl" --max-violaciones 0 > qa-evidence/e2e/csp/resumen.txt 2>&1 || rc=$?
           cat qa-evidence/e2e/csp/resumen.txt
           { echo '### CSP ReportOnly durante la suite E2E'; echo '```'; cat qa-evidence/e2e/csp/resumen.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      # D-05 pruebas 3, 4 y 6: recorrido de las pantallas que ve cada rol de prueba (menu + detalle) y de las paginas de impresion
+      # (Imprimir/Volver) en Chromium, Firefox y WebKit, con la app en Report-Only. Falla ante cualquier violacion CSP, 5xx o error de pagina.
+      # Solo lectura (GET); usuarios sinteticos de DbInitializer.CreateTestUsersAsync. Ver scripts/qa/csp-roles/.
+      - name: Recorrido CSP por roles y navegadores (ReportOnly)
+        if: ${{ !cancelled() }}
+        env:
+          E2E_BASE_URL: "http://127.0.0.1:${{ env.APP_PORT_CI }}"
+        run: |
+          set -uo pipefail
+          npx playwright install --with-deps firefox webkit
+          mkdir -p qa-evidence/e2e/csp
+          rc=0
+          for b in chromium firefox webkit; do
+            echo "== roles ($b)" | tee -a qa-evidence/e2e/csp/roles.txt
+            node scripts/qa/csp-roles/crawl.js --browser "$b" 2>&1 | tee -a qa-evidence/e2e/csp/roles.txt || rc=1
+            echo "== impresion ($b)" | tee -a qa-evidence/e2e/csp/roles.txt
+            node scripts/qa/csp-roles/impresion.js --browser "$b" --rutas "/Cotizacion/Imprimir/${COTIZACION_ID:-1},/Venta/ComprobanteFactura?facturaId=${FACTURA_ID:-1}" 2>&1 | tee -a qa-evidence/e2e/csp/roles.txt || rc=1
+          done
+          { echo '### CSP por roles y navegadores'; echo '```'; grep -E "^(==|TOTAL|OK|FALLA)" qa-evidence/e2e/csp/roles.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $rc
 
       - name: Logs del stack (diagnostico)
