@@ -1,0 +1,7026 @@
+[
+  {
+    "id": "AlertaStock.GenerarAlertas:POST",
+    "controller": "AlertaStock",
+    "accion": "GenerarAlertas",
+    "verbo": "POST",
+    "ruta": "/AlertaStock/GenerarAlertas",
+    "permisos": [
+      "stock.adjust",
+      "stock.viewalerts"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "AlertaStock.Ignorar:POST",
+    "controller": "AlertaStock",
+    "accion": "Ignorar",
+    "verbo": "POST",
+    "ruta": "/AlertaStock/Ignorar",
+    "permisos": [
+      "stock.adjust",
+      "stock.viewalerts"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "AlertaStock.MarcarEnProceso:POST",
+    "controller": "AlertaStock",
+    "accion": "MarcarEnProceso",
+    "verbo": "POST",
+    "ruta": "/AlertaStock/MarcarEnProceso",
+    "permisos": [
+      "stock.adjust",
+      "stock.viewalerts"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "AlertaStock.Resolver:POST",
+    "controller": "AlertaStock",
+    "accion": "Resolver",
+    "verbo": "POST",
+    "ruta": "/AlertaStock/Resolver",
+    "permisos": [
+      "stock.adjust",
+      "stock.viewalerts"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.Abrir:POST",
+    "controller": "Caja",
+    "accion": "Abrir",
+    "verbo": "POST",
+    "ruta": "/Caja/Abrir",
+    "permisos": [
+      "caja.open",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "AbrirCajaViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.AcreditarCheque:POST",
+    "controller": "Caja",
+    "accion": "AcreditarCheque",
+    "verbo": "POST",
+    "ruta": "/Caja/AcreditarCheque",
+    "permisos": [
+      "caja.edit",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "movimientoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.AcreditarMovimiento:POST",
+    "controller": "Caja",
+    "accion": "AcreditarMovimiento",
+    "verbo": "POST",
+    "ruta": "/Caja/AcreditarMovimiento",
+    "permisos": [
+      "caja.edit",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "aperturaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "movimientoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.Cerrar:POST",
+    "controller": "Caja",
+    "accion": "Cerrar",
+    "verbo": "POST",
+    "ruta": "/Caja/Cerrar",
+    "permisos": [
+      "caja.close",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CerrarCajaViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.Create:POST",
+    "controller": "Caja",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/Caja/Create",
+    "permisos": [
+      "caja.create",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CajaViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.Delete:POST",
+    "controller": "Caja",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Caja/Delete",
+    "permisos": [
+      "caja.delete",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.Edit:POST",
+    "controller": "Caja",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/Caja/Edit",
+    "permisos": [
+      "caja.update",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "model",
+        "tipo": "CajaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.RechazarCheque:POST",
+    "controller": "Caja",
+    "accion": "RechazarCheque",
+    "verbo": "POST",
+    "ruta": "/Caja/RechazarCheque",
+    "permisos": [
+      "caja.edit",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "movimientoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Caja.RegistrarMovimiento:POST",
+    "controller": "Caja",
+    "accion": "RegistrarMovimiento",
+    "verbo": "POST",
+    "ruta": "/Caja/RegistrarMovimiento",
+    "permisos": [
+      "caja.movements",
+      "caja.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "MovimientoCajaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.AplicarConfirmed:POST",
+    "controller": "CambiosPrecios",
+    "accion": "AplicarConfirmed",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/AplicarConfirmed",
+    "permisos": [
+      "precios.apply",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "fechaVigencia",
+        "tipo": "DateTime?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.AplicarRapido:POST",
+    "controller": "CambiosPrecios",
+    "accion": "AplicarRapido",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/AplicarRapido",
+    "permisos": [
+      "precios.apply",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "AplicarRapidoRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.Aprobar:POST",
+    "controller": "CambiosPrecios",
+    "accion": "Aprobar",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/Aprobar",
+    "permisos": [
+      "precios.approve",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "notas",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.Cancelar:POST",
+    "controller": "CambiosPrecios",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/Cancelar",
+    "permisos": [
+      "precios.approve",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.Rechazar:POST",
+    "controller": "CambiosPrecios",
+    "accion": "Rechazar",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/Rechazar",
+    "permisos": [
+      "precios.approve",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.RevertirApi:POST",
+    "controller": "CambiosPrecios",
+    "accion": "RevertirApi",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/RevertirApi",
+    "permisos": [
+      "precios.revert",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "RevertirApiRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.RevertirConfirmed:POST",
+    "controller": "CambiosPrecios",
+    "accion": "RevertirConfirmed",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/RevertirConfirmed",
+    "permisos": [
+      "precios.revert",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.RevertirPost:POST",
+    "controller": "CambiosPrecios",
+    "accion": "RevertirPost",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/Revertir/{id:int}",
+    "permisos": [
+      "precios.revert",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "request",
+        "tipo": "RevertirPostRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.Simular:POST",
+    "controller": "CambiosPrecios",
+    "accion": "Simular",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/Simular",
+    "permisos": [
+      "precios.simulate",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "SimularCambioMasivoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.SimularCambioRapido:POST",
+    "controller": "CambiosPrecios",
+    "accion": "SimularCambioRapido",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/SimularCambioRapido",
+    "permisos": [
+      "precios.simulate",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "SimularCambioRapidoRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CambiosPrecios.SimularDesdeCatalogo:POST",
+    "controller": "CambiosPrecios",
+    "accion": "SimularDesdeCatalogo",
+    "verbo": "POST",
+    "ruta": "/CambiosPrecios/SimularDesdeCatalogo",
+    "permisos": [
+      "precios.simulate",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "SimularDesdeCatalogoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.AplicarCambioPrecioDirecto:POST",
+    "controller": "Catalogo",
+    "accion": "AplicarCambioPrecioDirecto",
+    "verbo": "POST",
+    "ruta": "/Catalogo/AplicarCambioPrecioDirecto",
+    "permisos": [
+      "precios.apply",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "application/json",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "AplicarCambioPrecioDirectoViewModel",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.AplicarCambioPrecioDirecto:POST",
+    "controller": "Catalogo",
+    "accion": "AplicarCambioPrecioDirecto",
+    "verbo": "POST",
+    "ruta": "/Catalogo/AplicarCambioPrecioDirecto",
+    "permisos": [
+      "precios.apply",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "application/x-www-form-urlencoded,multipart/form-data",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "AplicarCambioPrecioDirectoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.AplicarCambioPrecios:POST",
+    "controller": "Catalogo",
+    "accion": "AplicarCambioPrecios",
+    "verbo": "POST",
+    "ruta": "/Catalogo/AplicarCambioPrecios",
+    "permisos": [
+      "precios.apply",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "solicitud",
+        "tipo": "SolicitudAplicarPrecios",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.RevertirCambioPrecio:POST",
+    "controller": "Catalogo",
+    "accion": "RevertirCambioPrecio",
+    "verbo": "POST",
+    "ruta": "/Catalogo/RevertirCambioPrecio/{eventoId:int}",
+    "permisos": [
+      "precios.revert",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "eventoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.RevertirCambioPrecioApi:POST",
+    "controller": "Catalogo",
+    "accion": "RevertirCambioPrecioApi",
+    "verbo": "POST",
+    "ruta": "/Catalogo/RevertirCambioPrecioApi",
+    "permisos": [
+      "precios.revert",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "eventoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.SimularCambioPrecios:POST",
+    "controller": "Catalogo",
+    "accion": "SimularCambioPrecios",
+    "verbo": "POST",
+    "ruta": "/Catalogo/SimularCambioPrecios",
+    "permisos": [
+      "precios.simulate",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "solicitud",
+        "tipo": "SolicitudSimulacionPrecios",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Catalogo.ToggleDestacado:POST",
+    "controller": "Catalogo",
+    "accion": "ToggleDestacado",
+    "verbo": "POST",
+    "ruta": "/Catalogo/ToggleDestacado",
+    "permisos": [
+      "productos.update",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Categoria.CreateAjax:POST",
+    "controller": "Categoria",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Categoria/CreateAjax",
+    "permisos": [
+      "categorias.create",
+      "categorias.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "CategoriaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Categoria.Delete:POST",
+    "controller": "Categoria",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Categoria/Delete",
+    "permisos": [
+      "categorias.delete",
+      "categorias.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Categoria.EditAjax:POST",
+    "controller": "Categoria",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Categoria/EditAjax",
+    "permisos": [
+      "categorias.update",
+      "categorias.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "CategoriaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.ActualizarBcra:POST",
+    "controller": "Cliente",
+    "accion": "ActualizarBcra",
+    "verbo": "POST",
+    "ruta": "/Cliente/ActualizarBcra",
+    "permisos": [
+      "clientes.consultbcra",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.AsignarGarante:POST",
+    "controller": "Cliente",
+    "accion": "AsignarGarante",
+    "verbo": "POST",
+    "ruta": "/Cliente/AsignarGarante",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "AsignarGaranteRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.AsignarLimiteCredito:POST",
+    "controller": "Cliente",
+    "accion": "AsignarLimiteCredito",
+    "verbo": "POST",
+    "ruta": "/Cliente/AsignarLimiteCredito",
+    "permisos": [
+      "clientes.managecreditlimits",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "limiteCredito",
+        "tipo": "Decimal",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.AsignarNivelCreditoManual:POST",
+    "controller": "Cliente",
+    "accion": "AsignarNivelCreditoManual",
+    "verbo": "POST",
+    "ruta": "/Cliente/AsignarNivelCreditoManual",
+    "permisos": [
+      "clientes.managecreditlimits",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nivelCreditoManual",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.Create:POST",
+    "controller": "Cliente",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/Cliente/Create",
+    "permisos": [
+      "clientes.create",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "ClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.CreateAjax:POST",
+    "controller": "Cliente",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Cliente/CreateAjax",
+    "permisos": [
+      "clientes.create",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "ClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.Delete:POST",
+    "controller": "Cliente",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Cliente/Delete",
+    "permisos": [
+      "clientes.delete",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.Edit:POST",
+    "controller": "Cliente",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/Cliente/Edit",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "ClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.EditAjax:POST",
+    "controller": "Cliente",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Cliente/EditAjax",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "ClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.LimitesPorPuntajeGuardar:POST",
+    "controller": "Cliente",
+    "accion": "LimitesPorPuntajeGuardar",
+    "verbo": "POST",
+    "ruta": "/Cliente/LimitesPorPuntajeGuardar",
+    "permisos": [
+      "clientes.managecreditlimits",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "ClienteCreditoLimitesViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.LimpiarNivelCreditoManual:POST",
+    "controller": "Cliente",
+    "accion": "LimpiarNivelCreditoManual",
+    "verbo": "POST",
+    "ruta": "/Cliente/LimpiarNivelCreditoManual",
+    "permisos": [
+      "clientes.managecreditlimits",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.RecalcularAptitud:POST",
+    "controller": "Cliente",
+    "accion": "RecalcularAptitud",
+    "verbo": "POST",
+    "ruta": "/Cliente/RecalcularAptitud",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.RecalcularPuntaje:POST",
+    "controller": "Cliente",
+    "accion": "RecalcularPuntaje",
+    "verbo": "POST",
+    "ruta": "/Cliente/RecalcularPuntaje",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Cliente.RemoverGarante:POST",
+    "controller": "Cliente",
+    "accion": "RemoverGarante",
+    "verbo": "POST",
+    "ruta": "/Cliente/RemoverGarante",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "RemoverGaranteRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ClienteDatosContractuales.Guardar:POST",
+    "controller": "ClienteDatosContractuales",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/ClienteDatosContractuales/Guardar",
+    "permisos": [
+      "clientes.edit"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "datos",
+        "tipo": "ClienteDatosContractualesDto",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionCliente.Index:POST",
+    "controller": "ConfiguracionCliente",
+    "accion": "Index",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionCliente/Index",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "ConfiguracionActualizacionDatosClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionContratoCredito.Index:POST",
+    "controller": "ConfiguracionContratoCredito",
+    "accion": "Index",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionContratoCredito/Index",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "PlantillaContratoCreditoViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CambiarEstadoPlanGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CambiarEstadoPlanGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CambiarEstadoPlanGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "activo",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "medioId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CambiarEstadoTarjetaGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CambiarEstadoTarjetaGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CambiarEstadoTarjetaGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "activa",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "medioId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CrearMedioPagoGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CrearMedioPagoGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CrearMedioPagoGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "command",
+        "tipo": "MedioPagoGlobalCommandViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CrearPlanGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CrearPlanGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CrearPlanGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "plan",
+        "tipo": "PlanPagoGlobalCommandViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CrearTarjetaGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CrearTarjetaGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CrearTarjetaGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "tarjeta",
+        "tipo": "TarjetaGlobalCommandViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CrearVersionPunitorio:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CrearVersionPunitorio",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CrearVersionPunitorio",
+    "permisos": [
+      "configuracion.managepunitorio",
+      "configuracion.view",
+      "configuracion.viewpunitorio"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "form",
+        "tipo": "CrearConfiguracionPunitorioViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.CreditoPersonal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "CreditoPersonal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/CreditoPersonal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "config",
+        "tipo": "CreditoPersonalConfigViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevaCuotaActivo",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevaCuotaCantidad",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevaCuotaOrden",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevaCuotaTasaMensual",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilActivo",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilDescripcion",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilGastosAdministrativos",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilMaxCuotas",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilMinCuotas",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilNombre",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilOrden",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoPerfilTasaMensual",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.EditarMedioPagoGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "EditarMedioPagoGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/EditarMedioPagoGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "command",
+        "tipo": "MedioPagoGlobalEditViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.EditarPlanGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "EditarPlanGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/EditarPlanGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "plan",
+        "tipo": "PlanPagoGlobalCommandViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.EditarTarjetaGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "EditarTarjetaGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/EditarTarjetaGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "tarjeta",
+        "tipo": "TarjetaGlobalCommandViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.EliminarMedioPagoGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "EliminarMedioPagoGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/EliminarMedioPagoGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionPago.EliminarTarjetaGlobal:POST",
+    "controller": "ConfiguracionPago",
+    "accion": "EliminarTarjetaGlobal",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionPago/EliminarTarjetaGlobal",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "medioId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ConfiguracionRentabilidad.Index:POST",
+    "controller": "ConfiguracionRentabilidad",
+    "accion": "Index",
+    "verbo": "POST",
+    "ruta": "/ConfiguracionRentabilidad/Index",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "ConfiguracionRentabilidadViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ContratoVentaCredito.Generar:POST",
+    "controller": "ContratoVentaCredito",
+    "accion": "Generar",
+    "verbo": "POST",
+    "ruta": "/ContratoVentaCredito/Generar",
+    "permisos": [
+      "creditos.configure",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ventaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.Cancelar:POST",
+    "controller": "CotizacionApi",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/{id:int}/cancelar",
+    "permisos": [
+      "cotizaciones.cancel",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CotizacionCancelacionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.ConversionPreflight:POST",
+    "controller": "CotizacionApi",
+    "accion": "ConversionPreflight",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/{id:int}/conversion/preflight",
+    "permisos": [
+      "cotizaciones.convert",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CotizacionConversionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.ConversionPreview:POST",
+    "controller": "CotizacionApi",
+    "accion": "ConversionPreview",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/{id:int}/conversion/preview",
+    "permisos": [
+      "cotizaciones.convert",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.Convertir:POST",
+    "controller": "CotizacionApi",
+    "accion": "Convertir",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/{id:int}/conversion/convertir",
+    "permisos": [
+      "cotizaciones.convert",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CotizacionConversionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.Guardar:POST",
+    "controller": "CotizacionApi",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/guardar",
+    "permisos": [
+      "cotizaciones.create",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CotizacionCrearRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.Simular:POST",
+    "controller": "CotizacionApi",
+    "accion": "Simular",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/simular",
+    "permisos": [
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CotizacionSimulacionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CotizacionApi.VencerExpiradas:POST",
+    "controller": "CotizacionApi",
+    "accion": "VencerExpiradas",
+    "verbo": "POST",
+    "ruta": "/api/cotizacion/vencer-expiradas",
+    "permisos": [
+      "cotizaciones.expire",
+      "cotizaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.AdelantarCuota:POST",
+    "controller": "Credito",
+    "accion": "AdelantarCuota",
+    "verbo": "POST",
+    "ruta": "/Credito/AdelantarCuota/{id:int}",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "input",
+        "tipo": "AdelantoCuotaInputModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.AnularPunitorioCuota:POST",
+    "controller": "Credito",
+    "accion": "AnularPunitorioCuota",
+    "verbo": "POST",
+    "ruta": "/Credito/{creditoId:int}/Cuotas/{cuotaId:int}/Punitorio/{punitorioAplicadoId:int}/Anular",
+    "permisos": [
+      "cobranzas.revertfine",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "creditoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "cuotaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "form",
+        "tipo": "AnularPunitorioHttpViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "punitorioAplicadoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.AplicarPunitorioCuota:POST",
+    "controller": "Credito",
+    "accion": "AplicarPunitorioCuota",
+    "verbo": "POST",
+    "ruta": "/Credito/{creditoId:int}/Cuotas/{cuotaId:int}/Punitorio/Aplicar",
+    "permisos": [
+      "cobranzas.applyfine",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "creditoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "cuotaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "form",
+        "tipo": "AplicarPunitorioHttpViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Aprobar:POST",
+    "controller": "Credito",
+    "accion": "Aprobar",
+    "verbo": "POST",
+    "ruta": "/Credito/Aprobar",
+    "permisos": [
+      "creditos.approve",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Cancelar:POST",
+    "controller": "Credito",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/Credito/Cancelar",
+    "permisos": [
+      "creditos.approve",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.ConfigurarVenta:POST",
+    "controller": "Credito",
+    "accion": "ConfigurarVenta",
+    "verbo": "POST",
+    "ruta": "/Credito/ConfigurarVenta",
+    "permisos": [
+      "creditos.configure",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "embedded",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "modelo",
+        "tipo": "ConfiguracionCreditoVentaViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Create:POST",
+    "controller": "Credito",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/Credito/Create",
+    "permisos": [
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "CreditoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Delete:POST",
+    "controller": "Credito",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Credito/Delete",
+    "permisos": [
+      "creditos.delete",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Edit:POST",
+    "controller": "Credito",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/Credito/Edit",
+    "permisos": [
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "CreditoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.PagarCuota:POST",
+    "controller": "Credito",
+    "accion": "PagarCuota",
+    "verbo": "POST",
+    "ruta": "/Credito/PagarCuota/{id:int}",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "input",
+        "tipo": "PagarCuotaInputModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.PreviewPagoMultiple:POST",
+    "controller": "Credito",
+    "accion": "PreviewPagoMultiple",
+    "verbo": "POST",
+    "ruta": "/Credito/PreviewPagoMultiple",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "PagoMultiplePreviewRequestViewModel",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.PrevisualizarAdelanto:POST",
+    "controller": "Credito",
+    "accion": "PrevisualizarAdelanto",
+    "verbo": "POST",
+    "ruta": "/Credito/AdelantarCuota/{id:int}/Preview",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "input",
+        "tipo": "AdelantoCuotaInputModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.PrevisualizarPagoCuota:POST",
+    "controller": "Credito",
+    "accion": "PrevisualizarPagoCuota",
+    "verbo": "POST",
+    "ruta": "/Credito/PagarCuota/{id:int}/Preview",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "input",
+        "tipo": "PagarCuotaInputModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.Rechazar:POST",
+    "controller": "Credito",
+    "accion": "Rechazar",
+    "verbo": "POST",
+    "ruta": "/Credito/Rechazar",
+    "permisos": [
+      "creditos.approve",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Credito.RegistrarPagoMultiple:POST",
+    "controller": "Credito",
+    "accion": "RegistrarPagoMultiple",
+    "verbo": "POST",
+    "ruta": "/Credito/RegistrarPagoMultiple",
+    "permisos": [
+      "cobranzas.payinstallment",
+      "creditos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "PagoMultipleCuotasRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.Aprobar:POST",
+    "controller": "Devolucion",
+    "accion": "Aprobar",
+    "verbo": "POST",
+    "ruta": "/Devolucion/Aprobar",
+    "permisos": [
+      "devoluciones.approve",
+      "devoluciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.Cancelar:POST",
+    "controller": "Devolucion",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/Devolucion/Cancelar",
+    "permisos": [
+      "devoluciones.reject",
+      "devoluciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.Completar:POST",
+    "controller": "Devolucion",
+    "accion": "Completar",
+    "verbo": "POST",
+    "ruta": "/Devolucion/Completar",
+    "permisos": [
+      "devoluciones.complete",
+      "devoluciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.CrearRMA:POST",
+    "controller": "Devolucion",
+    "accion": "CrearRMA",
+    "verbo": "POST",
+    "ruta": "/Devolucion/CrearRMA",
+    "permisos": [
+      "devoluciones.view",
+      "rmas.create"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "devolucionId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "devolucionRowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivoSolicitud",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "proveedorId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.QuickCreate:POST",
+    "controller": "Devolucion",
+    "accion": "QuickCreate",
+    "verbo": "POST",
+    "ruta": "/Devolucion/QuickCreate",
+    "permisos": [
+      "devoluciones.create",
+      "devoluciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CrearDevolucionRapidaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Devolucion.Rechazar:POST",
+    "controller": "Devolucion",
+    "accion": "Rechazar",
+    "verbo": "POST",
+    "ruta": "/Devolucion/Rechazar",
+    "permisos": [
+      "devoluciones.reject",
+      "devoluciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Diagnostico.CrearUsuarioPrueba:POST",
+    "controller": "Diagnostico",
+    "accion": "CrearUsuarioPrueba",
+    "verbo": "POST",
+    "ruta": "/Diagnostico/CrearUsuarioPrueba",
+    "permisos": [],
+    "rolesRequeridos": [
+      [
+        "SuperAdmin"
+      ]
+    ],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Diagnostico.ForcePasswordReset:POST",
+    "controller": "Diagnostico",
+    "accion": "ForcePasswordReset",
+    "verbo": "POST",
+    "ruta": "/Diagnostico/ForcePasswordReset",
+    "permisos": [],
+    "rolesRequeridos": [
+      [
+        "SuperAdmin"
+      ]
+    ],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "email",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Diagnostico.RefreshPermisos:POST",
+    "controller": "Diagnostico",
+    "accion": "RefreshPermisos",
+    "verbo": "POST",
+    "ruta": "/Diagnostico/RefreshPermisos",
+    "permisos": [],
+    "rolesRequeridos": [
+      [
+        "SuperAdmin"
+      ]
+    ],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Diagnostico.ResetPassword:POST",
+    "controller": "Diagnostico",
+    "accion": "ResetPassword",
+    "verbo": "POST",
+    "ruta": "/Diagnostico/ResetPassword",
+    "permisos": [],
+    "rolesRequeridos": [
+      [
+        "SuperAdmin"
+      ]
+    ],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "email",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "newPassword",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Diagnostico.TestLogin:POST",
+    "controller": "Diagnostico",
+    "accion": "TestLogin",
+    "verbo": "POST",
+    "ruta": "/Diagnostico/TestLogin",
+    "permisos": [],
+    "rolesRequeridos": [
+      [
+        "SuperAdmin"
+      ]
+    ],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "email",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "password",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.Cancelar:POST",
+    "controller": "Documento",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/Documento/Cancelar",
+    "permisos": [
+      "documentos.cancel"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.Firmar:POST",
+    "controller": "Documento",
+    "accion": "Firmar",
+    "verbo": "POST",
+    "ruta": "/Documento/Firmar",
+    "permisos": [
+      "documentos.sign"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "firmaImagen",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "firmante",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rol",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.GenerarPendientes:POST",
+    "controller": "Documento",
+    "accion": "GenerarPendientes",
+    "verbo": "POST",
+    "ruta": "/Documento/GenerarPendientes",
+    "permisos": [
+      "documentos.generate"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cotizacionId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "creditoId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "pagoCuotaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ventaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.GenerarPresupuesto:POST",
+    "controller": "Documento",
+    "accion": "GenerarPresupuesto",
+    "verbo": "POST",
+    "ruta": "/Documento/GenerarPresupuesto",
+    "permisos": [
+      "documentos.generate"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cotizacionId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ventaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.Regenerar:POST",
+    "controller": "Documento",
+    "accion": "Regenerar",
+    "verbo": "POST",
+    "ruta": "/Documento/Regenerar",
+    "permisos": [
+      "documentos.generate"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarSobreFirmado",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Documento.Reimprimir:POST",
+    "controller": "Documento",
+    "accion": "Reimprimir",
+    "verbo": "POST",
+    "ruta": "/Documento/Reimprimir",
+    "permisos": [
+      "documentos.reprint"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ids",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.Delete:POST",
+    "controller": "DocumentoCliente",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/Delete",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.Rechazar:POST",
+    "controller": "DocumentoCliente",
+    "accion": "Rechazar",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/Rechazar",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.RechazarBatch:POST",
+    "controller": "DocumentoCliente",
+    "accion": "RechazarBatch",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/RechazarBatch",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "BatchDocumentosRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.Upload:POST",
+    "controller": "DocumentoCliente",
+    "accion": "Upload",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/Upload",
+    "permisos": [
+      "clientes.uploaddocs",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnToDetails",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "DocumentoClienteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.Verificar:POST",
+    "controller": "DocumentoCliente",
+    "accion": "Verificar",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/Verificar",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.VerificarBatch:POST",
+    "controller": "DocumentoCliente",
+    "accion": "VerificarBatch",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/VerificarBatch",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "BatchDocumentosRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentoCliente.VerificarTodos:POST",
+    "controller": "DocumentoCliente",
+    "accion": "VerificarTodos",
+    "verbo": "POST",
+    "ruta": "/DocumentoCliente/VerificarTodos",
+    "permisos": [
+      "clientes.edit",
+      "clientes.viewdocs"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.Empresa:POST",
+    "controller": "DocumentosConfig",
+    "accion": "Empresa",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/Empresa",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "input",
+        "tipo": "EmpresaInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PaqueteEdit:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PaqueteEdit",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PaqueteEdit",
+    "permisos": [
+      "documentos.managerules"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "input",
+        "tipo": "PaqueteDocumentalInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PlantillaActivar:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PlantillaActivar",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PlantillaActivar",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "activa",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PlantillaEdit:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PlantillaEdit",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PlantillaEdit",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "input",
+        "tipo": "PlantillaDocumentoInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PlantillaPreview:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PlantillaPreview",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PlantillaPreview",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "contenido",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "cotizacionId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "evento",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "pagoCuotaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "variablesRequeridas",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ventaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PlantillaPreviewPdf:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PlantillaPreviewPdf",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PlantillaPreviewPdf",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "contenido",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "cotizacionId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "evento",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "firmantes",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "pagoCuotaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "variablesRequeridas",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ventaId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.PlantillaRestaurar:POST",
+    "controller": "DocumentosConfig",
+    "accion": "PlantillaRestaurar",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/PlantillaRestaurar",
+    "permisos": [
+      "documentos.managetemplates"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "version",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.ReglaActivar:POST",
+    "controller": "DocumentosConfig",
+    "accion": "ReglaActivar",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/ReglaActivar",
+    "permisos": [
+      "documentos.managerules"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "activa",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.ReglaEdit:POST",
+    "controller": "DocumentosConfig",
+    "accion": "ReglaEdit",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/ReglaEdit",
+    "permisos": [
+      "documentos.managerules"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "input",
+        "tipo": "ReglaDocumentoInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.ReglaEliminar:POST",
+    "controller": "DocumentosConfig",
+    "accion": "ReglaEliminar",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/ReglaEliminar",
+    "permisos": [
+      "documentos.managerules"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "DocumentosConfig.TipoEdit:POST",
+    "controller": "DocumentosConfig",
+    "accion": "TipoEdit",
+    "verbo": "POST",
+    "ruta": "/DocumentosConfig/TipoEdit",
+    "permisos": [
+      "documentos.managetypes"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "input",
+        "tipo": "TipoDocumentoInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mantenimiento.RecalcularScoringGlobal:POST",
+    "controller": "Mantenimiento",
+    "accion": "RecalcularScoringGlobal",
+    "verbo": "POST",
+    "ruta": "/Mantenimiento/RecalcularScoringGlobal",
+    "permisos": [
+      "configuracion.recalcularscoringglobal"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cancellationToken",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      },
+      {
+        "nombre": "preview",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Marca.CreateAjax:POST",
+    "controller": "Marca",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Marca/CreateAjax",
+    "permisos": [
+      "marcas.create",
+      "marcas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "MarcaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Marca.Delete:POST",
+    "controller": "Marca",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Marca/Delete",
+    "permisos": [
+      "marcas.delete",
+      "marcas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Marca.EditAjax:POST",
+    "controller": "Marca",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Marca/EditAjax",
+    "permisos": [
+      "marcas.edit",
+      "marcas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "MarcaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.AumentoAplicar:POST",
+    "controller": "MercadoLibre",
+    "accion": "AumentoAplicar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/AumentoAplicar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.AumentoCancelar:POST",
+    "controller": "MercadoLibre",
+    "accion": "AumentoCancelar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/AumentoCancelar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.AumentoRevertir:POST",
+    "controller": "MercadoLibre",
+    "accion": "AumentoRevertir",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/AumentoRevertir",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.AumentoSimular:POST",
+    "controller": "MercadoLibre",
+    "accion": "AumentoSimular",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/AumentoSimular",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "MercadoLibrePriceBatchRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorActualizar:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorActualizar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorActualizar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "MercadoLibreBorradorEditViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorCrear:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorCrear",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorCrear",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorDescartar:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorDescartar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorDescartar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorPublicar:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorPublicar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorPublicar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorSubirImagen:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorSubirImagen",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorSubirImagen",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "archivo",
+        "tipo": "IFormFile",
+        "fuente": "FormFile"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.BorradorValidar:POST",
+    "controller": "MercadoLibre",
+    "accion": "BorradorValidar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/BorradorValidar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.Conectar:POST",
+    "controller": "MercadoLibre",
+    "accion": "Conectar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/Conectar",
+    "permisos": [
+      "mercadolibre.connect",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.Configuracion:POST",
+    "controller": "MercadoLibre",
+    "accion": "Configuracion",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/Configuracion",
+    "permisos": [
+      "mercadolibre.config",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "MercadoLibreConfiguracionViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.Desconectar:POST",
+    "controller": "MercadoLibre",
+    "accion": "Desconectar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/Desconectar",
+    "permisos": [
+      "mercadolibre.connect",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.Desvincular:POST",
+    "controller": "MercadoLibre",
+    "accion": "Desvincular",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/Desvincular",
+    "permisos": [
+      "mercadolibre.link",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listingId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ImportarCatalogo:POST",
+    "controller": "MercadoLibre",
+    "accion": "ImportarCatalogo",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ImportarCatalogo",
+    "permisos": [
+      "mercadolibre.config",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "rutaArchivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ImportarListings:POST",
+    "controller": "MercadoLibre",
+    "accion": "ImportarListings",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ImportarListings",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accountId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingCambiarEstado:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingCambiarEstado",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingCambiarEstado",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accion",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingCrearProducto:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingCrearProducto",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingCrearProducto",
+    "permisos": [
+      "mercadolibre.link",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "MercadoLibreCrearProductoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingEditar:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingEditar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingEditar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "precio",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "sellerSku",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "stock",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "titulo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingEditarCategoria:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingEditarCategoria",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingEditarCategoria",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "categoryId",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingEditarDescripcion:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingEditarDescripcion",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingEditarDescripcion",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "descripcion",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingEditarImagenes:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingEditarImagenes",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingEditarImagenes",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "imagenesUrls",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingOrigenStock:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingOrigenStock",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingOrigenStock",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "MercadoLibreOrigenStock?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoUnidadId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingSubirImagen:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingSubirImagen",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingSubirImagen",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "archivo",
+        "tipo": "IFormFile",
+        "fuente": "FormFile"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ListingVariacionVinculo:POST",
+    "controller": "MercadoLibre",
+    "accion": "ListingVariacionVinculo",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ListingVariacionVinculo",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "origen",
+        "tipo": "MercadoLibreOrigenStock?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoUnidadId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "variationId",
+        "tipo": "Int64",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.MensajeResponder:POST",
+    "controller": "MercadoLibre",
+    "accion": "MensajeResponder",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/MensajeResponder",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "orderId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "texto",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.MensajeSimular:POST",
+    "controller": "MercadoLibre",
+    "accion": "MensajeSimular",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/MensajeSimular",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "orderId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "texto",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenActualizarEnvio:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenActualizarEnvio",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenActualizarEnvio",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenAsignarUnidades:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenAsignarUnidades",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenAsignarUnidades",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "orderItemId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "unidadIds",
+        "tipo": "Int32[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenCrearVenta:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenCrearVenta",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenCrearVenta",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenDevolucion:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenDevolucion",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenDevolucion",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "decision",
+        "tipo": "MercadoLibreDevolucionEstado",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nota",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenGenerarOperativaSimulada:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenGenerarOperativaSimulada",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenGenerarOperativaSimulada",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenGenerarSimulada:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenGenerarSimulada",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenGenerarSimulada",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenIgnorar:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenIgnorar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenIgnorar",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenLiquidar:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenLiquidar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenLiquidar",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "netoReal",
+        "tipo": "Decimal",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenResolverClaim:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenResolverClaim",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenResolverClaim",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accionEconomica",
+        "tipo": "MercadoLibreClaimAccionEconomica",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "accionStock",
+        "tipo": "MercadoLibreClaimAccionStock",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "claimId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "resolucionManual",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenSimularClaim:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenSimularClaim",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenSimularClaim",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "tipo",
+        "tipo": "MercadoLibreClaimTipo",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenSimularEnvio:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenSimularEnvio",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenSimularEnvio",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "escenario",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.OrdenesImportarRecientes:POST",
+    "controller": "MercadoLibre",
+    "accion": "OrdenesImportarRecientes",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/OrdenesImportarRecientes",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.PreguntaResponder:POST",
+    "controller": "MercadoLibre",
+    "accion": "PreguntaResponder",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/PreguntaResponder",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "respuesta",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.PreguntaSimular:POST",
+    "controller": "MercadoLibre",
+    "accion": "PreguntaSimular",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/PreguntaSimular",
+    "permisos": [
+      "mercadolibre.orders",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listingId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "texto",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.ProbarConexion:POST",
+    "controller": "MercadoLibre",
+    "accion": "ProbarConexion",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/ProbarConexion",
+    "permisos": [
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.SyncAplicar:POST",
+    "controller": "MercadoLibre",
+    "accion": "SyncAplicar",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/SyncAplicar",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "confirmarReal",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "listingIds",
+        "tipo": "Int32[]",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "tipo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.SyncPreview:POST",
+    "controller": "MercadoLibre",
+    "accion": "SyncPreview",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/SyncPreview",
+    "permisos": [
+      "mercadolibre.sync",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listingIds",
+        "tipo": "Int32[]",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "tipo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibre.Vincular:POST",
+    "controller": "MercadoLibre",
+    "accion": "Vincular",
+    "verbo": "POST",
+    "ruta": "/MercadoLibre/Vincular",
+    "permisos": [
+      "mercadolibre.link",
+      "mercadolibre.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listingId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MercadoLibreWebhook.Recibir:POST",
+    "controller": "MercadoLibreWebhook",
+    "accion": "Recibir",
+    "verbo": "POST",
+    "ruta": "/api/mercadolibre/webhook",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ct",
+        "tipo": "CancellationToken",
+        "fuente": "Special"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "Mora.CambiarEstadoAcuerdo:POST",
+    "controller": "Mora",
+    "accion": "CambiarEstadoAcuerdo",
+    "verbo": "POST",
+    "ruta": "/Mora/CambiarEstadoAcuerdo",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "acuerdoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "estado",
+        "tipo": "EstadoAcuerdo",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.CrearAcuerdo:POST",
+    "controller": "Mora",
+    "accion": "CrearAcuerdo",
+    "verbo": "POST",
+    "ruta": "/Mora/CrearAcuerdo",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CrearAcuerdoViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.EjecutarJob:POST",
+    "controller": "Mora",
+    "accion": "EjecutarJob",
+    "verbo": "POST",
+    "ruta": "/Mora/EjecutarJob",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.GuardarConfiguracion:POST",
+    "controller": "Mora",
+    "accion": "GuardarConfiguracion",
+    "verbo": "POST",
+    "ruta": "/Mora/GuardarConfiguracion",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.config"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "ConfiguracionMoraViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.GuardarConfiguracionExpandida:POST",
+    "controller": "Mora",
+    "accion": "GuardarConfiguracionExpandida",
+    "verbo": "POST",
+    "ruta": "/Mora/GuardarConfiguracionExpandida",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.config"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "ConfiguracionMoraExpandidaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.MarcarLeida:POST",
+    "controller": "Mora",
+    "accion": "MarcarLeida",
+    "verbo": "POST",
+    "ruta": "/Mora/MarcarLeida",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "String",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.MarcarPromesaCumplida:POST",
+    "controller": "Mora",
+    "accion": "MarcarPromesaCumplida",
+    "verbo": "POST",
+    "ruta": "/Mora/MarcarPromesaCumplida",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "alertaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.MarcarPromesaIncumplida:POST",
+    "controller": "Mora",
+    "accion": "MarcarPromesaIncumplida",
+    "verbo": "POST",
+    "ruta": "/Mora/MarcarPromesaIncumplida",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "alertaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.ProcesarMora:POST",
+    "controller": "Mora",
+    "accion": "ProcesarMora",
+    "verbo": "POST",
+    "ruta": "/Mora/ProcesarMora",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.RegistrarContacto:POST",
+    "controller": "Mora",
+    "accion": "RegistrarContacto",
+    "verbo": "POST",
+    "ruta": "/Mora/RegistrarContacto",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "RegistrarContactoViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.RegistrarPagoAcuerdo:POST",
+    "controller": "Mora",
+    "accion": "RegistrarPagoAcuerdo",
+    "verbo": "POST",
+    "ruta": "/Mora/RegistrarPagoAcuerdo",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "acuerdoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "comprobante",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "medioPago",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "pasoEsperado",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.RegistrarPromesa:POST",
+    "controller": "Mora",
+    "accion": "RegistrarPromesa",
+    "verbo": "POST",
+    "ruta": "/Mora/RegistrarPromesa",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "RegistrarPromesaViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.Resolver:POST",
+    "controller": "Mora",
+    "accion": "Resolver",
+    "verbo": "POST",
+    "ruta": "/Mora/Resolver",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "String",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Mora.ResolverAlerta:POST",
+    "controller": "Mora",
+    "accion": "ResolverAlerta",
+    "verbo": "POST",
+    "ruta": "/Mora/ResolverAlerta",
+    "permisos": [
+      "cobranzas.viewarrears",
+      "mora.manage"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "String",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "MovimientoStock.Create:POST",
+    "controller": "MovimientoStock",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/MovimientoStock/Create",
+    "permisos": [
+      "movimientos.create",
+      "movimientos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "AjusteStockViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "NotaRapidaApi.AgregarItem:POST",
+    "controller": "NotaRapidaApi",
+    "accion": "AgregarItem",
+    "verbo": "POST",
+    "ruta": "/api/notas-rapidas/{id:int}/items",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "TextoRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "NotaRapidaApi.CompletarItem:PATCH",
+    "controller": "NotaRapidaApi",
+    "accion": "CompletarItem",
+    "verbo": "PATCH",
+    "ruta": "/api/notas-rapidas/{id:int}/items/{itemId:int}",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "itemId",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "CompletadoRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "NotaRapidaApi.Crear:POST",
+    "controller": "NotaRapidaApi",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/api/notas-rapidas",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "CrearRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "NotaRapidaApi.Editar:PUT",
+    "controller": "NotaRapidaApi",
+    "accion": "Editar",
+    "verbo": "PUT",
+    "ruta": "/api/notas-rapidas/{id:int}",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "TextoRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "NotaRapidaApi.Eliminar:DELETE",
+    "controller": "NotaRapidaApi",
+    "accion": "Eliminar",
+    "verbo": "DELETE",
+    "ruta": "/api/notas-rapidas/{id:int}",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "NotaRapidaApi.EliminarItem:DELETE",
+    "controller": "NotaRapidaApi",
+    "accion": "EliminarItem",
+    "verbo": "DELETE",
+    "ruta": "/api/notas-rapidas/{id:int}/items/{itemId:int}",
+    "permisos": [],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "itemId",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": true
+  },
+  {
+    "id": "Notificacion.EliminarNotificacion:DELETE",
+    "controller": "Notificacion",
+    "accion": "EliminarNotificacion",
+    "verbo": "DELETE",
+    "ruta": "/api/Notificacion/{id}",
+    "permisos": [
+      "notificaciones.delete",
+      "notificaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Query"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Notificacion.MarcarComoLeida:POST",
+    "controller": "Notificacion",
+    "accion": "MarcarComoLeida",
+    "verbo": "POST",
+    "ruta": "/api/Notificacion/{id}/marcarLeida",
+    "permisos": [
+      "notificaciones.update",
+      "notificaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Query"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Notificacion.MarcarTodasComoLeidas:POST",
+    "controller": "Notificacion",
+    "accion": "MarcarTodasComoLeidas",
+    "verbo": "POST",
+    "ruta": "/api/Notificacion/marcarTodasLeidas",
+    "permisos": [
+      "notificaciones.update",
+      "notificaciones.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "OrdenCompra.CambiarEstado:POST",
+    "controller": "OrdenCompra",
+    "accion": "CambiarEstado",
+    "verbo": "POST",
+    "ruta": "/OrdenCompra/CambiarEstado",
+    "permisos": [
+      "ordenescompra.update",
+      "ordenescompra.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "desdeIndex",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "nuevoEstado",
+        "tipo": "EstadoOrdenCompra",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "OrdenCompra.Create:POST",
+    "controller": "OrdenCompra",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/OrdenCompra/Create",
+    "permisos": [
+      "ordenescompra.create",
+      "ordenescompra.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "OrdenCompraViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "OrdenCompra.Delete:POST",
+    "controller": "OrdenCompra",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/OrdenCompra/Delete",
+    "permisos": [
+      "ordenescompra.cancel",
+      "ordenescompra.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "OrdenCompra.Edit:POST",
+    "controller": "OrdenCompra",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/OrdenCompra/Edit",
+    "permisos": [
+      "ordenescompra.update",
+      "ordenescompra.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "OrdenCompraViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "OrdenCompra.Recepcionar:POST",
+    "controller": "OrdenCompra",
+    "accion": "Recepcionar",
+    "verbo": "POST",
+    "ruta": "/OrdenCompra/Recepcionar",
+    "permisos": [
+      "ordenescompra.receive",
+      "ordenescompra.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "detalles",
+        "tipo": "List\u003C\u003E",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "PlantillaContratoCredito.Create:POST",
+    "controller": "PlantillaContratoCredito",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/PlantillaContratoCredito/Create",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "PlantillaContratoCreditoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "PlantillaContratoCredito.Edit:POST",
+    "controller": "PlantillaContratoCredito",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/PlantillaContratoCredito/Edit",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "model",
+        "tipo": "PlantillaContratoCreditoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "PlantillaContratoCredito.ToggleActiva:POST",
+    "controller": "PlantillaContratoCredito",
+    "accion": "ToggleActiva",
+    "verbo": "POST",
+    "ruta": "/PlantillaContratoCredito/ToggleActiva",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "PrefijosNumeracion.Guardar:POST",
+    "controller": "PrefijosNumeracion",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/PrefijosNumeracion/Guardar",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "modelo",
+        "tipo": "PrefijosNumeracionAdminViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.ActivarTrazabilidad:POST",
+    "controller": "Producto",
+    "accion": "ActivarTrazabilidad",
+    "verbo": "POST",
+    "ruta": "/Producto/ActivarTrazabilidad/{productoId:int}",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.ActualizarComisionVendedor:POST",
+    "controller": "Producto",
+    "accion": "ActualizarComisionVendedor",
+    "verbo": "POST",
+    "ruta": "/Producto/ActualizarComisionVendedor",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "porcentajeComision",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.AgregarUnidadesFisicasInline:POST",
+    "controller": "Producto",
+    "accion": "AgregarUnidadesFisicasInline",
+    "verbo": "POST",
+    "ruta": "/Producto/AgregarUnidadesFisicasInline",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cantidad",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "observaciones",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ubicacionActual",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.AjustarStockAgregadoAUnidadesFisicas:POST",
+    "controller": "Producto",
+    "accion": "AjustarStockAgregadoAUnidadesFisicas",
+    "verbo": "POST",
+    "ruta": "/Producto/AjustarStockAgregadoAUnidadesFisicas",
+    "permisos": [
+      "movimientos.create",
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "vm",
+        "tipo": "ProductoUnidadConciliarStockViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.AjustarStockAgregadoHaciaAbajo:POST",
+    "controller": "Producto",
+    "accion": "AjustarStockAgregadoHaciaAbajo",
+    "verbo": "POST",
+    "ruta": "/Producto/AjustarStockAgregadoHaciaAbajo",
+    "permisos": [
+      "movimientos.create",
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "vm",
+        "tipo": "ProductoUnidadConciliarStockViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.ConciliarStockUnidades:POST",
+    "controller": "Producto",
+    "accion": "ConciliarStockUnidades",
+    "verbo": "POST",
+    "ruta": "/Producto/ConciliarStockUnidades",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "vm",
+        "tipo": "ProductoUnidadConciliarStockViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.CrearUnidad:POST",
+    "controller": "Producto",
+    "accion": "CrearUnidad",
+    "verbo": "POST",
+    "ruta": "/Producto/CrearUnidad",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "crearUnidad",
+        "tipo": "ProductoUnidadCrearViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.CrearUnidadesMasivas:POST",
+    "controller": "Producto",
+    "accion": "CrearUnidadesMasivas",
+    "verbo": "POST",
+    "ruta": "/Producto/CrearUnidadesMasivas",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "cargaMasiva",
+        "tipo": "ProductoUnidadCargaMasivaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.CreateAjax:POST",
+    "controller": "Producto",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Producto/CreateAjax",
+    "permisos": [
+      "productos.create",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "ProductoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.DarUnidadBaja:POST",
+    "controller": "Producto",
+    "accion": "DarUnidadBaja",
+    "verbo": "POST",
+    "ruta": "/Producto/DarUnidadBaja",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ajuste",
+        "tipo": "ProductoUnidadAjusteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.Delete:POST",
+    "controller": "Producto",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Producto/Delete",
+    "permisos": [
+      "productos.delete",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.DesactivarTrazabilidad:POST",
+    "controller": "Producto",
+    "accion": "DesactivarTrazabilidad",
+    "verbo": "POST",
+    "ruta": "/Producto/DesactivarTrazabilidad/{productoId:int}",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.EditAjax:POST",
+    "controller": "Producto",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Producto/EditAjax",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "ProductoViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.FinalizarReparacionUnidad:POST",
+    "controller": "Producto",
+    "accion": "FinalizarReparacionUnidad",
+    "verbo": "POST",
+    "ruta": "/Producto/FinalizarReparacionUnidad",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "vm",
+        "tipo": "ProductoUnidadFinalizarReparacionViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.MarcarUnidadFaltante:POST",
+    "controller": "Producto",
+    "accion": "MarcarUnidadFaltante",
+    "verbo": "POST",
+    "ruta": "/Producto/MarcarUnidadFaltante",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ajuste",
+        "tipo": "ProductoUnidadAjusteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Producto.ReintegrarUnidadAStock:POST",
+    "controller": "Producto",
+    "accion": "ReintegrarUnidadAStock",
+    "verbo": "POST",
+    "ruta": "/Producto/ReintegrarUnidadAStock",
+    "permisos": [
+      "productos.edit",
+      "productos.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "ajuste",
+        "tipo": "ProductoUnidadAjusteViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Proveedor.CreateAjax:POST",
+    "controller": "Proveedor",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Proveedor/CreateAjax",
+    "permisos": [
+      "proveedores.create",
+      "proveedores.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "ProveedorViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Proveedor.Delete:POST",
+    "controller": "Proveedor",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Proveedor/Delete",
+    "permisos": [
+      "proveedores.delete",
+      "proveedores.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Proveedor.EditAjax:POST",
+    "controller": "Proveedor",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Proveedor/EditAjax",
+    "permisos": [
+      "proveedores.update",
+      "proveedores.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "ProveedorViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Reporte.MovimientosValorizados:POST",
+    "controller": "Reporte",
+    "accion": "MovimientosValorizados",
+    "verbo": "POST",
+    "ruta": "/Reporte/MovimientosValorizados",
+    "permisos": [
+      "reportes.stock",
+      "reportes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "filtro",
+        "tipo": "ReporteMovimientosValorizadosFiltroViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Reporte.Ventas:POST",
+    "controller": "Reporte",
+    "accion": "Ventas",
+    "verbo": "POST",
+    "ruta": "/Reporte/Ventas",
+    "permisos": [
+      "reportes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "filtro",
+        "tipo": "ReporteVentasFiltroViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.CopyPermisosRol:POST",
+    "controller": "Seguridad",
+    "accion": "CopyPermisosRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/CopyPermisosRol",
+    "permisos": [
+      "roles.assignpermissions"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CopiarPermisosRolViewModel",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.CreateRol:POST",
+    "controller": "Seguridad",
+    "accion": "CreateRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/CreateRol",
+    "permisos": [
+      "roles.create"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CrearRolViewModel",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.DeleteRol:POST",
+    "controller": "Seguridad",
+    "accion": "DeleteRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/DeleteRol",
+    "permisos": [
+      "roles.delete"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.DuplicateRol:POST",
+    "controller": "Seguridad",
+    "accion": "DuplicateRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/DuplicateRol",
+    "permisos": [
+      "roles.create"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "DuplicarRolViewModel",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.EditRol:POST",
+    "controller": "Seguridad",
+    "accion": "EditRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/EditRol",
+    "permisos": [
+      "roles.update"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "EditarRolViewModel",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.EditUsuario:POST",
+    "controller": "Seguridad",
+    "accion": "EditUsuario",
+    "verbo": "POST",
+    "ruta": "/Seguridad/EditUsuario",
+    "permisos": [
+      "usuarios.update"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "SeguridadEditarUsuarioViewModel",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.SavePermisosRol:POST",
+    "controller": "Seguridad",
+    "accion": "SavePermisosRol",
+    "verbo": "POST",
+    "ruta": "/Seguridad/SavePermisosRol",
+    "permisos": [
+      "roles.assignpermissions"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accionIds",
+        "tipo": "List\u003C\u003E",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "roleId",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Seguridad.ToggleRolActivo:POST",
+    "controller": "Seguridad",
+    "accion": "ToggleRolActivo",
+    "verbo": "POST",
+    "ruta": "/Seguridad/ToggleRolActivo",
+    "permisos": [
+      "roles.update"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "activo",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ServiciosVenta.Guardar:POST",
+    "controller": "ServiciosVenta",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/ServiciosVenta/Guardar",
+    "permisos": [
+      "configuracion.update",
+      "configuracion.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "modelo",
+        "tipo": "ServiciosVentaAdminViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Ticket.CambiarEstado:POST",
+    "controller": "Ticket",
+    "accion": "CambiarEstado",
+    "verbo": "POST",
+    "ruta": "/Ticket/CambiarEstado",
+    "permisos": [
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "CambiarEstadoTicketsRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Ticket.Eliminar:POST",
+    "controller": "Ticket",
+    "accion": "Eliminar",
+    "verbo": "POST",
+    "ruta": "/Ticket/Eliminar",
+    "permisos": [
+      "tickets.delete",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "EliminarTicketsRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.Actualizar:PUT",
+    "controller": "TicketApi",
+    "accion": "Actualizar",
+    "verbo": "PUT",
+    "ruta": "/api/tickets/{id:int}",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "UpdateTicketRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.AgregarChecklistItem:POST",
+    "controller": "TicketApi",
+    "accion": "AgregarChecklistItem",
+    "verbo": "POST",
+    "ruta": "/api/tickets/{id:int}/checklist",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "AgregarChecklistItemRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.CambiarEstado:PATCH",
+    "controller": "TicketApi",
+    "accion": "CambiarEstado",
+    "verbo": "PATCH",
+    "ruta": "/api/tickets/{id:int}/estado",
+    "permisos": [
+      "tickets.changestatus",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "UpdateTicketStatusRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.Crear:POST",
+    "controller": "TicketApi",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/api/tickets",
+    "permisos": [
+      "tickets.create",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "CreateTicketRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.EliminarAdjunto:DELETE",
+    "controller": "TicketApi",
+    "accion": "EliminarAdjunto",
+    "verbo": "DELETE",
+    "ruta": "/api/tickets/adjuntos/{adjuntoId:int}",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "adjuntoId",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.EliminarChecklistItem:DELETE",
+    "controller": "TicketApi",
+    "accion": "EliminarChecklistItem",
+    "verbo": "DELETE",
+    "ruta": "/api/tickets/checklist/{itemId:int}",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "itemId",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.MarcarChecklistItem:PATCH",
+    "controller": "TicketApi",
+    "accion": "MarcarChecklistItem",
+    "verbo": "PATCH",
+    "ruta": "/api/tickets/checklist/{itemId:int}",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "itemId",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "MarcarChecklistItemRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.RegistrarResolucion:PATCH",
+    "controller": "TicketApi",
+    "accion": "RegistrarResolucion",
+    "verbo": "PATCH",
+    "ruta": "/api/tickets/{id:int}/resolucion",
+    "permisos": [
+      "tickets.resolve",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      },
+      {
+        "nombre": "request",
+        "tipo": "UpdateTicketResolutionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "TicketApi.SubirAdjunto:POST",
+    "controller": "TicketApi",
+    "accion": "SubirAdjunto",
+    "verbo": "POST",
+    "ruta": "/api/tickets/{id:int}/adjuntos",
+    "permisos": [
+      "tickets.update",
+      "tickets.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "multipart/form-data",
+    "parametros": [
+      {
+        "nombre": "archivo",
+        "tipo": "IFormFile",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Path"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Bloquear:POST",
+    "controller": "Usuarios",
+    "accion": "Bloquear",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Bloquear",
+    "permisos": [
+      "usuarios.update",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "BloquearUsuarioViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.BulkAction:POST",
+    "controller": "Usuarios",
+    "accion": "BulkAction",
+    "verbo": "POST",
+    "ruta": "/Usuarios/BulkAction",
+    "permisos": [
+      "usuarios.update",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accion",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "ids",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rol",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "sucursalId",
+        "tipo": "Int32?",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.CambiarPassword:POST",
+    "controller": "Usuarios",
+    "accion": "CambiarPassword",
+    "verbo": "POST",
+    "ruta": "/Usuarios/CambiarPassword",
+    "permisos": [
+      "usuarios.resetpassword",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CambiarPasswordUsuarioViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.ConfirmarEmail:POST",
+    "controller": "Usuarios",
+    "accion": "ConfirmarEmail",
+    "verbo": "POST",
+    "ruta": "/Usuarios/ConfirmarEmail",
+    "permisos": [
+      "usuarios.update",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Create:POST",
+    "controller": "Usuarios",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Create",
+    "permisos": [
+      "usuarios.create",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "model",
+        "tipo": "CrearUsuarioViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Delete:POST",
+    "controller": "Usuarios",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Delete",
+    "permisos": [
+      "usuarios.delete",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Desactivar:POST",
+    "controller": "Usuarios",
+    "accion": "Desactivar",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Desactivar",
+    "permisos": [
+      "usuarios.delete",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Desbloquear:POST",
+    "controller": "Usuarios",
+    "accion": "Desbloquear",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Desbloquear",
+    "permisos": [
+      "usuarios.update",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Usuarios.Reactivar:POST",
+    "controller": "Usuarios",
+    "accion": "Reactivar",
+    "verbo": "POST",
+    "ruta": "/Usuarios/Reactivar",
+    "permisos": [
+      "usuarios.delete",
+      "usuarios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.AnularFactura:POST",
+    "controller": "Venta",
+    "accion": "AnularFactura",
+    "verbo": "POST",
+    "ruta": "/Venta/AnularFactura",
+    "permisos": [
+      "ventas.invoice",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "facturaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Autorizar:POST",
+    "controller": "Venta",
+    "accion": "Autorizar",
+    "verbo": "POST",
+    "ruta": "/Venta/Autorizar",
+    "permisos": [
+      "ventas.authorize",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.CambiarEstadoEnvio:POST",
+    "controller": "Venta",
+    "accion": "CambiarEstadoEnvio",
+    "verbo": "POST",
+    "ruta": "/Venta/CambiarEstadoEnvio",
+    "permisos": [
+      "ventas.update",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "estado",
+        "tipo": "EstadoEnvio",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "fechaProgramada",
+        "tipo": "DateTime?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "volverA",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Cancelar:POST",
+    "controller": "Venta",
+    "accion": "Cancelar",
+    "verbo": "POST",
+    "ruta": "/Venta/Cancelar",
+    "permisos": [
+      "ventas.cancel",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Confirmar:POST",
+    "controller": "Venta",
+    "accion": "Confirmar",
+    "verbo": "POST",
+    "ruta": "/Venta/Confirmar",
+    "permisos": [
+      "ventas.create",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "aplicarExcepcionDocumental",
+        "tipo": "Boolean",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivoExcepcionDocumental",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Create:POST",
+    "controller": "Venta",
+    "accion": "Create",
+    "verbo": "POST",
+    "ruta": "/Venta/Create",
+    "permisos": [
+      "ventas.create",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "VentaViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.CreateAjax:POST",
+    "controller": "Venta",
+    "accion": "CreateAjax",
+    "verbo": "POST",
+    "ruta": "/Venta/CreateAjax",
+    "permisos": [
+      "ventas.create",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "viewModel",
+        "tipo": "VentaViewModel",
+        "fuente": "Form"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Delete:POST",
+    "controller": "Venta",
+    "accion": "Delete",
+    "verbo": "POST",
+    "ruta": "/Venta/Delete",
+    "permisos": [
+      "ventas.delete",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Edit:POST",
+    "controller": "Venta",
+    "accion": "Edit",
+    "verbo": "POST",
+    "ruta": "/Venta/Edit",
+    "permisos": [
+      "ventas.update",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "accionConfirmacion",
+        "tipo": "String",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "tipoFactura",
+        "tipo": "TipoFactura",
+        "fuente": "Form"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "VentaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.EditAjax:POST",
+    "controller": "Venta",
+    "accion": "EditAjax",
+    "verbo": "POST",
+    "ruta": "/Venta/EditAjax",
+    "permisos": [
+      "ventas.update",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "viewModel",
+        "tipo": "VentaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Facturar:POST",
+    "controller": "Venta",
+    "accion": "Facturar",
+    "verbo": "POST",
+    "ruta": "/Venta/Facturar",
+    "permisos": [
+      "ventas.invoice",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "facturaViewModel",
+        "tipo": "FacturaViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.PrepararVenta:POST",
+    "controller": "Venta",
+    "accion": "PrepararVenta",
+    "verbo": "POST",
+    "ruta": "/Venta/PrepararVenta",
+    "permisos": [
+      "ventas.update",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Venta.Rechazar:POST",
+    "controller": "Venta",
+    "accion": "Rechazar",
+    "verbo": "POST",
+    "ruta": "/Venta/Rechazar",
+    "permisos": [
+      "ventas.reject",
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "VentaApi.CalcularTotalesVenta:POST",
+    "controller": "VentaApi",
+    "accion": "CalcularTotalesVenta",
+    "verbo": "POST",
+    "ruta": "/api/ventas/CalcularTotalesVenta",
+    "permisos": [
+      "ventas.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "request",
+        "tipo": "CalcularTotalesVentaRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "VentaCostoServicios.Guardar:POST",
+    "controller": "VentaCostoServicios",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/Venta/CostoServicios/{id:int}",
+    "permisos": [
+      "ventas.update"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "form",
+        "tipo": "IFormCollection",
+        "fuente": "FormFile"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  }
+]

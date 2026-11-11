@@ -1,0 +1,91 @@
+{
+  "_comentario": "Cobertura esperada del recorrido por rol (menu de navegacion estable: sin ids ni query, que dependen de los datos). Calibrado el 2026-11-11 con el stack QA de CI en Chromium, 7 roles. Si cambia el menu de un rol (alta/baja de una pantalla o de un permiso), actualizar este archivo en el mismo PR: el recorrido FALLA si falta una ruta esperada (inventario incompleto) y AVISA si aparece una no registrada.",
+  "roles": {
+    "administrador": {
+      "menu": [
+        "/",
+        "/Venta",
+        "/Cliente",
+        "/Documento",
+        "/Catalogo",
+        "/Proveedor",
+        "/Caja",
+        "/Reporte",
+        "/MercadoLibre/Dashboard",
+        "/Seguridad",
+        "/ConfiguracionPago/MediosPago",
+        "/Ticket",
+        "/Venta/Create",
+        "/Cliente/Create",
+        "/Credito"
+      ]
+    },
+    "gerente": {
+      "menu": [
+        "/",
+        "/Venta",
+        "/Cliente",
+        "/Documento",
+        "/Proveedor",
+        "/Reporte",
+        "/Ticket",
+        "/Venta/Create",
+        "/Cliente/Create",
+        "/Credito"
+      ]
+    },
+    "vendedor": {
+      "menu": [
+        "/",
+        "/Venta",
+        "/Cliente",
+        "/Documento",
+        "/Catalogo",
+        "/Ticket",
+        "/Venta/Create",
+        "/Cliente/Create",
+        "/Credito"
+      ]
+    },
+    "cajero": {
+      "menu": [
+        "/",
+        "/Venta",
+        "/Cliente",
+        "/Documento",
+        "/Caja",
+        "/Ticket",
+        "/Credito",
+        "/AlertaStock"
+      ]
+    },
+    "repositor": {
+      "menu": [
+        "/",
+        "/Catalogo",
+        "/Ticket",
+        "/AlertaStock"
+      ]
+    },
+    "tecnico": {
+      "menu": [
+        "/",
+        "/Catalogo",
+        "/Ticket",
+        "/AlertaStock"
+      ]
+    },
+    "contador": {
+      "menu": [
+        "/",
+        "/Venta",
+        "/Cliente",
+        "/Proveedor",
+        "/Reporte",
+        "/Ticket",
+        "/Credito",
+        "/AlertaStock"
+      ]
+    }
+  }
+}

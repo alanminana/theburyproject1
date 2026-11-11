@@ -107,7 +107,7 @@ Pruebas xUnit nuevas (`TheBuryProyect.Tests/Integration/CspHttpTests.cs`, 23 en 
 | contextos creados sin instrumentar | exit 0 | exit 3 (`contexto-creado` vs `contexto`) |
 | error de consola CSP sin evento `securitypolicyviolation` | exit 0 | exit 1 (cuenta como violación) |
 | pocos contextos medidos para los tests ejecutados / 0 tests / reporte ilegible | sin control | exit 3 con `--playwright-json` (cociente ≥ 0,5; calibrado en 1,06 contextos por test en una corrida real de 17 tests) |
-| `crawl.js` con inventario vacío (0 páginas) | exit 0 | exit 1 (mínimo 10 páginas por rol, `--min-paginas`) |
+| `crawl.js` con inventario vacío (0 páginas) | exit 0 | exit 1 (cobertura esperada por rol, `cobertura-esperada.json`; ver la ronda siguiente: reemplaza el mínimo fijo de 10 páginas, que era incorrecto para Repositor/Técnico) |
 | umbral inválido (`--max-violaciones abc`) | verde | exit 2 |
 
 Ya fallaban bien (confirmado): instrumentación no instalada/archivo inexistente, resumen vacío, 0 contextos, fallo de instalación, 1 violación; `impresion.js` con botones ausentes o sin `--rutas`. `--max-pageerrors N` es un gate opt-in (no se activó en CI para no cambiar el criterio vigente; el resumen siempre informa los errores de página).
@@ -142,3 +142,25 @@ Un contexto de navegador por escenario (44 por navegador, instrumentados con el 
 WebKit: el escenario «Exportaciones: /Reporte/Ventas» falló en esa corrida por una carrera del arnés (el enlace aún no estaba tras el POST de «Generar»; sin violaciones ni errores); se corrigió la espera y se repitió el bloque de exportaciones: 4/4 correctos, 34 checks. Salvo esa espera, los ajustes de arnés para Firefox/WebKit (stub de `window.print()` que bloquea Firefox, cargas canceladas por descargas, reintento de `goto` tras la navegación automática de un alta AJAX) no afectan a la política.
 
 Evidencia (fuera del repo): `D:\tmp\mision\b\final-{chromium,firefox,webkit}.{txt,json}`, `esc-chromium.txt` (corrida previa), `selftest-antes.txt` / `selftest-despues.txt`, `pdf-B-blob.png`, `pdftest.js`.
+
+## Ronda 2026-11-11 (cierre funcional): recorrido por roles con descargas y cobertura por rol
+
+Causa de un rojo en CI al agregar los specs de configuración aislada (C-03): el spec de excepción documental ahora **genera un contrato**, y el recorrido de roles encontró el enlace `/ContratoVentaCredito/Ver?ventaId=N`, que responde con un PDF adjunto. Para el navegador eso no es una navegación (`page.goto: Download is starting`) y el arnés lo contaba como error. No era una falla de la aplicación ni de la CSP (0 violaciones).
+
+| Cambio en `scripts/qa/csp-roles/` | Qué garantiza |
+|---|---|
+| `descargas.js` | Un inicio de descarga solo es válido si la misma ruta, pedida con la sesión del rol, responde **200** (no 302 a Login ni 403/5xx), es un **adjunto** (`Content-Disposition: attachment` o tipo de archivo conocido), **no está vacía** y su **firma** coincide con el tipo (`%PDF-`, `PK` para xlsx/zip). Cualquier otra cosa sigue siendo error. Los permisos se validan con esa misma sesión: un rol sin permiso no obtiene un 200 con archivo. |
+| `descargas.selftest.js` | 12 casos con servidor local (PDF/XLSX válidos; vacío, firma rota, HTML, 403, 302, 500, 404 inválidos). Corre en el paso del workflow. |
+| `cobertura-esperada.json` | **Reemplaza el mínimo fijo de páginas.** Cada rol registra las pantallas de menú estables que debe ver (administrador 15, gerente 10, vendedor 9, cajero 8, repositor 4, técnico 4, contador 8). Falla si falta alguna (inventario incompleto o vacío), si responde ≥ 400, o si el rol no tiene cobertura registrada; avisa (sin fallar) si aparece una pantalla nueva sin registrar. Un mínimo común de 10 páginas era incorrecto: Repositor y Técnico solo tienen 4 pantallas de menú por permisos. |
+| `crawl.js --salida` | Guarda rutas visitadas, menú, descargas y avisos por rol (artefacto `crawl-<navegador>.json`). |
+
+Verificación (stack QA de CI, ReportOnly): el arnés original reproduce el error (`ERR /ContratoVentaCredito/Ver?ventaId=43: page.goto: Download is starting`, exit 1); con el cambio, 3 navegadores × 7 roles × 175 páginas, 0 errores, 0 violaciones, 2 descargas válidas (PDF de ~47 KB) por cada rol con permiso y 0 para Repositor/Técnico. Mutación: agregar una ruta inexistente a la cobertura de Técnico hace fallar el recorrido (exit 1, «inventario incompleto»).
+
+### Avisos `frame-ancestors` de WebKit (clasificados)
+
+WebKit imprime en consola, una vez por documento, `The Content Security Policy directive 'frame-ancestors' is ignored when delivered in a report-only policy.` (196 avisos en el recorrido completo en ReportOnly; 0 en Chromium y Firefox).
+
+- **Naturaleza:** informativo, **no es una violación**. La directiva `frame-ancestors` solo se evalúa con la política en Enforce; la política declara `frame-ancestors 'self'`.
+- **Sin exposición mientras tanto:** la aplicación envía además `X-Frame-Options: SAMEORIGIN` en todas las respuestas (`Program.cs`, middleware de cabeceras), que sí aplica en cualquier modo. El recorrido ahora **falla** si falta esa cabecera.
+- **Contraste con Enforce:** con la política en Enforce (stack QA aislado) WebKit emite **0** avisos (administrador y repositor, 60 páginas).
+- **Control:** el arnés solo tolera estos avisos con la política en Report-Only; con Enforce, cualquier aviso es error.
