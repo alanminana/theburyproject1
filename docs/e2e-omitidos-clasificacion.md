@@ -78,6 +78,20 @@ Se midió: no existe ruta HTTP/UI que edite `ConfiguracionCredito` (`UpdateConfi
 
 ### 7.5 F1.2 — estabilidad (hallazgos)
 
-- **Fixtures consumibles T9–T12** (`E2E_COTIZACION_CONV_IDS`): una segunda corrida sobre la misma base no se omite en silencio: el seeder es idempotente y devuelve las mismas cotizaciones, ya `ConvertidaAVenta`; el spec falla al intentar convertirlas (ver resultado de la corrida repetida abajo). Es no idempotente por diseño: base nueva por corrida. Solo se omiten si falta la variable, y en CI el control de omitidos lo convierte en fallo.
+- **Fixtures consumibles T9–T12** (`E2E_COTIZACION_CONV_IDS`): una segunda corrida sobre la misma base no se omite en silencio: el seeder es idempotente y devuelve las mismas cotizaciones, ya `ConvertidaAVenta`; el spec falla con un mensaje claro («fixture ya consumido… usar base nueva por corrida»; T9 fallaba antes por el badge «Emitida» sin explicar nada: ahora tiene el mismo mensaje). Es no idempotente por diseño: base nueva por corrida. Solo se omiten si falta la variable, y en CI el control de omitidos lo convierte en fallo.
 - **UTC vs día comercial**: en `e2e/` la única fecha calculada era la de punitorios (ya corregida con `fechaComercial()`; `vigenciaFutura` suma 2 años, sin riesgo). Los DNI con `Date.now()` no dependen de la fecha. Los seeders usan `DateTime.UtcNow` con márgenes de decenas de días (vencimientos −10/−90), insensibles al desfase de 3 h. No se encontró otro defecto. (Fuera de alcance: `min="@DateTime.Today"` en `_CotizadorForm.cshtml` es código de producto.)
 - **Skips condicionales** (108 ocurrencias en `e2e/`): todos son por dato/permiso ausente. En CI ninguno puede ocultar un fallo: `control-omitidos.js` falla ante cualquier omitido no clasificado. Los tres sitios donde el skip ocultaba un defecto real del spec (selector sin tilde, `if (count > 0)`) se corrigieron. `ui-4e-layout-visual` usa `if (!ok) test.skip()` por autenticación vencida: queda protegido por el mismo control.
+
+### 7.6 Cifras de la corrida local (réplica de CI, 1366x768, 2026-11-11)
+
+| Corrida | Correctas | Fallidas | Omitidas |
+|---|---:|---:|---:|
+| Base nueva #1 (principal 216 + aislada 4, incluyen 1 `setup` cada una) | 220 | 0 | 4 |
+| Base nueva #2 (idéntica) | 220 | 0 | 4 |
+| Misma base ya usada (#3) | 206 | 14 | 4 |
+
+220 correctas = 218 specs + 2 ejecuciones del `setup` de login (antes: 217 = 216 specs + 1 `setup`; ahora +2 specs que dejan de omitirse). Violaciones CSP: 0 en ambas corridas.
+
+**Corrida repetida sobre la misma base (14 fallos): no idempotente por diseño, ninguno es silencioso.** `configuracion-punitorio` ×5 (versionado append-only de punitorios), `cotizacion-conversion` T9–T12 ×4 (cotizaciones ya convertidas), `credito-pago-cuota-individual` ×2 y `credito-punitorio-detalle` ×2 (cuotas/créditos ya consumidos por la primera corrida), `venta-descuento-permiso` ×1 (venta sembrada ya modificada). Se exige base nueva por corrida (como en CI). Los tests `@config-aislada` sí pasan en la repetición.
+
+**Evidencia 4–6 en local:** con `MoraVisualE2ESeedRunner.Sembrar` y `E2E_MORA_VISUAL=1`, los 3 specs de `pr75-mora-visual-evidence` pasan (1366x768, 1920x1080, 390x844).
