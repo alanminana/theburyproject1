@@ -6,7 +6,7 @@ using TheBuryProject.Security;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>D-05: la CSP es opt-in (Off por defecto); en ReportOnly emite cabecera con nonce y el login lo propaga a sus scripts.</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CspHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

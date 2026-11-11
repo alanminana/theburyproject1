@@ -7,7 +7,7 @@ namespace TheBuryProject.Tests.Integration;
 /// H4-F1: la ayuda del interés de mora en Documentos > Empresa enlazaba a /ConfiguracionMora (retirada en #168, 404).
 /// Debe llevar a la pantalla vigente de configuración de mora.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class DocumentosEmpresaEnlaceMoraHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

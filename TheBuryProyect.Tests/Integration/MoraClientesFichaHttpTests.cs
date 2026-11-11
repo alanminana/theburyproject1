@@ -13,7 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 // SQLite aislada del factory. Sólo GET: ningún test ejecuta acciones de escritura de Mora.
 // ---------------------------------------------------------------------------
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class MoraClientesFichaHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string SoloVistaUserId = "test-mora-clientes-view-only-id";

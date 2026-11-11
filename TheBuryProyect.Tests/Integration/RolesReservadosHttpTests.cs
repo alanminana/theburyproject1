@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 /// eliminarlos, duplicarlos hacia ese nombre ni asignarlos sin tener esa misma autoridad. Cada test arma
 /// la petición HTTP a mano y verifica en BD.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class RolesReservadosHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -8,7 +8,7 @@ namespace TheBuryProject.Tests.Integration;
 /// - Usuario sin cotizaciones.expire → 403 Forbidden
 /// - Usuario con cotizaciones.expire → no 403 (200 según lógica de negocio)
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CotizacionVencimientoSecurityTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

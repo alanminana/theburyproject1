@@ -11,7 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// SameSite=Lax). Ahora lo exigen: sin token es 400; con token válido el pedido llega a la lógica (y se decide por
 /// permisos). Los clientes de test envían el token solos (AntiforgeryApiHandler); acá se omite a propósito.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.1")]
 public class ApiAntiforgeryHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

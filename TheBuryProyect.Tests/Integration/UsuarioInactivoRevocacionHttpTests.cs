@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// formulario con antiforgery, cookie, validación de principal por request); cada HttpClient con su
 /// propio cookie jar equivale a una sesión/navegador distinto.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class UsuarioInactivoRevocacionHttpTests : IClassFixture<CookieAuthWebApplicationFactory>
 {
     private const string Password = "Test1234!";

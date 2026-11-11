@@ -7,7 +7,7 @@ namespace TheBuryProject.Tests.Integration;
 /// FUN-D-001 / FE-D-001: acciones GET que devolvían una vista inexistente respondían HTTP 500. Cheque (sin vistas) y las
 /// acciones legacy de ConfiguracionPago se retiraron (404); Mora/Configuracion redirige a la pantalla vigente.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class RutasSinVistaRetiradasHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

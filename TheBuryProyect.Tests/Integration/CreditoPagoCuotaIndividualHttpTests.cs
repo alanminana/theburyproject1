@@ -10,7 +10,7 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.Integration;
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public sealed class CreditoPagoCuotaIndividualHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int BaseId = 998_840;

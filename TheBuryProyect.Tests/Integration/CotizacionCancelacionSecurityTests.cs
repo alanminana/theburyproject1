@@ -9,7 +9,7 @@ namespace TheBuryProject.Tests.Integration;
 /// - Usuario sin cotizaciones.cancel → 403 Forbidden
 /// - Usuario con cotizaciones.cancel → no 403 (200 o 400 según datos)
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CotizacionCancelacionSecurityTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

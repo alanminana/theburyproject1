@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L1 — campos editables de Caja (Create y Abrir) por el pipeline HTTP real. Cada caso manda un valor
 /// fuera de regla y exige que se rechace sin persistir nada; los válidos de borde exigen que se acepten.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CajaCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 92000;

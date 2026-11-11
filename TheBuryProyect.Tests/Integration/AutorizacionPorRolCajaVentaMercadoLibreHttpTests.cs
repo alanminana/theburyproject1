@@ -22,7 +22,7 @@ namespace TheBuryProject.Tests.Integration;
 /// acción nueva queda cubierta sin tocar este archivo. Los filtros de autorización corren antes del model binding:
 /// un cuerpo vacío alcanza para distinguir "denegado" de "autorizado".
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class AutorizacionPorRolCajaVentaMercadoLibreHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;

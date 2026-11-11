@@ -18,7 +18,7 @@ namespace TheBuryProject.Tests.Integration;
 // (inputs + hidden "false" de los checkboxes) y verifican campo por campo.
 // ---------------------------------------------------------------------------
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class MoraConfiguracionExpandidaPreservacionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string FormUrl = "/Mora/ConfiguracionExpandida";

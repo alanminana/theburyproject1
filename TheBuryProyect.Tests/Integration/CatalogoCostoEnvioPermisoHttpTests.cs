@@ -6,7 +6,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Render real de /Catalogo: el input "Envío" de los modales de producto es solo lectura
 /// para quien no tiene productos.editshippingcost y editable para quien sí lo tiene.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class CatalogoCostoEnvioPermisoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

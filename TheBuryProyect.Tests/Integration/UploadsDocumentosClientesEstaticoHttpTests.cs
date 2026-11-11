@@ -9,7 +9,7 @@ namespace TheBuryProject.Tests.Integration;
 /// descargarlos sin sesión. Ahora un middleware previo devuelve 404 para esa ruta, sin importar si el
 /// archivo existe físicamente, forzando el acceso exclusivo vía el controller.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class UploadsDocumentosClientesEstaticoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

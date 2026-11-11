@@ -9,7 +9,7 @@ namespace TheBuryProject.Tests.Integration;
 /// SEG-BAJA (auditoría dinámica 2026-10-28): los GET no deben tener efectos secundarios. Reimprimir pasó a POST
 /// con antiforgery (ver DocumentosDescuentoPermisoHttpTests); CuotasVencidas es lectura pura y se fija aquí.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public sealed class SegBajaGetSinEfectosHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

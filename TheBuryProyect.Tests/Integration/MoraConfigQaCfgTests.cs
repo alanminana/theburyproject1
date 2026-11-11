@@ -23,7 +23,7 @@ namespace TheBuryProject.Tests.Integration;
 // contra el código corregido sin tocar nada.
 // ---------------------------------------------------------------------------
 
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 [Trait("QA", "CFG")]
 public class MoraConfigQaCfgHttpTests : IClassFixture<CustomWebApplicationFactory>
 {

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>LOG-D-002: el acceso denegado (403) queda registrado como Warning, con el id del usuario y no con su nombre.</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class ObservabilidadLogsHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

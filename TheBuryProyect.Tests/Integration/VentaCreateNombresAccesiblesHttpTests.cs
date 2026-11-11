@@ -16,7 +16,7 @@ namespace TheBuryProject.Tests.Integration;
 /// El nombre calculado por el navegador (lo que lee un lector de pantalla) lo cubre el E2E
 /// <c>e2e/venta-create-nombres-accesibles.spec.js</c>.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class VentaCreateNombresAccesiblesHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string TestUser = "testuser";

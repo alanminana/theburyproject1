@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// QA-PRD-P0 (B1/B2/B9): los permisos de escritura de stock y de importes se exigen en el servidor
 /// y la UI solo ofrece lo que el servidor acepta. Los rechazos no deben dejar movimientos ni historial.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class QaPrdPermisosHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int ProductoId = 9100;

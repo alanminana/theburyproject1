@@ -15,7 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 /// inherentes al modo (seed de edición, copy). También verifica el guard de estado
 /// no editable. Repetible; no requiere navegador ni credenciales reales.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string TestUser = "testuser";

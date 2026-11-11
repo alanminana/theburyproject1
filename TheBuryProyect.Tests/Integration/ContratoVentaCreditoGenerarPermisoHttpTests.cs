@@ -7,7 +7,7 @@ namespace TheBuryProject.Tests.Integration;
 /// FIN-S-004: generar el contrato de una venta a crédito solo exigía ventas.view. Es una función de configuración de crédito:
 /// requiere creditos.configure.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class ContratoVentaCreditoGenerarPermisoHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -196,7 +196,7 @@ public class CajaUltimoCierreServiceTests : IDisposable
 }
 
 /// <summary>Render real de Caja/Index con la app en memoria (SQLite) y usuario SuperAdmin.</summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.2")]
 public class CajaIndexUltimoCierreRenderTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

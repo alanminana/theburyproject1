@@ -14,7 +14,7 @@ namespace TheBuryProject.Tests.Integration;
 /// el cajero con caja.edit y padron solo en la caja A no puede acreditar un movimiento de la caja B con la PoC original
 /// (aperturaId propio + movimientoId ajeno), y su flujo legitimo sigue funcionando.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class CajaAcreditarMovimientoAutorizacionHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

@@ -17,7 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 /// <see cref="CreditoPagoCuotaIndividualHttpTests"/> (Cajero = ambos permisos, Vendedor-like =
 /// sólo creditos.view, sólo-payinstallment sin creditos.view) — misma matriz exigida acá.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.4")]
 public sealed class CreditoAdelantoPagoMultipleHttpTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const int BaseId = 998_940;

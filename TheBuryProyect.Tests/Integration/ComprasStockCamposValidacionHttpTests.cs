@@ -12,7 +12,7 @@ namespace TheBuryProject.Tests.Integration;
 /// VALID-L4 — campos editables de Orden de compra, Proveedor y Movimiento de stock por el pipeline HTTP real
 /// (antiforgery + autorización + binding + servicio). Cada caso fuera de regla debe rechazarse sin persistir.
 /// </summary>
-[Collection("HttpIntegration")]
+[Collection("HttpIntegration.3")]
 public class ComprasStockCamposValidacionHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private static int _counter = 95000;
