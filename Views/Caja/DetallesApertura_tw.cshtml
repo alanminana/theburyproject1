@@ -81,7 +81,7 @@
     <partial name="_ConciliacionTabs" model="Model" />
 
     <div class="cc-print-foot">
-        Responsable: @Model.Responsable · Turno abierto el @Model.FechaApertura.ToString("dd/MM/yyyy HH:mm") · Impreso @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
+        Responsable: @Model.Responsable · Turno abierto el @Model.FechaApertura.ToString("dd/MM/yyyy HH:mm") · Impreso @Reloj.AhoraComercial.ToString("dd/MM/yyyy HH:mm")
     </div>
 </div>
 

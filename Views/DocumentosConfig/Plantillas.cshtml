@@ -4,7 +4,7 @@
     ViewData["DocTab"] = "plantillas";
     var tipos = (List<TheBuryProject.Models.Entities.TipoDocumento>)ViewBag.Tipos;
     int? tipoId = ViewBag.TipoId as int?;
-    var hoy = DateTime.UtcNow.Date;
+    var hoy = Reloj.HoyComercial();
 }
 
 @section Styles {

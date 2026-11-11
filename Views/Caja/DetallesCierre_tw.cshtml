@@ -63,7 +63,7 @@
 
     <div class="cc-print-foot">
         Responsable apertura: @Model.Responsable · Responsable cierre: @Model.UsuarioCierre
-        · Cierre: @(Model.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—") · Impreso @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
+        · Cierre: @(Model.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—") · Impreso @Reloj.AhoraComercial.ToString("dd/MM/yyyy HH:mm")
     </div>
 </div>
 
