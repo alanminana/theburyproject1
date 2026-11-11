@@ -73,3 +73,11 @@ Evidencia (búsqueda en código, vistas, configuración y paquetes de `main`):
 **Observación para decisión (no se cambió ningún texto legal):** el impreso `Views/Venta/ComprobanteFactura_tw.cshtml` muestra la letra del tipo (A/B/C) en grande, «Nro.», «Punto de venta» y «Fecha», con el título «Comprobante de factura» y el título de la ventana «Factura <tipo> <número>». **No contiene ninguna leyenda de «documento no válido como factura»**, ni CUIT del emisor, ni CAE. Un tercero podría confundirlo con una factura. La pantalla «Emitir factura» habla de «Emisión de comprobante». Se reporta como decisión del propietario (P4 en `docs/iva-decisiones-contador.md`). Además, el código trata una venta Confirmada sin facturar como «informal» (no declara IVA en Caja ni en el Reporte de IVA): conviene que el contador confirme si ese circuito existe a propósito.
 
 **P-02 permanece ABIERTA**: faltan la validación fiscal definitiva del contador, las decisiones del propietario sobre facturación electrónica y autorización por fila.
+
+### Nota del 2026-11-11 — decisión del propietario sobre facturación fiscal (F4.4)
+
+Se conserva el texto anterior como historial. **Decisión del propietario (2026-11-11):** no se integra ARCA/CAE por ahora; la facturación fiscal queda **fuera del ERP**; los comprobantes internos se conservan **sin presentarse como facturas fiscales**; no se implementa ninguna regla fiscal sin validación del contador y autorización. Consecuencias:
+
+- La «Observación para decisión» sobre el impreso queda atendida en lo visual: `Views/Venta/ComprobanteFactura_tw.cshtml` ahora muestra arriba y al pie la leyenda «COMPROBANTE INTERNO — DOCUMENTO NO VÁLIDO COMO FACTURA» (constante única `Helpers/ComprobanteInternoLeyenda.Texto`) y el subtítulo «Comprobante interno de venta»; no cambió ningún importe, número, ruta ni id. El texto legal definitivo sigue pendiente de validación del contador (P4).
+- P1 (¿facturas fiscales fuera del ERP?) queda respondida: **sí**. P2 (facturación electrónica en el ERP): **no por ahora**. El resto de las decisiones y **P-02 siguen ABIERTAS**.
+- Las recomendaciones para identificar y conciliar comprobantes fiscales externos (campo de vínculo, importación, reporte, conciliación mensual, datos mínimos para una futura integración) están en `docs/facturacion-fiscal-externa.md`: solo documento, nada implementado.
