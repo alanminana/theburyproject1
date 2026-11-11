@@ -235,7 +235,7 @@ builder.Services.AddHttpClient<ISituacionCrediticiaBcraService, SituacionCrediti
 });
 
 // 5.5 SignalR
-builder.Services.Configure<TheBuryProject.Security.CspOptions>(builder.Configuration.GetSection(TheBuryProject.Security.CspOptions.Seccion));
+TheBuryProject.Security.CspOptionsRegistration.AddCspOptions(builder.Services, builder.Configuration);
 builder.Services.AddSignalR();
 
 // 5.7 Rate limiting: protege el webhook anónimo de Mercado Libre de floods que

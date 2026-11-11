@@ -41,7 +41,10 @@ public static class CspPolicy
         sb.Append("font-src 'self' https://fonts.gstatic.com data:; ");
         sb.Append("img-src 'self' data: blob:; ");
         sb.Append("connect-src 'self'; ");
-        sb.Append("frame-src 'self'; ");
+        // blob: solo para la vista previa PDF de DocumentosConfig (documentos-preview.js crea un blob: same-origin y lo muestra en un iframe);
+        // un blob: solo lo puede crear JavaScript del propio origen (script-src: 'self' + nonce), no amplía a terceros. Medido con
+        // Enforce en QA (2026-11-11): sin esto el iframe quedaba bloqueado (violación frame-src | blob).
+        sb.Append("frame-src 'self' blob:; ");
         sb.Append("object-src 'none'; ");
         sb.Append("base-uri 'self'; ");
         sb.Append("form-action 'self'; ");
@@ -49,6 +52,29 @@ public static class CspPolicy
         sb.Append($"report-uri {RutaReporte}");
         return sb.ToString();
     }
+}
+
+public static class CspOptionsRegistration
+{
+    /// <summary>
+    /// Registra <see cref="CspOptions"/> con validación al arrancar: un <c>Csp:Mode</c> inválido (typo, vacío, número fuera del enum,
+    /// lista "A,B") impide el inicio de la aplicación en lugar de degradarse en silencio (p. ej. a Report-Only o a Off).
+    /// El valor ausente sigue siendo Off (defecto histórico, opt-in).
+    /// </summary>
+    public static IServiceCollection AddCspOptions(this IServiceCollection services, IConfiguration configuration)
+    {
+        var seccion = configuration.GetSection(CspOptions.Seccion);
+        services.AddOptions<CspOptions>()
+            .Bind(seccion)
+            .Validate(o => Enum.IsDefined(o.Mode), "Csp:Mode inválido: use Off, ReportOnly o Enforce.")
+            .Validate(_ => ModoCrudoValido(seccion["Mode"]), "Csp:Mode presente pero vacío o inválido: use Off, ReportOnly o Enforce (o quite la clave).")
+            .ValidateOnStart();
+        return services;
+    }
+
+    // El binder ignora los strings vacíos (dejaría Off en silencio) y Enum.Parse acepta números y listas "A,B": se exige un nombre exacto.
+    private static bool ModoCrudoValido(string? crudo) =>
+        crudo is null || Enum.GetNames<CspMode>().Contains(crudo.Trim(), StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class CspMiddleware(RequestDelegate next, Microsoft.Extensions.Options.IOptionsMonitor<CspOptions> opciones)
