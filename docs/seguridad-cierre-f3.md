@@ -94,3 +94,15 @@ Hechos del código: `vendedor2` **no existe en la siembra** (`RolesPermisosSeede
 - Overposting: los view models de Usuarios, Roles, Caja, Devolución y Configuración no exponen campos sensibles (`Estado`, `Total`, `Aprobado`, `IsDeleted`, `UsuarioId`); Venta y Crédito están cubiertos por FIN-S-002 y PROMPT 90. No se escribió un test nuevo de overposting por acción.
 - Idempotencia y concurrencia de cobros: ya cubiertas por `CajaMovimientoManualIdempotenciaHttpTests`, `VentaIdempotenciaHttpTests`, `QaPrdP1IdempotenciaConcurrenciaTests` y los `SqlServerConcFact`; no se duplicó.
 - No se probó H-35 con SQL Server real ni `Secure` sobre https.
+
+---
+
+## 8. Actualización 2026-11-11 (ronda 2): rol `vendedor2` — eliminación PREPARADA, NO APLICADA
+
+Se preparó y ensayó en un clon la opción B de §2 y §6. Detalle, evidencias y procedimiento en `docs/vendedor2-eliminacion.md`; scripts `scripts/sql/vendedor2-preflight.sql`, `vendedor2-eliminar.sql`, `vendedor2-rollback.sql` y `vendedor2-huella-global.sql`. **No se aplicó nada a `TheBuryProjectDb`; falta autorización expresa del propietario y una ventana.**
+
+- **Veredicto: eliminar.** Rol inactivo, 0 usuarios (incluidos inactivos), sin referencias en ninguna otra tabla; solo 5 eventos de auditoría (texto, sin FK) que se conservan. Reversión exacta probada.
+- **Corrección a §2/§6:** `vendedor2` **no es un duplicado exacto** de `Vendedor` (13 permisos solo en `vendedor2`, entre ellos `ventas.delete` y `ventas.authorize`; 19 solo en `Vendedor`) y **sí tuvo un usuario** (JAVIER, 2026-09-29/30, vuelto luego a `Cajero + Vendedor`).
+- **Corrección a §6:** mientras el rol esté inactivo, asignarlo **no** hace efectivo `ventas.authorize`: `GetUserEffectivePermissionsAsync` descarta los roles con `RolesMetadata.Activo = 0`. El riesgo real es su **reactivación** (`ToggleRolActivo`, permiso `roles.update`).
+- **Vía:** SQL transaccional con respaldo, no la UI: `DeleteRol` no registra auditoría de éxito y borra por cascade sin copia (medido en el clon). El estado final es idéntico al del script.
+- El historial de este documento (secciones 1-7) se conserva sin cambios.
