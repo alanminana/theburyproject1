@@ -64,10 +64,8 @@ async function intentoLogin(browser, user, pass) { // true si el login emite ses
     await page.waitForTimeout(1000);
     caso('tras logout la sesion del navegador pierde acceso (302)', (await estado(ctx.request, '/Dashboard')) === 302);
     const reuso = await estado(copia.request, '/Dashboard');
-    // Las cookies de Identity no se invalidan en servidor al hacer logout salvo que se rote el SecurityStamp: se informa con exactitud.
-    // Observacion conocida (2026-11-11): el logout no revoca del lado servidor la cookie copiada antes. Falla solo con SONDEO_ESTRICTO_LOGOUT=1.
-    if (process.env.SONDEO_ESTRICTO_LOGOUT === '1') caso('REUSO de la cookie copiada ANTES del logout (302 esperado)', reuso === 302, `estado=${reuso}`);
-    else console.log(`INFO   reuso de la cookie copiada antes del logout: estado=${reuso} (200 = sigue valida hasta expirar; ver docs/seguridad-cierre-f3.md)`);
+    // Desde 2026-11-11 (decision del propietario) el logout rota el SecurityStamp: la cookie copiada antes del logout se rechaza en la solicitud siguiente.
+    caso('REUSO de la cookie copiada ANTES del logout (302 esperado)', reuso === 302, `estado=${reuso}`);
     await copia.close(); await ctx.close();
 
     // --- cambio de permisos con sesion abierta ---

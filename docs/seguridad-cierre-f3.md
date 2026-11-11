@@ -94,3 +94,19 @@ Hechos del código: `vendedor2` **no existe en la siembra** (`RolesPermisosSeede
 - Overposting: los view models de Usuarios, Roles, Caja, Devolución y Configuración no exponen campos sensibles (`Estado`, `Total`, `Aprobado`, `IsDeleted`, `UsuarioId`); Venta y Crédito están cubiertos por FIN-S-002 y PROMPT 90. No se escribió un test nuevo de overposting por acción.
 - Idempotencia y concurrencia de cobros: ya cubiertas por `CajaMovimientoManualIdempotenciaHttpTests`, `VentaIdempotenciaHttpTests`, `QaPrdP1IdempotenciaConcurrenciaTests` y los `SqlServerConcFact`; no se duplicó.
 - No se probó H-35 con SQL Server real ni `Secure` sobre https.
+
+## Actualización 2026-11-11 (decisión del propietario): el logout invalida todas las sesiones del usuario
+
+**Estado: IMPLEMENTADO en código (PR de la rama `task/logout-invalida-sesiones-20261111`); resuelve la observación 2 de la sección 3.**
+
+- **Qué hace:** `Areas/Identity/Pages/Account/Logout.cshtml.cs` reemplaza la página por defecto de Identity.UI. Al cerrar sesión rota el `SecurityStamp` del usuario y después cierra la cookie. Toda cookie emitida antes (copiada, de otro navegador o de otro dispositivo) se rechaza en su **siguiente solicitud**: `ActiveUserCookieValidator` compara el stamp contra la base en cada request, sin caché y antes del `SecurityStampValidator` estándar (que solo revalida cada 30 minutos), por lo que no depende de ningún intervalo de validación.
+- **Efecto de producto a comunicar:** cerrar sesión en un dispositivo cierra la sesión del mismo usuario en **todos** sus dispositivos y navegadores (incluidas las sesiones «recordadas»). Un login posterior emite un stamp nuevo y funciona normalmente. Las sesiones de otros usuarios no se tocan.
+- **Dónde NO se hace y por qué:** no en `CookieAuthenticationEvents.OnSigningOut`, porque ese evento también se dispara cuando el validador rechaza una cookie vieja; rotar ahí revocaría la sesión legítima y vigente del usuario. Un logout con una cookie ya revocada no rota nada (cubierto por test).
+- **GET:** `GET /Identity/Account/Logout` no cierra sesión (redirige al login); solo el POST del menú de usuario.
+- **Antiforgery:** se valida a mano. Con sesión viva, un token ausente o de otro usuario da 400 y no revoca nada (CSRF). Un doble clic hace que la segunda solicitud llegue con la sesión ya revocada: se lleva al login en vez de mostrar un 400 como respuesta final.
+- **Fallos:** si la rotación falla (concurrencia optimista de otro logout simultáneo, o error de base) se registra y el logout de la sesión actual se completa igual.
+- **Auditoría:** cada logout de una sesión viva registra `Seguridad/Logout` con `Usuario:<id>`.
+- **Costo (medido en xUnit con registro de comandos EF):** una solicitud autenticada normal ejecuta 3 comandos SQL (el SELECT del validador por PK más roles/claims del usuario); **el camino normal no cambia**. El logout ejecuta 8: los 3 de la propia solicitud más lectura del usuario, 2 SELECT de unicidad de Identity, 1 UPDATE del stamp y 1 INSERT de auditoría. Es una operación rara; no hay costo adicional por solicitud.
+- **Pruebas:** `LogoutRevocaSesionesHttpTests` (cookie copiada, varios navegadores del mismo usuario, otro usuario intacto, nuevo login, logout con cookie vieja, stamp y auditoría, GET, CSRF propio y cruzado, `returnUrl` solo local, doble envío, costo SQL). Sin la corrección fallan 9 de las 13 originales. En vivo: `scripts/qa/seguridad/sondeo-logout-multinavegador.js` (Chromium, Firefox y WebKit con sesiones propias y cookies clonadas entre motores, y logouts simultáneos contra SQL Server) y `sondeo-sesiones.js`, donde el reuso de la cookie previa pasó de informativo a **fallo estricto**.
+- **No cubierto:** `Secure` sobre https y dispositivos móviles físicos.
+
