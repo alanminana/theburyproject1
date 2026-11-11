@@ -58,7 +58,18 @@ const defs = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'lib.j
       const page = await E.nuevaPagina();
       await def.fn(E, page);
     } catch (e) { error = String(e && e.message || e).split('\n').filter((l) => /locator|waiting for|expect|Error|Timeout|page\./.test(l)).slice(0, 3).join(' / ').slice(0, 300) + ` [ultimo click: ${E.ultimo}]`; }
-    const permit = (E.permit4xx || []);
+    // Escenarios de control negativo (F2.2): violaciones PROVOCADAS a proposito. Cada patron esperado debe ocurrir al menos una vez;
+    // las coincidencias dejan de contar como fallo, el resto de violaciones sigue siendo fallo.
+    if (def.violacionesEsperadas) {
+      for (const re of def.violacionesEsperadas) {
+        const n = E.viol.filter((v) => re.test(v)).length;
+        E.check(`la violacion provocada ${re} fue detectada (${n})`, n > 0);
+        E.viol = E.viol.filter((v) => !re.test(v));
+      }
+    }
+    const permit = (def.permit4xx || E.permit4xx || []);
+    if (def.permit4xx) E.consola = E.consola.filter((c) => !/Failed to load resource: the server responded with a status of 4\d\d/.test(c));
+    if (def.permitFallidas) E.fallidas = E.fallidas.filter((f) => !def.permitFallidas.some((re) => re.test(f)));
     const http4xx = E.http4xx.filter((x) => !permit.some((re) => re.test(x)));
     const fallos = [];
     if (error) fallos.push('excepcion: ' + error);
