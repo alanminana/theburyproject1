@@ -85,6 +85,27 @@ async function logoutPost(ctx) {
     caso(`${N} rondas x ${PARALELO} logouts simultaneos de la misma sesion: 0 respuestas 5xx`, cinco === 0, `5xx=${cinco}, 302=${ok302}/${N * PARALELO}`);
     caso(`${N} rondas: la sesion queda revocada en todas`, revocadas === N, `${revocadas}/${N}`);
     caso('todas las respuestas de los logouts simultaneos son 302 (sin 400 por doble clic)', ok302 === N * PARALELO, `${ok302}/${N * PARALELO}`);
+
+    // --- logout SIMULTANEO con logins del mismo usuario (cada login escribe UltimoAcceso/AccessFailedCount sobre la misma fila) ---
+    // Revision independiente: una escritura concurrente sobre la fila del usuario no puede hacer fallar la rotacion del stamp ni dejar viva
+    // la sesion que cierra. Las sesiones creadas por los logins simultaneos pueden o no sobrevivir (depende del orden); la del logout, nunca.
+    let viva = 0; let cincoLogin = 0; const RONDAS = 5;
+    for (let i = 0; i < RONDAS; i++) {
+      const s = await sesion(motores.chromium, 'cajero');
+      const cookie = await cookieDeSesion(s);
+      const copia2 = await motores.firefox.newContext(); await copia2.addCookies(cookie);
+      const tok = await L.tokenDe(s.request);
+      const [rLogout, ...logins] = await Promise.allSettled([
+        s.request.post(`${L.BASE}/Identity/Account/Logout`, { form: { __RequestVerificationToken: tok }, maxRedirects: 0 }).then((r) => r.status()),
+        sesion(motores.firefox, 'cajero'), sesion(motores.webkit, 'cajero'), sesion(motores.chromium, 'cajero'),
+      ]);
+      if (rLogout.status !== 'fulfilled' || rLogout.value !== 302) cincoLogin++;
+      for (const l of logins) if (l.status === 'fulfilled') await l.value.close();
+      if ((await estado(copia2.request, '/Dashboard')) !== 302) viva++;
+      await copia2.close(); await s.close();
+    }
+    caso(`${RONDAS} rondas de logout simultaneo con 3 logins del mismo usuario: el logout responde 302`, cincoLogin === 0, `no-302=${cincoLogin}`);
+    caso(`${RONDAS} rondas: la cookie copiada de la sesion que cerro queda revocada SIEMPRE`, viva === 0, `vivas=${viva}`);
   } finally {
     for (const m of Object.values(motores)) await m.close().catch(() => {});
   }

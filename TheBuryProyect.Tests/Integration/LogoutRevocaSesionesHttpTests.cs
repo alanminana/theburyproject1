@@ -133,6 +133,57 @@ public class LogoutRevocaSesionesHttpTests : IClassFixture<CookieAuthWebApplicat
     }
 
     [Fact]
+    public async Task UsuarioLegadoConEmailInvalido_ElLogoutIgualRevocaLasSesiones()
+    {
+        // La rotación no pasa por UserManager.UpdateAsync: los validadores de Identity (email único/válido) no pueden dejar sesiones vivas.
+        var user = await SeedAsync("legado");
+        var otro = await SeedAsync("legado2");
+        await SetEmailAsync(user.Id, "esto-no-es-un-correo");
+        await SetEmailAsync(otro.Id, "esto-no-es-un-correo"); // además duplicado
+        var navegador = NewBrowser();
+        var cookie = ValorDeCookieDeSesion(await LoginAsync(navegador, user.UserName!));
+        Assert.Equal(HttpStatusCode.Forbidden, (await GetAjaxAsync(NewCopia(cookie), RutaProtegida)).StatusCode);
+
+        await LogoutAsync(navegador);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await GetAjaxAsync(NewCopia(cookie), RutaProtegida)).StatusCode);
+    }
+
+    [Fact]
+    public async Task EscrituraConcurrenteDelUsuario_NiImpideLaRevocacion_NiPuedeDeshacerla()
+    {
+        // Otras escrituras sobre la fila (login que actualiza UltimoAcceso, edición por un administrador) cambian RowVersion/ConcurrencyStamp.
+        var user = await SeedAsync("conc-fila");
+        var navegador = NewBrowser();
+        var cookie = ValorDeCookieDeSesion(await LoginAsync(navegador, user.UserName!));
+
+        // Un escritor de Identity que cargó el usuario ANTES del logout (con el SecurityStamp y el ConcurrencyStamp viejos).
+        using var scopeViejo = _factory.Services.CreateScope();
+        var um = scopeViejo.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var cargadoAntes = await um.FindByIdAsync(user.Id);
+        Assert.NotNull(cargadoAntes);
+
+        // Otra escritura concurrente cambia el ConcurrencyStamp justo antes del logout.
+        var otroStamp = Guid.NewGuid().ToString();
+        using (var scope = _factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.Where(u => u.Id == user.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.ConcurrencyStamp, otroStamp));
+
+        await LogoutAsync(navegador);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await GetAjaxAsync(NewCopia(cookie), RutaProtegida)).StatusCode);
+        var stampRotado = await StampAsync(user.Id);
+
+        // El escritor viejo no puede volver a escribir el SecurityStamp anterior (revivir la cookie): su UPDATE falla por concurrencia.
+        cargadoAntes!.UltimoAcceso = DateTime.UtcNow;
+        IdentityResult resultado;
+        try { resultado = await um.UpdateAsync(cargadoAntes); }
+        catch (DbUpdateConcurrencyException) { resultado = IdentityResult.Failed(); }
+        Assert.False(resultado.Succeeded, "Una escritura con el usuario cargado antes del logout debe fallar por concurrencia.");
+        Assert.Equal(stampRotado, await StampAsync(user.Id));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await GetAjaxAsync(NewCopia(cookie), RutaProtegida)).StatusCode);
+    }
+
+    [Fact]
     public async Task GetLogout_NoCierraSesion_YRedirigeAlLogin()
     {
         var user = await SeedAsync("get");
@@ -269,9 +320,10 @@ public class LogoutRevocaSesionesHttpTests : IClassFixture<CookieAuthWebApplicat
         _out.WriteLine($"[costo SQL] solicitud autenticada normal = {porSolicitud} comandos; logout = {porLogout} comandos");
         foreach (var t in comandos.Textos) _out.WriteLine("  logout> " + System.Text.RegularExpressions.Regex.Replace(t, @"\s+", " ")[..Math.Min(150, System.Text.RegularExpressions.Regex.Replace(t, @"\s+", " ").Length)]);
         // Medido: el validador de cookie hace 1 SELECT por solicitud (ya existía; no se agrega nada al camino normal).
-        // El logout suma la lectura del usuario, el UPDATE del stamp y el INSERT de auditoría.
+        // El logout suma el UPDATE del stamp y el INSERT de auditoría (el id sale de la cookie validada: no relee el usuario).
         Assert.InRange(porSolicitud, 1, 6);
-        Assert.InRange(porLogout, 3, 10);
+        Assert.InRange(porLogout, 4, 6); // los 3 propios + UPDATE del stamp + INSERT de auditoría; sin leer el usuario ni validadores de Identity
+        Assert.DoesNotContain(comandos.Textos, x => x.Contains("NormalizedEmail", StringComparison.OrdinalIgnoreCase)); // no pasa por UserManager.UpdateAsync
         Assert.True(comandos.Textos.Count(t => t.Contains("UPDATE", StringComparison.OrdinalIgnoreCase)) >= 1);
     }
 
@@ -329,7 +381,8 @@ public class LogoutRevocaSesionesHttpTests : IClassFixture<CookieAuthWebApplicat
     private static async Task LogoutAsync(HttpClient client)
     {
         var respuesta = await client.PostAsync("/Identity/Account/Logout", FormToken(await ObtenerTokenAsync(client)));
-        Assert.True(respuesta.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.OK, $"Logout respondió {(int)respuesta.StatusCode}");
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Contains("/Identity/Account/Login", respuesta.Headers.Location!.ToString());
     }
 
     private static string ValorDeCookieDeSesion(HttpResponseMessage response)
@@ -357,6 +410,13 @@ public class LogoutRevocaSesionesHttpTests : IClassFixture<CookieAuthWebApplicat
             ["Input.Password"] = Password,
             ["__RequestVerificationToken"] = token,
         }));
+    }
+
+    private async Task SetEmailAsync(string userId, string email)
+    {
+        using var scope = _factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Email, email).SetProperty(u => u.NormalizedEmail, email.ToUpperInvariant()));
     }
 
     private async Task<string?> StampAsync(string userId)

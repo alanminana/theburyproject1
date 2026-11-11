@@ -1,10 +1,12 @@
 #nullable disable
 
 using Microsoft.AspNetCore.Antiforgery;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
@@ -27,8 +29,8 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
     /// vieja, y rotar el stamp ahí revocaría la sesión legítima y vigente del usuario.
     /// </para>
     /// <para>
-    /// Costo: el logout agrega 1 SELECT (usuario) y 1 UPDATE (stamp). El camino de cada solicitud no cambia (el validador ya consultaba
-    /// el stamp por PK).
+    /// Costo: el logout agrega 1 UPDATE (stamp) y 1 INSERT (auditoría); no lee el usuario (el id sale de la cookie validada). El camino de
+    /// cada solicitud no cambia (el validador ya consultaba el stamp por PK).
     /// </para>
     /// </remarks>
     // Explícito: Program.cs define un FallbackPolicy que exige autenticación; un logout sin sesión (cookie ya vencida) debe poder completarse.
@@ -41,7 +43,6 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
     public class LogoutModel : PageModel
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<LogoutModel> _logger;
         private readonly ISeguridadAuditoriaService _auditoria;
         private readonly IAntiforgery _antiforgery;
@@ -49,7 +50,6 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
         public LogoutModel(
             SignInManager<ApplicationUser> signInManager,
-            UserManager<ApplicationUser> userManager,
             ILogger<LogoutModel> logger,
             IAntiforgery antiforgery,
             AppDbContext db,
@@ -58,7 +58,6 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
             _antiforgery = antiforgery;
             _db = db;
             _signInManager = signInManager;
-            _userManager = userManager;
             _logger = logger;
             _auditoria = auditoria;
         }
@@ -75,41 +74,44 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                 return RedirectToPage("./Login"); // sin sesión vigente: nada que cerrar
             }
 
-            string userId = null;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var revocadas = false;
-            try
+            if (!string.IsNullOrEmpty(userId))
             {
-                var user = await _userManager.GetUserAsync(User);
-                if (user != null)
+                try
                 {
-                    userId = user.Id;
-                    var resultado = await _userManager.UpdateSecurityStampAsync(user);
-                    revocadas = resultado.Succeeded;
+                    // Rotación DIRECTA en una sola sentencia (sin cargar la entidad ni pasar por UserManager.UpdateAsync):
+                    //  - no depende de los tokens de concurrencia de la fila (RowVersion / ConcurrencyStamp): un login simultáneo (que
+                    //    actualiza UltimoAcceso) o una edición del usuario por un administrador no pueden hacerla fallar;
+                    //  - no ejecuta los validadores de Identity (unicidad de email, caracteres del nombre): un usuario legado con datos
+                    //    "inválidos" también se revoca;
+                    //  - cambia el ConcurrencyStamp, así que una escritura de Identity que ya tenía cargado el usuario con el stamp
+                    //    anterior falla en vez de volver a escribir el SecurityStamp viejo (y RowVersion cambia solo en SQL Server).
+                    var nuevoSecurityStamp = Guid.NewGuid().ToString();
+                    var nuevoConcurrencyStamp = Guid.NewGuid().ToString();
+                    var filas = await _db.Users
+                        .Where(u => u.Id == userId)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(u => u.SecurityStamp, nuevoSecurityStamp)
+                            .SetProperty(u => u.ConcurrencyStamp, nuevoConcurrencyStamp));
+                    revocadas = filas == 1;
                     if (!revocadas)
-                    {
-                        // La actualización fallida queda pendiente en el DbContext de la solicitud y haría fallar el INSERT de auditoría de abajo.
-                        _db.ChangeTracker.Clear();
-                        // Típico: otro logout simultáneo del mismo usuario ya rotó el stamp (concurrencia optimista) → ya está revocado.
-                        var colision = resultado.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.ConcurrencyFailure));
-                        revocadas = colision;
-                        _logger.Log(colision ? LogLevel.Information : LogLevel.Warning,
-                            "Logout de {UserId}: no se pudo rotar el SecurityStamp ({Errores}).", userId,
-                            string.Join(", ", resultado.Errors.Select(e => e.Code)));
-                    }
+                        _logger.LogWarning("Logout de {UserId}: el usuario no existe; no hay sesiones que revocar.", userId);
                 }
-            }
-            catch (Exception ex)
-            {
-                // El cierre de la sesión del propio navegador NO depende de la revocación global: se registra y se continúa.
-                _logger.LogError(ex, "Logout de {UserId}: falló la revocación de sesiones; se cierra solo la sesión actual.", userId);
+                catch (Exception ex)
+                {
+                    // El cierre de la sesión del propio navegador NO depende de la revocación global, pero un fallo aquí deja
+                    // sesiones previas vivas: se registra como ERROR y la auditoría lo dice sin ambigüedad.
+                    _logger.LogError(ex, "Logout de {UserId}: FALLÓ la revocación de sesiones; solo se cierra la sesión actual.", userId);
+                }
             }
 
             await _signInManager.SignOutAsync();
 
-            if (userId != null && _auditoria != null)
+            if (!string.IsNullOrEmpty(userId) && _auditoria != null)
             {
                 await _auditoria.RegistrarEventoAsync("Seguridad", "Logout", $"Usuario:{userId}",
-                    revocadas ? "Cierre de sesión: todas las sesiones previas del usuario quedaron invalidadas." : "Cierre de sesión (la revocación global NO se pudo confirmar: revisar el log).");
+                    revocadas ? "Cierre de sesión: todas las sesiones previas del usuario quedaron invalidadas." : "Cierre de sesión: la revocación global NO se pudo confirmar (usuario inexistente o error de base): revisar el log.");
             }
 
             if (returnUrl != null && Url.IsLocalUrl(returnUrl))
