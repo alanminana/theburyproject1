@@ -34,7 +34,7 @@ module.exports = [
         if (!(await loc.count())) {
           const gen = page.locator('button[type=submit]:has-text("Generar")').first();
           const d = page.locator('input[name=FechaDesde]'); if (await d.count()) { await d.fill('2020-01-01'); await page.fill('input[name=FechaHasta]', '2030-12-31'); }
-          if (await gen.count()) { await Promise.all([page.waitForResponse((x) => x.request().method() === 'POST' && /\/Reporte\//.test(x.url())), gen.click()]); await page.waitForLoadState('networkidle'); E.interacciones++; loc = page.locator(e.sel).first(); }
+          if (await gen.count()) { await Promise.all([page.waitForResponse((x) => x.request().method() === 'POST' && /\/Reporte\//.test(x.url())), gen.click()]); await page.waitForLoadState('networkidle'); await page.waitForSelector(e.sel, { timeout: 25000 }).catch(() => {}); E.interacciones++; loc = page.locator(e.sel).first(); }
         }
         // sinDatos: el enlace solo se ofrece con resultados; sin movimientos sembrados se registra como NO COBERTO (no como validado)
         const hay = (await loc.count()) > 0;
