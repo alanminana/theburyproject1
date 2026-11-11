@@ -23,6 +23,10 @@ namespace TheBuryProject.Tests.E2ESeeding
     ///    (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01). Cada test convierte la suya (T11 con descuento por importe), por eso se siembran 4.
     ///    <b>No idempotente respecto de la suite</b>: una cotización ya convertida no sirve para repetir el test (base nueva por corrida).
     /// 3) <c>caja-abrir-monto-inicial.spec.js</c>: una caja activa sin turno abierto, para que <c>/Caja/Abrir</c> muestre el selector.
+    /// 5) <c>cotizacion-credito-personal-excepcion.spec.js</c> (C-03, 2026-11-11): cliente sin documentación y con consulta BCRA «OK» vigente
+    ///    (cache de 7 días del servicio real: la app no llama a internet). La configuración que ese spec y T5 del simulador necesitan
+    ///    (validación documental, Crédito personal, planes de tarjeta) NO se siembra acá: la activa y restaura
+    ///    <see cref="ConfiguracionAisladaE2ESeeder"/> solo durante el paso aislado del workflow. Se exporta como <c>E2E_CLIENTE_EXCEPCION_DNI</c>.
     ///
     /// Idempotente. Sembrar DESPUÉS de <see cref="ClienteAptitudPunitorioE2ESeeder"/> (configura DiasParaNoApto = 30).
     /// Nunca apuntar a la base de desarrollo — ver el runner.
@@ -31,6 +35,7 @@ namespace TheBuryProject.Tests.E2ESeeding
     {
         public const string UsuarioConPermisos = "administrador";
         public const string DniNoApto = "90000502";
+        public const string DniExcepcionDocumental = "90000503";
         public const string CodigoCajaLibre = "E2ECAJALIBRE";
         public const string PrefijoCotizacionConversion = "E2ECONV-";
         private const string ClienteDocumentoGenerico = "90000001";
@@ -43,10 +48,12 @@ namespace TheBuryProject.Tests.E2ESeeding
             await OtorgarPermisosPunitorioAsync(db);
             await AsegurarClienteNoAptoAsync(db);
             await AsegurarCajaLibreAsync(db);
+            await AsegurarClienteExcepcionDocumentalAsync(db);
             var cotizaciones = await AsegurarCotizacionesConversionAsync(db);
             return new Dictionary<string, string>
             {
                 ["E2E_CLIENTE_NOAPTO_DNI"] = DniNoApto,
+                ["E2E_CLIENTE_EXCEPCION_DNI"] = DniExcepcionDocumental,
                 ["E2E_COTIZACION_CONV_IDS"] = string.Join(",", cotizaciones)
             };
         }
@@ -189,6 +196,44 @@ namespace TheBuryProject.Tests.E2ESeeding
                 ids.Add(cotizacion.Id);
             }
             return ids;
+        }
+
+        /// <summary>
+        /// Cliente sin documentación cargada, sin créditos (nunca mora) y con consulta BCRA exitosa y vigente. Con
+        /// <c>ValidarDocumentacion=true</c> su aptitud real es «No apto por documentación»; con la validación apagada (dataset
+        /// compartido) es «Apto». Se usa el servicio de aptitud real, sin dobles: el cache BCRA vigente evita la llamada a internet.
+        /// </summary>
+        private static async Task AsegurarClienteExcepcionDocumentalAsync(AppDbContext db)
+        {
+            if (await db.Clientes.AnyAsync(c => c.NumeroDocumento == DniExcepcionDocumental))
+                return;
+
+            var ahora = DateTime.UtcNow;
+            db.Clientes.Add(new Cliente
+            {
+                FechaUltimaActualizacionDatos = ahora,
+                Nombre = "E2E ExcepcionDoc",
+                Apellido = "Cotizacion",
+                TipoDocumento = "DNI",
+                NumeroDocumento = DniExcepcionDocumental,
+                CuilCuit = "20900005033",
+                Telefono = "1122334455",
+                Domicilio = "Calle Falsa Excepcion 123",
+                Localidad = "CABA",
+                Provincia = "Buenos Aires",
+                Email = "e2e.excepcion.cotizacion@example.invalid",
+                Activo = true,
+                PuntajeCliente = 3,
+                SituacionCrediticiaBcra = 1,
+                SituacionCrediticiaDescripcion = "Normal",
+                SituacionCrediticiaConsultaOk = true,
+                SituacionCrediticiaUltimaConsultaUtc = ahora.AddHours(-1),
+                SituacionCrediticiaBcraUltimoExito = 1,
+                SituacionCrediticiaDescripcionUltimoExito = "Normal",
+                SituacionCrediticiaUltimoExitoUtc = ahora.AddHours(-1),
+                CreatedAt = ahora.AddDays(-400)
+            });
+            await db.SaveChangesAsync();
         }
 
         private static async Task AsegurarCajaLibreAsync(AppDbContext db)

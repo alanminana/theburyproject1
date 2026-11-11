@@ -4,27 +4,15 @@
     "titulo": "sin permiso especifico de punitorios",
     "cantidad": 1,
     "clase": "negativo por diseno",
-    "motivo": "El usuario E2E si tiene viewpunitorio; la matriz de denegacion vive en ConfiguracionPunitorioHttpTests (xUnit)."
-  },
-  {
-    "archivo": "cotizacion-credito-personal-excepcion.spec.js",
-    "titulo": "Cliente No apto por documentaci",
-    "cantidad": 1,
-    "clase": "pendiente de configuracion",
-    "motivo": "Requiere ValidarDocumentacion=true (el dataset compartido la desactiva) y BCRA alcanzable (el stack CI no tiene internet)."
-  },
-  {
-    "archivo": "cotizacion-simulador.spec.js",
-    "titulo": "T5:",
-    "cantidad": 1,
-    "clase": "pendiente de configuracion",
-    "motivo": "El dataset CI no tiene medios con varios planes (ConfiguracionPagoPlanes vacia)."
+    "motivo": "El usuario E2E si tiene viewpunitorio, asi que el escenario negativo (usuario SIN el permiso) no se puede ejecutar en esta suite. No cuenta como ejecutado: lo cubre xUnit.",
+    "cobertura": "TheBuryProyect.Tests/Integration/ConfiguracionPunitorioHttpTests: CreditoPersonal_SinViewpunitorio_NoRenderizaLaPestanaDePunitorios (render real sin la pestana), CreditoPersonal_ConViewpunitorio_RenderizaLaPestanaDePunitorios (par positivo), PreviewPunitorio_SinPermiso_DevuelveForbidden, CrearVersionPunitorio_SinNingunPermiso_DevuelveForbidden y CrearVersionPunitorio_SoloConfiguracionView_SinManagepunitorio_DevuelveForbidden"
   },
   {
     "archivo": "pr75-mora-visual-evidence.spec.js",
     "titulo": "evidencia visual Mora",
     "cantidad": 3,
     "clase": "evidencia con workflow propio",
-    "motivo": "Solo corre con E2E_MORA_VISUAL=1 en pr75-mora-visual.yml (seed MoraVisualE2ESeeder)."
+    "motivo": "Solo corre con E2E_MORA_VISUAL=1 en pr75-mora-visual.yml (seed MoraVisualE2ESeeder).",
+    "cobertura": ".github/workflows/pr75-mora-visual.yml (workflow_dispatch / cambios en el spec, el seeder o el propio workflow)"
   }
 ]
