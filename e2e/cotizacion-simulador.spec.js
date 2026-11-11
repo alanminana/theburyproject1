@@ -42,6 +42,10 @@ const EVIDENCE_DIR = path.join(process.cwd(), 'qa-evidence', 'cotiz-qa');
 
 fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 
+// C-03 (2026-11-11): T5 (@config-aislada) necesita un medio con varios planes. En CI lo prepara ConfiguracionAisladaE2ESeedRunner.Activar
+// (planes de tarjeta de crédito) solo durante ese paso del workflow; con E2E_CONFIG_AISLADA=1 la falta de ese medio es un FALLO, no una omisión.
+const MODO_CONFIG_AISLADA = process.env.E2E_CONFIG_AISLADA === '1';
+
 const VIEWPORT_DESKTOP = { width: 1366, height: 768 };
 const VIEWPORT_MOBILE  = { width: 390,  height: 844 };
 
@@ -212,7 +216,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
     // ─── T5: Agrupación expandible por medio de pago ─────────────────────────
 
-    test('T5: Agrupación expandible — parent/detail togglean visibilidad', async ({ page }) => {
+    test('T5: @config-aislada Agrupación expandible — parent/detail togglean visibilidad', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
@@ -225,7 +229,11 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         const parent = page.locator('#cotizacion-resultados-tbody tr.parent').first();
         const hasParent = await parent.count() > 0;
-        test.skip(!hasParent, 'Ningún medio con múltiples planes en este entorno');
+        if (MODO_CONFIG_AISLADA) {
+            expect(hasParent, 'Con E2E_CONFIG_AISLADA=1 el simulador debe mostrar un medio con varios planes (ConfiguracionAisladaE2ESeedRunner.Activar)').toBeTruthy();
+        } else {
+            test.skip(!hasParent, 'Ningún medio con múltiples planes en este entorno');
+        }
 
         // Por defecto el grupo está expandido (detalles visibles)
         const gkey = await parent.getAttribute('data-group');
