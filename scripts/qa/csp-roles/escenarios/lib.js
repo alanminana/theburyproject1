@@ -49,14 +49,17 @@ class Escenario {
       else if (st >= 400 && !/favicon/.test(ruta)) this.http4xx.push(`${st} ${r.request().method()} ${ruta}`);
     });
     // WebKit: descargas y visor PDF cancelan la carga del frame (Frame load interrupted): no es un fallo de red
-    page.on('requestfailed', (r) => { const u = r.url(); if (this.bloqueadas.includes(`${r.method()} ${new URL(u).pathname}`)) return; if (!FUENTES_GOOGLE.test(u) && !/\/hubs\//.test(u) && !/ERR_ABORTED|Frame load interrupted/.test(r.failure()?.errorText || '')) this.fallidas.push(`${r.method()} ${u.replace(this.opts.base, '')} ${r.failure()?.errorText}`); });
+    page.on('requestfailed', (r) => { const u = r.url(); if (this.bloqueadas.includes(`${r.method()} ${new URL(u).pathname}`)) return; if (!FUENTES_GOOGLE.test(u) && !/\/hubs\//.test(u) && !/ERR_ABORTED|NS_BINDING_ABORTED|Frame load interrupted|Load request cancelled/.test(r.failure()?.errorText || '')) this.fallidas.push(`${r.method()} ${u.replace(this.opts.base, '')} ${r.failure()?.errorText}`); });
     page.on('dialog', async (d) => { this.dialogs.push(`${d.type()}: ${d.message().slice(0, 100)}`); if (this.aceptarDialogos) await d.accept(); else await d.dismiss(); });
     page.on('framenavigated', (f) => { if (f === page.mainFrame()) this.paginas++; });
     return page;
   }
   async ir(page, ruta, espera = 'networkidle') {
-    const r = await page.goto(this.opts.base + ruta, { waitUntil: espera, timeout: 45000 });
-    return r;
+    // Tras un alta AJAX la pagina navega sola (window.location.assign): si el goto choca con esa navegacion se reintenta una vez.
+    for (let i = 0; ; i++) {
+      try { return await page.goto(this.opts.base + ruta, { waitUntil: espera, timeout: 45000 }); }
+      catch (e) { if (i >= 2 || !/interrupted by another navigation|Load request cancelled/.test(String(e.message))) throw e; await page.waitForTimeout(1000); }
+    }
   }
   async click(page, sel, desc) {
     this.ultimo = typeof sel === 'string' ? sel : String(sel);
