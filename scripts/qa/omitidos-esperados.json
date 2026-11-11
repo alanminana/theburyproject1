@@ -1,0 +1,10 @@
+[
+  { "archivo": "configuracion-punitorio.spec.js", "titulo": "sin permiso especifico de punitorios", "cantidad": 1, "clase": "negativo por diseno", "motivo": "El usuario E2E si tiene viewpunitorio; la matriz de denegacion vive en ConfiguracionPunitorioHttpTests (xUnit)." },
+  { "archivo": "cotizacion-conversion.spec.js", "titulo": "T9:", "cantidad": 1, "clase": "obsoleto", "motivo": "Guardar con cliente del sistema encadena a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01); el escenario Detalles sin convertir no es alcanzable desde el simulador." },
+  { "archivo": "cotizacion-conversion.spec.js", "titulo": "T10:", "cantidad": 1, "clase": "obsoleto", "motivo": "Idem T9." },
+  { "archivo": "cotizacion-conversion.spec.js", "titulo": "T11:", "cantidad": 1, "clase": "obsoleto", "motivo": "Idem T9." },
+  { "archivo": "cotizacion-conversion.spec.js", "titulo": "T12:", "cantidad": 1, "clase": "obsoleto", "motivo": "Idem T9." },
+  { "archivo": "cotizacion-credito-personal-excepcion.spec.js", "titulo": "Cliente No apto por documentaci", "cantidad": 1, "clase": "pendiente de configuracion", "motivo": "Requiere ValidarDocumentacion=true (el dataset compartido la desactiva) y BCRA alcanzable (el stack CI no tiene internet)." },
+  { "archivo": "cotizacion-simulador.spec.js", "titulo": "T5:", "cantidad": 1, "clase": "pendiente de configuracion", "motivo": "El dataset CI no tiene medios con varios planes (ConfiguracionPagoPlanes vacia)." },
+  { "archivo": "pr75-mora-visual-evidence.spec.js", "titulo": "evidencia visual Mora", "cantidad": 3, "clase": "evidencia con workflow propio", "motivo": "Solo corre con E2E_MORA_VISUAL=1 en pr75-mora-visual.yml (seed MoraVisualE2ESeeder)." }
+]

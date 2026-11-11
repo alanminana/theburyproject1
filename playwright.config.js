@@ -26,6 +26,8 @@ module.exports = defineConfig({
     reporter: [
         ['list'],
         ['html', { outputFolder: 'qa-evidence/e2e/playwright-report', open: 'never' }],
+        // C-03: con PLAYWRIGHT_JSON_OUTPUT_NAME (CI) se emite el JSON que consume scripts/qa/control-omitidos.js.
+        ...(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ? [['json']] : []),
     ],
     outputDir: 'qa-evidence/e2e/test-results',
 
