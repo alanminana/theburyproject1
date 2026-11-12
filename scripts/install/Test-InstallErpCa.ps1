@@ -74,6 +74,13 @@ try {
     $r = Run @('-CertPath', $twoPem, '-Sha256', $fp, '-VerifyOnly')
     Check 'archivo con dos certificados: rechazado' ($r.Code -ne 0 -and $r.Out -match 'UN certificado')
 
+    $x509 = Join-Path $tmp 'x509.crt'; (Get-Content -LiteralPath $rootPem -Raw) + "-----BEGIN X509 CERTIFICATE-----`nAAAA`n-----END X509 CERTIFICATE-----`n" | Set-Content -LiteralPath $x509 -Encoding ascii -NoNewline
+    $r = Run @('-CertPath', $x509, '-Sha256', $fp, '-VerifyOnly')
+    Check 'segundo bloque con etiqueta BEGIN X509 CERTIFICATE: rechazado' ($r.Code -ne 0)
+    $txt = Join-Path $tmp 'txt.crt'; "texto previo`n" + (Get-Content -LiteralPath $rootPem -Raw) | Set-Content -LiteralPath $txt -Encoding ascii -NoNewline
+    $r = Run @('-CertPath', $txt, '-Sha256', $fp, '-VerifyOnly')
+    Check 'texto adicional fuera del bloque PEM: rechazado' ($r.Code -ne 0)
+
     $junk = Join-Path $tmp 'junk.crt'; "-----BEGIN CERTIFICATE-----`nAAAA`n-----END CERTIFICATE-----`n" | Set-Content -LiteralPath $junk -Encoding ascii
     $r = Run @('-CertPath', $junk, '-Sha256', $fp, '-VerifyOnly')
     Check 'basura con forma de PEM: rechazada' ($r.Code -ne 0)

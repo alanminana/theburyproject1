@@ -108,6 +108,8 @@ check "bootstrap rechaza --backup-dir con caracteres raros" brej --user "$ME" --
 check "bootstrap rechaza argumento desconocido" brej --user "$ME" --allow-from 10.0.0.0/8 --foo
 check "bootstrap rechaza lista vacia (--allow-from ',')" brej --user "$ME" --allow-from ','
 check "bootstrap rechaza --admin-from vacio ',' (dejaria ufw sin SSH)" brej --user "$ME" --allow-from 10.0.0.0/8 --admin-from ','
+out=$(bootdry --allow-from 192.168.1.0/24,100.100.0.0/16,100.101.2.3); check "bootstrap ata TODO origen 100.64.0.0/10 (subred o IP) a tailscale0" grep -q '100.100.0.0/16@tailscale0 100.101.2.3@tailscale0' <<<"$out"
+out=$(bootdry --allow-from 100.128.0.0/16,100.63.1.1); check "bootstrap NO ata a tailscale0 lo que esta fuera de 100.64.0.0/10" bash -c '! grep -q tailscale0 <<<"$1"' _ "$out"
 check "bootstrap acepta CIDR@interfaz explicito" bash -c 'bash "$1" --dry-run --user "$2" --allow-from 10.0.0.0/8@wg0 >/dev/null 2>&1' _ "$BOOT" "$ME"
 check "bootstrap rechaza interfaz invalida" bash -c 'for v in "10.0.0.0/8@" "10.0.0.0/8@a b" "10.0.0.0/8@;id" "10.0.0.0/8@muy_larga_interfaz_0"; do bash "$1" --dry-run --user "$2" --allow-from "$v" >/dev/null 2>&1 && exit 1; done; exit 0' _ "$BOOT" "$ME"
 check "bootstrap rechaza --admin-from con interfaz" brej --user "$ME" --allow-from 10.0.0.0/8 --admin-from 10.0.0.0/8@wg0

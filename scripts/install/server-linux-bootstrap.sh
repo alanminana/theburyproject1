@@ -56,7 +56,11 @@ valid_list() { local s n=0; for s in ${1//,/ }; do valid_one "$s" || return 1; n
 id "$RUN_USER" >/dev/null 2>&1 || die "el usuario '$RUN_USER' no existe"
 [[ -n "$ALLOW_FROM" ]] && valid_allow "$ALLOW_FROM" || die "--allow-from es obligatorio (CSV de IPv4/CIDR[@interfaz])"
 # La red de Tailscale (100.64.0.0/10) solo se acepta si el paquete ENTRA por tailscale0 (evita suplantar un origen 100.x desde la LAN).
-FW_ALLOW=""; for s in ${ALLOW_FROM//,/ }; do [[ "$s" == 100.64.0.0/10 ]] && s=100.64.0.0/10@tailscale0; FW_ALLOW+="$s "; done; FW_ALLOW=${FW_ALLOW% }
+# Cualquier origen dentro de 100.64.0.0/10 (red, subred o IP suelta) se ata a tailscale0 si no trae interfaz propia.
+FW_ALLOW=""; for s in ${ALLOW_FROM//,/ }; do
+  if [[ "$s" != *@* && "$s" =~ ^100\.([0-9]{1,3})\. ]] && (( 10#${BASH_REMATCH[1]} >= 64 && 10#${BASH_REMATCH[1]} <= 127 )); then s="$s@tailscale0"; fi
+  FW_ALLOW+="$s "
+done; FW_ALLOW=${FW_ALLOW% }
 [[ -z "$ADMIN_FROM" ]] || valid_list "$ADMIN_FROM" || die "--admin-from invalido (CSV de IPv4/CIDR)"
 [[ "$HTTPS_PORT" =~ ^[0-9]+$ ]] && (( HTTPS_PORT >= 1 && HTTPS_PORT <= 65535 )) || die "--https-port invalido"
 [[ -z "$BACKUP_DIR" || "$BACKUP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || die "--backup-dir debe ser una ruta absoluta sin caracteres especiales"

@@ -80,6 +80,10 @@ check "rechaza politica sin tests" rejects 'p["tests"]=[]'
 check "rechaza test que contradice la politica" rejects 'p["tests"][0]["accept"].append("tag:erp:22")'
 check "rechaza sin prueba de cuenta ajena al grupo" rejects 'p["tests"]=p["tests"][:2]'
 check "rechaza grants vacios" rejects 'p["grants"]=[]'
+check "rechaza clave de nivel superior no prevista (nodeAttrs)" rejects 'p["nodeAttrs"]=[{"target":["*"],"attr":["mullvad"]}]'
+check "rechaza clave de nivel superior no prevista (hosts)" rejects 'p["hosts"]={"x":"1.2.3.4"}'
+check "rechaza identidad con comodin (*@dominio)" rejects 'p["groups"]["group:erp-usuarios"]=["*@empresa.com","luis@empresa.com"]'
+check "rechaza claves duplicadas en el JSON" bash -c 'printf "{\"grants\":[],\"grants\":[]}" >"$1"; "$2" -I "$3" "$1" >/dev/null 2>&1; [[ $? == 2 ]]' _ "$T/dup.json" "$PY" "$CHK"
 check "rechaza JSON roto (exit 2)" bash -c 'echo "{ roto" >"$1"; "$2" -I "$3" "$1" >/dev/null 2>&1; [[ $? == 2 ]]' _ "$T/roto.json" "$PY" "$CHK"
 # control: una mutacion inocua sigue siendo valida (el validador no rechaza todo)
 check "acepta una politica equivalente con otros correos" accepts 'import json as _j; s=_j.dumps(p).replace("persona1@example.com","ana@empresa.com.ar").replace("persona2@example.com","luis@empresa.com.ar"); p.clear(); p.update(_j.loads(s))'

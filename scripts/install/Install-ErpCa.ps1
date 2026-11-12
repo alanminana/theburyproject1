@@ -50,12 +50,15 @@ if ($Remove) {
 
 if (-not $CertPath) { Fail '-CertPath es obligatorio (salvo con -Remove)' }
 if (-not (Test-Path -LiteralPath $CertPath -PathType Leaf)) { Fail "no existe el archivo: $CertPath" }
-$raw = Get-Content -LiteralPath $CertPath -Raw
+# Se lee el archivo UNA vez: lo que se valida es exactamente lo que se instala (sin releer por ruta: evita TOCTOU y certificados extra).
+$bytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $CertPath).ProviderPath)
+$raw = [Text.Encoding]::ASCII.GetString($bytes)
 if ($raw -match 'PRIVATE KEY') { Fail 'el archivo contiene una CLAVE PRIVADA. No se instala: solo se distribuye el certificado publico. Avisar al administrador.' }
-$blocks = [regex]::Matches($raw, '-----BEGIN CERTIFICATE-----')
+$blocks = [regex]::Matches($raw, '-----BEGIN [A-Z0-9 ]*CERTIFICATE[A-Z0-9 ]*-----')
 if ($blocks.Count -ne 1) { Fail "se espera UN certificado en el archivo, hay $($blocks.Count)" }
+if ($raw -notmatch '(?s)^\s*-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----\s*$') { Fail 'formato no admitido: se espera un unico bloque PEM (BEGIN/END CERTIFICATE) sin texto adicional' }
 
-try { $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new((Resolve-Path -LiteralPath $CertPath).ProviderPath) }
+try { $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes) }
 catch { Fail "no es un certificado X.509 valido: $($_.Exception.Message)" }
 
 $actual = Normalize-Fingerprint $cert.GetCertHashString('SHA256')
@@ -76,5 +79,7 @@ if ($VerifyOnly) { Write-Host 'Solo verificacion (-VerifyOnly): no se modifico n
 if ($Scope -eq 'LocalMachine' -and -not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Fail '-Scope LocalMachine requiere PowerShell como administrador (o usar el valor por defecto CurrentUser)'
 }
-Import-Certificate -FilePath $CertPath -CertStoreLocation $storePath | Out-Null
+# Se agrega el OBJETO ya validado (no se relee el archivo).
+$store = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root', $Scope)
+try { $store.Open('ReadWrite'); $store.Add($cert) } finally { $store.Close() }
 Write-Host "CA instalada en $storePath. Reiniciar el navegador (Firefox: ver la guia)." -ForegroundColor Green

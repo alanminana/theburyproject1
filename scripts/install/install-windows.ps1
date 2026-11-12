@@ -201,17 +201,21 @@ else {
 if (-not $SkipFirewall) {
     Write-Step "Regla de Firewall: 443 TCP/UDP solo desde: $($AllowFrom -join ', ')"
     # 100.64.0.0/10 (Tailscale) va en su propia regla, atada al adaptador 'Tailscale': evita que un equipo de la LAN suplante un origen 100.x.
-    $tsNet = @($AllowFrom | Where-Object { $_ -eq '100.64.0.0/10' })
-    $otherNets = @($AllowFrom | Where-Object { $_ -ne '100.64.0.0/10' })
+    $isTs = { param($a) $a -match '^100\.(\d{1,3})\.' -and [int]$Matches[1] -ge 64 -and [int]$Matches[1] -le 127 }   # cualquier red/IP dentro de 100.64.0.0/10
+    $tsNet = @($AllowFrom | Where-Object { & $isTs $_ })
+    $otherNets = @($AllowFrom | Where-Object { -not (& $isTs $_) })
+    if (-not $DryRun -and $tsNet.Count -and -not (Get-NetAdapter -Name 'Tailscale' -ErrorAction SilentlyContinue)) {
+        Fail "-AllowFrom incluye una red de Tailscale pero no existe el adaptador 'Tailscale' (instalar y conectar Tailscale primero, o quitar ese origen). No se modifico el firewall."
+    }
     if ($DryRun) {
         if ($otherNets.Count) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallName' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress $($otherNets -join ',')" }
-        if ($tsNet.Count) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallNameTs' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress 100.64.0.0/10 -InterfaceAlias Tailscale" }
+        if ($tsNet.Count) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallNameTs' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress $($tsNet -join ',') -InterfaceAlias Tailscale" }
     }
     else {
         foreach ($fn in @($FirewallName, $FirewallNameTs)) { if (Get-NetFirewallRule -DisplayName $fn -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -DisplayName $fn } }
         foreach ($proto in @('TCP', 'UDP')) {
             if ($otherNets.Count) { New-NetFirewallRule -DisplayName $FirewallName -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress $otherNets -Profile Any | Out-Null }
-            if ($tsNet.Count) { New-NetFirewallRule -DisplayName $FirewallNameTs -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress '100.64.0.0/10' -InterfaceAlias 'Tailscale' -Profile Any | Out-Null }
+            if ($tsNet.Count) { New-NetFirewallRule -DisplayName $FirewallNameTs -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress $tsNet -InterfaceAlias 'Tailscale' -Profile Any | Out-Null }
         }
         Write-Ok 'regla(s) creada(s) (no se publican 8080 ni 1433)'
     }

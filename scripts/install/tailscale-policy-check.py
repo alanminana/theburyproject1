@@ -17,6 +17,7 @@ from pathlib import Path
 DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "deploy" / "tailscale" / "policy.hujson"
 ALLOWED_PORTS = {("tcp", 443), ("udp", 443)}  # HTTPS + HTTP/3 de Caddy. Nada mas.
 SERVER_TAG = "tag:erp"
+ALLOWED_TOP = {"groups", "tagOwners", "grants", "tests"}  # lista blanca: cualquier otra clave se rechaza
 BROAD_SRC = {"*", "autogroup:member", "autogroup:admin", "autogroup:owner", "autogroup:tagged", "autogroup:shared",
              "autogroup:internet", "autogroup:self"}
 FORBIDDEN_TOP = {
@@ -67,8 +68,16 @@ def strip_hujson(text: str) -> str:
     return s
 
 
+def _no_dupes(pairs):
+    keys = [k for k, _ in pairs]
+    dup = {k for k in keys if keys.count(k) > 1}
+    if dup:
+        raise ValueError(f"claves duplicadas en el JSON: {sorted(dup)}")
+    return dict(pairs)
+
+
 def load(path: Path) -> dict:
-    return json.loads(strip_hujson(path.read_text(encoding="utf-8")))
+    return json.loads(strip_hujson(path.read_text(encoding="utf-8")), object_pairs_hook=_no_dupes)
 
 
 def parse_ip(entry: str):
@@ -125,6 +134,9 @@ def ip_allowed(ip: str):
 
 def validate(policy: dict, require_real: bool):
     errs = []
+    unknown_top = set(policy) - ALLOWED_TOP
+    if unknown_top:
+        errs.append(f"claves de nivel superior no permitidas: {sorted(unknown_top)} (lista blanca: {sorted(ALLOWED_TOP)})")
     for k, why in FORBIDDEN_TOP.items():
         if policy.get(k):
             errs.append(f"la politica define {k}: prohibido ({why})")
@@ -174,7 +186,7 @@ def validate(policy: dict, require_real: bool):
     if len(members) < 2:
         errs.append(f"se esperan al menos 2 identidades independientes, hay {len(members)}")
     for m in members:
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", m):
+        if not re.fullmatch(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", m):
             errs.append(f"identidad invalida: {m!r}")
     if require_real:
         for m in sorted(members):
