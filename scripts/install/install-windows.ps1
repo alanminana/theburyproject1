@@ -124,7 +124,7 @@ if (-not $DryRun -and -not (Test-Admin)) { Fail 'Ejecutar PowerShell como Admini
 # ----------------------------------------------------------------------------------------------------- desinstalar
 if ($Uninstall) {
     Write-Step 'Quitando tareas programadas y regla de firewall'
-    foreach ($t in @("$TaskPrefix Backup Full", "$TaskPrefix Backup Log", "$TaskPrefix Restore Test", "$TaskPrefix Docker Start")) {
+    foreach ($t in @("$TaskPrefix Backup Full", "$TaskPrefix Backup Log", "$TaskPrefix Restore Test", "$TaskPrefix Check Custody", "$TaskPrefix Docker Start")) {
         if ($DryRun) { Write-Dry "Unregister-ScheduledTask '$t'"; continue }
         if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $t -Confirm:$false; Write-Ok "tarea '$t' eliminada" }
     }
@@ -221,7 +221,9 @@ if (-not $SkipTasks) {
     $tasks = @(
         @{ Name = "$TaskPrefix Backup Full"; Script = 'scripts/backup/backup.sh all'; Trigger = (New-ScheduledTaskTrigger -Daily -At $FullBackupAt) },
         @{ Name = "$TaskPrefix Backup Log"; Script = 'scripts/backup/backup.sh log'; Trigger = (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes $LogEveryMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)) },
-        @{ Name = "$TaskPrefix Restore Test"; Script = 'scripts/backup/restore-test.sh'; Trigger = (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '04:30') }
+        @{ Name = "$TaskPrefix Restore Test"; Script = 'scripts/backup/restore-test.sh'; Trigger = (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '04:30') },
+        # Verificacion de custodia de claves (solo lectura; exit 11 = custodia insegura; publica monitor-status/custody.json)
+        @{ Name = "$TaskPrefix Check Custody"; Script = 'scripts/backup/check-custody.sh --quiet'; Trigger = (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '05:30') }
     )
     foreach ($t in $tasks) {
         if ($DryRun) { Write-Dry "tarea '$($t.Name)': wsl.exe -d $Distro -- bash -lc 'cd $RepoPath && /bin/bash $($t.Script)'"; continue }
