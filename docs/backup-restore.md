@@ -157,6 +157,27 @@ y, en SFTP, la host key (`KNOWN_HOSTS_FILE`); el centinela no hace falta.
   No se ejecuta la retención local tras un fallo y no se borra ningún backup histórico.
 - Sin `BACKUP_REMOTE`, cada corrida avisa con `WARN` que los backups están solo en este servidor.
 
+### 6.5 SFTP: configuración y simulacros (2026-11-12)
+
+Para un SFTP externo basta `backup-offsite.env` y `.env` (host, puerto, usuario, contraseña o clave privada, `known_hosts`). El overlay
+`docker-compose.offsite-sftp.yml` monta en solo lectura `BACKUP_OFFSITE_SSH_DIR` (directorio 700 fuera del repo con `known_hosts` y, opcional,
+la clave privada) como `/config` en los contenedores rclone. **Fijar siempre la host key**: sin `known_hosts` rclone acepta cualquier servidor
+(`backup.sh` lo avisa con WARN). **Con crypt, `BACKUP_OFFSITE_MARKER` es obligatorio**: una password crypt errónea no falla al subir, deja un
+árbol paralelo ilegible. Detalle y resultados en `docs/backup-sftp-simulacros.md`.
+
+Arnés `scripts/backup/test-offsite-sftp.sh` (Linux/WSL2, SFTP descartable con credenciales sintéticas, también en CI: `backup-offsite-sftp.yml`):
+subida cifrada con nombres opacos, `deletefile` sobre crypt+SFTP con mínimo de copias, borrado denegado (exit 6 sin borrar más), cinco fallos de
+conexión con causa legible y recuperación en la corrida siguiente, corrupción remota/local rechazada, pérdida total recuperada solo desde el SFTP
+(misma base y archivos), password crypt errónea. No prueba un proveedor real (inmutabilidad, cuotas, cortes largos).
+
+### 6.6 Custodia de claves y alertas
+
+Las claves de descifrado y el material de recuperación **no** van junto a los respaldos cifrados ni en el servidor de backup: modelo, rotación y
+actuación ante compromiso en `docs/backup-custodia.md`. `scripts/backup/check-custody.sh` (semanal por cron/tarea) verifica permisos, archivos con aspecto de
+clave en `BACKUP_DIR`/destino offsite, secretos en logs, passwords crypt distintas y presencia de `BACKUP_REQUIRE_OFFSITE`; sale con 11 si falla y escribe
+`monitor-status/custody.json`. `restore-test.sh --offsite` baja el último full desde el remoto (pasando por crypt) y lo restaura en una base aislada
+`<db>_OffsiteRestoreTest`. `monitor.py` alerta `backup.custody` (8/15 d) y `backup.offsite-restore-test` (35/45 d; sin cron automático: programarlo mensual).
+
 ## 7. Consistencia de los archivos
 
 Solo `app` escribe en `keys`, `uploads` y `App_Data`. Se eligió la opción más simple y segura: **detener `app` ~10–15 s** durante
@@ -352,6 +373,7 @@ contrato de `App_Data`; y comprobar que una sesión abierta **antes** del desast
 | 8 | prerequisito: docker/compose ausente, `db` detenido o SQL sin responder |
 | 9 | restore rechazado o fallido (`restore-*.sh`, `restore-test.sh`) |
 | 10 | `app` no volvió a `healthy` tras detenerla para el backup, o falló la recuperación de una corrida interrumpida (§7.1) |
+| 11 | `check-custody.sh`: la verificación de custodia de claves falló (ver `docs/backup-custodia.md`) |
 
 Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta retención. Logs en `$BACKUP_DIR/logs/backup.log`
 (sin passwords ni connection strings: `sa` se lee dentro del contenedor `db`; el proveedor externo solo en `backup-offsite`).
@@ -367,8 +389,10 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 
 ## 14. Pendientes específicos de backup/restore
 
-- **Proveedor externo real no configurado (decisión del usuario)**: probado el 2026-10-29 con (a) disco externo simulado (`local` + `crypt`) y
-  (b) servidor SFTP en contenedor (`sftp` + `crypt`), sin credenciales reales. Falta elegir destino (6.1), completar `backup-offsite.env`,
+- **Proveedor externo real no configurado (decisión del usuario)**: probado el 2026-10-29 y el 2026-11-12 (§6.5, 86 comprobaciones) con (a) disco externo
+  simulado (`local` + `crypt`) y (b) servidor SFTP en contenedor (`sftp` + `crypt`), con credenciales sintéticas; recuperación completa desde el SFTP verificada.
+  Sigue sin probarse un proveedor real (inmutabilidad, cuotas, cortes largos), ni la custodia real (§6.6: la passphrase y el `.enc` siguen juntos en el
+  servidor de preproducción hasta que el propietario arme las dos custodias). Falta elegir destino (6.1), completar `backup-offsite.env`,
   `BACKUP_REQUIRE_OFFSITE=true`, el centinela (disco/NAS) o la host key (SFTP) y repetir el ensayo de 10.1 con la base real.
 - Cifrado `crypt`: **probado** (nombres y contenido cifrados; alteración detectada). Falta guardar las dos passwords fuera del servidor.
 - Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba). En Windows las tareas
