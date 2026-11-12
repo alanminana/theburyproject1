@@ -67,7 +67,9 @@ public class TransicionCuentasCookieHttpTests : IClassFixture<CookieAuthWebAppli
         var b = await CrearAsync("adm-b", Roles.SuperAdmin);
         await FijarSuperAdminsAsync(a, b);
         var sA = Navegador(); await LoginAsync(sA, a.UserName!);
-        var sB = Navegador(); await LoginAsync(sB, b.UserName!);
+        var sB = Navegador(); var loginB = await LoginAsync(sB, b.UserName!);
+        var cookieVieja = loginB.Headers.GetValues("Set-Cookie")
+            .First(v => v.StartsWith(".AspNetCore.Identity.Application=", StringComparison.Ordinal)).Split(';')[0];
 
         // A da de baja a B (permitido: queda A) y B pierde la sesión.
         await PostAsync(sA, "/Usuarios/Desactivar", ("id", b.Id));
@@ -83,7 +85,12 @@ public class TransicionCuentasCookieHttpTests : IClassFixture<CookieAuthWebAppli
         // Recuperación: A reactiva a B; B vuelve con login nuevo (la cookie vieja no revive).
         await PostAsync(sA, "/Usuarios/Reactivar", ("id", b.Id));
         Assert.True(await ActivoAsync(b.Id));
-        Assert.Equal(HttpStatusCode.Unauthorized, (await AdminAsync(sB)).StatusCode);
+        // Cookie vieja reenviada a mano (sin jar): el stamp rotado en la baja impide que reviva.
+        var viejo = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = false });
+        var reqViejo = new HttpRequestMessage(HttpMethod.Get, "/Seguridad");
+        reqViejo.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        reqViejo.Headers.Add("Cookie", cookieVieja);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await viejo.SendAsync(reqViejo)).StatusCode);
         var sB2 = Navegador(); await LoginAsync(sB2, b.UserName!);
         Assert.Equal(HttpStatusCode.OK, (await AdminAsync(sB2)).StatusCode);
         Assert.Equal(2, await SuperAdminUtilizablesAsync());
