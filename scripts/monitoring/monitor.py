@@ -336,39 +336,60 @@ class Collector:
                     self.emit("backup.run-" + mode, "INFO" if status["exit"] == 0 else "CRITICAL", f"exit={status['exit']}; at={status['time']}")
                 self.safe("backup.run-" + mode, check)
 
-    def restore_test(self):
-        """Prueba de restore semanal (monitor-status/restore-test.json). Umbrales por defecto coherentes con cron semanal:
-        warning a los 8 dias sin exito verificado, critical a los 10. Sin archivo: no se alerta durante la ventana normal
-        previa a la primera ejecucion (se mide desde la primera observacion del monitor); pasada esa ventana, se alerta."""
-        cfg = self.cfg.get("restore_test", {})
-        warning, critical = cfg.get("warning", 8 * 86400), cfg.get("critical", 10 * 86400)
+    def restore_test(self, name="restore-test", cfg_key="restore_test", defaults=(8 * 86400, 10 * 86400)):
+        """Prueba periodica con estado en monitor-status/<name>.json (escrito por restore_test_status de scripts/backup/lib.sh).
+        Sirve para: restore-test (semanal: warning a los 8 dias sin exito verificado, critical a los 10), offsite-restore-test
+        (restore DESDE la copia externa) y custody (verificacion de custodia de claves). Sin archivo: no se alerta durante la
+        ventana normal previa a la primera ejecucion (se mide desde la primera observacion del monitor); pasada esa ventana, se
+        alerta. El mensaje del estado ya viene sanitizado (sin secretos) y se recorta a 200 caracteres."""
+        cfg = self.cfg.get(cfg_key, {})
+        warning, critical = cfg.get("warning", defaults[0]), cfg.get("critical", defaults[1])
         now = time.time()
-        path = Path(self.cfg["backup_dir"]) / "monitor-status" / "restore-test.json"
-        key = "backup.restore-test"
+        path = Path(self.cfg["backup_dir"]) / "monitor-status" / (name + ".json")
+        key = "backup." + name
+        first_key = name.replace("-", "_") + ".first_seen"
         try:
             status = json.loads(path.read_text())
             attempt, exit_code = float(status["time"]), int(status["exit"])
             last_ok = status.get("last_success")
             last_ok = float(last_ok) if last_ok is not None else None
         except FileNotFoundError:
-            first = self.store.get("restore_test.first_seen")
+            first = self.store.get(first_key)
             if first is None:
                 first = now
-                self.store.put("restore_test.first_seen", first)
+                self.store.put(first_key, first)
             self.threshold(key, now - first, warning, critical)
-            self.signals[key]["detail"] = "restore-test never executed; " + self.signals[key]["detail"]
+            self.signals[key]["detail"] = f"{name} never executed; " + self.signals[key]["detail"]
             return
         except Exception:
-            self.emit(key, "CRITICAL", "restore-test status invalid")
+            self.emit(key, "CRITICAL", f"{name} status invalid")
             return
         if attempt - now > 60:
-            self.emit(key, "CRITICAL", "restore-test status has future timestamp")
+            self.emit(key, "CRITICAL", f"{name} status has future timestamp")
             return
         if exit_code != 0 or status.get("verified") is not True:
             message = str(status.get("message", ""))[:200]
-            self.emit(key, "CRITICAL", f"last restore-test FAILED: exit={exit_code}; at={attempt:.0f}; last_success={last_ok}; {message}")
+            self.emit(key, "CRITICAL", f"last {name} FAILED: exit={exit_code}; at={attempt:.0f}; last_success={last_ok}; {message}")
             return
         self.threshold(key, now - (last_ok if last_ok is not None else attempt), warning, critical)
+
+    def offsite_restore_test(self):
+        """Restore DESDE la copia externa (restore-test.sh --offsite): prueba que lo subido se descarga, descifra (crypt vigente),
+        coincide con su sha256 de origen y restaura. enabled: "auto" (default) = solo si ya hubo copia externa (existe
+        monitor-status/offsite-sql.json); true/false fuerzan. Mensual por defecto: warning 35 dias, critical 45."""
+        cfg = self.cfg.get("offsite_restore_test", {})
+        enabled = cfg.get("enabled", "auto")
+        if enabled == "auto":
+            enabled = (Path(self.cfg["backup_dir"]) / "monitor-status" / "offsite-sql.json").exists()
+        if enabled:
+            self.restore_test("offsite-restore-test", "offsite_restore_test", (35 * 86400, 45 * 86400))
+
+    def custody(self):
+        """Verificacion de custodia de claves (check-custody.sh --> monitor-status/custody.json). Un FAIL de custodia es CRITICAL
+        hasta que una corrida posterior pase; sin corridas recientes sube a warning/critical (semanal: 8 / 15 dias).
+        enabled=false lo desactiva (p. ej. entornos sin copia externa)."""
+        if self.cfg.get("custody", {}).get("enabled", True):
+            self.restore_test("custody", "custody", (8 * 86400, 15 * 86400))
 
     def collect(self):
         self.signals = {}
@@ -387,6 +408,8 @@ class Collector:
         self.safe("disks", self.disks)
         self.safe("backups", self.backups)
         self.safe("restore-test", self.restore_test)
+        self.safe("offsite-restore-test", self.offsite_restore_test)
+        self.safe("custody", self.custody)
         if self.slow:
             self.safe("sql", self.sql)
             self.safe("tls", lambda: self.threshold("tls.expiry", -tls_days(base), -21, -7))
