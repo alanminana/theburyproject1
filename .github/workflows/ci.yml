@@ -312,8 +312,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Politica de Tailscale (grants, aislamiento, revocacion)
-        run: bash scripts/install/test-tailscale-policy.sh
+      - name: Politica de Tailscale (roles usuario/administrador, aislamiento, revocacion individual)
+        run: |
+          python3 scripts/install/tailscale-policy-check.py deploy/tailscale/policy.hujson --profile linux-vm
+          python3 scripts/install/tailscale-policy-check.py deploy/tailscale/policy.windows.hujson --profile windows
+          bash scripts/install/test-tailscale-policy.sh
+
+      - name: Modelo de acceso del host (la LAN solo web; administracion solo tailnet o equipos /32)
+        run: bash scripts/install/test-access-model.sh
 
       - name: Firewall de puertos publicados (DOCKER-USER) con clientes en redes distintas
         run: sudo bash scripts/install/test-firewall-isolation.sh
@@ -403,6 +409,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Modelo de acceso de Windows 11 (reglas sinteticas; no toca el firewall)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-RemoteAccessModel.ps1
 
       - name: Check-ErpHealth (escenarios simulados, incluye modo VM)
         shell: powershell

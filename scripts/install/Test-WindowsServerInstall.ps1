@@ -35,6 +35,12 @@ Check 'Test-Cidr rechaza basura' { -not ((Test-Cidr '256.1.1.1/24') -or (Test-Ci
 Check 'Get-NetworkCidr /24' { (Get-NetworkCidr '192.168.1.50/24') -eq '192.168.1.0/24' }
 Check 'Get-NetworkCidr /22 y /10' { ((Get-NetworkCidr '10.20.7.9/22') -eq '10.20.4.0/22') -and ((Get-NetworkCidr '100.100.1.1/10') -eq '100.64.0.0/10') }
 Check 'Test-SameSubnet' { (Test-SameSubnet '192.168.1.50/24' '192.168.1.1') -and -not (Test-SameSubnet '192.168.1.50/24' '192.168.2.1') }
+Check 'Test-AdminSource acepta equipos /32 y la tailnet (minimo privilegio)' { (Test-AdminSource '192.168.1.5') -and (Test-AdminSource '192.168.1.5/32') -and (Test-AdminSource '100.64.0.0/10') -and (Test-AdminSource '100.101.2.3') -and (Test-AdminSource '100.100.0.0/16') }
+Check 'Test-AdminSource rechaza redes LAN completas y rangos amplios' { -not ((Test-AdminSource '192.168.1.0/24') -or (Test-AdminSource '10.0.0.0/8') -or (Test-AdminSource '100.0.0.0/8') -or (Test-AdminSource '100.64.0.0/9') -or (Test-AdminSource '172.16.0.0/12')) }
+Check 'Test-AdminSource rechaza equipos publicos y 0.0.0.0 (la administracion no se abre a Internet)' { -not ((Test-AdminSource '8.8.8.8') -or (Test-AdminSource '0.0.0.0') -or (Test-AdminSource '100.128.0.1') -or (Test-AdminSource '172.32.0.1') -or (Test-AdminSource '8.8.8.8/32')) }
+Check 'Test-AdminSource acepta RFC 1918' { (Test-AdminSource '10.1.2.3') -and (Test-AdminSource '172.16.0.9') -and (Test-AdminSource '172.31.255.1') -and (Test-AdminSource '192.168.0.5') }
+Check 'Test-AdminSource rechaza basura' { -not ((Test-AdminSource '256.1.1.1') -or (Test-AdminSource '1.2.3') -or (Test-AdminSource 'a; id')) }
+Check 'Get-HostIpOnNetwork sin red de la VM devuelve $null' { $null -eq (Get-HostIpOnNetwork '') }
 
 # --- cloud-init ----------------------------------------------------------------------------------------------------
 $pub = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFakeFakeFakeFakeFakeFakeFakeFakeFake thebury-server'
