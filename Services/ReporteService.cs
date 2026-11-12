@@ -299,6 +299,8 @@ namespace TheBuryProject.Services
                     var ventasSinDesglose = new List<(int VentaId, decimal Total)>();
                     foreach (var venta in ventasIva)
                     {
+                        // P-02 / P5: la venta se relee con el criterio fiscal con el que nació, no con el vigente.
+                        var criterio = CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
                         var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
                         var lineasSinDesglose = detalles.Where(SinDesglose).ToList();
                         foreach (var d in lineasSinDesglose.Where(d => !filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value))
@@ -320,14 +322,14 @@ namespace TheBuryProject.Services
                         var servicios = detalles.Sum(d => d.ArmadoSubtotal) + envioIncluido;
                         if (servicios > 0m)
                         {
-                            var (neto, iva) = ServiciosVentaIva.Separar(servicios);
-                            items.Add((ServiciosVentaIva.Porcentaje, servicios, neto, iva));
+                            var (neto, iva) = criterio.SepararServicios(servicios);
+                            items.Add((criterio.AlicuotaServicios, servicios, neto, iva));
                         }
 
                         if (items.Count == 0)
                             continue;
 
-                        foreach (var parte in RecargoMedioPagoIva.ResumenPorAlicuota(venta.Total, items))
+                        foreach (var parte in criterio.ResumenPorAlicuota(venta.Total, items))
                         {
                             if (filtro.Alicuota.HasValue && parte.Porcentaje != filtro.Alicuota.Value)
                                 continue;
