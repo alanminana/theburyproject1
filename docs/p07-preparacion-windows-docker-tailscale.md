@@ -1,6 +1,7 @@
 # P-07 — Preparación del despliegue en Windows + Docker Desktop + Tailscale
 
 Fecha: 2026-11-07. Estado: **preparación; no se instaló ni se modificó ninguna infraestructura real** ni se tocó la base real.
+Nota 2026-11-12: la plataforma principal pasó a ser Windows Server (Hyper-V + VM Linux, ver `instalacion-windows-server.md`); este documento aplica a la alternativa Windows 11.
 Decisiones del propietario ya tomadas (2026-11-07, `docs/propuesta-infraestructura-produccion.md` §7): host **Windows 11 + Docker Desktop (WSL2)**,
 acceso remoto **Tailscale**, copia externa **SFTP**, sin alertas por ahora.
 

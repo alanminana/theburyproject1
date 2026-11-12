@@ -29,6 +29,8 @@ services:
     <<: *runtime
     image: mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090
     restart: unless-stopped
+    # Cierre ordenado: SQL Server necesita tiempo para hacer checkpoint al apagar el host/VM (docker stop mata a los 10 s por defecto).
+    stop_grace_period: 60s
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Definir MSSQL_SA_PASSWORD en .env}

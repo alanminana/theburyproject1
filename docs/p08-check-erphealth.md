@@ -46,3 +46,17 @@ powershell -ExecutionPolicy Bypass -File scripts\install\Test-ErpHealth.ps1
 ```
 
 Pendiente (requiere el servidor real): ejecutarlo contra el stack levantado para validar la ruta `wsl.exe` → `monitor-status` y `curl.exe --resolve`, que en las pruebas simuladas están sustituidas.
+
+## Modo Windows Server (`-VmHost`)
+
+Con la VM Hyper-V de `docs/instalacion-windows-server.md`, Docker, los backups (`monitor-status`), `systemd` y Tailscale se consultan **por SSH (solo lectura)** dentro de la VM,
+y el estado de la VM (latido, autoarranque, apagado, checkpoints) por Hyper-V:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install\Check-ErpHealth.ps1 -VmHost 192.168.1.50 `
+    -VmKey C:\ProgramData\TheBury\server\bury_vm_ed25519 -VmKnownHosts C:\ProgramData\TheBury\server\known_hosts
+```
+
+Parámetros: `-VmHost` (activa el modo), `-VmName` (TheBury-ERP), `-VmUser` (bury), `-VmKey`, `-VmKnownHosts`. En este modo no se evalúan las tareas programadas de Windows
+(los backups los programa `cron` en la VM; se verifica `/etc/cron.d/bury-backup`). `StrictHostKeyChecking=yes`: usa el `known_hosts` que creó el instalador.
+Las pruebas simuladas (`Test-ErpHealth.ps1`) cubren 17 escenarios de este modo; la ruta SSH real contra una VM Hyper-V sigue pendiente de validar en el servidor.

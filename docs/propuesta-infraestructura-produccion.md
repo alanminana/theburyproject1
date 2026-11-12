@@ -84,3 +84,10 @@ Otros pendientes: alerta activa ante fallo (webhook + observador externo tipo Up
 4. **SFTP no expone hash remoto**: la verificación es byte a byte (más lenta, pero válida).
 
 Nada de esto bloquea el código ni el repo; son tareas de puesta en marcha del host. El drill de recuperación completo sigue siendo el criterio de aceptación.
+
+## 8. Actualización de la decisión de host (2026-11-12)
+
+El propietario fijó **Windows Server como plataforma principal** y **Windows 11 como alternativa**; el ERP sigue en Docker Compose.
+Para Windows Server se eligió **Hyper-V con una VM Ubuntu + Docker Engine** (Docker Desktop no está soportado en Server). Para Windows 11 se conserva
+Docker Desktop + WSL2 (la decisión de 2026-11-07 de esta propuesta, §7). Implementación, procedimiento, pruebas y pendientes:
+[`instalacion-windows-server.md`](instalacion-windows-server.md). Los riesgos aceptados de §7 (sin UPS, sin alertas, clave y paquete de recuperación en el mismo disco) siguen vigentes.

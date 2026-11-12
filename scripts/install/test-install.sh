@@ -81,6 +81,54 @@ check "rechaza backup-dir relativo" rej --admin-email a@example.com --backup-dir
 check "rechaza backup-dir con caracteres raros" rej --admin-email a@example.com --backup-dir '/srv/a b;rm'
 check "rechaza argumento desconocido" rej --admin-email a@example.com --foo
 
+# --- Windows Server (VM Hyper-V): bootstrap Linux y firewall de puertos publicados ----------------------------------------------
+BOOT="$HERE/server-linux-bootstrap.sh"; FW="$HERE/bury-firewall.sh"
+check "bash -n server-linux-bootstrap.sh" bash -n "$BOOT"
+check "bash -n bury-firewall.sh" bash -n "$FW"
+ME=$(id -un)
+bootdry() { bash "$BOOT" --dry-run --user "$ME" "$@" 2>&1; }
+out=$(bootdry --allow-from 192.168.1.0/24,100.64.0.0/10 --admin-from 192.168.1.0/24 --backup-dir /srv/bury-test --tailscale); rc=$?
+check "bootstrap --dry-run completo (rc=0)" test "$rc" = 0
+check "bootstrap: Docker Engine desde el repo oficial" grep -q 'download.docker.com/linux/ubuntu/gpg' <<<"$out"
+check "bootstrap: shutdown-timeout 60 en daemon.json" grep -q 'docker' <<<"$out"
+check "bootstrap: firewall con las dos redes" grep -q '192.168.1.0/24 100.64.0.0/10' <<<"$out"
+check "bootstrap: ufw solo SSH desde --admin-from" grep -q 'ufw allow from 192.168.1.0/24 to any port 22 proto tcp' <<<"$out"
+check "bootstrap: Tailscale solo si se pide" grep -q 'tailscaled' <<<"$out"
+out=$(bootdry --allow-from 192.168.1.0/24); 
+check "bootstrap sin --admin-from NO activa ufw" bash -c '! grep -q "ufw --force enable" <<<"$1" && grep -q "sin --admin-from" <<<"$1"' _ "$out"
+brej() { bash "$BOOT" --dry-run "$@" >/dev/null 2>&1; [[ $? != 0 ]]; }
+check "bootstrap rechaza falta de --allow-from" brej --user "$ME"
+check "bootstrap rechaza CIDR invalido" brej --user "$ME" --allow-from '10.0.0.0/33'
+check "bootstrap rechaza inyeccion en --allow-from" brej --user "$ME" --allow-from '10.0.0.0/8;id'
+check "bootstrap rechaza usuario inexistente" brej --user no_existe_zzz --allow-from 10.0.0.0/8
+check "bootstrap rechaza --backup-dir con caracteres raros" brej --user "$ME" --allow-from 10.0.0.0/8 --backup-dir '/srv/a b'
+check "bootstrap rechaza argumento desconocido" brej --user "$ME" --allow-from 10.0.0.0/8 --foo
+
+# bury-firewall.sh con un iptables simulado (registra los argumentos; -D falla para cortar el bucle de limpieza)
+cat >"$T/ipt" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >>"$IPT_LOG"
+for a in "$@"; do [[ "$a" == -D ]] && exit 1; done
+exit 0
+STUB
+chmod +x "$T/ipt"
+printf 'ALLOW_FROM="192.168.1.0/24 100.64.0.0/10"\nHTTPS_PORT=443\n' >"$T/fw.conf"
+IPT_LOG="$T/ipt.log" BURY_IPTABLES="$T/ipt" BURY_FW_CONF="$T/fw.conf" bash "$FW" apply >/dev/null 2>&1; rc=$?
+check "bury-firewall apply (rc=0)" test "$rc" = 0
+check "firewall: enganchada al inicio de DOCKER-USER" grep -qx -- '-I DOCKER-USER 1 -j BURY-ERP' "$T/ipt.log"
+check "firewall: RETURN para cada red y protocolo (4 reglas)" test "$(grep -c -- '-j RETURN' "$T/ipt.log")" = 5
+check "firewall: DROP del puerto original 443 para el resto (tcp y udp)" test "$(grep -c -- 'ctorigdstport 443 --ctdir ORIGINAL -j DROP' "$T/ipt.log")" = 2
+check "firewall: los DROP van DESPUES de los RETURN" bash -c 'a=$(grep -n -- "-s 100.64.0.0/10 -j RETURN" "$1" | tail -1 | cut -d: -f1); b=$(grep -n -- "-j DROP" "$1" | head -1 | cut -d: -f1); [[ $a -lt $b ]]' _ "$T/ipt.log"
+printf 'ALLOW_FROM=""\n' >"$T/fw-empty.conf"
+check "firewall: ALLOW_FROM vacio no aplica nada" bash -c '! IPT_LOG=/dev/null BURY_IPTABLES="$1" BURY_FW_CONF="$2" bash "$3" apply >/dev/null 2>&1' _ "$T/ipt" "$T/fw-empty.conf" "$FW"
+printf 'ALLOW_FROM="10.0.0.0/8; id"\n' >"$T/fw-bad.conf"
+check "firewall: valor invalido en ALLOW_FROM se rechaza" bash -c '! IPT_LOG=/dev/null BURY_IPTABLES="$1" BURY_FW_CONF="$2" bash "$3" print >/dev/null 2>&1' _ "$T/ipt" "$T/fw-bad.conf" "$FW"
+printf 'ALLOW_FROM="10.0.0.0/8"\nHTTPS_PORT=99999\n' >"$T/fw-port.conf"
+check "firewall: puerto fuera de rango se rechaza" bash -c '! BURY_FW_CONF="$1" bash "$2" print >/dev/null 2>&1' _ "$T/fw-port.conf" "$FW"
+: >"$T/ipt.log"
+IPT_LOG="$T/ipt.log" BURY_IPTABLES="$T/ipt" BURY_FW_CONF="$T/fw.conf" bash "$FW" print >"$T/print.out" 2>&1
+check "firewall print no ejecuta iptables" test ! -s "$T/ipt.log"
+
 echo
 echo "install tests: $PASS PASS, $FAIL FAIL"
 (( FAIL == 0 ))
