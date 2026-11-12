@@ -11,7 +11,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 # --- sintaxis -------------------------------------------------------------------------------------------------------------
-for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh test-hardening.sh; do
+for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh check-custody.sh test-hardening.sh; do
   check "bash -n $f" bash -n "$HERE/$f"
 done
 
@@ -21,7 +21,8 @@ done
 modecheck() { if (( MODES )); then check "$@"; fi; }
 USER_NOW=$(id -un); SB="$T/sb"; mkdir -p "$SB"
 out=$(BURY_SCHEDULE_SANDBOX="$SB" bash "$HERE/install-schedule.sh" --print --user "$USER_NOW"); rc=$?
-check "--print rc=0 y genera 3 jobs" bash -c '[[ '"$rc"' == 0 && $(grep -c "^[0-9*]" <<<"$1") == 3 ]]' _ "$out"
+check "--print rc=0 y genera 4 jobs (full, log, restore-test, custodia)" bash -c '[[ '"$rc"' == 0 && $(grep -c "^[0-9*]" <<<"$1") == 4 ]]' _ "$out"
+check "--print incluye la verificacion de custodia (check-custody.sh --quiet)" grep -q "check-custody.sh --quiet" <<<"$out"
 check "--print no toca el filesystem" bash -c '[[ -z "$(find "$1" -mindepth 1)" ]]' _ "$SB"
 check "--print-logrotate no toca el filesystem" bash -c 'BURY_SCHEDULE_SANDBOX="$1" bash "$2/install-schedule.sh" --print-logrotate --user "$3" >/dev/null && [[ -z "$(find "$1" -mindepth 1)" ]]' _ "$SB" "$HERE" "$USER_NOW"
 
@@ -167,5 +168,12 @@ check "restore-test.sh: mensaje del fallo en el estado" grep -q 'docker' "$BD/mo
 out=$(bash "$HERE/test-retention-remote.sh" 2>&1); rc=$?
 grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
 check "test-retention-remote.sh ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0
+
+# --- P-06/P-07: custodia de claves y restore desde la copia externa (archivos propios) ---------------------------------------
+for t in test-check-custody.sh test-offsite-restore-test.sh; do
+  out=$(bash "$HERE/$t" 2>&1); rc=$?
+  grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
+  check "$t ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0
+done
 
 echo; echo "resultado: $PASS OK, $FAIL fallos"; (( FAIL == 0 ))

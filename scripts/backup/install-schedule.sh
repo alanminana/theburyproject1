@@ -11,7 +11,9 @@
 #
 # Opciones: --full-at HH:MM (default 02:30, HORA LOCAL del servidor)  --log-every MIN (default 15, divisor de 60)
 #           --restore-test-day 0-6 (default 0 = domingo, 04:30)       --user USUARIO (default root; debe poder usar docker)
-# Programa:  full+archivos diario | log de transacciones cada N min | prueba de restore semanal.
+# Programa:  full+archivos diario | log de transacciones cada N min | prueba de restore semanal | verificacion de custodia semanal
+#            (check-custody.sh, solo lectura; la prueba de restore DESDE la copia externa -restore-test.sh --offsite- NO se programa
+#            sola: es pesada, se agrega a mano mensualmente cuando haya copia externa, ver docs/backup-custodia.md).
 # Los nombres de archivo de backup usan siempre UTC; solo los HORARIOS de cron usan la hora local del servidor.
 set -Eeuo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -23,11 +25,11 @@ while (( $# )); do
     --log-every) LOG_EVERY="${2:-}"; shift 2 ;;
     --restore-test-day) RT_DAY="${2:-}"; shift 2 ;;
     --user) RUN_USER="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "argumento desconocido: $1" >&2; exit 1 ;;
   esac
 done
-[[ -n "$ACTION" ]] || { sed -n '2,16p' "$0"; exit 1; }
+[[ -n "$ACTION" ]] || { sed -n '2,19p' "$0"; exit 1; }
 [[ "$FULL_AT" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || { echo "--full-at debe ser HH:MM" >&2; exit 1; }
 [[ "$LOG_EVERY" =~ ^[0-9]+$ ]] && (( LOG_EVERY >= 1 && LOG_EVERY <= 60 && 60 % LOG_EVERY == 0 )) || { echo "--log-every debe dividir 60 (1,2,3,5,10,15,20,30,60)" >&2; exit 1; }
 [[ "$RT_DAY" =~ ^[0-6]$ ]] || { echo "--restore-test-day debe ser 0-6" >&2; exit 1; }
@@ -41,6 +43,7 @@ ERR_LOG=/var/log/bury-backup-errors.log   # ruta que va en el cron (literal); el
 ERR_LOG_REAL="$ROOT_PFX$ERR_LOG"
 HH=${FULL_AT%%:*}; MM=${FULL_AT##*:}; HH=$((10#$HH)); MM=$((10#$MM))
 RT_MM=$(( (MM + 60) % 60 )); RT_HH=$(( (HH + 2) % 24 ))
+CU_HH=$(( (HH + 3) % 24 ))   # custodia: una hora despues del restore-test
 S="$REPO_DIR/scripts/backup"
 render() {
 cat <<CRON
@@ -56,6 +59,8 @@ $MM $HH * * *  $RUN_USER  cd $REPO_DIR && /bin/bash $S/backup.sh all >/dev/null 
 */$LOG_EVERY * * * *  $RUN_USER  cd $REPO_DIR && /bin/bash $S/backup.sh log >/dev/null 2>>$ERR_LOG
 # prueba de restore (base temporal <db>_RestoreTest; no toca la base real), semanal
 $RT_MM $RT_HH * * $RT_DAY  $RUN_USER  cd $REPO_DIR && /bin/bash $S/restore-test.sh >/dev/null 2>>$ERR_LOG
+# verificacion de custodia de claves (solo lectura; publica monitor-status/custody.json; exit 11 = custodia insegura), semanal
+$RT_MM $CU_HH * * $RT_DAY  $RUN_USER  cd $REPO_DIR && /bin/bash $S/check-custody.sh --quiet >/dev/null 2>>$ERR_LOG
 CRON
 }
 
