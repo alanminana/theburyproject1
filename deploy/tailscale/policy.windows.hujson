@@ -1,0 +1,73 @@
+// Politica de acceso (ACL/grants) de la tailnet que protege TheBuryProject. Formato HuJSON (JSON con comentarios y comas finales).
+// PERFIL "windows": servidor Windows 11 Pro (Docker Desktop/WSL2) con Tailscale instalado en el propio Windows. Administracion remota = RDP (tcp:3389).
+// Para un servidor Linux o VM Ubuntu (Windows Server + Hyper-V) usar policy.hujson (administracion = SSH tcp:22).
+//
+// ROLES (dos identidades Tailscale INDEPENDIENTES, cada una con su cuenta SSO y su dispositivo)
+//  - group:erp-usuarios  usuario remoto: SOLO la web del ERP (tcp/udp 443). Nunca administracion.
+//  - group:erp-admins    administrador remoto: la web (443) + administracion del servidor (un unico puerto, ver perfil).
+//  - Usuarios de la LAN: no pasan por Tailscale; el firewall del host les da solo HTTPS (ver docs/p05-permisos-acceso-remoto.md).
+//
+// PRINCIPIOS
+//  - Denegar por defecto: Tailscale no permite nada que no este en `grants`.
+//  - Un solo destino: el servidor del ERP (tag:erp). Nunca 1433/8080/80. La administracion es SOLO para group:erp-admins.
+//  - Los grupos son disjuntos: una identidad no puede ser a la vez usuario y administrador (los privilegios no se acumulan por error).
+//  - Revocar = quitar el correo de su grupo (y borrar sus dispositivos en la consola); la otra identidad no se entera.
+//  - Las personas NO se alcanzan entre si: no hay grant usuario->usuario.
+//  - Sin `autoApprovers` (subnet routers / exit nodes), sin `ssh` de Tailscale, sin `nodeAttrs` de Funnel: el servidor no amplia su alcance ni se publica en Internet.
+//  - Que la politica conceda el puerto de administracion NO lo abre: el firewall del host lo mantiene cerrado hasta que se habilite
+//    explicitamente (--admin-from en Linux; Enable-ErpRemoteAdmin.ps1 -Apply en Windows). Ambas capas deben coincidir.
+//
+// ANTES DE APLICAR (requiere la tailnet real; ver docs/p05-permisos-acceso-remoto.md): reemplazar los dos correos de ejemplo
+// por las identidades reales y validar con `python scripts/install/tailscale-policy-check.py --require-real-identities`.
+{
+	"groups": {
+		// Una linea por persona. Quitar la linea revoca solo a esa persona.
+		"group:erp-usuarios": [
+			"usuario-remoto@example.com",
+		],
+		"group:erp-admins": [
+			"admin-remoto@example.com",
+		],
+	},
+
+	// Solo administradores de la tailnet pueden etiquetar un nodo como tag:erp (el servidor se une con `--advertise-tags=tag:erp`).
+	// Ni los usuarios ni los administradores remotos del ERP pueden crear nodos con esa etiqueta.
+	"tagOwners": {
+		"tag:erp": ["autogroup:admin"],
+	},
+
+	"grants": [
+		// Usuario remoto: solo la web.
+		{
+			"src": ["group:erp-usuarios"],
+			"dst": ["tag:erp"],
+			"ip":  ["tcp:443", "udp:443"],
+		},
+		// Administrador remoto: la web + administracion del servidor (RDP 3389; en el perfil linux-vm, SSH 22).
+		{
+			"src": ["group:erp-admins"],
+			"dst": ["tag:erp"],
+			"ip":  ["tcp:443", "udp:443", "tcp:3389"],
+		},
+	],
+
+	// Pruebas que la consola de Tailscale ejecuta ANTES de aceptar esta politica: si alguna falla, la politica se rechaza.
+	// scripts/install/tailscale-policy-check.py las evalua tambien offline (CI).
+	"tests": [
+		{
+			"src":    "usuario-remoto@example.com",
+			"accept": ["tag:erp:443"],
+			"deny":   ["tag:erp:22", "tag:erp:3389", "tag:erp:1433", "tag:erp:8080", "admin-remoto@example.com:443"],
+		},
+		{
+			"src":    "admin-remoto@example.com",
+			"accept": ["tag:erp:443", "tag:erp:3389"],
+			"deny":   ["tag:erp:22", "tag:erp:1433", "tag:erp:8080", "tag:erp:80", "usuario-remoto@example.com:443"],
+		},
+		{
+			// Una cuenta que no esta en ningun grupo (p. ej. alguien invitado a la tailnet o un nodo compartido) no alcanza nada.
+			"src":  "intruso@example.org",
+			"deny": ["tag:erp:443", "tag:erp:22", "tag:erp:3389"],
+		},
+	],
+}

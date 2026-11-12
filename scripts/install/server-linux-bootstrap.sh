@@ -4,19 +4,25 @@
 # NO instala el ERP (eso es scripts/install/install.sh) ni toca datos. Es idempotente.
 #
 #   sudo scripts/install/server-linux-bootstrap.sh --user bury --allow-from 192.168.1.0/24[,100.64.0.0/10]
-#        [--admin-from 192.168.1.0/24] [--https-port 443] [--backup-dir /srv/bury-backups] [--tailscale]
-#        [--skip-docker] [--no-ufw] [--dry-run]
+#        [--admin-from 100.64.0.0/10] [--https-port 443] [--backup-dir /srv/bury-backups] [--tailscale]
+#        [--allow-lan-admin] [--skip-docker] [--no-ufw] [--dry-run]
 #
 #   --user USER        usuario que administra el ERP; es el dueño de --backup-dir y queda en el grupo docker, que EQUIVALE A ROOT
 #                      en el servidor (un miembro puede montar el disco o vaciar las reglas del firewall): usar solo la cuenta de administracion [obligatorio]
 #   --allow-from LIST  redes con acceso HTTPS al ERP (CSV de IPv4/CIDR[@interfaz]; 100.64.0.0/10 se ata a tailscale0). Se aplica en DOCKER-USER (ver bury-firewall.sh)  [obligatorio]
-#   --admin-from LIST  redes con acceso SSH (22). Si se omite NO se activa ufw (evita dejar la VM sin acceso por error)
+#   --admin-from LIST  quien puede administrar por SSH (22). Si se omite NO se activa ufw (evita dejar la VM sin acceso por error).
+#                      Preferir la IP /32 de Tailscale del administrador (p. ej. 100.101.2.3): con el rango 100.64.0.0/10 la capa del host NO distingue entre el
+#                      administrador y el usuario remoto (solo la politica de Tailscale los separa).
+#                      MINIMO PRIVILEGIO: solo (a) la red de Tailscale (100.64.0.0/10 o una IP/subred dentro de ella; se ata a tailscale0, igual que
+#                      --allow-from) o (b) EQUIPOS concretos privados (IPv4 /32 en 10/8, 172.16/12, 192.168/16; p. ej. el host Hyper-V que instala la VM). Una red LAN completa se RECHAZA: los
+#                      usuarios de la LAN solo tienen acceso a la web HTTPS, nunca a la administracion (ver docs/p05-permisos-acceso-remoto.md).
+#   --allow-lan-admin  excepcion consciente: permite una red completa (no Tailscale, no /32) en --admin-from. No recomendado.
 #   --backup-dir DIR   crea el directorio de backups (700, dueño --user) si no existe; nunca cambia uno existente
 #   --tailscale        instala el paquete y habilita tailscaled (NO lo autentica: 'sudo tailscale up' lo hace el propietario)
 #   --skip-docker      no instala Docker (ya esta instalado)       --no-ufw   no configura ufw       --dry-run   solo informa
 set -Eeuo pipefail
 
-RUN_USER="" ALLOW_FROM="" ADMIN_FROM="" HTTPS_PORT=443 BACKUP_DIR="" WANT_TS=0 SKIP_DOCKER=0 NO_UFW=0 DRY=0
+RUN_USER="" ALLOW_FROM="" ADMIN_FROM="" HTTPS_PORT=443 BACKUP_DIR="" WANT_TS=0 SKIP_DOCKER=0 NO_UFW=0 DRY=0 LAN_ADMIN=0
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 aptq() { run apt-get -o DPkg::Lock::Timeout=300 "$@"; }
@@ -35,8 +41,9 @@ while (( $# )); do
     --tailscale) WANT_TS=1; shift ;;
     --skip-docker) SKIP_DOCKER=1; shift ;;
     --no-ufw) NO_UFW=1; shift ;;
+    --allow-lan-admin) LAN_ADMIN=1; shift ;;
     --dry-run) DRY=1; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) die "argumento desconocido: $1" ;;
   esac
 done
@@ -62,6 +69,27 @@ FW_ALLOW=""; for s in ${ALLOW_FROM//,/ }; do
   FW_ALLOW+="$s "
 done; FW_ALLOW=${FW_ALLOW% }
 [[ -z "$ADMIN_FROM" ]] || valid_list "$ADMIN_FROM" || die "--admin-from invalido (CSV de IPv4/CIDR)"
+# Administracion (SSH 22) con minimo privilegio: la red de Tailscale (atada a tailscale0) o equipos concretos (/32). Una red LAN completa abriria
+# la administracion a todos los usuarios de la LAN (que solo deben tener HTTPS): se rechaza salvo --allow-lan-admin.
+in_tailnet() { # in_tailnet IP[/N]: dentro de 100.64.0.0/10 (segundo octeto 64-127 y prefijo >= 10 si lo trae)
+  [[ "$1" =~ ^100\.([0-9]{1,3})\.[0-9]{1,3}\.[0-9]{1,3}(/([0-9]{1,2}))?$ ]] || return 1
+  (( 10#${BASH_REMATCH[1]} >= 64 && 10#${BASH_REMATCH[1]} <= 127 )) && { [[ -z "${BASH_REMATCH[3]}" ]] || (( 10#${BASH_REMATCH[3]} >= 10 )); }
+}
+is_private_host() { # RFC 1918
+  [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+  local a=$((10#${BASH_REMATCH[1]})) b=$((10#${BASH_REMATCH[2]}))
+  (( a == 10 )) || (( a == 172 && b >= 16 && b <= 31 )) || (( a == 192 && b == 168 ))
+}
+UFW_ADMIN=""; for s in ${ADMIN_FROM//,/ }; do
+  if in_tailnet "$s"; then UFW_ADMIN+="$s@tailscale0 "
+  elif [[ "$s" != */* || "$s" == */32 ]]; then
+    # Equipo concreto: debe ser privado (RFC 1918). Un equipo publico abriria la administracion a Internet (o 0.0.0.0 a todos): se rechaza salvo --allow-lan-admin.
+    if ! is_private_host "${s%/32}" && (( ! LAN_ADMIN )); then die "--admin-from: '$s' no es un equipo privado (10/8, 172.16/12, 192.168/16) ni de la tailnet: la administracion no se abre a Internet"; fi
+    UFW_ADMIN+="${s%/32} "
+  elif (( LAN_ADMIN )); then UFW_ADMIN+="$s "
+  else die "--admin-from: '$s' es una red completa. La administracion (SSH) solo se permite desde la red de Tailscale (100.64.0.0/10) o desde equipos concretos (/32); los usuarios de la LAN solo deben tener HTTPS. Use una IP /32 o --allow-lan-admin (no recomendado)"
+  fi
+done; UFW_ADMIN=${UFW_ADMIN% }
 [[ "$HTTPS_PORT" =~ ^[0-9]+$ ]] && (( HTTPS_PORT >= 1 && HTTPS_PORT <= 65535 )) || die "--https-port invalido"
 [[ -z "$BACKUP_DIR" || "$BACKUP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || die "--backup-dir debe ser una ruta absoluta sin caracteres especiales"
 (( DRY )) || [[ $EUID -eq 0 ]] || die "ejecutar con sudo/root (o --dry-run)"
@@ -75,8 +103,11 @@ ip = ipaddress.ip_address(sys.argv[1])
 sys.exit(0 if any(ip in ipaddress.ip_network(n, strict=False) for n in sys.argv[2].split()) else 1)
 PY
 }
-if [[ -n "$ADMIN_FROM" && ( $NO_UFW -eq 0 ) && -n "${SSH_CLIENT:-}" ]]; then
-  ssh_ip=${SSH_CLIENT%% *}
+# Origen de la sesion SSH actual. `sudo` suele descartar SSH_CLIENT (env_reset): se recurre a `who -m` ("(ip)" del tty).
+ssh_ip=""
+[[ -n "${SSH_CLIENT:-}" ]] && ssh_ip=${SSH_CLIENT%% *}
+if [[ -z "$ssh_ip" ]] && command -v who >/dev/null 2>&1; then ssh_ip=$(who -m 2>/dev/null | sed -n 's/.*(\([0-9][0-9.]*\)).*/\1/p' | head -1); fi
+if [[ -n "$ADMIN_FROM" && ( $NO_UFW -eq 0 ) && -n "$ssh_ip" ]]; then
   ip_in_list "$ssh_ip" "$ADMIN_FROM" || die "tu sesion SSH actual ($ssh_ip) no esta dentro de --admin-from ($ADMIN_FROM): ufw te dejaria sin acceso. Agregala o usa --no-ufw"
 fi
 [[ -f /etc/os-release ]] && . /etc/os-release
@@ -168,11 +199,14 @@ if (( NO_UFW )); then
 elif [[ -z "$ADMIN_FROM" ]]; then
   log "5/6 ufw no configurado: sin --admin-from se evita bloquear el acceso SSH"
 else
-  log "5/6 ufw: entrante denegado salvo SSH desde ${ADMIN_FROM//,/ }"
+  log "5/6 ufw: entrante denegado salvo SSH desde $UFW_ADMIN (el 443 de Caddy lo filtra bury-firewall.sh; la LAN no administra)"
   aptq install -y -qq ufw
   run ufw default deny incoming
   run ufw default allow outgoing
-  for s in ${ADMIN_FROM//,/ }; do run ufw allow from "$s" to any port 22 proto tcp; done
+  for s in $UFW_ADMIN; do
+    if [[ "$s" == *@* ]]; then run ufw allow in on "${s#*@}" from "${s%%@*}" to any port 22 proto tcp   # Tailscale: solo si entra por tailscale0 (sin suplantacion desde la LAN)
+    else run ufw allow from "$s" to any port 22 proto tcp; fi
+  done
   run ufw --force enable
 fi
 
