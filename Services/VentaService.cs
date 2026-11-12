@@ -168,7 +168,7 @@ namespace TheBuryProject.Services
             if (viewModel.Facturas.Any(f => !f.Anulada))
             {
                 viewModel.ResumenAlicuotasFactura = FacturaAlicuotaResumenBuilder.Build(
-                    viewModel.Detalles, viewModel.ImporteEnvioIncluido);
+                    viewModel.Detalles, viewModel.ImporteEnvioIncluido, CriterioDe(venta));
             }
 
             // Enriquecer código de unidad para detalles trazables (Fase 8.2.S)
@@ -277,6 +277,8 @@ namespace TheBuryProject.Services
                 }
 
                 venta.IdempotencyKey = viewModel.IdempotencyKey;
+                // P-02 / P5: la operación nace con el criterio fiscal vigente y lo conserva (los reportes la releen con esa versión).
+                venta.CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente;
                 venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaEfectiva(viewModel) : null;
                 venta.AperturaCajaId = aperturaActiva.Id;
 
@@ -2717,7 +2719,7 @@ namespace TheBuryProject.Services
                     venta.Total * (configuracionTarjeta.PorcentajeRecargoDebito.Value / 100m));
 
                 datosTarjetaEntity.RecargoAplicado = recargo;
-                venta.Total = TruncarAPesos(venta.Total + recargo);
+                venta.Total = TruncarAPesos(venta.Total + recargo, venta);
             }
 
             // Skip global plan if per-item plans already applied on detalles (avoid double adjustment).
@@ -2727,7 +2729,7 @@ namespace TheBuryProject.Services
             if (planSeleccionado != null && !tieneAjustesPorItem)
             {
                 var montoAjuste = RedondearMoneda(venta.Total * planSeleccionado.AjustePorcentaje / 100m);
-                venta.Total = TruncarAPesos(venta.Total + montoAjuste);
+                venta.Total = TruncarAPesos(venta.Total + montoAjuste, venta);
                 datosTarjetaEntity.PorcentajeAjustePlanAplicado = planSeleccionado.AjustePorcentaje;
                 datosTarjetaEntity.MontoAjustePlanAplicado = montoAjuste;
             }
@@ -2859,7 +2861,7 @@ namespace TheBuryProject.Services
             if (!resultado.EsValido)
                 throw new InvalidOperationException(resultado.Mensaje ?? "El plan global de pago no es valido.");
 
-            venta.Total = TruncarAPesos(resultado.TotalFinal);
+            venta.Total = TruncarAPesos(resultado.TotalFinal, venta);
             datosTarjeta.ConfiguracionPagoPlanId = plan.Id;
             datosTarjeta.CantidadCuotas = plan.CantidadCuotas;
             datosTarjeta.PorcentajeAjustePagoAplicado = resultado.PorcentajeAjuste;
@@ -3226,7 +3228,7 @@ namespace TheBuryProject.Services
                     response.Total = ajusteUnPago.TotalFinal;
 
                     // Misma discriminacion en neto e IVA que Create (DiscriminarRecargoEnNetoEIva): Subtotal + IVA = Total.
-                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total };
+                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total, CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente };
                     DiscriminarRecargoEnNetoEIva(ventaPreview, response.Detalles.Select(d => new VentaDetalle
                     {
                         PorcentajeIVA = d.PorcentajeIVA,
@@ -3765,7 +3767,12 @@ namespace TheBuryProject.Services
         /// Regla de negocio: el total de una venta se redondea siempre hacia abajo a pesos enteros
         /// (9,99 → 9); los centavos se descartan.
         /// </summary>
-        private static decimal TruncarAPesos(decimal value) => Math.Floor(value);
+        private static decimal TruncarAPesos(decimal value, Venta? venta = null) =>
+            CriterioDe(venta).TruncarAPesos(value);
+
+        /// <summary>P-02 / P5: criterio fiscal de la operación (su versión persistida); sin operación, el vigente.</summary>
+        private static ICriterioFiscal CriterioDe(Venta? venta) =>
+            venta == null ? CriterioFiscalRegistry.Vigente : CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
 
         #region Permiso independiente de descuentos (ventas.discount)
 
@@ -4018,17 +4025,17 @@ namespace TheBuryProject.Services
             // no se reinterpreta el dato.
             var brutoLineas = lineas.Sum(d => d.SubtotalFinal);
             var servicios = Math.Max(0m, baseNetoIva - brutoLineas);
-            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(servicios);
+            var (serviciosNeto, serviciosIva) = CriterioDe(venta).SepararServicios(servicios);
             var subtotalEsperado = lineas.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
             if (Math.Abs(venta.Subtotal - subtotalEsperado) > 1m)
                 return;
 
             var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
             if (servicios > 0m)
-                bases.Add((ServiciosVentaIva.Porcentaje, servicios));
+                bases.Add((CriterioDe(venta).AlicuotaServicios, servicios));
 
             var signo = ajuste > 0m ? 1m : -1m;
-            var partes = RecargoMedioPagoIva.Repartir(bases, Math.Abs(ajuste));
+            var partes = CriterioDe(venta).Repartir(bases, Math.Abs(ajuste));
             venta.Subtotal += signo * partes.Sum(p => p.Neto);
             venta.IVA += signo * partes.Sum(p => p.Iva);
         }
@@ -4058,11 +4065,11 @@ namespace TheBuryProject.Services
                 .ToList();
             if (serviciosEnTotal > 0m)
             {
-                var (neto, iva) = ServiciosVentaIva.Separar(serviciosEnTotal);
-                items.Add((ServiciosVentaIva.Porcentaje, serviciosEnTotal, neto, iva));
+                var (neto, iva) = CriterioDe(venta).SepararServicios(serviciosEnTotal);
+                items.Add((CriterioDe(venta).AlicuotaServicios, serviciosEnTotal, neto, iva));
             }
 
-            var resultado = RecargoMedioPagoIva.Discriminar(venta.Total, items);
+            var resultado = CriterioDe(venta).Discriminar(venta.Total, items);
             venta.Subtotal = resultado.Neto;
             venta.IVA = resultado.Iva;
             return true;
@@ -4089,10 +4096,10 @@ namespace TheBuryProject.Services
             AplicarProrrateoDescuentoGeneral(detallesList, venta.Descuento);
 
             var servicios = RedondearMoneda(detallesList.Sum(d => d.ArmadoSubtotal) + importeEnvio);
-            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(servicios);
+            var (serviciosNeto, serviciosIva) = CriterioDe(venta).SepararServicios(servicios);
 
             var totalConCentavos = detallesList.Sum(d => d.SubtotalFinal) + servicios;
-            venta.Total = TruncarAPesos(totalConCentavos);
+            venta.Total = TruncarAPesos(totalConCentavos, venta);
 
             // VALID-L1: el total no puede superar el tope de monto del ERP (el mismo de [MontoArgentino]). Sin tope,
             // una cantidad absurda (p. ej. int.MaxValue) producía una venta de billones. Se valida el total y no la
@@ -4420,7 +4427,7 @@ namespace TheBuryProject.Services
 
             var totalProductos = detallesCalculados.Sum(d => d.SubtotalFinal);
             var totalArmados = RedondearMoneda(detallesCalculados.Sum(d => d.ArmadoSubtotal));
-            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(RedondearMoneda(totalArmados + importeEnvio));
+            var (serviciosNeto, serviciosIva) = CriterioFiscalRegistry.Vigente.SepararServicios(RedondearMoneda(totalArmados + importeEnvio));
 
             var totalBase = totalProductos + totalArmados + importeEnvio;
             var totalTruncado = TruncarAPesos(totalBase);
