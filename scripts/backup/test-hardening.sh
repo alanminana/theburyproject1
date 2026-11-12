@@ -11,7 +11,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 # --- sintaxis -------------------------------------------------------------------------------------------------------------
-for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh test-hardening.sh; do
+for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh test-hardening.sh test-offsite-sftp.sh; do
   check "bash -n $f" bash -n "$HERE/$f"
 done
 
@@ -117,6 +117,10 @@ BACKUP_REMOTE="offsite:bucket/erp"; BACKUP_OFFSITE_MARKER=".bury-offsite-ok"
 dc() { echo "$*" >>"$CALLS"; if [[ "$*" == *" lsf "* ]]; then return 0; fi; return 0; }   # lsf sin salida = centinela ausente
 offsite
 check "centinela ausente -> exit 6 y no se sube nada" bash -c '[[ "$1" == 6 && "$2" == *centinela* ]] && ! grep -q " copy " "$3"' _ "$FAILCODE" "$FAILMSG" "$CALLS"
+FAILCODE=""; FAILMSG=""; : >"$CALLS"
+dc() { echo "2026/01/01 CRITICAL: couldn't connect SSH: dial tcp: connection refused (password=$S1)" >&2; return 3; }   # remoto inaccesible
+offsite
+check "centinela: remoto inaccesible -> exit 6 con la CAUSA real y sin secreto" bash -c '[[ "$1" == 6 && "$2" == *"Causa:"*"connection refused"* && "$2" != *"$3"* ]]' _ "$FAILCODE" "$FAILMSG" "$S1"
 FAILCODE=""; : >"$CALLS"
 dc() { echo "$*" >>"$CALLS"; if [[ "$*" == *" lsf "* ]]; then echo ".bury-offsite-ok"; fi; return 0; }
 rclone_verify() { return 0; }
@@ -135,6 +139,9 @@ r=$(rclone_errtext "2026/01/01 NOTICE: Config file not found - using defaults
 2026/01/01 NOTICE: sftpr: No host key validation is being performed
 2026/01/01 CRITICAL: couldn't connect SSH: dial tcp: connection refused password=$S1")
 check "rclone_errtext conserva la causa, descarta NOTICE y sanitiza" bash -c '[[ "$1" == *"connection refused"* && "$1" != *NOTICE* && "$1" != *"$2"* ]]' _ "$r" "$S1"
+printf '2026/01/01 NOTICE: sftp: No host key validation is being performed\n' >"$T/hk.err"; : >"$T/hk.ok"
+check "warn_hostkey_unpinned: avisa si rclone no valida la clave del servidor" bash -c '[[ "$(source "$1/lib.sh" >/dev/null 2>&1; warn_hostkey_unpinned "$2")" == *"SIN validar la clave del servidor"* ]]' _ "$HERE" "$T/hk.err"
+check "warn_hostkey_unpinned: silencio cuando la clave esta fijada" bash -c '[[ -z "$(source "$1/lib.sh" >/dev/null 2>&1; warn_hostkey_unpinned "$2")" ]]' _ "$HERE" "$T/hk.ok"
 
 # --- restore_test_status --------------------------------------------------------------------------------------------------
 BACKUP_DIR="$T/rt"; F="$BACKUP_DIR/monitor-status/restore-test.json"

@@ -37,7 +37,10 @@ fi
 
 log INFO "=== fetch-offsite inicio: ${BACKUP_REMOTE%%:*}:* -> $BACKUP_DIR ==="
 for sub in sql files; do
-  dc run --rm -T --no-deps --quiet-pull restore-offsite copy "$BACKUP_REMOTE/$sub" "/backups/$sub" >/dev/null || die $EX_OFFSITE "descarga fallo ($sub)"
+  # stderr de rclone se captura para mostrar la CAUSA (conexion, host key, credenciales, password de cifrado incorrecta, archivo corrupto).
+  if ! cout=$(dc run --rm -T --no-deps --quiet-pull restore-offsite copy "$BACKUP_REMOTE/$sub" "/backups/$sub" 2>&1 >/dev/null); then
+    die $EX_OFFSITE "descarga fallo ($sub): $(rclone_errtext "$cout")"
+  fi
   rclone_verify restore-offsite "$BACKUP_REMOTE/$sub" "/backups/$sub" || die $EX_OFFSITE "verificacion de la descarga fallo ($sub): $RCLONE_ERR"
   log INFO "descargado y verificado: $sub"
 done
