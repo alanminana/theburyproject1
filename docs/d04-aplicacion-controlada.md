@@ -1,6 +1,6 @@
 # D-04 — procedimiento de aplicación controlada a la base real
 
-**Estado: PREPARADO, NO APLICADO.** (Ver al final «Preparación 2026-11-11».) La migración `20261108185231_D04AperturaCajaUnicaAbierta` no se aplicó a `TheBuryProjectDb`. Requiere aprobación expresa del propietario. Fusionar el código (#267) no la aplica: el guard (#268) y la protección del CLI de EF lo impiden (ver «Qué impide aplicarla sin querer»).
+**Estado: APLICADA el 2026-11-12 a `TheBuryProjectDb` y verificada** (ver «Registro de aplicación» al final; el resto del documento describe la preparación y el procedimiento). Fusionar el código (#267) no la aplica: el guard (#268) y la protección del CLI de EF lo impiden (ver «Qué impide aplicarla sin querer»).
 
 ## Qué cambia en el esquema
 Solo índices de `AperturasCaja` (ninguna fila se modifica, borra ni recalcula):
@@ -193,3 +193,41 @@ Qué anunciar a los usuarios: «Mantenimiento programado de ventas/caja, de apro
 | Ensayo, aplicación, verificación, reaplicación, rollback, restore | sí | solo en el clon `TheBuryProjectDb_d04` |
 | Aplicación a `TheBuryProjectDb` | sí | **NO** |
 | Detener/arrancar la aplicación real | checklist | **NO** |
+
+
+---
+
+## Registro de aplicación (2026-11-12)
+
+**Estado final: APLICADA Y VERIFICADA.** Autorizada expresamente por el propietario. Ejecutada con `scripts/ops/d04-ventana.ps1` (token `D04-20261112` + `-ConfirmarBaseReal`) desde `main` = `56ddfe55`, con la aplicación detenida. Directorio de trabajo, logs y huellas: `D:\respaldos-protegidos\d04-20261112\`.
+
+### Identidad de la base y contexto
+- Instancia `(localdb)\MSSQLLocalDB` (SQL Server 2025 Express/LocalDB); base `TheBuryProjectDb` creada el 2026-07-10, única con ese nombre.
+- Estado: 0 ventas, 0 clientes, 0 proveedores, 16 productos, 11 usuarios, 8 cajas. Coincide con la limpieza de datos de prueba del 2026-11-05 (autorizada). Las 61 ventas anteriores están solo en el respaldo previo a esa limpieza (`D:\tmp\limpieza-REAL-previo-TheBuryProjectDb-20261105-151520.bak`, verificado; 61 ventas del 2026-09-26 al 2026-10-13, clientes de prueba). No se restauró nada.
+
+### Preflight (01:15, solo lectura): GO en todas las guardas
+Base existente; 136 migraciones aplicadas, 137 en el código, única pendiente D-04, sin extras; D-04 no registrada; índices previos `IX_AperturasCaja_CajaId` + `PK_AperturasCaja`; 0 duplicados; 0 turnos abiertos; 0 conexiones ajenas; 181 GB libres en D:. Huella: Cajas=8, AperturasCaja=0, MovimientosCaja=0, Ventas=0, Cuotas=0, Creditos=0 (208 MB).
+
+### Respaldos
+- Definitivo: `TheBuryProjectDb-previo-20261112-011521.bak` (`COPY_ONLY`, `CHECKSUM`, `RESTORE VERIFYONLY` correcto, 32,8 MB, SHA256 `FBB508061470…`), en `D:\respaldos-protegidos\d04-20261112\` y copia con hash idéntico en `E:\respaldos-protegidos\d04-20261112\`. Carpetas con permisos restringidos (usuario, SYSTEM, Administradores).
+- Anteriores del mismo día: `…-010744.bak` (01:07) y el de `D:\tmp\d04-ronda3\real\`. Los 34 respaldos históricos de `D:\tmp` se conservaron intactos (manifiesto con SHA256 en `manifiesto-respaldos-historicos.csv`).
+
+### Ejecución
+| Paso | Resultado |
+|---|---|
+| Ensayo `DryRun=1` | GO; aplicó y revirtió, base intacta (136, índices previos) — 1,36 s |
+| Aplicar (ensayo interno + aplicación) | `APLICAR: OK` — 0,47 s |
+| Verificar | `VERIFICAR: OK` |
+
+### Verificación posterior
+- Migraciones: **137** (última `20261108185231_D04AperturaCajaUnicaAbierta`), sin pendientes ni extras.
+- Índices de `AperturasCaja`: `PK_AperturasCaja`, `IX_AperturasCaja_CajaId_Cerrada` y `UX_AperturasCaja_CajaId_Abierta` (único, filtro `[Cerrada]=0 AND [IsDeleted]=0`), ninguno deshabilitado; `IX_AperturasCaja_CajaId` eliminado.
+- Integridad: `DBCC CHECKDB` sin errores; 0 claves foráneas no confiables; huella idéntica a la del respaldo (ningún dato cambió).
+- Aplicación: código de `main` compilado y levantado contra la base real con `Database:InitializeOnStartup=False` (sin sembrar): sin errores `fail`/`crit`, guard de migraciones sin intervenir, conexión a `TheBuryProjectDb`, login 200 y `/Caja` sin sesión redirige al login. Proceso detenido; 0 aperturas, 0 movimientos y 0 ventas tras la prueba.
+
+### Pruebas no realizadas en la base real (por indicación del propietario)
+No se abrió ni cerró una caja de prueba (paso 8): no se crearon movimientos. El rechazo de una segunda apertura vigente (error 2601 nombrando `UX_AperturasCaja_CajaId_Abierta`) y la reapertura tras cierre se probaron en el clon el 2026-11-12 (y el 2026-11-11 con la app contra el clon).
+
+### Pendientes
+- Los respaldos están en la misma máquina (D: y E:); la copia fuera de ella corresponde a P-06.
+- Recuperación disponible si hiciera falta: `-Modo Rollback` del runner o restaurar el respaldo `…-011521.bak`.
