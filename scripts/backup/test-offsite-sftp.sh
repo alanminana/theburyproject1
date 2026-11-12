@@ -42,15 +42,17 @@ want() { [[ -z "$ONLY" || "$ONLY" == *",$1,"* ]]; }
 [[ "$(uname -s)" == Linux ]] || { echo "este arnes requiere Linux (en Windows: WSL2 con Docker)" >&2; exit 1; }
 for c in docker ssh-keygen od; do command -v "$c" >/dev/null 2>&1 || { echo "falta $c" >&2; exit 1; }; done
 docker compose version >/dev/null 2>&1 || { echo "falta docker compose v2" >&2; exit 1; }
-if [[ -e "$OFFSITE_ENV" ]] && ! grep -qxF "$ENV_MARK" "$OFFSITE_ENV"; then
+own_env() { [[ -f "$OFFSITE_ENV" && "$(head -n1 "$OFFSITE_ENV")" == "$ENV_MARK" ]]; }   # la marca debe ser la PRIMERA linea
+if [[ -e "$OFFSITE_ENV" ]] && ! own_env; then
   echo "ABORTADO: ya existe $OFFSITE_ENV y no es de este arnes (podria ser la configuracion real). No se toca." >&2; exit 1
 fi
 
 # ---------------------------------------------------------------------------------------------------------- entorno aislado
 RUN=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
 PROJ="bury-p06sftp-$RUN"
-T=$(mktemp -d "${TMPDIR:-/tmp}/bury-p06sftp.XXXXXX")
-chmod 700 "$T"
+T=$(mktemp -d "${TMPDIR:-/tmp}/bury-p06sftp.XXXXXX") || { echo "mktemp fallo" >&2; exit 1; }
+[[ -n "$T" && -d "$T" ]] || { echo "directorio temporal invalido" >&2; exit 1; }
+chmod 700 "$T" || exit 1
 SFTP_C="$PROJ-sftp"
 rnd() { od -An -N"${1:-12}" -tx1 /dev/urandom | tr -d ' \n'; }
 
@@ -73,7 +75,8 @@ export BACKUP_DIR="$T/backups" BACKUP_OFFSITE_SSH_DIR="$T/ssh"
 export BACKUP_REMOTE='secure:erp' BACKUP_REQUIRE_OFFSITE=true BACKUP_OFFSITE_MARKER=centinela.txt
 export BACKUP_REMOTE_RETENTION_DAYS=30 BACKUP_REMOTE_MIN_KEEP=3 BACKUP_RETENTION_DAYS=14 BACKUP_RETENTION_MIN_KEEP=3
 export BACKUP_STOP_APP=true BACKUP_INCLUDE_CADDY=true
-mkdir -p "$T/ssh" "$T/sftp.d"; chmod 700 "$T/ssh"
+mkdir -p "$T/ssh" "$T/sftp.d" && chmod 700 "$T/ssh" || { echo "no se pudo preparar $T" >&2; exit 1; }
+: >"$T/empty.env"; export COMPOSE_ENV_FILES="$T/empty.env"   # blinda contra el .env REAL del repo (Compose y lib.sh cfg() solo leen este archivo vacio)
 
 # ---------------------------------------------------------------------------------------------------------- resultados
 PASS=0 FAIL=0 FAILED=()
@@ -88,7 +91,7 @@ cleanup() {
   local ec=$?
   if (( KEEP )); then
     echo "--keep: NO se limpio. Proyecto=$PROJ tmp=$T contenedor=$SFTP_C"
-    echo "Limpieza manual: docker rm -f $SFTP_C; docker compose -p $PROJ down -v --remove-orphans; docker run --rm -v $T:/t $ALPINE_IMAGE find /t -mindepth 1 -delete; rm -rf $T; rm -f $OFFSITE_ENV"
+    echo "Limpieza manual (todo por etiqueta/nombre del proyecto, sin variables de entorno): docker rm -f $SFTP_C; docker ps -aq --filter label=com.docker.compose.project=$PROJ | xargs -r docker rm -f; docker volume ls -q --filter label=com.docker.compose.project=$PROJ | xargs -r docker volume rm; docker network ls -q --filter label=com.docker.compose.project=$PROJ | xargs -r docker network rm; docker run --rm -v $T:/t $ALPINE_IMAGE find /t -mindepth 1 -delete; rm -rf $T; rm -f $OFFSITE_ENV"
     return
   fi
   echo; echo "--- limpieza ($PROJ) ---"
@@ -100,7 +103,7 @@ cleanup() {
   # SQL Server deja backups/ con dueño 10001: se vacia desde un contenedor root.
   docker run --rm --network none -v "$T:/t" "$ALPINE_IMAGE" find /t -mindepth 1 -delete >/dev/null 2>&1 || true
   rm -rf "$T" 2>/dev/null || true
-  grep -qxF "$ENV_MARK" "$OFFSITE_ENV" 2>/dev/null && rm -f "$OFFSITE_ENV"
+  own_env && rm -f "$OFFSITE_ENV"
   local left; left=$(docker ps -aq --filter "label=com.docker.compose.project=$PROJ" | wc -l)
   echo "residuos: contenedores=$left volumenes=$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJ" | wc -l) tmp=$([[ -e $T ]] && echo si || echo no)"
 }

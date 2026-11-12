@@ -136,8 +136,10 @@ rclone_errtext() { # rclone_errtext <salida de rclone>
 
 # Avisa (WARN, nunca falla) si rclone informo que NO valida la clave del servidor SFTP (falta RCLONE_CONFIG_OFFSITE_KNOWN_HOSTS_FILE):
 # sin eso cualquiera que se interponga en la red puede hacerse pasar por el servidor de backups. Verificado en docs/backup-sftp-simulacros.md.
-warn_hostkey_unpinned() { # warn_hostkey_unpinned <archivo con el stderr de rclone>
-  if grep -qiE 'No host key validation is being performed' "$1" 2>/dev/null; then
+HOSTKEY_WARNED=0
+warn_hostkey_unpinned() { # warn_hostkey_unpinned <archivo con el stderr de rclone>; una sola vez por corrida
+  if (( HOSTKEY_WARNED == 0 )) && grep -qiE "No host key validation is being performed" "$1" 2>/dev/null; then
+    HOSTKEY_WARNED=1
     log WARN "copia externa SFTP SIN validar la clave del servidor: definir RCLONE_CONFIG_OFFSITE_KNOWN_HOSTS_FILE (ver backup-offsite.env.example)"
   fi
   return 0
