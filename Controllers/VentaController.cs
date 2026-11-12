@@ -1910,7 +1910,8 @@ namespace TheBuryProject.Controllers
                 Total = venta.TotalFacturable,
                 ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
                 TotalACobrar = venta.TotalACobrar,
-                ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
+                ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(
+                    venta.Detalles, venta.ImporteEnvioIncluido, CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion))
             };
         }
 

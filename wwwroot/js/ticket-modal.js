@@ -316,9 +316,8 @@
             'bg-emerald-900 border border-emerald-700 text-emerald-200',
             'text-sm px-4 py-3 rounded-lg shadow-xl transition-opacity duration-500'
         ].join(' ');
-        toast.innerHTML =
-            '<span class="material-symbols-outlined text-base text-emerald-400 shrink-0">check_circle</span>' +
-            '<span>' + msg + '</span>';
+        toast.innerHTML = '<span class="material-symbols-outlined text-base text-emerald-400 shrink-0">check_circle</span><span></span>';
+        toast.lastElementChild.textContent = msg; // msg incluye nombres de archivo elegidos por el usuario
         document.body.appendChild(toast);
         setTimeout(function () {
             toast.style.opacity = '0';

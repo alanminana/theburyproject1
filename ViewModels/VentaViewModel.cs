@@ -29,6 +29,13 @@ namespace TheBuryProject.ViewModels
         [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
         public string? HuellaSolicitud { get; set; }
 
+        /// <summary>
+        /// P-02 / P5: versión de criterio fiscal de la venta (solo lectura: la fija el servidor al crearla; nunca se enlaza
+        /// desde el cliente ni se mapea de vuelta a la entidad).
+        /// </summary>
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+        public int CriterioFiscalVersion { get; set; } = Helpers.CriterioFiscalRegistry.VersionInicial;
+
         [Display(Name = "Número")]
         public string Numero { get; set; } = string.Empty;
 

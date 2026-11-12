@@ -10716,6 +10716,11 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("CreditoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("CriterioFiscalVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<decimal>("Descuento")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");

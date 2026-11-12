@@ -72,8 +72,11 @@ namespace TheBuryProject.ViewModels
         /// </param>
         public static List<FacturaAlicuotaResumenViewModel> Build(
             IEnumerable<VentaDetalleViewModel>? detalles,
-            decimal importeEnvioIncluido = 0m)
+            decimal importeEnvioIncluido = 0m,
+            Helpers.ICriterioFiscal? criterio = null)
         {
+            // P-02 / P5: criterio de la operación (su versión persistida); sin operación (vista previa), el vigente.
+            criterio ??= Helpers.CriterioFiscalRegistry.Vigente;
             if (detalles == null)
             {
                 return new List<FacturaAlicuotaResumenViewModel>();
@@ -85,11 +88,11 @@ namespace TheBuryProject.ViewModels
             var servicios = detallesList.Sum(d => d.ArmadoSubtotal) + Math.Max(0m, importeEnvioIncluido);
             if (servicios > 0m)
             {
-                var (neto, iva) = Helpers.ServiciosVentaIva.Separar(servicios);
+                var (neto, iva) = criterio.SepararServicios(servicios);
                 items.Add(new FacturaAlicuotaResumenViewModel
                 {
-                    PorcentajeIVA = Helpers.ServiciosVentaIva.Porcentaje,
-                    AlicuotaIVANombre = Helpers.ServiciosVentaIva.NombreAlicuota,
+                    PorcentajeIVA = criterio.AlicuotaServicios,
+                    AlicuotaIVANombre = criterio.NombreAlicuotaServicios,
                     BaseImponible = neto,
                     IVA = iva,
                     Total = servicios
