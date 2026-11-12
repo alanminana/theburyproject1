@@ -20,6 +20,8 @@ Mínimos (de `instalacion-servidor.md`): 8 GB RAM, 20 GB libres, **UPS** (SQL Se
 
 ## 2. Red segura (P-05)
 
+> Estado vigente, política de Tailscale y pruebas: [p05-tailscale-acceso-remoto.md](p05-tailscale-acceso-remoto.md) (2026-11-12).
+
 - Acceso interno: LAN → `https://tbp` → Caddy (443) → `app:8080` → `db:1433`. Solo 443 publicado; 1433 y 8080 no (ya así en `docker-compose.yml`).
 - TLS: CA interna de Caddy (`tls internal`); hay que instalar la CA raíz en cada equipo cliente (script de extracción ya existe). Alternativa si hay dominio propio: certificado público por DNS-01, sin abrir puertos.
 - Acceso remoto: **VPN, nunca port-forwarding al ERP.** Recomendado WireGuard o Tailscale (más simple; funciona detrás de CGNAT, que está **sin verificar**). Rutas VPN solo hacia la IP del servidor.

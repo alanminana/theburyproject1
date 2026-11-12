@@ -9,7 +9,7 @@
 #
 #   --user USER        usuario que administra el ERP; es el dueño de --backup-dir y queda en el grupo docker, que EQUIVALE A ROOT
 #                      en el servidor (un miembro puede montar el disco o vaciar las reglas del firewall): usar solo la cuenta de administracion [obligatorio]
-#   --allow-from LIST  redes con acceso HTTPS al ERP (CSV de IPv4/CIDR). Se aplica en DOCKER-USER (ver bury-firewall.sh)  [obligatorio]
+#   --allow-from LIST  redes con acceso HTTPS al ERP (CSV de IPv4/CIDR[@interfaz]; 100.64.0.0/10 se ata a tailscale0). Se aplica en DOCKER-USER (ver bury-firewall.sh)  [obligatorio]
 #   --admin-from LIST  redes con acceso SSH (22). Si se omite NO se activa ufw (evita dejar la VM sin acceso por error)
 #   --backup-dir DIR   crea el directorio de backups (700, dueño --user) si no existe; nunca cambia uno existente
 #   --tailscale        instala el paquete y habilita tailscaled (NO lo autentica: 'sudo tailscale up' lo hace el propietario)
@@ -48,10 +48,15 @@ valid_one() {
     (( 10#$o <= 255 )) && [[ "$o" == 0 || "$o" != 0* ]] || return 1
   done
 }
+# --allow-from admite CIDR@interfaz (el origen solo se acepta si entra por esa interfaz; ver bury-firewall.sh).
+valid_one_if() { [[ "$1" != *@* || "${1#*@}" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] && valid_one "${1%%@*}"; }
+valid_allow() { local s n=0; for s in ${1//,/ }; do valid_one_if "$s" || return 1; n=$((n+1)); done; (( n > 0 )); }
 valid_list() { local s n=0; for s in ${1//,/ }; do valid_one "$s" || return 1; n=$((n+1)); done; (( n > 0 )); }
 [[ "$RUN_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "--user es obligatorio (usuario Linux valido)"
 id "$RUN_USER" >/dev/null 2>&1 || die "el usuario '$RUN_USER' no existe"
-[[ -n "$ALLOW_FROM" ]] && valid_list "$ALLOW_FROM" || die "--allow-from es obligatorio (CSV de IPv4/CIDR)"
+[[ -n "$ALLOW_FROM" ]] && valid_allow "$ALLOW_FROM" || die "--allow-from es obligatorio (CSV de IPv4/CIDR[@interfaz])"
+# La red de Tailscale (100.64.0.0/10) solo se acepta si el paquete ENTRA por tailscale0 (evita suplantar un origen 100.x desde la LAN).
+FW_ALLOW=""; for s in ${ALLOW_FROM//,/ }; do [[ "$s" == 100.64.0.0/10 ]] && s=100.64.0.0/10@tailscale0; FW_ALLOW+="$s "; done; FW_ALLOW=${FW_ALLOW% }
 [[ -z "$ADMIN_FROM" ]] || valid_list "$ADMIN_FROM" || die "--admin-from invalido (CSV de IPv4/CIDR)"
 [[ "$HTTPS_PORT" =~ ^[0-9]+$ ]] && (( HTTPS_PORT >= 1 && HTTPS_PORT <= 65535 )) || die "--https-port invalido"
 [[ -z "$BACKUP_DIR" || "$BACKUP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]] || die "--backup-dir debe ser una ruta absoluta sin caracteres especiales"
@@ -124,11 +129,11 @@ if [[ -n "$BACKUP_DIR" ]]; then
 else log "3/6 sin --backup-dir: nada que crear"; fi
 
 # ---------------------------------------------------------------- 4. firewall de puertos publicados (DOCKER-USER)
-log "4/6 firewall de HTTPS ($HTTPS_PORT) para: ${ALLOW_FROM//,/ }"
+log "4/6 firewall de HTTPS ($HTTPS_PORT) para: $FW_ALLOW"
 run install -m 0755 "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin/bury-firewall
 run install -d -m 0755 /etc/bury
 if (( ! DRY )); then
-  printf 'ALLOW_FROM="%s"\nHTTPS_PORT=%s\n' "${ALLOW_FROM//,/ }" "$HTTPS_PORT" >/etc/bury/firewall.conf
+  printf 'ALLOW_FROM="%s"\nHTTPS_PORT=%s\n' "$FW_ALLOW" "$HTTPS_PORT" >/etc/bury/firewall.conf
   cat >/etc/systemd/system/bury-firewall.service <<'UNIT'
 [Unit]
 Description=TheBury: firewall de los puertos publicados por Docker (DOCKER-USER)

@@ -11,7 +11,10 @@
 # abierto a cualquier red que alcance la VM aunque ufw diga "deny incoming".
 #
 # Configuracion (archivo de shell, por defecto /etc/bury/firewall.conf; sobrescribible con BURY_FW_CONF):
-#   ALLOW_FROM="192.168.1.0/24 100.64.0.0/10"     redes/IPs con permiso a HTTPS (OBLIGATORIO; vacio = no se aplica nada)
+#   ALLOW_FROM="192.168.1.0/24 100.64.0.0/10@tailscale0"   redes/IPs con permiso a HTTPS (OBLIGATORIO; vacio = no se aplica nada)
+#                       Cada entrada admite el sufijo @INTERFAZ: el origen solo se acepta si el paquete ENTRA por esa interfaz. Para la
+#                       red de Tailscale (100.64.0.0/10) usar @tailscale0: sin eso, un equipo de la LAN podria suplantar un origen 100.x
+#                       (Tailscale protege INPUT con su propia cadena, pero NO los puertos publicados por Docker, que van por FORWARD).
 #   HTTPS_PORT=443                                 puerto original publicado por Caddy (ERP_HTTPS_PORT)
 # IMPORTANTE: las reglas llevan `--ctstate DNAT`: solo alcanzan a las conexiones ENTRANTES redirigidas a un contenedor (puerto publicado).
 # Sin eso, `ctorigdstport 443` tambien descartaria el HTTPS SALIENTE de los contenedores (NuGet, ACME, SFTP...), porque su destino original es :443.
@@ -30,8 +33,11 @@ HTTPS_PORT=443
 
 die() { echo "bury-firewall: $*" >&2; exit 1; }
 
-# IPv4 o CIDR: octetos 0-255 sin ceros a la izquierda (iptables los leeria como octal) y prefijo 1-32 (/0 anularia el filtro).
+# IPv4 o CIDR con interfaz opcional (CIDR@iface): octetos 0-255 sin ceros a la izquierda (iptables los leeria como octal) y prefijo 1-32 (/0 anularia el filtro).
 valid_src() {
+  local v=${1%%@*}
+  if [[ "$1" == *@* ]]; then [[ "${1#*@}" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] || return 1; fi
+  set -- "$v"
   [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})(/([1-9]|[12][0-9]|3[0-2]))?$ ]] || return 1
   local o; for o in "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"; do
     (( 10#$o <= 255 )) && [[ "$o" == 0 || "$o" != 0* ]] || return 1
@@ -47,10 +53,12 @@ validate() {
 
 # Emite, una por linea, los comandos de la cadena (sin el enganche a DOCKER-USER).
 rules() {   # rules NOMBRE_CADENA
-  local c=$1 s p
+  local c=$1 s p src ifc
   for s in $ALLOW_FROM; do
+    src=${s%%@*}; ifc=""
+    [[ "$s" == *@* ]] && ifc="-i ${s#*@} "
     for p in tcp udp; do
-      echo "-A $c -p $p -m conntrack --ctstate DNAT --ctorigdstport $HTTPS_PORT --ctdir ORIGINAL -s $s -j RETURN"
+      echo "-A $c -p $p ${ifc}-m conntrack --ctstate DNAT --ctorigdstport $HTTPS_PORT --ctdir ORIGINAL -s $src -j RETURN"
     done
   done
   for p in tcp udp; do

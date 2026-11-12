@@ -52,6 +52,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $TaskPrefix = 'TheBury'
 $FirewallName = 'TheBury ERP 443'
+$FirewallNameTs = 'TheBury ERP 443 Tailscale'   # la red de Tailscale (100.64.0.0/10) solo vale si el paquete entra por el adaptador 'Tailscale'
 
 function Write-Step([string]$m) { Write-Host ''; Write-Host "==> $m" -ForegroundColor Cyan }
 function Write-Ok([string]$m) { Write-Host "    OK   $m" -ForegroundColor Green }
@@ -128,8 +129,10 @@ if ($Uninstall) {
         if ($DryRun) { Write-Dry "Unregister-ScheduledTask '$t'"; continue }
         if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $t -Confirm:$false; Write-Ok "tarea '$t' eliminada" }
     }
-    if ($DryRun) { Write-Dry "Remove-NetFirewallRule '$FirewallName'" }
-    elseif (Get-NetFirewallRule -DisplayName $FirewallName -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -DisplayName $FirewallName; Write-Ok 'regla de firewall eliminada' }
+    foreach ($fn in @($FirewallName, $FirewallNameTs)) {
+        if ($DryRun) { Write-Dry "Remove-NetFirewallRule '$fn'" }
+        elseif (Get-NetFirewallRule -DisplayName $fn -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -DisplayName $fn; Write-Ok "regla de firewall '$fn' eliminada" }
+    }
     Write-Host ''; Write-Host 'Listo. No se tocaron datos, volumenes Docker ni backups.'
     exit 0
 }
@@ -197,13 +200,20 @@ else {
 # ----------------------------------------------------------------------------------------------------- 3. firewall
 if (-not $SkipFirewall) {
     Write-Step "Regla de Firewall: 443 TCP/UDP solo desde: $($AllowFrom -join ', ')"
-    if ($DryRun) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallName' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress $($AllowFrom -join ',')" }
+    # 100.64.0.0/10 (Tailscale) va en su propia regla, atada al adaptador 'Tailscale': evita que un equipo de la LAN suplante un origen 100.x.
+    $tsNet = @($AllowFrom | Where-Object { $_ -eq '100.64.0.0/10' })
+    $otherNets = @($AllowFrom | Where-Object { $_ -ne '100.64.0.0/10' })
+    if ($DryRun) {
+        if ($otherNets.Count) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallName' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress $($otherNets -join ',')" }
+        if ($tsNet.Count) { Write-Dry "New-NetFirewallRule -DisplayName '$FirewallNameTs' -Direction Inbound -Protocol TCP/UDP -LocalPort 443 -RemoteAddress 100.64.0.0/10 -InterfaceAlias Tailscale" }
+    }
     else {
-        if (Get-NetFirewallRule -DisplayName $FirewallName -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -DisplayName $FirewallName }
+        foreach ($fn in @($FirewallName, $FirewallNameTs)) { if (Get-NetFirewallRule -DisplayName $fn -ErrorAction SilentlyContinue) { Remove-NetFirewallRule -DisplayName $fn } }
         foreach ($proto in @('TCP', 'UDP')) {
-            New-NetFirewallRule -DisplayName $FirewallName -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress $AllowFrom -Profile Any | Out-Null
+            if ($otherNets.Count) { New-NetFirewallRule -DisplayName $FirewallName -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress $otherNets -Profile Any | Out-Null }
+            if ($tsNet.Count) { New-NetFirewallRule -DisplayName $FirewallNameTs -Direction Inbound -Action Allow -Protocol $proto -LocalPort 443 -RemoteAddress '100.64.0.0/10' -InterfaceAlias 'Tailscale' -Profile Any | Out-Null }
         }
-        Write-Ok 'regla creada (no se publican 8080 ni 1433)'
+        Write-Ok 'regla(s) creada(s) (no se publican 8080 ni 1433)'
     }
 }
 
