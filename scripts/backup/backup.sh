@@ -229,11 +229,15 @@ offsite() {
   # en el disco del servidor. Si BACKUP_OFFSITE_MARKER esta definido, el remoto debe contener ese archivo (se crea una vez con
   # `rclone touch`); si no esta, se aborta ANTES de subir nada.
   if [[ -n "$BACKUP_OFFSITE_MARKER" ]]; then
-    local mk
-    mk=$(dc run --rm -T --no-deps --quiet-pull backup-offsite lsf "$BACKUP_REMOTE/$BACKUP_OFFSITE_MARKER" 2>/dev/null | tr -d '\r' || true)
+    local mk mkerr=""
+    mk=$(dc run --rm -T --no-deps --quiet-pull backup-offsite lsf "$BACKUP_REMOTE/$BACKUP_OFFSITE_MARKER" 2>"$BACKUP_DIR/logs/.offsite.err" | tr -d '\r' || true)
+    warn_hostkey_unpinned "$BACKUP_DIR/logs/.offsite.err"
+    mkerr=$(rclone_errtext "$(cat "$BACKUP_DIR/logs/.offsite.err" 2>/dev/null)"); rm -f "$BACKUP_DIR/logs/.offsite.err"
     if [[ "$mk" != "$BACKUP_OFFSITE_MARKER" ]]; then
       monitor_status offsite-marker "$EX_OFFSITE" false
-      fail $EX_OFFSITE "copia externa: falta el centinela '$BACKUP_OFFSITE_MARKER' en ${BACKUP_REMOTE%%:*}:* (¿disco/NAS desconectado o no montado?). No se sube nada"; return 1
+      # Se muestra la causa real (conexion rechazada, host key, credenciales, password crypt incorrecta -> "directory not found"):
+      # antes se descartaba y todo parecia "disco desconectado".
+      fail $EX_OFFSITE "copia externa: no se pudo comprobar el centinela '$BACKUP_OFFSITE_MARKER' en ${BACKUP_REMOTE%%:*}:* (¿disco/NAS desconectado o no montado, remoto inaccesible o password de cifrado incorrecta?)${mkerr:+ Causa: $mkerr}. No se sube nada"; return 1
     fi
   fi
 
@@ -255,6 +259,7 @@ offsite() {
       monitor_status "offsite-$sub" "$EX_OFFSITE" false
       fail $EX_OFFSITE "copia externa FALLO ($sub): $(rclone_errtext "$(cat "$BACKUP_DIR/logs/.offsite.err")")"; return 1
     fi
+    warn_hostkey_unpinned "$BACKUP_DIR/logs/.offsite.err"
     if ! rclone_verify backup-offsite "/backups/$sub" "$BACKUP_REMOTE/$sub" "${args[@]}"; then
       monitor_status "offsite-$sub" "$EX_OFFSITE" false
       fail $EX_OFFSITE "copia externa: la verificacion FALLO ($sub): $RCLONE_ERR"; return 1
