@@ -60,7 +60,7 @@ if [[ "$(systemd-detect-virt 2>/dev/null || true)" == microsoft ]]; then
 fi
 
 # ---------------------------------------------------------------- 2. Docker Engine
-if (( SKIP_DOCKER )) || { command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && dpkg -s docker-ce >/dev/null 2>&1; }; then
+if (( SKIP_DOCKER )) || { [[ -z "${BURY_FORCE_DOCKER_INSTALL:-}" ]] && command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && dpkg -s docker-ce >/dev/null 2>&1; }; then
   log "2/6 Docker ya presente o --skip-docker: no se instala"
 else
   log "2/6 Docker Engine + Compose v2 (repositorio oficial de Docker)"

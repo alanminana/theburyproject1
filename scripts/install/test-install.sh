@@ -86,7 +86,7 @@ BOOT="$HERE/server-linux-bootstrap.sh"; FW="$HERE/bury-firewall.sh"
 check "bash -n server-linux-bootstrap.sh" bash -n "$BOOT"
 check "bash -n bury-firewall.sh" bash -n "$FW"
 ME=$(id -un)
-bootdry() { bash "$BOOT" --dry-run --user "$ME" "$@" 2>&1; }
+bootdry() { BURY_FORCE_DOCKER_INSTALL=1 bash "$BOOT" --dry-run --user "$ME" "$@" 2>&1; }
 out=$(bootdry --allow-from 192.168.1.0/24,100.64.0.0/10 --admin-from 192.168.1.0/24 --backup-dir /srv/bury-test --tailscale); rc=$?
 check "bootstrap --dry-run completo (rc=0)" test "$rc" = 0
 check "bootstrap: Docker Engine desde el repo oficial" grep -q 'download.docker.com/linux/ubuntu/gpg' <<<"$out"
