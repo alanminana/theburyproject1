@@ -1,0 +1,17 @@
+# Overlay opcional: copia externa por SFTP con la clave del servidor FIJADA (known_hosts) y/o autenticacion por clave privada.
+# Monta el directorio del host indicado en BACKUP_OFFSITE_SSH_DIR (solo lectura) dentro de los contenedores rclone como /config.
+# Uso (ver docs/backup-restore.md §6 y docs/backup-sftp-simulacros.md):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.offsite-sftp.yml   (en el entorno de cron/Task Scheduler)  -- o --
+#   docker compose -f docker-compose.yml -f docker-compose.offsite-sftp.yml ...
+# Contenido esperado de ese directorio (NUNCA dentro del repo; permisos 700, archivos 600):
+#   known_hosts      lineas "host ssh-ed25519 AAAA..." (con puerto no estandar: "[host]:2222 ssh-ed25519 AAAA...")
+#   id_ed25519       (opcional) clave privada del usuario de backup, si no se usa password
+# Con `backup-offsite.env`: RCLONE_CONFIG_OFFSITE_KNOWN_HOSTS_FILE=/config/known_hosts  y, con clave, RCLONE_CONFIG_OFFSITE_KEY_FILE=/config/id_ed25519
+# El directorio con claves y known_hosts es secreto operativo del servidor de backup: no se versiona ni se incluye en los backups.
+services:
+  backup-offsite:
+    volumes:
+      - ${BACKUP_OFFSITE_SSH_DIR:?Definir BACKUP_OFFSITE_SSH_DIR (directorio del host con known_hosts y, opcional, la clave privada)}:/config:ro
+  restore-offsite:
+    volumes:
+      - ${BACKUP_OFFSITE_SSH_DIR:?Definir BACKUP_OFFSITE_SSH_DIR (directorio del host con known_hosts y, opcional, la clave privada)}:/config:ro

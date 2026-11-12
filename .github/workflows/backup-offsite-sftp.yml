@@ -1,0 +1,58 @@
+name: Backup copia externa SFTP (simulacro aislado)
+
+# Ejecuta scripts/backup/test-offsite-sftp.sh: pipeline REAL de backup/restore (scripts/backup/*.sh) contra un servidor SFTP
+# DESCARTABLE (atmoz/sftp fijado por digest) con rclone crypt, SQL Server real efimero y datos sinteticos.
+# Todo es efimero y propio del job (proyecto Compose bury-p06sftp-<rand>, credenciales y host keys generadas al vuelo);
+# no usa secretos del repositorio ni conecta con ningun servidor real. Detalle: docs/backup-sftp-simulacros.md
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/backup/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.offsite-sftp.yml'
+      - 'backup-offsite.env.example'
+      - '.github/workflows/backup-offsite-sftp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-offsite-sftp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulacro-sftp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Precalentar imagenes (SQL Server, rclone, alpine, SFTP)
+        shell: bash
+        run: |
+          pids=()
+          for img in \
+            "mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090" \
+            "rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5" \
+            "alpine:3@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6" \
+            "atmoz/sftp@sha256:c5fb9e4beb8b7054a4c0b65c5e11df47cc20da95ad6002e88aecff62bab06372"; do
+            docker pull -q "$img" >/dev/null & pids+=($!)
+          done
+          fail=0
+          for p in "${pids[@]}"; do wait "$p" || fail=1; done
+          exit $fail
+
+      - name: Simulacro SFTP completo (a b c d g h e f)
+        shell: bash   # -eo pipefail: sin esto el exit del arnes se pierde detras de `| tee` y el job daria verde aunque fallara
+        run: bash scripts/backup/test-offsite-sftp.sh 2>&1 | tee "$RUNNER_TEMP/simulacro-sftp.log"
+
+      - name: Sin residuos del simulacro
+        if: always()
+        shell: bash
+        run: |
+          left=$(docker ps -aq --filter "name=bury-p06sftp-" | wc -l)
+          vols=$(docker volume ls -q --filter "name=bury-p06sftp-" | wc -l)
+          echo "contenedores=$left volumenes=$vols"
+          test "$left" = 0 && test "$vols" = 0

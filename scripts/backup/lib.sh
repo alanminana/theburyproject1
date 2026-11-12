@@ -134,6 +134,17 @@ rclone_errtext() { # rclone_errtext <salida de rclone>
   { grep -v ' NOTICE: ' <<<"$1" || true; } | tr '\n' ' ' | sanitize_text | cut -c1-300
 }
 
+# Avisa (WARN, nunca falla) si rclone informo que NO valida la clave del servidor SFTP (falta RCLONE_CONFIG_OFFSITE_KNOWN_HOSTS_FILE):
+# sin eso cualquiera que se interponga en la red puede hacerse pasar por el servidor de backups. Verificado en docs/backup-sftp-simulacros.md.
+HOSTKEY_WARNED=0
+warn_hostkey_unpinned() { # warn_hostkey_unpinned <archivo con el stderr de rclone>; una sola vez por corrida
+  if (( HOSTKEY_WARNED == 0 )) && grep -qiE "No host key validation is being performed" "$1" 2>/dev/null; then
+    HOSTKEY_WARNED=1
+    log WARN "copia externa SFTP SIN validar la clave del servidor: definir RCLONE_CONFIG_OFFSITE_KNOWN_HOSTS_FILE (ver backup-offsite.env.example)"
+  fi
+  return 0
+}
+
 # rclone check con el servicio dado. Si el remoto no tiene hash comun con el local (p.ej. SFTP sin shell), `check` solo compara
 # TAMAÑO: en ese caso se repite con --download (compara byte a byte) para no declarar "verificado" algo que solo coincide en tamaño.
 # rclone_verify <servicio> <origen> <destino> [args rclone...]   -> 0 ok, !=0 diferencias/error. Deja el detalle en $RCLONE_ERR.
