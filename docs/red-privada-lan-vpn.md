@@ -29,6 +29,8 @@ que el servidor sea alcanzable desde la VPN.
 
 ## 2. Confianza TLS (CA raíz de Caddy)
 
+> Para equipos Windows usar `scripts/install/Install-ErpCa.ps1` (exige la huella SHA-256 entregada por otro canal y valida que sea una CA raíz sin clave privada) en lugar de `Import-Certificate` a ciegas. Ver [p05-tailscale-acceso-remoto.md](p05-tailscale-acceso-remoto.md) §5.
+
 Tras el primer arranque, Caddy genera su CA en el volumen `caddy-data`. Solo la **CA raíz pública** se distribuye; **nunca** la clave
 privada (`root.key`, `intermediate.key`) ni se versiona nada de `caddy-data`.
 

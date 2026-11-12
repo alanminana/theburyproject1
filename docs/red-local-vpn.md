@@ -2,6 +2,9 @@
 
 **Estado: POSPUESTA HASTA INSTALACIÓN EN EL HOST/RED DEFINITIVOS.**
 
+> **Actualización 2026-11-12:** la VPN elegida es Tailscale (dos personas, cuentas independientes). El diseño, la política de acceso, las pruebas y los pendientes
+> vigentes están en [p05-tailscale-acceso-remoto.md](p05-tailscale-acceso-remoto.md). Este documento queda como registro histórico del 2026-09-22.
+
 Decisión del usuario, 2026-09-22: el servidor se instalará en otra ubicación y todavía
 no existe configuración de esa red. Este documento registra el objetivo y los
 pendientes; no constituye una configuración de despliegue ni una validación de aislamiento.

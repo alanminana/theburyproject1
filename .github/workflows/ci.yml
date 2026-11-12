@@ -292,11 +292,38 @@ jobs:
         run: |
           bash scripts/backup/test-hardening.sh
           bash scripts/install/test-install.sh
+          bash scripts/install/test-tailscale-policy.sh
+          python3 -I scripts/install/tailscale-policy-check.py
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
 
       - name: Eliminar .env sintetico
         if: always()
         run: rm -f "$ENV_FILE"
+
+  # ---------------------------------------------------------------------------------------------
+  # P-05 red y acceso seguro: pruebas REALES con Docker en el runner (datos sinteticos, redes/contenedores efimeros con prefijo buryfw-/buryca-):
+  # firewall DOCKER-USER sobre un puerto publicado (autorizado/denegado/aislamiento/revocacion/spoof) y confianza TLS de la CA interna de Caddy.
+  # Aplica y quita la cadena BURY-ERP en el runner (efimero). No toca el ERP ni la base.
+  # ---------------------------------------------------------------------------------------------
+  network-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Politica de Tailscale (grants, aislamiento, revocacion)
+        run: bash scripts/install/test-tailscale-policy.sh
+
+      - name: Firewall de puertos publicados (DOCKER-USER) con clientes en redes distintas
+        run: sudo bash scripts/install/test-firewall-isolation.sh
+
+      - name: Caddy tls internal + confianza de la CA raiz
+        run: bash scripts/install/test-caddy-tls.sh
+
+      - name: Instalacion de la CA en clientes (PowerShell 7, solo -VerifyOnly)
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/install/Test-InstallErpCa.ps1
 
   # ---------------------------------------------------------------------------------------------
   # Deteccion de secretos NUEVOS introducidos por este push/PR (no re-escanea todo el historial:
@@ -384,3 +411,7 @@ jobs:
       - name: Instalador de Windows Server (funciones puras, cloud-init, ISO cidata, dry-run)
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-WindowsServerInstall.ps1
+
+      - name: Instalacion de la CA en clientes (Windows PowerShell 5.1, solo -VerifyOnly)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-InstallErpCa.ps1
