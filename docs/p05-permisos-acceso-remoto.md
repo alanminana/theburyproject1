@@ -83,7 +83,7 @@ el comportamiento de ufw con `0.0.0.0`, y la interacción `DOCKER-USER`/ufw. El 
 **Hechos verificados en el código** (no se modificó nada):
 - Caddy con `tls internal` guarda su **CA raíz y su clave privada** (`root.key`, `intermediate.key`) en el volumen `caddy-data` (`/data/caddy/pki/authorities/local/`); `test-caddy-tls.sh` lo comprueba.
 - `scripts/backup/container/files-backup.sh` incluye `caddy-data` completo en `files_*.tar.gz` si `BACKUP_INCLUDE_CADDY=true` (valor **por defecto: true**). Por lo tanto `root.key`
-  está en **cada copia de archivos**, y viaja al disco externo y al SFTP remoto de P-06 (#300). El informe de #299 (ya fusionada, sin tratar  aparte) lo anota ("el tar de files … caddy-data … viaja al remoto: su
+  está en **cada copia de archivos**, y viaja al disco externo y al SFTP remoto de P-06 (#300). El informe de #299 (ya fusionada, sin tratar `root.key` aparte) lo anota ("el tar de files … caddy-data … viaja al remoto: su
   confidencialidad depende por completo de las passwords crypt").
 - Quien obtenga `root.key` puede emitir certificados aceptados por **todos los equipos que instalaron la CA** (usuario remoto, administrador remoto, equipos de la LAN) para **cualquier** sitio HTTPS,
   no solo el ERP: es un MITM total sobre esos equipos. Es el activo más sensible de P-05 y hoy no tiene custodia propia (mismo nivel de protección que cualquier backup).
