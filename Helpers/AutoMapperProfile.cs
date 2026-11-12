@@ -256,6 +256,8 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.TieneEnvio, opt => opt.MapFrom(src => src.Envio != null));
 
             CreateMap<VentaViewModel, Venta>()
+                // P-02 / P5: la versión de criterio fiscal la fija solo el servidor (VentaService.CreateAsync); nunca viene del formulario.
+                .ForMember(dest => dest.CriterioFiscalVersion, opt => opt.Ignore())
                 .ForMember(dest => dest.ClienteId, opt => opt.MapFrom(src => src.ClienteId > 0 ? (int?)src.ClienteId : null))
                 // H-01: el número de origen lo fija solo el servidor al renumerar; nunca viene del formulario.
                 .ForMember(dest => dest.NumeroOrigen, opt => opt.Ignore())

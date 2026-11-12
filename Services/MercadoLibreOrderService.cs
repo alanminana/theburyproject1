@@ -528,6 +528,7 @@ namespace TheBuryProject.Services
                 var venta = new Venta
                 {
                     Numero = numero,
+                    CriterioFiscalVersion = Helpers.CriterioFiscalRegistry.VersionVigente,
                     ClienteId = config.ClienteMercadoLibreId.Value,
                     FechaVenta = orden.FechaCreacionUtc,
                     Estado = EstadoVenta.Confirmada,
