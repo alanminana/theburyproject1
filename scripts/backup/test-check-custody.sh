@@ -82,6 +82,37 @@ printf 'sql/a.bak\nextra/recovery-passphrase.txt\n' >"$T/remote-bad.txt"
 new_case remote_ok;       OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" BURY_CUSTODY_REMOTE_LIST_FILE="$T/remote-ok.txt" bash "$HERE/check-custody.sh" --no-status --check-remote 2>&1); RC=$?; expect "C11 remoto limpio" 0 'C11 remoto sin archivos' '^FAIL'
 new_case remote_bad;      OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" BURY_CUSTODY_REMOTE_LIST_FILE="$T/remote-bad.txt" bash "$HERE/check-custody.sh" --no-status --check-remote 2>&1); RC=$?; expect "C11 passphrase en el remoto" 11 '^FAIL C11 .*passphrase'
 
+# --- nombres en espanol y paquetes alternativos (C03/C09) -------------------------------------------------------------------
+for nm in clave-recuperacion.txt contraseña-sa.txt llave.txt secreto.txt credenciales.json; do
+  new_case "es_${nm%%.*}"; echo x >"$C/backups/files/$nm"; run_case; expect "C03 nombre en espanol '$nm' dentro de BACKUP_DIR" 11 '^FAIL C03'
+done
+for ext in gpg age 7z zip enc; do
+  new_case "pkg_$ext"; mkdir -p "$C/sec"; echo x >"$C/sec/paquete.$ext"; echo x >"$C/sec/contraseña.txt"; run_case CUSTODY_RECOVERY_DIRS="$C/sec"
+  expect "C09 paquete .$ext + contrasena en la misma raiz" 11 '^FAIL C09 .*contrase'
+done
+new_case pkg_solo;        mkdir -p "$C/sec"; echo x >"$C/sec/paquete.7z"; run_case CUSTODY_RECOVERY_DIRS="$C/sec"; expect "C09 paquete .7z solo: OK" 0 '' '^FAIL'
+
+# --- C10 sin repositorio Git: aviso explicito ------------------------------------------------------------------------------
+new_case nogit;           mkdir -p "$T/nogit/scripts/backup"; cp "$HERE/check-custody.sh" "$HERE/lib.sh" "$T/nogit/scripts/backup/"
+OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" GIT_CEILING_DIRECTORIES="$T" bash "$T/nogit/scripts/backup/check-custody.sh" --no-status --quiet 2>&1); RC=$?
+expect "C10 fuera de un repo Git: WARN explicito (no falla)" 0 '^WARN C10 .*no es un repositorio Git' '^FAIL'
+
+# --- C01/C02 omitidos por filesystem: WARN visible con --quiet -------------------------------------------------------------
+if (( ! MODES )); then
+  new_case skipwarn;      OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" bash "$HERE/check-custody.sh" --no-status --quiet 2>&1); RC=$?
+  expect "C01/C02 omitidos (NTFS): WARN visible con --quiet" 0 '^WARN C0[12] .*NO verificables' '^FAIL'
+fi
+
+# --- symlinks (C02/C04) -----------------------------------------------------------------------------------------------------
+: >"$T/pf"; ln -s "$T/pf" "$T/pl" 2>/dev/null; if [[ -L "$T/pl" ]]; then LINKS=1; else LINKS=0; echo "SKIP casos de symlink: el entorno no crea symlinks"; fi
+rm -f "$T/pl" "$T/pf"
+if (( LINKS )); then
+  new_case lnk_env;       mv "$C/backup-offsite.env" "$C/backups/real.cfg"; ln -s "$C/backups/real.cfg" "$C/backup-offsite.env"; run_case; expect "C02 backup-offsite.env es un symlink hacia dentro de BACKUP_DIR" 11 '^FAIL C02 .*dentro de'
+  new_case lnk_bk;        mv "$C/backups" "$C/realbk"; ln -s "$C/realbk" "$C/backups"; echo x >"$C/realbk/files/server.key"; run_case; expect "C03 BACKUP_DIR es un symlink: se inspecciona el destino real" 11 '^FAIL C03 .*server\.key'
+  new_case lnk_off;       mkdir -p "$C/realdisk"; ln -s "$C/realdisk" "$C/disk"; echo x >"$C/realdisk/id_rsa"; run_case BACKUP_OFFSITE_DISK_DIR="$C/disk"; expect "C04 directorio offsite via symlink" 11 '^FAIL C04 .*id_rsa'
+  new_case lnk_envin;     mkdir -p "$C/disk"; mv "$C/.env" "$C/disk/real.env"; ln -s "$C/disk/real.env" "$C/.env"; run_case BACKUP_OFFSITE_DISK_DIR="$C/disk"; expect "C02 .env symlink hacia el directorio offsite" 11 '^FAIL C02 .*dentro de'
+fi
+
 # --- estado para el monitor ------------------------------------------------------------------------------------------------
 new_case status_ok
 OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" bash "$HERE/check-custody.sh" 2>&1); RC=$?

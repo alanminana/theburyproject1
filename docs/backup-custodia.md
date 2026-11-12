@@ -65,17 +65,19 @@ scripts/backup/check-custody.sh --quiet         # solo FAIL/WARN y resumen (modo
 
 | Regla | Falla si | 
 |---|---|
-| C01 | `.env`/`COMPOSE_ENV_FILES` con permisos para grupo/otros (solo Linux; se omite en NTFS/DrvFs/Git Bash, donde `chmod` no existe) |
+| C01 | `.env`/`COMPOSE_ENV_FILES` con permisos para grupo/otros. En NTFS/DrvFs/9p/Git Bash (donde `chmod` no existe) no se puede verificar: emite **WARN** visible (también con `--quiet`), no un OK silencioso |
 | C02 | `backup-offsite.env` con modo != 600, o `backup-offsite.env`/`.env` dentro de `BACKUP_DIR` o del directorio offsite local |
-| C03 | `BACKUP_DIR` contiene nombres tipo `*passphrase*`, `*password*`, `*recovery*`, `*.key`, `*.pem`, `id_*`, `rclone.conf`, `.env`, `backup-offsite.env` (se ignoran `*.example`) |
+| C03 | `BACKUP_DIR` contiene nombres tipo `*passphrase*`, `*password*`, `*recovery*`, `*.key`, `*.pem`, `id_*`, `rclone.conf`, `.env`, `backup-offsite.env`, y sus equivalentes en español (`*clave*`, `*contraseña*`/`*contrasena*`, `*llave*`, `*secreto*`/`*secret*`, `*credencial*`, `*recuperaci*`). Se ignoran `*.example` y los paquetes cifrados (los cubre C09) |
 | C04 | Lo mismo en `BACKUP_OFFSITE_DISK_DIR` (disco/NAS montado) |
 | C05 | Un archivo de texto de `BACKUP_DIR` contiene `RCLONE_CONFIG_*PASS/KEY/SECRET=<valor>`, `MSSQL_SA_PASSWORD=<valor>` o una clave privada PEM (un `[REDACTED]` no cuenta) |
 | C06 | El valor de la password crypt aparece tal cual en `logs/`, `monitor-status/`, `~/bury-backup-errors.log`, `/var/log/bury-backup-errors.log` o `CUSTODY_EXTRA_LOGS` |
-| C07 | `_PASSWORD`/`_PASSWORD2` del remoto activo faltan, son iguales, no tienen forma de salida de `obscure` (≥ 22 caracteres base64url), son placeholders (`changeme`, `<obscure P1>`…) o caracteres repetidos |
+| C07 | `_PASSWORD`/`_PASSWORD2` del remoto activo faltan, son iguales, no tienen forma de salida de `obscure` (≥ 22 caracteres base64url), son placeholders (`changeme`, `<obscure P1>`…) o caracteres repetidos. **Valida forma, no fortaleza**: una password débil pasa si tiene forma válida (ver §10) |
 | C08 | Hay `BACKUP_REMOTE` y: falta `BACKUP_REQUIRE_OFFSITE=true`; o el remoto no es `crypt`/no se puede comprobar; o `FILENAME_ENCRYPTION=off`. También: `REQUIRE_OFFSITE=true` sin remoto. Sin remoto ni REQUIRE: solo WARN |
-| C09 | Una raíz (`BACKUP_DIR`, offsite local, `~/secure-preprod`, `~/secure-prod`, `CUSTODY_RECOVERY_DIRS`) contiene un `*.enc` **y** passphrase/clave (`*passphrase*`, `*password*`, `*recovery-key*`, `*.key`, `*.pem`, `rclone.conf`). Un `.enc` dentro de `BACKUP_DIR` genera WARN |
-| C10 | Git versiona `.env`, `backup-offsite.env`, `rclone.conf`, `*passphrase*`, `*.enc`, `*.pem`, `*.key` (excepto `*.example`) |
+| C09 | Una raíz (`BACKUP_DIR`, offsite local, `~/secure-preprod`, `~/secure-prod`, `CUSTODY_RECOVERY_DIRS`) contiene un paquete (`*.enc`, `*.gpg`, `*.age`, `*.7z`, `*.zip`) **y** passphrase/clave (`*passphrase*`, `*password*`, `*recovery-key*`, `*.key`, `*.pem`, `rclone.conf`, `*clave*`, `*contraseña*`, `*llave*`, `*secret*`, `*credencial*`). Un paquete dentro de `BACKUP_DIR` genera WARN |
+| C10 | Git versiona `.env`, `backup-offsite.env`, `rclone.conf`, `*passphrase*`, `*.enc`, `*.pem`, `*.key` (excepto `*.example`). Si el directorio no es un repositorio Git (o falta `git`) emite **WARN** explícito: no pudo verificarse |
 | C11 | (`--check-remote`) el remoto contiene nombres con aspecto de clave |
+
+Los symlinks se resuelven (`readlink -f`) antes de comparar rutas y de escanear: un `BACKUP_DIR`, un directorio offsite o un `backup-offsite.env`/`.env` que sea un enlace hacia dentro de un directorio de respaldos se detecta (C02-C04).
 
 Se ejecuta **solo en bash** (un único script): en Windows las tareas corren dentro de WSL (`install-windows.ps1` → `wsl.exe … bash`) y los
 secretos viven en el sistema de archivos de WSL/Linux, donde el chequeo de modos es real; un `Check-Custody.ps1` duplicaría 11 reglas para
@@ -84,7 +86,7 @@ revisar ACL NTFS de archivos que, en esta arquitectura, no residen en NTFS. En W
 Programación: `install-schedule.sh` agrega un cron semanal (una hora después del restore-test) y `install-windows.ps1` la tarea
 `TheBury Check Custody` (domingo 05:30; se verifica con `-DryRun`, sin registrar tareas). No hay instalación automática en equipos reales.
 
-Tests: `scripts/backup/test-check-custody.sh` (37 casos sintéticos positivos/negativos; los de permisos corren en Linux/WSL/Docker).
+Tests: `scripts/backup/test-check-custody.sh` (casos sintéticos positivos/negativos: 47 en Git Bash, 53 en Linux; los de permisos y symlinks solo corren en Linux/WSL/Docker).
 
 ## 6. Generar las passwords crypt sin dejar rastro
 
@@ -130,10 +132,20 @@ Las tres señales de "prueba periódica" comparten una única implementación (`
 (`restore_test_status` en `lib.sh`). Un estado inexistente tiene gracia hasta el umbral desde la primera observación, luego alerta. Los mensajes
 de estado ya van sanitizados y solo contienen identificadores de regla y causas, nunca valores. Las alertas no ejecutan acciones: solo notifican.
 
+`restore-test.sh --offsite` avisa si el último full remoto es más viejo que `BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS` (default 3; según el nombre, UTC): por defecto WARN
+(log y mensaje del estado), o fallo (exit 6) con `BACKUP_OFFSITE_RESTORE_STALE=fail`. En `config.example.json`, `enabled` acepta `true/false` y también los strings `"false"`, `"0"`, `"off"`, `"no"` (desactivan) y `"auto"`.
+
 `restore-test.sh --offsite`: descarga el último full de `BACKUP_REMOTE` (pasa por `crypt`, o sea prueba las passwords vigentes) con prefijo
 `offsitert_`, verifica su `.sha256` de origen, lo restaura en la base aislada `<db>_OffsiteRestoreTest`, valida (`DBCC CHECKDB`, migraciones), y **borra** la
 copia descargada y la base. No toca la base viva, ni `<db>_RestoreTest`, ni `restore-test.json`. Requiere espacio libre igual al tamaño del full en `BACKUP_DIR/sql`.
 Probado con un `docker` falso (`scripts/backup/test-offsite-restore-test.sh`, 24 casos); **no se ejecutó contra un SQL Server ni un remoto reales** en este lote.
+
+### Notas de despliegue (importante)
+
+- **`custody` (8/15 d) y `offsite-restore-test` (35/45 d) alertan si no se programan.** `backup.custody` está habilitada por defecto: sin `check-custody.sh` programado,
+  tras la gracia inicial pasa a WARNING a los 8 días y CRITICAL a los 15. `backup.offsite-restore-test` se activa sola (`"auto"`) en cuanto existe `offsite-sql.json`, y
+  **no tiene cron automático**: sin programarla a mano alerta a los 35/45 días. Si no se va a usar alguna, desactivarla explícitamente en la config (`"enabled": false`).
+- `install-schedule.sh` y `install-windows.ps1` programan `check-custody.sh` (semanal); el restore desde el remoto hay que agregarlo (cron mensual sugerido arriba).
 
 ## 8. Rotación
 
@@ -172,6 +184,7 @@ guardar la nueva en A y el nuevo `.enc` en B, destruir copias antiguas de ambos.
 
 - El verificador mira **nombres** y contenidos de texto pequeños dentro de los directorios que conoce. No detecta una clave guardada con un nombre
   inocuo ni dentro de un archivo comprimido, ni lo que haya en otra máquina, en el gestor de contraseñas o en una nube de usuario. No sustituye a la disciplina de custodia.
+- C07 valida **forma, no fortaleza**: una password débil o reutilizada con forma válida pasa. La fortaleza depende de generarla con `openssl rand` (§6).
 - Las passwords `obscure` se validan por **forma** (longitud/alfabeto/placeholder/igualdad textual). No puede saber si la password real es débil: `obscure` usa un IV
   aleatorio (dos obscure de la misma password son textos distintos) y revelarla exigiría invocar `rclone reveal` con la password en `argv`. Generar con `openssl rand` (§6).
 - C06 busca el valor obscure tal como figura en el env; no puede encontrar la password en claro (nunca debería estar en el servidor) ni valores ya rotados.

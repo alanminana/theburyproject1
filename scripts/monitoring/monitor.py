@@ -169,6 +169,18 @@ class Alerts:
         self.store.put("delivery.failed", failed)
 
 
+def flag(value, default=True):
+    """Interpreta `enabled` de la config: acepta bool y strings ("false", "0", "no", "off", "disabled" desactivan; "auto" se conserva)."""
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text == "auto":
+            return "auto"
+        if text in ("", "false", "0", "no", "off", "disabled", "none", "null"):
+            return False
+        return True
+    return default if value is None else bool(value)
+
+
 class Collector:
     def __init__(self, config, store):
         self.cfg, self.store = config, store
@@ -378,7 +390,7 @@ class Collector:
         coincide con su sha256 de origen y restaura. enabled: "auto" (default) = solo si ya hubo copia externa (existe
         monitor-status/offsite-sql.json); true/false fuerzan. Mensual por defecto: warning 35 dias, critical 45."""
         cfg = self.cfg.get("offsite_restore_test", {})
-        enabled = cfg.get("enabled", "auto")
+        enabled = flag(cfg.get("enabled", "auto"))
         if enabled == "auto":
             enabled = (Path(self.cfg["backup_dir"]) / "monitor-status" / "offsite-sql.json").exists()
         if enabled:
@@ -388,7 +400,7 @@ class Collector:
         """Verificacion de custodia de claves (check-custody.sh --> monitor-status/custody.json). Un FAIL de custodia es CRITICAL
         hasta que una corrida posterior pase; sin corridas recientes sube a warning/critical (semanal: 8 / 15 dias).
         enabled=false lo desactiva (p. ej. entornos sin copia externa)."""
-        if self.cfg.get("custody", {}).get("enabled", True):
+        if flag(self.cfg.get("custody", {}).get("enabled", True)) is not False:
             self.restore_test("custody", "custody", (8 * 86400, 15 * 86400))
 
     def collect(self):

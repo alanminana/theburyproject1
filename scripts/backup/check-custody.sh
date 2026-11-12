@@ -76,17 +76,22 @@ fs_ignores_modes() { # NTFS / DrvFs / Git Bash: chmod no tiene efecto y stat inv
 check_mode() { # check_mode REGLA ARCHIVO
   local rule=$1 f=$2 m
   [[ -e "$f" ]] || return 0
-  if fs_ignores_modes "$f"; then say "$rule $f: permisos no verificables en este filesystem (omitido)"; return 0; fi
+  if fs_ignores_modes "$f"; then warn "$rule" "$f: permisos NO verificables en este filesystem (NTFS/DrvFs/9p): omitido; verificar en el host Linux/WSL real"; return 0; fi
   m=$(stat -c %a "$f" 2>/dev/null) || { warn "$rule" "$f: no se pudo leer el modo"; return 0; }
   if (( (8#$m & 8#077) != 0 )); then fail "$rule" "$f: modo $m (debe ser 600: sin acceso para grupo/otros)"; else say "$rule $f: modo $m"; fi
 }
-under() { # under RUTA BASE -> 0 si RUTA esta dentro de BASE
-  local p base; p=$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1"); base=$(cd "$2" 2>/dev/null && pwd -P) || return 1
-  [[ "$p" == "$base"/* ]]
+under() { # under RUTA BASE -> 0 si RUTA (con symlinks resueltos) esta dentro de BASE (con symlinks resueltos)
+  local p base; p=$(readlink -f -- "$1" 2>/dev/null) && base=$(readlink -f -- "$2" 2>/dev/null) || return 1
+  [[ -n "$p" && -n "$base" && "$p" == "$base"/* ]]
 }
+realdir() { # realdir DIR -> ruta con symlinks resueltos (o la misma si no existe)
+  local r; r=$(readlink -f -- "$1" 2>/dev/null) && [[ -n "$r" ]] && printf '%s' "$r" || printf '%s' "$1"
+}
+BACKUP_DIR=$(realdir "$BACKUP_DIR")
 
 # Nombres que delatan material de clave. find -iname, sin leer contenido.
 KEYISH=(-iname '*passphrase*' -o -iname '*passwd*' -o -iname '*password*' -o -iname '*recovery*' -o -iname '*.key' -o -iname '*.pem'
+        -o -iname '*clave*' -o -iname '*contrase*a*' -o -iname '*llave*' -o -iname '*secret*' -o -iname '*credencial*' -o -iname '*credential*' -o -iname '*recuperaci*'
         -o -iname '*.p12' -o -iname '*.pfx' -o -iname 'id_rsa*' -o -iname 'id_ed25519*' -o -iname 'rclone.conf'
         -o -iname 'backup-offsite.env' -o -iname '.env' -o -iname '.env.*' -o -iname '*.env')
 scan_names() { # scan_names REGLA DIR -> FAIL por cada archivo/directorio con nombre sospechoso (excluye *.enc: ver C09)
@@ -94,7 +99,7 @@ scan_names() { # scan_names REGLA DIR -> FAIL por cada archivo/directorio con no
   [[ -d "$d" ]] || { say "$rule $d: no existe (nada que revisar)"; return 0; }
   while IFS= read -r p; do
     [[ -n "$p" ]] || continue
-    [[ "${p,,}" == *.enc ]] && continue
+    case "${p,,}" in *.enc|*.gpg|*.age|*.7z|*.zip) continue ;; esac   # paquetes: los cubre C09
     case "${p##*/}" in .env.example|*.env.example|*.example) continue ;; esac
     fail "$rule" "$p: nombre con aspecto de clave/passphrase/secreto dentro de un directorio de respaldos"; n=$((n+1))
   done < <(find "$d" -mindepth 1 \( "${KEYISH[@]}" \) 2>/dev/null | sort)
@@ -106,6 +111,7 @@ while IFS= read -r f; do check_mode C01 "$f"; done < <(_envfiles)
 check_mode C02 "$OFFSITE_ENV"
 OFFSITE_DIR=$(cfg BACKUP_OFFSITE_DISK_DIR "")
 OFFSITE_DIR=${OFFSITE_DIR%/}
+[[ -n "$OFFSITE_DIR" ]] && OFFSITE_DIR=$(realdir "$OFFSITE_DIR")
 for base in "$BACKUP_DIR" "$OFFSITE_DIR"; do
   [[ -n "$base" && -d "$base" ]] || continue
   if [[ -e "$OFFSITE_ENV" ]] && under "$OFFSITE_ENV" "$base"; then fail C02 "$OFFSITE_ENV: dentro de $base (la clave quedaria junto a los respaldos)"; fi
@@ -192,18 +198,20 @@ RECOVERY_DIRS=${CUSTODY_RECOVERY_DIRS-$HOME/secure-preprod:$HOME/secure-prod}
 declare -a ROOTS=("$BACKUP_DIR")
 [[ -n "$OFFSITE_DIR" ]] && ROOTS+=("$OFFSITE_DIR")
 IFS=: read -r -a rd <<<"$RECOVERY_DIRS"
-for d in "${rd[@]}"; do [[ -n "$d" ]] && ROOTS+=("$d"); done
-SECRETISH=(-iname '*passphrase*' -o -iname '*passwd*' -o -iname '*password*' -o -iname '*recovery-key*' -o -iname '*.key' -o -iname '*.pem' -o -iname 'rclone.conf')
+for d in "${rd[@]}"; do [[ -n "$d" ]] && ROOTS+=("$(realdir "$d")"); done
+SECRETISH=(-iname '*passphrase*' -o -iname '*passwd*' -o -iname '*password*' -o -iname '*recovery-key*' -o -iname '*.key' -o -iname '*.pem' -o -iname 'rclone.conf'
+           -o -iname '*clave*' -o -iname '*contrase*a*' -o -iname '*llave*' -o -iname '*secret*' -o -iname '*credencial*' -o -iname '*credential*')
+PACKAGES=(-iname '*.enc' -o -iname '*.gpg' -o -iname '*.age' -o -iname '*.7z' -o -iname '*.zip')
 coexist=0
 for root in "${ROOTS[@]}"; do
   [[ -d "$root" ]] || continue
-  enc=$(find "$root" -maxdepth 5 -type f -iname '*.enc' 2>/dev/null | head -n1)
+  enc=$(find "$root" -maxdepth 5 -type f \( "${PACKAGES[@]}" \) 2>/dev/null | head -n1)
   [[ -n "$enc" ]] || continue
   while IFS= read -r p; do
     [[ -n "$p" ]] || continue
     fail C09 "$p: material de recuperacion junto al paquete cifrado '$enc' (misma raiz $root): separar en custodia distinta"; coexist=1
-  done < <(find "$root" -maxdepth 5 -type f \( "${SECRETISH[@]}" \) ! -iname '*.enc' 2>/dev/null | sort)
-  [[ "$root" == "$BACKUP_DIR" || "$root" == "$OFFSITE_DIR" ]] && warn C09 "$enc: paquete .enc dentro de un directorio de respaldos (viaja con ellos; la passphrase debe estar en custodia separada)"
+  done < <(find "$root" -maxdepth 5 -type f \( "${SECRETISH[@]}" \) ! \( "${PACKAGES[@]}" \) 2>/dev/null | sort)
+  [[ "$root" == "$BACKUP_DIR" || "$root" == "$OFFSITE_DIR" ]] && warn C09 "$enc: paquete cifrado dentro de un directorio de respaldos (viaja con ellos; la passphrase debe estar en custodia separada)"
 done
 (( coexist )) || say "C09 sin material de recuperacion junto a un paquete .enc"
 
@@ -212,6 +220,8 @@ if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   tracked=$(git -C "$REPO_DIR" ls-files 2>/dev/null | grep -iE '(^|/)(\.env|backup-offsite\.env|rclone\.conf|id_rsa|id_ed25519)$|passphrase|\.enc$|\.pem$|\.key$' | grep -viE '\.example$|(^|/)(wwwroot|node_modules)/' || true)
   if [[ -n "$tracked" ]]; then while IFS= read -r f; do fail C10 "$f: archivo con aspecto de secreto versionado en Git"; done <<<"$tracked"
   else say "C10 Git: ningun archivo con aspecto de secreto versionado"; fi
+else
+  warn C10 "$REPO_DIR no es un repositorio Git (o git no esta disponible): NO se pudo verificar que no haya secretos versionados"
 fi
 
 # ---- C11 (opcional): nombres en el remoto

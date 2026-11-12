@@ -4,7 +4,8 @@
 #
 #   scripts/backup/restore-test.sh [--backup <full.bak>] [--no-logs] [--keep] [--offsite]
 #
-# --offsite: prueba de restauracion DESDE LA COPIA EXTERNA (P-06/P-08). Descarga el ultimo full de BACKUP_REMOTE (a traves del crypt, o
+# --offsite: (BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS=3, BACKUP_OFFSITE_RESTORE_STALE=warn|fail: aviso o fallo si el ultimo full remoto es mas viejo)
+#   prueba de restauracion DESDE LA COPIA EXTERNA (P-06/P-08). Descarga el ultimo full de BACKUP_REMOTE (a traves del crypt, o
 #   sea que prueba tambien que las passwords crypt vigentes descifran), verifica su sha256 de origen, lo restaura en
 #   <db>_OffsiteRestoreTest (base aislada), corre las mismas validaciones y BORRA la copia descargada y la base. Publica
 #   monitor-status/offsite-restore-test.json (el monitor alerta por antiguedad/fallo). No toca la base viva ni el restore-test local.
@@ -21,7 +22,7 @@ while (( $# )); do
     --no-logs) LOGS=0; shift ;;
     --keep) KEEP=1; shift ;;
     --offsite) OFFSITE=1; shift ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) die $EX_USAGE "argumento desconocido: $1" ;;
   esac
 done
@@ -30,11 +31,11 @@ load_config
 mkdir -p "$BACKUP_DIR/logs"
 
 # Estado para el monitor: SIEMPRE se publica al salir (ok o fallo). verified=true solo si llego al final con exit 0.
-RT_DONE=0 OFFSITE_LOCAL="" OFFSITE_SHA=".offsitert.sha256"
+RT_DONE=0 STALE_NOTE="" OFFSITE_LOCAL="" OFFSITE_SHA=".offsitert.sha256"
 STATUS_KIND=restore-test; (( OFFSITE )) && STATUS_KIND=offsite-restore-test
 finish() {
   local ec=$?
-  if (( ec == 0 && RT_DONE == 1 )); then restore_test_status 0 true "$STATUS_KIND OK" "$STATUS_KIND"
+  if (( ec == 0 && RT_DONE == 1 )); then restore_test_status 0 true "$STATUS_KIND OK${STALE_NOTE:+ ($STALE_NOTE)}" "$STATUS_KIND"
   else restore_test_status "$ec" false "${LAST_ERROR:-fallo inesperado (exit $ec)}" "$STATUS_KIND"; fi
   (( KEEP )) || drop_test_safe
   cleanup_offsite_copy
@@ -56,6 +57,17 @@ if (( OFFSITE )); then
   remote_full=$(dc run --rm -T --no-deps --quiet-pull backup-offsite lsf "$BACKUP_REMOTE/sql" --include "${DB_NAME}_full_*.bak" 2>/dev/null | tr -d '\r' \
     | grep -E "^${DB_NAME}_full_${BK_TS}\.bak$" | sort | tail -n1 || true)
   [[ -n "$remote_full" ]] || die $EX_OFFSITE "no hay backups full en ${BACKUP_REMOTE%%:*}:*/sql (o el remoto no responde / las passwords crypt no descifran)"
+  # Antiguedad del ultimo full remoto (segun el nombre, UTC). Un remoto desactualizado no es una copia vigente.
+  max_age=$(cfg BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS 3); stale_mode=$(cfg BACKUP_OFFSITE_RESTORE_STALE warn)
+  is_uint "$max_age" || die $EX_USAGE "BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS debe ser un entero (dias)"
+  [[ "$stale_mode" == warn || "$stale_mode" == fail ]] || die $EX_USAGE "BACKUP_OFFSITE_RESTORE_STALE debe ser warn o fail"
+  full_epoch=$(bk_ts_epoch "$(grep -oE "$BK_TS" <<<"$remote_full")") || die $EX_OFFSITE "no se pudo interpretar la fecha del full remoto"
+  age_days=$(( ($(date +%s) - full_epoch) / 86400 ))
+  if (( age_days > max_age )); then
+    STALE_NOTE="AVISO: el ultimo full remoto tiene $age_days dias (> $max_age)"
+    [[ "$stale_mode" == fail ]] && die $EX_OFFSITE "el ultimo full de la copia externa tiene $age_days dias (> $max_age): la copia externa esta desactualizada"
+    log WARN "$STALE_NOTE: la copia externa puede estar desactualizada"
+  fi
   OFFSITE_LOCAL="offsitert_$remote_full"
   log INFO "offsite-restore-test: descargando $remote_full desde ${BACKUP_REMOTE%%:*}:*"
   dc run --rm -T --no-deps --quiet-pull restore-offsite copyto "$BACKUP_REMOTE/sql/$remote_full" "/backups/sql/$OFFSITE_LOCAL" >/dev/null 2>&1     || die $EX_OFFSITE "la descarga del full desde la copia externa FALLO"

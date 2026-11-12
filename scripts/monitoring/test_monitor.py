@@ -318,6 +318,29 @@ class MonitoringTests(unittest.TestCase):
         for key in ("custody", "offsite_restore_test"):
             self.assertLess(self.cfg[key]["warning"], self.cfg[key]["critical"])
 
+    def test_enabled_accepts_string_values(self):
+        for value in ("false", "False", "0", "off", "no", "disabled", False):
+            self.cfg["custody"] = {"enabled": value}
+            self.cfg["offsite_restore_test"] = {"enabled": value}
+            self.write_status("offsite-sql", time=monitor.time.time(), exit=0, verified=True)
+            self.collector.signals = {}
+            self.collector.custody()
+            self.collector.offsite_restore_test()
+            self.assertNotIn("backup.custody", self.collector.signals, value)
+            self.assertNotIn("backup.offsite-restore-test", self.collector.signals, value)
+        for value in ("true", "1", "yes", True):
+            self.cfg["custody"] = {"enabled": value}
+            self.cfg["offsite_restore_test"] = {"enabled": value}
+            self.collector.signals = {}
+            self.collector.custody()
+            self.collector.offsite_restore_test()
+            self.assertIn("backup.custody", self.collector.signals, value)
+            self.assertIn("backup.offsite-restore-test", self.collector.signals, value)
+        self.cfg["offsite_restore_test"] = {"enabled": "AUTO"}
+        self.collector.signals = {}
+        self.collector.offsite_restore_test()
+        self.assertIn("backup.offsite-restore-test", self.collector.signals)   # auto: hay offsite-sql.json
+
 
 if __name__ == "__main__":
     unittest.main()

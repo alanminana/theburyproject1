@@ -107,6 +107,22 @@ check "sin BACKUP_REMOTE: exit 1 y estado failed" bash -c '[[ "$1" == 1 ]] && gr
 run_rt -- --offsite --backup TheBuryProjectDb_full_2026-01-01_000000Z.bak
 check "--offsite + --backup: rechazado (exit 1)" test "$RC" = 1
 
+# --- antiguedad del ultimo full remoto -----------------------------------------------------------------------------------------
+FRESH=$(date -u +%Y-%m-%d_%H%M%SZ)
+printf 'TheBuryProjectDb_full_%s.bak
+' "$FRESH" >"$T/ls-fresh.txt"
+run_rt FAKE_REMOTE_LS="$T/ls-fresh.txt" -- --offsite
+check "full remoto reciente: exit 0 y sin aviso de antiguedad" bash -c '[[ "$1" == 0 ]] && ! grep -q "AVISO" "$2" && ! grep -q "AVISO" "$3"' _ "$RC" "$T/out$n" "$BD/monitor-status/offsite-restore-test.json"
+run_rt -- --offsite
+check "full remoto viejo (default warn): exit 0 con WARN en la salida" bash -c '[[ "$1" == 0 ]] && grep -q "WARN.*AVISO: el ultimo full remoto tiene" "$2"' _ "$RC" "$T/out$n"
+check "full remoto viejo: el aviso queda en el mensaje del estado" grep -q 'AVISO: el ultimo full remoto' "$BD/monitor-status/offsite-restore-test.json"
+run_rt BACKUP_OFFSITE_RESTORE_STALE=fail -- --offsite
+check "full remoto viejo con STALE=fail: exit 6, estado failed y sin descargar" bash -c '[[ "$1" == 6 ]] && grep -q "\"exit\":6,\"verified\":false" "$2" && ! grep -q "copyto" "$3"' _ "$RC" "$BD/monitor-status/offsite-restore-test.json" "$LOG"
+run_rt BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS=99999 -- --offsite
+check "MAX_AGE_DAYS alto: sin aviso" bash -c '[[ "$1" == 0 ]] && ! grep -q "AVISO" "$2"' _ "$RC" "$T/out$n"
+run_rt BACKUP_OFFSITE_RESTORE_STALE=otro -- --offsite
+check "STALE invalido: exit 1" test "$RC" = 1
+
 # --- el modo local sigue igual ---------------------------------------------------------------------------------------------
 run_rt -- --backup TheBuryProjectDb_full_2026-01-01_000000Z.bak
 check "modo local: exit 0 y escribe restore-test.json (no offsite)" bash -c '[[ "$1" == 0 && -f "$2/monitor-status/restore-test.json" && ! -e "$2/monitor-status/offsite-restore-test.json" ]]' _ "$RC" "$BD"
