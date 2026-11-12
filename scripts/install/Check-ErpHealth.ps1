@@ -41,7 +41,7 @@
   Alternativa: directorio de Windows (o UNC \\wsl$\...) que contiene los .json de monitor-status. Si se indica, no se invoca wsl.exe.
 
 .PARAMETER VmHost
-  Modo Windows Server (Hyper-V): IP o nombre de la VM Linux que corre el ERP. Docker, backups, systemd y Tailscale se consultan por SSH
+  Modo Windows Server (Hyper-V): IPv4 de la VM Linux que corre el ERP. Docker, backups, systemd y Tailscale se consultan por SSH
   (solo lectura) y el HTTPS se prueba contra esa IP. Sin -VmHost el modo es Windows 11 + Docker Desktop (WSL2). Ver docs/instalacion-windows-server.md.
 
 .PARAMETER VmName
@@ -85,7 +85,7 @@ param(
     [int]$DiscoMinGB = 20
 )
 
-if ($VmHost -and $VmHost -notmatch '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$') { Write-Error '-VmHost invalido (IP o nombre de host)'; exit 3 }
+if ($VmHost -and $VmHost -notmatch '^(\d{1,3}\.){3}\d{1,3}$') { Write-Error '-VmHost invalido: debe ser la IPv4 de la VM (curl --resolve exige una IP)'; exit 3 }
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Continue'
@@ -149,9 +149,10 @@ function Get-NowUtc { [datetime]::UtcNow }
 function Get-VmInfo {
     if (-not (Get-Command Get-VM -ErrorAction SilentlyContinue)) { return $null }
     $v = Get-VM -Name $VmName -ErrorAction Stop
-    $hb = (Get-VMIntegrationService -VM $v -Name 'Heartbeat' -ErrorAction SilentlyContinue)
+    # Por Id (84EAAE65... = Heartbeat): el nombre del servicio y su descripcion estan localizados segun el idioma de Windows.
+    $hb = @(Get-VMIntegrationService -VM $v -ErrorAction SilentlyContinue | Where-Object { "$($_.Id)" -like '*84EAAE65-2F2E-45F5-9BB5-0E857DC8EB47*' }) | Select-Object -First 1
     [pscustomobject]@{
-        State = "$($v.State)"; Uptime = $v.Uptime; Heartbeat = $(if ($hb) { "$($hb.PrimaryStatusDescription)" } else { '' })
+        State = "$($v.State)"; Uptime = $v.Uptime; Heartbeat = $(if ($hb) { "$($hb.PrimaryOperationalStatus)" } else { '' })
         AutoStart = "$($v.AutomaticStartAction)"; AutoStop = "$($v.AutomaticStopAction)"; Checkpoints = "$($v.CheckpointType)"
     }
 }
@@ -387,8 +388,9 @@ function Test-Vm {
     try { $v = Get-VmInfo } catch { Add-R 'ATENCION' "VM Hyper-V '$VmName'" "no se pudo consultar: $($_.Exception.Message)"; return }
     if (-not $v) { Add-R 'INFO' "VM Hyper-V '$VmName'" 'modulo Hyper-V no disponible en este equipo: estado de la VM no verificado (se verifica por SSH)'; return }
     if ($v.State -ne 'Running') { Add-R 'FALLA' "VM '$VmName'" "estado=$($v.State)"; return }
-    if ($v.Heartbeat -and $v.Heartbeat -notmatch 'OK|Ok|Aceptar') { Add-R 'FALLA' "Latido de la VM '$VmName'" "estado=$($v.Heartbeat) (el invitado no responde)" }
-    else { Add-R 'OK' "VM '$VmName'" "en ejecucion, uptime $([math]::Round($v.Uptime.TotalHours, 1)) h" }
+    if (-not $v.Heartbeat) { Add-R 'ATENCION' "Latido de la VM '$VmName'" 'no se pudo leer el servicio de integracion Heartbeat (Integration Services del invitado no instalados?)' }
+    elseif ($v.Heartbeat -ne 'Ok') { Add-R 'FALLA' "Latido de la VM '$VmName'" "estado=$($v.Heartbeat) (el invitado no responde)" }
+    else { Add-R 'OK' "VM '$VmName'" "en ejecucion con latido, uptime $([math]::Round($v.Uptime.TotalHours, 1)) h" }
     if ($v.AutoStart -ne 'Start') { Add-R 'FALLA' 'Arranque automatico de la VM' "AutomaticStartAction=$($v.AutoStart): tras reiniciar el host el ERP no volveria solo" }
     else { Add-R 'OK' 'Arranque automatico de la VM' 'Start' }
     if ($v.AutoStop -ne 'ShutDown') { Add-R 'ATENCION' 'Apagado de la VM con el host' "AutomaticStopAction=$($v.AutoStop): usar ShutDown (apagado ordenado; SQL Server cierra limpio)" }

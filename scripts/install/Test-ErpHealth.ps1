@@ -240,7 +240,7 @@ function New-BaseVm {
     $b = New-Base
     $b.VmActive = @('active', 'active', 'active'); $b.VmEnabled = @('enabled', 'enabled', 'enabled'); $b.VmCron = $true; $b.VmDiskGB = 62
     $b.VmNoTs = $false; $b.VmTsActive = 'active'; $b.SshDown = $false
-    $b.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(30); Heartbeat = 'OK'; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
+    $b.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(30); Heartbeat = 'Ok'; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
     $b
 }
 $VmHost = '192.168.1.50'; $VmUser = 'bury'; $VmKey = 'C:\k\id'; $VmKnownHosts = 'C:\k\known_hosts'
@@ -259,9 +259,11 @@ Invoke-Escenario 'VM: SSH sin conexion (VM apagada o clave mala)' $s 2 @('FALLA|
 $s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Off'; Uptime = [timespan]::Zero; Heartbeat = ''; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
 Invoke-Escenario 'VM: apagada en Hyper-V' $s 2 @("FALLA|^VM ")
 
-$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(2); Heartbeat = 'Lost Communication'; AutoStart = 'Nothing'; AutoStop = 'Save'; Checkpoints = 'Standard' }
+$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(2); Heartbeat = 'LostCommunication'; AutoStart = 'Nothing'; AutoStop = 'Save'; Checkpoints = 'Standard' }
 Invoke-Escenario 'VM: sin latido, sin autoarranque, Save y checkpoints' $s 2 @('FALLA|Latido', 'FALLA|Arranque automatico', 'ATENCION|Apagado de la VM', 'ATENCION|Checkpoints')
 
+$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(5); Heartbeat = ''; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
+Invoke-Escenario 'VM: servicio Heartbeat ilegible' $s 1 @('ATENCION|Latido')
 $s = New-BaseVm; $s.VmInfo = 'NOMOD'
 Invoke-Escenario 'VM: modulo Hyper-V ausente (chequeo desde otro equipo)' $s 0 @('INFO|VM Hyper-V', 'OK|Docker daemon')
 $s = New-BaseVm; $s.VmInfo = 'ERROR'

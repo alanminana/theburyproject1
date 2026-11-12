@@ -29,7 +29,12 @@ services:
     <<: *runtime
     image: mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090
     restart: unless-stopped
-    # Cierre ordenado: SQL Server necesita tiempo para hacer checkpoint al apagar el host/VM (docker stop mata a los 10 s por defecto).
+    # Cierre ordenado de SQL Server. El ENTRYPOINT de la imagen (launch_sqlservr.sh, un bash como PID 1) NO reenvia SIGTERM: con el entrypoint
+    # por defecto `docker stop`/apagado del host espera todo el plazo y mata a sqlservr con SIGKILL (verificado: 60 s y cierre no limpio).
+    # Con sqlservr como PID 1 recibe SIGTERM, hace checkpoint y termina en segundos (verificado: <1 s, sin recuperacion en el siguiente arranque).
+    # Se omiten permissions_check.sh/init_custom_setup.sh del script (solo validan permisos y hooks opcionales que el ERP no usa).
+    # stop_grace_period es el tope por si el checkpoint tarda (base grande).
+    entrypoint: ["/opt/mssql/bin/sqlservr"]
     stop_grace_period: 60s
     environment:
       ACCEPT_EULA: "Y"

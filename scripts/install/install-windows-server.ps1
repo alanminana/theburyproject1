@@ -56,7 +56,7 @@ param(
 
     [string]$RepoUrl = '',
     [string]$RepoPath = '',
-    [string]$Ref = '',
+    [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9._/-]*$')][string]$Ref = '',
 
     [string]$Domain = 'tbp',
     [string]$AdminEmail = '',
@@ -127,6 +127,10 @@ function New-CloudInitUserData([string]$HostName, [string]$User, [string]$Public
         "timezone: $Tz",
         'ssh_pwauth: false',
         'disable_root: true',
+        'package_update: true',
+        'packages:',
+        '  - git',
+        '  - linux-cloud-tools-virtual',
         'users:',
         "  - name: $User",
         '    gecos: TheBury administrador',
@@ -257,6 +261,11 @@ function Invoke-Preflight {
     if (Get-Command ssh-keygen.exe -ErrorAction SilentlyContinue) { Add-Check 'OK' 'ssh-keygen' 'presente' } else { Add-Check 'FALLA' 'ssh-keygen' 'falta (parte de OpenSSH cliente)' }
     if (Get-Command scp.exe -ErrorAction SilentlyContinue) { Add-Check 'OK' 'scp' 'presente' } else { Add-Check 'FALLA' 'scp' 'falta (parte de OpenSSH cliente)' }
 
+    $imapi = $true
+    try { $null = New-Object -ComObject IMAPI2FS.MsftFileSystemImage } catch { $imapi = $false }
+    if ($imapi) { Add-Check 'OK' 'IMAPI2 (ISO de cloud-init)' 'disponible' }
+    else { Add-Check 'FALLA' 'IMAPI2 (ISO de cloud-init)' 'no disponible (p. ej. Server Core): este instalador genera el ISO con IMAPI2; usar Windows Server con Desktop Experience' }
+
     if ($RepoPath) {
         if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { Add-Check 'FALLA' 'git' 'falta (necesario para -RepoPath: crea un bundle del repositorio)' }
         elseif (-not (Test-Path (Join-Path $RepoPath '.git'))) { Add-Check 'FALLA' '-RepoPath' "$RepoPath no es un repositorio git" }
@@ -335,25 +344,34 @@ $adminList = @($AdminFrom | Where-Object { $_ }); if ($adminList.Count -eq 0 -an
 if ($allowList.Count -eq 0) { Fail 'Con -UseDhcp hay que indicar -AllowFrom (redes con acceso HTTPS, p. ej. 192.168.1.0/24).' }
 if ($adminList.Count -eq 0) { Write-Warn2 'Sin -AdminFrom no se activa ufw (SSH queda sin restringir dentro de la VM).' }
 
+# --- Ejecutables nativos ---------------------------------------------------------------------------------------------
+# Windows PowerShell 5.1 convierte el stderr de un ejecutable nativo en error terminante bajo 'Stop' si se redirige: se llama siempre con
+# 'Continue' y se devuelve solo el codigo de salida.
+function Invoke-Exe([string]$File, [string[]]$Arguments, [switch]$Quiet) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { if ($Quiet) { & $File @Arguments | Out-Null } else { & $File @Arguments | Out-Host } } finally { $ErrorActionPreference = $old }
+    return $LASTEXITCODE
+}
+
 # --- SSH ----------------------------------------------------------------------------------------------------------
 $script:VmAddr = if ($VmIp) { ($VmIp -split '/')[0] } else { '' }
 function Get-SshArgs { @('-i', $keyPath, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', "UserKnownHostsFile=$knownHosts", '-o', 'ConnectTimeout=8', '-o', 'LogLevel=ERROR', '-o', 'ServerAliveInterval=30') }
 function Invoke-Ssh([string]$Command, [switch]$Quiet) {
     $a = @(Get-SshArgs) + @("$VmUser@$($script:VmAddr)", $Command)
-    # Windows PowerShell 5.1 convierte el stderr de un nativo en error terminante bajo 'Stop': se evita redirigirlo y se baja el nivel de log de ssh.
-    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try { if ($Quiet) { & ssh.exe @a | Out-Null } else { & ssh.exe @a | Out-Host } } finally { $ErrorActionPreference = $old }
-    return $LASTEXITCODE
+    return (Invoke-Exe 'ssh.exe' $a -Quiet:$Quiet)
 }
 function Copy-ToVm([string]$Local, [string]$Remote) {
     $a = @(Get-SshArgs) + @($Local, "$VmUser@$($script:VmAddr):$Remote")
-    & scp.exe @a
-    if ($LASTEXITCODE -ne 0) { Fail "scp fallo ($Local)" }
+    if ((Invoke-Exe 'scp.exe' $a) -ne 0) { Fail "scp fallo ($Local)" }
+}
+# Si la VM se recrea con la misma IP su host key cambia: se descarta la entrada vieja (la nueva se acepta en el primer contacto, 'accept-new').
+function Clear-KnownHost([string]$Addr) {
+    if ($Addr -and (Test-Path $knownHosts)) { $null = Invoke-Exe 'ssh-keygen.exe' @('-R', $Addr, '-f', $knownHosts) -Quiet }
 }
 
 # --- 1. clave SSH -------------------------------------------------------------------------------------------------
 Write-Step "Clave SSH dedicada en $StateDir"
-if ($DryRun) { Write-Dry "ssh-keygen -t ed25519 -N '' -f $keyPath (ACL: solo Administradores y SYSTEM)" }
+if ($DryRun) { Write-Dry "ssh-keygen -t ed25519 -N '' -f $keyPath (ACL: solo Administradores y SYSTEM, por SID)" }
 else {
     New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
     if (-not (Test-Path $keyPath)) {
@@ -361,49 +379,47 @@ else {
         $p = Start-Process -FilePath ssh-keygen.exe -ArgumentList "-q -t ed25519 -N `"`" -C thebury-server -f `"$keyPath`"" -Wait -NoNewWindow -PassThru
         if ($p.ExitCode -ne 0 -or -not (Test-Path $keyPath)) { Fail 'ssh-keygen fallo' }
     }
-    & icacls.exe $StateDir /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' | Out-Null
+    if (-not (Test-Path "$keyPath.pub")) {
+        $pubTxt = & ssh-keygen.exe -y -f $keyPath
+        if ($LASTEXITCODE -ne 0 -or -not $pubTxt) { Fail "No se pudo derivar la clave publica de $keyPath" }
+        [IO.File]::WriteAllText("$keyPath.pub", (($pubTxt -join '') + "`n"))
+    }
+    # Por SID (S-1-5-32-544 = Administradores, S-1-5-18 = SYSTEM): los nombres cambian segun el idioma de Windows.
+    & icacls.exe $StateDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail "icacls no pudo restringir $StateDir (la clave privada quedaria expuesta)" }
     Write-Ok "clave en $keyPath (la clave privada no sale de este host)"
 }
 $pubKey = if ($DryRun) { 'ssh-ed25519 AAAAC3NzaDRYRUNDRYRUN dry-run' } else { (Get-Content "$keyPath.pub" -Raw).Trim() }
 
-# --- 2. imagen base -----------------------------------------------------------------------------------------------
+# --- 2. imagen base (solo obtenerla y verificarla; el disco de la VM se crea justo antes de la VM) --------------------
 Write-Step 'Imagen base de Ubuntu'
 $vmExists = (-not $DryRun) -and [bool](Get-VM -Name $VmName -ErrorAction SilentlyContinue)
+$img = $BaseImage
 if ($vmExists) { Write-Ok "la VM '$VmName' ya existe: se omite la preparacion de la imagen" }
-else {
+elseif (-not $img) {
     $dl = Join-Path $StateDir 'downloads'
-    $img = $BaseImage
-    if (-not $img) {
-        $img = Join-Path $dl ([IO.Path]::GetFileName(([uri]$ImageUrl).AbsolutePath))
-        if ($DryRun) { Write-Dry "descargar $ImageUrl a $img y verificar SHA256 contra SHA256SUMS de Canonical" }
-        else {
-            New-Item -ItemType Directory -Force -Path $dl | Out-Null
-            $sumsUrl = ($ImageUrl -replace '[^/]+$', 'SHA256SUMS')
-            $sums = (Invoke-WebRequest -UseBasicParsing -Uri $sumsUrl).Content
-            $leaf = [IO.Path]::GetFileName($img)
-            $line = ($sums -split "`n") | Where-Object { $_ -match "\s\*?$([regex]::Escape($leaf))\s*$" } | Select-Object -First 1
-            if (-not $line) { Fail "SHA256SUMS no lista $leaf" }
-            $expected = ($line -split '\s+')[0].ToLowerInvariant()
-            if (-not (Test-Path $img) -or ((Get-FileHash $img -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected)) {
-                Invoke-WebRequest -UseBasicParsing -Uri $ImageUrl -OutFile $img
-            }
-            if ((Get-FileHash $img -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { Fail 'El SHA256 de la imagen descargada no coincide con SHA256SUMS' }
-            Write-Ok "imagen verificada (SHA256 $expected)"
-        }
-    }
-    if ($DryRun) { Write-Dry "preparar $vhdPath (VHDX dinamico de $DiskGB GB desde la imagen base)" }
+    $img = Join-Path $dl ([IO.Path]::GetFileName(([uri]$ImageUrl).AbsolutePath))
+    if ($DryRun) { Write-Dry "descargar $ImageUrl a $img y verificar SHA256 contra SHA256SUMS de Canonical" }
     else {
-        New-Item -ItemType Directory -Force -Path $vmRoot | Out-Null
-        if (Test-Path $vhdPath) { Fail "$vhdPath ya existe sin VM asociada: revisarlo y borrarlo a mano (no se sobrescribe)." }
-        if ([IO.Path]::GetExtension($img).ToLowerInvariant() -eq '.vhdx') { Copy-Item -LiteralPath $img -Destination $vhdPath }
-        else {
-            & qemu-img.exe convert -p -f qcow2 -O vhdx -o subformat=dynamic $img $vhdPath
-            if ($LASTEXITCODE -ne 0) { Fail 'qemu-img convert fallo' }
+        New-Item -ItemType Directory -Force -Path $dl | Out-Null
+        # PS 5.1: la barra de progreso de Invoke-WebRequest hace la descarga de ~600 MB mucho mas lenta; y Server 2016 no negocia TLS 1.2 por defecto.
+        $ProgressPreference = 'SilentlyContinue'
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $sumsUrl = ($ImageUrl -replace '[^/]+$', 'SHA256SUMS')
+        $content = (Invoke-WebRequest -UseBasicParsing -Uri $sumsUrl).Content
+        $sums = if ($content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($content) } else { [string]$content }
+        $leaf = [IO.Path]::GetFileName($img)
+        $line = ($sums -split "`n") | Where-Object { $_ -match "\s\*?$([regex]::Escape($leaf))\s*$" } | Select-Object -First 1
+        if (-not $line) { Fail "SHA256SUMS no lista $leaf" }
+        $expected = ($line -split '\s+')[0].ToLowerInvariant()
+        if (-not (Test-Path $img) -or ((Get-FileHash $img -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected)) {
+            Invoke-WebRequest -UseBasicParsing -Uri $ImageUrl -OutFile $img
         }
-        Resize-VHD -Path $vhdPath -SizeBytes ([int64]$DiskGB * 1GB)
-        Write-Ok "disco listo: $vhdPath"
+        if ((Get-FileHash $img -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { Fail 'El SHA256 de la imagen descargada no coincide con SHA256SUMS' }
+        Write-Ok "imagen verificada (SHA256 $expected)"
     }
 }
+elseif (-not $DryRun) { Write-Ok "imagen indicada: $img" }
 
 # --- 3. cloud-init ------------------------------------------------------------------------------------------------
 Write-Step 'ISO de cloud-init (usuario, clave SSH, hora, red)'
@@ -412,22 +428,41 @@ $netCfg = New-CloudInitNetworkConfig $VmIp $Gateway $Dns
 $metaData = "instance-id: $hostName-$([guid]::NewGuid().ToString('N').Substring(0, 8))`nlocal-hostname: $hostName`n"
 if ($DryRun) { Write-Dry "crear $seedPath con user-data, meta-data y network-config (etiqueta cidata)" }
 elseif ($vmExists) { Write-Ok 'VM existente: no se regenera el ISO' }
-else { New-SeedIso $seedPath @{ 'user-data' = $userData; 'meta-data' = $metaData; 'network-config' = $netCfg }; Write-Ok "ISO: $seedPath" }
+else {
+    New-Item -ItemType Directory -Force -Path $vmRoot | Out-Null
+    New-SeedIso $seedPath @{ 'user-data' = $userData; 'meta-data' = $metaData; 'network-config' = $netCfg }
+    Write-Ok "ISO: $seedPath"
+}
 
 # --- 4. VM --------------------------------------------------------------------------------------------------------
 Write-Step "VM Hyper-V '$VmName'"
 if ($DryRun) {
     if ($CreateExternalSwitch) { Write-Dry "New-VMSwitch -Name '$SwitchName' -NetAdapterName '$ExternalAdapter' -AllowManagementOS `$true" }
+    Write-Dry "disco: $vhdPath (VHDX dinamico de $DiskGB GB desde la imagen base)"
     Write-Dry "New-VM -Generation 2 -MemoryStartupBytes ${MemoryGB}GB; Set-VMProcessor -Count $CpuCount; Secure Boot = MicrosoftUEFICertificateAuthority"
     Write-Dry 'Set-VM -CheckpointType Disabled -AutomaticStartAction Start -AutomaticStopAction ShutDown; Start-VM'
 }
 elseif (-not $vmExists) {
+    # Primero lo que puede fallar sin dejar nada (conmutador), recien despues el disco y la VM: asi un fallo no deja un VHDX huerfano.
     if (-not (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue)) {
         if (-not ($CreateExternalSwitch -and $ExternalAdapter)) { Fail "El conmutador '$SwitchName' no existe." }
         Write-Warn2 "Creando el conmutador externo '$SwitchName' sobre '$ExternalAdapter': la red del host se interrumpe unos segundos."
         New-VMSwitch -Name $SwitchName -NetAdapterName $ExternalAdapter -AllowManagementOS $true | Out-Null
     }
-    $vm = New-VM -Name $VmName -Generation 2 -MemoryStartupBytes ([int64]$MemoryGB * 1GB) -VHDPath $vhdPath -SwitchName $SwitchName -Path (Split-Path $vmRoot -Parent)
+    if (Test-Path $vhdPath) { Fail "$vhdPath ya existe sin VM asociada: revisarlo y borrarlo a mano (no se sobrescribe)." }
+    try {
+        if ([IO.Path]::GetExtension($img).ToLowerInvariant() -eq '.vhdx') { Copy-Item -LiteralPath $img -Destination $vhdPath }
+        else {
+            # block_size=1M: recomendado por Microsoft para discos dinamicos de Linux (con 32 MB, valor por defecto de qemu, el VHDX crece de mas).
+            if ((Invoke-Exe 'qemu-img.exe' @('convert', '-p', '-O', 'vhdx', '-o', 'subformat=dynamic,block_size=1M', $img, $vhdPath)) -ne 0) { throw 'qemu-img convert fallo' }
+        }
+        Resize-VHD -Path $vhdPath -SizeBytes ([int64]$DiskGB * 1GB)
+    } catch {
+        Remove-Item -LiteralPath $vhdPath -Force -ErrorAction SilentlyContinue
+        Fail "No se pudo preparar el disco de la VM: $($_.Exception.Message)"
+    }
+    Write-Ok "disco listo: $vhdPath"
+    $vm = New-VM -Name $VmName -Generation 2 -MemoryStartupBytes ([int64]$MemoryGB * 1GB) -VHDPath $vhdPath -SwitchName $SwitchName -Path $vmRoot
     Set-VMProcessor -VM $vm -Count $CpuCount
     Set-VMMemory -VM $vm -DynamicMemoryEnabled $false
     # Linux exige la plantilla 'UEFI CA' (la de Windows no arranca Ubuntu con Secure Boot activado).
@@ -437,8 +472,9 @@ elseif (-not $vmExists) {
     Set-VMFirmware -VM $vm -FirstBootDevice $hd
     # Sin checkpoints (un checkpoint de una VM con SQL Server puede corromper la base al revertirse).
     # El host arranca la VM solo y, al apagarse, pide un apagado ORDENADO al invitado (no "guardar estado" ni "apagar de golpe").
+    # Los servicios de integracion Shutdown/Heartbeat/Time vienen habilitados por defecto (sus nombres cambian segun el idioma de Windows).
     Set-VM -VM $vm -CheckpointType Disabled -AutomaticStartAction Start -AutomaticStartDelay 30 -AutomaticStopAction ShutDown -AutomaticCriticalErrorAction None
-    Enable-VMIntegrationService -VMName $VmName -Name 'Shutdown', 'Time Synchronization', 'Heartbeat'
+    Clear-KnownHost $script:VmAddr
     Start-VM -VM $vm
     Write-Ok "VM creada y arrancada (CPU $CpuCount, RAM $MemoryGB GB, disco $DiskGB GB, sin checkpoints, arranque automatico con el host)"
 }
@@ -454,7 +490,7 @@ if ($SkipInstall -or $DryRun) {
     Write-Step 'Instalacion dentro de la VM'
     if ($DryRun) {
         Write-Dry "esperar SSH en $VmUser@$($script:VmAddr)"
-        Write-Dry ('repositorio: ' + $(if ($RepoPath) { "git bundle de $RepoPath -> scp -> git clone" } else { "git clone $RepoUrl" }))
+        Write-Dry ('repositorio: ' + $(if ($RepoPath) { "git bundle de $RepoPath -> scp -> git fetch/checkout" } else { "git clone $RepoUrl" }))
         Write-Dry "sudo scripts/install/server-linux-bootstrap.sh --user $VmUser --allow-from $($allowList -join ',') --admin-from $($adminList -join ',') --backup-dir $BackupDir$(if ($Tailscale) { ' --tailscale' })"
         Write-Dry "scripts/install/install.sh --domain $Domain --admin-email $AdminEmail --backup-dir $BackupDir --schedule --yes"
         Write-Dry "scp caddy-root-ca.crt -> $StateDir"
@@ -464,36 +500,40 @@ if ($SkipInstall -or $DryRun) {
 }
 
 if (-not $script:VmAddr) {
-    Write-Step 'Buscando la IP de la VM (DHCP)'
+    Write-Step 'Buscando la IP de la VM (DHCP; requiere los servicios de integracion del invitado, que se instalan en el primer arranque)'
     for ($i = 0; $i -lt 60 -and -not $script:VmAddr; $i++) {
         $ip = (Get-VMNetworkAdapter -VMName $VmName).IPAddresses | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } | Select-Object -First 1
         if ($ip) { $script:VmAddr = $ip } else { Start-Sleep -Seconds 5 }
     }
-    if (-not $script:VmAddr) { Fail 'La VM no informo ninguna IPv4 (cloud-init puede estar iniciando; repetir en unos minutos).' }
+    if (-not $script:VmAddr) { Fail 'La VM no informo ninguna IPv4. Ver su IP en la consola de Hyper-V y repetir con -VmIp, o usar IP fija (recomendado).' }
+    Clear-KnownHost $script:VmAddr
     Write-Ok "IP de la VM: $($script:VmAddr)"
 }
 Write-Step "Esperando SSH en $VmUser@$($script:VmAddr) (el primer arranque tarda 1-3 minutos)"
 $ok = $false
 for ($i = 0; $i -lt 90; $i++) { if ((Invoke-Ssh 'true' -Quiet) -eq 0) { $ok = $true; break }; Start-Sleep -Seconds 5 }
-if (-not $ok) { Fail 'La VM no respondio por SSH en 7,5 minutos. Ver la consola de la VM en Hyper-V (cloud-init / red).' }
+if (-not $ok) { Fail 'La VM no respondio por SSH en 7,5 minutos. Ver la consola de la VM en Hyper-V (cloud-init / red). Si la VM se recreo con la misma IP, borrar su entrada de known_hosts.' }
 $null = Invoke-Ssh 'sudo cloud-init status --wait' -Quiet
 Write-Ok 'VM accesible por SSH'
 
 # --- 6. repositorio -----------------------------------------------------------------------------------------------
 Write-Step 'Repositorio dentro de la VM'
 $remoteRepo = '$HOME/theburyproject1'
+$gitGuard = 'command -v git >/dev/null || sudo apt-get -o DPkg::Lock::Timeout=300 install -y -qq git'
 if ($RepoPath) {
+    if (@(& git.exe -C $RepoPath status --porcelain).Count -gt 0) { Write-Warn2 "$RepoPath tiene cambios sin commit: NO viajan a la VM (solo lo commiteado de '$(if ($Ref) { $Ref } else { 'HEAD' })')." }
     $bundle = Join-Path ([IO.Path]::GetTempPath()) 'thebury.bundle'
     $refName = if ($Ref) { $Ref } else { 'HEAD' }
-    & git.exe -C $RepoPath bundle create $bundle $refName
-    if ($LASTEXITCODE -ne 0) { Fail 'git bundle fallo' }
+    if ((Invoke-Exe 'git.exe' @('-C', $RepoPath, 'bundle', 'create', $bundle, $refName)) -ne 0) { Fail 'git bundle fallo' }
     Copy-ToVm $bundle '/tmp/thebury.bundle'
     Remove-Item $bundle -Force
-    $cmd = "set -e; if [ -d $remoteRepo/.git ]; then git -C $remoteRepo fetch -q /tmp/thebury.bundle ${refName}:refs/bundle/head -f && git -C $remoteRepo checkout -q --detach refs/bundle/head; else git clone -q /tmp/thebury.bundle $remoteRepo; fi; rm -f /tmp/thebury.bundle"
+    # init + fetch del bundle a una referencia propia + checkout desacoplado: funciona igual para HEAD o para una rama, nueva o existente.
+    $cmd = "set -e; $gitGuard; [ -d $remoteRepo/.git ] || git init -q $remoteRepo; git -C $remoteRepo fetch -q /tmp/thebury.bundle $(ConvertTo-BashQuoted "+${refName}:refs/bundle/head"); git -C $remoteRepo checkout -q -f --detach refs/bundle/head; rm -f /tmp/thebury.bundle"
 }
 else {
-    $refArg = if ($Ref) { "git -C $remoteRepo checkout -q $(ConvertTo-BashQuoted $Ref) &&" } else { '' }
-    $cmd = "set -e; if [ -d $remoteRepo/.git ]; then git -C $remoteRepo fetch -q --all && $refArg git -C $remoteRepo pull -q --ff-only || true; else git clone -q $(ConvertTo-BashQuoted $RepoUrl) $remoteRepo; $(if ($Ref) { "git -C $remoteRepo checkout -q $(ConvertTo-BashQuoted $Ref);" }) fi"
+    $q = ConvertTo-BashQuoted $RepoUrl
+    $checkout = if ($Ref) { "git -C $remoteRepo checkout -q $(ConvertTo-BashQuoted $Ref)" } else { 'true' }
+    $cmd = "set -e; $gitGuard; if [ -d $remoteRepo/.git ]; then git -C $remoteRepo fetch -q --all && $checkout && (git -C $remoteRepo pull -q --ff-only || echo 'AVISO: no se pudo avanzar a la ultima version (ref fija o sin cambios)'); else git clone -q $q $remoteRepo && $checkout; fi"
 }
 if ((Invoke-Ssh $cmd) -ne 0) { Fail 'No se pudo obtener el repositorio dentro de la VM.' }
 Write-Ok 'repositorio listo'
@@ -507,15 +547,14 @@ if ((Invoke-Ssh $bs) -ne 0) { Fail 'server-linux-bootstrap.sh fallo (ver la sali
 
 Write-Step 'Instalando el ERP (install.sh): .env, imagen, db-init, migrate, app, Caddy, cron de backups'
 $inst = "cd $remoteRepo && bash scripts/install/install.sh --domain $(ConvertTo-BashQuoted $Domain) --admin-email $(ConvertTo-BashQuoted $AdminEmail) --admin-user $(ConvertTo-BashQuoted $AdminUser) --license $License --backup-dir $(ConvertTo-BashQuoted $BackupDir) --schedule --yes"
-if ($License -eq 'commercial') { $inst += " --automapper-key $(ConvertTo-BashQuoted $AutomapperKey)" }
+if ($License -eq 'commercial') { $inst += " --automapper-key $(ConvertTo-BashQuoted $AutomapperKey)" }   # visible en 'ps' dentro de la VM mientras corre install.sh (limitacion conocida)
 if ((Invoke-Ssh $inst) -ne 0) { Fail 'install.sh fallo. Es seguro volver a ejecutar este script.' }
 
 # --- 8. CA de Caddy -----------------------------------------------------------------------------------------------
 Write-Step 'CA publica de Caddy'
 $caLocal = Join-Path $StateDir 'caddy-root-ca.crt'
 $a = @(Get-SshArgs) + @("$VmUser@$($script:VmAddr):theburyproject1/caddy-root-ca.crt", $caLocal)
-& scp.exe @a
-if ($LASTEXITCODE -eq 0 -and (Test-Path $caLocal)) {
+if ((Invoke-Exe 'scp.exe' $a) -eq 0 -and (Test-Path $caLocal)) {
     Write-Ok "CA en $caLocal (distribuir a los clientes: docs/red-privada-lan-vpn.md)"
     if ($TrustCaHere) { Import-Certificate -FilePath $caLocal -CertStoreLocation Cert:\LocalMachine\Root | Out-Null; Write-Ok 'CA instalada en este host' }
 } else { Write-Warn2 'No se pudo traer la CA todavia; repetir luego: scp <vm>:theburyproject1/caddy-root-ca.crt .' }

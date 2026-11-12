@@ -19,7 +19,7 @@ real está **pendiente** y necesita datos del propietario (§10). No se tocó `T
 | Arranque tras un corte de luz | La VM arranca con el host (`AutomaticStartAction=Start`); systemd arranca Docker; las políticas `restart: unless-stopped` levantan los contenedores. **No requiere iniciar sesión.** | Requiere inicio de sesión automático de Windows (contraseña guardada) para que arranque Docker Desktop |
 | Programación de backups | `cron` dentro de la VM (`/etc/cron.d/bury-backup`, `install-schedule.sh`) | Tareas programadas de Windows que llaman a `wsl.exe` |
 | Firewall del puerto 443 | `bury-firewall` (cadena `DOCKER-USER`) + `ufw` para SSH, dentro de la VM | Regla de Windows Defender Firewall |
-| Cierre ordenado de SQL Server | `stop_grace_period: 60s` (compose) + `shutdown-timeout: 60` (dockerd) + Integration Services de Hyper-V | Depende de Docker Desktop |
+| Cierre ordenado de SQL Server | `entrypoint: sqlservr` + `stop_grace_period: 60s` (compose, **común a ambas plataformas**, ver §2) + `shutdown-timeout: 60` (dockerd) + Integration Services de Hyper-V | Compose común; el apagado de Windows depende de Docker Desktop |
 | Chequeo de salud | `Check-ErpHealth.ps1 -VmHost <ip>` (SSH, solo lectura) | `Check-ErpHealth.ps1` |
 | Pre-chequeo | `install-windows-server.ps1 -PreflightOnly` | `preflight-windows.ps1` |
 
@@ -54,6 +54,12 @@ Puntos de diseño que importan:
   `--ctstate DNAT`, descartaría también el HTTPS saliente de los contenedores; ese error se encontró y corrigió en las pruebas, §9).
 - **Sin checkpoints** (`CheckpointType=Disabled`): revertir un checkpoint de una VM con SQL Server puede corromper la base.
 - **Apagado ordenado**: `AutomaticStopAction=ShutDown` pide al invitado que apague; dockerd espera hasta 60 s a SQL Server.
+- **Hallazgo corregido en el compose (afecta también a Windows 11/Linux)**: el `ENTRYPOINT` de la imagen de SQL Server (`launch_sqlservr.sh`, un bash como PID 1)
+  **no reenvía SIGTERM**. Medido: `docker stop` esperaba el plazo completo y terminaba matando a `sqlservr` con SIGKILL (cierre no limpio en cada parada,
+  reinicio del host o recreación del contenedor). Con `entrypoint: ["/opt/mssql/bin/sqlservr"]` el stop dura <1 s y el log muestra
+  *«SQL Server is terminating in response to a 'stop' request»*. Efecto operativo: **la primera vez que se haga `docker compose up -d` con esta versión
+  se recrea el contenedor `db` (unos segundos de corte; los volúmenes y los datos no se tocan)**. Se omiten `permissions_check.sh`/`init_custom_setup.sh`
+  (solo verifican permisos y hooks opcionales que el ERP no usa); el usuario sigue siendo `mssql`.
 - **Memoria estática** (8 GB por defecto: `db` 3 GB + `app` 2 GB + build/migrate): SQL Server no debe competir con Dynamic Memory.
 
 ## 3. Requisitos del host
@@ -139,6 +145,7 @@ Devuelve exit 1 si hay FALLA. `preflight-windows.ps1` (P-07 original) sigue sien
 
 - Actualizar el ERP: por SSH en la VM, `cd ~/theburyproject1 && git pull && bash scripts/deploy/deploy.sh ...` (ver `deploy-rollback.md`; mismo flujo que Linux).
 - Acceso administrativo: `ssh -i C:\ProgramData\TheBury\server\bury_vm_ed25519 bury@<ip-vm>` (solo desde `-AdminFrom`).
+- Primera actualización con este compose: `docker compose up -d` recrea `db` (entrypoint nuevo, §2). Hacerlo en una ventana de mantenimiento corta; antes, `backup.sh all`.
 - Parches del SO invitado: `sudo apt-get update && sudo apt-get upgrade` en una ventana de mantenimiento (reiniciar la VM, no el host). Parches del host Windows: programarlos fuera de horario; la VM se apaga ordenadamente.
 - Estado: `.\scripts\install\Check-ErpHealth.ps1 -VmHost <ip> -VmKey C:\ProgramData\TheBury\server\bury_vm_ed25519 -VmKnownHosts C:\ProgramData\TheBury\server\known_hosts`.
 - Quitar todo: detener y eliminar la VM y su VHDX **a mano** (`Stop-VM; Remove-VM; Remove-Item <vhdx>`); el instalador no borra nada. **No eliminar antes de copiar los backups.**
@@ -150,16 +157,30 @@ volúmenes nuevos; base `TheBuryProjectDb` real y Docker Desktop no interviniero
 
 | Prueba | Resultado |
 |---|---|
-| `test-install.sh` (CI): bootstrap `--dry-run`, validaciones (inyección en CIDR, usuario, rutas), `bury-firewall` con iptables simulado | 64/64 |
-| `Test-ErpHealth.ps1`: 27 escenarios previos + 17 de modo VM (SSH caído, VM apagada, sin latido/autoarranque/checkpoints, cron/firewall caídos, disco, Docker, backups, Tailscale, `-VmHost` malicioso) | todos pasan |
-| `Test-WindowsServerInstall.ps1`: CIDR/red, cloud-init (inyección rechazada, YAML válido con PyYAML), **ISO `cidata` real** generado con IMAPI2 y montado en Linux (`blkid`: `LABEL="cidata"`, los 3 archivos legibles), `-DryRun`/`-PreflightOnly` sin efectos | todos pasan |
-| `server-linux-bootstrap.sh` real: Docker Engine 29.x + Compose v5, `shutdown-timeout`, `bury-firewall.service` activo | OK |
-| **Hallazgo y corrección**: la primera versión de la regla `DOCKER-USER` bloqueaba el HTTPS **saliente** de los contenedores (restore de NuGet colgado). Corregido con `--ctstate DNAT`; verificado que los contenedores vuelven a salir y que el test de CI lo cubre | corregido |
-| Instalación completa dentro de la VM de prueba (`install.sh`: build, db-init, migrate, app, Caddy) y pruebas de persistencia/reinicio/firewall | ver §9.1 |
+| `test-install.sh` (CI): bootstrap `--dry-run`, validaciones (inyección en CIDR, `/0`, octetos, listas vacías, opción sin valor), `bury-firewall` con iptables simulado (cadena nueva enganchada antes de retirar la vieja, reemplazo atómico) | 75/75 |
+| `Test-ErpHealth.ps1`: 27 escenarios previos + 18 de modo VM (SSH caído, VM apagada, sin latido/latido ilegible/autoarranque/checkpoints, cron/firewall caídos, disco, Docker, backups, Tailscale, `-VmHost` malicioso) | todos pasan |
+| `Test-WindowsServerInstall.ps1`: CIDR/red, cloud-init (inyección rechazada; YAML válido con PyYAML), **ISO `cidata` real** generado con IMAPI2 y montado en Linux (`blkid`: `LABEL="cidata"`, `user-data`/`meta-data`/`network-config` legibles), `-DryRun`/`-PreflightOnly` sin efectos | todos pasan |
+| `server-linux-bootstrap.sh` **real** (2 ejecuciones: idempotente): Docker Engine 29.x + Compose v5, `shutdown-timeout`, `bury-firewall.service` y drop-in `ExecStartPost` | OK |
+| **Instalación completa** con `install.sh` en la distro de prueba: build de la imagen, `db-init`, `migrate` (**137 migraciones**), `app`, Caddy, health gate `live`/`ready` = 200, smoke de login | OK |
+| **Persistencia**: fila centinela en una base aparte sobrevive a `down`/`up`, a `docker stop`, a `systemctl restart docker` y a una **terminación abrupta** de todo el sistema (equivalente a un corte de luz del invitado) | OK; SQL Server completó la recuperación sola |
+| **Reinicio**: tras terminar la distro y volver a arrancarla (systemd), `docker`, `cron` y `bury-firewall` habilitados; 3 contenedores arriba y `healthy` sin intervención; `/health/ready` = 200; cadena `DOCKER-USER` reaplicada | OK |
+| **Apagado ordenado de SQL Server**: antes del cambio `docker stop db` = 60 s (SIGKILL); después = 0 s con log de parada limpia | corregido en el compose |
+| **Firewall** (contadores de iptables): 443 desde una red no permitida → 5 paquetes en `DROP`; al agregarla → 5 en `RETURN`, 0 en `DROP`; al quitarla → vuelve a `DROP`. Tráfico saliente de contenedores (HTTPS a NuGet) no afectado | OK |
+| **Backups**: `install-schedule.sh --install` (`/etc/cron.d/bury-backup`), `backup.sh all` (exit 0, `monitor-status/*.json`) y `restore-test.sh` (DBCC CHECKDB OK, 137 migraciones, 133 tablas restauradas) | OK |
+| **Hallazgo y corrección 1**: la primera versión de la regla `DOCKER-USER` bloqueaba el HTTPS **saliente** de los contenedores (restore de NuGet colgado). Corregido con `--ctstate DNAT`; cubierto por test de CI | corregido |
+| **Hallazgo y corrección 2**: ver `entrypoint` de SQL Server arriba (cierre no limpio) | corregido |
+| Revisión estática independiente (2 revisores Sonnet): 19 + 21 observaciones; aplicadas las de impacto real (SIDs en `icacls`, idempotencia del VHDX, `git` antes del clone, validación de `-Ref`/CIDR, reemplazo atómico del firewall, bloqueo SSH por `ufw`, lock de apt, latido por Id, etc.) | aplicadas |
 
-### 9.1 Resultados de la instalación y persistencia
+Entorno: toda la parte «dentro de la VM» se ejecutó en una **distro WSL2 desechable** con systemd, Docker Engine propio, volúmenes nuevos y datos sintéticos (`admin` generado,
+correo `qa-sintetico@example.test`), que se eliminó al terminar. Es el mismo código (`server-linux-bootstrap.sh` → `install.sh` → compose) que correrá en la VM Ubuntu.
 
-(Se completa en el informe de cierre del PR con los números reales de la corrida.)
+### 9.1 Límites conocidos (no bloquean, quedan documentados)
+
+- `-UseDhcp` es de mejor esfuerzo: descubre la IP por KVP de Hyper-V, que necesita `linux-cloud-tools-virtual` (cloud-init lo instala, pero requiere Internet en el primer arranque); la IP fija es lo recomendado.
+- Windows Server **Core** sin Desktop Experience no trae IMAPI2 (el preflight lo marca FALLA); usar Desktop Experience.
+- `--automapper-key` (licencia comercial) viaja por línea de comandos y es visible en `ps` dentro de la VM mientras corre `install.sh`.
+- La VM no tiene contraseña de login (solo clave SSH, cuenta bloqueada): si su red queda inutilizable no hay login por la consola de Hyper-V; se repara montando el VHDX en otra VM o recreando la VM sobre el mismo disco.
+- Docker se instala desde el repositorio oficial de Docker sin verificar el fingerprint de la clave (igual que su documentación); no se admite `docker.io`/snap (el script se detiene).
 
 ## 10. Qué **no** se pudo validar y qué se necesita del propietario
 
