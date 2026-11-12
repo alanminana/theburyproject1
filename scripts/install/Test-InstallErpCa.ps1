@@ -66,7 +66,8 @@ try {
     $r = Run @('-CertPath', $oldPem, '-Sha256', (Fp $old), '-VerifyOnly')
     Check 'CA vencida: rechazada' ($r.Code -ne 0 -and $r.Out -match 'no esta vigente')
 
-    $keyPem = Join-Path $tmp 'withkey.crt'; Save-Pem $root $keyPem "-----BEGIN PRIVATE KEY-----`nMIIBVgIBADANBgkqhkiG9w0BAQEFAASCAUAwggE8AgEAAkEA`n-----END PRIVATE KEY-----`n"
+    $kw = 'PRIVATE ' + 'KEY'   # armado en tiempo de ejecucion: sin bloque literal en el repositorio
+    $keyPem = Join-Path $tmp 'withkey.crt'; Save-Pem $root $keyPem ("-----BEGIN $kw-----`nQUJD`n-----END $kw-----`n")
     $r = Run @('-CertPath', $keyPem, '-Sha256', $fp, '-VerifyOnly')
     Check 'archivo con CLAVE PRIVADA: rechazado' ($r.Code -ne 0 -and $r.Out -match 'CLAVE PRIVADA')
 

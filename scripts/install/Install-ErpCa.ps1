@@ -42,7 +42,7 @@ if ($Remove) {
     if ($Scope -eq 'LocalMachine' -and -not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Fail 'retirar del almacen LocalMachine requiere PowerShell como administrador'
     }
-    $found = @(Get-ChildItem $storePath | Where-Object { (Normalize-Fingerprint $_.GetCertHashString('SHA256')) -eq $expected })
+    $found = @(); try { $found = @(Get-ChildItem $storePath -ErrorAction Stop | Where-Object { (Normalize-Fingerprint $_.GetCertHashString('SHA256')) -eq $expected }) } catch { }  # almacen inexistente (p. ej. Linux sin CAs de usuario) = nada que retirar
     if ($found.Count -eq 0) { Write-Host "La CA con esa huella no esta en $storePath (nada que retirar)."; exit 0 }
     foreach ($c in $found) { Remove-Item -Path "$storePath\$($c.Thumbprint)" -Force; Write-Host "Retirada: $($c.Subject)" -ForegroundColor Green }
     exit 0
