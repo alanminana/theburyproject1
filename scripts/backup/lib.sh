@@ -267,23 +267,26 @@ monitor_status() { # tipo exit verified
 # Estado estructurado de la prueba de restore semanal: monitor-status/restore-test.json (mismo directorio y escritura atomica que
 # monitor_status). A diferencia de los demas, conserva `last_success` entre corridas fallidas para que el monitor distinga
 # "ultimo intento" de "ultimo exito verificado". El mensaje se sanitiza y se reduce a ASCII sin comillas/backslash (JSON seguro).
-# restore_test_status <exit> <verified true|false> [mensaje]
+# restore_test_status <exit> <verified true|false> [mensaje] [tipo]
+# `tipo` (default restore-test) elige el archivo: monitor-status/<tipo>.json. Lo reutilizan offsite-restore-test (restore-test.sh
+# --offsite) y custody (check-custody.sh): mismo formato, mismo monitor.
 restore_test_status() {
-  local code=$1 verified=$2 msg=${3-} dir="$BACKUP_DIR/monitor-status" now prev last_ok=null tmp
+  local code=$1 verified=$2 msg=${3-} kind=${4:-restore-test} dir="$BACKUP_DIR/monitor-status" now prev last_ok=null tmp
+  [[ "$kind" =~ ^[a-z][a-z-]*$ ]] || { log WARN "tipo de estado invalido"; return 0; }
   now=$(date +%s)
   msg=$(sanitize_text "$msg" | tr -c '[:print:]' ' ' | sed 's/["\]//g' | cut -c1-200)
-  if [[ -f "$dir/restore-test.json" ]]; then
-    prev=$(grep -oE '"last_success":[0-9]+' "$dir/restore-test.json" | head -n1 | cut -d: -f2 || true)
+  if [[ -f "$dir/$kind.json" ]]; then
+    prev=$(grep -oE '"last_success":[0-9]+' "$dir/$kind.json" | head -n1 | cut -d: -f2 || true)
     [[ -n "$prev" ]] && last_ok=$prev
   fi
   if [[ "$code" == 0 && "$verified" == true ]]; then last_ok=$now; fi
   (
     umask 077
     mkdir -p "$dir" || exit 1
-    tmp=$(mktemp "$dir/.restore-test.XXXXXX") || exit 1
+    tmp=$(mktemp "$dir/.$kind.XXXXXX") || exit 1
     printf '{"time":%s,"exit":%s,"verified":%s,"last_success":%s,"message":"%s"}\n' "$now" "$code" "$verified" "$last_ok" "$msg" >"$tmp" \
-      && mv -f "$tmp" "$dir/restore-test.json"
-  ) || log WARN "no se pudo persistir estado de monitoreo: restore-test"
+      && mv -f "$tmp" "$dir/$kind.json"
+  ) || log WARN "no se pudo persistir estado de monitoreo: $kind"
   return 0
 }
 

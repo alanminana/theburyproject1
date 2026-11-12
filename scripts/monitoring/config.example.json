@@ -23,5 +23,7 @@
     "offsite-sql": [1800, 2700],
     "offsite-files": [93600, 108000]
   },
-  "restore_test": {"warning": 691200, "critical": 864000}
+  "restore_test": {"warning": 691200, "critical": 864000},
+  "offsite_restore_test": {"enabled": "auto", "warning": 3024000, "critical": 3888000},
+  "custody": {"enabled": true, "warning": 691200, "critical": 1296000}
 }

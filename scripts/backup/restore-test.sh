@@ -2,20 +2,27 @@
 # PRUEBA DE RESTORE (no destructiva): restaura el ultimo backup en una base temporal <db>_RestoreTest, la valida y la elimina.
 # Es la unica forma de saber que los backups sirven (RESTORE VERIFYONLY NO reemplaza una restauracion real). Programarla (semanal).
 #
-#   scripts/backup/restore-test.sh [--backup <full.bak>] [--no-logs] [--keep]
+#   scripts/backup/restore-test.sh [--backup <full.bak>] [--no-logs] [--keep] [--offsite]
+#
+# --offsite: (BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS=3, BACKUP_OFFSITE_RESTORE_STALE=warn|fail: aviso o fallo si el ultimo full remoto es mas viejo)
+#   prueba de restauracion DESDE LA COPIA EXTERNA (P-06/P-08). Descarga el ultimo full de BACKUP_REMOTE (a traves del crypt, o
+#   sea que prueba tambien que las passwords crypt vigentes descifran), verifica su sha256 de origen, lo restaura en
+#   <db>_OffsiteRestoreTest (base aislada), corre las mismas validaciones y BORRA la copia descargada y la base. Publica
+#   monitor-status/offsite-restore-test.json (el monitor alerta por antiguedad/fallo). No toca la base viva ni el restore-test local.
 #
 # Valida: RESTORE OK, DBCC CHECKDB sin errores, __EFMigrationsHistory no vacia, tablas, y compara contra la base viva.
 # NUNCA toca la base de produccion (el destino siempre es <db>_RestoreTest). Codigos: 0 ok | 9 validacion fallo | 8 prerequisito
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-BACKUP="" LOGS=1 KEEP=0
+BACKUP="" LOGS=1 KEEP=0 OFFSITE=0
 while (( $# )); do
   case "$1" in
     --backup) BACKUP="${2:-}"; shift 2 ;;
     --no-logs) LOGS=0; shift ;;
     --keep) KEEP=1; shift ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    --offsite) OFFSITE=1; shift ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) die $EX_USAGE "argumento desconocido: $1" ;;
   esac
 done
@@ -24,17 +31,54 @@ load_config
 mkdir -p "$BACKUP_DIR/logs"
 
 # Estado para el monitor: SIEMPRE se publica al salir (ok o fallo). verified=true solo si llego al final con exit 0.
-RT_DONE=0
+RT_DONE=0 STALE_NOTE="" OFFSITE_LOCAL="" OFFSITE_SHA=".offsitert.sha256"
+STATUS_KIND=restore-test; (( OFFSITE )) && STATUS_KIND=offsite-restore-test
 finish() {
   local ec=$?
-  if (( ec == 0 && RT_DONE == 1 )); then restore_test_status 0 true "restore-test OK"
-  else restore_test_status "$ec" false "${LAST_ERROR:-fallo inesperado (exit $ec)}"; fi
+  if (( ec == 0 && RT_DONE == 1 )); then restore_test_status 0 true "$STATUS_KIND OK${STALE_NOTE:+ ($STALE_NOTE)}" "$STATUS_KIND"
+  else restore_test_status "$ec" false "${LAST_ERROR:-fallo inesperado (exit $ec)}" "$STATUS_KIND"; fi
   (( KEEP )) || drop_test_safe
+  cleanup_offsite_copy
+}
+# Borra SOLO la copia descargada por esta corrida (nombre validado offsitert_*): nunca un backup real.
+cleanup_offsite_copy() {
+  [[ -n "$OFFSITE_LOCAL" && "$OFFSITE_LOCAL" =~ ^offsitert_[A-Za-z0-9_.-]+_full_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.bak$ ]] || return 0
+  tools sh -c 'rm -f "/backups/sql/$0" "/backups/logs/$1"' "$OFFSITE_LOCAL" "$OFFSITE_SHA" >/dev/null 2>&1 || log WARN "no se pudo borrar la copia descargada $OFFSITE_LOCAL (borrar a mano)"
 }
 drop_test_safe() { declare -F drop_test >/dev/null && drop_test || true; }
 trap finish EXIT
 check_prereqs
 TEST_DB="${DB_NAME}_RestoreTest"
+(( OFFSITE )) && TEST_DB="${DB_NAME}_OffsiteRestoreTest"
+
+if (( OFFSITE )); then
+  [[ -z "$BACKUP" ]] || die $EX_USAGE "--offsite no se combina con --backup (siempre usa el ultimo full del remoto)"
+  [[ -n "$BACKUP_REMOTE" && "$BACKUP_REMOTE" =~ ^[A-Za-z0-9_-]+:.+ ]] || die $EX_USAGE "--offsite requiere BACKUP_REMOTE=<remoto>:<ruta>"
+  remote_full=$(dc run --rm -T --no-deps --quiet-pull backup-offsite lsf "$BACKUP_REMOTE/sql" --include "${DB_NAME}_full_*.bak" 2>/dev/null | tr -d '\r' \
+    | grep -E "^${DB_NAME}_full_${BK_TS}\.bak$" | sort | tail -n1 || true)
+  [[ -n "$remote_full" ]] || die $EX_OFFSITE "no hay backups full en ${BACKUP_REMOTE%%:*}:*/sql (o el remoto no responde / las passwords crypt no descifran)"
+  # Antiguedad del ultimo full remoto (segun el nombre, UTC). Un remoto desactualizado no es una copia vigente.
+  max_age=$(cfg BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS 3); stale_mode=$(cfg BACKUP_OFFSITE_RESTORE_STALE warn)
+  is_uint "$max_age" || die $EX_USAGE "BACKUP_OFFSITE_RESTORE_MAX_AGE_DAYS debe ser un entero (dias)"
+  [[ "$stale_mode" == warn || "$stale_mode" == fail ]] || die $EX_USAGE "BACKUP_OFFSITE_RESTORE_STALE debe ser warn o fail"
+  full_epoch=$(bk_ts_epoch "$(grep -oE "$BK_TS" <<<"$remote_full")") || die $EX_OFFSITE "no se pudo interpretar la fecha del full remoto"
+  age_days=$(( ($(date +%s) - full_epoch) / 86400 ))
+  if (( age_days > max_age )); then
+    STALE_NOTE="AVISO: el ultimo full remoto tiene $age_days dias (> $max_age)"
+    [[ "$stale_mode" == fail ]] && die $EX_OFFSITE "el ultimo full de la copia externa tiene $age_days dias (> $max_age): la copia externa esta desactualizada"
+    log WARN "$STALE_NOTE: la copia externa puede estar desactualizada"
+  fi
+  OFFSITE_LOCAL="offsitert_$remote_full"
+  log INFO "offsite-restore-test: descargando $remote_full desde ${BACKUP_REMOTE%%:*}:*"
+  dc run --rm -T --no-deps --quiet-pull restore-offsite copyto "$BACKUP_REMOTE/sql/$remote_full" "/backups/sql/$OFFSITE_LOCAL" >/dev/null 2>&1     || die $EX_OFFSITE "la descarga del full desde la copia externa FALLO"
+  dc run --rm -T --no-deps --quiet-pull restore-offsite copyto "$BACKUP_REMOTE/sql/$remote_full.sha256" "/backups/logs/$OFFSITE_SHA" >/dev/null 2>&1     || die $EX_OFFSITE "no se pudo descargar $remote_full.sha256 del remoto (sin hash de origen no hay verificacion de extremo a extremo)"
+  want=$(tools sh -c 'cut -d" " -f1 "/backups/logs/$0" | head -n1' "$OFFSITE_SHA" | tr -d '\r')
+  got=$(tools sh -c 'sha256sum "/backups/sql/$0" | cut -d" " -f1' "$OFFSITE_LOCAL" | tr -d '\r')
+  [[ "$want" =~ ^[0-9a-f]{64}$ && "$want" == "$got" ]] || die $EX_VERIFY "sha256 de la copia descargada NO coincide con el de origen (corrupcion en el remoto o en transito)"
+  log INFO "offsite-restore-test: descarga verificada (sha256 de origen)"
+  tools sh -c 'chown 10001:0 "/backups/sql/$0" && chmod 640 "/backups/sql/$0"' "$OFFSITE_LOCAL" || die $EX_PREREQ "no se pudieron ajustar permisos de la copia descargada"
+  BACKUP="$OFFSITE_LOCAL"
+fi
 
 if [[ -z "$BACKUP" ]]; then
   BACKUP=$(dc exec -T db bash -c 'ls -1 /backups/sql | grep -E "^${0}_full_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.bak$" | sort | tail -n1' "$DB_NAME" | tr -d '\r')
@@ -42,7 +86,7 @@ if [[ -z "$BACKUP" ]]; then
 fi
 
 drop_test() {
-  [[ "$TEST_DB" == *_RestoreTest ]] || return 0   # defensa: solo se elimina una base temporal de prueba
+  [[ "$TEST_DB" == *_RestoreTest || "$TEST_DB" == *_OffsiteRestoreTest ]] || return 0   # defensa: solo se elimina una base temporal de prueba
   sql_exec "IF DB_ID(N'$TEST_DB') IS NOT NULL BEGIN ALTER DATABASE [$TEST_DB] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$TEST_DB]; END" >/dev/null 2>&1 || true
 }
 
@@ -72,4 +116,4 @@ if [[ -n "$live" ]] && is_uint "$live" && (( mig < live )); then
   log WARN "el backup tiene $mig migraciones y la base viva $live (normal si hubo migraciones nuevas despues del backup)"
 fi
 RT_DONE=1
-log INFO "=== restore-test OK: tiempo de restore $((T1 - T0)) s ==="
+log INFO "=== $STATUS_KIND OK: tiempo de restore $((T1 - T0)) s ==="
