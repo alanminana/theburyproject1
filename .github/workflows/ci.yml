@@ -364,3 +364,23 @@ jobs:
 
       - name: Test (Release)
         run: dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build
+
+  # ---------------------------------------------------------------------------------------------
+  # Scripts de Windows (Check-ErpHealth simulado + instalador de Windows Server sin Hyper-V): informativo, NO bloquea merge.
+  # No usa Docker, WSL, Hyper-V ni red real; ver docs/instalacion-windows-server.md.
+  # ---------------------------------------------------------------------------------------------
+  windows-scripts:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check-ErpHealth (escenarios simulados, incluye modo VM)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-ErpHealth.ps1
+
+      - name: Instalador de Windows Server (funciones puras, cloud-init, ISO cidata, dry-run)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-WindowsServerInstall.ps1

@@ -55,6 +55,7 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments, [int]$TimeoutSec = 20
         }
         '^curl' {
             if ($s.NoCurl) { return (New-Res $false -1 '') }
+            $script:LastCurl = $Arguments -join ' '
             if ($Arguments -contains '-k' -or $Arguments -contains '-sk') {
                 if ($s.CurlExit -ne 0) { return (New-Res $true $s.CurlExit '') }
                 $url = $Arguments[-1]
@@ -72,8 +73,32 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments, [int]$TimeoutSec = 20
             if ($s.TsJson -eq $null) { return (New-Res $false -1 '') }
             return (New-Res $true 0 $s.TsJson)
         }
+        '^ssh$' {
+            # Modo VM: el ultimo argumento es el comando remoto ya entrecomillado por Invoke-Tool.
+            $remote = $Arguments[-1]
+            $script:SshCalls += $remote
+            if ($s.SshDown) { return (New-Res $true 255 'ssh: connect to host timed out') }
+            switch -Regex ($remote) {
+                "^'docker' 'version'" { if ($s.DockerDown) { return (New-Res $true 1 'Cannot connect to the Docker daemon') }; return (New-Res $true 0 $s.DockerVersion) }
+                "^'docker' 'ps'" { return (New-Res $true 0 ($s.Ps -join "`n")) }
+                "^'systemctl' 'is-active' 'docker'" { return (New-Res $true 0 ($s.VmActive -join "`n")) }
+                "^'systemctl' 'is-enabled' 'docker'" { return (New-Res $true 0 ($s.VmEnabled -join "`n")) }
+                "^'test' '-f'" { return (New-Res $true $(if ($s.VmCron) { 0 } else { 1 }) '') }
+                "^'df'" { return (New-Res $true 0 ("Avail`n " + $s.VmDiskGB + 'G')) }
+                "^'sh' '-c'" {
+                    if ($s.WslFail) { return (New-Res $true 1 '') }
+                    $o = ''; foreach ($k in $s.Status.Keys) { $o += "@@$k.json`n" + $s.Status[$k] + "`n`n" }
+                    return (New-Res $true 0 $o)
+                }
+                "^'tailscale' 'version'" { return (New-Res $true $(if ($s.VmNoTs) { 127 } else { 0 }) '') }
+                "^'systemctl' 'is-active' 'tailscaled'" { return (New-Res $true 0 $s.VmTsActive) }
+                "^'tailscale' 'status'" { return (New-Res $true 0 $s.TsJson) }
+                default { return (New-Res $true 1 "comando remoto no simulado: $remote") }
+            }
+        }
     }
 }
+function Get-VmInfo { if ($script:Sim.VmInfo -eq 'NOMOD') { return $null }; if ($script:Sim.VmInfo -eq 'ERROR') { throw 'The operation failed' }; $script:Sim.VmInfo }
 function Get-DiskInfo { $script:Sim.Disk }
 function Get-BootTime { (Get-Date).AddDays(-9) }
 function Get-PendingRebootInfo { $script:Sim.Reboot }
@@ -208,6 +233,71 @@ $s = New-Base; $s.TsJson = (@{ BackendState = 'Running'; Self = @{ KeyExpiry = (
 Invoke-Escenario 'clave Tailscale vence en 10 dias' $s 1 @('ATENCION|Clave del nodo')
 $s = New-Base; $s.TsService = $null
 Invoke-Escenario 'Tailscale no instalado' $s 1 @('ATENCION|Tailscale')
+
+# ====================== Modo Windows Server (-VmHost): Docker/backups/systemd por SSH, VM por Hyper-V ======================
+$script:SshCalls = @()
+function New-BaseVm {
+    $b = New-Base
+    $b.VmActive = @('active', 'active', 'active'); $b.VmEnabled = @('enabled', 'enabled', 'enabled'); $b.VmCron = $true; $b.VmDiskGB = 62
+    $b.VmNoTs = $false; $b.VmTsActive = 'active'; $b.SshDown = $false
+    $b.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(30); Heartbeat = 'Ok'; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
+    $b
+}
+$VmHost = '192.168.1.50'; $VmUser = 'bury'; $VmKey = 'C:\k\id'; $VmKnownHosts = 'C:\k\known_hosts'
+$script:VmMode = $true
+
+$s = New-BaseVm
+Invoke-Escenario 'VM: todo sano' $s 0 @('OK|^VM ', 'OK|Arranque automatico', 'OK|Apagado de la VM', 'OK|Checkpoints', 'OK|Servicio docker \(en ejecucion\)', 'OK|Servicio bury-firewall \(habilitado', 'OK|Cron de backups', 'OK|Disco de la VM', 'OK|Docker daemon', 'OK|HTTPS /health/ready', 'OK|Backup full', 'OK|Tailscale conectado')
+if ($script:LastCurl -notmatch 'tbp:443:192\.168\.1\.50') { $script:Fallos++; Write-Host "[FALLA] VM: el HTTPS debe resolver a la IP de la VM (curl: $script:LastCurl)" -ForegroundColor Red } else { Write-Host '[PASA ] VM: HTTPS apunta a la IP de la VM' -ForegroundColor Green }
+if (@($script:Resultados | Where-Object Item -match "^Tarea '").Count -ne 0) { $script:Fallos++; Write-Host '[FALLA] VM: no deben evaluarse tareas programadas de Windows' -ForegroundColor Red } else { Write-Host '[PASA ] VM: sin chequeo de tareas de Windows' -ForegroundColor Green }
+if (-not (@($script:SshCalls) | Where-Object { $_ -match "^'docker' 'ps'" })) { $script:Fallos++; Write-Host '[FALLA] VM: docker debe consultarse por SSH' -ForegroundColor Red } else { Write-Host '[PASA ] VM: docker consultado por SSH' -ForegroundColor Green }
+if (@($script:SshCalls | Where-Object { $_ -match "rm |restart|stop|start|up |down " }).Count -ne 0) { $script:Fallos++; Write-Host '[FALLA] VM: se ejecuto un comando que no es de solo lectura' -ForegroundColor Red } else { Write-Host '[PASA ] VM: todos los comandos SSH son de solo lectura' -ForegroundColor Green }
+
+$s = New-BaseVm; $s.SshDown = $true
+Invoke-Escenario 'VM: SSH sin conexion (VM apagada o clave mala)' $s 2 @('FALLA|SSH a la VM', 'FALLA|Docker daemon')
+
+$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Off'; Uptime = [timespan]::Zero; Heartbeat = ''; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
+Invoke-Escenario 'VM: apagada en Hyper-V' $s 2 @("FALLA|^VM ")
+
+$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(2); Heartbeat = 'LostCommunication'; AutoStart = 'Nothing'; AutoStop = 'Save'; Checkpoints = 'Standard' }
+Invoke-Escenario 'VM: sin latido, sin autoarranque, Save y checkpoints' $s 2 @('FALLA|Latido', 'FALLA|Arranque automatico', 'ATENCION|Apagado de la VM', 'ATENCION|Checkpoints')
+
+$s = New-BaseVm; $s.VmInfo = [pscustomobject]@{ State = 'Running'; Uptime = [timespan]::FromHours(5); Heartbeat = ''; AutoStart = 'Start'; AutoStop = 'ShutDown'; Checkpoints = 'Disabled' }
+Invoke-Escenario 'VM: servicio Heartbeat ilegible' $s 1 @('ATENCION|Latido')
+$s = New-BaseVm; $s.VmInfo = 'NOMOD'
+Invoke-Escenario 'VM: modulo Hyper-V ausente (chequeo desde otro equipo)' $s 0 @('INFO|VM Hyper-V', 'OK|Docker daemon')
+$s = New-BaseVm; $s.VmInfo = 'ERROR'
+Invoke-Escenario 'VM: Get-VM falla' $s 1 @('ATENCION|VM Hyper-V')
+
+$s = New-BaseVm; $s.VmActive = @('active', 'inactive', 'active'); $s.VmEnabled = @('enabled', 'enabled', 'disabled'); $s.VmCron = $false
+Invoke-Escenario 'VM: cron detenido, firewall sin habilitar, sin cron.d' $s 2 @('FALLA|Servicio cron \(en ejecucion\)', 'FALLA|Servicio bury-firewall \(habilitado', 'FALLA|Cron de backups')
+
+$s = New-BaseVm; $s.VmDiskGB = 15
+Invoke-Escenario 'VM: disco del invitado bajo' $s 2 @('FALLA|Disco de la VM')
+$s = New-BaseVm; $s.VmDiskGB = 30
+Invoke-Escenario 'VM: disco del invitado en atencion' $s 1 @('ATENCION|Disco de la VM')
+
+$s = New-BaseVm; $s.DockerDown = $true
+Invoke-Escenario 'VM: docker detenido dentro de la VM' $s 2 @('FALLA|Docker daemon', 'INFO|HTTPS local')
+
+$s = New-BaseVm; $s.Status = @{}
+Invoke-Escenario 'VM: backups nunca corrieron' $s 2 @('FALLA|Estado de backups')
+$s = New-BaseVm; $s.WslFail = $true
+Invoke-Escenario 'VM: no se pueden leer los backups por SSH' $s 1 @('ATENCION|Estado de backups')
+
+$s = New-BaseVm; $s.VmNoTs = $true
+Invoke-Escenario 'VM: Tailscale no instalado en la VM' $s 1 @('ATENCION|Tailscale \(VM\)')
+$s = New-BaseVm; $s.VmTsActive = 'inactive'
+Invoke-Escenario 'VM: tailscaled detenido' $s 2 @('FALLA|Servicio tailscaled')
+$s = New-BaseVm; $s.TsJson = (@{ BackendState = 'NeedsLogin' } | ConvertTo-Json)
+Invoke-Escenario 'VM: Tailscale sin autenticar' $s 2 @('FALLA|Tailscale desconectado')
+
+# entrada peligrosa en -VmHost: el script real la rechaza (proceso hijo)
+$hijo = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'Check-ErpHealth.ps1') -VmHost '1.2.3.4; calc' 2>&1 | Out-String
+if ($LASTEXITCODE -eq 3) { Write-Host '[PASA ] -VmHost con caracteres peligrosos se rechaza (exit 3)' -ForegroundColor Green } else { $script:Fallos++; Write-Host "[FALLA] -VmHost peligroso no rechazado (exit $LASTEXITCODE)" -ForegroundColor Red }
+
+# vuelta al modo Windows 11 para el escenario siguiente
+$script:VmMode = $false
 
 # 20. Salida -Json parseable
 $s = New-Base; $script:Sim = $s; $s.LiveCode = '200'
