@@ -220,7 +220,7 @@ jobs:
         run: |
           set -euo pipefail
           npx playwright test -c playwright.js-harness.config.js --forbid-only --reporter=list,json
-          node -e "const s=require(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME).stats; console.log(JSON.stringify(s)); if(s.expected!==41||s.skipped||s.unexpected||s.flaky){console.error('::error::Harness e2e-js: se esperaban 41 pruebas aprobadas sin omitidas/falladas/flaky'); process.exit(1)}"
+          node -e "const s=require(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME).stats; console.log(JSON.stringify(s)); if(s.expected!==46||s.skipped||s.unexpected||s.flaky){console.error('::error::Harness e2e-js: se esperaban 46 pruebas aprobadas sin omitidas/falladas/flaky'); process.exit(1)}"
 
       # Usuario E2E sintetico: creado por DbInitializer.CreateTestUsersAsync (Data/DbInitializer.cs,
       # ya versionado) SOLO porque `migrate` corrio en Development en este job — no es un secreto,
