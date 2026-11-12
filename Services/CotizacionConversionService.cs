@@ -417,7 +417,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         // neto, IVA su desglose y Total el importe con IVA, de modo que Subtotal + IVA == Total.
         var serviciosEnTotal = detalles.Sum(d => d.ArmadoSubtotal)
             + (cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m);
-        var (serviciosNeto, serviciosIva) = serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal) : (0m, 0m);
+        var (serviciosNeto, serviciosIva) = serviciosEnTotal > 0m ? CriterioFiscalRegistry.Vigente.SepararServicios(serviciosEnTotal) : (0m, 0m);
         var subtotal = detalles.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
         var iva = detalles.Sum(d => d.SubtotalFinalIVA) + serviciosIva;
         var total = detalles.Sum(d => d.SubtotalFinal) + serviciosEnTotal;
@@ -533,6 +533,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             var venta = new Venta
             {
                 Numero = numero,
+                // P-02 / P5: la venta nace con el criterio fiscal vigente y lo conserva.
+                CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente,
                 ClienteId = clienteId,
                 NombreClienteLibre = clienteId is null ? cotizacionEnTx.NombreClienteLibre?.Trim() : null,
                 DniClienteLibre = clienteId is null ? cotizacionEnTx.DniClienteLibre : null,
@@ -572,7 +574,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             if (serviciosEnTotal > 0m)
             {
                 venta.Subtotal += serviciosEnTotal;
-                venta.IVA += ServiciosVentaIva.Separar(serviciosEnTotal).Iva;
+                venta.IVA += CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion).SepararServicios(serviciosEnTotal).Iva;
             }
             venta.Total = venta.Subtotal - venta.Descuento;
 

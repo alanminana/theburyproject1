@@ -1,0 +1,55 @@
+// Politica de acceso (ACL/grants) de la tailnet que protege TheBuryProject. Formato HuJSON (JSON con comentarios y comas finales).
+//
+// PRINCIPIOS
+//  - Denegar por defecto: Tailscale no permite nada que no este en `grants`.
+//  - Un solo destino: el servidor del ERP (tag:erp), y solo 443 (HTTPS por TCP; UDP 443 = HTTP/3 de Caddy). Nunca 22/3389/1433/8080.
+//  - Identidades independientes: cada persona entra con SU cuenta de identidad (SSO) y SU dispositivo. Revocar = quitar su correo
+//    de group:erp-usuarios (y borrar sus dispositivos en la consola); las demas cuentas no se enteran.
+//  - Las personas NO se alcanzan entre si ni alcanzan al servidor por otro puerto: no hay grant usuario->usuario.
+//  - Sin `autoApprovers` (subnet routers / exit nodes), sin `ssh`, sin `nodeAttrs` de Funnel: el servidor no amplia su alcance ni se publica en Internet.
+//
+// ANTES DE APLICAR (requiere la tailnet real; ver docs/p05-tailscale-acceso-remoto.md): reemplazar los dos correos de ejemplo
+// por las identidades reales y validar con `python scripts/install/tailscale-policy-check.py --require-real-identities`.
+{
+	"groups": {
+		// Una linea por persona. Quitar la linea revoca solo a esa persona.
+		"group:erp-usuarios": [
+			"persona1@example.com",
+			"persona2@example.com",
+		],
+	},
+
+	// Solo administradores de la tailnet pueden etiquetar un nodo como tag:erp (el servidor se une con `--advertise-tags=tag:erp`).
+	// Los usuarios del ERP NO pueden crear nodos con esa etiqueta.
+	"tagOwners": {
+		"tag:erp": ["autogroup:admin"],
+	},
+
+	"grants": [
+		{
+			"src": ["group:erp-usuarios"],
+			"dst": ["tag:erp"],
+			"ip":  ["tcp:443", "udp:443"],
+		},
+	],
+
+	// Pruebas que la consola de Tailscale ejecuta ANTES de aceptar esta politica: si alguna falla, la politica se rechaza.
+	// scripts/install/tailscale-policy-check.py las evalua tambien offline (CI).
+	"tests": [
+		{
+			"src":    "persona1@example.com",
+			"accept": ["tag:erp:443"],
+			"deny":   ["tag:erp:22", "tag:erp:3389", "tag:erp:1433", "tag:erp:8080", "persona2@example.com:443"],
+		},
+		{
+			"src":    "persona2@example.com",
+			"accept": ["tag:erp:443"],
+			"deny":   ["tag:erp:22", "tag:erp:3389", "tag:erp:1433", "tag:erp:8080", "persona1@example.com:443"],
+		},
+		{
+			// Una cuenta que no esta en el grupo (p. ej. alguien invitado a la tailnet o un nodo compartido) no alcanza el ERP.
+			"src":  "intruso@example.org",
+			"deny": ["tag:erp:443", "tag:erp:22"],
+		},
+	],
+}

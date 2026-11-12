@@ -58,6 +58,13 @@ namespace TheBuryProject.Models.Entities
         public decimal IVA { get; set; }
         public decimal Total { get; set; }
 
+        /// <summary>
+        /// P-02 / P5: versión del criterio fiscal (alícuota de servicios, redondeo, discriminación del recargo) con la que se
+        /// calculó esta operación. Los reportes y comprobantes la releen con ESA versión. 1 = reglas vigentes al 2026-11-12
+        /// (backfill de toda venta existente). Ver Helpers/CriterioFiscal.cs.
+        /// </summary>
+        public int CriterioFiscalVersion { get; set; } = Helpers.CriterioFiscalRegistry.VersionInicial;
+
         // Crédito personal
         public int? CreditoId { get; set; }
 

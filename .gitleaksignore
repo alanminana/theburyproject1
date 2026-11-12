@@ -6,3 +6,6 @@
 cef122c8e1f5c4b0177f09696bf35b302a8fb18e:.claude/skills/playwright-core/configuration.md:generic-api-key:532
 cef122c8e1f5c4b0177f09696bf35b302a8fb18e:.claude/skills/playwright-core/third-party-integrations.md:generic-api-key:489
 cef122c8e1f5c4b0177f09696bf35b302a8fb18e:.claude/skills/playwright-core/third-party-integrations.md:generic-api-key:490
+
+# Falso positivo: clave PEM sintetica de relleno (no es una clave real) en la prueba de Install-ErpCa; ya reescrita para no contener el bloque literal.
+2e6e5807a58cd5d0d840fecea048b67c81bb399d:scripts/install/Test-InstallErpCa.ps1:private-key:69

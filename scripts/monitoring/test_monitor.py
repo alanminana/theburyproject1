@@ -217,6 +217,130 @@ class MonitoringTests(unittest.TestCase):
             self.assertEqual(self.collector.signals["sql.express"]["severity"], expected)
             self.assertEqual(self.collector.signals["sql.log"]["severity"], "INFO")
 
+    # --- P-06/P-07/P-08: copia externa, restore desde el remoto y custodia de claves ---------------------------------------
+    def write_status(self, name, **status):
+        directory = Path(self.tmp.name) / "monitor-status"
+        directory.mkdir(exist_ok=True)
+        (directory / (name + ".json")).write_text(json.dumps(status))
+
+    def severity(self, method, key):
+        getattr(self.collector, method)()
+        return self.collector.signals[key]["severity"]
+
+    def test_offsite_success_missing_or_unverified_is_critical(self):
+        now = monitor.time.time()
+        for kind in self.cfg["backup_windows"]:
+            self.write_status(kind, time=now, exit=0, verified=True)
+        self.collector.backups()
+        self.assertEqual(self.collector.signals["backup.offsite-sql"]["severity"], "INFO")
+        self.assertEqual(self.collector.signals["backup.offsite-files"]["severity"], "INFO")
+        self.write_status("offsite-files", time=now, exit=6, verified=False)           # copia externa fallida
+        (Path(self.tmp.name) / "monitor-status" / "offsite-sql.json").unlink()           # nunca hubo exito verificado
+        self.collector.backups()
+        for key in ("backup.offsite-sql", "backup.offsite-files"):
+            self.assertEqual(self.collector.signals[key]["severity"], "CRITICAL")
+        self.write_status("offsite-sql", time=now - 3 * 86400, exit=0, verified=True)   # exito demasiado viejo
+        self.collector.backups()
+        self.assertEqual(self.collector.signals["backup.offsite-sql"]["severity"], "CRITICAL")
+
+    def test_custody_ok_failed_stale_and_recovery(self):
+        now = monitor.time.time()
+        self.write_status("custody", time=now - 86400, exit=0, verified=True, last_success=now - 86400, message="custodia OK (0 aviso(s))")
+        self.assertEqual(self.severity("custody", "backup.custody"), "INFO")
+        self.write_status("custody", time=now, exit=11, verified=False, last_success=now - 86400, message="2 fallo(s): C03,C09")
+        self.assertEqual(self.severity("custody", "backup.custody"), "CRITICAL")
+        detail = self.collector.signals["backup.custody"]["detail"]
+        self.assertIn("FAILED", detail)
+        self.assertIn("C03,C09", detail)                       # reglas, sin valores
+        self.write_status("custody", time=now, exit=0, verified=True, last_success=now, message="ok")
+        self.assertEqual(self.severity("custody", "backup.custody"), "INFO")
+        for age, expected in [(7 * 86400, "INFO"), (9 * 86400, "WARNING"), (16 * 86400, "CRITICAL")]:
+            self.write_status("custody", time=now - age, exit=0, verified=True, last_success=now - age, message="ok")
+            self.assertEqual(self.severity("custody", "backup.custody"), expected)
+
+    def test_custody_never_run_grace_then_alert_and_can_be_disabled(self):
+        self.assertEqual(self.severity("custody", "backup.custody"), "INFO")
+        self.assertIn("never executed", self.collector.signals["backup.custody"]["detail"])
+        for age, expected in [(7 * 86400, "INFO"), (9 * 86400, "WARNING"), (16 * 86400, "CRITICAL")]:
+            self.store.put("custody.first_seen", monitor.time.time() - age)
+            self.assertEqual(self.severity("custody", "backup.custody"), expected)
+        self.collector.signals = {}
+        self.cfg["custody"] = {"enabled": False}
+        self.collector.custody()
+        self.assertNotIn("backup.custody", self.collector.signals)
+
+    def test_custody_alert_fires_and_resolves_without_secrets(self):
+        now = monitor.time.time()
+        self.write_status("custody", time=now, exit=11, verified=False, last_success=None, message="1 fallo(s): C06")
+        self.collector.custody()
+        self.alerts.update({"backup.custody": {**self.collector.signals["backup.custody"], "hold": 0}}, 1000)
+        self.write_status("custody", time=now, exit=0, verified=True, last_success=now, message="custodia OK")
+        self.collector.custody()
+        self.alerts.update({"backup.custody": {**self.collector.signals["backup.custody"], "hold": 0}}, 1060)
+        self.assertEqual([e["status"] for e in self.events], ["firing", "resolved"])
+        self.assertNotIn("password", json.dumps(self.events).lower())
+
+    def test_offsite_restore_test_auto_enabled_only_with_offsite(self):
+        self.collector.offsite_restore_test()
+        self.assertNotIn("backup.offsite-restore-test", self.collector.signals)          # sin copia externa: no aplica
+        self.write_status("offsite-sql", time=monitor.time.time(), exit=0, verified=True)
+        self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), "INFO")   # gracia de primera vez
+        self.assertIn("never executed", self.collector.signals["backup.offsite-restore-test"]["detail"])
+
+    def test_offsite_restore_test_failed_stale_and_recovery(self):
+        now = monitor.time.time()
+        self.write_status("offsite-sql", time=now, exit=0, verified=True)
+        self.write_status("offsite-restore-test", time=now - 86400, exit=0, verified=True, last_success=now - 86400, message="ok")
+        self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), "INFO")
+        self.write_status("offsite-restore-test", time=now, exit=6, verified=False, last_success=now - 86400,
+                          message="no hay backups full en secure:*/sql (o el remoto no responde / las passwords crypt no descifran)")
+        self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), "CRITICAL")
+        self.assertIn("offsite-restore-test FAILED", self.collector.signals["backup.offsite-restore-test"]["detail"])
+        for age, expected in [(30 * 86400, "INFO"), (40 * 86400, "WARNING"), (50 * 86400, "CRITICAL")]:
+            self.write_status("offsite-restore-test", time=now - age, exit=0, verified=True, last_success=now - age, message="ok")
+            self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), expected)
+        self.write_status("offsite-restore-test", time=now, exit=0, verified=True, last_success=now, message="ok")
+        self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), "INFO")
+
+    def test_offsite_restore_test_explicit_enable_and_thresholds_from_config(self):
+        self.cfg["offsite_restore_test"] = {"enabled": True, "warning": 100, "critical": 200}
+        now = monitor.time.time()
+        self.write_status("offsite-restore-test", time=now - 150, exit=0, verified=True, last_success=now - 150, message="ok")
+        self.assertEqual(self.severity("offsite_restore_test", "backup.offsite-restore-test"), "WARNING")
+        self.cfg["offsite_restore_test"]["enabled"] = False
+        self.collector.signals = {}
+        self.collector.offsite_restore_test()
+        self.assertNotIn("backup.offsite-restore-test", self.collector.signals)
+
+    def test_example_config_documents_custody_and_offsite_restore_thresholds(self):
+        self.assertIn("custody", self.cfg)
+        self.assertIn("offsite_restore_test", self.cfg)
+        for key in ("custody", "offsite_restore_test"):
+            self.assertLess(self.cfg[key]["warning"], self.cfg[key]["critical"])
+
+    def test_enabled_accepts_string_values(self):
+        for value in ("false", "False", "0", "off", "no", "disabled", False):
+            self.cfg["custody"] = {"enabled": value}
+            self.cfg["offsite_restore_test"] = {"enabled": value}
+            self.write_status("offsite-sql", time=monitor.time.time(), exit=0, verified=True)
+            self.collector.signals = {}
+            self.collector.custody()
+            self.collector.offsite_restore_test()
+            self.assertNotIn("backup.custody", self.collector.signals, value)
+            self.assertNotIn("backup.offsite-restore-test", self.collector.signals, value)
+        for value in ("true", "1", "yes", True):
+            self.cfg["custody"] = {"enabled": value}
+            self.cfg["offsite_restore_test"] = {"enabled": value}
+            self.collector.signals = {}
+            self.collector.custody()
+            self.collector.offsite_restore_test()
+            self.assertIn("backup.custody", self.collector.signals, value)
+            self.assertIn("backup.offsite-restore-test", self.collector.signals, value)
+        self.cfg["offsite_restore_test"] = {"enabled": "AUTO"}
+        self.collector.signals = {}
+        self.collector.offsite_restore_test()
+        self.assertIn("backup.offsite-restore-test", self.collector.signals)   # auto: hay offsite-sql.json
+
 
 if __name__ == "__main__":
     unittest.main()

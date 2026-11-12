@@ -1324,6 +1324,8 @@ namespace TheBuryProject.Data
                     .HasFilter("[IdempotencyKey] IS NOT NULL");
                 entity.Property(e => e.IdempotencyHuella).HasMaxLength(64);
                 entity.Property(e => e.NumeroOrigen).HasMaxLength(20);
+                // P-02 / P5: versión de criterio fiscal; default 1 = reglas vigentes al 2026-11-12 (backfill de lo existente).
+                entity.Property(e => e.CriterioFiscalVersion).HasDefaultValue(1);
 
                 entity.HasOne(e => e.NotaCredito)
                     .WithMany()

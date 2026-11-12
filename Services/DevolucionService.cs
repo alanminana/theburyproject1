@@ -197,7 +197,7 @@ public class DevolucionService : IDevolucionService
                 .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
                 .ToList();
             var serviciosBruto = ventaDetallesRaw.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
-            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total);
+            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total, CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion));
 
             var vendidoPorProducto = ventaDetallesRaw
                 .Select((vd, i) => (Detalle: vd, Cobrado: cobradoPorLinea[i] + recargoPorLinea[i]))
@@ -357,7 +357,7 @@ public class DevolucionService : IDevolucionService
     /// (total cobrado - lo que suman los ítems, truncado a pesos) se prorratea entre producto y servicios y, dentro de los
     /// productos, proporcionalmente a lo cobrado por línea (mayor resto en centavos: la suma es exacta).
     /// </summary>
-    internal static decimal[] RecargoPorLinea(IReadOnlyList<decimal> cobradoPorLinea, decimal serviciosBruto, decimal totalVenta)
+    internal static decimal[] RecargoPorLinea(IReadOnlyList<decimal> cobradoPorLinea, decimal serviciosBruto, decimal totalVenta, ICriterioFiscal? criterio = null)
     {
         var productos = cobradoPorLinea.Sum();
         var bruto = productos + serviciosBruto;
@@ -380,7 +380,7 @@ public class DevolucionService : IDevolucionService
         if (neto < 0m)
             parteProductos = Math.Min(parteProductos, productos);
 
-        var partes = RecargoMedioPagoIva.Prorratear(cobradoPorLinea, parteProductos);
+        var partes = (criterio ?? CriterioFiscalRegistry.Vigente).Prorratear(cobradoPorLinea, parteProductos);
         return neto > 0m ? partes : partes.Select(x => -x).ToArray();
     }
 
