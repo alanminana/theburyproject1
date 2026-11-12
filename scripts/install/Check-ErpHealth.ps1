@@ -40,6 +40,22 @@
 .PARAMETER StatusDir
   Alternativa: directorio de Windows (o UNC \\wsl$\...) que contiene los .json de monitor-status. Si se indica, no se invoca wsl.exe.
 
+.PARAMETER VmHost
+  Modo Windows Server (Hyper-V): IPv4 de la VM Linux que corre el ERP. Docker, backups, systemd y Tailscale se consultan por SSH
+  (solo lectura) y el HTTPS se prueba contra esa IP. Sin -VmHost el modo es Windows 11 + Docker Desktop (WSL2). Ver docs/instalacion-windows-server.md.
+
+.PARAMETER VmName
+  Nombre de la VM en Hyper-V (por defecto TheBury-ERP): se verifica estado, latido, arranque automatico y checkpoints (requiere el modulo Hyper-V).
+
+.PARAMETER VmUser
+  Usuario SSH de la VM (por defecto bury).
+
+.PARAMETER VmKey
+  Clave privada SSH (la que crea install-windows-server.ps1 en C:\ProgramData\TheBury\server\bury_vm_ed25519).
+
+.PARAMETER VmKnownHosts
+  Archivo known_hosts dedicado (C:\ProgramData\TheBury\server\known_hosts).
+
 .PARAMETER Json
   Emite el resultado como JSON por la salida estandar (en lugar de la tabla de texto).
 
@@ -60,9 +76,16 @@ param(
     [string]$Distro = '',
     [string]$BackupDir = '/srv/bury-backups',
     [string]$StatusDir = '',
+    [string]$VmHost = '',
+    [string]$VmName = 'TheBury-ERP',
+    [string]$VmUser = 'bury',
+    [string]$VmKey = (Join-Path $env:ProgramData 'TheBury\server\bury_vm_ed25519'),
+    [string]$VmKnownHosts = (Join-Path $env:ProgramData 'TheBury\server\known_hosts'),
     [switch]$Json,
     [int]$DiscoMinGB = 20
 )
+
+if ($VmHost -and $VmHost -notmatch '^(\d{1,3}\.){3}\d{1,3}$') { Write-Error '-VmHost invalido: debe ser la IPv4 de la VM (curl --resolve exige una IP)'; exit 3 }
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Continue'
@@ -73,6 +96,7 @@ $script:MaxEdad = @{ 'full' = 30 * 3600; 'files' = 30 * 3600; 'log' = 45 * 60; '
 # Umbral previo a FALLA (coincide con scripts/monitoring/config.example.json: log 30 min aviso / 45 min critico).
 $script:AvisoEdad = @{ 'log' = 30 * 60 }
 $script:Codigo = 0
+$script:VmMode = [bool]$VmHost
 $script:Resultados = New-Object System.Collections.Generic.List[object]
 
 function Add-R([string]$Estado, [string]$Item, [string]$Detalle) {
@@ -122,6 +146,26 @@ function Get-TaskInfoList {
     }
 }
 function Get-NowUtc { [datetime]::UtcNow }
+function Get-VmInfo {
+    if (-not (Get-Command Get-VM -ErrorAction SilentlyContinue)) { return $null }
+    $v = Get-VM -Name $VmName -ErrorAction Stop
+    # Por Id (84EAAE65... = Heartbeat): el nombre del servicio y su descripcion estan localizados segun el idioma de Windows.
+    $hb = @(Get-VMIntegrationService -VM $v -ErrorAction SilentlyContinue | Where-Object { "$($_.Id)" -like '*84EAAE65-2F2E-45F5-9BB5-0E857DC8EB47*' }) | Select-Object -First 1
+    [pscustomobject]@{
+        State = "$($v.State)"; Uptime = $v.Uptime; Heartbeat = $(if ($hb) { "$($hb.PrimaryOperationalStatus)" } else { '' })
+        AutoStart = "$($v.AutomaticStartAction)"; AutoStop = "$($v.AutomaticStopAction)"; Checkpoints = "$($v.CheckpointType)"
+    }
+}
+
+# Comillas de bash para pasar argumentos por SSH.
+function Quote-Sh([string]$s) { return "'" + ($s -replace "'", "'\''") + "'" }
+# Ejecuta una herramienta del servidor: local (Docker Desktop/WSL) o, en modo VM, por SSH de solo lectura dentro de la VM.
+function Invoke-Tool([string]$Exe, [string[]]$Arguments, [int]$TimeoutSec = 20) {
+    if (-not $script:VmMode) { return (Invoke-Native $Exe $Arguments $TimeoutSec) }
+    $remote = (@($Exe) + @($Arguments) | ForEach-Object { Quote-Sh $_ }) -join ' '
+    $ssh = @('-i', $VmKey, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', "UserKnownHostsFile=$VmKnownHosts", '-o', 'ConnectTimeout=8', '-o', 'LogLevel=ERROR', "$VmUser@$VmHost", $remote)
+    return (Invoke-Native 'ssh' $ssh $TimeoutSec)
+}
 
 # --- 1. Equipo -----------------------------------------------------------------------------------------------------
 function Test-Equipo {
@@ -143,12 +187,12 @@ function Test-Equipo {
 
 # --- 2. Docker -----------------------------------------------------------------------------------------------------
 function Test-Docker {
-    $v = Invoke-Native 'docker' @('version', '--format', '{{.Server.Version}}')
-    if (-not $v.Found) { Add-R 'FALLA' 'Docker CLI' 'docker no encontrado en el PATH'; return $false }
-    if ($v.ExitCode -ne 0 -or -not $v.Output.Trim()) { Add-R 'FALLA' 'Docker daemon' 'no responde (Docker Desktop apagado, sin sesion iniciada o backend WSL2 caido)'; return $false }
+    $v = Invoke-Tool 'docker' @('version', '--format', '{{.Server.Version}}')
+    if (-not $v.Found) { Add-R 'FALLA' 'Docker CLI' $(if ($script:VmMode) { 'ssh.exe no encontrado en el PATH' } else { 'docker no encontrado en el PATH' }); return $false }
+    if ($v.ExitCode -ne 0 -or -not $v.Output.Trim()) { Add-R 'FALLA' 'Docker daemon' $(if ($script:VmMode) { 'no responde (VM apagada/sin SSH, servicio docker detenido o clave SSH incorrecta)' } else { 'no responde (Docker Desktop apagado, sin sesion iniciada o backend WSL2 caido)' }); return $false }
     Add-R 'OK' 'Docker daemon' "responde (servidor $($v.Output.Trim()))"
 
-    $ps = Invoke-Native 'docker' @('ps', '-a', '--filter', "label=com.docker.compose.project=$Proyecto", '--format', '{{.Label "com.docker.compose.service"}}|{{.State}}|{{.Status}}')
+    $ps = Invoke-Tool 'docker' @('ps', '-a', '--filter', "label=com.docker.compose.project=$Proyecto", '--format', '{{.Label "com.docker.compose.service"}}|{{.State}}|{{.Status}}')
     if ($ps.ExitCode -ne 0) { Add-R 'FALLA' 'Contenedores del proyecto' "docker ps fallo: $($ps.Output.Trim())"; return $false }
     $filas = @($ps.Output -split "`r?`n" | Where-Object { $_ -match '\|' } | ForEach-Object {
             $c = $_ -split '\|', 3
@@ -179,7 +223,8 @@ function Test-Docker {
 
 # --- 3. HTTPS local ------------------------------------------------------------------------------------------------
 function Test-Http {
-    $resolve = "$($Dominio):$($Puerto):127.0.0.1"
+    $ipObjetivo = if ($script:VmMode) { $VmHost } else { '127.0.0.1' }
+    $resolve = "$($Dominio):$($Puerto):$ipObjetivo"
     foreach ($ruta in '/health/live', '/health/ready') {
         $url = "https://$($Dominio):$($Puerto)$ruta"
         # -k: el certificado es de la CA interna de Caddy y puede no estar instalado en el servidor; se verifica aparte.
@@ -209,15 +254,25 @@ function Get-BackupStatusFiles {
         return @{ ok = $true; error = ''; archivos = $h }
     }
     if ($BackupDir -notmatch '^/[A-Za-z0-9._/-]+$') { return @{ ok = $false; error = '-BackupDir invalido'; archivos = @{} } }
+    $snippet = ('[ -d {0}/monitor-status ] && cd {0}/monitor-status && for f in *.json; do echo @@$f; cat $f; echo; done; exit 0' -f $BackupDir)
+    if ($script:VmMode) {
+        $r = Invoke-Tool 'sh' @('-c', $snippet) 30
+        if (-not $r.Found) { return @{ ok = $false; error = 'ssh.exe no encontrado'; archivos = @{} } }
+        if ($r.ExitCode -ne 0) { return @{ ok = $false; error = "ssh a la VM fallo (exit $($r.ExitCode))"; archivos = @{} } }
+        return (ConvertFrom-StatusDump $r.Output)
+    }
     if ($Distro -and $Distro -notmatch '^[A-Za-z0-9._-]+$') { return @{ ok = $false; error = '-Distro invalido'; archivos = @{} } }
     $wslArgs = @(); if ($Distro) { $wslArgs += @('-d', $Distro) }
     # Solo lectura: cat de los .json (sin comillas: -BackupDir ya se valido contra una lista de caracteres seguros).
-    $wslArgs += @('--', 'sh', '-c', ('[ -d {0}/monitor-status ] && cd {0}/monitor-status && for f in *.json; do echo @@$f; cat $f; echo; done; exit 0' -f $BackupDir))
+    $wslArgs += @('--', 'sh', '-c', $snippet)
     $r = Invoke-Native 'wsl.exe' $wslArgs 30
     if (-not $r.Found) { return @{ ok = $false; error = 'wsl.exe no encontrado'; archivos = @{} } }
     if ($r.ExitCode -ne 0) { return @{ ok = $false; error = "wsl.exe fallo (exit $($r.ExitCode))"; archivos = @{} } }
+    return (ConvertFrom-StatusDump $r.Output)
+}
+function ConvertFrom-StatusDump([string]$Texto) {
     $h = @{}; $actual = $null
-    foreach ($l in ($r.Output -replace "`0", '') -split "`r?`n") {
+    foreach ($l in ($Texto -replace "`0", '') -split "`r?`n") {
         if ($l -match '^@@(.+)\.json$' -and $Matches[1] -ne '*') { $actual = $Matches[1]; $h[$actual] = ''; continue }
         if ($actual -and $l.Trim()) { $h[$actual] += $l }
     }
@@ -296,10 +351,19 @@ function Test-Tareas {
 function Test-Tailscale {
     $exe = 'tailscale'
     if (-not (Get-Command $exe -ErrorAction SilentlyContinue) -and (Test-Path 'C:\Program Files\Tailscale\tailscale.exe')) { $exe = 'C:\Program Files\Tailscale\tailscale.exe' }
-    $svc = Safe { Get-ServiceInfo 'Tailscale' }
-    if (-not $svc) { Add-R 'ATENCION' 'Tailscale' 'servicio no instalado (el acceso remoto previsto es por Tailscale)'; return }
-    if ($svc.State -ne 'Running') { Add-R 'FALLA' 'Servicio Tailscale' "estado=$($svc.State)"; return }
-    $r = Invoke-Native $exe @('status', '--json')
+    if ($script:VmMode) {
+        # Dentro de la VM: tailscaled es un servicio systemd. Exit 127 = el comando no existe (no se instalo con -Tailscale).
+        $r0 = Invoke-Tool 'tailscale' @('version')
+        if ($r0.Found -and $r0.ExitCode -eq 127) { Add-R 'ATENCION' 'Tailscale (VM)' 'no instalado en la VM (usar -Tailscale en el instalador y luego: sudo tailscale up)'; return }
+        $act = Invoke-Tool 'systemctl' @('is-active', 'tailscaled')
+        if ($act.Output.Trim() -ne 'active') { Add-R 'FALLA' 'Servicio tailscaled (VM)' "estado=$($act.Output.Trim())"; return }
+        $r = Invoke-Tool 'tailscale' @('status', '--json')
+    } else {
+        $svc = Safe { Get-ServiceInfo 'Tailscale' }
+        if (-not $svc) { Add-R 'ATENCION' 'Tailscale' 'servicio no instalado (el acceso remoto previsto es por Tailscale)'; return }
+        if ($svc.State -ne 'Running') { Add-R 'FALLA' 'Servicio Tailscale' "estado=$($svc.State)"; return }
+        $r = Invoke-Native $exe @('status', '--json')
+    }
     if (-not $r.Found -or $r.ExitCode -ne 0) { Add-R 'ATENCION' 'Tailscale' 'servicio activo pero tailscale status no responde'; return }
     $st = Safe { $r.Output | ConvertFrom-Json }
     if (-not $st) { Add-R 'ATENCION' 'Tailscale' 'estado no interpretable'; return }
@@ -318,14 +382,59 @@ function Test-Tailscale {
     }
 }
 
+# --- 7. VM Hyper-V y servicios del invitado (solo modo -VmHost) ----------------------------------------------------
+function Test-Vm {
+    $v = $null
+    try { $v = Get-VmInfo } catch { Add-R 'ATENCION' "VM Hyper-V '$VmName'" "no se pudo consultar: $($_.Exception.Message)"; return }
+    if (-not $v) { Add-R 'INFO' "VM Hyper-V '$VmName'" 'modulo Hyper-V no disponible en este equipo: estado de la VM no verificado (se verifica por SSH)'; return }
+    if ($v.State -ne 'Running') { Add-R 'FALLA' "VM '$VmName'" "estado=$($v.State)"; return }
+    if (-not $v.Heartbeat) { Add-R 'ATENCION' "Latido de la VM '$VmName'" 'no se pudo leer el servicio de integracion Heartbeat (Integration Services del invitado no instalados?)' }
+    elseif ($v.Heartbeat -ne 'Ok') { Add-R 'FALLA' "Latido de la VM '$VmName'" "estado=$($v.Heartbeat) (el invitado no responde)" }
+    else { Add-R 'OK' "VM '$VmName'" "en ejecucion con latido, uptime $([math]::Round($v.Uptime.TotalHours, 1)) h" }
+    if ($v.AutoStart -ne 'Start') { Add-R 'FALLA' 'Arranque automatico de la VM' "AutomaticStartAction=$($v.AutoStart): tras reiniciar el host el ERP no volveria solo" }
+    else { Add-R 'OK' 'Arranque automatico de la VM' 'Start' }
+    if ($v.AutoStop -ne 'ShutDown') { Add-R 'ATENCION' 'Apagado de la VM con el host' "AutomaticStopAction=$($v.AutoStop): usar ShutDown (apagado ordenado; SQL Server cierra limpio)" }
+    else { Add-R 'OK' 'Apagado de la VM con el host' 'ShutDown (ordenado)' }
+    if ($v.Checkpoints -ne 'Disabled') { Add-R 'ATENCION' 'Checkpoints de la VM' "CheckpointType=$($v.Checkpoints): revertir un checkpoint con SQL Server puede corromper datos; deshabilitar" }
+    else { Add-R 'OK' 'Checkpoints de la VM' 'deshabilitados' }
+}
+
+function Test-ServiciosVm {
+    $units = @('docker', 'cron', 'bury-firewall')
+    foreach ($modo in 'is-active', 'is-enabled') {
+        $r = Invoke-Tool 'systemctl' (@($modo) + $units)
+        if (-not $r.Found) { Add-R 'FALLA' 'SSH a la VM' 'ssh.exe no encontrado'; return }
+        if ($r.ExitCode -eq -2 -or $r.ExitCode -eq 255) { Add-R 'FALLA' 'SSH a la VM' "sin conexion con $VmUser@$VmHost (VM apagada, IP/clave/known_hosts incorrectos; exit $($r.ExitCode))"; return }
+        $lineas = @($r.Output -split "`r?`n" | Where-Object { $_.Trim() })
+        for ($i = 0; $i -lt $units.Count; $i++) {
+            $est = if ($i -lt $lineas.Count) { $lineas[$i].Trim() } else { '?' }
+            $bien = if ($modo -eq 'is-active') { $est -eq 'active' } else { $est -match '^(enabled|enabled-runtime|static|alias)$' }
+            $quien = if ($modo -eq 'is-active') { 'en ejecucion' } else { 'habilitado al arrancar' }
+            if ($bien) { Add-R 'OK' "Servicio $($units[$i]) ($quien)" $est }
+            else { Add-R 'FALLA' "Servicio $($units[$i]) ($quien)" "estado=$est" }
+        }
+    }
+    $f = Invoke-Tool 'test' @('-f', '/etc/cron.d/bury-backup')
+    if ($f.ExitCode -eq 0) { Add-R 'OK' 'Cron de backups' '/etc/cron.d/bury-backup instalado' }
+    else { Add-R 'FALLA' 'Cron de backups' 'falta /etc/cron.d/bury-backup: los backups no corren (install.sh --schedule)' }
+    $d = Invoke-Tool 'df' @('-BG', '--output=avail', '/')
+    $m = [regex]::Match($d.Output, '(\d+)G')
+    if ($d.ExitCode -eq 0 -and $m.Success) {
+        $gb = [int]$m.Groups[1].Value
+        $est = if ($gb -lt $DiscoMinGB) { 'FALLA' } elseif ($gb -lt (2 * $DiscoMinGB)) { 'ATENCION' } else { 'OK' }
+        Add-R $est 'Disco de la VM libre' "$gb GB (minimo $DiscoMinGB GB; volumenes de Docker, imagenes y backups)"
+    } else { Add-R 'ATENCION' 'Disco de la VM' 'no se pudo consultar' }
+}
+
 # --- Orquestacion --------------------------------------------------------------------------------------------------
 function Invoke-HealthCheck {
     $script:Resultados.Clear()
     Test-Equipo
+    if ($script:VmMode) { Test-Vm; Test-ServiciosVm }
     $dockerOk = Test-Docker
     if ($dockerOk) { Test-Http } else { Add-R 'INFO' 'HTTPS local' 'omitido: Docker no esta sano' }
     Test-Backups
-    Test-Tareas
+    if (-not $script:VmMode) { Test-Tareas }   # en modo VM los backups los programa cron dentro de la VM (Test-ServiciosVm)
     Test-Tailscale
 }
 
