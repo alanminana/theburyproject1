@@ -816,14 +816,15 @@
             const data = await fetchJson(`/api/ventas/BuscarClientes?term=${encodeURIComponent(term)}&take=10`);
             if (!data.length) { hide(dropdownClientes); return; }
 
+            // XSS-A-001: todos los datos del cliente son texto libre persistido => se escapan en contenido y atributos.
             dropdownClientes.innerHTML = data.map(c => `
                 <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
-                     data-id="${c.id}" data-nombre="${c.nombre}" data-apellido="${c.apellido}" data-tipo-doc="${c.tipoDocumento}" data-num-doc="${c.numeroDocumento}"
-                     data-telefono="${c.telefono || ''}" data-domicilio="${c.domicilio || ''}" data-localidad="${c.localidad || ''}"
-                     data-provincia="${c.provincia || ''}" data-cp="${c.codigoPostal || ''}"
-                     data-requiere-actualizacion="${c.requiereActualizacion ? '1' : ''}" data-dias-sin-actualizar="${c.diasSinActualizar || 0}">
-                    <p class="text-sm font-medium text-slate-900 dark:text-white">${c.display}</p>
-                    <p class="text-xs text-slate-500">${c.tipoDocumento}: ${c.numeroDocumento} ${c.telefono ? '· ' + c.telefono : ''}</p>
+                     data-id="${esc(c.id)}" data-nombre="${esc(c.nombre)}" data-apellido="${esc(c.apellido)}" data-tipo-doc="${esc(c.tipoDocumento)}" data-num-doc="${esc(c.numeroDocumento)}"
+                     data-telefono="${esc(c.telefono)}" data-domicilio="${esc(c.domicilio)}" data-localidad="${esc(c.localidad)}"
+                     data-provincia="${esc(c.provincia)}" data-cp="${esc(c.codigoPostal)}"
+                     data-requiere-actualizacion="${c.requiereActualizacion ? '1' : ''}" data-dias-sin-actualizar="${esc(c.diasSinActualizar || 0)}">
+                    <p class="text-sm font-medium text-slate-900 dark:text-white">${esc(c.display)}</p>
+                    <p class="text-xs text-slate-500">${esc(c.tipoDocumento)}: ${esc(c.numeroDocumento)} ${c.telefono ? '· ' + esc(c.telefono) : ''}</p>
                 </div>
             `).join('');
             show(dropdownClientes);
