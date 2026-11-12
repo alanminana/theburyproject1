@@ -17,6 +17,9 @@ namespace TheBuryProject.Helpers
                 .OrderBy(d => d.Id)
                 .ToList() ?? new List<VentaDetalle>();
 
+            // P-02 / P5: toda la discriminación del comprobante usa el criterio fiscal con el que nació la venta, no el vigente.
+            var criterio = CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
+
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();
 
@@ -24,7 +27,7 @@ namespace TheBuryProject.Helpers
             var envioIncluido = venta.Envio is { IncluidoEnTotal: true, IsDeleted: false }
                 ? VentaMontos.NormalizarImporteEnvio(venta.Envio.CostoEnvio)
                 : 0m;
-            lineas.AddRange(ToLineasServicios(detalleViewModels, venta.Envio, envioIncluido));
+            lineas.AddRange(ToLineasServicios(detalleViewModels, venta.Envio, envioIncluido, criterio));
 
             var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(venta);
 
@@ -50,8 +53,8 @@ namespace TheBuryProject.Helpers
                 : new List<FacturaComprobanteGrupoPagoViewModel>();
 
             // H5-I: el recargo del medio de pago se discrimina con IVA (prorrateado entre alícuotas) para que Neto + IVA == Total.
-            var resumen = FacturaAlicuotaResumenBuilder.Build(detalleViewModels, envioIncluido);
-            var recargoIva = ResolverRecargoDiscriminado(factura, venta, lineas);
+            var resumen = FacturaAlicuotaResumenBuilder.Build(detalleViewModels, envioIncluido, criterio);
+            var recargoIva = ResolverRecargoDiscriminado(factura, venta, lineas, criterio);
 
             var totales = BuildTotales(
                 factura,
@@ -96,7 +99,7 @@ namespace TheBuryProject.Helpers
                     Domicilio = venta.Cliente?.Domicilio
                 },
                 Lineas = lineas,
-                ResumenAlicuotas = AplicarRecargoAlResumen(resumen, recargoIva),
+                ResumenAlicuotas = AplicarRecargoAlResumen(resumen, recargoIva, criterio),
                 Totales = totales,
                 GruposPagoPorItem = gruposPago
             };
@@ -105,19 +108,20 @@ namespace TheBuryProject.Helpers
         private static IEnumerable<FacturaComprobanteLineaViewModel> ToLineasServicios(
             IEnumerable<VentaDetalleViewModel> detalles,
             VentaEnvio? envio,
-            decimal envioIncluido)
+            decimal envioIncluido,
+            ICriterioFiscal criterio)
         {
             foreach (var d in detalles.Where(d => d.ArmadoSubtotal > 0m))
             {
-                var (neto, iva) = ServiciosVentaIva.Separar(d.ArmadoSubtotal);
+                var (neto, iva) = criterio.SepararServicios(d.ArmadoSubtotal);
                 yield return new FacturaComprobanteLineaViewModel
                 {
                     ProductoCodigo = "ARMADO",
                     ProductoNombre = $"{d.ArmadoDisplay} — {d.ProductoNombre}",
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.ArmadoPrecioUnitario,
-                    PorcentajeIVA = ServiciosVentaIva.Porcentaje,
-                    AlicuotaIVANombre = ServiciosVentaIva.NombreAlicuota,
+                    PorcentajeIVA = criterio.AlicuotaServicios,
+                    AlicuotaIVANombre = criterio.NombreAlicuotaServicios,
                     SubtotalNeto = neto,
                     IVA = iva,
                     Total = d.ArmadoSubtotal
@@ -126,15 +130,15 @@ namespace TheBuryProject.Helpers
 
             if (envioIncluido > 0m)
             {
-                var (neto, iva) = ServiciosVentaIva.Separar(envioIncluido);
+                var (neto, iva) = criterio.SepararServicios(envioIncluido);
                 yield return new FacturaComprobanteLineaViewModel
                 {
                     ProductoCodigo = "ENVIO",
                     ProductoNombre = envio?.TipoEnvio?.NombreVisible() ?? "Envío",
                     Cantidad = 1,
                     PrecioUnitario = envioIncluido,
-                    PorcentajeIVA = ServiciosVentaIva.Porcentaje,
-                    AlicuotaIVANombre = ServiciosVentaIva.NombreAlicuota,
+                    PorcentajeIVA = criterio.AlicuotaServicios,
+                    AlicuotaIVANombre = criterio.NombreAlicuotaServicios,
                     SubtotalNeto = neto,
                     IVA = iva,
                     Total = envioIncluido
@@ -349,13 +353,14 @@ namespace TheBuryProject.Helpers
         private static RecargoDiscriminado ResolverRecargoDiscriminado(
             Factura factura,
             Venta venta,
-            IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas)
+            IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas,
+            ICriterioFiscal criterio)
         {
             var vacio = new RecargoDiscriminado(Array.Empty<RecargoMedioPagoIva.ParteAlicuota>(), 0m, 0m, 0m);
             if (lineas.Count == 0) return vacio;
 
             var total = factura.Total != 0m ? factura.Total : venta.Total;
-            var discriminacion = RecargoMedioPagoIva.Discriminar(
+            var discriminacion = criterio.Discriminar(
                 total,
                 lineas.Select(l => (l.PorcentajeIVA, l.Total, l.SubtotalNeto, l.IVA)).ToList());
             // Sin ajuste del medio de pago ni centavos truncados el comprobante es la suma de sus líneas.
@@ -366,7 +371,8 @@ namespace TheBuryProject.Helpers
 
         private static List<FacturaAlicuotaResumenViewModel> AplicarRecargoAlResumen(
             List<FacturaAlicuotaResumenViewModel> resumen,
-            RecargoDiscriminado recargo)
+            RecargoDiscriminado recargo,
+            ICriterioFiscal criterio)
         {
             foreach (var parte in recargo.Partes)
             {
@@ -393,7 +399,7 @@ namespace TheBuryProject.Helpers
             {
                 // El truncado a pesos se absorbe en la alícuota de mayor IVA, igual que en los totales.
                 var destino = resumen.OrderByDescending(r => r.IVA).First();
-                var (neto, iva) = RecargoMedioPagoIva.AbsorberTruncado(destino.BaseImponible, destino.IVA, recargo.Truncado);
+                var (neto, iva) = criterio.AbsorberTruncado(destino.BaseImponible, destino.IVA, recargo.Truncado);
                 destino.Total -= (destino.BaseImponible - neto) + (destino.IVA - iva);
                 destino.BaseImponible = neto;
                 destino.IVA = iva;
