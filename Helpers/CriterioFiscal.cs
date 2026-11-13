@@ -1,3 +1,4 @@
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Services;
 
 namespace TheBuryProject.Helpers
@@ -58,6 +59,29 @@ namespace TheBuryProject.Helpers
         public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => RecargoMedioPagoIva.AbsorberTruncado(neto, iva, truncado);
     }
 
+    /// <summary>La versión de criterio fiscal pedida no está registrada (dato corrupto o código desactualizado).</summary>
+    public sealed class CriterioFiscalDesconocidoException(int version)
+        : InvalidOperationException($"Versión de criterio fiscal {version} no registrada.")
+    {
+        public int Version { get; } = version;
+    }
+
+    /// <summary>Decorador: la misma versión, pero con la alícuota de servicios congelada en la operación.</summary>
+    internal sealed class CriterioConAlicuotaServicios(ICriterioFiscal inner, decimal alicuota) : ICriterioFiscal
+    {
+        public int Version => inner.Version;
+        public decimal AlicuotaServicios => alicuota;
+        public string NombreAlicuotaServicios => ServiciosVentaIva.NombreDe(alicuota);
+        public (decimal Neto, decimal Iva) SepararServicios(decimal bruto) => ServiciosVentaIva.Separar(bruto, alicuota);
+        public decimal TruncarAPesos(decimal valor) => inner.TruncarAPesos(valor);
+        public decimal CalcularRecargo(decimal totalCobrado, decimal brutoItems) => inner.CalcularRecargo(totalCobrado, brutoItems);
+        public decimal[] Prorratear(IReadOnlyList<decimal> pesos, decimal importe) => inner.Prorratear(pesos, importe);
+        public List<RecargoMedioPagoIva.ParteAlicuota> Repartir(IEnumerable<(decimal Porcentaje, decimal Bruto)> bases, decimal recargo) => inner.Repartir(bases, recargo);
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => inner.Discriminar(total, lineas);
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => inner.ResumenPorAlicuota(total, lineas);
+        public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => inner.AbsorberTruncado(neto, iva, truncado);
+    }
+
     /// <summary>
     /// Registro de versiones de criterio fiscal. En producción solo existe la versión 1 (también la vigente). Las versiones
     /// son inmutables una vez usadas: una operación con versión N se calcula y se relee SIEMPRE con la versión N.
@@ -88,7 +112,34 @@ namespace TheBuryProject.Helpers
                 return enPrueba;
             if (version == VersionInicial)
                 return V1;
-            throw new InvalidOperationException($"Versión de criterio fiscal {version} no registrada.");
+            throw new CriterioFiscalDesconocidoException(version);
+        }
+
+        /// <summary>
+        /// Criterio con el que se relee una operación: su versión persistida y, si la operación congeló la alícuota de sus
+        /// servicios al nacer (<see cref="Venta.AlicuotaServiciosSnapshot"/>), ESA alícuota y no la configuración actual.
+        /// Una operación sin snapshot (histórica anterior al snapshot) conserva el comportamiento previo (alícuota de la versión).
+        /// </summary>
+        public static ICriterioFiscal Resolver(Venta venta)
+        {
+            ArgumentNullException.ThrowIfNull(venta);
+            return Resolver(venta.CriterioFiscalVersion, venta.AlicuotaServiciosSnapshot);
+        }
+
+        public static ICriterioFiscal Resolver(int version, decimal? alicuotaServiciosSnapshot)
+        {
+            var criterio = Resolver(version);
+            return alicuotaServiciosSnapshot is { } alicuota
+                ? new CriterioConAlicuotaServicios(criterio, alicuota)
+                : criterio;
+        }
+
+        /// <summary>Fija en una operación NUEVA la versión vigente y congela la alícuota de servicios con la que se calcula.</summary>
+        public static void Estampar(Venta venta)
+        {
+            ArgumentNullException.ThrowIfNull(venta);
+            venta.CriterioFiscalVersion = VersionVigente;
+            venta.AlicuotaServiciosSnapshot = Vigente.AlicuotaServicios;
         }
 
         /// <summary>

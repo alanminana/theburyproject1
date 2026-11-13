@@ -73,6 +73,14 @@ namespace TheBuryProject.ViewModels
         public decimal VentasSinDesgloseTotal { get; set; }
 
         /// <summary>
+        /// P-02: ventas cuya versión de criterio fiscal no está registrada. No se recalculan con otra regla: quedan fuera
+        /// de los totales y se informan aparte (el detalle técnico va solo al log).
+        /// </summary>
+        public int VentasVersionFiscalInvalida { get; set; }
+
+        public decimal VentasVersionFiscalInvalidaTotal { get; set; }
+
+        /// <summary>
         /// IVA de ventas menos IVA de compras. Se denomina "Diferencia de IVA" porque
         /// no contempla percepciones, retenciones, saldos anteriores ni notas de crédito.
         /// </summary>

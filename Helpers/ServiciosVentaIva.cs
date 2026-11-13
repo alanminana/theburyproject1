@@ -11,17 +11,22 @@ namespace TheBuryProject.Helpers
     {
         public static decimal Porcentaje => ProductoIvaResolver.PorcentajeDefault;
 
-        public static string NombreAlicuota => Porcentaje > 0m ? $"IVA {Porcentaje:0.##}%" : "Sin IVA";
+        public static string NombreAlicuota => NombreDe(Porcentaje);
 
-        public static (decimal Neto, decimal Iva) Separar(decimal bruto)
+        public static string NombreDe(decimal porcentaje) => porcentaje > 0m ? $"IVA {porcentaje:0.##}%" : "Sin IVA";
+
+        public static (decimal Neto, decimal Iva) Separar(decimal bruto) => Separar(bruto, Porcentaje);
+
+        /// <summary>Misma regla que <see cref="Separar(decimal)"/> pero con una alícuota explícita (la congelada en la operación).</summary>
+        public static (decimal Neto, decimal Iva) Separar(decimal bruto, decimal porcentaje)
         {
             if (bruto <= 0m)
                 return (0m, 0m);
 
-            if (Porcentaje <= 0m)
+            if (porcentaje <= 0m)
                 return (Redondear(bruto), 0m);
 
-            var neto = Redondear(bruto / (1m + (Porcentaje / 100m)));
+            var neto = Redondear(bruto / (1m + (porcentaje / 100m)));
             return (neto, Redondear(bruto - neto));
         }
 

@@ -529,6 +529,7 @@ namespace TheBuryProject.Services
                 {
                     Numero = numero,
                     CriterioFiscalVersion = Helpers.CriterioFiscalRegistry.VersionVigente,
+                    AlicuotaServiciosSnapshot = Helpers.CriterioFiscalRegistry.Vigente.AlicuotaServicios,
                     ClienteId = config.ClienteMercadoLibreId.Value,
                     FechaVenta = orden.FechaCreacionUtc,
                     Estado = EstadoVenta.Confirmada,

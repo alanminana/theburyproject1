@@ -324,9 +324,11 @@ public class FiscalVersionadoP02Tests : IDisposable
         var dia = DateTime.UtcNow.Date.AddDays(-1);
         await SeedVentaFacturadaAsync(cliente, producto, version: 7, dia);
 
-        // Con una versión desconocida se prefiere fallar a recalcular un importe histórico con otro criterio.
-        Assert.Throws<InvalidOperationException>(() => CriterioFiscalRegistry.Resolver(7));
-        await Assert.ThrowsAnyAsync<Exception>(() => _reportes.GenerarReporteIvaAsync(FiltroDia(dia)));
+        // Con una versión desconocida se prefiere NO calcular a recalcular un importe histórico con otro criterio.
+        Assert.Throws<CriterioFiscalDesconocidoException>(() => CriterioFiscalRegistry.Resolver(7));
+        // El reporte ya no se cae: excluye la venta y la informa aparte (ver FiscalHistoricoConfigP02Tests).
+        var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
+        Assert.Equal((0, 1), (reporte.VentasCantidad, reporte.VentasVersionFiscalInvalida));
     }
 
     // ───────────────────────── (b) backfill / migración ─────────────────────────
