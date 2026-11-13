@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Valida y evalua OFFLINE la politica de Tailscale de TheBuryProject (deploy/tailscale/policy.hujson).
+"""Valida y evalua OFFLINE la politica de Tailscale de TheBuryProject (deploy/tailscale/policy*.hujson).
 
-  python scripts/install/tailscale-policy-check.py [POLITICA] [--require-real-identities]
-  python scripts/install/tailscale-policy-check.py --can USER DST PROTO PORT      (consulta puntual, exit 0 = permitido)
+  python scripts/install/tailscale-policy-check.py [POLITICA] [--profile linux-vm|windows] [--require-real-identities]
+  python scripts/install/tailscale-policy-check.py [--policy POLITICA] --can USER DST PROTO PORT   (consulta puntual, exit 0 = permitido)
+
+Roles (dos identidades independientes):
+  group:erp-usuarios  usuario remoto: SOLO la web del ERP (tcp/udp 443).
+  group:erp-admins    administrador remoto: la web (443) + UN puerto de administracion del servidor:
+                      tcp:22 en el perfil linux-vm (SSH dentro del servidor/VM Linux), tcp:3389 en el perfil windows (RDP).
+Los grupos son disjuntos y ninguna persona alcanza a otra. El perfil se fija con --profile (CI valida ambos archivos).
 
 Solo biblioteca estandar. NO habla con Tailscale: es un analisis estatico + un evaluador del subconjunto de grants que usa el proyecto
-(src = usuarios/grupos, dst = etiquetas o usuarios, ip = proto:puerto). La validacion real y definitiva la hace la consola de Tailscale
+(src = grupos, dst = etiquetas o usuarios, ip = proto:puerto). La validacion real y definitiva la hace la consola de Tailscale
 con la seccion `tests` de la propia politica al aplicarla.
 Exit 0 = politica valida; 1 = incumple alguna regla; 2 = error de uso/lectura.
 """
@@ -15,11 +21,15 @@ import sys
 from pathlib import Path
 
 DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "deploy" / "tailscale" / "policy.hujson"
-ALLOWED_PORTS = {("tcp", 443), ("udp", 443)}  # HTTPS + HTTP/3 de Caddy. Nada mas.
 SERVER_TAG = "tag:erp"
+WEB_GROUP = "group:erp-usuarios"
+ADMIN_GROUP = "group:erp-admins"
+WEB_IPS = {("tcp", 443), ("udp", 443)}  # HTTPS + HTTP/3 de Caddy
+ADMIN_PORT_BY_PROFILE = {"linux-vm": 22, "windows": 3389}
+# Puertos que se evaluan para el "acceso efectivo": administracion/archivos y servicios internos. Nadie los alcanza salvo el puerto
+# de administracion del perfil, y solo el administrador.
+ALL_PORTS = (22, 23, 80, 135, 445, 1433, 3389, 5432, 5985, 5986, 8080, 8443)
 ALLOWED_TOP = {"groups", "tagOwners", "grants", "tests"}  # lista blanca: cualquier otra clave se rechaza
-BROAD_SRC = {"*", "autogroup:member", "autogroup:admin", "autogroup:owner", "autogroup:tagged", "autogroup:shared",
-             "autogroup:internet", "autogroup:self"}
 FORBIDDEN_TOP = {
     "acls": "ACLs legacy (usar solo grants)",
     "autoApprovers": "autoApprovers (subnet routers / exit nodes)",
@@ -124,15 +134,21 @@ def parse_target(t: str):
     return dst, int(port)
 
 
-def ip_allowed(ip: str):
-    try:
-        p, rng = parse_ip(ip)
-    except ValueError:
-        return False
-    return rng != "*" and rng[0] == rng[1] and (p, rng[0]) in ALLOWED_PORTS
+def ip_set(ips):
+    """['tcp:443', ...] -> {('tcp', 443), ...}; None si alguna entrada no es un puerto puntual con protocolo tcp/udp."""
+    out = set()
+    for ip in ips:
+        try:
+            p, rng = parse_ip(ip)
+        except ValueError:
+            return None
+        if rng == "*" or rng[0] != rng[1] or p not in ("tcp", "udp"):
+            return None
+        out.add((p, rng[0]))
+    return out
 
 
-def validate(policy: dict, require_real: bool):
+def validate(policy: dict, require_real: bool, profile: str = ""):
     errs = []
     unknown_top = set(policy) - ALLOWED_TOP
     if unknown_top:
@@ -141,34 +157,70 @@ def validate(policy: dict, require_real: bool):
         if policy.get(k):
             errs.append(f"la politica define {k}: prohibido ({why})")
 
-    members = set()
+    groups = policy.get("groups", {})
+    if set(groups) != {WEB_GROUP, ADMIN_GROUP}:
+        errs.append(f"groups debe definir exactamente {WEB_GROUP} y {ADMIN_GROUP} (hay {sorted(groups)})")
+    web_m, adm_m = set(groups.get(WEB_GROUP, [])), set(groups.get(ADMIN_GROUP, []))
+    if not web_m:
+        errs.append(f"{WEB_GROUP} sin miembros: no habria usuario remoto")
+    if not adm_m:
+        errs.append(f"{ADMIN_GROUP} sin miembros: no habria administrador remoto")
+    both = web_m & adm_m
+    if both:
+        errs.append(f"identidades en ambos grupos (los roles deben ser disjuntos): {sorted(both)}")
+    members = web_m | adm_m
+    lower = [m.lower() for m in web_m] + [m.lower() for m in adm_m]
+    if len(lower) != len(set(lower)):
+        errs.append("identidades repetidas que solo difieren en mayusculas (los roles deben ser disjuntos)")
+    for m in sorted(members):
+        if not re.fullmatch(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", m):
+            errs.append(f"identidad invalida: {m!r}")
+    if len(members) < 2:
+        errs.append(f"se esperan al menos 2 identidades independientes, hay {len(members)}")
+    if require_real:
+        for m in sorted(members):
+            if m.rpartition("@")[2].lower() in ("example.com", "example.org", "example.net", "invalid", "test"):
+                errs.append(f"identidad de ejemplo sin reemplazar: {m!r}")
+
+    # --- grants: exactamente uno por rol, con el conjunto de puertos exacto de ese rol ----------------------------------------------
+    admin_port = None
+    seen = {}
     for gi, g in enumerate(policy.get("grants", [])):
         where = f"grants[{gi}]"
         extra = set(g) - {"src", "dst", "ip"}
         if extra:
             errs.append(f"{where}: campos no permitidos {sorted(extra)}")
-        if not g.get("src"):
-            errs.append(f"{where}: sin src")
-        for s in g.get("src", []):
-            if s in BROAD_SRC or s.startswith("tag:"):
-                errs.append(f"{where}: src demasiado amplio o de maquina: {s!r}")
-            elif s.startswith("group:"):
-                if s not in policy.get("groups", {}):
-                    errs.append(f"{where}: grupo inexistente {s!r}")
-                members |= set(policy.get("groups", {}).get(s, []))
-            elif "@" in s:
-                members.add(s)
-            else:
-                errs.append(f"{where}: src no reconocido {s!r}")
+        src = g.get("src", [])
+        if len(src) != 1 or src[0] not in (WEB_GROUP, ADMIN_GROUP):
+            errs.append(f"{where}: src debe ser exactamente [{WEB_GROUP!r}] o [{ADMIN_GROUP!r}] "
+                        f"(no individuos, comodines ni etiquetas), es {src!r}")
+            continue
+        role = src[0]
+        seen[role] = seen.get(role, 0) + 1
         if g.get("dst") != [SERVER_TAG]:
             errs.append(f"{where}: dst debe ser exactamente [{SERVER_TAG!r}], es {g.get('dst')!r}")
-        if not g.get("ip"):
-            errs.append(f"{where}: sin ip")
-        for ip in g.get("ip", []):
-            if not ip_allowed(ip):
-                errs.append(f"{where}: ip {ip!r} fuera de lo permitido (solo tcp:443 y udp:443)")
-    if not policy.get("grants"):
-        errs.append("sin grants: nadie podria acceder")
+        ips = ip_set(g.get("ip", []))
+        if not g.get("ip") or ips is None:
+            errs.append(f"{where}: ip debe ser una lista de puertos puntuales con protocolo (tcp:N / udp:N), es {g.get('ip')!r}")
+            continue
+        if role == WEB_GROUP:
+            if ips != WEB_IPS:
+                errs.append(f"{where} ({role}): el usuario remoto solo puede tener tcp:443 y udp:443, tiene {sorted(ips)}")
+        else:
+            extra_ips = ips - WEB_IPS
+            if not WEB_IPS <= ips:
+                errs.append(f"{where} ({role}): el administrador tambien debe tener la web (tcp:443 y udp:443)")
+            allowed_mgmt = {("tcp", p) for p in ADMIN_PORT_BY_PROFILE.values()}
+            if len(extra_ips) != 1 or not extra_ips <= allowed_mgmt:
+                errs.append(f"{where} ({role}): el administrador debe sumar UN solo puerto de administracion "
+                            f"({' o '.join('tcp:%d' % p for p in sorted(ADMIN_PORT_BY_PROFILE.values()))}), suma {sorted(extra_ips)}")
+            else:
+                admin_port = next(iter(extra_ips))[1]
+    for role in (WEB_GROUP, ADMIN_GROUP):
+        if seen.get(role, 0) != 1:
+            errs.append(f"debe haber exactamente un grant para {role} (hay {seen.get(role, 0)})")
+    if profile and admin_port != ADMIN_PORT_BY_PROFILE[profile]:
+        errs.append(f"perfil {profile}: el puerto de administracion debe ser tcp:{ADMIN_PORT_BY_PROFILE[profile]}, es {admin_port}")
 
     owners = policy.get("tagOwners", {})
     if set(owners) != {SERVER_TAG}:
@@ -183,20 +235,12 @@ def validate(policy: dict, require_real: bool):
         if "funnel" in json.dumps(na).lower():
             errs.append("nodeAttrs habilita Funnel (publicaria el servicio en Internet)")
 
-    if len(members) < 2:
-        errs.append(f"se esperan al menos 2 identidades independientes, hay {len(members)}")
-    for m in members:
-        if not re.fullmatch(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", m):
-            errs.append(f"identidad invalida: {m!r}")
-    if require_real:
-        for m in sorted(members):
-            if m.rpartition("@")[2].lower() in ("example.com", "example.org", "example.net", "invalid", "test"):
-                errs.append(f"identidad de ejemplo sin reemplazar: {m!r}")
-
+    # --- tests de la propia politica -------------------------------------------------------------------------------------------------
     tests = policy.get("tests", [])
     if not tests:
         errs.append("sin tests en la politica (la consola de Tailscale los usa al aplicarla)")
     covered = {m: False for m in members}
+    admin_covered = {m: False for m in adm_m}
     has_outsider = False
     for ti, t in enumerate(tests):
         src = t.get("src", "")
@@ -204,8 +248,12 @@ def validate(policy: dict, require_real: bool):
         if src in members:
             if SERVER_TAG + ":443" in acc:
                 covered[src] = True
-            if not any(d.endswith(":22") for d in den) or not any(d.endswith(":1433") for d in den):
-                errs.append(f"tests[{ti}] ({src}): debe negar al menos {SERVER_TAG}:22 y :1433")
+            if src in adm_m and admin_port and f"{SERVER_TAG}:{admin_port}" in acc:
+                admin_covered[src] = True
+            if not any(d.endswith(":1433") for d in den):
+                errs.append(f"tests[{ti}] ({src}): debe negar al menos {SERVER_TAG}:1433")
+            if src in web_m and not (any(d.endswith(":22") for d in den) and any(d.endswith(":3389") for d in den)):
+                errs.append(f"tests[{ti}] ({src}): el usuario remoto debe tener negados {SERVER_TAG}:22 y {SERVER_TAG}:3389")
             others = members - {src}
             if not any(d.rpartition(":")[0] in others for d in den):
                 errs.append(f"tests[{ti}] ({src}): debe negar el acceso a otra persona (aislamiento)")
@@ -224,14 +272,26 @@ def validate(policy: dict, require_real: bool):
     for m, ok in sorted(covered.items()):
         if not ok:
             errs.append(f"ninguna prueba cubre el acceso autorizado de {m}")
+    for m, ok in sorted(admin_covered.items()):
+        if not ok:
+            errs.append(f"ninguna prueba cubre el acceso de administracion autorizado de {m}")
     if not has_outsider:
-        errs.append("falta una prueba de una cuenta fuera del grupo (denegada)")
+        errs.append("falta una prueba de una cuenta fuera de los grupos (denegada)")
 
-    # Acceso efectivo de cada miembro: solo tag:erp:443 y nada hacia otras identidades.
+    # --- acceso efectivo (evaluado, no declarado) ------------------------------------------------------------------------------------
     for m in sorted(members):
-        for port in (22, 80, 1433, 3389, 5432, 8080):
-            if can(policy, m, SERVER_TAG, "tcp", port):
-                errs.append(f"{m} alcanza {SERVER_TAG}:{port} (debe ser solo 443)")
+        is_admin = m in adm_m
+        for port in ALL_PORTS:
+            for proto in ("tcp", "udp"):
+                if proto == "tcp" and is_admin and port == admin_port:
+                    continue
+                if can(policy, m, SERVER_TAG, proto, port):
+                    errs.append(f"{m} alcanza {SERVER_TAG}:{proto}/{port} (rol {'administrador' if is_admin else 'usuario'}: no corresponde)")
+        if is_admin and admin_port and not can(policy, m, SERVER_TAG, "tcp", admin_port):
+            errs.append(f"{m} (administrador) no alcanza {SERVER_TAG}:{admin_port}")
+        for proto in ("tcp", "udp"):
+            if not can(policy, m, SERVER_TAG, proto, 443):
+                errs.append(f"{m} no alcanza {SERVER_TAG}:{proto}/443 (la web debe estar disponible para ambos roles)")
         for o in sorted(members - {m}):
             if can(policy, m, o, "tcp", 443):
                 errs.append(f"{m} alcanza a {o}: las personas deben estar aisladas entre si")
@@ -240,33 +300,53 @@ def validate(policy: dict, require_real: bool):
 
 def main(argv):
     rest = argv[1:]
+    policy_path = DEFAULT_POLICY
+    if "--policy" in rest:
+        i = rest.index("--policy")
+        if i + 1 >= len(rest):
+            print(__doc__)
+            return 2
+        policy_path = Path(rest[i + 1])
+        rest = rest[:i] + rest[i + 2:]
     if "--can" in rest:
         rest = [a for a in rest if a != "--can"]
         if len(rest) != 4 or not rest[3].isdigit():
             print(__doc__)
             return 2
-        ok = can(load(DEFAULT_POLICY), rest[0], rest[1], rest[2], int(rest[3]))
+        ok = can(load(policy_path), rest[0], rest[1], rest[2], int(rest[3]))
         print("permitido" if ok else "denegado")
         return 0 if ok else 1
+    profile = ""
+    if "--profile" in rest:
+        i = rest.index("--profile")
+        profile = rest[i + 1] if i + 1 < len(rest) else ""
+        if profile not in ADMIN_PORT_BY_PROFILE:
+            print(f"--profile debe ser uno de {sorted(ADMIN_PORT_BY_PROFILE)}", file=sys.stderr)
+            return 2
+        rest = rest[:i] + rest[i + 2:]
     flags = {a for a in rest if a.startswith("--")}
     unknown = flags - {"--require-real-identities"}
     if unknown:
         print(f"opcion desconocida: {sorted(unknown)}", file=sys.stderr)
         return 2
     paths = [a for a in rest if not a.startswith("--")]
-    path = Path(paths[0]) if paths else DEFAULT_POLICY
+    path = Path(paths[0]) if paths else policy_path
     try:
         policy = load(path)
     except (OSError, ValueError) as e:
         print(f"ERROR leyendo {path}: {e}", file=sys.stderr)
         return 2
-    errs = validate(policy, "--require-real-identities" in flags)
+    try:
+        errs = validate(policy, "--require-real-identities" in flags, profile)
+    except (TypeError, AttributeError, KeyError, ValueError) as e:
+        print(f"ERROR: la politica tiene una estructura inesperada ({type(e).__name__}: {e})", file=sys.stderr)
+        return 2
     if errs:
         for e in errs:
             print(f"FAIL {e}")
         print(f"{len(errs)} incumplimiento(s) en {path}")
         return 1
-    print(f"OK {path}: grants de minimo privilegio, aislamiento entre personas y pruebas coherentes")
+    print(f"OK {path}: usuario remoto solo web, administrador remoto web + un puerto de administracion, roles disjuntos, pruebas coherentes")
     return 0
 
 

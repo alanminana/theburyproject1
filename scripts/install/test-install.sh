@@ -87,14 +87,27 @@ check "bash -n server-linux-bootstrap.sh" bash -n "$BOOT"
 check "bash -n bury-firewall.sh" bash -n "$FW"
 ME=$(id -un)
 bootdry() { BURY_FORCE_DOCKER_INSTALL=1 bash "$BOOT" --dry-run --user "$ME" "$@" 2>&1; }
-out=$(bootdry --allow-from 192.168.1.0/24,100.64.0.0/10 --admin-from 192.168.1.0/24 --backup-dir /srv/bury-test --tailscale); rc=$?
+out=$(bootdry --allow-from 192.168.1.0/24,100.64.0.0/10 --admin-from 100.64.0.0/10 --backup-dir /srv/bury-test --tailscale); rc=$?
 check "bootstrap --dry-run completo (rc=0)" test "$rc" = 0
 check "bootstrap: Docker Engine desde el repo oficial" grep -q 'download.docker.com/linux/ubuntu/gpg' <<<"$out"
 check "bootstrap: shutdown-timeout 60 en daemon.json" grep -q 'shutdown-timeout": 60' <<<"$out"
 check "bootstrap: drop-in que aplica el firewall con dockerd" grep -q 'bury-firewall' <<<"$out"
 check "bootstrap: firewall con las dos redes" grep -q '192.168.1.0/24 100.64.0.0/10@tailscale0' <<<"$out"
 check "bootstrap: la red de Tailscale se ata a la interfaz tailscale0" grep -q '100.64.0.0/10@tailscale0' <<<"$out"
-check "bootstrap: ufw solo SSH desde --admin-from" grep -q 'ufw allow from 192.168.1.0/24 to any port 22 proto tcp' <<<"$out"
+check "bootstrap: ufw solo SSH desde --admin-from, atado a tailscale0" grep -q 'ufw allow in on tailscale0 from 100.64.0.0/10 to any port 22 proto tcp' <<<"$out"
+check "bootstrap: la LAN (--allow-from) NO recibe regla de SSH en ufw" bash -c '! grep -E "ufw allow .*192\.168\.1\.0/24" <<<"$1"' _ "$out"
+check "bootstrap: ufw no abre el 443 (lo filtra DOCKER-USER)" bash -c '! grep -E "ufw allow .*port 443" <<<"$1"' _ "$out"
+# Administracion con minimo privilegio: red LAN completa rechazada; equipos /32 y tailnet permitidos
+adm() { BURY_FORCE_DOCKER_INSTALL=1 bash "$BOOT" --dry-run --user "$ME" --allow-from 192.168.1.0/24 "$@" 2>&1; }
+check "bootstrap rechaza --admin-from con la LAN completa (/24)" bash -c '! BURY_FORCE_DOCKER_INSTALL=1 bash "$1" --dry-run --user "$2" --allow-from 192.168.1.0/24 --admin-from 192.168.1.0/24 >/dev/null 2>&1' _ "$BOOT" "$ME"
+check "bootstrap rechaza --admin-from 10.0.0.0/8, 172.16.0.0/12 y 100.0.0.0/8" bash -c 'for v in 10.0.0.0/8 172.16.0.0/12 100.0.0.0/8 100.64.0.0/9; do BURY_FORCE_DOCKER_INSTALL=1 bash "$1" --dry-run --user "$2" --allow-from 192.168.1.0/24 --admin-from "$v" >/dev/null 2>&1 && exit 1; done; exit 0' _ "$BOOT" "$ME"
+check "bootstrap rechaza --admin-from con LAN aunque venga mezclada con una IP valida" bash -c '! BURY_FORCE_DOCKER_INSTALL=1 bash "$1" --dry-run --user "$2" --allow-from 192.168.1.0/24 --admin-from 192.168.1.5,192.168.1.0/24 >/dev/null 2>&1' _ "$BOOT" "$ME"
+o=$(adm --admin-from 192.168.1.5); check "bootstrap acepta un equipo concreto como administrador (/32 implicito)" grep -q 'ufw allow from 192.168.1.5 to any port 22 proto tcp' <<<"$o"
+o=$(adm --admin-from 192.168.1.5/32); check "bootstrap acepta un equipo concreto /32" grep -q 'ufw allow from 192.168.1.5 to any port 22 proto tcp' <<<"$o"
+o=$(adm --admin-from 100.101.2.3); check "bootstrap ata la IP de Tailscale del administrador a tailscale0" grep -q 'ufw allow in on tailscale0 from 100.101.2.3 to any port 22 proto tcp' <<<"$o"
+check "bootstrap rechaza un equipo publico como administrador (100.128.0.1, 8.8.8.8, 0.0.0.0): la administracion no se abre a Internet" bash -c 'for v in 100.128.0.1 8.8.8.8 0.0.0.0 172.32.0.1 11.0.0.1; do BURY_FORCE_DOCKER_INSTALL=1 bash "$1" --dry-run --user "$2" --allow-from 192.168.1.0/24 --admin-from "$v" >/dev/null 2>&1 && exit 1; done; exit 0' _ "$BOOT" "$ME"
+o=$(adm --admin-from 172.16.5.9,10.1.2.3); check "bootstrap acepta equipos privados RFC 1918 (10/8, 172.16/12)" bash -c 'grep -q "from 172.16.5.9 " <<<"$1" && grep -q "from 10.1.2.3 " <<<"$1"' _ "$o"
+o=$(adm --admin-from 192.168.1.0/24 --allow-lan-admin); check "--allow-lan-admin es la unica forma de abrir SSH a una red completa" grep -q 'ufw allow from 192.168.1.0/24 to any port 22 proto tcp' <<<"$o"
 check "bootstrap: Tailscale solo si se pide" grep -q 'tailscaled' <<<"$out"
 out=$(bootdry --allow-from 192.168.1.0/24)
 check "bootstrap sin --tailscale no instala Tailscale" bash -c '! grep -q tailscaled <<<"$1"' _ "$out"

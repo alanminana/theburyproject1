@@ -31,7 +31,8 @@
 .EXAMPLE
   # Instalacion real con IP fija, repositorio local (bundle) y Tailscale instalado (sin autenticar)
   .\install-windows-server.ps1 -DownloadImage -AdminEmail soporte@example.com -VmIp 192.168.1.50/24 -Gateway 192.168.1.1 `
-      -SwitchName 'TheBury-External' -RepoPath D:\git\theburyproject1 -AllowFrom 192.168.1.0/24,100.64.0.0/10 -Tailscale
+      -SwitchName 'TheBury-External' -RepoPath D:\git\theburyproject1 -AllowFrom 192.168.1.0/24,100.64.0.0/10 -AdminFrom 100.64.0.0/10 -Tailscale
+  # -AllowFrom = quien usa la WEB (LAN + tailnet). -AdminFrom = quien administra por SSH: solo la tailnet y/o equipos /32; el host Hyper-V se agrega solo (el instalador lo necesita).
 #>
 [CmdletBinding()]
 param(
@@ -66,6 +67,7 @@ param(
     [string]$BackupDir = '/srv/bury-backups',
     [string[]]$AllowFrom = @(),
     [string[]]$AdminFrom = @(),
+    [switch]$AllowLanAdmin,
     [switch]$Tailscale,
 
     [string]$StateDir = (Join-Path $env:ProgramData 'TheBury\server'),
@@ -93,6 +95,30 @@ function Test-Cidr([string]$Value, [switch]$AllowNoPrefix) {
     foreach ($i in 1..4) { if ([int]$Matches[$i] -gt 255) { return $false } }
     if ($Matches[5]) { return ([int]$Matches[5] -le 32) }
     return [bool]$AllowNoPrefix
+}
+
+# Origen valido para administrar por SSH (minimo privilegio): un equipo (IPv4 o /32) o la red de Tailscale (dentro de 100.64.0.0/10, prefijo >= 10).
+# Una red completa (p. ej. la LAN 192.168.1.0/24) daria administracion a todos los usuarios de la LAN: se rechaza salvo -AllowLanAdmin.
+function Test-AdminSource([string]$Value) {
+    if (-not (Test-Cidr $Value -AllowNoPrefix)) { return $false }
+    $ip, $len = $Value -split '/'
+    $o = [int]($ip -split '\.')[1]; $f = [int]($ip -split '\.')[0]
+    $isTail = ($f -eq 100 -and $o -ge 64 -and $o -le 127)
+    if (-not $len -or [int]$len -eq 32) { return ($isTail -or $f -eq 10 -or ($f -eq 172 -and $o -ge 16 -and $o -le 31) -or ($f -eq 192 -and $o -eq 168)) }   # equipo: privado o de la tailnet (nunca publico ni 0.0.0.0)
+    return (($ip -split '\.')[0] -eq '100' -and $o -ge 64 -and $o -le 127 -and [int]$len -ge 10)
+}
+
+# IPv4 del host Hyper-V dentro de la red de la VM (el instalador administra la VM por SSH desde ahi). $null si no se puede determinar.
+function Get-HostIpOnNetwork([string]$VmCidr) {
+    if (-not $VmCidr) { return $null }
+    try {
+        # Preferir la IP de origen que el host usa realmente para llegar a la VM (puede haber varias IP en la subred).
+        $r = @(Find-NetRoute -RemoteIPAddress (($VmCidr -split '/')[0]) -ErrorAction Stop | Where-Object { $_.IPAddress -and $_.IPAddress -notmatch '^(127|169\.254)\.' })
+        if ($r.Count -and (Test-SameSubnet $VmCidr $r[0].IPAddress)) { return $r[0].IPAddress }
+        $c = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.IPAddress -notmatch '^(127|169\.254)\.' -and (Test-SameSubnet $VmCidr $_.IPAddress) })
+        if ($c.Count) { return $c[0].IPAddress }
+    } catch { }
+    return $null
 }
 
 # Red (CIDR) a la que pertenece una IP con prefijo: 192.168.1.50/24 -> 192.168.1.0/24
@@ -300,6 +326,7 @@ function Invoke-Preflight {
     } else { Add-Check 'ATENCION' 'Red de la VM' 'DHCP: reservar la IP en el router o el ERP cambiara de direccion' }
     if (-not $SkipInstall -and -not $AdminEmail) { Add-Check 'FALLA' '-AdminEmail' 'falta el correo del administrador inicial' }
     foreach ($c in @($AllowFrom) + @($AdminFrom)) { if ($c -and -not (Test-Cidr $c -AllowNoPrefix)) { Add-Check 'FALLA' 'Redes permitidas' "valor invalido: $c" } }
+    foreach ($c in @($AdminFrom)) { if ($c -and (Test-Cidr $c -AllowNoPrefix) -and -not $AllowLanAdmin -and -not (Test-AdminSource $c)) { Add-Check 'FALLA' '-AdminFrom' "'$c' es una red completa: la administracion solo se permite desde la tailnet (100.64.0.0/10) o equipos /32; la LAN solo usa la web (-AllowLanAdmin para forzarlo, no recomendado)" } }
 }
 
 function Resolve-VmRoot {
@@ -340,9 +367,18 @@ $knownHosts = Join-Path $StateDir 'known_hosts'
 # Redes permitidas: por defecto la red de la VM (HTTPS y SSH). Con DHCP no se puede deducir: hay que indicarlas.
 $vmNet = if ($VmIp) { Get-NetworkCidr $VmIp } else { '' }
 $allowList = @($AllowFrom | Where-Object { $_ }); if ($allowList.Count -eq 0 -and $vmNet) { $allowList = @($vmNet) }
-$adminList = @($AdminFrom | Where-Object { $_ }); if ($adminList.Count -eq 0 -and $vmNet) { $adminList = @($vmNet) }
+# Administracion (SSH): NUNCA la LAN completa por defecto. Se agrega el host Hyper-V (/32) porque el instalador administra la VM desde ahi;
+# el resto (-AdminFrom) debe ser la tailnet y/o equipos concretos. Sin lista no se activa ufw.
+$adminList = @($AdminFrom | Where-Object { $_ })
+if (-not $AllowLanAdmin) { foreach ($a in $adminList) { if (-not (Test-AdminSource $a)) { Fail "-AdminFrom '$a' es una red completa: la administracion solo se permite desde la tailnet (100.64.0.0/10) o equipos /32 (-AllowLanAdmin para forzarlo)." } } }
+$hostIp = Get-HostIpOnNetwork $VmIp
+if ($hostIp) { if ($adminList -notcontains $hostIp -and $adminList -notcontains "$hostIp/32") { $adminList = @($hostIp) + $adminList } }
+elseif ($adminList.Count -and -not ($adminList | Where-Object { $_ -notmatch '^100\.' -and (Test-AdminSource $_) })) {
+    # ufw se activaria con SSH solo desde la tailnet y el instalador (host Hyper-V) perderia el acceso a mitad de la instalacion.
+    Fail 'No se pudo determinar la IP del host Hyper-V en la red de la VM (p. ej. con -UseDhcp). Agregarla a -AdminFrom como equipo /32 (p. ej. -AdminFrom 192.168.1.10,100.64.0.0/10) para no perder el SSH al activar ufw.'
+}
 if ($allowList.Count -eq 0) { Fail 'Con -UseDhcp hay que indicar -AllowFrom (redes con acceso HTTPS, p. ej. 192.168.1.0/24).' }
-if ($adminList.Count -eq 0) { Write-Warn2 'Sin -AdminFrom no se activa ufw (SSH queda sin restringir dentro de la VM).' }
+if ($adminList.Count -eq 0) { Write-Warn2 'Sin IP de administracion (host o -AdminFrom) no se activa ufw (SSH queda sin restringir dentro de la VM).' }
 
 # --- Ejecutables nativos ---------------------------------------------------------------------------------------------
 # Windows PowerShell 5.1 convierte el stderr de un ejecutable nativo en error terminante bajo 'Stop' si se redirige: se llama siempre con
@@ -542,6 +578,7 @@ Write-Ok 'repositorio listo'
 Write-Step 'Docker Engine, firewall y cierre ordenado (server-linux-bootstrap.sh)'
 $bs = "sudo bash $remoteRepo/scripts/install/server-linux-bootstrap.sh --user $VmUser --allow-from $($allowList -join ',') --backup-dir $(ConvertTo-BashQuoted $BackupDir)"
 if ($adminList.Count -gt 0) { $bs += " --admin-from $($adminList -join ',')" }
+if ($AllowLanAdmin) { $bs += ' --allow-lan-admin' }
 if ($Tailscale) { $bs += ' --tailscale' }
 if ((Invoke-Ssh $bs) -ne 0) { Fail 'server-linux-bootstrap.sh fallo (ver la salida anterior; es seguro repetir).' }
 

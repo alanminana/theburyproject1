@@ -34,7 +34,7 @@ arranque, firewall y programación más robusto que un Windows con sesión inter
 Clientes LAN / Tailscale ──► https://tbp (IP de la VM, conmutador externo de Hyper-V)
                                │
         Windows Server (host)  │  Hyper-V  ─ VM "TheBury-ERP" (Ubuntu 24.04, Gen2, sin checkpoints)
-        solo administra la VM  │     ├─ ufw: SSH(22) solo desde -AdminFrom
+        solo administra la VM  │     ├─ ufw: SSH(22) solo desde -AdminFrom (tailnet o equipos /32, nunca la LAN completa) + el host Hyper-V
                                │     ├─ bury-firewall: 443 (publicado por Docker) solo desde -AllowFrom
                                │     ├─ Docker Engine ─ db (SQL Server 2022, volumen bury-sqldata)
                                │     │                 ├ migrate / db-init (one-shot)
@@ -88,7 +88,7 @@ PowerShell **como Administrador** en el host, desde el repositorio:
 # 3. Instalar
 .\scripts\install\install-windows-server.ps1 -DownloadImage -AdminEmail soporte@ejemplo.com `
     -VmIp 192.168.1.50/24 -Gateway 192.168.1.1 -SwitchName TheBury-External `
-    -RepoPath D:\git\theburyproject1 -AllowFrom 192.168.1.0/24,100.64.0.0/10 -AdminFrom 192.168.1.0/24 -Tailscale
+    -RepoPath D:\git\theburyproject1 -AllowFrom 192.168.1.0/24,100.64.0.0/10 -AdminFrom 100.64.0.0/10 -Tailscale
 ```
 
 Parámetros principales (todos en `Get-Help .\scripts\install\install-windows-server.ps1 -Full`): `-VmName`, `-CpuCount`, `-MemoryGB`, `-DiskGB`,

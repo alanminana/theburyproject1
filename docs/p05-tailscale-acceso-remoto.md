@@ -3,6 +3,9 @@
 Fecha: 2026-11-12. Estado: **preparado y probado en entornos aislados; NO cerrado.** No se instaló ni autenticó Tailscale, no se tocó el firewall/Docker del
 equipo de desarrollo, no se abrió ningún puerto, no se tocó `TheBuryProjectDb`. Faltan las pruebas reales desde los dos clientes autorizados (§8).
 
+> **Actualización 2026-11-12 (permisos diferenciados):** el modelo de "dos personas iguales" de §3-§4 fue reemplazado por tres perfiles (LAN solo web; usuario remoto solo web; administrador remoto web + administración) con
+> grupos `group:erp-usuarios` y `group:erp-admins`, dos perfiles de política por plataforma y administración con mínimo privilegio. Ver [p05-permisos-acceso-remoto.md](p05-permisos-acceso-remoto.md). Donde este documento hable de "las dos personas" con el mismo acceso, rige el nuevo.
+
 Decisiones del propietario (2026-11-12): dos personas acceden por Tailscale, cada una con su **cuenta independiente**; el acceso se **revoca individualmente**;
 el ERP **no se expone a Internet**; el servidor definitivo **no está decidido** (Windows 11 Pro + Docker Desktop/WSL2, o Windows Server + Hyper-V + VM Ubuntu).
 Complementa (no reemplaza) `red-privada-lan-vpn.md`, `p07-preparacion-windows-docker-tailscale.md` e `instalacion-windows-server.md`.
