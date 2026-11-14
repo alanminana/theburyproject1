@@ -69,7 +69,7 @@ elif [[ "$has_blob" == si ]]; then
   fi
   log INFO "clave de la CA repuesta desde $ARCHIVE.caseal: $CA_UNSEAL_OUT"
 else
-  miss=""; miss=$(dc run --rm -T --no-deps --quiet-pull restore-files sh -c 'd=/dst/caddy-data/caddy/pki/authorities/local; if [ -s "$d/root.crt" ] && [ ! -s "$d/root.key" ]; then echo falta; else echo ok; fi' </dev/null 2>/dev/null | tr -d '\r') || miss=error
+  miss=""; miss=$(dc run --rm -T --no-deps --quiet-pull restore-files sh -c 'bad=0; for c in /dst/caddy-data/caddy/pki/authorities/*/*.crt; do [ -e "$c" ] || continue; [ -s "${c%.crt}.key" ] || bad=1; done; if [ "$bad" = 1 ]; then echo falta; else echo ok; fi' </dev/null 2>/dev/null | tr -d '\r') || miss=error
   # Un restore "OK" que deja a Caddy sin su clave NO es un restore OK: un proceso de recuperacion que avance daria por recuperado un servicio sin TLS.
   if [[ "$miss" == falta ]]; then
     die $EX_RESTORE "archivos restaurados, pero caddy-data quedo con root.crt SIN root.key y no hay $ARCHIVE.caseal: Caddy no arrancara. Traer el .caseal del remoto y usar restore-ca-key.sh, rotar la CA (docs/backup-ca-key-custodia.md), o repetir con --skip-ca-key si es intencional"

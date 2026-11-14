@@ -122,8 +122,8 @@ custodio y la migración de los respaldos existentes quedan **reservados al prop
 
 ## 8. Pruebas
 
-* `scripts/backup/test-ca-key-custody.sh` (~5 min, SQL Server real + Caddy real; CI: job `custodia-clave-ca` de `backup-dr-rotacion.yml`): última corrida 2026-11-14: **105 PASS, 0 FAIL** (stack aislado, sin residuos).
+* `scripts/backup/test-ca-key-custody.sh` (~5 min, SQL Server real + Caddy real; CI: job `custodia-clave-ca` de `backup-dr-rotacion.yml`): última corrida 2026-11-14: **108 PASS, 0 FAIL** (stack aislado, sin residuos).
 * `scripts/backup/test-check-custody.sh` (55) y `scripts/backup/test-hardening.sh` (77) siguen en verde.
-* Revisión adversarial independiente (Codex, solo lectura, worktree idéntico antes y después): 5 hallazgos (4 altos, 1 medio), todos verificados contra el código y corregidos con prueba (enlace simbólico en el
-  temporal, errores de escritura que terminaban en `ok`, restore con rc 0 sin clave, seal que aceptaba una CA sin claves, C13 comparando solo contra un remoto llamado `secure`).
+* Revisión adversarial independiente (Codex, solo lectura, worktree idéntico antes y después; 2 rondas): 6 hallazgos (4 altos, 1 medio), todos verificados contra el código y corregidos con prueba (enlace simbólico en el
+  temporal, errores de escritura que terminaban en `ok`, restore con rc 0 sin clave, seal que aceptaba una CA sin claves, C13 comparando solo contra un remoto llamado `secure`; ronda 2: el control de restore miraba solo `authorities/local`, ahora recorre todas las autoridades).
   No cubierto por pruebas: fallo real de `chmod`/disco lleno durante la reposición (revisado por lectura; el código aborta con rc 5 y limpia temporales).

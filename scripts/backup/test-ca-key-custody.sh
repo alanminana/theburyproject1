@@ -378,6 +378,15 @@ RCLONE_CONFIG_ARCHIVO_PASSWORD2=%s
 BURY_OFFSITE_ENV_FILE="$T/seal/otro-offsite.env" BACKUP_REMOTE='archivo:erp' BACKUP_CA_SEAL_ENV="$T/seal/mismo.env" run_script check-custody.sh --no-status --quiet
 check "j: C13 compara contra el remoto crypt ACTIVO aunque no se llame secure" out_has '^FAIL C13 .*remoto crypt activo'
 
+# ---------------------------------------------------------------------------------------------------------- k
+section "k. restore de un tar SIN .caseal con una autoridad distinta de local y sin clave: tambien falla (no solo local/root.key)"
+dcq rm -sf caddy >/dev/null 2>&1
+EVK=files_2099-02-01_000001Z.tar.gz
+docker run --rm --network none -v "$BACKUP_DIR/files:/f" "$ALPINE_IMAGE" sh -c 'mkdir -p /w/keys /w/uploads /w/appdata /w/caddy-data/caddy/pki/authorities/otra && echo x >/w/caddy-data/caddy/pki/authorities/otra/root.crt && tar -czf /f/'$EVK' -C /w keys uploads appdata caddy-data && cd /f && sha256sum '$EVK' >'$EVK'.sha256'
+run_script restore-files.sh --archive "$EVK" --force; expect_rc "k: restore-files de un tar con la CA 'otra' (root.crt sin clave) y sin .caseal falla" 9
+check "k: el mensaje explica la clave que falta" out_has 'SIN root.key'
+run_script restore-files.sh --archive "$EVK" --force --skip-ca-key; expect_rc "k: con --skip-ca-key es una decision explicita y termina OK" 0
+
 echo
 echo "ca-key custody: $PASS PASS, $FAIL FAIL"
 (( FAIL == 0 )) || { printf 'FALLARON:\n'; printf '  - %s\n' "${FAILED[@]}"; }
