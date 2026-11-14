@@ -297,10 +297,23 @@ namespace TheBuryProject.Services
 
                     var ventaRows = new List<(int VentaId, decimal PorcentajeIVA, decimal Neto, decimal Iva, decimal Total)>();
                     var ventasSinDesglose = new List<(int VentaId, decimal Total)>();
+                    var ventasVersionInvalida = new List<(int VentaId, decimal Total)>();
                     foreach (var venta in ventasIva)
                     {
                         // P-02 / P5: la venta se relee con el criterio fiscal con el que nació, no con el vigente.
-                        var criterio = CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
+                        // Versión no registrada (dato inválido): la venta NO se recalcula con otra regla ni rompe el reporte;
+                        // se excluye de los totales y se informa aparte (sin exponer detalles internos al usuario).
+                        ICriterioFiscal criterio;
+                        try
+                        {
+                            criterio = CriterioFiscalRegistry.Resolver(venta);
+                        }
+                        catch (CriterioFiscalDesconocidoException ex)
+                        {
+                            _logger.LogError(ex, "Reporte de IVA: la venta {VentaId} tiene una versión de criterio fiscal no registrada ({Version}); se excluye de los totales.", venta.Id, ex.Version);
+                            ventasVersionInvalida.Add((venta.Id, venta.Total));
+                            continue;
+                        }
                         var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
                         var lineasSinDesglose = detalles.Where(SinDesglose).ToList();
                         foreach (var d in lineasSinDesglose.Where(d => !filtro.Alicuota.HasValue || d.PorcentajeIVA == filtro.Alicuota.Value))
@@ -337,6 +350,8 @@ namespace TheBuryProject.Services
                         }
                     }
 
+                    resultado.VentasVersionFiscalInvalida = ventasVersionInvalida.Count;
+                    resultado.VentasVersionFiscalInvalidaTotal = ventasVersionInvalida.Sum(d => d.Total);
                     resultado.VentasSinDesglose = ventasSinDesglose.Select(d => d.VentaId).Distinct().Count();
                     resultado.VentasSinDesgloseTotal = ventasSinDesglose.Sum(d => d.Total);
 
