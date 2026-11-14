@@ -23,6 +23,7 @@
 #   C10 secretos versionados en Git (.env, backup-offsite.env, *passphrase*, *.enc, *.pem, *.key)
 #   C11 (--check-remote) el remoto contiene archivos con aspecto de clave/passphrase
 #   C12 (solo WARN) BACKUP_INCLUDE_CADDY=true: root.key de la CA de Caddy viaja en el tar de archivos (custodia compartida con los respaldos)
+#   C13 BACKUP_CA_KEY=seal: la clave de sellado (BACKUP_CA_SEAL_ENV) falta, es ilegible, incompleta, con permisos laxos, dentro de BACKUP_DIR/offsite o no independiente de backup-offsite.env
 #
 # Variables (todas opcionales): BURY_OFFSITE_ENV_FILE (default <repo>/backup-offsite.env), BACKUP_OFFSITE_DISK_DIR (.env),
 #   CUSTODY_RECOVERY_DIRS (lista separada por ':'; default ~/secure-preprod:~/secure-prod; se inspeccionan NOMBRES, no contenidos),
@@ -39,7 +40,7 @@ while (( $# )); do
     --no-status) STATUS=0; shift ;;
     --check-remote) CHECK_REMOTE=1; shift ;;
     --quiet) QUIET=1; shift ;;
-    -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
+    -h|--help) sed -n "2,30p" "$0"; exit 0 ;;
     *) die $EX_USAGE "argumento desconocido: $1" ;;
   esac
 done
@@ -240,10 +241,41 @@ fi
 # caddy-data contiene root.key / intermediate.key (la CA interna que firma el certificado del ERP). Con BACKUP_INCLUDE_CADDY=true esa clave vive en el
 # tar de archivos: comparte custodia con BACKUP_DIR (local, sin cifrar) y con el remoto (protegido SOLO por las passwords crypt). Quien tenga ambos puede
 # emitir certificados que los clientes ya confian. No es un FAIL (excluirla impediria arrancar Caddy tras un restore: ver docs/backup-dr-rotacion-claves.md §4).
-if [[ "$(cfg BACKUP_INCLUDE_CADDY true)" == "true" ]]; then   # misma condicion que container/files-backup.sh (solo el valor exacto "true" incluye caddy-data)
-  warn C12 "BACKUP_INCLUDE_CADDY=true: la clave privada de la CA de Caddy (root.key) viaja en el tar de archivos; su custodia = BACKUP_DIR + passwords crypt. Aceptado solo si ambos estan protegidos por separado (docs/backup-dr-rotacion-claves.md §4)"
+if [[ "$(cfg BACKUP_INCLUDE_CADDY true)" == "true" && "$BACKUP_CA_KEY" == "include" ]]; then   # misma condicion que container/files-backup.sh (solo el valor exacto "true" incluye caddy-data)
+  warn C12 "BACKUP_INCLUDE_CADDY=true: la clave privada de la CA de Caddy (root.key) viaja en el tar de archivos; su custodia = BACKUP_DIR + passwords crypt. Aceptado solo si ambos estan protegidos por separado. Alternativa: BACKUP_CA_KEY=seal (docs/backup-ca-key-custodia.md)"
+elif [[ "$(cfg BACKUP_INCLUDE_CADDY true)" == "true" ]]; then
+  say "C12 la clave de la CA no viaja en el tar: se sella aparte en <tar>.caseal (BACKUP_CA_KEY=seal)"
 else
   say "C12 caddy-data fuera de los respaldos: tras un restore la CA se regenera y hay que redistribuirla a los clientes"
+fi
+
+# ---- C13: con BACKUP_CA_KEY=seal, la clave de sellado es la UNICA custodia de la clave de la CA: debe existir, ser privada e INDEPENDIENTE
+# (no dentro de BACKUP_DIR ni del directorio offsite, no compartir secretos con backup-offsite.env, dos passwords distintas). Nunca imprime valores.
+if [[ "$BACKUP_CA_KEY" == "seal" && "$(cfg BACKUP_INCLUDE_CADDY true)" == "true" ]]; then
+  seal=$BACKUP_CA_SEAL_ENV
+  if [[ -z "$seal" || ! -f "$seal" || ! -r "$seal" ]]; then
+    fail C13 "BACKUP_CA_KEY=seal pero BACKUP_CA_SEAL_ENV no esta definido o no es un archivo legible: sin la clave de sellado no hay backup ni restore de la clave de la CA (scripts/backup/ca-seal-init.sh)"
+  else
+    sp1=$(kv_file "$seal" RCLONE_CONFIG_CASEAL_PASSWORD); sp2=$(kv_file "$seal" RCLONE_CONFIG_CASEAL_PASSWORD2)
+    c13=1
+    if [[ -z "$sp1" || -z "$sp2" ]]; then fail C13 "la clave de sellado esta incompleta (faltan RCLONE_CONFIG_CASEAL_PASSWORD / PASSWORD2)"; c13=0
+    elif [[ "$sp1" == "$sp2" ]]; then fail C13 "las dos passwords de la clave de sellado son iguales"; c13=0; fi
+    if ! fs_ignores_modes "$seal" && [[ "$(stat -c %a "$seal" 2>/dev/null || echo 777)" =~ [0-7][1-7][0-7]$|[0-7][0-7][1-7]$ ]]; then
+      fail C13 "la clave de sellado tiene permisos para grupo/otros (chmod 600 $seal)"; c13=0
+    fi
+    offdir=$(cfg BACKUP_OFFSITE_DISK_DIR "")
+    if [[ "$seal" == "$BACKUP_DIR"/* || ( -n "$offdir" && "$seal" == "${offdir%/}"/* ) ]]; then
+      fail C13 "la clave de sellado esta dentro de BACKUP_DIR o del directorio offsite: viajaria con los respaldos"; c13=0
+    fi
+    # independencia: ninguna password de sellado puede coincidir con una del offsite (ni en claro ni ofuscada) ni ser el mismo archivo
+    for v in "$sp1" "$sp2"; do
+      for k in RCLONE_CONFIG_SECURE_PASSWORD RCLONE_CONFIG_SECURE_PASSWORD2; do
+        if [[ -n "$v" && "$v" == "$(ofv "$k")" ]]; then fail C13 "una password de la clave de sellado coincide con una del offsite (sin independencia de custodia)"; c13=0; break 2; fi
+      done
+    done
+    if [[ -e "$OFFSITE_ENV" && "$(readlink -f "$seal" 2>/dev/null)" == "$(readlink -f "$OFFSITE_ENV" 2>/dev/null)" ]]; then fail C13 "la clave de sellado es el mismo archivo que backup-offsite.env"; c13=0; fi
+    (( c13 )) && say "C13 clave de sellado de la CA presente, privada e independiente (su COPIA de custodia fuera del servidor no se puede comprobar desde aqui)"
+  fi
 fi
 
 # ---- resumen y estado para el monitor

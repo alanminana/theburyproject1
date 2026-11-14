@@ -230,6 +230,69 @@ services:
       - ${BACKUP_DIR:-./backups}:/backups:ro
       - ./scripts/backup/container:/opt/bury-backup:ro
 
+  # Sellado de la clave privada de la CA de Caddy (BACKUP_CA_KEY=seal): cifra SOLO las *.key de caddy/pki/authorities con rclone crypt
+  # (secretbox, autenticado) y deja <tar>.caseal junto al tar de archivos. Sin red; caddy-data en solo lectura; /tmp en memoria (el material
+  # en claro nunca toca el disco del host ni la capa del contenedor). La clave de sellado vive FUERA de BACKUP_DIR (BACKUP_CA_SEAL_ENV).
+  ca-seal:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+    profiles: ["tools"]
+    restart: "no"
+    network_mode: none
+    healthcheck:
+      disable: true
+    entrypoint: []
+    tmpfs:
+      - /tmp:mode=700,size=8m
+    env_file:
+      - path: ${BACKUP_CA_SEAL_ENV:-./ca-seal.env}
+        required: false
+    environment:
+      RCLONE_CONFIG_CASEAL_TYPE: crypt
+      RCLONE_CONFIG_CASEAL_REMOTE: /backups/files
+      RCLONE_CONFIG_CASEAL_FILENAME_ENCRYPTION: "off"
+      RCLONE_CONFIG_CASEAL_DIRECTORY_NAME_ENCRYPTION: "false"
+      RCLONE_CONFIG_CASEAL_SUFFIX: none
+    volumes:
+      - caddy-data:/src/caddy-data:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./scripts/backup/container:/opt/bury-backup:ro
+
+  # Reposicion de la clave privada de la CA desde <tar>.caseal (restore-files.sh / restore-ca-key.sh). Sin red; unico con caddy-data en
+  # escritura junto con restore-files; backups en solo lectura.
+  ca-unseal:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+    profiles: ["tools"]
+    restart: "no"
+    network_mode: none
+    healthcheck:
+      disable: true
+    entrypoint: []
+    tmpfs:
+      - /tmp:mode=700,size=8m
+    env_file:
+      - path: ${BACKUP_CA_SEAL_ENV:-./ca-seal.env}
+        required: false
+    environment:
+      RCLONE_CONFIG_CASEAL_TYPE: crypt
+      RCLONE_CONFIG_CASEAL_REMOTE: /backups/files
+      RCLONE_CONFIG_CASEAL_FILENAME_ENCRYPTION: "off"
+      RCLONE_CONFIG_CASEAL_DIRECTORY_NAME_ENCRYPTION: "false"
+      RCLONE_CONFIG_CASEAL_SUFFIX: none
+    volumes:
+      - caddy-data:/dst/caddy-data
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+      - ./scripts/backup/container:/opt/bury-backup:ro
+
   # Copia externa via rclone (S3, Backblaze B2, Azure Blob, SFTP, ...). El destino se define por configuracion (RCLONE_CONFIG_OFFSITE_*
   # en backup-offsite.env, fuera de Git) y BACKUP_REMOTE en .env. Solo lectura sobre los backups; las credenciales del proveedor
   # viven unicamente en este contenedor.
