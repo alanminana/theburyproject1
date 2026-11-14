@@ -31,7 +31,7 @@ ca_key_mode="${BACKUP_CA_KEY:-include}"
 case "$ca_key_mode" in include|seal) ;; *) echo "BACKUP_CA_KEY invalido: $ca_key_mode (include|seal)" >&2; exit 2 ;; esac
 excl=""
 if [ "$ca_key_mode" = "seal" ] && [ "${BACKUP_INCLUDE_CADDY:-true}" = "true" ]; then
-  excl="--exclude=caddy-data/caddy/pki/authorities/*/*.key"
+  excl="--exclude=caddy-data/caddy/pki/authorities/*/*.key*"
 fi
 
 out="/backups/files/$name"
@@ -41,7 +41,7 @@ tar -czf "$out.partial" $excl -C /src $list
 gzip -t "$out.partial"
 tar -tzf "$out.partial" >/dev/null
 # Fail-closed: en modo seal ningun *.key de una CA puede haber quedado en el tar (un cambio de busybox/patron no puede reintroducirlo en silencio).
-if [ -n "$excl" ] && tar -tzf "$out.partial" | grep -E 'caddy/pki/authorities/.*\.key$' >/dev/null; then
+if [ -n "$excl" ] && tar -tzf "$out.partial" | grep -E 'caddy/pki/authorities/.*\.key' >/dev/null; then
   echo "BACKUP_CA_KEY=seal pero el tar contiene claves privadas de la CA: se descarta" >&2; rm -f "$out.partial"; exit 3
 fi
 [ -s "$out.partial" ] || { echo "archivo vacio" >&2; rm -f "$out.partial"; exit 3; }

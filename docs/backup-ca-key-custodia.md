@@ -54,6 +54,11 @@ BACKUP_CA_SEAL_ENV=/etc/bury/ca-seal.env   clave de sellado, 0600, FUERA de BACK
 * `restore-ca-key.sh --archive <tar> [--dry-run] [--force]`: repone solo la clave. `--dry-run` descifra y valida **sin escribir** (prueba periódica de que la custodia sirve; es
   la forma de ensayar la recuperación sin tocar Caddy).
 * `ca-unseal.sh` valida el contenido descifrado: solo archivos regulares `caddy/pki/authorities/<ca>/<nombre>.key`, sin `..`, enlaces ni otras rutas; no pisa una clave **distinta** sin `--force`.
+  Rechaza (rc 5) cualquier enlace simbólico en el destino, en su temporal o en los directorios padre (un tar de archivos manipulado, que solo tiene un `.sha256` hermano como control,
+  podría plantar `root.key.tmp.key -> otro` para desviar la clave descifrada fuera del área excluida del backup), crea los temporales de forma exclusiva y es **todo o nada**: cualquier error
+  de escritura aborta con rc 5 y deja los temporales limpios (jamás informa `ok` tras un fallo parcial). Los temporales terminan en `.key` para que el tar siguiente los excluya y el control fail-closed los detecte.
+* `ca-seal.sh` es fail-closed también hacia el origen: una CA con certificados pero **sin** sus claves (volumen dañado, restore incompleto) o un error al enumerar **no** es «nada que sellar»: rc 3, `backup.sh`
+  descarta el tar y sale con 5 (así un respaldo sin clave ni `.caseal` no desplaza por retención a los que sí permiten recuperar la CA). Solo «Caddy aún no creó su CA» es `ca_seal=none`.
 * `check-custody.sh` **C12** (aviso en `include`) y **C13** (FAIL en `seal` si la clave de sellado falta, está incompleta, no es `0600`, está dentro de `BACKUP_DIR`/offsite o comparte secretos con `backup-offsite.env`).
 
 No se tocó C-02, `TheBuryProjectDb`, copias históricas ni el SFTP definitivo.
@@ -80,7 +85,9 @@ scripts/backup/restore-ca-key.sh --archive files_<ts>.tar.gz --dry-run
 | Situación | Resultado (probado) |
 |---|---|
 | Pérdida total + custodia correcta | `fetch-offsite` → `restore-files --force` → misma CA, mismas claves (sha256 idénticos), Caddy sirve y los clientes **siguen confiando** sin tocar nada |
-| Se restaura **sin** `.caseal` | los datos se restauran; Caddy **no** sirve (000). Salidas: traer el `.caseal` del remoto y `restore-ca-key.sh`, o rotar la CA (§4.5 del doc DR: borrar `caddy/pki`, Caddy genera una nueva, redistribuir `root.crt`) |
+| Se restaura **sin** `.caseal` | los datos se restauran pero `restore-files.sh` **termina con rc 9** (la CA quedó incompleta; con `--skip-ca-key` es explícito y termina 0); Caddy **no** sirve (000). Salidas: traer el `.caseal` del remoto y `restore-ca-key.sh`, o rotar la CA (§4.5 del doc DR: borrar `caddy/pki`, Caddy genera una nueva, redistribuir `root.crt`) |
+| Backup en modo `seal` con CA incompleta (certificados sin claves) | rc 5, el tar se descarta |
+| Enlace simbólico plantado en el destino (temporal o directorio padre) | rc 9 (`ca-unseal` rc 5): se rechaza, no se escribe nada fuera del destino autorizado |
 | Clave de sellado **incorrecta** | rc 9, mensaje "clave de sellado incorrecta o archivo corrupto", **no se escribe nada**, la salida no contiene secretos |
 | `.caseal` **alterado** (1 byte) | rechazado (cifrado autenticado), no se escribe nada |
 | `.caseal` **malicioso** (enlace, ruta ajena, extensión no `.key`) sellado con la clave real | rechazado por la validación de contenido, volumen intacto |
@@ -115,5 +122,8 @@ custodio y la migración de los respaldos existentes quedan **reservados al prop
 
 ## 8. Pruebas
 
-* `scripts/backup/test-ca-key-custody.sh` (~4 min, SQL Server real + Caddy real; CI: job `custodia-clave-ca` de `backup-dr-rotacion.yml`): ver resultados al final.
+* `scripts/backup/test-ca-key-custody.sh` (~5 min, SQL Server real + Caddy real; CI: job `custodia-clave-ca` de `backup-dr-rotacion.yml`): última corrida 2026-11-14: **105 PASS, 0 FAIL** (stack aislado, sin residuos).
 * `scripts/backup/test-check-custody.sh` (55) y `scripts/backup/test-hardening.sh` (77) siguen en verde.
+* Revisión adversarial independiente (Codex, solo lectura, worktree idéntico antes y después): 5 hallazgos (4 altos, 1 medio), todos verificados contra el código y corregidos con prueba (enlace simbólico en el
+  temporal, errores de escritura que terminaban en `ok`, restore con rc 0 sin clave, seal que aceptaba una CA sin claves, C13 comparando solo contra un remoto llamado `secure`).
+  No cubierto por pruebas: fallo real de `chmod`/disco lleno durante la reposición (revisado por lectura; el código aborta con rc 5 y limpia temporales).

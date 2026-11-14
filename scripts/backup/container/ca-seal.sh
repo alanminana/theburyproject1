@@ -4,7 +4,11 @@
 # /backups/files/<tar>.caseal. El tar en claro solo existe como tuberia en memoria. La clave de sellado llega por el entorno
 # (RCLONE_CONFIG_CASEAL_PASSWORD / PASSWORD2, desde BACKUP_CA_SEAL_ENV, FUERA de BACKUP_DIR). Nunca imprime material de claves.
 # Verifica releyendo el resultado: descifra, y compara el sha256 del flujo en claro con el del origen.
-# Uso: ca-seal.sh <files_AAAA-MM-DD_HHMMSSZ.tar.gz>        Salida: ca_seal=ok entradas=N | ca_seal=none (no hay claves que sellar)
+# Fail-closed: una CA con certificados pero SIN sus claves (restore incompleto, volumen danado) o un error al enumerar NO es "nada que sellar":
+# falla (rc 3) para que backup.sh descarte el tar en vez de registrar un respaldo del que la CA no se puede recuperar.
+# Uso: ca-seal.sh <files_AAAA-MM-DD_HHMMSSZ.tar.gz>
+# Salida: ca_seal=ok entradas=N | ca_seal=none (Caddy aun no inicializo su CA: no hay certificados ni claves)
+# rc: 0 ok | 2 uso/precondicion | 3 CA incompleta, error al enumerar o verificacion fallida
 set -eu
 umask 077
 
@@ -23,8 +27,16 @@ out="$name.caseal"
 [ ! -e "/backups/files/$out" ] || { echo "ya existe $out: no se sobrescribe" >&2; exit 2; }
 
 cd /src/caddy-data
-find caddy/pki/authorities -type f -name '*.key' 2>/dev/null | sort >/tmp/lista || true
-if [ ! -s /tmp/lista ]; then echo "ca_seal=none (sin caddy/pki/authorities/*/*.key)"; exit 0; fi
+if [ ! -d caddy/pki/authorities ]; then echo "ca_seal=none (Caddy aun no creo caddy/pki/authorities)"; exit 0; fi
+find caddy/pki/authorities -type f \( -name '*.key' -o -name '*.crt' \) >/tmp/todo || { echo "no se pudo enumerar caddy/pki/authorities" >&2; exit 3; }
+sort /tmp/todo | grep -E '\.key$' >/tmp/lista || true
+sort /tmp/todo | grep -E '\.crt$' >/tmp/certs || true
+if [ ! -s /tmp/lista ] && [ ! -s /tmp/certs ]; then echo "ca_seal=none (sin certificados ni claves de CA)"; exit 0; fi
+# cada certificado de CA debe tener su clave (root.crt -> root.key, intermediate.crt -> intermediate.key)
+while IFS= read -r c; do
+  grep -qxF "${c%.crt}.key" /tmp/lista || { echo "CA incompleta: existe $c pero no su clave privada (${c%.crt}.key): no hay nada recuperable que sellar" >&2; exit 3; }
+done </tmp/certs
+[ -s /tmp/lista ] || { echo "CA incompleta: hay certificados pero ninguna clave privada" >&2; exit 3; }
 n=$(wc -l </tmp/lista)
 
 tar -cf - -T /tmp/lista | rclone rcat "caseal:$out.partial"

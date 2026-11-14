@@ -170,7 +170,7 @@ rclone_verify() {
 }
 
 # ca_unseal <files_*.tar.gz> [dryrun 0|1] [force 0|1]: repone (o, con dryrun, solo valida) la clave privada de la CA desde <tar>.caseal.
-# rc 0 ok | 2 sin clave de sellado legible o sin .caseal | 3 no descifra/contenido invalido | 4 clave distinta ya presente. Deja el texto en $CA_UNSEAL_OUT.
+# rc 0 ok | 2 sin clave de sellado legible o sin .caseal | 3 no descifra/contenido invalido | 4 clave distinta ya presente | 5 destino inseguro (enlaces) o fallo de escritura. Deja el texto en $CA_UNSEAL_OUT.
 CA_UNSEAL_OUT=""
 ca_unseal() {
   local archive=$1 dry=${2:-0} force=${3:-0} rc=0

@@ -268,10 +268,10 @@ if [[ "$BACKUP_CA_KEY" == "seal" && "$(cfg BACKUP_INCLUDE_CADDY true)" == "true"
       fail C13 "la clave de sellado esta dentro de BACKUP_DIR o del directorio offsite: viajaria con los respaldos"; c13=0
     fi
     # independencia: ninguna password de sellado puede coincidir con una del offsite (ni en claro ni ofuscada) ni ser el mismo archivo
-    for v in "$sp1" "$sp2"; do
-      for k in RCLONE_CONFIG_SECURE_PASSWORD RCLONE_CONFIG_SECURE_PASSWORD2; do
-        if [[ -n "$v" && "$v" == "$(ofv "$k")" ]]; then fail C13 "una password de la clave de sellado coincide con una del offsite (sin independencia de custodia)"; c13=0; break 2; fi
-      done
+    for v in "$sp1" "$sp2"; do   # SECURE_PW/SECURE_PW2 = passwords del remoto ACTIVO (prefijo de BACKUP_REMOTE, no necesariamente "secure")
+      if [[ -n "$v" && ( "$v" == "$SECURE_PW" || "$v" == "$SECURE_PW2" ) ]]; then
+        fail C13 "una password de la clave de sellado coincide con una del remoto crypt activo (sin independencia de custodia)"; c13=0; break
+      fi
     done
     if [[ -e "$OFFSITE_ENV" && "$(readlink -f "$seal" 2>/dev/null)" == "$(readlink -f "$OFFSITE_ENV" 2>/dev/null)" ]]; then fail C13 "la clave de sellado es el mismo archivo que backup-offsite.env"; c13=0; fi
     (( c13 )) && say "C13 clave de sellado de la CA presente, privada e independiente (su COPIA de custodia fuera del servidor no se puede comprobar desde aqui)"

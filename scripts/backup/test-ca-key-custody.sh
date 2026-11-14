@@ -182,7 +182,7 @@ run_script check-custody.sh --no-status; check "a: check-custody avisa C12 (WARN
 section "a2. BACKUP_INCLUDE_CADDY=false ahora SI excluye caddy-data (antes el valor no llegaba al contenedor)"
 sleep 1
 BACKUP_INCLUDE_CADDY=false run_script backup.sh files; expect_rc "a2: backup files con BACKUP_INCLUDE_CADDY=false" 0
-TAR_A2=$(tools sh -c 'ls -1 /backups/files/files_*.tar.gz | tail -n1 | xargs basename' | tr -d '
+TAR_A2=$(tools sh -c 'ls -1 /backups/files/files_*.tar.gz | tail -n1 | xargs basename' | tr -d '\r
 ')
 check "a2: el tar NO contiene caddy-data (ni la clave ni los certificados)" bash -c '! grep -q "caddy-data" <<<"$1"' _ "$(tar_list "$TAR_A2")"
 
@@ -249,8 +249,10 @@ section "e. restauracion SIN la clave (sin .caseal): Caddy no sirve; con el .cas
 dcq rm -sf caddy >/dev/null 2>&1
 BLOB="$BACKUP_DIR/files/$TAR_B.caseal"
 mv "$BLOB" "$T/blob.guardado"
-run_script restore-files.sh --archive "$TAR_B" --force; expect_rc "e: restore-files sin .caseal restaura el resto" 0
-check "e: advierte root.crt sin root.key (sin .caseal)" out_has 'SIN root.key'
+run_script restore-files.sh --archive "$TAR_B" --force; expect_rc "e: restore-files sin .caseal restaura el resto pero FALLA (la CA quedo incompleta)" 9
+check "e: explica root.crt SIN root.key y como seguir" out_has 'SIN root.key'
+check "e: los datos SI se restauraron (keys/uploads/appdata)" bash -c '[[ "$(vols sh -c "cat /dst/keys/leeme.txt" | tr -d "\r")" == "sintetico keys" ]]'
+run_script restore-files.sh --archive "$TAR_B" --force --skip-ca-key; expect_rc "e: con --skip-ca-key (intencional) el restore termina OK" 0
 check "e: la clave NO esta en el volumen" test -z "$(vhash "$CA_DIR/root.key")"
 caddy_up; sleep 8
 check "e: sin root.key Caddy NO sirve TLS (000): excluir la clave sin custodia seria un outage" test "$(cl_code /ca-orig.crt)" = 000
@@ -299,6 +301,19 @@ check "f: los rechazos explican que el contenido es inesperado" bash -c 'grep -l
 check "f: el volumen no recibio nada de los blobs maliciosos" test -z "$(vhash "$CA_DIR/root.key")$(vhash "$CA_DIR/otro.txt")"
 run_script restore-ca-key.sh --archive "$TAR_B" --dry-run; expect_rc "f: --dry-run con la custodia correcta valida sin escribir" 0
 check "f: --dry-run no escribio nada" test -z "$(vhash "$CA_DIR/root.key")"
+# CA incompleta (root.crt sin claves, como tras un restore incompleto): seal NO la acepta como respaldo valido
+NB2=$(tar_count)
+sleep 1
+run_script backup.sh files; expect_rc "f: backup seal con CA INCOMPLETA (certificados sin claves) falla" 5
+check "f: explica CA incompleta y descarta el tar" bash -c 'grep -q "CA incompleta" "$1" && [[ "$(tar_count)" == "$2" ]]' _ "$OUT" "$NB2"
+# enlace simbolico plantado en el destino (tar de archivos manipulado): la clave NO debe salir del area excluida
+vols sh -c "ln -s /dst/caddy-data/filtrada.txt /dst/caddy-data/$CA_DIR/root.key.tmp.key"
+run_script restore-ca-key.sh --archive "$TAR_B"; expect_rc "f: enlace simbolico en el temporal del destino: se rechaza" 9
+check "f: la clave NO se escribio en filtrada.txt ni en ninguna parte" bash -c '[[ -z "$(vhash filtrada.txt)" && -z "$(vhash "$1/root.key")" ]]' _ "$CA_DIR"
+vols sh -c "rm -f /dst/caddy-data/$CA_DIR/root.key.tmp.key; mkdir -p /dst/caddy-data/real; rm -rf /dst/caddy-data/$CA_DIR; ln -s /dst/caddy-data/real /dst/caddy-data/$CA_DIR"
+run_script restore-ca-key.sh --archive "$TAR_B"; expect_rc "f: directorio padre que es un enlace simbolico: se rechaza" 9
+check "f: nada se escribio a traves del enlace" test -z "$(vols sh -c 'ls /dst/caddy-data/real' | tr -d '\r')"
+vols sh -c "rm -f /dst/caddy-data/$CA_DIR; mkdir -p /dst/caddy-data/$CA_DIR; rmdir /dst/caddy-data/real"
 docker run --rm --network none -v "$BACKUP_DIR/files:/f" "$ALPINE_IMAGE" sh -c "rm -f /f/files_2099-*" >/dev/null 2>&1
 
 # ---------------------------------------------------------------------------------------------------------- h
@@ -335,9 +350,9 @@ for d in 85 75; do
   head -c 200 /dev/urandom | dcq run --rm -T --no-deps backup-offsite rcat "secure:erp/files/$n.sha256" >/dev/null 2>&1
   head -c 200 /dev/urandom | dcq run --rm -T --no-deps backup-offsite rcat "secure:erp/files/$n.caseal" >/dev/null 2>&1
 done
-check "i: el remoto tiene ahora los 2 tars sinteticos viejos con su .caseal" bash -c '[[ "$(rc lsf secure:erp/files | tr -d "" | grep -c "caseal$")" -ge 3 ]]'
+check "i: el remoto tiene ahora los 2 tars sinteticos viejos con su .caseal" bash -c '[[ "$(rc lsf secure:erp/files | tr -d "\r" | grep -c "caseal$")" -ge 3 ]]'
 run_script backup.sh files; expect_rc "i: backup con retencion local y remota" 0
-DEL=$(rc lsf secure:erp/files | tr -d '')
+DEL=$(rc lsf secure:erp/files | tr -d '\r')
 for n in "${RMT[@]}"; do
   check "i: remoto: $n y su .sha256 y su .caseal fueron BORRADOS por la retencion" bash -c '! grep -qF -- "$1" <<<"$2"' _ "$n" "$DEL"
 done
@@ -354,6 +369,14 @@ chmod 600 "$SEAL_ENV"
 BACKUP_CA_SEAL_ENV="$T/seal/no-existe.env" run_script check-custody.sh --no-status --quiet; check "j: C13 FALLA con seal sin clave de sellado legible" out_has '^FAIL C13'
 sed "s/RCLONE_CONFIG_SECURE_/RCLONE_CONFIG_CASEAL_/" "$OFFSITE_ENV" >"$T/seal/mismo.env"; chmod 600 "$T/seal/mismo.env"
 BACKUP_CA_SEAL_ENV="$T/seal/mismo.env" run_script check-custody.sh --no-status --quiet; check "j: C13 FALLA si la clave de sellado es el propio backup-offsite.env (no hay independencia)" out_has '^FAIL C13'
+
+# el remoto activo NO se llama "secure": C13 debe comparar contra SU password (BACKUP_REMOTE=archivo:... -> RCLONE_CONFIG_ARCHIVO_*)
+printf 'RCLONE_CONFIG_ARCHIVO_TYPE=crypt
+RCLONE_CONFIG_ARCHIVO_PASSWORD=%s
+RCLONE_CONFIG_ARCHIVO_PASSWORD2=%s
+' "$OBS_P1" "$OBS_P2" >"$T/seal/otro-offsite.env"; chmod 600 "$T/seal/otro-offsite.env"
+BURY_OFFSITE_ENV_FILE="$T/seal/otro-offsite.env" BACKUP_REMOTE='archivo:erp' BACKUP_CA_SEAL_ENV="$T/seal/mismo.env" run_script check-custody.sh --no-status --quiet
+check "j: C13 compara contra el remoto crypt ACTIVO aunque no se llame secure" out_has '^FAIL C13 .*remoto crypt activo'
 
 echo
 echo "ca-key custody: $PASS PASS, $FAIL FAIL"

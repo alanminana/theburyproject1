@@ -69,9 +69,12 @@ elif [[ "$has_blob" == si ]]; then
   fi
   log INFO "clave de la CA repuesta desde $ARCHIVE.caseal: $CA_UNSEAL_OUT"
 else
-  miss=$(dc run --rm -T --no-deps --quiet-pull restore-files sh -c 'd=/dst/caddy-data/caddy/pki/authorities/local; if [ -s "$d/root.crt" ] && [ ! -s "$d/root.key" ]; then echo falta; fi' </dev/null 2>/dev/null | tr -d '\r' || true)
+  miss=""; miss=$(dc run --rm -T --no-deps --quiet-pull restore-files sh -c 'd=/dst/caddy-data/caddy/pki/authorities/local; if [ -s "$d/root.crt" ] && [ ! -s "$d/root.key" ]; then echo falta; else echo ok; fi' </dev/null 2>/dev/null | tr -d '\r') || miss=error
+  # Un restore "OK" que deja a Caddy sin su clave NO es un restore OK: un proceso de recuperacion que avance daria por recuperado un servicio sin TLS.
   if [[ "$miss" == falta ]]; then
-    log WARN "caddy-data restaurado con root.crt pero SIN root.key y sin $ARCHIVE.caseal: Caddy no arrancara. Opciones: traer el .caseal del remoto y usar restore-ca-key.sh, o rotar la CA (docs/backup-ca-key-custodia.md)"
+    die $EX_RESTORE "archivos restaurados, pero caddy-data quedo con root.crt SIN root.key y no hay $ARCHIVE.caseal: Caddy no arrancara. Traer el .caseal del remoto y usar restore-ca-key.sh, rotar la CA (docs/backup-ca-key-custodia.md), o repetir con --skip-ca-key si es intencional"
+  elif [[ "$miss" != ok ]]; then
+    die $EX_RESTORE "archivos restaurados, pero no se pudo comprobar el estado de la clave de la CA (docker fallo): verificar a mano antes de arrancar Caddy"
   fi
 fi
 log INFO "=== restore-files OK ==="
