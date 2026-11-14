@@ -20,6 +20,7 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 - `csharp-testing`
 - `security-review`
 - `codex-review-protocolo`
+- `integracion-por-tandas`
 
 `ui-module` es una skill manual (`disable-model-invocation`): Claude no la activa sola. `/ui-module <módulo>` es el pipeline completo de auditoría UX/UI, implementación, QA visual y polish de una pantalla existente (ver "UX/UI especializado").
 
@@ -121,6 +122,10 @@ Para un rediseño visual coherente, preferir:
 Usar micro-lotes únicamente cuando exista un riesgo funcional, técnico o de regresión que justifique separarlos.
 
 No fragmentar artificialmente una misma mejora visual en múltiples lotes.
+
+## Integración, Git y CI
+
+Rigen "Autonomía y autorizaciones" e "Integración por tandas y CI" de `AGENTS.md` (fuente única; no se duplican aquí) y `.claude/skills/integracion-por-tandas/SKILL.md`. Claude coordina y ejecuta commits, PR, CI y fusiones normales sin pedir permiso por operación Git; consulta solo lo listado como "requiere autorización". En este archivo, "proponer commit" y `Listo para commit` son **estados de cierre** (gates cumplidos), no una espera de permiso: cumplidos los gates, Claude commitea por su cuenta.
 
 ## MCP
 
