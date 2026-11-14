@@ -651,6 +651,30 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(_cliente.Id, venta.ClienteId);
     }
 
+    // P-02 / P5: la venta nacida de una cotización congela versión fiscal y alícuota de servicios (no queda null).
+    [Fact]
+    public async Task Convertir_EstampaVersionFiscalYAlicuotaDeServicios_YUnCambioPosteriorDeConfiguracionNoLaAltera()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        TheBuryProject.Models.Entities.Venta venta;
+        using (TheBuryProject.Services.ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(10.5m))
+        {
+            var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+            Assert.True(resultado.Exitoso);
+            _context.ChangeTracker.Clear();
+            venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.VentaId);
+        }
+
+        Assert.Equal(TheBuryProject.Helpers.CriterioFiscalRegistry.VersionVigente, venta.CriterioFiscalVersion);
+        Assert.Equal(10.5m, venta.AlicuotaServiciosSnapshot);   // la configuración de ESE momento
+
+        using (TheBuryProject.Services.ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(21m))
+            Assert.Equal(10.5m, TheBuryProject.Helpers.CriterioFiscalRegistry.Resolver(venta).AlicuotaServicios);
+    }
+
     [Fact]
     public async Task Convertir_AplicaComisionDelProductoEnCadaLinea()
     {
