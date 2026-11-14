@@ -65,3 +65,17 @@ Reensayo: `-CrearClon -Ejecutar -Limpiar` con `P03_ADMIN_PASSWORD` (contraseña 
 - Las cuentas con correos personales conservan hoy contraseñas desconocidas: hasta el paso 6 son una superficie de acceso (roles Administrador/Cajero/Vendedor).
 - El mínimo de 10 caracteres depende de arrancar en Production; en Development cualquier clave de 6 es válida.
 - Ejecutar el procedimiento en la base real sin respaldo previo no tiene reversión directa (rotar contraseñas y desactivar usuarios solo se deshace desde la propia app o restaurando).
+
+## 6. Revisión 2026-11-12: ensayo sintético automatizado (sin clon, sin tocar TheBuryProjectDb)
+
+Prueba nueva `TransicionCuentasCookieHttpTests` (SQLite descartable, pipeline real de cookie, acciones administrativas reales por HTTP), que corre en CI siempre:
+
+| Escenario | Verificado en el siguiente request de la sesión ya abierta |
+|---|---|
+| Rotar la clave de una cuenta SuperAdmin | su sesión previa cae (401); la clave vieja no ingresa; la nueva sí |
+| Dar de baja la cuenta demo con ≥ 2 SuperAdmin | sesión revocada; no hay login; quedan 2 SuperAdmin utilizables |
+| Último SuperAdmin: desactivar y eliminar | rechazados; conserva rol, sesión y acceso |
+| Recuperación: reactivar al otro SuperAdmin | vuelve con login nuevo; la cookie vieja no revive |
+| Degradación (quitar SuperAdmin, poner Vendedor) | la **misma cookie** pasa de 200 a 403 sin relogin (los roles se releen de la base en cada request) |
+
+Resultado de la revisión de P-03: **sin vulnerabilidades técnicas nuevas confirmadas**. Defecto 1 de §3 (límite de 10 letras por palabra en Nombre/Apellido) sigue siendo una decisión de producto, no de seguridad. `vendedor2` no se tocó (ver `docs/vendedor2-eliminacion.md`).
