@@ -4,17 +4,19 @@
 #   scripts/backup/restore-files.sh --list
 #   scripts/backup/restore-files.sh --archive files_2026-09-21_230000Z.tar.gz [--force]
 #
+# Con BACKUP_CA_KEY=seal repone ademas la clave de la CA desde <tar>.caseal (BACKUP_CA_SEAL_ENV); --skip-ca-key lo omite.
 # Requiere `app` DETENIDA (si no, podria escribir mientras se restaura y generar claves nuevas).
 # Sin --force ABORTA si algun volumen destino ya tiene contenido; con --force lo VACIA y restaura (borra lo que hubiera).
 # Verifica sha256 y la integridad del tar antes de tocar nada. Codigos: 0 ok | 1 uso | 8 prerequisito | 9 restore rechazado/fallido
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-ARCHIVE="" FORCE=0 LIST=0
+ARCHIVE="" FORCE=0 LIST=0 SKIP_CA=0
 while (( $# )); do
   case "$1" in
     --archive) ARCHIVE="${2:-}"; shift 2 ;;
     --force) FORCE=1; shift ;;
+    --skip-ca-key) SKIP_CA=1; shift ;;
     --list) LIST=1; shift ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) die $EX_USAGE "argumento desconocido: $1" ;;
@@ -54,4 +56,25 @@ if ! out=$(dc run --rm -T --no-deps --quiet-pull -e FORCE="$FORCE" restore-files
   log ERROR "$out"; die $EX_RESTORE "restore-files fallo"
 fi
 while IFS= read -r l; do log INFO "  $l"; done <<<"$out"
+# Clave privada de la CA de Caddy: con BACKUP_CA_KEY=seal viaja aparte en <tar>.caseal (el tar NO la contiene). Se repone con la clave de
+# sellado (custodia independiente). Sin root.key, Caddy NO arranca aunque exista root.crt (probado: test-dr-integral d6).
+has_blob=$(tools sh -c 'test -s "/backups/files/$0.caseal" && echo si || echo no' "$ARCHIVE" 2>/dev/null | tr -d '\r' || true)
+if (( SKIP_CA )); then
+  log WARN "--skip-ca-key: no se repone la clave de la CA (Caddy no arrancara con la CA restaurada: rotarla o reponer la clave con restore-ca-key.sh)"
+elif [[ "$has_blob" == si ]]; then
+  carc=0; ca_unseal "$ARCHIVE" 0 "$FORCE" || carc=$?
+  if (( carc != 0 )); then
+    log ERROR "$CA_UNSEAL_OUT"
+    die $EX_RESTORE "archivos restaurados, pero la clave privada de la CA NO se repuso (rc=$carc). Caddy no arrancara hasta resolverlo: restore-ca-key.sh --archive $ARCHIVE con la clave de sellado correcta, o rotar la CA (docs/backup-ca-key-custodia.md)"
+  fi
+  log INFO "clave de la CA repuesta desde $ARCHIVE.caseal: $CA_UNSEAL_OUT"
+else
+  miss=""; miss=$(dc run --rm -T --no-deps --quiet-pull restore-files sh -c 'bad=0; for c in /dst/caddy-data/caddy/pki/authorities/*/*.crt; do [ -e "$c" ] || continue; [ -s "${c%.crt}.key" ] || bad=1; done; if [ "$bad" = 1 ]; then echo falta; else echo ok; fi' </dev/null 2>/dev/null | tr -d '\r') || miss=error
+  # Un restore "OK" que deja a Caddy sin su clave NO es un restore OK: un proceso de recuperacion que avance daria por recuperado un servicio sin TLS.
+  if [[ "$miss" == falta ]]; then
+    die $EX_RESTORE "archivos restaurados, pero caddy-data quedo con root.crt SIN root.key y no hay $ARCHIVE.caseal: Caddy no arrancara. Traer el .caseal del remoto y usar restore-ca-key.sh, rotar la CA (docs/backup-ca-key-custodia.md), o repetir con --skip-ca-key si es intencional"
+  elif [[ "$miss" != ok ]]; then
+    die $EX_RESTORE "archivos restaurados, pero no se pudo comprobar el estado de la clave de la CA (docker fallo): verificar a mano antes de arrancar Caddy"
+  fi
+fi
 log INFO "=== restore-files OK ==="

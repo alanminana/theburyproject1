@@ -463,12 +463,48 @@ def event_stream(config, store, stop, processes):
         stop.wait(10)
 
 
+def test_channel(now=None, deliver=send, ping=http_ok):
+    """Comprueba el canal de alertas SIN tocar el estado ni los umbrales: envia al receptor configurado un par de eventos
+    sinteticos (key monitor.test, firing y luego resolved, severidad WARNING) y, si hay URL de heartbeat, un ping `up`.
+    No imprime URLs ni tokens. Devuelve el codigo de salida: 0 todo entregado, 1 alguna entrega fallo, 2 sin webhook configurado."""
+    now = time.time() if now is None else now
+    report = {"webhook": "no configurado", "resolved": "no enviado", "heartbeat": "no configurado"}
+    if not os.environ.get("BURY_MONITOR_WEBHOOK"):
+        print(json.dumps(report), flush=True)
+        return 2
+    base = {"key": "monitor.test", "severity": "WARNING", "time": now}
+    firing = deliver({**base, "event_id": str(uuid.uuid4()), "status": "firing", "detail": "prueba de canal: no es un incidente real"})
+    resolved = deliver({**base, "event_id": str(uuid.uuid4()), "status": "resolved", "severity": "INFO", "detail": "prueba de canal: fin de la prueba"})
+    report["webhook"] = "entregado" if firing else "FALLO"
+    report["resolved"] = "entregado" if resolved else "FALLO"
+    ok = bool(firing and resolved)
+    heartbeat = os.environ.get("BURY_MONITOR_HEARTBEAT")
+    if heartbeat:
+        try:  # la excepcion de urllib puede incluir partes de la URL (token): nunca se imprime
+            parts = urllib.parse.urlsplit(heartbeat)
+            query = dict(urllib.parse.parse_qsl(parts.query))
+            query.update(status="up", msg="prueba de canal")
+            up = ping(urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query))))
+        except Exception:
+            up = False
+        report["heartbeat"] = "entregado" if up else "FALLO"
+        ok = ok and bool(up)
+    print(json.dumps(report), flush=True)
+    return 0 if ok else 1
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True)
+    parser.add_argument("--config")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--ack-oom", choices=SERVICES)
+    parser.add_argument("--test-channel", action="store_true",
+                        help="envia eventos de prueba al webhook/heartbeat configurados y termina (0 ok, 1 fallo, 2 sin webhook)")
     args = parser.parse_args()
+    if args.test_channel:
+        raise SystemExit(test_channel())
+    if not args.config:
+        parser.error("--config es obligatorio")
     cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
     path = Path(cfg["state_dir"])
     path.mkdir(parents=True, exist_ok=True)

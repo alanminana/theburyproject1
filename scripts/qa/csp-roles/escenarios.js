@@ -36,17 +36,24 @@ const defs = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'lib.j
   if (!h[esperada] || h[contraria]) { console.error(`FALLA: la app no sirve ${esperada} (o tambien sirve la otra). Levantar el stack con Csp__Mode=${modo === 'enforce' ? 'Enforce' : 'ReportOnly'}.`); process.exit(3); }
   await sonda.close();
 
-  const auth = await browser.newContext({ viewport: { width: vw, height: vh } });
-  await login(await auth.newPage(), BASE);
-  const estado = await auth.storageState();
-  await auth.close();
+  // Un storageState por usuario (por defecto 'administrador'); D-05 usa 'admin' (SuperAdmin) para las escrituras con configuracion.update.
+  const estados = {};
+  const estadoDe = async (usuario) => {
+    if (!estados[usuario]) {
+      const auth = await browser.newContext({ viewport: { width: vw, height: vh } });
+      await login(await auth.newPage(), BASE, usuario);
+      estados[usuario] = await auth.storageState();
+      await auth.close();
+    }
+    return estados[usuario];
+  };
 
   const resultados = [];
   let ejecutados = 0;
   for (const def of defs) {
     if (solo && !solo.test(def.nombre)) continue;
     ejecutados++;
-    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, locale: 'es-AR', storageState: estado, serviceWorkers: 'block', acceptDownloads: true });
+    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, locale: 'es-AR', storageState: await estadoDe(def.usuario || 'administrador'), serviceWorkers: 'block', acceptDownloads: true });
     const E = new Escenario(def.nombre, ctx, { base: BASE, modo });
     E.escribe = !!def.escribe;
     ctx.__escActual = E;

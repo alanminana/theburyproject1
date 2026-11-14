@@ -181,11 +181,28 @@ sql_log() {
 files_backup() {
   local name="files_$(utc_stamp).tar.gz" out
   name_free files "$name" $EX_FILES || return 1
-  log INFO "backup de archivos -> $name (caddy-data: $BACKUP_INCLUDE_CADDY)"
-  if ! out=$(tools sh /opt/bury-backup/files-backup.sh "$name" 2>&1); then
+  local seal=0
+  [[ "$BACKUP_CA_KEY" == seal && "$BACKUP_INCLUDE_CADDY" == true ]] && seal=1
+  if (( seal )); then
+    # Fail-closed ANTES de tocar nada: sin clave de sellado legible el backup no puede cumplir la politica (no se degrada a `include`).
+    [[ -n "$BACKUP_CA_SEAL_ENV" && -r "$BACKUP_CA_SEAL_ENV" ]]       || { fail $EX_FILES "BACKUP_CA_KEY=seal pero BACKUP_CA_SEAL_ENV no esta definido o no es legible: no se respalda caddy-data (crear la clave con scripts/backup/ca-seal-init.sh)"; return 1; }
+  fi
+  log INFO "backup de archivos -> $name (caddy-data: $BACKUP_INCLUDE_CADDY, clave de la CA: $([[ $seal == 1 ]] && echo sellada || echo en-el-tar))"
+  # El modo viaja EXPLICITO al contenedor (compose no pasa el entorno del host a backup-files).
+  if ! out=$(dc run --rm -T --no-deps --quiet-pull -e BACKUP_INCLUDE_CADDY="$BACKUP_INCLUDE_CADDY" -e BACKUP_CA_KEY="$BACKUP_CA_KEY"                backup-files sh /opt/bury-backup/files-backup.sh "$name" 2>&1); then
     log ERROR "$out"; fail $EX_FILES "backup de archivos fallo ($name)"; return 1
   fi
   log INFO "backup de archivos OK: $out"
+  if (( seal )); then
+    local sout
+    if ! sout=$(dc run --rm -T --no-deps --quiet-pull ca-seal sh /opt/bury-backup/ca-seal.sh "$name" 2>&1); then
+      log ERROR "$(sanitize_text "$sout")"
+      # Un tar sin sus claves y sin sellado no cumple la politica elegida: no se deja como respaldo valido (se retira con su .sha256).
+      tools sh -c 'rm -f "/backups/files/$0" "/backups/files/$0.sha256" "/backups/files/$0.caseal.partial"' "$name" || true
+      fail $EX_FILES "sellado de la clave de la CA fallo: backup de archivos DESCARTADO ($name)"; return 1
+    fi
+    log INFO "clave de la CA: $sout"
+  fi
   RUN_FILES+=("$name")
   monitor_status files 0 true
 }
@@ -246,13 +263,16 @@ offsite() {
     if [[ $sub == sql ]]; then names=("${RUN_SQL[@]}"); else names=("${RUN_FILES[@]}"); fi
     (( ${#names[@]} > 0 )) || continue
     args=()
-    for n in "${names[@]}"; do args+=(--include "$n" --include "$n.sha256"); done
+    for n in "${names[@]}"; do
+      args+=(--include "$n" --include "$n.sha256")
+      if [[ $sub == files ]]; then args+=(--include "$n.caseal"); fi   # sellado de la clave de la CA (solo existe con BACKUP_CA_KEY=seal)
+    done
     if [[ $sub == files && -n "$RUN_SET" ]]; then args+=(--include "$RUN_SET"); fi
     # La SUBIDA cubre todos los backups locales con nombre valido (rclone copy omite lo que ya esta en el remoto): si una corrida
     # anterior no pudo subir un .trn (remoto caido), este lo repone y la cadena de logs remota no queda con un hueco permanente
     # (verificado 2026-10-29). La VERIFICACION sigue limitada a los archivos de esta corrida; el resto se comprueba con sha256 al descargar.
     if [[ $sub == sql ]]; then up=(--include "${DB_NAME}_full_*.bak" --include "${DB_NAME}_full_*.bak.sha256" --include "${DB_NAME}_log_*.trn" --include "${DB_NAME}_log_*.trn.sha256")
-    else up=(--include "files_*.tar.gz" --include "files_*.tar.gz.sha256" --include "set_*.txt"); fi
+    else up=(--include "files_*.tar.gz" --include "files_*.tar.gz.sha256" --include "files_*.tar.gz.caseal" --include "set_*.txt"); fi
     if (( REMOTE_RETENTION_DAYS > 0 )); then up+=(--max-age "${REMOTE_RETENTION_DAYS}d"); fi   # no resubir lo que la retencion remota borraria
     log INFO "copia externa: $sub -> ${BACKUP_REMOTE%%:*}:*/$sub (${#names[@]} archivo(s) de esta corrida + pendientes)"
     if ! dc run --rm -T --no-deps --quiet-pull backup-offsite copy "/backups/$sub" "$BACKUP_REMOTE/$sub" "${up[@]}" >/dev/null 2>"$BACKUP_DIR/logs/.offsite.err"; then
@@ -366,8 +386,8 @@ remote_retention() {
   local d done_n=0 rout target
   for d in "${dels[@]}"; do
     sub=${d%%|*}; n=${d#*|}
-    for target in "$n" "$n.sha256"; do
-      [[ "$target" == "$n" ]] || remote_list_has "$sub" _ "$target" || continue   # el .sha256 puede no existir (logs, manifiestos)
+    for target in "$n" "$n.sha256" "$n.caseal"; do
+      [[ "$target" == "$n" ]] || remote_list_has "$sub" _ "$target" || continue   # el .sha256 / .caseal pueden no existir (logs, manifiestos, modo include)
       if ! rout=$(dc run --rm -T --no-deps --quiet-pull backup-offsite deletefile "$BACKUP_REMOTE/$sub/$target" 2>&1); then
         fail $EX_OFFSITE "retencion remota INTERRUMPIDA tras borrar $done_n archivo(s); fallo en $sub/$target: $(rclone_errtext "$rout")"; return 1
       fi

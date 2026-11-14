@@ -3,7 +3,7 @@
 'use strict';
 
 const BASE = process.env.E2E_BASE_URL || '';
-const USERS = { administrador: 'Admin123!', gerente: 'Gerente123!', vendedor: 'Vendedor123!', cajero: 'Cajero123!', contador: 'Contador123!' };
+const USERS = { admin: 'Admin123!', administrador: 'Admin123!', gerente: 'Gerente123!', vendedor: 'Vendedor123!', cajero: 'Cajero123!', contador: 'Contador123!', repositor: 'Repositor123!', tecnico: 'Tecnico123!' };
 
 function assertEntorno() {
   if (process.env.CI) throw new Error('escenarios CSP: pensado para un stack QA local aislado; no corre en CI.');
