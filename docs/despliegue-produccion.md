@@ -156,7 +156,7 @@ Procedimiento: respaldo → ensayo en clon → habilitar y arrancar (o `--migrat
 
 ## 9. Dependencias y licencias de producción
 
-**AutoMapper (`AutoMapper` 16.1.1, paquete directo en `TheBuryProyect.csproj`; sin otras versiones transitivas).**
+**AutoMapper (`AutoMapper` 16.3.0, paquete directo en `TheBuryProyect.csproj`; sin otras versiones transitivas; actualizado desde 16.1.1 por GHSA-gpwp-5797-mjff y GHSA-6vhm-j9h7-f9gh).**
 Desde que Lucky Penny Software adquirió el proyecto, AutoMapper 15+ es dual-licencia:
 Reciprocal Public License 1.5 (RPL-1.5, código abierto pero con obligaciones recíprocas/copyleft)
 o licencia comercial por tiers de desarrolladores (Standard 1–10, Professional 11–50, Enterprise
