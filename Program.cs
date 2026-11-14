@@ -118,8 +118,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
 
 // 4. AutoMapper
-// AutoMapper 16.1.1 no autodetecta la variable de entorno con MapperConfiguration directo (verificado): la key se lee
-// aqui de configuracion externa (env AUTOMAPPER_LICENSE_KEY, user-secrets). Nunca se versiona ni se registra.
+// AutoMapper 16.1.1 no autodetectaba la variable de entorno con MapperConfiguration directo; desde 16.2.0 la usa como respaldo
+// (el valor explicito de cfg.LicenseKey tiene prioridad). Se mantiene la lectura explicita aqui, que ademas cubre user-secrets.
+// La key viene de configuracion externa (env AUTOMAPPER_LICENSE_KEY, user-secrets). Nunca se versiona ni se registra.
 var autoMapperLicenseKey = builder.Configuration["AUTOMAPPER_LICENSE_KEY"];
 builder.Services.AddSingleton<IMapper>(sp =>
 {
