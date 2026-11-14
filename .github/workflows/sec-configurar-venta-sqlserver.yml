@@ -96,6 +96,24 @@ jobs:
             --logger "console;verbosity=detailed" \
             --results-directory ./TestResults
 
+      # Arranque en Production con la base inexistente (servidor accesible): debe terminar con exit 1 y no crear la base.
+      # Corre una sola vez (rcsi=0): no depende del aislamiento. Un omitido no es un aprobado: se exigen 2 Passed.
+      - name: Arranque Production sin base (exit 1, no crea la base)
+        if: matrix.rcsi == '0'
+        run: |
+          set -euo pipefail
+          export QA_ARRANQUE_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};User Id=sa;Password=${SA_PW};TrustServerCertificate=True;Encrypt=False"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~ArranqueProductionSinBaseTests" \
+            --logger "trx;LogFileName=arranque-production-sin-base.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./TestResults-arranque
+          TRX=./TestResults-arranque/arranque-production-sin-base.trx
+          PASSED=$(grep -o '<UnitTestResult [^>]*outcome="Passed"' "$TRX" | wc -l)
+          TOTAL=$(grep -o '<UnitTestResult ' "$TRX" | wc -l)
+          echo "Total=$TOTAL Passed=$PASSED (esperado 2/2)"
+          if [ "$TOTAL" != "2" ] || [ "$PASSED" != "2" ]; then echo "Arranque sin base: omitido o fallido"; exit 1; fi
+
       # Un omitido no es un aprobado: cada escenario debe figurar con outcome="Passed", y no puede haber
       # ningun resultado que no sea Passed ni ejecutarse un numero distinto del esperado.
       - name: Verificar que se ejecutaron (no omitidos)
