@@ -116,7 +116,7 @@ namespace TheBuryProject.Services
             var ventas = await context.Ventas
                 .AsNoTracking()
                 .Where(v => ventaIdsConDevolucion.Contains(v.Id))
-                .Select(v => new { v.Id, v.Total, v.IVA, v.CriterioFiscalVersion })
+                .Select(v => new { v.Id, v.Total, v.IVA, v.CriterioFiscalVersion, v.AlicuotaServiciosSnapshot })
                 .ToDictionaryAsync(v => v.Id);
 
             // El recargo de débito se excluye del ingreso de la venta (ver CalcularIngresoNeto): su parte proporcional
@@ -150,8 +150,9 @@ namespace TheBuryProject.Services
                     var base_ = lineasVenta.Sum(l => l.SubtotalFinal) + recargo;
                     var fraccion = base_ > 0m ? Math.Min(1m, d.TotalDevolucion / base_) : 0m;
                     // P-02 / P5: el reparto del recargo usa el criterio fiscal de la venta original.
-                    var criterioVenta = CriterioFiscalRegistry.Resolver(
-                        ventas.TryGetValue(d.VentaId, out var ventaDev) ? ventaDev.CriterioFiscalVersion : CriterioFiscalRegistry.VersionInicial);
+                    var criterioVenta = ventas.TryGetValue(d.VentaId, out var ventaDev)
+                        ? CriterioFiscalRegistry.Resolver(ventaDev.CriterioFiscalVersion, ventaDev.AlicuotaServiciosSnapshot)
+                        : CriterioFiscalRegistry.Resolver(CriterioFiscalRegistry.VersionInicial);
                     var netoRecargo = criterioVenta
                         .Repartir(lineasVenta.Select(l => (l.PorcentajeIVA, l.SubtotalFinal)), recargo)
                         .Sum(p => p.Neto);
@@ -176,7 +177,7 @@ namespace TheBuryProject.Services
             if (recargoDebitoAplicado <= 0m)
                 return neto;
 
-            var netoRecargo = CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion)
+            var netoRecargo = CriterioFiscalRegistry.Resolver(venta)
                 .Repartir(detallesValidos.Select(d => (d.PorcentajeIVA, d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal)), recargoDebitoAplicado)
                 .Sum(p => p.Neto);
             if (netoRecargo <= 0m)
