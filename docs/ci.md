@@ -235,9 +235,32 @@ build-test
 docker-build
 compose-validate
 secret-scan
+test            # workflow "Playwright Tests"
 ```
 
+Son cinco los checks obligatorios vigentes en `main` (verificado con `gh api repos/:owner/:repo/branches/main/protection/required_status_checks`).
+
 `build-test-windows` **no** deberia ser required check (es informativo, `continue-on-error: true`).
+
+## Politica de integracion por tandas
+
+Cada push a una rama con PR abierta dispara `ci.yml` y `playwright.yml` completos. Para reducir minutos sin tocar gates: pruebas focalizadas locales, commits locales intermedios (permitidos), una revision de Codex por tanda, **una PR por tanda compatible** y un unico push de la tanda validada; el CI completo corre sobre el commit final. Los cinco checks obligatorios nunca se omiten y, si cambia el commit, se esperan los del nuevo SHA. Procedimiento y diagnostico de fallos: `.claude/skills/integracion-por-tandas/SKILL.md`; autorizaciones: `AGENTS.md`.
+
+## Optimizacion de tiempos (propuestas, sin aplicar)
+
+Auditoria de `ci.yml` y `playwright.yml` (2026-11-14). Ya existen: `concurrency` con `cancel-in-progress`, cache NuGet, cache `type=gha` de Docker en `docker-build`. Ninguna propuesta se aplica sin evaluarla; las que cambian cuando corre un check requerido deben preservar un estado verde real (un check requerido que no corre queda `Pending` y bloquea el merge).
+
+| # | Propuesta | Ahorro estimado | Riesgo / condicion |
+|---|---|---|---|
+| 1 | `playwright.yml`: cache de `~/.npm` (`setup-node` con `cache: npm`) y de browsers de Playwright (`~/.cache/ms-playwright`, clave por `package-lock.json`) | 1-3 min por corrida | Bajo; no toca checks requeridos |
+| 2 | `build-test-windows` (informativo, 8,7-14,5 min, `continue-on-error`): correrlo solo en `push` a `main` y `workflow_dispatch`, no en cada PR | 9-14 min de runner por push de PR | Bajo: no es check requerido; se pierde paridad Windows en PR |
+| 3 | `playwright.yml`: cache de capas Docker de la imagen `app` (`type=gha`) en lugar de `compose up --build` sin cache | varios min | Medio: ajustar el overlay compose |
+| 4 | `playwright.yml` recompila `TheBuryProyect.Tests` en Release aunque `ci.yml` ya lo hizo: compartir `obj/bin` por cache con clave por `hashFiles` de fuentes, o unir en un workflow con `needs` | 1-2 min | Medio: workflows distintos |
+| 5 | Particionar los tests .NET en 2 jobs paralelos con `--filter` | segun suite (~6000 tests) | Medio: nuevos nombres de job obligan a actualizar la proteccion de `main` (consulta previa) |
+| 6 | `paths-ignore` para `docs/**` y `*.md` | evita CI completo en PRs documentales | **Alto**: requiere un job "gate" que siempre reporte los cinco nombres; consulta previa por tocar la proteccion de `main` |
+| 7 | PRs en Draft sin CI (`draft == false` + `ready_for_review`) | elimina corridas durante el desarrollo | **Alto**: mismo problema de checks pendientes; la politica de tandas (un push por tanda) logra casi lo mismo sin tocar workflows |
+
+Recomendacion: aplicar primero 1 y 2 (bajo riesgo, en una PR propia) y decidir 5-7 con el propietario.
 
 ## Ejecucion local
 
