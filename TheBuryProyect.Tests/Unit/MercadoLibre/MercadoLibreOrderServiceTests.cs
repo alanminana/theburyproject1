@@ -443,6 +443,30 @@ public class MercadoLibreOrderServiceTests : IDisposable
         Assert.True(await _context.MercadoLibreSyncLogs.AnyAsync(l => l.Operacion == "OrderToVenta" && l.Exito));
     }
 
+    // P-02 / P5: la venta de Mercado Libre congela versión fiscal y alícuota de servicios, y un cambio posterior de la
+    // configuración no altera cómo se relee.
+    [Fact]
+    public async Task CrearVenta_OrdenPaga_EstampaVersionFiscalYAlicuota_YUnCambioDeConfiguracionNoLaAltera()
+    {
+        var (_, _, _, itemId) = await SembrarBaseAsync(stockInicial: 10m);
+        var orderId = await SembrarOrdenAsync(itemId, 1001, cantidad: 1, precio: 1210m);
+
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
+        using (ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(10.5m))
+        {
+            var resultado = await _servicio.CrearVentaInternaAsync(orderId, "tester");
+            Assert.True(resultado.VentaCreada);
+        }
+
+        var venta = await _context.Ventas.AsNoTracking().SingleAsync();
+        Assert.Equal(2, venta.CriterioFiscalVersion);
+        Assert.Equal(10.5m, venta.AlicuotaServiciosSnapshot);
+
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
+        using (ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(21m))
+            Assert.Equal(10.5m, TheBuryProject.Helpers.CriterioFiscalRegistry.Resolver(venta).AlicuotaServicios);
+    }
+
     [Fact]
     public async Task CrearVenta_DosVeces_NoDuplicaVentaNiStock()
     {
