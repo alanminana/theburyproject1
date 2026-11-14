@@ -295,6 +295,7 @@ jobs:
           bash scripts/install/test-tailscale-policy.sh
           python3 -I scripts/install/tailscale-policy-check.py
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
+          bash scripts/install/test-host-portability.sh
 
       - name: Eliminar .env sintetico
         if: always()

@@ -40,3 +40,15 @@ codebase-memory-mcp-ui/codebase-memory-mcp.exe filter=lfs diff=lfs merge=lfs -te
 *.sh        text eol=lf
 Dockerfile  text eol=lf
 Caddyfile   text eol=lf
+
+# Archivos que consume Linux (contenedores, systemd, scripts de instalacion/monitoreo/politica): siempre LF.
+# Sin esto, en un checkout de Windows 11 (core.autocrlf=true) quedan en CRLF: .env.example y los .sql/.service rompen en WSL2/contenedores
+# (valores con \r, unit de systemd invalida). Verificado por scripts/install/test-host-portability.sh.
+*.yml            text eol=lf
+*.yaml           text eol=lf
+*.py             text eol=lf
+*.sql            text eol=lf
+*.service        text eol=lf
+*.hujson         text eol=lf
+.env.example     text eol=lf
+*.env.example    text eol=lf
