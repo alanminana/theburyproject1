@@ -156,8 +156,10 @@ module.exports = [
       await page.fill('input[name="InteresMoraDiarioPorcentaje"]', '0.5');
       await E.click(page, '.pl-tab[data-tab="contrato"]');
       await page.fill('textarea[name="TextoContrato"]', 'Contrato D-05 entre {{COMPRADOR_NOMBRE}} y el vendedor. Productos: {{PRODUCTOS_DETALLE}}. Saldo: {{SALDO_FINANCIADO}}. Plan: {{PLAN_CUOTAS}}.');
+      const cuenta = async () => ((await page.inputValue('textarea[name="TextoContrato"]')).match(/\{\{COMPRADOR_NOMBRE\}\}/g) || []).length;
+      const antes = await cuenta();
       await E.click(page, '.pl-ins-btn[data-target="TextoContrato"]');
-      const insertado = (await page.inputValue('textarea[name="TextoContrato"]')).includes('{{COMPRADOR_NOMBRE}}');
+      const insertado = (await cuenta()) === antes + 1;
       E.check('el botón de inserción de variable (data-insert) escribe en el editor', insertado);
       await E.click(page, '.pl-tab[data-tab="pagare"]');
       await page.fill('textarea[name="TextoPagare"]', 'Pagaré D-05 N° {{NUMERO_PAGARE}} por {{SALDO_FINANCIADO}}. {{COMPRADOR_NOMBRE}}, {{FECHA_OPERACION}}.');
@@ -243,6 +245,8 @@ module.exports = [
       const txtAntes = await cuerpo(page);
       E.check('Preparar no lista datos faltantes (cliente, crédito, garante, plantilla)', !(await page.locator('a[href*="/Cliente/Edit"]').count()), txtAntes.slice(0, 80));
       // El JS abre el PDF con window.open: el popup es una descarga/visor, no una navegación de la página
+      // Se espía window.open (sin alterar su comportamiento): el PDF abierto por el navegador es lo que el CSP podría romper y cada motor lo trata distinto
+      await page.evaluate(() => { const orig = window.open; window.__abiertos = []; window.open = function (...a) { window.__abiertos.push(String(a[0])); return orig.apply(window, a); }; });
       const popup = page.waitForEvent('popup', { timeout: 15000 }).catch(() => null);
       const [resp] = await Promise.all([
         page.waitForResponse((r) => /\/ContratoVentaCredito\/Generar/.test(r.url()) && r.request().method() === 'POST', { timeout: 30000 }),
@@ -251,6 +255,8 @@ module.exports = [
       const json = await resp.json().catch(() => ({}));
       E.check('Generar responde success por fetch (JSON)', json.success === true, JSON.stringify(json).slice(0, 200));
       const p2 = await popup; if (p2) await p2.close().catch(() => {});
+      const abiertos = await page.evaluate(() => window.__abiertos || []);
+      E.check('el JS abrió el PDF del contrato con window.open (/ContratoVentaCredito/Ver) y el CSP no lo bloqueó', abiertos.some((u) => /\/ContratoVentaCredito\/Ver\?ventaId=\d+/.test(u)), JSON.stringify(abiertos));
       E.check('el JS pasa a estado "generado" (form Generar oculto, Confirmar visible)', (await E.oculto(page, '[data-contrato-generar-form]', 5000)) && (await E.visible(page, '[data-contrato-confirmar-form] button', 5000)));
       const ver = await E.ctx.request.get(E.opts.base + `/ContratoVentaCredito/Ver?ventaId=${v.ventaId}`);
       const buf = await ver.body();
