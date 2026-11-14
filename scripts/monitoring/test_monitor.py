@@ -58,6 +58,54 @@ class MonitoringTests(unittest.TestCase):
         self.alerts.update({}, 1180)
         self.assertEqual([e["status"] for e in self.events], ["firing", "resolved"])
 
+    def test_channel_check_delivers_firing_then_resolved_and_never_prints_secrets(self):
+        received, headers = [], []
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                headers.append(self.headers.get("Authorization"))
+                received.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+                self.send_response(204)
+                self.end_headers()
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        pings = []
+        try:
+            env = {"BURY_MONITOR_WEBHOOK": f"http://127.0.0.1:{server.server_port}/secret-path", "BURY_MONITOR_TOKEN": "tok-synthetic",
+                   "BURY_MONITOR_HEARTBEAT": "http://127.0.0.1:9/push/hb-synthetic?x=1"}
+            with patch.dict(os.environ, env), patch("sys.stdout") as out:
+                code = monitor.test_channel(ping=lambda url: pings.append(url) or True)
+            printed = "".join(call.args[0] for call in out.write.call_args_list)
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(code, 0)
+        self.assertEqual([e["status"] for e in received], ["firing", "resolved"])
+        self.assertEqual({e["key"] for e in received}, {"monitor.test"})
+        self.assertEqual(len({e["event_id"] for e in received}), 2)
+        self.assertEqual(headers, ["Bearer tok-synthetic"] * 2)
+        self.assertIn("status=up", pings[0])
+        for secret in ("secret-path", "tok-synthetic", "hb-synthetic"):
+            self.assertNotIn(secret, printed)
+
+    def test_channel_check_invalid_heartbeat_url_fails_without_leaking(self):
+        env = {"BURY_MONITOR_WEBHOOK": "http://127.0.0.1:9", "BURY_MONITOR_HEARTBEAT": "https://[synthetic-secret-token]/push"}
+        with patch.dict(os.environ, env), patch("sys.stdout") as out, patch("sys.stderr") as err:
+            code = monitor.test_channel(deliver=lambda event: True)
+        printed = "".join(call.args[0] for call in out.write.call_args_list + err.write.call_args_list)
+        self.assertEqual(code, 1)
+        self.assertIn("FALLO", printed)
+        self.assertNotIn("synthetic-secret-token", printed)
+
+    def test_channel_check_exit_codes_without_webhook_and_on_delivery_failure(self):
+        with patch.dict(os.environ, {"BURY_MONITOR_WEBHOOK": ""}), patch("sys.stdout"):
+            self.assertEqual(monitor.test_channel(), 2)
+        with patch.dict(os.environ, {"BURY_MONITOR_WEBHOOK": "http://127.0.0.1:9", "BURY_MONITOR_HEARTBEAT": ""}), patch("sys.stdout"):
+            self.assertEqual(monitor.test_channel(deliver=lambda event: False), 1)
+        with patch.dict(os.environ, {"BURY_MONITOR_WEBHOOK": "http://127.0.0.1:9", "BURY_MONITOR_HEARTBEAT": "http://127.0.0.1:9/hb"}), patch("sys.stdout"):
+            self.assertEqual(monitor.test_channel(deliver=lambda event: True, ping=lambda url: False), 1)
+
     def test_webhook_local_receiver(self):
         received = []
         class Handler(BaseHTTPRequestHandler):
