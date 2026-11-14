@@ -97,6 +97,10 @@ new_case nogit;           mkdir -p "$T/nogit/scripts/backup"; cp "$HERE/check-cu
 OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" GIT_CEILING_DIRECTORIES="$T" bash "$T/nogit/scripts/backup/check-custody.sh" --no-status --quiet 2>&1); RC=$?
 expect "C10 fuera de un repo Git: WARN explicito (no falla)" 0 '^WARN C10 .*no es un repositorio Git' '^FAIL'
 
+# C12: la clave de la CA de Caddy viaja en los respaldos (solo aviso, jamas FAIL)
+new_case caddy_in;        run_case; expect "C12 BACKUP_INCLUDE_CADDY por defecto: WARN con root.key (no falla)" 0 '^WARN C12 .*root.key' '^FAIL'
+new_case caddy_out;       run_case BACKUP_INCLUDE_CADDY=false; expect "C12 BACKUP_INCLUDE_CADDY=false: sin WARN C12" 0 'C12 caddy-data fuera' '^WARN C12'
+
 # --- C01/C02 omitidos por filesystem: WARN visible con --quiet -------------------------------------------------------------
 if (( ! MODES )); then
   new_case skipwarn;      OUT=$(env -i PATH="$PATH" HOME="$C/home" BACKUP_DIR="$C/backups" COMPOSE_ENV_FILES="$C/.env" BURY_OFFSITE_ENV_FILE="$C/backup-offsite.env" CUSTODY_RECOVERY_DIRS="" bash "$HERE/check-custody.sh" --no-status --quiet 2>&1); RC=$?
