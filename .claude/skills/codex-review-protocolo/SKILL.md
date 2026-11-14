@@ -9,7 +9,7 @@ Claude coordina e implementa. Codex solo revisa, en solo lectura. Este protocolo
 
 ## Prohibido siempre
 - `--write` en cualquier llamada a Codex; `setup --enable-review-gate`; `transfer`.
-- Commit, push, PR, merge, rebase, borrado de ramas: solo con autorización explícita del usuario (AGENTS.md → Git).
+- Esta skill es de **solo lectura para Codex**: Codex nunca commitea, pushea ni abre PR. Las operaciones Git de Claude siguen AGENTS.md → "Autonomía y autorizaciones" (autónomo en lo seguro; `--admin`, rebase/borrado de ramas ajenas y destructivos, no).
 - Cambiar configuración global, hooks, otros worktrees o el plugin.
 - Reemplazar una revisión de Codex por una opinión propia o simular su resultado. Si Codex falla: informar el error literal y continuar sin su revisión, marcándolo en el informe.
 
@@ -20,10 +20,12 @@ Claude coordina e implementa. Codex solo revisa, en solo lectura. Este protocolo
 | N1 | Lógica normal (services, controllers, JS con comportamiento, migraciones aditivas) | 1 `review` al terminar |
 | N2 | Seguridad/permisos, dinero, EF con datos, SignalR, concurrencia | 1 consulta de plan (`task` solo lectura) antes de implementar + 1 `adversarial-review` con foco al terminar |
 
-Presupuesto por tarea: ≤1 consulta de plan y ≤2 revisiones finales. La segunda solo si se corrigió algo `high`/`critical`, y enfocada en el delta. `task` de rescate solo tras 2 intentos fallidos o causa raíz desconocida. Ante la duda entre niveles, el menor que cubra el riesgo; no consultar por costumbre.
+**Por tanda** (`integracion-por-tandas`): una revisión sobre el diff consolidado de la rama de integración, con el nivel del riesgo más alto que contenga, en lugar de una por subtarea. Revisiones adicionales solo con justificación de riesgo (abajo).
+
+Presupuesto por tarea o tanda: ≤1 consulta de plan y ≤2 revisiones finales. La segunda solo si se corrigió algo `high`/`critical`, y enfocada en el delta. `task` de rescate solo tras 2 intentos fallidos o causa raíz desconocida. Ante la duda entre niveles, el menor que cubra el riesgo; no consultar por costumbre.
 
 ## Pasos
-0. **Aislamiento.** `git status` del worktree de la tarea debe mostrar solo cambios de la tarea. Si hay trabajo ajeno (la revisión nativa lo incluiría), proponer un worktree limpio `D:\git\theburyproject1-t-<slug>` desde `origin/main` y esperar OK del usuario. Claude es el único escritor y no edita el worktree mientras corre una revisión.
+0. **Aislamiento.** `git status` del worktree de la tarea debe mostrar solo cambios de la tarea. Si hay trabajo ajeno (la revisión nativa lo incluiría), crear un worktree limpio `D:\git\theburyproject1-t-<slug>` desde `origin/main` (autónomo; sin tocar el trabajo ajeno). Claude es el único escritor y no edita el worktree mientras corre una revisión.
 1. **Registro.** Copiar `D:\git\_agent-coord\theburyproject1\reviews\PLANTILLA-TAREA.md` a `AAAAMMDD-HHMM-<slug>.md` y completarlo; agregar una línea a `INDEX.md`.
 2. **Analizar y planificar** (leer código real, AGENTS.md, skills aplicables). Fijar nivel.
 3. **Consulta de plan (solo N2).** Prompt autocontenido: tarea, plan, invariantes, qué riesgos buscar. Pedir respuesta breve con riesgos concretos.
