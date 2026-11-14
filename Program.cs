@@ -1,7 +1,9 @@
+using System.Globalization;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -376,6 +378,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     }
 });
 
+// Cultura de la aplicación: es-AR FIJA, no la del sistema operativo. La aplicación nació en Windows (es-AR), pero en el
+// contenedor Linux (despliegue Docker) el SO no tiene cultura y .NET usa la invariante: los importes salían como
+// «¤181,500.00» y las fechas en formato invariante en todas las pantallas, PDF y exportes. P-07 (2026-11-14).
+// El navegador NO elige la cultura (se quitan los proveedores por Accept-Language/cookie): el sistema es de una sola plaza.
+var culturaApp = new CultureInfo("es-AR");
+CultureInfo.DefaultThreadCurrentCulture = culturaApp;
+CultureInfo.DefaultThreadCurrentUICulture = culturaApp;
+
 var app = builder.Build();
 if (timeProviderApp is TimeProviderDiaComercialAcotado acotado)
 {
@@ -519,6 +529,14 @@ app.UseStaticFiles(new StaticFileOptions
             context.Context.Response.Headers.CacheControl = "public,max-age=2592000";
         }
     }
+});
+
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture(culturaApp),
+    SupportedCultures = new List<CultureInfo> { culturaApp },
+    SupportedUICultures = new List<CultureInfo> { culturaApp },
+    RequestCultureProviders = new List<IRequestCultureProvider>()
 });
 
 app.UseRouting();

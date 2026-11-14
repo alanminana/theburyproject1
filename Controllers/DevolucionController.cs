@@ -172,9 +172,25 @@ public class DevolucionController : Controller
             return NotFound(new { success = false, message = "No se encontró la venta seleccionada." });
         }
 
-        var puedeDevolver = await _devolucionService.PuedeDevolverVentaAsync(ventaId);
         var diasDesdeVenta = await _devolucionService.ObtenerDiasDesdeVentaAsync(ventaId);
         var permiteImpactoCaja = _devolucionService.PermiteImpactoCaja(venta.TipoPago);
+
+        // P-07: la cantidad ofrecida descuenta lo ya devuelto (mismo criterio que valida CrearDevolucionAsync). Antes se
+        // ofrecía siempre lo vendido: tras devolver todo, el modal seguía dejando elegir unidades que el servidor rechazaba.
+        var yaDevueltoPorProducto = await _devolucionService.ObtenerCantidadesDevueltasPorProductoAsync(ventaId);
+        var restantePorConsumir = new Dictionary<int, int>(yaDevueltoPorProducto);
+        var itemsDisponibles = venta.Detalles.Select(detalle =>
+        {
+            var consumido = restantePorConsumir.TryGetValue(detalle.ProductoId, out var pendiente)
+                ? Math.Min(pendiente, detalle.Cantidad)
+                : 0;
+            if (consumido > 0)
+                restantePorConsumir[detalle.ProductoId] = restantePorConsumir[detalle.ProductoId] - consumido;
+            return new { Detalle = detalle, Disponible = detalle.Cantidad - consumido };
+        }).ToList();
+
+        var puedeDevolver = await _devolucionService.PuedeDevolverVentaAsync(ventaId)
+                            && itemsDisponibles.Any(i => i.Disponible > 0);
 
         return Json(new
         {
@@ -196,15 +212,15 @@ public class DevolucionController : Controller
                 mensajeCaja = permiteImpactoCaja
                     ? "Si elegís reembolso, podés registrar el egreso en caja al completar la devolución."
                     : "Esta venta no genera impacto automático en caja. Si hay reintegro, deberá resolverse por fuera de caja.",
-                items = venta.Detalles.Select(detalle => new
+                items = itemsDisponibles.Select(item => new
                 {
-                    productoId = detalle.ProductoId,
-                    productoNombre = detalle.ProductoNombre ?? "Producto",
-                    productoCodigo = detalle.ProductoCodigo,
-                    cantidadDisponible = detalle.Cantidad,
-                    precioUnitario = detalle.PrecioUnitario,
-                    precioUnitarioDisplay = detalle.PrecioUnitario.ToString("C2"),
-                    subtotalDisplay = detalle.Subtotal.ToString("C2")
+                    productoId = item.Detalle.ProductoId,
+                    productoNombre = item.Detalle.ProductoNombre ?? "Producto",
+                    productoCodigo = item.Detalle.ProductoCodigo,
+                    cantidadDisponible = item.Disponible,
+                    precioUnitario = item.Detalle.PrecioUnitario,
+                    precioUnitarioDisplay = item.Detalle.PrecioUnitario.ToString("C2"),
+                    subtotalDisplay = item.Detalle.Subtotal.ToString("C2")
                 })
             }
         });

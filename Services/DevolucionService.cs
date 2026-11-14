@@ -850,6 +850,22 @@ public class DevolucionService : IDevolucionService
         return (DateTime.UtcNow - venta.FechaVenta).Days <= DiasLimiteDevolucion;
     }
 
+    public async Task<Dictionary<int, int>> ObtenerCantidadesDevueltasPorProductoAsync(int ventaId)
+    {
+        return await _context.DevolucionDetalles
+            .AsNoTracking()
+            .Where(dd => !dd.IsDeleted)
+            .Join(
+                _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == ventaId
+                    && d.Estado != EstadoDevolucion.Rechazada && d.Estado != EstadoDevolucion.Cancelada),
+                dd => dd.DevolucionId,
+                d => d.Id,
+                (dd, d) => new { dd.ProductoId, dd.Cantidad })
+            .GroupBy(x => x.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
+            .ToDictionaryAsync(x => x.ProductoId, x => (int)x.Cantidad);
+    }
+
     public async Task<int> ObtenerDiasDesdeVentaAsync(int ventaId)
     {
         var venta = await _context.Ventas
