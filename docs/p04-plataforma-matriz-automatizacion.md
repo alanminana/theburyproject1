@@ -19,16 +19,16 @@ El ERP se despliega en **contenedores Docker Linux**. El sistema operativo del h
 
 ## 2. Resultado de esta ronda (mismo arnés, dos motores)
 
-`scripts/install/test-host-independence.sh` (47 comprobaciones; 46 en Windows 11, donde el repo en `/mnt/d` genera un aviso en lugar de la comprobación de sistema de archivos nativo). Los números salen de las corridas del 2026-11-14 sobre el mismo commit.
+`scripts/install/test-host-independence.sh` (48 comprobaciones; 47 en Windows 11, donde el repo en `/mnt/d` genera un aviso en lugar de la comprobación de sistema de archivos nativo). Los números salen de las corridas del 2026-11-14 sobre el mismo commit.
 
 | Host / motor | Resultado | Notas |
 |---|---|---|
-| **Windows 11 Pro + Docker Desktop 29.6.2 (WSL2, Ubuntu 24.04)** | **46 PASS, 0 FAIL** | Perfil: `familia=docker-desktop`, cgroup v2, repo en `/mnt/d` (`v9fs`), estado/backups en ext4 de WSL |
-| **Ubuntu 24.04 + Docker Engine nativo (docker-ce 29.9.3, containerd, overlayfs)** | **47 PASS, 0 FAIL** | Ubuntu descartable (`test-host-independence-ubuntu-engine.sh`): dockerd propio, cgroup v2 anidado. Kernel compartido con WSL2: valida el motor y el userland, **no** el kernel/ufw/systemd del servidor final |
+| **Windows 11 Pro + Docker Desktop 29.6.2 (WSL2, Ubuntu 24.04)** | **47 PASS, 0 FAIL** | Perfil: `familia=docker-desktop`, cgroup v2, repo en `/mnt/d` (`v9fs`), estado/backups en ext4 de WSL |
+| **Ubuntu 24.04 + Docker Engine nativo (docker-ce 29.9.3, containerd, overlayfs)** | **48 PASS, 0 FAIL** | Ubuntu descartable (`test-host-independence-ubuntu-engine.sh`): dockerd propio, cgroup v2 anidado. Kernel compartido con WSL2: valida el motor y el userland, **no** el kernel/ufw/systemd del servidor final |
 
 ### 2.1 Windows 11 / Docker Desktop
 
-Arnés: 46 PASS, 0 FAIL, con el repo en `/mnt/d` (aviso de lentitud, no fallo). Las pruebas PowerShell se corrieron en el propio equipo (Windows 11 build 26300, PowerShell 5.1): `Test-RemoteAccessModel` 49/0, `Test-ErpHealth` (todos los escenarios), `Test-InstallErpCa` 16/0. `preflight-windows.ps1` (solo lectura) sobre esta PC de desarrollo: 1 FALLA (Tailscale no instalado) y 4 ATENCIÓN (sin inicio de sesión automático, sin `.wslconfig`, 2 reglas Allow de Docker, puerto 443 en uso); **no es el servidor**.
+Arnés: 47 PASS, 0 FAIL, con el repo en `/mnt/d` (aviso de lentitud, no fallo). Las pruebas PowerShell se corrieron en el propio equipo (Windows 11 build 26300, PowerShell 5.1): `Test-RemoteAccessModel` 49/0, `Test-ErpHealth` (todos los escenarios), `Test-InstallErpCa` 16/0. `preflight-windows.ps1` (solo lectura) sobre esta PC de desarrollo: 1 FALLA (Tailscale no instalado) y 4 ATENCIÓN (sin inicio de sesión automático, sin `.wslconfig`, 2 reglas Allow de Docker, puerto 443 en uso); **no es el servidor**.
 
 ## 3. Hallazgos (lo que estas pruebas descubrieron)
 
@@ -74,6 +74,7 @@ CI: `host-independence.yml` (Ubuntu nativo, en cada PR que toque instalador, dep
 
 - **P-03 (#301, `task/p03-cuentas-20261112`) y P-06 (#308, `task/p06-rotacion-dr-20261113`)**: no se modificaron sus ramas ni se duplicó su trabajo. Esta rama **invoca** `scripts/backup/*.sh` tal como están en `main` (no edita su contenido; solo el modo ejecutable de un archivo, §3.6). Si #308 cambia los parámetros de `backup.sh`/`restore-*.sh`, el arnés los vería romperse en CI, que es lo buscado.
 - **C-03/D-05**: sesión activa en `theburyproject1-c03d05` (CSP: módulos sin escenario; `Program.cs` falla cerrado si la inicialización de la base falla fuera de desarrollo; `despliegue-produccion.md`). No se tocó.
+- **Revisión independiente (Codex, `adversarial-review`, solo lectura, worktree sin cambios durante el job)**: 4 hallazgos, los 4 confirmados y corregidos. (1) alto: variables exportadas (`BACKUP_DIR`, `BACKUP_REMOTE`, `COMPOSE_FILE`, `DP_*`) podían apuntar los scripts de backup a recursos reales → el arnés las descarta al empezar, rechaza daemons remotos/contextos no locales, fija `BACKUP_DIR`/`COMPOSE_FILE`/`BACKUP_REMOTE=""` y comprueba que el `db` y el `/backups/sql` sean los del proyecto propio **antes** de escribir un respaldo. (2) alto: `install.sh` sobrescribe `caddy-root-ca.crt` del checkout → el arnés se niega a correr si ya existe. (3) alto: `test-p05-suite.sh` corría el firewall real como root → ahora solo con `--in-dind`. (4) medio: la limpieza dejaba `backups/sql` (uid de SQL Server) sin borrar → se borra con un contenedor auxiliar acotado al directorio temporal y la corrida falla si queda algo.
 - Todos los recursos creados (contenedores, volúmenes, redes, directorios temporales, el Ubuntu descartable) se eliminan al terminar cada corrida; la imagen `theburyproject/erp:p04hi-*` se conserva como caché.
 
 ## 7. Resultado Windows 11 y pendientes del propietario

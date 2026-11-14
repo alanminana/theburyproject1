@@ -63,7 +63,9 @@ docker save "$IMAGE" | docker exec -i "$N" docker load >/dev/null || exit 2
 docker exec "$N" bash -c 'cd /srv/erp && git init -q . 2>/dev/null; chmod +x scripts/*/*.sh scripts/backup/container/*.sh docker/db-init/*.sh 2>/dev/null; true'
 
 echo "== arnés en Ubuntu + Docker Engine =="
-docker exec "$N" bash -c "cd /srv/erp && bash scripts/install/test-host-independence.sh --image '$IMAGE' --out /tmp/out ${PASSTHRU[*]:-}"
+# Como en un servidor real: un usuario normal del grupo docker (no root). Asi se prueban permisos de archivos, backups/sql (uid de SQL Server) y la limpieza.
+docker exec "$N" bash -c 'useradd -m -s /bin/bash -G docker tester && chown -R tester: /srv/erp && install -d -o tester /tmp/out' || exit 2
+docker exec -u tester -w /srv/erp "$N" bash -c "git config --global --add safe.directory /srv/erp; bash scripts/install/test-host-independence.sh --image '$IMAGE' --out /tmp/out ${PASSTHRU[*]:-}"
 rc=$?
-docker exec "$N" cat /tmp/out/host-profile.json 2>/dev/null
+docker exec -u tester "$N" cat /tmp/out/host-profile.json 2>/dev/null
 exit $rc

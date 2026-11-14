@@ -257,7 +257,8 @@ if (( SKIP_RESTORE )); then skip "restauracion (--skip-restore)"; else
   export COMPOSE_PROJECT_NAME="$P" COMPOSE_ENV_FILES="$ENVF" COMPOSE_FILE="$REPO/docker-compose.yml" BACKUP_DIR="$BK" BACKUP_REMOTE="" BACKUP_REQUIRE_OFFSITE=false
   # antes de escribir nada: el db que veran los scripts de backup es el del proyecto propio y su /backups/sql es el directorio temporal propio
   DBC="$(dc ps -q db | head -n1)"
-  [[ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$DBC" 2>/dev/null)" == "$P" ]]     && [[ "$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/backups/sql"}}{{.Source}}{{end}}{{end}}' "$DBC" 2>/dev/null)" == *"$BK/sql" ]]     && ok "los backups apuntan al proyecto y al directorio propios ($P, $BK/sql)"     || { bad "los scripts de backup NO apuntan al stack/directorio propios: se omite la fase de respaldo"; SKIP_RESTORE=1; }
+  # (el Source de un bind mount que reporta `docker inspect` cambia en Docker Desktop; se compara contra la configuracion resuelta de Compose)
+  [[ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$DBC" 2>/dev/null)" == "$P" ]]     && dc config --format json 2>/dev/null | python3 -c 'import json,sys; c=json.load(sys.stdin); v=[x for x in c["services"]["db"]["volumes"] if x.get("target")=="/backups/sql"]; sys.exit(0 if v and v[0]["source"]==sys.argv[1] else 1)' "$BK/sql"     && ok "los backups apuntan al proyecto y al directorio propios ($P, $BK/sql)"     || { bad "los scripts de backup NO apuntan al stack/directorio propios: se omite la fase de respaldo"; SKIP_RESTORE=1; }
 fi
 if (( ! SKIP_RESTORE )); then
   bash "$REPO/scripts/backup/backup.sh" full >"$ART/backup.log" 2>&1 && ok "backup.sh full (SQL, VERIFYONLY + sha256)" || { bad "backup.sh full (ver $ART/backup.log)"; tail -5 "$ART/backup.log"; }
