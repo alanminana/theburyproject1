@@ -27,6 +27,12 @@ public interface IDevolucionService
     Task<bool> PuedeDevolverVentaAsync(int ventaId);
     Task<int> ObtenerDiasDesdeVentaAsync(int ventaId);
 
+    /// <summary>
+    /// Unidades ya devueltas (o comprometidas en devoluciones pendientes/aprobadas/completadas) por producto de una venta.
+    /// Mismo criterio que la validación de <see cref="CrearDevolucionAsync"/>: excluye devoluciones rechazadas y canceladas.
+    /// </summary>
+    Task<Dictionary<int, int>> ObtenerCantidadesDevueltasPorProductoAsync(int ventaId);
+
     // ============================================
     // DETALLES DE DEVOLUCI�N
     // ============================================
