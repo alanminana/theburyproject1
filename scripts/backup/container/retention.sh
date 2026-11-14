@@ -45,7 +45,7 @@ prune() {
     t=$(ts_of "$f")
     case " $prot " in *" $t "*) echo "  KEEP $dir/$f (full de un par conservado)"; continue ;; esac
     if [ "$t" \< "$cutoff" ] && ! echo "$protected" | grep -qxF "$f"; then
-      rm -f -- "$dir/$f" "$dir/$f.sha256"
+      rm -f -- "$dir/$f" "$dir/$f.sha256" "$dir/$f.caseal"
       case "$f" in files_*.tar.gz) rm -f -- "$dir"/set_"${t}"_*.txt ;; esac   # manifiesto del par (modo all)
       echo "  DELETE $dir/$f"
       deleted=$((deleted + 1))
@@ -81,6 +81,6 @@ else
 fi
 
 # Restos de ejecuciones interrumpidas (mas de 1 dia).
-find /backups/files -maxdepth 1 -type f -name 'files_*.tar.gz.partial' -mmin +1440 -print -delete 2>/dev/null | sed 's/^/  DELETE partial /' || true
+find /backups/files -maxdepth 1 -type f \( -name 'files_*.tar.gz.partial' -o -name 'files_*.tar.gz.caseal.partial' \) -mmin +1440 -print -delete 2>/dev/null | sed 's/^/  DELETE partial /' || true
 
 echo "retencion: $deleted archivo(s) borrado(s)"

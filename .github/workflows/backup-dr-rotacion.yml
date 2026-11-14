@@ -1,6 +1,6 @@
 name: Backup DR y rotacion de claves (ensayo aislado)
 
-# Ejecuta scripts/backup/test-key-rotation.sh (rotacion de passwords crypt) y scripts/backup/test-dr-integral.sh (perdida total + recuperacion
+# Ejecuta scripts/backup/test-ca-key-custody.sh (custodia de la clave privada de la CA), scripts/backup/test-key-rotation.sh (rotacion de passwords crypt) y scripts/backup/test-dr-integral.sh (perdida total + recuperacion
 # del ERP real con Docker Compose, CA de Caddy incluida) contra un servidor SFTP DESCARTABLE (atmoz/sftp fijado por digest). Todo es efimero y propio
 # del job (proyectos Compose bury-p06rot-<rand> / bury-p06dr-<rand>, credenciales generadas al vuelo, datos sinteticos); no usa secretos del
 # repositorio ni conecta con ningun servidor real. Detalle: docs/backup-dr-rotacion-claves.md
@@ -90,5 +90,39 @@ jobs:
         run: |
           left=$(docker ps -aq --filter "name=bury-p06dr-" | wc -l)
           vols=$(docker volume ls -q --filter "name=bury-p06dr-" | wc -l)
+          echo "contenedores=$left volumenes=$vols"
+          test "$left" = 0 && test "$vols" = 0
+
+  custodia-clave-ca:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Precalentar imagenes (SQL Server, Caddy, rclone, alpine)
+        shell: bash
+        run: |
+          pids=()
+          for img in \
+            "mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090" \
+            "caddy:2-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e" \
+            "rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5" \
+            "alpine:3@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"; do
+            docker pull -q "$img" >/dev/null & pids+=($!)
+          done
+          fail=0
+          for p in "${pids[@]}"; do wait "$p" || fail=1; done
+          exit $fail
+
+      - name: Custodia de la clave privada de la CA de Caddy (sellado, perdida total, claves incorrectas)
+        shell: bash   # -eo pipefail: sin esto el exit del arnes se pierde detras de `| tee`
+        run: bash scripts/backup/test-ca-key-custody.sh 2>&1 | tee "$RUNNER_TEMP/ca-key.log"
+
+      - name: Sin residuos
+        if: always()
+        shell: bash
+        run: |
+          left=$(docker ps -aq --filter "name=bury-cakey-" | wc -l)
+          vols=$(docker volume ls -q --filter "name=bury-cakey-" | wc -l)
           echo "contenedores=$left volumenes=$vols"
           test "$left" = 0 && test "$vols" = 0

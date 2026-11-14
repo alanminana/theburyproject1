@@ -85,9 +85,17 @@ load_config() {
   BACKUP_OFFSITE_MARKER=$(cfg BACKUP_OFFSITE_MARKER "")   # archivo centinela en el remoto (ver docs/backup-restore.md §6.1)
   [[ -z "$BACKUP_OFFSITE_MARKER" || "$BACKUP_OFFSITE_MARKER" =~ ^[A-Za-z0-9._-]+$ ]] || die $EX_USAGE "BACKUP_OFFSITE_MARKER invalido (solo letras, digitos, . _ -)"
   BACKUP_INCLUDE_CADDY=$(cfg BACKUP_INCLUDE_CADDY true)
+  BACKUP_CA_KEY=$(cfg BACKUP_CA_KEY include)   # include | seal (ver docs/backup-ca-key-custodia.md)
+  [[ "$BACKUP_CA_KEY" == include || "$BACKUP_CA_KEY" == seal ]] || die $EX_USAGE "BACKUP_CA_KEY debe ser include|seal"
+  BACKUP_CA_SEAL_ENV=$(cfg BACKUP_CA_SEAL_ENV "")   # archivo con la clave de sellado (0600, FUERA de BACKUP_DIR)
+  if [[ -n "$BACKUP_CA_SEAL_ENV" ]]; then
+    [[ "$BACKUP_CA_SEAL_ENV" == /* ]] || die $EX_USAGE "BACKUP_CA_SEAL_ENV debe ser una ruta absoluta"
+    [[ "$BACKUP_CA_SEAL_ENV" != "$BACKUP_DIR" && "$BACKUP_CA_SEAL_ENV" != "$BACKUP_DIR"/* ]]       || die $EX_USAGE "BACKUP_CA_SEAL_ENV no puede estar dentro de BACKUP_DIR: la clave de sellado no debe viajar con los respaldos"
+    export BACKUP_CA_SEAL_ENV
+  fi
   BACKUP_STOP_APP=$(cfg BACKUP_STOP_APP true)
   BACKUP_SQL_COMPRESSION=$(cfg BACKUP_SQL_COMPRESSION auto)   # auto | on | off
-  export BACKUP_INCLUDE_CADDY
+  export BACKUP_INCLUDE_CADDY BACKUP_CA_KEY
 
   LOG_FILE="$BACKUP_DIR/logs/backup.log"
 }
@@ -158,6 +166,19 @@ rclone_verify() {
     rc=0; out=$(dc run --rm -T --no-deps --quiet-pull "$svc" check "$src" "$dst" --one-way --download "$@" 2>&1) || rc=$?
   fi
   RCLONE_ERR=$(rclone_errtext "$out")
+  return $rc
+}
+
+# ca_unseal <files_*.tar.gz> [dryrun 0|1] [force 0|1]: repone (o, con dryrun, solo valida) la clave privada de la CA desde <tar>.caseal.
+# rc 0 ok | 2 sin clave de sellado legible o sin .caseal | 3 no descifra/contenido invalido | 4 clave distinta ya presente | 5 destino inseguro (enlaces) o fallo de escritura. Deja el texto en $CA_UNSEAL_OUT.
+CA_UNSEAL_OUT=""
+ca_unseal() {
+  local archive=$1 dry=${2:-0} force=${3:-0} rc=0
+  if [[ -z "$BACKUP_CA_SEAL_ENV" || ! -r "$BACKUP_CA_SEAL_ENV" ]]; then
+    CA_UNSEAL_OUT="BACKUP_CA_SEAL_ENV no esta definido o no es legible: sin la clave de sellado (custodia independiente) NO se puede reponer la clave de la CA"; return 2
+  fi
+  CA_UNSEAL_OUT=$(dc run --rm -T --no-deps --quiet-pull -e DRYRUN="$dry" -e FORCE="$force" ca-unseal sh /opt/bury-backup/ca-unseal.sh "$archive" 2>&1 </dev/null) || rc=$?
+  CA_UNSEAL_OUT=$(sanitize_text "$CA_UNSEAL_OUT")
   return $rc
 }
 

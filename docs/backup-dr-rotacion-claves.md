@@ -119,7 +119,7 @@ filtro simple en `files-backup.sh` dejaría un restore con el ERP caído por TLS
 |---|---|---|
 | **A. Mantener `caddy-data` en el backup (hoy)** | la CA se recupera idéntica; los clientes no hacen nada | `root.key` comparte custodia con los respaldos |
 | **B. `BACKUP_INCLUDE_CADDY=false`** | `root.key` nunca viaja; tras un desastre Caddy genera una CA nueva | hay que **redistribuir la CA nueva a todos los clientes** (§4.5); la app y los datos no dependen de la CA (probado) |
-| **C. Excluir solo `root.key` + custodia separada** | requiere un procedimiento de reposición de la clave antes de arrancar Caddy | no implementado: mayor complejidad y riesgo de outage |
+| **C. Excluir solo `root.key` + custodia separada** | requiere un procedimiento de reposición de la clave antes de arrancar Caddy | **implementada (2026-11-14, sin activar)** como `BACKUP_CA_KEY=seal`: ver `docs/backup-ca-key-custodia.md` (la clave se sella aparte con clave de sellado independiente; la activación y el modelo de custodia son decisión del propietario) |
 
 **Recomendación**: mantener A **mientras** (1) el remoto sea `crypt` con P1/P2 en custodia A/B fuera del servidor y (2) `BACKUP_DIR` sea 700 y no se copie en
 claro a otros medios; y elegir B si los clientes son pocos/gestionados (redistribuir una CA es barato) o si no se puede garantizar (2). Es decisión del
