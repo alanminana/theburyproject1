@@ -1065,6 +1065,122 @@ else
         </div>
     </div>
 
+    @if (puedeEditarCliente)
+    {
+        <div id="referenciaModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="referenciaModalTitle">
+            <div class="modal">
+                <form id="referenciaForm" class="modal-card card" style="max-width:560px" novalidate>
+                    <div class="drawer-head">
+                        <div class="avatar avatar-sm avatar--slate"><span class="material-symbols-outlined" style="font-size:17px" aria-hidden="true">contact_phone</span></div>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="referenciaModalTitle" class="sec-title">Agregar referencia</h2>
+                            <p class="sec-sub">Dato informativo; no afecta el crédito.</p>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-cerrar aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+                    </div>
+                    <div style="padding:1rem 1.25rem" class="space-y-3">
+                        <input type="hidden" id="refId" value="" />
+                        <input type="hidden" id="refRowVersion" value="" />
+                        <div>
+                            <label class="label" for="refTipo">Tipo</label>
+                            <select id="refTipo" class="field">
+                                <option value="1">Personal</option>
+                                <option value="2">Laboral</option>
+                                <option value="3">Comercial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="refNombre">Nombre y apellido *</label>
+                            <input type="text" id="refNombre" class="field" maxlength="150" required autocomplete="off" />
+                        </div>
+                        <div>
+                            <label class="label" for="refRelacion">Relación / vínculo / cargo</label>
+                            <input type="text" id="refRelacion" class="field" maxlength="100" autocomplete="off" placeholder="Ej.: hermano, jefe, proveedor" />
+                        </div>
+                        <div>
+                            <label class="label" for="refTelefono">Teléfono *</label>
+                            <input type="tel" id="refTelefono" class="field" maxlength="30" required autocomplete="off" inputmode="tel" />
+                        </div>
+                        <div>
+                            <label class="label" for="refEmail">Email</label>
+                            <input type="email" id="refEmail" class="field" maxlength="200" autocomplete="off" />
+                        </div>
+                        <div id="refEmpresaWrap" class="hidden">
+                            <label class="label" for="refEmpresa">Empresa</label>
+                            <input type="text" id="refEmpresa" class="field" maxlength="150" autocomplete="off" />
+                        </div>
+                        <div>
+                            <label class="label" for="refObservaciones">Observaciones</label>
+                            <textarea id="refObservaciones" class="field" rows="2" maxlength="1000"></textarea>
+                        </div>
+                        <div id="refError" class="hidden" role="alert" style="color:var(--pal-danger-400);font-size:.8rem"></div>
+                    </div>
+                    <div class="drawer-foot">
+                        <button type="button" class="btn btn-ghost" data-ref-cerrar>Cancelar</button>
+                        <button type="submit" id="refGuardar" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="referenciaVerifModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="referenciaVerifTitle">
+            <div class="modal">
+                <form id="referenciaVerifForm" class="modal-card card" style="max-width:460px" novalidate>
+                    <div class="drawer-head">
+                        <div class="avatar avatar-sm avatar--slate"><span class="material-symbols-outlined" style="font-size:17px" aria-hidden="true">fact_check</span></div>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="referenciaVerifTitle" class="sec-title">Registrar verificación</h2>
+                            <p class="sec-sub" id="refVerifNombre"></p>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-cerrar aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+                    </div>
+                    <div style="padding:1rem 1.25rem" class="space-y-3">
+                        <div>
+                            <label class="label" for="refVerifEstado">Resultado</label>
+                            <select id="refVerifEstado" class="field">
+                                <option value="1">Pendiente</option>
+                                <option value="2">Verificada</option>
+                                <option value="3">No localizada</option>
+                                <option value="4">Rechazada</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="refVerifObs">Observaciones</label>
+                            <textarea id="refVerifObs" class="field" rows="2" maxlength="1000"></textarea>
+                        </div>
+                        <div id="refVerifError" class="hidden" role="alert" style="color:var(--pal-danger-400);font-size:.8rem"></div>
+                    </div>
+                    <div class="drawer-foot">
+                        <button type="button" class="btn btn-ghost" data-ref-cerrar>Cancelar</button>
+                        <button type="submit" id="refVerifGuardar" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="referenciaBajaModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="referenciaBajaTitle" aria-describedby="referenciaBajaDesc">
+            <div class="modal">
+                <div class="modal-card card" style="max-width:440px">
+                    <div class="drawer-head">
+                        <div class="avatar avatar-sm avatar--slate"><span class="material-symbols-outlined" style="font-size:17px" aria-hidden="true">delete</span></div>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="referenciaBajaTitle" class="sec-title">Dar de baja la referencia</h2>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-cerrar aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+                    </div>
+                    <div style="padding:1rem 1.25rem">
+                        <p id="referenciaBajaDesc" class="text-sm"></p>
+                        <div id="refBajaError" class="hidden" role="alert" style="margin-top:.5rem;color:var(--pal-danger-400);font-size:.8rem"></div>
+                    </div>
+                    <div class="drawer-foot">
+                        <button type="button" class="btn btn-ghost" data-ref-cerrar>Cancelar</button>
+                        <button type="button" id="refBajaConfirmar" class="btn btn-primary">Dar de baja</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <div id="panel-datos" class="tab-panel" data-cliente-tab-panel="datos" role="tabpanel" aria-labelledby="tab-datos" hidden style="margin-top:1.25rem">
         <div class="space-y-4">
             <div class="cliente-details-2col">
@@ -1095,6 +1211,23 @@ else
                     <div class="kv-row"><dt>Provincia</dt><dd>@Dash(c.Provincia)</dd></div>
                 </dl>
             </section>
+            </div>
+
+            <div class="card card-pad" id="referencias-card" data-cliente-id="@c.Id">
+                <div class="flex items-center justify-between gap-2 mb-3" style="flex-wrap:wrap">
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">contact_phone</span>Referencias</h3>
+                    @if (puedeEditarCliente)
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" data-ref-agregar>
+                            <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">person_add</span>Agregar referencia
+                        </button>
+                    }
+                </div>
+                <p class="text-xs muted mb-3">Referencias personales, laborales y comerciales. Son informativas: no modifican la aptitud ni el límite de crédito del cliente.</p>
+                <div id="referenciasMensaje" class="hidden alert" role="status" aria-live="polite" style="margin-bottom:.75rem"></div>
+                <div id="referenciasLista">
+                    @await Component.InvokeAsync("ClienteReferencias", new { clienteId = c.Id })
+                </div>
             </div>
 
             @if (puedeEliminarCliente)
@@ -1306,4 +1439,5 @@ else
     <script src="~/js/cliente-index.js" asp-append-version="true"></script>
     <script src="~/js/cliente-details.js" asp-append-version="true"></script>
     <script src="~/js/cliente-garante.js" asp-append-version="true"></script>
+    <script src="~/js/cliente-referencias.js" asp-append-version="true"></script>
 }

@@ -1095,6 +1095,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             "caja.movements",
             "caja.view");
 
+    public const string ClienteSoloLecturaUserId = "test-cliente-solo-lectura-id";
+    public const string ClienteEditorUserId = "test-cliente-editor-id";
+
+    /// <summary>D-02: ve clientes (clientes.view) pero NO puede editarlos (sin clientes.edit).</summary>
+    public Task SeedUserWithClienteSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            ClienteSoloLecturaUserId, "test-cliente-solo-lectura-role-id", "TestClienteSoloLecturaRole", 9420,
+            "clientes.view");
+
+    /// <summary>D-02: ve y edita clientes (clientes.view + clientes.edit).</summary>
+    public Task SeedUserWithClienteEditorAsync() =>
+        SeedPermissionUserAsync(
+            ClienteEditorUserId, "test-cliente-editor-role-id", "TestClienteEditorRole", 9400,
+            "clientes.view", "clientes.edit");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

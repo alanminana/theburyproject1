@@ -1984,6 +1984,91 @@ namespace TheBuryProject.Migrations
                     b.ToTable("ClientesPuntajeHistorial", (string)null);
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ClienteReferencia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Empresa")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("EstadoVerificacion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FechaVerificacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Relacion")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Telefono")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TelefonoNormalizado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VerificadaPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId", "IsDeleted");
+
+                    b.HasIndex("ClienteId", "Tipo", "TelefonoNormalizado");
+
+                    b.ToTable("ClienteReferencias");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionActualizacionDatosCliente", b =>
                 {
                     b.Property<int>("Id")
@@ -11554,6 +11639,17 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Cliente");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ClienteReferencia", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.Cliente", "Cliente")
+                        .WithMany("Referencias")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionCreditoPersonalCuotaSinRecargo", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.ConfiguracionCreditoPersonalCuota", "ConfiguracionCreditoPersonalCuota")
@@ -12940,6 +13036,8 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Documentos");
 
                     b.Navigation("PuntajeHistorial");
+
+                    b.Navigation("Referencias");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionCreditoPersonalCuota", b =>

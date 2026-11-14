@@ -58,6 +58,7 @@ namespace TheBuryProject.Data
         public DbSet<PunitorioAplicado> PunitoriosAplicados { get; set; }
         public DbSet<Garante> Garantes { get; set; }
         public DbSet<DocumentoCliente> DocumentosCliente { get; set; }
+        public DbSet<ClienteReferencia> ClienteReferencias { get; set; }
 
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<NumeracionVentaContador> NumeracionVentaContadores { get; set; }
@@ -1190,6 +1191,20 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.FechaSubida);
                 entity.HasIndex(e => e.FechaVencimiento);
                 entity.HasIndex(e => e.TipoDocumento);
+            });
+
+            // =======================
+            // ClienteReferencia (D-02: informativa, no afecta crédito)
+            // =======================
+            modelBuilder.Entity<ClienteReferencia>(entity =>
+            {
+                entity.HasOne(e => e.Cliente)
+                    .WithMany(c => c.Referencias)
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.ClienteId, e.IsDeleted });
+                entity.HasIndex(e => new { e.ClienteId, e.Tipo, e.TelefonoNormalizado });
             });
 
             // =======================

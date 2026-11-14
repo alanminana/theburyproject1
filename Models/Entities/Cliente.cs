@@ -321,6 +321,7 @@ namespace TheBuryProject.Models.Entities
         public virtual ICollection<Credito> Creditos { get; set; } = new List<Credito>();
         public virtual ICollection<Garante> ComoGarante { get; set; } = new List<Garante>();
         public virtual ICollection<DocumentoCliente> Documentos { get; set; } = new List<DocumentoCliente>();
+        public virtual ICollection<ClienteReferencia> Referencias { get; set; } = new List<ClienteReferencia>();
         public virtual ClienteCreditoConfiguracion? CreditoConfiguracion { get; set; }
         public virtual ICollection<ClientePuntajeHistorial> PuntajeHistorial { get; set; } = new List<ClientePuntajeHistorial>();
 
