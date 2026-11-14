@@ -278,7 +278,7 @@ namespace TheBuryProject.Services
 
                 venta.IdempotencyKey = viewModel.IdempotencyKey;
                 // P-02 / P5: la operación nace con el criterio fiscal vigente y lo conserva (los reportes la releen con esa versión).
-                venta.CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente;
+                CriterioFiscalRegistry.Estampar(venta);
                 venta.IdempotencyHuella = viewModel.IdempotencyKey.HasValue ? HuellaEfectiva(viewModel) : null;
                 venta.AperturaCajaId = aperturaActiva.Id;
 
@@ -3228,7 +3228,7 @@ namespace TheBuryProject.Services
                     response.Total = ajusteUnPago.TotalFinal;
 
                     // Misma discriminacion en neto e IVA que Create (DiscriminarRecargoEnNetoEIva): Subtotal + IVA = Total.
-                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total, CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente };
+                    var ventaPreview = new Venta { Subtotal = response.Subtotal, IVA = response.IVA, Total = response.Total, CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente, AlicuotaServiciosSnapshot = CriterioFiscalRegistry.Vigente.AlicuotaServicios };
                     DiscriminarRecargoEnNetoEIva(ventaPreview, response.Detalles.Select(d => new VentaDetalle
                     {
                         PorcentajeIVA = d.PorcentajeIVA,
@@ -3772,7 +3772,7 @@ namespace TheBuryProject.Services
 
         /// <summary>P-02 / P5: criterio fiscal de la operación (su versión persistida); sin operación, el vigente.</summary>
         private static ICriterioFiscal CriterioDe(Venta? venta) =>
-            venta == null ? CriterioFiscalRegistry.Vigente : CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
+            venta == null ? CriterioFiscalRegistry.Vigente : CriterioFiscalRegistry.Resolver(venta);
 
         #region Permiso independiente de descuentos (ventas.discount)
 

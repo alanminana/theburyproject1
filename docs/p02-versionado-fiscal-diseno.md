@@ -109,3 +109,49 @@ Nuevas, derivadas de este diseño (a validar, no decididas):
 2. Registrarla en `CriterioFiscalRegistry` y subir `VersionVigente` con fecha de corte autorizada.
 3. Tests: histórico v1 intacto, nuevo v2 correcto (modelo: `FiscalVersionadoP02Tests`).
 4. Sin migración de datos: las operaciones v1 se conservan.
+
+## 8. Auditoría de configuración modificable (P-02 continuación, 2026-11-13)
+
+**Alcance auditado**: todo valor de configuración/estático que las lecturas históricas (reporte de IVA, comprobante, ventas netas, devoluciones/NC) consultan al releer una operación.
+
+| Insumo | ¿Persistido por operación? | Resultado |
+|---|---|---|
+| Alícuota por línea (`VentaDetalle.PorcentajeIVA`, `SubtotalFinalNeto/IVA`) | Sí (snapshot) | Sin riesgo |
+| Importes de la venta (`Subtotal`, `IVA`, `Total`) | Sí | Sin riesgo |
+| Recargo/descuento del medio de pago (`Total − Σ líneas`) | Derivado de importes persistidos | Sin riesgo |
+| Reparto del recargo por línea / neto del recargo de débito (`Repartir`, `Prorratear`) | Usa alícuotas por línea persistidas | Sin riesgo (test) |
+| Truncado a pesos (`Math.Floor`) | Código de la versión | Versionado (P5) |
+| **Alícuota de servicios (armado/envío)** | **No: salía de `Iva:PorcentajeDefault`** | **CONFIRMADO: cambiar la configuración alteraba retroactivamente reporte y comprobante** |
+
+### 8.1 Corrección implementada (no cambia ningún resultado actual)
+
+- `Venta.AlicuotaServiciosSnapshot` (`decimal(5,2)`, **nullable**): alícuota de servicios con la que nace la operación. Se estampa junto con la versión (`CriterioFiscalRegistry.Estampar`, conversión de cotización, Mercado Libre). Con la configuración vigente (21 %) el valor es idéntico al que ya se usaba: ningún importe cambia.
+- Toda relectura usa `CriterioFiscalRegistry.Resolver(venta)`: la versión de la venta con su alícuota congelada (decorador `CriterioConAlicuotaServicios`, solo cambia `AlicuotaServicios`/`SepararServicios`; el resto delega).
+- Migración `P02AlicuotaServiciosSnapshot`: un único `AddColumn` nullable, **sin backfill**. **No aplicada a `TheBuryProjectDb`.**
+
+### 8.2 Decisión PENDIENTE (no resuelta, requiere propietario/contador): ventas anteriores al snapshot
+
+Las ventas existentes quedan con `AlicuotaServiciosSnapshot = NULL` y se siguen releyendo con la alícuota de la versión, es decir, con la configuración actual (comportamiento previo, caracterizado por un test). Alternativas:
+
+| Opción | Efecto | Riesgo |
+|---|---|---|
+| A. Dejar `NULL` | Sin cambio; el riesgo residual persiste si se cambia `Iva:PorcentajeDefault` | Bajo hoy (config = 21 %) pero no cerrado |
+| B. Backfill único a 21 % | Congela lo que el sistema aplicó mientras la config fue 21 % | Asume que la config fue 21 % durante todo el histórico; verificarlo con el contador/infra antes |
+| C. Backfill con el valor de la configuración al momento de migrar | Congela lo que hoy leerían los reportes | Igual supuesto que B si la config cambió antes |
+| D. Congelar 21 % dentro de la versión 1 (código) | Cierra el riesgo sin migración de datos; la config deja de gobernar servicios en v1 | Cambia el comportamiento de v1 si alguna instalación usa otra alícuota |
+
+Recomendación técnica: B (o D) tras confirmar que `Iva:PorcentajeDefault` fue 21 en toda la historia productiva. No se ejecuta sin esa confirmación ni sin respaldo y autorización para tocar `TheBuryProjectDb`.
+
+### 8.3 Reporte de IVA y versiones inválidas
+
+Una venta con versión no registrada ya no tumba el reporte ni se recalcula con otra regla: se excluye de los totales, se informa en un aviso (`VentasVersionFiscalInvalida`, sin exponer versión ni excepción) y el detalle técnico va solo al log. El comprobante individual sigue fallando con `CriterioFiscalDesconocidoException` (tipada). Nota: EF trata `0` como «sin valor» (`HasDefaultValue(1)`) al insertar, por lo que `0` solo podría llegar por SQL directo.
+
+### 8.4 Siguen sin versionar (sin decisión del contador, sin cambios)
+
+Reglas C1–C15 y P1–P4/P6 de §6; el tratamiento de ventas pre-snapshot (§8.2).
+
+### 8.5 Revisión independiente (agente Sonnet) y notas
+
+- Sin cambios accidentales de resultados; sin camino para inyectar/pisar el snapshot (BindNever + mapeo ignorado; solo se estampa en Create, conversión de cotización y Mercado Libre).
+- `VentasNetas` ahora también relee con el snapshot. Con una versión desconocida, `VentasNetas`/`DevolucionService` siguen **fallando explícitamente** (no degradan como el reporte de IVA): decisión conservadora, abierta a revisar.
+- **Bloqueante para cerrar P-02**: política de backfill de las ventas pre-snapshot (§8.2). Cualquier backfill debe fijar el valor sin leer la configuración.

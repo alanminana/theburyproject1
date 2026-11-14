@@ -10698,6 +10698,9 @@ namespace TheBuryProject.Migrations
                     b.Property<decimal?>("AjusteMedioPagoPorcentaje")
                         .HasColumnType("decimal(9,4)");
 
+                    b.Property<decimal?>("AlicuotaServiciosSnapshot")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<int?>("AperturaCajaId")
                         .HasColumnType("int");
 

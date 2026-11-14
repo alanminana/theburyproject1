@@ -197,7 +197,7 @@ public class DevolucionService : IDevolucionService
                 .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
                 .ToList();
             var serviciosBruto = ventaDetallesRaw.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
-            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total, CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion));
+            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total, CriterioFiscalRegistry.Resolver(venta));
 
             var vendidoPorProducto = ventaDetallesRaw
                 .Select((vd, i) => (Detalle: vd, Cobrado: cobradoPorLinea[i] + recargoPorLinea[i]))

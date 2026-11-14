@@ -18,7 +18,7 @@ namespace TheBuryProject.Helpers
                 .ToList() ?? new List<VentaDetalle>();
 
             // P-02 / P5: toda la discriminación del comprobante usa el criterio fiscal con el que nació la venta, no el vigente.
-            var criterio = CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion);
+            var criterio = CriterioFiscalRegistry.Resolver(venta);
 
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();

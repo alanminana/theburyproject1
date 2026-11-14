@@ -535,6 +535,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 Numero = numero,
                 // P-02 / P5: la venta nace con el criterio fiscal vigente y lo conserva.
                 CriterioFiscalVersion = CriterioFiscalRegistry.VersionVigente,
+                AlicuotaServiciosSnapshot = CriterioFiscalRegistry.Vigente.AlicuotaServicios,
                 ClienteId = clienteId,
                 NombreClienteLibre = clienteId is null ? cotizacionEnTx.NombreClienteLibre?.Trim() : null,
                 DniClienteLibre = clienteId is null ? cotizacionEnTx.DniClienteLibre : null,
@@ -574,7 +575,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             if (serviciosEnTotal > 0m)
             {
                 venta.Subtotal += serviciosEnTotal;
-                venta.IVA += CriterioFiscalRegistry.Resolver(venta.CriterioFiscalVersion).SepararServicios(serviciosEnTotal).Iva;
+                venta.IVA += CriterioFiscalRegistry.Resolver(venta).SepararServicios(serviciosEnTotal).Iva;
             }
             venta.Total = venta.Subtotal - venta.Descuento;
 
