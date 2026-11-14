@@ -95,3 +95,15 @@ Se midió: no existe ruta HTTP/UI que edite `ConfiguracionCredito` (`UpdateConfi
 **Corrida repetida sobre la misma base (14 fallos): no idempotente por diseño, ninguno es silencioso.** `configuracion-punitorio` ×5 (versionado append-only de punitorios), `cotizacion-conversion` T9–T12 ×4 (cotizaciones ya convertidas), `credito-pago-cuota-individual` ×2 y `credito-punitorio-detalle` ×2 (cuotas/créditos ya consumidos por la primera corrida), `venta-descuento-permiso` ×1 (venta sembrada ya modificada). Se exige base nueva por corrida (como en CI). Los tests `@config-aislada` sí pasan en la repetición.
 
 **Evidencia 4–6 en local:** con `MoraVisualE2ESeedRunner.Sembrar` y `E2E_MORA_VISUAL=1`, los 3 specs de `pr75-mora-visual-evidence` pasan (1366x768, 1920x1080, 390x844).
+
+---
+
+## 8. Verificación 2026-11-14: aptitud-contradicción contra SQL Server y los cuatro defectos históricos
+
+**Los cuatro defectos históricos** (regresión del clon de `docs/aceptacion-erp.md`: `venta-descuento-permiso` totales, `aptitud-contradiccion`, `venta-excepcion-documental-reload`, `cotizacion-simulador` T9 móvil) se habían clasificado como datos/configuración de la base real, ninguno defecto de producto. Estado hoy: los cuatro se ejecutan y pasan en el CI de `main` (cd44a614: 220 correctos / 0 fallidos / 4 omitidos clasificados, ver §7.4) sobre base sembrada; no se reprodujeron en un clon de la base real (no se tocó `TheBuryProjectDb`).
+
+**Ejecución propia sobre réplica de CI** (proyecto Docker `bury-c03d05`, SQL Server propio, seeders `Generic`, `ClienteAptitudPunitorio`, `DescuentoPermiso`, `Omitidos`; `ConfiguracionAislada.Activar` / `Restaurar`): `E2E_CLIENTE_NOAPTO_DNI=90000502`, spec `cotizacion-credito-personal-aptitud-contradiccion` **2/2 (setup + spec)**, base restaurada después.
+
+**Cruce UI vs SQL Server** (cliente `90000502`, id 17): SQL: un crédito con 1 cuota, vencida hace **90 días**, `Estado=2` (pendiente), `MontoTotal=1000`, `MontoPagado=0`; `ConfiguracionesCredito.ValidarMora=1`. UI (`Cliente/Details/17`): «No apto · No puede operar a crédito» y «Mora crítica: 90 días, $ 1.000». Coinciden. Nota: `Clientes.MotivoNoApto` está en NULL porque la aptitud se calcula al vuelo y solo se persiste al recalcular; la UI no depende de ese campo.
+
+**Clasificación vigente de omitidos (4):** 1 negativo por diseño (cubierto por xUnit), 3 de evidencia visual con workflow propio. Ninguno ejecutable con datos sintéticos adicionales sin cambiar su intención. Sin defectos de producto nuevos en C-03.

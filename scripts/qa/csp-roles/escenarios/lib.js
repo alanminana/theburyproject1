@@ -33,6 +33,7 @@ class Escenario {
     page.on('console', (m) => {
       if (m.type() !== 'error' && m.type() !== 'warning') return;
       const t = m.text();
+      if (this.opts.modo === 'reportonly' && /frame-ancestors.*ignored.*report-only/i.test(t)) return; // informativo de WebKit en Report-Only (ver docs/csp-enforce-pendientes.md)
       if (/content security policy|violates the following|refused to (apply|execute|load|connect|frame)/i.test(t) && !/frame-ancestors.*report-only/i.test(t)) { this.viol.push('consola: ' + t.slice(0, 200)); return; }
       if (m.type() === 'error' && /net::ERR_FAILED/.test(t) && this.bloqueadas.length) return; // request abortada por el arnes (escritura bloqueada)
       if (m.type() === 'error' && !FUENTES_GOOGLE.test(t) && !FUENTES_GOOGLE.test(m.location().url || '')) this.consola.push(`${page.url().replace(this.opts.base, '')} :: ${t.slice(0, 160)}`);

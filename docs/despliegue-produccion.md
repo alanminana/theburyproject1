@@ -134,6 +134,14 @@ migraciones pendientes NO se migra** ni se siembra salvo habilitación explícit
 o el modo `--migrate` (explícito por definición). El arranque se detiene con un error `Critical` que lista las pendientes. Base nueva/vacía: se crea sin pedir nada.
 Procedimiento: respaldo → ensayo en clon → habilitar y arrancar (o `--migrate`) → quitar la habilitación.
 
+### 7.9.1 Arranque en Production con la base inexistente (2026-11-14)
+
+**Defecto (reproducido con un SQL Server descartable y un login sin permisos):** con `Database:InitializeOnStartup=true` (valor por defecto), `ASPNETCORE_ENVIRONMENT=Production` y un servidor SQL accesible pero **sin la base** configurada, `MigracionesGuard` la trata como «nada que proteger» y `DbInitializer` falla al abrir la conexión (error 4060). `Program.cs` registraba el error y, fuera de Development, **seguía arrancando**: el proceso quedaba vivo (`/health/live` 200, `/health/ready` 503), arrancaban los servicios en segundo plano contra una base ausente y la inicialización no se reintentaba nunca; un supervisor con `restart: unless-stopped` no detectaba nada. **No crea ni modifica la base** (el login de la app no tiene `CREATE ANY DATABASE` y la conexión falla antes de `MigrateAsync`), así que el impacto es de disponibilidad y de diagnóstico, no de integridad. Con el servidor inalcanzable ya fallaba cerrado (`MigracionesGuard` lanza al verificar el esquema).
+
+**Alcance real:** solo el camino con inicialización activada. Los despliegues reales (`docker-compose.yml` y el host Windows con user-secrets) fijan `Database__InitializeOnStartup=false`: ahí no se inicializa nada y el contrato no cambia (la prueba lo verifica).
+
+**Corrección:** un fallo de inicialización fuera de Development registra `Critical` y termina con **exit 1** (`Program.cs`, igual que ya hacían las migraciones no autorizadas); en Development sigue relanzando la excepción. Pruebas: `ArranqueProductionSinBaseTests` (proceso real contra SQL Server descartable en loopback; exige `QA_ARRANQUE_SQL`; omitida si falta, y el workflow `sec-configurar-venta-sqlserver.yml` exige 2/2 Passed). Mutación: sin la corrección la primera prueba falla (la app sigue viva a los 90 s); con ella pasa y la base sigue sin existir.
+
 ## 8. Deuda conocida / mejoras pendientes
 
 - **CSP (Content-Security-Policy)** (D-05, 2026-11-08): implementada pero **apagada por defecto** (`Csp:Mode` = `Off`/`ReportOnly`/`Enforce`;
