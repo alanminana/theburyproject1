@@ -22,6 +22,7 @@
 #   C09 material de recuperacion (passphrase/clave) coexiste con un .enc (paquete de recuperacion) en la misma raiz
 #   C10 secretos versionados en Git (.env, backup-offsite.env, *passphrase*, *.enc, *.pem, *.key)
 #   C11 (--check-remote) el remoto contiene archivos con aspecto de clave/passphrase
+#   C12 (solo WARN) BACKUP_INCLUDE_CADDY=true: root.key de la CA de Caddy viaja en el tar de archivos (custodia compartida con los respaldos)
 #
 # Variables (todas opcionales): BURY_OFFSITE_ENV_FILE (default <repo>/backup-offsite.env), BACKUP_OFFSITE_DISK_DIR (.env),
 #   CUSTODY_RECOVERY_DIRS (lista separada por ':'; default ~/secure-preprod:~/secure-prod; se inspeccionan NOMBRES, no contenidos),
@@ -233,6 +234,16 @@ if (( CHECK_REMOTE )); then
   bad=$(grep -iE 'passphrase|passwd|password|recovery|\.key$|\.pem$|rclone\.conf|(^|/)\.env|backup-offsite\.env' <<<"$listing" | sort -u || true)
   if [[ -n "$bad" ]]; then while IFS= read -r f; do fail C11 "remoto:$f: archivo con aspecto de clave/secreto en la copia externa"; done <<<"$bad"
   else say "C11 remoto sin archivos con aspecto de clave"; fi
+fi
+
+# ---- C12: la clave privada de la CA de Caddy viaja en los respaldos de archivos
+# caddy-data contiene root.key / intermediate.key (la CA interna que firma el certificado del ERP). Con BACKUP_INCLUDE_CADDY=true esa clave vive en el
+# tar de archivos: comparte custodia con BACKUP_DIR (local, sin cifrar) y con el remoto (protegido SOLO por las passwords crypt). Quien tenga ambos puede
+# emitir certificados que los clientes ya confian. No es un FAIL (excluirla impediria arrancar Caddy tras un restore: ver docs/backup-dr-rotacion-claves.md §4).
+if [[ "$(cfg BACKUP_INCLUDE_CADDY true)" == "true" ]]; then   # misma condicion que container/files-backup.sh (solo el valor exacto "true" incluye caddy-data)
+  warn C12 "BACKUP_INCLUDE_CADDY=true: la clave privada de la CA de Caddy (root.key) viaja en el tar de archivos; su custodia = BACKUP_DIR + passwords crypt. Aceptado solo si ambos estan protegidos por separado (docs/backup-dr-rotacion-claves.md §4)"
+else
+  say "C12 caddy-data fuera de los respaldos: tras un restore la CA se regenera y hay que redistribuirla a los clientes"
 fi
 
 # ---- resumen y estado para el monitor

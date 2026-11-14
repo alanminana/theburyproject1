@@ -155,14 +155,14 @@ Rotar cuando: cambia el custodio, hay baja de personal con acceso, sospecha de e
 
 1. Generar P1'/P2' (§6) y guardarlas en la Custodia A **antes** de usarlas (las viejas se conservan hasta el paso 7).
 2. En `backup-offsite.env` agregar un remoto adicional (`RCLONE_CONFIG_SECURE2_*` con las nuevas) sin quitar el actual.
-3. Migrar descifrando con las viejas y cifrando con las nuevas:
-   `docker compose run --rm backup-offsite copy secure:erp secure2:erp` (puede tardar y consumir cuota del proveedor).
+3. Migrar descifrando con las viejas y cifrando con las nuevas: `scripts/backup/rotate-crypt.sh --from secure:erp --to secure2:erp` (solo copia con `--immutable`, jamás borra el origen,
+   reanudable si se interrumpe, verifica descifrado contra descifrado; ensayado en `docs/backup-dr-rotacion-claves.md` §2). Puede tardar y consumir cuota del proveedor.
 4. Verificar: `docker compose run --rm backup-offsite check secure:erp secure2:erp --download --one-way` (compara contenido descifrado).
 5. Cambiar `BACKUP_REMOTE=secure2:erp` en `.env`, ejecutar `backup.sh all` y `restore-test.sh --offsite`. `check-custody.sh` debe pasar.
 6. Esperar un ciclo completo de retención sin alertas (≥ 7 días).
 7. **Con aprobación del propietario**, retirar los datos del remoto viejo y las passwords viejas de la Custodia A. Registrar fecha.
 
-(El procedimiento no se ejecutó aquí contra un remoto real; ensayarlo primero con el remoto `local` de `docs/backup-restore.md` §6.1.)
+(Ensayado con un SFTP descartable y datos sintéticos, `test-key-rotation.sh`; **no** se ejecutó contra un remoto real.)
 
 **Passphrase del paquete `.enc`.** En un equipo seguro: descifrar con la vieja, recifrar con una nueva (§6), calcular el nuevo `sha256`,
 guardar la nueva en A y el nuevo `.enc` en B, destruir copias antiguas de ambos.

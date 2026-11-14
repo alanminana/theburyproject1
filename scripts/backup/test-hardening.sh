@@ -11,7 +11,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 # --- sintaxis -------------------------------------------------------------------------------------------------------------
-for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh check-custody.sh test-hardening.sh test-offsite-sftp.sh; do
+for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh check-custody.sh rotate-crypt.sh test-hardening.sh test-offsite-sftp.sh test-key-rotation.sh test-dr-integral.sh; do
   check "bash -n $f" bash -n "$HERE/$f"
 done
 
