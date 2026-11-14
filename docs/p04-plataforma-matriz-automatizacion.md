@@ -4,7 +4,7 @@ Fecha: 2026-11-14. Rama `task/p04-p08-independiente-host-20261114`. **No se inst
 
 ## 0. Decisión de plataforma
 
-El ERP se despliega en **contenedores Docker Linux**. El sistema operativo del host **no está decidido**: Windows 11 (Docker Desktop + WSL2) o Ubuntu (Docker Engine). **Windows Server (Hyper-V + VM) no es la plataforma elegida**; `instalacion-windows-server.md` y `Test-WindowsServerInstall.ps1` quedan como alternativa archivada, sin trabajo nuevo. Lo que sigue está escrito para que **ninguna prueba dependa de esa decisión**: lo común se prueba una vez (§2) y lo específico de cada host está separado (§4).
+El ERP se despliega en **contenedores Docker Linux**. El sistema operativo del host **no está decidido**: Windows 11 (Docker Desktop + WSL2) o Ubuntu (Docker Engine). **Windows Server (Hyper-V + VM) no es la plataforma elegida**; `instalacion-windows-server.md` y `Test-WindowsServerInstall.ps1` quedan como alternativa archivada, sin trabajo nuevo. Evidencia comparada y recomendación técnica para elegir entre ambos: [p04-decision-sistema-operativo-servidor.md](p04-decision-sistema-operativo-servidor.md). Lo que sigue está escrito para que **ninguna prueba dependa de esa decisión**: lo común se prueba una vez (§2) y lo específico de cada host está separado (§4).
 
 ## 1. Qué se cierra con pruebas automatizadas y qué exige hardware, usuarios o infraestructura reales
 
