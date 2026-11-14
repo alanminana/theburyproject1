@@ -577,14 +577,20 @@ else if (!app.Environment.IsEnvironment("Testing"))
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Error durante la inicialización de la base de datos");
-
         // En desarrollo es mejor fallar rápido: evita que la app quede "arrancada" pero rota
         // (background services y pantallas van a seguir fallando sin DB).
         if (app.Environment.IsDevelopment())
         {
+            logger.LogError(ex, "Error durante la inicialización de la base de datos");
             throw;
         }
+
+        // Fuera de desarrollo también se falla cerrado: antes la app seguía viva (live=200, ready=503) con los servicios en segundo
+        // plano corriendo contra una base ausente/inaccesible, sin reintentar jamás la inicialización ni salir (un supervisor con
+        // `restart: unless-stopped` no lo detectaba). Con exit 1 el supervisor reintenta y el fallo queda a la vista.
+        // No aplica con Database:InitializeOnStartup=false (despliegue Docker/servidor real): ahí no se inicializa nada.
+        logger.LogCritical(ex, "Error durante la inicialización de la base de datos: el arranque se detiene (exit 1). Verificar que la base exista y sea accesible.");
+        return 1;
     }
 }
 
