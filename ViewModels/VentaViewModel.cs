@@ -36,6 +36,10 @@ namespace TheBuryProject.ViewModels
         [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
         public int CriterioFiscalVersion { get; set; } = Helpers.CriterioFiscalRegistry.VersionInicial;
 
+        /// <summary>P-02: alícuota de servicios congelada en la venta (solo lectura; no se bindea ni se mapea de vuelta).</summary>
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+        public decimal? AlicuotaServiciosSnapshot { get; set; }
+
         [Display(Name = "Número")]
         public string Numero { get; set; } = string.Empty;
 

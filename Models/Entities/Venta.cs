@@ -65,6 +65,13 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public int CriterioFiscalVersion { get; set; } = Helpers.CriterioFiscalRegistry.VersionInicial;
 
+        /// <summary>
+        /// P-02 / P5: alícuota (%) de los servicios (armados/envío) con la que se calculó esta operación, congelada al crearla.
+        /// Null = operación anterior al snapshot: se relee con la alícuota de su versión (comportamiento previo; su tratamiento
+        /// definitivo queda pendiente de decisión, ver docs/p02-versionado-fiscal-diseno.md §8).
+        /// </summary>
+        public decimal? AlicuotaServiciosSnapshot { get; set; }
+
         // Crédito personal
         public int? CreditoId { get; set; }
 
