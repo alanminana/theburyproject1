@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Xunit;
@@ -56,6 +57,7 @@ public class ArranqueProductionSinBaseTests : IAsyncLifetime
     private string Login => "erp_arranque_" + _sufijo;
     private string BaseInexistente => "qa_arranque_sinbase_" + _sufijo;
     private bool _habilitado;
+    private int _puertoApp;
 
     public async Task InitializeAsync()
     {
@@ -105,11 +107,18 @@ public class ArranqueProductionSinBaseTests : IAsyncLifetime
         {
             try
             {
-                // Margen suficiente para que la inicialización (si corriera) ya hubiese fallado.
-                var salio = proceso.WaitForExitAsync();
-                var termino = await Task.WhenAny(salio, Task.Delay(TimeSpan.FromSeconds(20)));
-                Assert.False(termino == salio || proceso.HasExited,
-                    "Con InitializeOnStartup=false la app no inicializa nada y no debe terminar por la base. Salida:\n" + salida());
+                // Debe estar ATENDIENDO (no basta con "no terminó"): /health/live = 200. /health/ready sería 503 (la base no existe).
+                var vivo = false;
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var limite = DateTime.UtcNow.AddSeconds(45);
+                while (DateTime.UtcNow < limite && !proceso.HasExited && !vivo)
+                {
+                    try { vivo = (await http.GetAsync($"http://127.0.0.1:{_puertoApp}/health/live")).StatusCode == HttpStatusCode.OK; }
+                    catch (HttpRequestException) { await Task.Delay(500); }
+                    catch (TaskCanceledException) { await Task.Delay(500); }
+                }
+                Assert.True(vivo, "Con InitializeOnStartup=false la app debe quedar atendiendo (/health/live 200) aunque la base no exista. " +
+                    $"Terminó={proceso.HasExited}. Salida:\n{salida()}");
             }
             finally
             {
@@ -144,7 +153,8 @@ public class ArranqueProductionSinBaseTests : IAsyncLifetime
         };
         psi.ArgumentList.Add(dll);
         psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
-        psi.Environment["ASPNETCORE_URLS"] = "http://127.0.0.1:0";
+        _puertoApp = PuertoLibre();
+        psi.Environment["ASPNETCORE_URLS"] = $"http://127.0.0.1:{_puertoApp}";
         psi.Environment["ConnectionStrings__DefaultConnection"] = basis.ConnectionString;
         psi.Environment["ErpDb__User"] = Login;
         psi.Environment["ErpDb__Password"] = Clave;
@@ -160,6 +170,15 @@ public class ArranqueProductionSinBaseTests : IAsyncLifetime
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
         return (p, () => { lock (gate) return buffer.ToString(); });
+    }
+
+    private static int PuertoLibre()
+    {
+        var l = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        l.Start();
+        var puerto = ((IPEndPoint)l.LocalEndpoint).Port;
+        l.Stop();
+        return puerto;
     }
 
     private static async Task EjecutarAdminAsync(string sql)
