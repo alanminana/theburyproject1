@@ -660,6 +660,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         TheBuryProject.Models.Entities.Venta venta;
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
         using (TheBuryProject.Services.ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(10.5m))
         {
             var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
@@ -668,9 +669,10 @@ public sealed class CotizacionConversionServiceTests : IDisposable
             venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.VentaId);
         }
 
-        Assert.Equal(TheBuryProject.Helpers.CriterioFiscalRegistry.VersionVigente, venta.CriterioFiscalVersion);
+        Assert.Equal(2, venta.CriterioFiscalVersion);   // la versión vigente al convertir (no el default 1)
         Assert.Equal(10.5m, venta.AlicuotaServiciosSnapshot);   // la configuración de ESE momento
 
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
         using (TheBuryProject.Services.ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(21m))
             Assert.Equal(10.5m, TheBuryProject.Helpers.CriterioFiscalRegistry.Resolver(venta).AlicuotaServicios);
     }

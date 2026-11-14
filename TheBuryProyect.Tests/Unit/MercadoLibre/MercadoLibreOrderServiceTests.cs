@@ -451,6 +451,7 @@ public class MercadoLibreOrderServiceTests : IDisposable
         var (_, _, _, itemId) = await SembrarBaseAsync(stockInicial: 10m);
         var orderId = await SembrarOrdenAsync(itemId, 1001, cantidad: 1, precio: 1210m);
 
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
         using (ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(10.5m))
         {
             var resultado = await _servicio.CrearVentaInternaAsync(orderId, "tester");
@@ -458,9 +459,10 @@ public class MercadoLibreOrderServiceTests : IDisposable
         }
 
         var venta = await _context.Ventas.AsNoTracking().SingleAsync();
-        Assert.Equal(TheBuryProject.Helpers.CriterioFiscalRegistry.VersionVigente, venta.CriterioFiscalVersion);
+        Assert.Equal(2, venta.CriterioFiscalVersion);
         Assert.Equal(10.5m, venta.AlicuotaServiciosSnapshot);
 
+        using (TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(2, new TheBuryProject.Tests.Helpers.CriterioFiscalPruebaDelegado(2)))
         using (ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(21m))
             Assert.Equal(10.5m, TheBuryProject.Helpers.CriterioFiscalRegistry.Resolver(venta).AlicuotaServicios);
     }
