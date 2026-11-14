@@ -295,6 +295,7 @@ jobs:
           bash scripts/install/test-tailscale-policy.sh
           python3 -I scripts/install/tailscale-policy-check.py
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
+          python3 -m unittest discover -s scripts/monitoring -p 'test_status_chain.py'
           bash scripts/install/test-host-portability.sh
 
       - name: Eliminar .env sintetico
@@ -400,13 +401,15 @@ jobs:
         run: dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build
 
   # ---------------------------------------------------------------------------------------------
-  # Scripts de Windows (Check-ErpHealth simulado + instalador de Windows Server sin Hyper-V): informativo, NO bloquea merge.
+  # Scripts de Windows (Check-ErpHealth simulado + instalador de Windows Server sin Hyper-V): OBLIGATORIO (sin continue-on-error).
+  # Evidencia: 59/59 corridas no canceladas en verde (2026-11-12..14), 25-70 s cada una; ver docs/ci.md "Checks obligatorios e informativos".
   # No usa Docker, WSL, Hyper-V ni red real; ver docs/instalacion-windows-server.md.
+  # Un fallo pone en rojo el workflow. Que ademas BLOQUEE el merge exige agregar `windows-scripts` a los required checks de main
+  # (proteccion de rama: decision del propietario, no se toca desde CI).
   # ---------------------------------------------------------------------------------------------
   windows-scripts:
     runs-on: windows-latest
     timeout-minutes: 10
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
