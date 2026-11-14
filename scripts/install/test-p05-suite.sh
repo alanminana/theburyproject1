@@ -5,7 +5,7 @@
 #   bash scripts/install/test-p05-suite.sh [--docker] [--in-dind]
 #     (sin flags)  pruebas offline: politica Tailscale (perfiles linux-vm y windows), modelo de acceso Linux, instalador/firewall (print),
 #                  portabilidad de archivos
-#     --docker     ademas Caddy `tls internal` + confianza de la CA (usa el daemon del host: p. ej. CI)
+#     --docker     ademas Caddy `tls internal` + confianza de la CA (usa el daemon del host: p. ej. CI). NO corre el firewall real
 #     --in-dind    como --docker pero con un dockerd DESCARTABLE (privilegiado) para Caddy y para el firewall DOCKER-USER real:
 #                  la forma segura en una PC de desarrollo (Windows 11/WSL2) o en el servidor sin tocar su iptables
 # Salida: 0 todo OK | 1 alguna prueba fallo | 2 prerequisito. En Windows las pruebas PowerShell se corren aparte (ver el final).
@@ -29,10 +29,12 @@ run "Portabilidad de archivos entre hosts (LF, shebang, modo ejecutable, compose
 if (( DOCKER )); then
   flag=(); (( DIND )) && flag=(--in-dind)
   run "Caddy tls internal + confianza de la CA raiz (cliente que confia / no confia)"             bash "$HERE/test-caddy-tls.sh" "${flag[@]}"
-  if (( DIND )) || [[ "$(id -u)" == 0 ]]; then
-    run "Firewall DOCKER-USER real con clientes en tailnet / LAN / ajeno"                           bash "$HERE/test-firewall-isolation.sh" "${flag[@]}"
+  # El firewall DOCKER-USER REAL aplica y retira la cadena BURY-ERP: en el host solo corre en un dockerd descartable (--in-dind). En CI (runner efimero)
+  # lo ejecuta el job network-security directamente. Nunca se corre desde esta suite sobre el host, ni siquiera como root.
+  if (( DIND )); then
+    run "Firewall DOCKER-USER real con clientes en tailnet / LAN / ajeno (dockerd descartable)"   bash "$HERE/test-firewall-isolation.sh" --in-dind
   else
-    NAMES+=("Firewall DOCKER-USER real"); RESULTS+=("OMITIDA|requiere root o --in-dind")
+    NAMES+=("Firewall DOCKER-USER real"); RESULTS+=("OMITIDA|solo con --in-dind (no se toca el iptables del host)")
   fi
 fi
 

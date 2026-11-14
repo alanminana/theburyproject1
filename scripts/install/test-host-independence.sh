@@ -35,17 +35,27 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) echo "Ejecutar en Linux o WSL2 (wsl 
 for c in docker openssl curl git python3; do command -v "$c" >/dev/null 2>&1 || { echo "falta el comando: $c"; exit 2; }; done
 docker info >/dev/null 2>&1 || { echo "docker no responde"; exit 2; }
 
+# Entorno controlado: scripts/deploy y scripts/backup dan prioridad a variables exportadas (BACKUP_DIR, BACKUP_REMOTE, COMPOSE_FILE, DP_*...).
+# Si el arnés corre desde una sesion operativa, esas variables apuntarian a recursos REALES: se descartan todas antes de empezar y los valores
+# que si hacen falta se fijan explicitamente mas abajo. Tambien se rechaza un daemon remoto (DOCKER_HOST tcp:// o ssh://).
+for v in $(compgen -e | grep -E '^(COMPOSE_|DP_|BACKUP_|ERP_|MSSQL_|ADMIN_|AUTOMAPPER_|CSP_|BURY_|DOCKER_CONTEXT$|DOCKER_CONFIG$)'); do unset "$v"; done
+case "${DOCKER_HOST:-}" in ""|unix://*) ;; *) echo "DOCKER_HOST=${DOCKER_HOST%%:*}://... es un daemon remoto: el arnés solo corre contra el daemon local"; exit 2 ;; esac
+[[ "$(docker context show 2>/dev/null)" =~ ^(default|desktop-linux)$ ]] || { echo "contexto de docker no local ($(docker context show)): usar el contexto default"; exit 2; }
+
 PASS=0 FAIL=0 SKIP=0
 ok()   { PASS=$((PASS+1)); echo "PASS $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 skip() { SKIP=$((SKIP+1)); echo "SKIP $1"; }
 check() { local n=$1; shift; if "$@" >/dev/null 2>&1; then ok "$n"; else bad "$n"; fi; }
 
+ALPINE="$(grep -oE 'alpine:3@sha256:[a-f0-9]+' "$REPO/docker-compose.yml" | head -n1)"
 P="buryhi$RANDOM$RANDOM"
 T="$(mktemp -d "/tmp/${P}.XXXX")"
 ENVF="$T/.env"; BK="$T/backups"; ART="${OUT:-$T/out}"; mkdir -p "$BK" "$ART"
 LOG="$ART/install.log"
-CA_FILE="$REPO/caddy-root-ca.crt"; CA_PRE=0; [[ -e "$CA_FILE" ]] && CA_PRE=1   # install.sh la escribe en el repo; no pisar una ajena
+# install.sh exporta la CA publica de Caddy SIEMPRE a $REPO/caddy-root-ca.crt: si ya existe (instalacion real en este checkout) se rechaza en vez de pisarla.
+CA_FILE="$REPO/caddy-root-ca.crt"
+[[ -e "$CA_FILE" ]] && { echo "Existe $CA_FILE (CA de una instalacion en este checkout): el instalador la sobrescribiria. Correr el arnés desde otro checkout/worktree."; exit 2; }
 dc() { docker compose --progress quiet -p "$P" --env-file "$ENVF" -f "$REPO/docker-compose.yml" "$@"; }
 envval() { grep -E "^$1=" "$ENVF" | tail -n1 | cut -d= -f2-; }
 now() { date +%s; }
@@ -57,8 +67,12 @@ cleanup() {
   docker ps -aq --filter "label=com.docker.compose.project=$P" 2>/dev/null | xargs -r docker rm -f >/dev/null 2>&1
   docker volume ls -q --filter "label=com.docker.compose.project=$P" 2>/dev/null | xargs -r docker volume rm -f >/dev/null 2>&1
   docker network ls -q --filter "label=com.docker.compose.project=$P" 2>/dev/null | xargs -r docker network rm >/dev/null 2>&1
-  (( CA_PRE )) || rm -f "$CA_FILE"
+  rm -f "$CA_FILE"
+  # backups/sql pertenece al usuario de SQL Server (uid 10001, 750): un usuario normal no puede borrarlo; se borra con un contenedor auxiliar
+  # limitado al directorio temporal propio (ruta validada) y se comprueba que no queda nada.
+  if [[ "$T" == /tmp/buryhi*.* && -d "$T" && -n "${ALPINE:-}" ]]; then docker run --rm --network none -v "$T:/t" "$ALPINE" sh -c 'rm -rf /t/backups /t/out' >/dev/null 2>&1; fi
   rm -rf "$T" 2>/dev/null
+  if [[ -e "$T" ]]; then echo "ERROR: no se pudo eliminar $T (quedan backups sinteticos)"; (( ec == 0 )) && ec=1; fi
   exit $ec
 }
 trap cleanup EXIT
@@ -216,7 +230,6 @@ authed "$CJ" && ok "la cookie de sesion previa sigue valida (claves de proteccio
 
 # ------------------------------------------------------------------ 4. reinicio (politica restart: unless-stopped)
 echo "== 4. Reinicio ante caida (restart: unless-stopped) =="
-ALPINE="$(grep -oE 'alpine:3@sha256:[a-f0-9]+' "$REPO/docker-compose.yml" | head -n1)"
 crash() { # crash CONTENEDOR: SIGKILL al proceso 1 DESDE FUERA (como un OOM kill o un crash). `docker kill` cuenta como parada manual y NO reinicia.
   local pid; pid="$(docker inspect -f '{{.State.Pid}}' "$1" 2>/dev/null)"
   [[ "${pid:-0}" -gt 0 ]] && docker run --rm --pid=host --network none "$ALPINE" kill -9 "$pid" >/dev/null 2>&1
@@ -241,7 +254,12 @@ dc restart app >>"$LOG" 2>&1 && wait_for 120 healthy app && ok "docker compose r
 # ------------------------------------------------------------------ 5. restauracion
 echo "== 5. Respaldo y restauracion =="
 if (( SKIP_RESTORE )); then skip "restauracion (--skip-restore)"; else
-  export COMPOSE_PROJECT_NAME="$P" COMPOSE_ENV_FILES="$ENVF"   # scripts/backup respeta las variables estandar de Compose
+  export COMPOSE_PROJECT_NAME="$P" COMPOSE_ENV_FILES="$ENVF" COMPOSE_FILE="$REPO/docker-compose.yml" BACKUP_DIR="$BK" BACKUP_REMOTE="" BACKUP_REQUIRE_OFFSITE=false
+  # antes de escribir nada: el db que veran los scripts de backup es el del proyecto propio y su /backups/sql es el directorio temporal propio
+  DBC="$(dc ps -q db | head -n1)"
+  [[ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$DBC" 2>/dev/null)" == "$P" ]]     && [[ "$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/backups/sql"}}{{.Source}}{{end}}{{end}}' "$DBC" 2>/dev/null)" == *"$BK/sql" ]]     && ok "los backups apuntan al proyecto y al directorio propios ($P, $BK/sql)"     || { bad "los scripts de backup NO apuntan al stack/directorio propios: se omite la fase de respaldo"; SKIP_RESTORE=1; }
+fi
+if (( ! SKIP_RESTORE )); then
   bash "$REPO/scripts/backup/backup.sh" full >"$ART/backup.log" 2>&1 && ok "backup.sh full (SQL, VERIFYONLY + sha256)" || { bad "backup.sh full (ver $ART/backup.log)"; tail -5 "$ART/backup.log"; }
   # sql/ pertenece al usuario de SQL Server dentro del contenedor (700): un usuario normal del host no puede listarlo; se consulta desde db.
   BN="$(dc exec -T db bash -c 'ls -t /backups/sql/*_full_*.bak 2>/dev/null | head -n1' | tr -d $'\r')"; BN="${BN##*/}"
@@ -253,7 +271,7 @@ if (( SKIP_RESTORE )); then skip "restauracion (--skip-restore)"; else
     sql "ALTER DATABASE [${DB}_P04Check] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${DB}_P04Check];" >/dev/null
   else bad "restore-sql.sh (ver $ART/restore-sql.log)"; tail -6 "$ART/restore-sql.log"; fi
   wait_for 120 ready200 && ok "la app sigue sana tras backup/restauracion" || bad "app no sana tras backup/restauracion"
-  unset COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES
+  unset COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES COMPOSE_FILE BACKUP_DIR BACKUP_REMOTE BACKUP_REQUIRE_OFFSITE
 fi
 
 # ------------------------------------------------------------------ 6. limpieza y resumen
