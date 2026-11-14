@@ -1,0 +1,53 @@
+name: Independencia del host (P-04/P-07)
+
+# Ejecuta scripts/install/test-host-independence.sh sobre un Ubuntu con Docker Engine nativo (el runner): instalador REAL (install.sh) con
+# un .env sintetico, configuracion inicial (administrador, Terminos y Condiciones, pantallas), persistencia (down/up), reinicio ante caida
+# real (SIGKILL del proceso 1), respaldo y restauracion (scripts/backup). Todo en un proyecto Compose propio y descartable (buryhi<rand>),
+# con puerto/subred propios y solo en 127.0.0.1. No usa secretos del repositorio ni toca ninguna base real. Detalle:
+# docs/p04-plataforma-matriz-automatizacion.md
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/install/**'
+      - 'scripts/deploy/**'
+      - 'scripts/backup/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+      - 'Caddyfile'
+      - 'docker/**'
+      - '.env.example'
+      - '.gitattributes'
+      - '.github/workflows/host-independence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: host-independence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-independence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Portabilidad estatica (LF, shebang, modo ejecutable, compose)
+        run: bash scripts/install/test-host-portability.sh
+
+      - name: Instalacion, persistencia, reinicio y restauracion en un stack sintetico
+        run: bash scripts/install/test-host-independence.sh --out "$RUNNER_TEMP/host-independence"
+
+      - name: Perfil del host y registros (sin secretos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-independence
+          path: |
+            ${{ runner.temp }}/host-independence/host-profile.json
+            ${{ runner.temp }}/host-independence/*.log
+          if-no-files-found: ignore
+          retention-days: 7

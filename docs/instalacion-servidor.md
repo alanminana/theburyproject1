@@ -1,6 +1,6 @@
 # Instalación del servidor (Windows o Linux)
 
-> **Plataforma principal (decisión 2026-11-12): Windows Server con Hyper-V + VM Linux.** Ver [`instalacion-windows-server.md`](instalacion-windows-server.md). Esta guía sigue vigente para Linux nativo y para Windows 11 + Docker Desktop (WSL2), la alternativa.
+> **Plataforma (actualizado 2026-11-14): sin decidir entre Windows 11 + Docker Desktop (WSL2) y Ubuntu + Docker Engine; Windows Server (Hyper-V + VM) NO es la plataforma elegida.** Esta guía cubre las dos opciones; qué es común, qué cambia y qué se probó en cada una: [p04-plataforma-matriz-automatizacion.md](p04-plataforma-matriz-automatizacion.md). La alternativa Windows Server queda archivada en [`instalacion-windows-server.md`](instalacion-windows-server.md).
 
 Guía para instalar TheBuryProject en un servidor propio, accesible solo por LAN/VPN. Es **una sola versión** para los dos sistemas: el ERP corre
 en contenedores Docker (Linux) y solo cambia cómo se prepara la máquina anfitriona. Windows 10/11 con Docker Desktop (WSL2) es el camino
