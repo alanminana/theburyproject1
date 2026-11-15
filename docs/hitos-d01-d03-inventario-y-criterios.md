@@ -272,6 +272,23 @@ Decisión del propietario (2026-11-14): el despliegue usa una **base nueva**, co
 
 Datos sintéticos: los tests de servicio, HTTP y SQL Server de D-01/D-02/D-03 siembran sus propios datos descartables; el script de instalación limpia verifica el estado **sin** datos. La carga de datos sintéticos sobre la base recién instalada vía UI se cubre con los specs Playwright de cada módulo (secciones 6-8), no con el script.
 
+#### Falla intermitente de `scripts/qa/instalacion-limpia.sh` (2026-11-15): causa raíz y corrección
+
+En una corrida el paso `docker compose up -d --build migrate` falló sin mostrar la causa (el script descartaba toda la salida con `>/dev/null 2>&1`) y la corrida siguiente pasó.
+Se investigó con 8 corridas seguidas del script original más diagnóstico (8/8 correctas con caché), 10 corridas del script nuevo (9 correctas y 1 con la causa 2), una corrida sin caché de capas (`--no-cache`, correcta) y, con el script final sin modificar, 10 corridas seguidas (10/10 correctas) más la prueba de reintento por colisión.
+Resultado: **dos causas distintas**, ambas identificadas con su mensaje real y ahora tratadas de forma determinista.
+
+| # | Causa | Evidencia | Corrección |
+|---|---|---|---|
+| 1 | **Colisión de subred** (reproducida de forma determinista). El script elegía `BURY_NET_SUBNET=172.31.<aleatorio 20-219>.0/24` a ciegas. Este host tiene otros stacks `bury-*` (`bury-qa-seg/prd/fin/cfg-net` ocupan `172.31.91-94.0/24`, más `172.29.x` y `172.30.x`): una subred que se solapa hace fallar la creación de la red del proyecto. | Forzando `172.31.91.0/24`: `Network ..._bury-net Error: invalid pool request: Pool overlaps with other one on this address space`, `up` sale con error y el script original no mostraba nada. Probabilidad por corrida ≥ 2 % solo con esas 4 redes (más si otro proceso crea redes a la vez), por eso «a veces falla y la siguiente pasa» (otra subred aleatoria). | El script elige una `/24` de `172.31.0.0/16` **libre**, comparándola (aritmética de CIDR) con todas las subredes de `docker network inspect` y con las rutas IPv4 del host. Si Docker aun así la rechaza por solapamiento (otro proceso creó una red en el mismo instante) limpia el proyecto y reintenta con otra subred, **máximo 3 intentos y solo para esta firma**. `INSTL_SUBNET=<cidr>` fuerza una subred (se valida igual; si se solapa, falla sin tocar Docker). Probado: forzada la colisión, falla de inmediato con «se solapa con 172.31.91.0/24»; con la primera subred forzada a una ocupada, el reintento elige otra y la instalación termina OK (143 migraciones, 1 administrador, tablas esperadas). |
+| 2 | **Lectura transitoria del contexto de build** (observada 1 vez en 21 corridas, capturada gracias al nuevo diagnóstico). `failed to solve: failed to compute cache key: failed to calculate checksum of ref ...: "/global.json": not found` en `COPY global.json TheBuryProyect.csproj ./`, aunque `global.json` **existe** en el repo (mtime anterior a la corrida, tracked, sin cambios). | El contexto se lee desde el worktree de Windows (`/mnt/d`, DrvFs) mientras otros procesos trabajan en el mismo árbol (otro agente compilando/editando, otros stacks); la misma corrida repetida pasó. No se pudo reproducir a demanda ni se probó una causa más profunda dentro de BuildKit/DrvFs. | El script clasifica la falla (`transient_cause`): si el archivo que BuildKit dice no encontrar **existe** en el repo, es una lectura transitoria y se reintenta (mismo tope de 3 intentos); si el archivo realmente falta **no** se reintenta. Probado el clasificador con logs de ambas situaciones y con otras fallas (restore de NuGet, daemon caído: sin reintento). |
+
+Diagnóstico ante cualquier falla que no se reintenta: se imprime la subred solicitada, las últimas 60 líneas de `up.log`, `docker compose ps -a`, los logs de `db`, `db-init` y
+`migrate` y las subredes en uso del host, con los secretos sintéticos de la corrida redactados (`[REDACTED]`). Se mantienen los tres chequeos (migraciones = ids únicos del repo y 0
+pendientes, un único administrador `SuperAdmin`, ninguna tabla con filas fuera de `instalacion-limpia-tablas-esperadas.txt`). `--no-cache` reconstruye la imagen sin caché para descartar fallas
+dependientes de caché (probado: correcta). **No se afirma** que la única falla original haya sido la causa 1 o la 2: su salida se descartó; ambas son las únicas halladas en 30 corridas (la corrida 6 del lote intermedio abortó por una edición del script en curso, no cuenta) y
+las dos quedan cubiertas.
+
 ### Lo que depende del servidor definitivo (no probado por no tener acceso)
 
 - Arranque automático del ERP sin inicio de sesión tras reinicio y corte de energía (BIOS «Restore on AC Power Loss»).
