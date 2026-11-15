@@ -1132,6 +1132,28 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             CxpAnuladorUserId, "test-cxp-anulador-role-id", "TestCxpAnuladorRole", 9450,
             "cuentasporpagar.view", "cuentasporpagar.cancel");
 
+    public const string ListaPrecioAdminUserId = "test-lista-precio-admin-id";
+    public const string ListaPrecioSoloVerUserId = "test-lista-precio-solo-ver-id";
+    public const string ListaPrecioGerenteUserId = "test-lista-precio-gerente-id";
+
+    /// <summary>D-01: administra listas y fija precios (view, create, update, delete, apply, history).</summary>
+    public Task SeedUserWithListaPrecioAdminAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioAdminUserId, "test-lista-precio-admin-role-id", "TestListaPrecioAdminRole", 9470,
+            "precios.view", "precios.create", "precios.update", "precios.delete", "precios.apply", "precios.history", "productos.view");
+
+    /// <summary>D-01: solo ve las listas (precios.view): sin alta, edición, baja, precio manual ni historial exportable.</summary>
+    public Task SeedUserWithListaPrecioSoloVerAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioSoloVerUserId, "test-lista-precio-solo-ver-role-id", "TestListaPrecioSoloVerRole", 9480,
+            "precios.view", "productos.view");
+
+    /// <summary>D-01: perfil del Gerente (view + apply + history, sin create/update/delete de listas).</summary>
+    public Task SeedUserWithListaPrecioGerenteAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioGerenteUserId, "test-lista-precio-gerente-role-id", "TestListaPrecioGerenteRole", 9490,
+            "precios.view", "precios.apply", "precios.history", "productos.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

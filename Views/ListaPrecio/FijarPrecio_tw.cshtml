@@ -1,0 +1,103 @@
+@model TheBuryProject.ViewModels.FijarPrecioViewModel
+@{
+    ViewData["Title"] = "Fijar precio";
+}
+
+<partial name="_ListaPrecioAlertas" />
+
+<section class="card-erp-panel mb-4 p-4">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Listas de precios</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <a asp-action="Precios" asp-route-id="@Model.ListaId" class="no-underline hover:text-primary">@Model.ListaNombre</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">@Model.ProductoCodigo</span>
+    </nav>
+    <h1 class="mt-2 text-lg font-bold tracking-tight text-white">Fijar precio de @Model.ProductoCodigo</h1>
+    <p class="mt-1 text-sm text-slate-400">@Model.ProductoNombre · lista «@Model.ListaNombre». El precio anterior queda en el historial con su vigencia.</p>
+</section>
+
+<form asp-action="FijarPrecio" asp-route-listaId="@Model.ListaId" asp-route-productoId="@Model.ProductoId" method="post"
+      class="card-erp-panel space-y-4 p-4" aria-label="Fijar precio manual">
+    <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Costo del producto</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@ListaPrecioUiHelper.Moneda(Model.CostoProducto)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Precio base</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@ListaPrecioUiHelper.Moneda(Model.PrecioBase)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Sugerido por la lista</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@(Model.PrecioSugerido.HasValue ? ListaPrecioUiHelper.Moneda(Model.PrecioSugerido.Value) : "—")</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Margen mínimo</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@ListaPrecioUiHelper.Porcentaje(Model.MargenMinimoPorcentaje)</dd>
+        </div>
+    </dl>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <div class="md:col-span-4">
+            <label class="@ListaPrecioUiHelper.LabelClass" for="precio">Precio de venta (con IVA)</label>
+            <input id="precio" name="precio" type="number" step="0.01" min="0.01" max="20000000" inputmode="decimal" required
+                   value="@ListaPrecioUiHelper.Numero(Model.Precio ?? Model.PrecioSugerido)" class="@ListaPrecioUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-8">
+            <label class="@ListaPrecioUiHelper.LabelClass" for="notas">Motivo o notas (opcional)</label>
+            <input id="notas" name="notas" type="text" maxlength="500" value="@Model.Notas" class="@ListaPrecioUiHelper.InputClass" />
+        </div>
+    </div>
+    <p class="text-xs text-slate-400">El costo se toma del producto; no se modifica. Rige desde ahora.</p>
+
+    <div class="flex flex-wrap justify-end gap-2">
+        <a asp-action="Precios" asp-route-id="@Model.ListaId" class="btn-erp-ghost btn-sm no-underline">Cancelar</a>
+        <button type="submit" class="btn-erp-primary btn-sm">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+            Fijar precio
+        </button>
+    </div>
+</form>
+
+<section class="card-erp-panel mb-4" aria-labelledby="lp-historial-titulo">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
+        <h2 id="lp-historial-titulo" class="text-base font-bold text-white">Historial en esta lista</h2>
+        <a asp-controller="CambiosPrecios" asp-action="Historial" asp-route-productoId="@Model.ProductoId" asp-route-listaId="@Model.ListaId"
+           class="btn-erp-ghost btn-sm no-underline">Ver historial completo</a>
+    </div>
+    @if (!Model.Historial.Any())
+    {
+        <p class="px-4 py-6 text-sm text-slate-400" data-lp-vacio>Este producto todavía no tiene precios en esta lista.</p>
+    }
+    else
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Historial de precios del producto en la lista" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left">
+                <thead>
+                    <tr class="border-b border-slate-800">
+                        <th scope="col" data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Vigente desde</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Hasta</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Precio</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Margen</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Origen</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Usuario</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var h in Model.Historial)
+                    {
+                        <tr class="@(h.EsVigente ? "bg-emerald-900/10" : "")">
+                            <td class="px-3 py-2.5 whitespace-nowrap">@ListaPrecioUiHelper.Fecha(h.VigenciaDesde)@(h.EsVigente ? " · vigente" : "")</td>
+                            <td class="px-3 py-2.5 whitespace-nowrap text-slate-400">@ListaPrecioUiHelper.Fecha(h.VigenciaHasta)</td>
+                            <td class="px-3 py-2.5 text-right font-bold whitespace-nowrap">@ListaPrecioUiHelper.Moneda(h.Precio)</td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap">@ListaPrecioUiHelper.Porcentaje(h.MargenPorcentaje)</td>
+                            <td class="px-3 py-2.5 whitespace-nowrap">@(h.EsManual ? "Manual" : "Lote")</td>
+                            <td class="px-3 py-2.5 whitespace-nowrap text-slate-400">@(h.CreadoPor ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

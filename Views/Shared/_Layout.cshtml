@@ -73,6 +73,7 @@
         var canViewClientes = User.TienePermiso("clientes", "view");
         var canViewInventario = User.TienePermiso("productos", "view");
         var canViewProveedores = User.TienePermiso("proveedores", "view");
+        var canViewPrecios = User.TienePermiso("precios", "view");
         var canViewCuentasPorPagar = User.TienePermiso("cuentasporpagar", "view");
         var canViewCaja = User.TienePermiso("caja", "view");
         var canViewReportes = User.TienePermiso("reportes", "view");
@@ -93,7 +94,7 @@
 
 
         var showOperaciones = canViewVentas || canViewClientes || canViewDocumentos;
-        var showLogistica = canViewInventario || canViewProveedores || canViewCuentasPorPagar || canViewCaja;
+        var showLogistica = canViewInventario || canViewProveedores || canViewCuentasPorPagar || canViewPrecios || canViewCaja;
         var showReportes = canViewReportes;
         var showIntegraciones = canViewMercadoLibre;
         var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
@@ -215,6 +216,18 @@
                                     <span class="material-symbols-outlined text-lg shrink-0"
                                           aria-hidden="true">account_balance_wallet</span>
                                     <p class="@NavFont(active) sidebar-label">Cuentas por pagar</p>
+                                </a>
+                            }
+
+                            @if (canViewPrecios)
+                            {
+                                var active = IsActive("ListaPrecio") || IsActive("CambiosPrecios");
+
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ListaPrecio"
+                                   asp-action="Index" title="Listas de precios">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">sell</span>
+                                    <p class="@NavFont(active) sidebar-label">Listas de precios</p>
                                 </a>
                             }
 

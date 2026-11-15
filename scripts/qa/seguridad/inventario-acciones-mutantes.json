@@ -3554,6 +3554,115 @@
     "excluidaPorDiseno": false
   },
   {
+    "id": "ListaPrecio.Baja:POST",
+    "controller": "ListaPrecio",
+    "accion": "Baja",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Baja",
+    "permisos": [
+      "precios.delete",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.Crear:POST",
+    "controller": "ListaPrecio",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Crear",
+    "permisos": [
+      "precios.create",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "modelo",
+        "tipo": "ListaPrecioFormViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.Editar:POST",
+    "controller": "ListaPrecio",
+    "accion": "Editar",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Editar",
+    "permisos": [
+      "precios.update",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "modelo",
+        "tipo": "ListaPrecioFormViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.FijarPrecio:POST",
+    "controller": "ListaPrecio",
+    "accion": "FijarPrecio",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/FijarPrecio",
+    "permisos": [
+      "precios.apply",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "notas",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "precio",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
     "id": "Mantenimiento.RecalcularScoringGlobal:POST",
     "controller": "Mantenimiento",
     "accion": "RecalcularScoringGlobal",
