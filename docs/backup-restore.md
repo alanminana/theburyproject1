@@ -237,6 +237,95 @@ Antes borraba por `mtime` **ambos tipos en cualquier modo ≠ `log`** y sin mín
 Límites conocidos: un lock local no coordina **otro servidor** que escriba el mismo remoto (un solo escritor por destino); y el timestamp del
 nombre no es evidencia de cadena LSN, por eso la poda de logs es conservadora (solo anteriores al full más antiguo retenido).
 
+### 8.2 Retención por capacidad y disco extraíble (2026-11-15)
+
+Decisión del propietario: los backups irán a un **segundo disco rígido interno** y, más adelante, a un **disco extraíble**. La retención por días (§8) no
+acota el uso de disco: si los backups crecen o se acumulan, el disco se llena y `BACKUP DATABASE` falla. La retención **por capacidad** lo acota
+(`scripts/backup/lib-capacity.sh`; la corre `backup.sh` tras la retención por días y puede correrse sola con `retention-capacity.sh`).
+
+#### Variables (en `.env`; `0` = sin límite; si ambos límites son `0` no hace nada)
+
+| Variable | Default | Significado |
+|---|:-:|---|
+| `BACKUP_MAX_TOTAL_GB` | `0` | Tope de GB que ocupan los backups gestionados de `BACKUP_DIR` (`sql/` + `files/`; acepta decimales, p. ej. `0.5`). No cuenta `logs/`, `monitor-status/` ni archivos ajenos. |
+| `BACKUP_MIN_FREE_GB` | `0` | GB libres que debe conservar el filesystem de `BACKUP_DIR` (útil si el disco lo comparten otros datos). |
+| `BACKUP_CAPACITY_MIN_CHAINS` | `2` | Cadenas recuperables que la capacidad **nunca** borra (entero ≥ 1; las más nuevas). |
+| `BACKUP_REMOVABLE_DIR` | vacío | Ruta **absoluta ya montada** del disco extraíble (ver abajo). Vacío = sin copia extraíble. |
+| `BACKUP_REMOVABLE_MARKER` | `.bury-backup-removable` | Archivo-marca en la raíz del extraíble (se crea una vez a mano). |
+| `BACKUP_REMOVABLE_REQUIRE_MOUNT` | `true` | Exige que la ruta sea un punto de montaje real (`mountpoint -q`). |
+| `BACKUP_REMOVABLE_MAX_TOTAL_GB` / `BACKUP_REMOVABLE_MIN_FREE_GB` | `0` / `0` | Mismos límites, aplicados al extraíble. |
+
+**Convivencia con la retención por días**: primero corre `BACKUP_RETENTION_DAYS`/`BACKUP_RETENTION_MIN_KEEP` (§8; ve *por tipo* de archivo) y después la
+capacidad (ve *por cadena*). La capacidad puede borrar cadenas más jóvenes que `BACKUP_RETENTION_DAYS` —para eso existe—, pero **nunca baja de
+`BACKUP_CAPACITY_MIN_CHAINS` cadenas**. Conviene `BACKUP_CAPACITY_MIN_CHAINS` ≥ 2: si el último full resultara dañado hay que poder retroceder a otro.
+
+#### Qué es una cadena y cómo se borra
+
+Una **cadena recuperable** es: un full completo (`<db>_full_<ts>.bak` + `.sha256`, ambos no vacíos) + los logs `<db>_log_<ts>.trn` con `ts` en
+`[este full, el siguiente full)` + el tar de archivos (`files_<ts>.tar.gz`, `.sha256`, `.caseal`) y el manifiesto `set_<ts-tar>_<ts-full>.txt` que lo acredita.
+El **manifiesto manda**: un tar sigue al full que nombra (aunque haya fulls intermedios, §10.2); sin manifiesto, al full anterior por fecha. Reglas:
+
+- Se borra **de la cadena más antigua a la más nueva**, por cadenas enteras: nunca un full dejando huérfanos sus logs, ni logs que ya no se puedan aplicar.
+  Los logs anteriores a todo full completo (huérfanos) se borran primero: no sirven a ninguna cadena.
+- **La última cadena completa nunca se borra** y tampoco se baja de `BACKUP_CAPACITY_MIN_CHAINS`. Si aun así no se cumple el límite, el backup **falla de forma
+  ruidosa**: `exit 7`, `ERROR` en `backup.log` («DISCO INSUFICIENTE: faltan N bytes …»), `monitor-status/capacity.json` con `exit 7`/`verified false` y alerta
+  `backup.capacity` CRITICAL del monitor hasta que una corrida posterior cumpla el límite. Las cadenas que sí excedían el límite y no eran necesarias para el mínimo
+  se borran igual (liberan espacio; no se pierde nada necesario).
+- Un full incompleto (sin `.sha256` o 0 bytes) no cuenta como cadena ni se borra (`WARN`). Un nombre con fecha futura o imposible (`02-30`) anula la decisión
+  (`GUARD`): si hay límites configurados y no se puede evaluar, falla ruidosamente en vez de borrar a ciegas.
+- «Completa» = principal y `.sha256` presentes (como en §8.1): **no prueba que se restaure**; eso lo hacen `VERIFYONLY` de cada backup y `restore-test.sh`.
+
+#### Seguridad del borrado
+
+Solo toca archivos de `BACKUP_DIR/sql` y `BACKUP_DIR/files` cuyo **nombre canónico exacto** coincide con los que generan los scripts (cualquier otra cosa se ignora). El
+plan se valida de nuevo con esa expresión antes de ejecutarse; el borrado corre en el contenedor `backup-files` (`/backups`, igual que `retention.sh`: los `.bak` son
+de uid 10001), exige la marca `.bury-backup-root`, rechaza rutas fuera de `sql/`/`files/` (absolutas, `..`, `//`), **no sigue enlaces simbólicos** (un archivo-enlace se
+ignora con `WARN`; si `sql/` o `files/` son enlaces no se borra nada). `retention-capacity.sh` resuelve `BACKUP_DIR` con `pwd -P` y rechaza vacío, `/` o un directorio sin marca.
+Toma el **mismo lock** que los backups y restores (si hay otra ejecución: exit 4). El log lista cadenas y archivos, sin secretos.
+
+#### Uso manual
+
+```bash
+scripts/backup/retention-capacity.sh            # --dry-run (default): muestra qué cadenas/archivos se borrarían; NO toca nada
+scripts/backup/retention-capacity.sh --apply    # aplica (toma el lock)
+```
+
+**Ejemplo, disco de backups de 500 GB** dedicado a backups (full de ~30 GB, logs de ~2 GB/día): `BACKUP_MAX_TOTAL_GB=400` (deja 100 GB de margen para el siguiente
+full y el crecimiento), `BACKUP_MIN_FREE_GB=60` (nunca menos que ~2 fulls de margen), `BACKUP_CAPACITY_MIN_CHAINS=2`. Con 14 días de retención por días el uso típico son
+~14 cadenas ≈ 250 GB y la capacidad no actúa; si el full crece o se acumulan `files`, empieza a podar desde la cadena más antigua sin bajar de 2. Si 2 cadenas ya
+superan 400 GB, el backup falla con exit 7 y hay que ampliar el disco. Regla práctica: `MAX_TOTAL_GB` ≥ `MIN_CHAINS` × (full + logs de un ciclo + tar) + un full de margen.
+
+#### Disco extraíble (copia secundaria)
+
+`scripts/backup/copy-removable.sh` (y `backup.sh`, tras cada `all`/`full`/`files` exitoso) copia al extraíble las cadenas completas que falten, **de la más nueva a la más
+antigua**, solo los archivos ausentes o de tamaño distinto; cada copia va a `*.partial`, se **verifica por `sha256`** contra el `.sha256` del origen (si el origen no
+coincide con su propio `.sha256` no se copia) y se renombra de forma atómica. Estructura en el destino: `<BACKUP_REMOVABLE_DIR>/bury-backup/{sql,files}`.
+
+- **No asume letra de unidad ni ruta**: se configura la ruta de montaje (`/mnt/respaldo`, `/media/<usuario>/<etiqueta>`; en Windows vía WSL, `/mnt/e`). La ruta debe ser
+  absoluta, sin espacios ni `:` y fuera de `BACKUP_DIR`. Para una ruta estable en Ubuntu, montar por `UUID` en `/etc/fstab` con `nofail`.
+- **Disponible** = la ruta existe, es un punto de montaje real (`BACKUP_REMOVABLE_REQUIRE_MOUNT`), contiene el archivo-marca (`touch /mnt/respaldo/.bury-backup-removable`,
+  **una sola vez**, con el disco correcto montado) y es escribible. La marca evita que, con el disco desconectado, se copie al disco del servidor.
+- **Nunca falla el backup principal**: sin disco, `WARN` y `monitor-status/removable-copy.json` (`exit 1`, `verified false`, «atrasada: …»). Con `--strict` (manual) devuelve 1.
+- **«Al día / atrasada»**: `verified true` solo si la cadena más nueva quedó completa y verificada en el extraíble; el estado conserva `last_success`. El monitor
+  (`backup.removable-copy`) mide la antigüedad de ese último éxito: WARNING a 3 días, CRITICAL a 7 (configurable en `removable_copy`). Un disco desconectado unas horas
+  no alerta; uno olvidado una semana sí.
+- Con `BACKUP_REMOVABLE_MAX_TOTAL_GB`/`_MIN_FREE_GB` se copia solo lo que cabe (la cadena más nueva primero) y el destino se poda con las mismas reglas por cadena
+  (nunca la última). La capacidad del origen **no** borra del extraíble (copias independientes). `--dry-run` (default manual) muestra lo que copiaría.
+- Windows (host con WSL): montar el disco en Windows y usar la ruta de WSL (`/mnt/<letra>`); la letra la asigna Windows, por eso se configura en `.env` y no se asume.
+  `docker compose run -v` monta esa ruta en el contenedor `backup-files`.
+
+#### Qué se probó y qué NO
+
+Probado (`scripts/backup/test-retention-capacity.sh`, 98 comprobaciones; la parte sintética la corre `test-hardening.sh`, que corre en CI): modelo de cadenas con nombres
+reales (full + logs + tar + manifiesto, manifiesto vs fecha, huérfanos, incompletos), borrado de la cadena más antigua, mínimo de cadenas, falla ruidosa, `--dry-run`, rutas
+peligrosas, enlaces simbólicos, lock, extraíble ausente/presente/atrasado/corrupto/chico. Con `--db` (SQL Server real descartable, proyecto Compose `bury-bkcap-<rand>`):
+4 cadenas reales (full + log) generadas por `backup.sh`, el tope borra **solo** la más antigua, **restore real** (`restore-sql.sh` con logs) del full más antiguo que queda
+y del más nuevo, exit 7 + estado del monitor con tope imposible, restore de la última cadena tras la falla, y copia al extraíble por el contenedor `backup-files`.
+**No probado**: el disco interno real (rendimiento, permisos definitivos); un disco extraíble físico (hot-plug, suspensión USB, NTFS/exFAT: sin `chmod`, lo copiado queda
+accesible a quien monte el disco; **cifrar el disco** con BitLocker/LUKS si sale del servidor); ni la interacción con la copia externa real (la capacidad no mira el remoto:
+su retención es la de §8.1). La capacidad suma archivos por nombre y tamaño; no es un contador de uso del filesystem (usar `BACKUP_MIN_FREE_GB` si el disco se comparte).
+
+
 ## 9. Restore
 
 ### 9.1 Restore de SQL (a una base distinta, no destructivo)
@@ -369,7 +458,7 @@ contrato de `App_Data`; y comprobar que una sesión abierta **antes** del desast
 | 4 | otra ejecución en curso (omitido) |
 | 5 | backup de archivos falló |
 | 6 | copia externa falló, no se pudo verificar, es obligatoria y no está configurada, o la **retención remota** se omitió/interrumpió (el mensaje dice si se borró algo) |
-| 7 | retención falló |
+| 7 | retención falló, o la **retención por capacidad** no puede cumplir el límite conservando las cadenas mínimas (disco insuficiente, §8.2) |
 | 8 | prerequisito: docker/compose ausente, `db` detenido o SQL sin responder |
 | 9 | restore rechazado o fallido (`restore-*.sh`, `restore-test.sh`) |
 | 10 | `app` no volvió a `healthy` tras detenerla para el backup, o falló la recuperación de una corrida interrumpida (§7.1) |
@@ -398,6 +487,7 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 - Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba). En Windows las tareas
   las crea `install-windows.ps1` (usan `.env`, así que la configuración del overlay de 6.2 también aplica).
 - Permisos verificados en Linux (VM de Docker), no en el disco definitivo del servidor.
+- **Retención por capacidad y disco extraíble (2026-11-15, §8.2)**: implementadas y ensayadas con cadenas sintéticas y con SQL Server real descartable. Pendiente: probarlas en el disco interno definitivo y con un extraíble físico; fijar `BACKUP_MAX_TOTAL_GB`/`BACKUP_MIN_FREE_GB` según el tamaño real del disco; cifrar el extraíble si sale del servidor.
 - El aviso activo ante fallos depende del monitor (`docs/monitoreo-alertas.md`); sin él, un `exit 6` solo queda en `backup.log` y `monitor-status/`.
 - Sin retención "mensual/anual": si se necesita histórico largo, definirla (p. ej. conservar el full del día 1 de cada mes).
 - El backup no incluye `.env`/`backup-offsite.env`: mantener su copia manual y actualizada.
