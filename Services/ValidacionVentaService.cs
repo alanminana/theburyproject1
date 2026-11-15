@@ -442,6 +442,9 @@ namespace TheBuryProject.Services
         /// D-02: describe el faltante de referencias como razón de autorización (nunca como bloqueo). La autoridad es
         /// <c>ClienteAptitudService</c>; acá sólo se traduce a la presentación de crédito.
         /// </summary>
+        private const string DetalleExcepcionReferencias =
+            "La autoriza un segundo usuario con permiso de autorizar ventas y vale solo para esta venta";
+
         private static void AplicarProblemaReferencias(ProblemaCredito problema, int clienteId, string descripcion)
         {
             problema.Categoria = CategoriaMotivo.Referencias;
@@ -449,7 +452,7 @@ namespace TheBuryProject.Services
             problema.Descripcion = descripcion;
             problema.AccionSugerida = "Verificar las referencias del cliente o pedir la autorización de un segundo usuario con permiso de autorizar ventas";
             problema.UrlAccion = $"/Cliente/Details/{clienteId}#referencias-card";
-            problema.DetalleAdicional = descripcion;
+            problema.DetalleAdicional = DetalleExcepcionReferencias;
             problema.EsBloqueante = false;
             problema.TipoRazon = TipoRazonAutorizacion.ReferenciasInsuficientes;
         }
@@ -813,7 +816,7 @@ namespace TheBuryProject.Services
                 {
                     Tipo = TipoRazonAutorizacion.ReferenciasInsuficientes,
                     Descripcion = aptitud.Referencias.Mensaje,
-                    DetalleAdicional = aptitud.Referencias.Mensaje
+                    DetalleAdicional = DetalleExcepcionReferencias
                 });
             }
 

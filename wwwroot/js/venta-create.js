@@ -2624,7 +2624,7 @@
                     : '';
                 const descripcion = (esDocumentacionExceptuada
                     ? 'Se aplicó una excepción documental para esta operación.'
-                    : humanizarDocumentos(m.descripcion)) + (m.categoria === 7 ? ' La venta quedará pendiente de la autorización de un segundo usuario.' : '');
+                    : humanizarDocumentos(m.descripcion)) + (m.categoria === 7 ? '. La venta quedará pendiente de la autorización de un segundo usuario.' : '');
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm mt-0.5 ${colorCls}">${icon}</span>
                     <div class="flex-1">

@@ -74,6 +74,8 @@ namespace TheBuryProject.Tests.E2ESeeding
                     Email = $"{Marcador.ToLowerInvariant()}.{documento}@example.invalid",
                     Activo = true,
                     PuntajeCliente = 3,
+                    // D-02: el cliente de credito del spec de referencias necesita cupo propio (los demas no lo usan para credito).
+                    LimiteCredito = documento == "90000005" ? 5_000_000m : null,
                     // BCRA "OK": evita que estos clientes genéricos queden NoApto por falta de
                     // consulta BCRA (ver ClienteAptitudService.ConstruirBcraDetalle) y contaminen
                     // specs que no están probando ese flujo.
@@ -86,6 +88,14 @@ namespace TheBuryProject.Tests.E2ESeeding
                 });
             }
             await db.SaveChangesAsync();
+
+            // D-02: idempotente tambien si el cliente ya existia de una corrida anterior sin cupo propio.
+            var clienteReferencias = await db.Clientes.FirstOrDefaultAsync(c => c.NumeroDocumento == "90000005" && c.LimiteCredito == null);
+            if (clienteReferencias != null)
+            {
+                clienteReferencias.LimiteCredito = 5_000_000m;
+                await db.SaveChangesAsync();
+            }
 
             // ConfiguracionPago activa para Efectivo: la mayoría de los specs de Venta/Crédito
             // usan Efectivo como medio de pago base (helpers.js TIPO_PAGO.Efectivo, crearVentaThrowaway

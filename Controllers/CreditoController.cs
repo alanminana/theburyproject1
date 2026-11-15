@@ -914,10 +914,16 @@ namespace TheBuryProject.Controllers
             if (razones is null || razones.Count == 0)
                 return mensajeGenerico;
 
+            // La descripción de «referencias insuficientes» ya empieza con el nombre del tipo: no se repite.
+            static string Encabezado(RazonAutorizacion r) =>
+                r.Descripcion.StartsWith(r.TipoDisplay, StringComparison.OrdinalIgnoreCase)
+                    ? r.Descripcion
+                    : $"{r.TipoDisplay}: {r.Descripcion}";
+
             var detalles = razones.Select(r =>
                 string.IsNullOrWhiteSpace(r.DetalleAdicional)
-                    ? $"{r.TipoDisplay}: {r.Descripcion}"
-                    : $"{r.TipoDisplay}: {r.Descripcion} ({r.DetalleAdicional})");
+                    ? Encabezado(r)
+                    : $"{Encabezado(r)} ({r.DetalleAdicional})");
 
             return $"{mensajeGenerico} Motivo: {string.Join("; ", detalles)}";
         }
