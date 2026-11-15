@@ -30,6 +30,14 @@ public sealed class StubPrecioService : IPrecioService
     public Task<bool> DeleteListaAsync(int id, byte[] rowVersion)
         => Task.FromResult(false);
 
+    public Task<List<ListaPrecioResumen>> GetResumenListasAsync()
+        => Task.FromResult(new List<ListaPrecioResumen>());
+
+    public Task<ListaPreciosPagina> GetPreciosDeListaAsync(int listaId, string? busqueda, int pagina, int tamano)
+        => Task.FromResult(new ListaPreciosPagina());
+
+    public decimal CalcularPrecioSugerido(ListaPrecio lista, decimal costo) => costo;
+
     public Task<ProductoPrecioLista?> GetPrecioVigenteAsync(int productoId, int listaId, DateTime? fecha = null)
         => Task.FromResult<ProductoPrecioLista?>(null);
 

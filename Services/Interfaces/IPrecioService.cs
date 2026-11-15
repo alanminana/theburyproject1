@@ -42,6 +42,21 @@ public interface IPrecioService
     /// </summary>
     Task<bool> DeleteListaAsync(int id, byte[] rowVersion);
 
+    /// <summary>
+    /// Listas no eliminadas con la cantidad de precios vigentes de cada una (para el ABM).
+    /// </summary>
+    Task<List<ListaPrecioResumen>> GetResumenListasAsync();
+
+    /// <summary>
+    /// Productos paginados con su precio vigente en la lista indicada (null = todavía sin precio en esa lista).
+    /// </summary>
+    Task<ListaPreciosPagina> GetPreciosDeListaAsync(int listaId, string? busqueda, int pagina, int tamano);
+
+    /// <summary>
+    /// Precio sugerido por margen y recargo de la lista (misma regla que <see cref="CalcularPrecioAutomaticoAsync"/>), sin acceder a la base.
+    /// </summary>
+    decimal CalcularPrecioSugerido(ListaPrecio lista, decimal costo);
+
     // ============================================
     // CONSULTA DE PRECIOS VIGENTES
     // ============================================

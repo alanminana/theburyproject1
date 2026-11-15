@@ -5271,7 +5271,9 @@ namespace TheBuryProject.Migrations
                         .IsUnique()
                         .HasFilter("IsDeleted = 0");
 
-                    b.HasIndex("EsPredeterminada");
+                    b.HasIndex("EsPredeterminada")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0 AND [EsPredeterminada] = 1");
 
                     b.HasIndex("Orden");
 

@@ -2730,7 +2730,12 @@ namespace TheBuryProject.Data
                     .HasFilter("IsDeleted = 0");
 
                 entity.HasIndex(e => e.Activa);
-                entity.HasIndex(e => e.EsPredeterminada);
+                // A lo sumo una lista predeterminada entre las no eliminadas (D-01): la garantiza la base, no solo el servicio.
+                entity.HasIndex(e => e.EsPredeterminada)
+                    .IsUnique()
+                    .HasFilter(Database.IsSqlServer()
+                        ? "[IsDeleted] = 0 AND [EsPredeterminada] = 1"
+                        : "IsDeleted = 0 AND EsPredeterminada = 1");
                 entity.HasIndex(e => e.Orden);
             });
 

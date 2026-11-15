@@ -76,22 +76,28 @@ public class PrecioService : IPrecioService
 
     public async Task<ListaPrecio> CreateListaAsync(ListaPrecio lista)
     {
-        // Si es predeterminada, quitar flag de otras
-        if (lista.EsPredeterminada)
+        NormalizarYValidarLista(lista);
+        await ValidarCodigoUnicoAsync(lista.Codigo, excluirId: null);
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            var now = DateTime.UtcNow;
-            var user = GetCurrentUser();
+            // Si es predeterminada, quitar flag de otras
+            if (lista.EsPredeterminada)
+                await QuitarPredeterminadaAOtrasAsync(excluirId: null);
 
-            await _context.ListasPrecios
-                .Where(l => l.EsPredeterminada && !l.IsDeleted)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(l => l.EsPredeterminada, false)
-                    .SetProperty(l => l.UpdatedAt, now)
-                    .SetProperty(l => l.UpdatedBy, user));
+            _context.ListasPrecios.Add(lista);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-
-        _context.ListasPrecios.Add(lista);
-        await _context.SaveChangesAsync();
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync();
+            _context.Entry(lista).State = EntityState.Detached;
+            _logger.LogWarning(ex, "No se pudo crear la lista de precios {Codigo}", lista.Codigo);
+            throw new InvalidOperationException(
+                "No se pudo guardar la lista: otro usuario creó una lista con el mismo código o la marcó como predeterminada al mismo tiempo. Recargá e intentá de nuevo.");
+        }
 
         _logger.LogInformation("Lista de precios creada: {Nombre} por {User}",
             lista.Nombre, GetCurrentUser());
@@ -108,35 +114,73 @@ public class PrecioService : IPrecioService
         if (rowVersion == null || rowVersion.Length == 0)
             throw new InvalidOperationException("RowVersion es requerido para actualizar la lista de precios");
 
+        // Los valores se validan sobre una copia: si algo falla, la entidad rastreada no queda modificada.
+        var propuesta = new ListaPrecio
+        {
+            Id = existing.Id,
+            Nombre = lista.Nombre,
+            Codigo = lista.Codigo,
+            Tipo = lista.Tipo,
+            Descripcion = lista.Descripcion,
+            MargenPorcentaje = lista.MargenPorcentaje,
+            MargenMinimoPorcentaje = lista.MargenMinimoPorcentaje,
+            RecargoPorcentaje = lista.RecargoPorcentaje,
+            CantidadCuotas = lista.CantidadCuotas,
+            ReglaRedondeo = lista.ReglaRedondeo,
+            Activa = lista.Activa,
+            EsPredeterminada = lista.EsPredeterminada,
+            Orden = lista.Orden,
+            ReglasJson = lista.ReglasJson,
+            Notas = lista.Notas
+        };
+        NormalizarYValidarLista(propuesta);
+        await ValidarCodigoUnicoAsync(propuesta.Codigo, excluirId: existing.Id);
+
+        // La predeterminada define el precio que usan Venta y Cotización: no se la deja sin predeterminada
+        // por una edición; primero hay que designar otra.
+        if (existing.EsPredeterminada && !propuesta.EsPredeterminada)
+            throw new InvalidOperationException(
+                "Esta es la lista predeterminada. Para dejar de usarla como tal, designá otra lista como predeterminada.");
+
         _context.Entry(existing).Property(e => e.RowVersion).OriginalValue = rowVersion;
 
-        // Si se marca como predeterminada, quitar flag de otras
-        if (lista.EsPredeterminada && !existing.EsPredeterminada)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            var now = DateTime.UtcNow;
-            var user = GetCurrentUser();
+            // Si se marca como predeterminada, quitar flag de otras
+            if (propuesta.EsPredeterminada && !existing.EsPredeterminada)
+                await QuitarPredeterminadaAOtrasAsync(excluirId: existing.Id);
 
-            await _context.ListasPrecios
-                .Where(l => l.EsPredeterminada && l.Id != lista.Id && !l.IsDeleted)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(l => l.EsPredeterminada, false)
-                    .SetProperty(l => l.UpdatedAt, now)
-                    .SetProperty(l => l.UpdatedBy, user));
+            existing.Nombre = propuesta.Nombre;
+            existing.Codigo = propuesta.Codigo;
+            existing.Tipo = propuesta.Tipo;
+            existing.Descripcion = propuesta.Descripcion;
+            existing.MargenPorcentaje = propuesta.MargenPorcentaje;
+            existing.MargenMinimoPorcentaje = propuesta.MargenMinimoPorcentaje;
+            existing.RecargoPorcentaje = propuesta.RecargoPorcentaje;
+            existing.CantidadCuotas = propuesta.CantidadCuotas;
+            existing.ReglaRedondeo = propuesta.ReglaRedondeo;
+            existing.Activa = propuesta.Activa;
+            existing.EsPredeterminada = propuesta.EsPredeterminada;
+            existing.Orden = propuesta.Orden;
+            existing.ReglasJson = propuesta.ReglasJson;
+            existing.Notas = propuesta.Notas;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-
-        existing.Nombre = lista.Nombre;
-        existing.Codigo = lista.Codigo;
-        existing.Tipo = lista.Tipo;
-        existing.Descripcion = lista.Descripcion;
-        existing.MargenPorcentaje = lista.MargenPorcentaje;
-        existing.RecargoPorcentaje = lista.RecargoPorcentaje;
-        existing.CantidadCuotas = lista.CantidadCuotas;
-        existing.Activa = lista.Activa;
-        existing.EsPredeterminada = lista.EsPredeterminada;
-        existing.Orden = lista.Orden;
-        existing.ReglasJson = lista.ReglasJson;
-
-        await _context.SaveChangesAsync();
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "No se pudo actualizar la lista de precios {Id}", existing.Id);
+            throw new InvalidOperationException(
+                "No se pudo guardar la lista: otro usuario creó una lista con el mismo código o la marcó como predeterminada al mismo tiempo. Recargá e intentá de nuevo.");
+        }
 
         _logger.LogInformation("Lista de precios actualizada: {Id} por {User}",
             lista.Id, GetCurrentUser());
@@ -153,13 +197,19 @@ public class PrecioService : IPrecioService
         if (rowVersion == null || rowVersion.Length == 0)
             throw new InvalidOperationException("RowVersion es requerido para eliminar la lista de precios");
 
+        if (lista.EsPredeterminada)
+            throw new InvalidOperationException(
+                "No se puede dar de baja la lista predeterminada: define el precio de Venta y Cotización. Designá otra lista como predeterminada primero.");
+
+        var usadaPorMercadoLibre = await _context.MercadoLibreConfiguraciones
+            .AnyAsync(c => c.ListaPrecioId == id && !c.IsDeleted);
+        if (usadaPorMercadoLibre)
+            throw new InvalidOperationException(
+                "No se puede dar de baja la lista: la usa la configuración de Mercado Libre. Elegí otra lista allí primero.");
+
         _context.Entry(lista).Property(e => e.RowVersion).OriginalValue = rowVersion;
 
-        // Verificar si tiene precios asociados
-        var tienePrecios = await _context.ProductosPrecios
-            .AnyAsync(p => p.ListaId == id);
-
-        // Soft delete (unificado)
+        // Baja lógica: los precios y el historial de la lista se conservan (FK Restrict, nunca se borran).
         lista.IsDeleted = true;
         lista.Activa = false;
         lista.EsPredeterminada = false;
@@ -170,6 +220,189 @@ public class PrecioService : IPrecioService
             id, GetCurrentUser());
 
         return true;
+    }
+
+    private static readonly string[] ReglasRedondeoValidas = { "ninguno", "unidad", "decena", "centena" };
+
+    /// <summary>
+    /// Normaliza (recorta, código en mayúsculas, textos vacíos a null) y valida las reglas de una lista de precios.
+    /// Lanza <see cref="InvalidOperationException"/> con un mensaje apto para mostrar al usuario.
+    /// </summary>
+    private static void NormalizarYValidarLista(ListaPrecio lista)
+    {
+        lista.Nombre = (lista.Nombre ?? string.Empty).Trim();
+        lista.Codigo = (lista.Codigo ?? string.Empty).Trim().ToUpperInvariant();
+        lista.Descripcion = string.IsNullOrWhiteSpace(lista.Descripcion) ? null : lista.Descripcion.Trim();
+        lista.Notas = string.IsNullOrWhiteSpace(lista.Notas) ? null : lista.Notas.Trim();
+        lista.ReglaRedondeo = string.IsNullOrWhiteSpace(lista.ReglaRedondeo) ? null : lista.ReglaRedondeo.Trim().ToLowerInvariant();
+        lista.ReglasJson = string.IsNullOrWhiteSpace(lista.ReglasJson) ? null : lista.ReglasJson.Trim();
+
+        if (lista.Nombre.Length == 0)
+            throw new InvalidOperationException("El nombre de la lista es obligatorio.");
+        if (lista.Nombre.Length > 100)
+            throw new InvalidOperationException("El nombre no puede superar los 100 caracteres.");
+        if (lista.Codigo.Length == 0)
+            throw new InvalidOperationException("El código de la lista es obligatorio.");
+        if (lista.Codigo.Length > 20)
+            throw new InvalidOperationException("El código no puede superar los 20 caracteres.");
+        if (!Enum.IsDefined(lista.Tipo))
+            throw new InvalidOperationException("El tipo de lista no es válido.");
+
+        LongitudTexto.Validar(lista.Descripcion, 500, "La descripción");
+        LongitudTexto.Validar(lista.Notas, 1000, "Las notas");
+
+        ValidarPorcentajeLista(lista.MargenPorcentaje, "El margen");
+        ValidarPorcentajeLista(lista.MargenMinimoPorcentaje, "El margen mínimo");
+        ValidarPorcentajeLista(lista.RecargoPorcentaje, "El recargo");
+
+        if (lista.MargenPorcentaje.HasValue && lista.MargenMinimoPorcentaje.HasValue
+            && lista.MargenMinimoPorcentaje.Value > lista.MargenPorcentaje.Value)
+            throw new InvalidOperationException("El margen mínimo no puede ser mayor que el margen de la lista.");
+
+        if (lista.CantidadCuotas.HasValue && (lista.CantidadCuotas.Value < 1 || lista.CantidadCuotas.Value > 60))
+            throw new InvalidOperationException("La cantidad de cuotas debe estar entre 1 y 60.");
+
+        if (lista.ReglaRedondeo != null && !ReglasRedondeoValidas.Contains(lista.ReglaRedondeo))
+            throw new InvalidOperationException("La regla de redondeo debe ser: ninguno, unidad, decena o centena.");
+
+        if (lista.ReglasJson != null)
+        {
+            try
+            {
+                using var _ = JsonDocument.Parse(lista.ReglasJson);
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException("Las reglas adicionales no son un JSON válido.");
+            }
+        }
+
+        if (lista.EsPredeterminada && !lista.Activa)
+            throw new InvalidOperationException("La lista predeterminada tiene que estar activa.");
+    }
+
+    private static void ValidarPorcentajeLista(decimal? valor, string campo)
+    {
+        if (!valor.HasValue)
+            return;
+
+        // Columna decimal(5,2): hasta 999,99 con dos decimales.
+        if (valor.Value < 0 || valor.Value > 999.99m || decimal.Round(valor.Value, 2) != valor.Value)
+            throw new InvalidOperationException($"{campo} debe estar entre 0 y 999,99 (hasta dos decimales).");
+    }
+
+    private async Task ValidarCodigoUnicoAsync(string codigoNormalizado, int? excluirId)
+    {
+        var existe = await _context.ListasPrecios
+            .AnyAsync(l => !l.IsDeleted
+                        && l.Codigo.ToUpper() == codigoNormalizado
+                        && (excluirId == null || l.Id != excluirId.Value));
+        if (existe)
+            throw new InvalidOperationException($"Ya existe una lista con el código {codigoNormalizado}.");
+    }
+
+    private async Task QuitarPredeterminadaAOtrasAsync(int? excluirId)
+    {
+        var now = DateTime.UtcNow;
+        var user = GetCurrentUser();
+
+        await _context.ListasPrecios
+            .Where(l => l.EsPredeterminada && !l.IsDeleted && (excluirId == null || l.Id != excluirId.Value))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(l => l.EsPredeterminada, false)
+                .SetProperty(l => l.UpdatedAt, now)
+                .SetProperty(l => l.UpdatedBy, user));
+    }
+
+    public async Task<List<ListaPrecioResumen>> GetResumenListasAsync()
+    {
+        var listas = await _context.ListasPrecios
+            .AsNoTracking()
+            .Where(l => !l.IsDeleted)
+            .OrderBy(l => l.Orden).ThenBy(l => l.Nombre)
+            .ToListAsync();
+
+        var conteos = await _context.ProductosPrecios
+            .AsNoTracking()
+            .Where(p => p.EsVigente && !p.IsDeleted && !p.Producto.IsDeleted)
+            .GroupBy(p => p.ListaId)
+            .Select(g => new { ListaId = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.ListaId, x => x.Cantidad);
+
+        return listas.Select(l => new ListaPrecioResumen
+        {
+            Lista = l,
+            PreciosVigentes = conteos.GetValueOrDefault(l.Id)
+        }).ToList();
+    }
+
+    public async Task<ListaPreciosPagina> GetPreciosDeListaAsync(int listaId, string? busqueda, int pagina, int tamano)
+    {
+        tamano = Math.Clamp(tamano, 5, 100);
+        pagina = Math.Max(1, pagina);
+
+        var query = _context.Productos.AsNoTracking().Where(p => !p.IsDeleted);
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            var b = busqueda.Trim().ToLower();
+            query = query.Where(p => p.Codigo.ToLower().Contains(b) || p.Nombre.ToLower().Contains(b));
+        }
+
+        var total = await query.CountAsync();
+        var totalPaginas = Math.Max(1, (int)Math.Ceiling(total / (double)tamano));
+        pagina = Math.Min(pagina, totalPaginas);
+
+        var productos = await query
+            .OrderBy(p => p.Codigo)
+            .Skip((pagina - 1) * tamano).Take(tamano)
+            .Select(p => new { p.Id, p.Codigo, p.Nombre, p.PrecioCompra, p.PrecioVenta })
+            .ToListAsync();
+
+        var ids = productos.Select(p => p.Id).ToList();
+        var vigentes = await _context.ProductosPrecios
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.ProductoId) && p.ListaId == listaId && p.EsVigente && !p.IsDeleted)
+            .ToListAsync();
+        var porProducto = vigentes
+            .GroupBy(p => p.ProductoId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.VigenciaDesde).First());
+
+        return new ListaPreciosPagina
+        {
+            Pagina = pagina,
+            TotalPaginas = totalPaginas,
+            Total = total,
+            Items = productos.Select(p =>
+            {
+                porProducto.TryGetValue(p.Id, out var v);
+                return new ListaPrecioFilaProducto
+                {
+                    ProductoId = p.Id,
+                    Codigo = p.Codigo,
+                    Nombre = p.Nombre,
+                    CostoProducto = p.PrecioCompra,
+                    PrecioBase = p.PrecioVenta,
+                    PrecioEnLista = v?.Precio,
+                    CostoEnLista = v?.Costo,
+                    MargenPorcentaje = v?.MargenPorcentaje,
+                    VigenciaDesde = v?.VigenciaDesde,
+                    EsManual = v?.EsManual
+                };
+            }).ToList()
+        };
+    }
+
+    public decimal CalcularPrecioSugerido(ListaPrecio lista, decimal costo)
+    {
+        decimal precio = costo;
+
+        if (lista.MargenPorcentaje.HasValue && lista.MargenPorcentaje.Value > 0)
+            precio = costo * (1 + lista.MargenPorcentaje.Value / 100);
+
+        if (lista.RecargoPorcentaje.HasValue && lista.RecargoPorcentaje.Value > 0)
+            precio = precio * (1 + lista.RecargoPorcentaje.Value / 100);
+
+        return AplicarRedondeo(precio, lista.ReglaRedondeo);
     }
 
     #endregion
@@ -1001,7 +1234,25 @@ public class PrecioService : IPrecioService
         if (precio <= 0)
             throw new InvalidOperationException("El precio debe ser mayor a cero.");
 
-        vigenciaDesde ??= DateTime.UtcNow;
+        if (precio > Validation.MontoArgentinoAttribute.Maximo)
+            throw new InvalidOperationException($"El precio no puede superar {Validation.MontoArgentinoAttribute.Maximo:N0}.");
+
+        if (costo < 0)
+            throw new InvalidOperationException("El costo no puede ser negativo.");
+
+        if (decimal.Round(precio, 2) != precio || decimal.Round(costo, 2) != costo)
+            throw new InvalidOperationException("El precio y el costo admiten hasta dos decimales.");
+
+        notas = string.IsNullOrWhiteSpace(notas) ? null : notas.Trim();
+        LongitudTexto.Validar(notas, 500, "Las notas");
+
+        var ahora = DateTime.UtcNow;
+        vigenciaDesde ??= ahora;
+
+        // Un precio con vigencia futura dejaría al producto sin precio en la lista hasta esa fecha
+        // (el anterior se cierra de inmediato), y el resolvedor cae al precio base.
+        if (vigenciaDesde.Value > ahora.AddMinutes(1))
+            throw new InvalidOperationException("La vigencia no puede ser futura: el precio anterior quedaría sin vigencia hasta esa fecha.");
 
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -1012,9 +1263,23 @@ public class PrecioService : IPrecioService
         if (!productoExiste)
             throw new InvalidOperationException($"Producto {productoId} no encontrado");
 
-        var listaExiste = await _context.ListasPrecios.AnyAsync(l => l.Id == listaId && !l.IsDeleted);
-        if (!listaExiste)
+        var lista = await _context.ListasPrecios.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == listaId && !l.IsDeleted);
+        if (lista == null)
             throw new InvalidOperationException($"Lista {listaId} no encontrada");
+
+        // Margen mínimo: solo si la lista lo define (la lista sin mínimo no restringe el alta manual).
+        var margenCalculado = costo > 0 ? ((precio - costo) / costo) * 100 : 0;
+        if (lista.MargenMinimoPorcentaje.HasValue && costo > 0 && margenCalculado < lista.MargenMinimoPorcentaje.Value)
+            throw new InvalidOperationException(
+                $"El margen {margenCalculado:F2}% es inferior al mínimo permitido de la lista ({lista.MargenMinimoPorcentaje.Value:F2}%).");
+
+        var vigenteActual = await _context.ProductosPrecios.AsNoTracking()
+            .Where(p => p.ProductoId == productoId && p.ListaId == listaId && p.EsVigente && !p.IsDeleted)
+            .OrderByDescending(p => p.VigenciaDesde)
+            .FirstOrDefaultAsync();
+        if (vigenteActual != null && vigenciaDesde.Value <= vigenteActual.VigenciaDesde)
+            throw new InvalidOperationException("La vigencia debe ser posterior a la del precio vigente actual.");
 
         // Persist updates first to avoid violating the unique vigente constraint
         await _context.ProductosPrecios
@@ -1048,9 +1313,19 @@ public class PrecioService : IPrecioService
         };
 
         _context.ProductosPrecios.Add(nuevoPrecio);
-        await _context.SaveChangesAsync();
-
-        await transaction.CommitAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            await transaction.RollbackAsync();
+            _context.Entry(nuevoPrecio).State = EntityState.Detached;
+            _logger.LogWarning(ex, "Conflicto al fijar precio manual: Producto {ProductoId}, Lista {ListaId}", productoId, listaId);
+            throw new InvalidOperationException(
+                "Otro usuario cambió el precio de este producto en esta lista al mismo tiempo. Recargá e intentá de nuevo.");
+        }
 
         _logger.LogInformation(
             "Precio manual establecido: Producto {ProductoId}, Lista {ListaId}, Precio {Precio} por {User}",
@@ -1069,24 +1344,7 @@ public class PrecioService : IPrecioService
         if (lista == null)
             throw new InvalidOperationException($"Lista {listaId} no encontrada");
 
-        decimal precio = costo;
-
-        // Aplicar margen si está configurado
-        if (lista.MargenPorcentaje.HasValue && lista.MargenPorcentaje.Value > 0)
-        {
-            precio = costo * (1 + lista.MargenPorcentaje.Value / 100);
-        }
-
-        // Aplicar recargo si está configurado
-        if (lista.RecargoPorcentaje.HasValue && lista.RecargoPorcentaje.Value > 0)
-        {
-            precio = precio * (1 + lista.RecargoPorcentaje.Value / 100);
-        }
-
-        // Aplicar redondeo
-        precio = AplicarRedondeo(precio, lista.ReglaRedondeo);
-
-        return precio;
+        return CalcularPrecioSugerido(lista, costo);
     }
 
     #endregion
