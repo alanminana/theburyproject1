@@ -33,6 +33,9 @@ namespace TheBuryProject.Tests.E2ESeeding
             ("Isabel", "Roldan", "90000002"),
             ("Carlos", "Orozco", "90000003"),
             ("Valeria", "Aliaga", "90000004"),
+            // D-02 (e2e/cliente-referencias-credito.spec.js): cliente de credito sin referencias; el nombre evita las subcadenas
+            // cortas que usan los demas specs para buscar clientes (an/el/or/is/ar/ro/al), asi no altera sus resultados.
+            ("Emilia", "Zukovic", "90000005"),
         };
 
         private static readonly (string Codigo, string Nombre)[] Productos =

@@ -813,6 +813,24 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }
 
+            // D-02: referencias verificadas. Aunque la venta figure autorizada, esa autorización debe haber cubierto la falta
+            // de referencias (o las referencias alcanzar hoy); si no, no se configura el crédito.
+            if (venta != null)
+            {
+                try
+                {
+                    await _ventaService.AsegurarReferenciasAutorizadasAsync(venta.Id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    if (embedded)
+                        return ErrorConfigurarVenta(StatusCodes.Status409Conflict, ex.Message);
+
+                    TempData["Error"] = ex.Message;
+                    return RedirectToAction("Details", "Venta", new { id = ventaId });
+                }
+            }
+
             var rangoGet = await ResolverRangoCreditoProductoAsync(venta, cuotasMinGet, cuotasMaxGet);
             if (rangoGet.Error is not null)
             {
@@ -1031,6 +1049,23 @@ namespace TheBuryProject.Controllers
 
                 TempData["Error"] = mensajeAutorizacionPost;
                 return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
+            }
+
+            // D-02: ver el mismo gate en el GET de esta acción.
+            if (venta != null)
+            {
+                try
+                {
+                    await _ventaService.AsegurarReferenciasAutorizadasAsync(venta.Id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    if (embedded)
+                        return ErrorConfigurarVenta(StatusCodes.Status409Conflict, ex.Message);
+
+                    TempData["Error"] = ex.Message;
+                    return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
+                }
             }
 
             var resultadoConfiguracion = await _creditoConfiguracionVentaService.ResolverAsync(modelo, venta);

@@ -470,6 +470,52 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         VentaService.ExigirAutorizacionDeReferencias(venta, new ValidacionVentaResult());
     }
 
+    [Fact]
+    public async Task AsegurarReferenciasAutorizadas_BloqueaHastaQueUnSegundoUsuarioLaAutorice()
+    {
+        await SembrarAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AsegurarReferenciasAutorizadasAsync(creada.Id));
+        Assert.Contains("Referencias verificadas insuficientes: 0 de 1", ex.Message);
+        Assert.Contains("segundo usuario", ex.Message);
+
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta");
+
+        await _svc.AsegurarReferenciasAutorizadasAsync(creada.Id); // ahora cubre
+        await _svc.AsegurarReferenciasAutorizadasAsync(987_654);   // inexistente: no hace nada
+    }
+
+    [Fact]
+    public async Task AsegurarReferenciasAutorizadas_NoAplicaAVentasQueNoSonCreditoPersonal()
+    {
+        await SembrarAsync();
+        var vm = NuevaVenta();
+        vm.TipoPago = TipoPago.Efectivo;
+        var creada = await _svc.CreateAsync(vm);
+
+        await _svc.AsegurarReferenciasAutorizadasAsync(creada.Id);
+    }
+
+    [Fact]
+    public async Task AsegurarReferenciasAutorizadas_UnaAutorizacionPorOtroMotivoNoAlcanza()
+    {
+        await SembrarAsync();
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        // Con la referencia vigente alcanza; si se da de baja después y la venta solo tenía una autorización por otro motivo, no.
+        var entidad = await _ctx.Ventas.FirstAsync(v => v.Id == creada.Id);
+        entidad.RequiereAutorizacion = true;
+        entidad.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+        entidad.RazonesAutorizacionJson = "[{\"Tipo\":2,\"Descripcion\":\"Mora\"}]";
+        (await _ctx.ClienteReferencias.FirstAsync()).IsDeleted = true;
+        await _ctx.SaveChangesAsync();
+        _ctx.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AsegurarReferenciasAutorizadasAsync(creada.Id));
+    }
+
     // ----------------------------------------------------- Edit: invalidación
 
     [Fact]

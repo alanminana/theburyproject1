@@ -5053,6 +5053,19 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task AsegurarReferenciasAutorizadasAsync(int ventaId)
+        {
+            var venta = await _context.Ventas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
+            if (venta == null || venta.TipoPago != TipoPago.CreditoPersonal || !venta.ClienteId.HasValue)
+            {
+                return;
+            }
+
+            ExigirAutorizacionDeReferencias(venta, await _validacionVentaService.ValidarConfirmacionVentaAsync(ventaId));
+        }
+
         /// <summary>
         /// D-02: gate de confirmación. Si el cliente no alcanza el mínimo de referencias verificadas, la venta sólo avanza con
         /// una autorización registrada que cubrió esa razón (<see cref="VentaAutorizacionReferencias"/>). Una autorización
@@ -5071,7 +5084,7 @@ namespace TheBuryProject.Services
             if (!cubierta)
             {
                 throw new InvalidOperationException(
-                    $"No se puede confirmar la venta. {faltan.Descripcion}. Requiere la autorización de un segundo usuario con permiso de autorizar ventas.");
+                    $"{faltan.Descripcion}. La venta a crédito personal requiere la autorización de un segundo usuario con permiso de autorizar ventas antes de continuar.");
             }
         }
 

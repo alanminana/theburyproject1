@@ -5,8 +5,9 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Referencia informativa de un cliente (personal, laboral o comercial).
-    /// Es un registro administrativo: NO participa de la aptitud ni del límite de crédito.
+    /// Referencia de un cliente (personal, laboral o comercial).
+    /// Las referencias en estado Verificada (no dadas de baja) cuentan contra el mínimo configurable para otorgar crédito
+    /// personal (ClienteAptitudService); no cambian el límite de crédito.
     /// Baja lógica vía <see cref="AuditableEntity.IsDeleted"/>.
     /// </summary>
     public class ClienteReferencia : AuditableEntity
