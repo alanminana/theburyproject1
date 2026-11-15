@@ -201,6 +201,13 @@ public static class RolesPermisosSeeder
                 ("Anular", "cancel", 4)
             }),
 
+            // R-03: valoración gerencial del stock (solo lectura). Permiso propio: Administrador lo recibe por el grant "todo salvo
+            // la lista", Contador solo ve y Gerente/Repositor/resto no lo reciben implícitamente (no está en el módulo "stock").
+            ("Valoración de stock", "valoracionstock", "Stock", "bi-currency-dollar", 42, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1)
+            }),
+
             // STOCK
             ("Stock", "stock", "Stock", "bi-boxes", 40, new List<(string, string, int)>
             {
@@ -606,6 +613,7 @@ public static class RolesPermisosSeeder
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },
                 { "cuentasporpagar", new[] { "view" } },
+                { "valoracionstock", new[] { "view" } },
                 { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export", "viewallcommissions" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }

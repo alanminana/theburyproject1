@@ -75,6 +75,7 @@
         var canViewProveedores = User.TienePermiso("proveedores", "view");
         var canViewPrecios = User.TienePermiso("precios", "view");
         var canViewCuentasPorPagar = User.TienePermiso("cuentasporpagar", "view");
+        var canViewValoracionStock = User.TienePermiso("valoracionstock", "view");
         var canViewCaja = User.TienePermiso("caja", "view");
         var canViewReportes = User.TienePermiso("reportes", "view");
         var canViewMercadoLibre = User.TienePermiso("mercadolibre", "view");
@@ -94,7 +95,7 @@
 
 
         var showOperaciones = canViewVentas || canViewClientes || canViewDocumentos;
-        var showLogistica = canViewInventario || canViewProveedores || canViewCuentasPorPagar || canViewPrecios || canViewCaja;
+        var showLogistica = canViewInventario || canViewProveedores || canViewCuentasPorPagar || canViewValoracionStock || canViewPrecios || canViewCaja;
         var showReportes = canViewReportes;
         var showIntegraciones = canViewMercadoLibre;
         var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
@@ -216,6 +217,18 @@
                                     <span class="material-symbols-outlined text-lg shrink-0"
                                           aria-hidden="true">account_balance_wallet</span>
                                     <p class="@NavFont(active) sidebar-label">Cuentas por pagar</p>
+                                </a>
+                            }
+
+                            @if (canViewValoracionStock)
+                            {
+                                var active = IsActive("ValoracionStock");
+
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ValoracionStock"
+                                   asp-action="Index" title="Valoración de stock (gerencial)">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">inventory_2</span>
+                                    <p class="@NavFont(active) sidebar-label">Valoración de stock</p>
                                 </a>
                             }
 
