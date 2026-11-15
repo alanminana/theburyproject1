@@ -1,0 +1,21 @@
+# Tablas que PUEDEN tener filas tras una instalación limpia (migraciones EF + seeds de arranque + 1 administrador inicial).
+# Cualquier otra tabla con filas hace fallar scripts/qa/instalacion-limpia.sh (indicio de datos importados).
+# Seed por migraciones EF (InsertData): Categorias, Marcas, AlicuotasIVA, PuntajeCreditoLimites, ConfiguracionesRentabilidad, ConfiguracionesCredito...
+AccionesModulo
+AlicuotasIVA
+AspNetRoles
+AspNetUserRoles
+AspNetUsers
+Categorias
+ConfiguracionCreditoMontosPorPuntaje
+ConfiguracionesCredito
+ConfiguracionesRentabilidad
+EmpresasConfiguracion
+Marcas
+ModulosSistema
+PlantillasContratoCredito
+PuntajeCreditoLimites
+RolPermisos
+RolesMetadata
+Sucursales
+__EFMigrationsHistory
