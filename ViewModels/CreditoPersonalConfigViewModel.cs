@@ -12,6 +12,7 @@ public class CreditoPersonalConfigViewModel
     public List<PerfilCreditoViewModel>? Perfiles { get; set; }
     public ScoringThresholdsViewModel? ScoringThresholds { get; set; }
     public SemaforoFinancieroViewModel? SemaforoFinanciero { get; set; }
+    public ReferenciasCreditoViewModel? ReferenciasCredito { get; set; }
     public List<ClienteCreditoLimiteItemViewModel> LimitesPorPuntaje { get; set; } = new();
     public List<MontoPorPuntajeCreditoViewModel> MontosPorPuntaje { get; set; } = new();
     public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; set; } = new();
@@ -109,6 +110,15 @@ public class DefaultsGlobalesViewModel
     public decimal GastosAdministrativos { get; set; }
     public int MinCuotas { get; set; }
     public int MaxCuotas { get; set; }
+}
+
+/// <summary>
+/// D-02: mínimo de referencias verificadas del cliente para otorgar crédito personal sin autorización. 0 = regla desactivada.
+/// </summary>
+public class ReferenciasCreditoViewModel
+{
+    [Range(0, 10, ErrorMessage = "Debe estar entre 0 y 10.")]
+    public int ReferenciasVerificadasMinimas { get; set; } = 1;
 }
 
 /// <summary>

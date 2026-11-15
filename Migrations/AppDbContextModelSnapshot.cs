@@ -2295,6 +2295,9 @@ namespace TheBuryProject.Migrations
                     b.Property<bool>("RecalculoAutomatico")
                         .HasColumnType("bit");
 
+                    b.Property<int>("ReferenciasVerificadasMinimas")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("RelacionCuotaIngresoMax")
                         .HasPrecision(5, 4)
                         .HasColumnType("decimal(5,4)");

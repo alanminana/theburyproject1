@@ -171,7 +171,7 @@ file sealed class StubValidacionVentaServiceConfirmar : IValidacionVentaService
         => Task.FromResult(new ValidacionVentaResult { NoViable = false });
 
     public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => throw new NotImplementedException();
-    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
+    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => Task.FromResult(new ValidacionVentaResult());
 }
 
 /// <summary>

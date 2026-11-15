@@ -76,6 +76,7 @@ namespace TheBuryProject.ViewModels
         public AptitudCupoDetalle Cupo { get; set; } = new();
         public AptitudMoraDetalle Mora { get; set; } = new();
         public AptitudBcraDetalle Bcra { get; set; } = new();
+        public AptitudReferenciasDetalle Referencias { get; set; } = new();
     }
 
     /// <summary>
@@ -224,6 +225,21 @@ namespace TheBuryProject.ViewModels
     /// Sólo actúa como bloqueo/revisión cuando la consulta fue exitosa y hay situación informada.
     /// Situación 0/1 = normal; 2 = requiere revisión; >= 3 = no apto.
     /// </summary>
+    /// <summary>
+    /// D-02: referencias verificadas del cliente contra el mínimo configurado para otorgar crédito personal.
+    /// Fuente única: <c>ClienteAptitudService</c>. No bloquea por sí sola: si no se cumple, la operación requiere la
+    /// autorización individual de un segundo usuario (nunca altera mora, BCRA, cupo ni documentación).
+    /// </summary>
+    public class AptitudReferenciasDetalle
+    {
+        /// <summary>False cuando el mínimo configurado es 0 (regla desactivada).</summary>
+        public bool Evaluada { get; set; }
+        public int Requeridas { get; set; }
+        public int Verificadas { get; set; }
+        public bool Cumple => !Evaluada || Verificadas >= Requeridas;
+        public string Mensaje { get; set; } = string.Empty;
+    }
+
     public class AptitudBcraDetalle
     {
         /// <summary>True sólo cuando hay consulta válida y situación informada.</summary>

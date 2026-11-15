@@ -611,7 +611,9 @@ namespace TheBuryProject.Services
                     $"Error interno: Se intentó aplicar validación NoViable. {validacion.MensajeResumen}");
             }
 
-            if (validacion.ExcepcionDocumentalAutorizada)
+            // D-02: si además faltan referencias verificadas, la excepción documental NO autoriza la venta por sí sola: la
+            // venta queda pendiente de la autorización de un segundo usuario (RequiereAutorizacion sigue en true).
+            if (validacion.ExcepcionDocumentalAutorizada && !validacion.RequiereAutorizacion)
             {
                 var fechaAutorizacion = DateTime.UtcNow;
                 venta.RequiereAutorizacion = true;
@@ -739,9 +741,14 @@ namespace TheBuryProject.Services
                 .Where(EsRequisitoExcepcionableEnCreate)
                 .ToList();
 
+            // D-02: la excepción documental/de cupo sólo levanta lo que cubre. Las referencias insuficientes conservan su
+            // propia autorización (segundo usuario); nunca se dan por autorizadas acá.
+            var requiereAutorizacionPorReferencias = validacion.RazonesAutorizacion
+                .Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+
             validacion.NoViable = false;
             validacion.PendienteRequisitos = false;
-            validacion.RequiereAutorizacion = false;
+            validacion.RequiereAutorizacion = requiereAutorizacionPorReferencias;
             validacion.ExcepcionDocumentalAutorizada = true;
             validacion.MotivoExcepcionDocumentalAutorizada = motivoExcepcion;
             validacion.RequisitosPendientes = validacion.RequisitosPendientes
@@ -910,6 +917,9 @@ namespace TheBuryProject.Services
 
             _validator.ValidarEstadoParaEdicion(venta);
 
+            // D-02: total vigente al abrir la edición; si cambia, una autorización por referencias deja de valer.
+            var totalAnterior = venta.Total;
+
             // VENTA-DESCUENTO-LINEA-LEGACY-EDIT-GUARD: corre antes de cualquier operación que
             // toque venta.Detalles (ActualizarDetalles hace soft-delete + recreate total, sin
             // match línea-a-línea). Si bloquea, todavía no se mutó nada.
@@ -999,7 +1009,7 @@ namespace TheBuryProject.Services
             }
             else
             {
-                await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
+                await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel, totalAnterior);
             }
 
             IDbContextTransaction? txCheque = null;
@@ -1165,6 +1175,8 @@ namespace TheBuryProject.Services
                         throw new InvalidOperationException(
                             $"No se puede confirmar la venta. {validacion.MensajeResumen}");
                     }
+
+                    ExigirAutorizacionDeReferencias(venta, validacion);
 
                     if (validacion.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
                     {
@@ -1369,6 +1381,8 @@ namespace TheBuryProject.Services
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);
                 _validator.ValidarAutorizacion(venta);
+                // D-02: referencias verificadas (revalidadas HOY; una autorización previa que no las cubría no sirve).
+                ExigirAutorizacionDeReferencias(venta, await _validacionVentaService.ValidarConfirmacionVentaAsync(id));
                 await ValidarContratoCreditoPersonalGeneradoAsync(venta);
 
                 await ValidarUnidadesYDescontarStockAsync(venta);
@@ -2454,6 +2468,14 @@ namespace TheBuryProject.Services
             ValidarCreadorDistintoDeQuienAutoriza(venta, usuarioAutoriza,
                 "La venta debe ser autorizada por un usuario distinto al que la creó.");
 
+            // D-02: la autorización de referencias insuficientes exige un SEGUNDO usuario con ventas.authorize: el creador
+            // (o quien la modificó) no puede autorizarla ni siquiera teniendo el permiso.
+            var autorizaReferencias = VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+            if (autorizaReferencias)
+            {
+                ValidarSegundoUsuarioParaReferencias(venta, usuarioAutoriza);
+            }
+
             // E3: Registrar auditoría completa
             venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
             venta.UsuarioAutoriza = usuarioAutoriza;
@@ -2462,6 +2484,13 @@ namespace TheBuryProject.Services
             
             // Las razones autorizadas ya están en RazonesAutorizacionJson (guardadas al crear)
             // No se modifican, quedan como registro de qué se autorizó
+
+            if (autorizaReferencias)
+            {
+                // Evento de auditoría en el mismo SaveChanges que la autorización (si una falla, no queda ninguna).
+                _auditoria?.AgregarEvento("Ventas", "AutorizarExcepcionReferencias", $"Venta:{venta.Id}",
+                    $"Autorizó {usuarioAutoriza}; solicitó {venta.CreatedBy}; cliente {venta.ClienteId}; total {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)}; motivo: {motivo.Trim()}");
+            }
 
             await _context.SaveChangesAsync();
 
@@ -5004,7 +5033,49 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task VerificarAutorizacionSiCorrespondeAsync(Venta venta, VentaViewModel viewModel)
+        /// <summary>
+        /// D-02: segundo control. Quien autoriza referencias insuficientes debe tener ventas.authorize y ser distinto de
+        /// quien creó la venta y de quien la modificó por última vez; si no se puede determinar quién la creó, se
+        /// rechaza (opción conservadora).
+        /// </summary>
+        private void ValidarSegundoUsuarioParaReferencias(Venta venta, string usuarioAutoriza)
+        {
+            const string mensaje =
+                "La excepción por referencias insuficientes debe autorizarla un segundo usuario con permiso de autorizar ventas, distinto de quien creó o modificó la venta.";
+
+            if (string.IsNullOrWhiteSpace(usuarioAutoriza)
+                || string.IsNullOrWhiteSpace(venta.CreatedBy)
+                || string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(venta.UpdatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
+                || !_currentUserService.HasPermission("ventas", "authorize"))
+            {
+                throw new InvalidOperationException(mensaje);
+            }
+        }
+
+        /// <summary>
+        /// D-02: gate de confirmación. Si el cliente no alcanza el mínimo de referencias verificadas, la venta sólo avanza con
+        /// una autorización registrada que cubrió esa razón (<see cref="VentaAutorizacionReferencias"/>). Una autorización
+        /// anterior que no la contemplaba (las referencias se dieron de baja o dejaron de estar verificadas después) no sirve.
+        /// </summary>
+        internal static void ExigirAutorizacionDeReferencias(Venta venta, ValidacionVentaResult validacion)
+        {
+            var faltan = validacion.RazonesAutorizacion.FirstOrDefault(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+            if (faltan == null)
+            {
+                return;
+            }
+
+            var cubierta = venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+            if (!cubierta)
+            {
+                throw new InvalidOperationException(
+                    $"No se puede confirmar la venta. {faltan.Descripcion}. Requiere la autorización de un segundo usuario con permiso de autorizar ventas.");
+            }
+        }
+
+        private async Task VerificarAutorizacionSiCorrespondeAsync(Venta venta, VentaViewModel viewModel, decimal totalAnterior)
         {
             if (viewModel.TipoPago == TipoPago.CreditoPersonal)
             {
@@ -5026,7 +5097,52 @@ namespace TheBuryProject.Services
                     venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
                     venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
                 }
+
+                AplicarAutorizacionDeReferenciasEnEdicion(venta, validacion, totalAnterior);
             }
+        }
+
+        /// <summary>
+        /// D-02: en la edición de una venta que ya tiene crédito, la excepción por referencias vale sólo para esta venta y
+        /// estas condiciones. Si faltan referencias y la venta estaba autorizada sin que esa autorización las cubriera, o
+        /// cambió el monto desde que se autorizó, la autorización se invalida y vuelve a quedar pendiente de un segundo
+        /// usuario. El cliente no puede cambiar una vez que existe el crédito (ver ActualizarDatosVenta).
+        /// </summary>
+        private void AplicarAutorizacionDeReferenciasEnEdicion(Venta venta, ValidacionVentaResult validacion, decimal totalAnterior)
+        {
+            if (!validacion.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes))
+            {
+                return;
+            }
+
+            var cubria = venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+
+            if (cubria && venta.Total == totalAnterior)
+            {
+                return; // misma venta, mismas condiciones: la autorización vigente sigue valiendo
+            }
+
+            if (venta.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)
+            {
+                return; // una venta rechazada no se reabre por editarla
+            }
+
+            if (venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)
+            {
+                _auditoria?.AgregarEvento("Ventas", "InvalidarExcepcionReferencias", $"Venta:{venta.Id}",
+                    cubria
+                        ? $"El total cambió de {totalAnterior.ToString("0.00", CultureInfo.InvariantCulture)} a {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)}: se invalida la autorización de {venta.UsuarioAutoriza}"
+                        : $"Las referencias verificadas dejaron de alcanzar y la autorización de {venta.UsuarioAutoriza} no las contemplaba");
+                venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
+                venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
+                venta.UsuarioAutoriza = null;
+                venta.FechaAutorizacion = null;
+                venta.MotivoAutorizacion = null;
+            }
+
+            venta.RequiereAutorizacion = true;
+            venta.RazonesAutorizacionJson = SerializarRazonesAutorizacion(validacion);
         }
 
         private async Task GuardarDatosAdicionales(int ventaId, VentaViewModel viewModel)

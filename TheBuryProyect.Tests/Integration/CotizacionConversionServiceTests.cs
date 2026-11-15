@@ -29,7 +29,7 @@ file sealed class StubValidacionVentaServiceConversion : IValidacionVentaService
         => Task.FromResult(_resultado);
 
     public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => throw new NotImplementedException();
-    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
+    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => Task.FromResult(new ValidacionVentaResult());
 }
 
 // ---------------------------------------------------------------------------

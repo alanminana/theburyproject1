@@ -23,6 +23,7 @@ namespace TheBuryProject.Services
         private readonly IGaranteService _garanteService;
         private readonly IRelojComercial _reloj;
         private readonly IPunitorioService _punitorioService;
+        private readonly ISeguridadAuditoriaService? _auditoria;
 
         /// <summary>
         /// Implementación inerte de <see cref="ICurrentUserService"/> usada exclusivamente para el
@@ -50,8 +51,10 @@ namespace TheBuryProject.Services
             ICreditoDisponibleService creditoDisponibleService,
             IGaranteService garanteService,
             IRelojComercial? reloj = null,
-            IPunitorioService? punitorioService = null)
+            IPunitorioService? punitorioService = null,
+            ISeguridadAuditoriaService? auditoria = null)
         {
+            _auditoria = auditoria;
             _context = context;
             _logger = logger;
             _creditoDisponibleService = creditoDisponibleService;
@@ -111,6 +114,7 @@ namespace TheBuryProject.Services
             resultado.Cupo = await EvaluarCupoInternoAsync(clienteId, config);
             resultado.Mora = await EvaluarMoraInternaAsync(clienteId, config);
             resultado.Bcra = await EvaluarBcraInternaAsync(clienteId);
+            resultado.Referencias = await EvaluarReferenciasInternaAsync(clienteId, config);
 
             var cliente = await _context.Clientes
                 .AsNoTracking()
@@ -298,6 +302,16 @@ namespace TheBuryProject.Services
                 }
             }
 
+            // D-02: referencias verificadas insuficientes => requiere la autorización individual de un segundo usuario.
+            // No es bloqueo (no suma a NoApto) y no reemplaza ni oculta ningún otro hallazgo: mora, BCRA, cupo y
+            // documentación se evalúan arriba con sus propias reglas y siguen bloqueando.
+            if (resultado.Referencias.Evaluada && !resultado.Referencias.Cumple)
+            {
+                requiereAutorizacion = true;
+                motivos.Add(resultado.Referencias.Mensaje);
+                detalles.Add(CrearDetalle("Referencias", resultado.Referencias.Mensaje, false, "bi-person-lines-fill", "warning"));
+            }
+
             resultado.Detalles = detalles;
 
             var (estado, motivo) = ResolverEstadoFinal(esNoApto, requiereAutorizacion, motivos);
@@ -368,6 +382,35 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Evaluaciones Parciales
+
+        /// <summary>
+        /// D-02: cuenta las referencias Verificadas (no dadas de baja) del cliente. Fuente única de la regla; la usan la
+        /// aptitud, la prevalidación, la venta, la conversión de cotización y la confirmación.
+        /// </summary>
+        private async Task<AptitudReferenciasDetalle> EvaluarReferenciasInternaAsync(int clienteId, ConfiguracionCredito config)
+        {
+            var requeridas = Math.Clamp(config.ReferenciasVerificadasMinimas, 0, ConfiguracionCredito.ReferenciasVerificadasMinimasMaximo);
+            if (requeridas == 0)
+            {
+                return new AptitudReferenciasDetalle { Evaluada = false, Mensaje = "Validación de referencias deshabilitada" };
+            }
+
+            var verificadas = await _context.ClienteReferencias
+                .AsNoTracking()
+                .CountAsync(r => r.ClienteId == clienteId
+                                 && !r.IsDeleted
+                                 && r.EstadoVerificacion == EstadoVerificacionReferencia.Verificada);
+
+            return new AptitudReferenciasDetalle
+            {
+                Evaluada = true,
+                Requeridas = requeridas,
+                Verificadas = verificadas,
+                Mensaje = verificadas >= requeridas
+                    ? $"Referencias verificadas: {verificadas} de {requeridas} requeridas"
+                    : $"Referencias verificadas insuficientes: {verificadas} de {requeridas} requeridas"
+            };
+        }
 
         public async Task<AptitudDocumentacionDetalle> EvaluarDocumentacionAsync(int clienteId)
         {
@@ -922,6 +965,49 @@ namespace TheBuryProject.Services
                 model.PuntajeRiesgoMinimo, model.PuntajeRiesgoMedio, model.PuntajeRiesgoExcelente,
                 model.UmbralCuotaIngresoBajo, model.RelacionCuotaIngresoMax, model.UmbralCuotaIngresoAlto,
                 model.MontoRequiereGarante, model.PuntajeMinimoParaAprobacion, model.PuntajeMinimoParaAnalisis);
+        }
+
+        public async Task<ReferenciasCreditoViewModel> GetReferenciasCreditoAsync()
+        {
+            var config = await _context.Set<ConfiguracionCredito>()
+                .AsNoTracking()
+                .OrderByDescending(c => c.Id)
+                .FirstOrDefaultAsync(c => !c.IsDeleted);
+
+            return new ReferenciasCreditoViewModel
+            {
+                ReferenciasVerificadasMinimas = config?.ReferenciasVerificadasMinimas
+                    ?? ConfiguracionCredito.ReferenciasVerificadasMinimasPorDefecto
+            };
+        }
+
+        public async Task UpdateReferenciasCreditoAsync(ReferenciasCreditoViewModel model)
+        {
+            ArgumentNullException.ThrowIfNull(model);
+            if (model.ReferenciasVerificadasMinimas < 0 || model.ReferenciasVerificadasMinimas > ConfiguracionCredito.ReferenciasVerificadasMinimasMaximo)
+            {
+                throw new ArgumentOutOfRangeException(nameof(model), model.ReferenciasVerificadasMinimas,
+                    $"El mínimo de referencias verificadas debe estar entre 0 y {ConfiguracionCredito.ReferenciasVerificadasMinimasMaximo}.");
+            }
+
+            var config = await GetConfiguracionAsync();
+            var anterior = config.ReferenciasVerificadasMinimas;
+            if (anterior == model.ReferenciasVerificadasMinimas)
+            {
+                return;
+            }
+
+            config.ReferenciasVerificadasMinimas = model.ReferenciasVerificadasMinimas;
+            config.FechaUltimaModificacion = DateTime.UtcNow;
+
+            // El evento se guarda con el mismo SaveChanges que el cambio (si uno falla, tampoco queda el otro).
+            _auditoria?.AgregarEvento("Configuracion", "ReferenciasMinimasCredito", $"ConfiguracionCredito:{config.Id}",
+                $"Mínimo de referencias verificadas: {anterior} -> {model.ReferenciasVerificadasMinimas}");
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Mínimo de referencias verificadas actualizado: {Anterior} -> {Nuevo}",
+                anterior, model.ReferenciasVerificadasMinimas);
         }
 
         public async Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync()

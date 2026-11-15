@@ -59,6 +59,27 @@
         </div>
     </section>
 
+    @if (Model.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes))
+    {
+        var razonReferencias = Model.RazonesAutorizacion.First(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        <section class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5" role="note" data-venta-autorizar-referencias>
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined mt-0.5 text-amber-400" aria-hidden="true">contacts</span>
+                <div class="space-y-1">
+                    <p class="text-sm font-bold text-amber-300">Excepción por referencias insuficientes</p>
+                    <p class="text-sm text-amber-200/90">
+                        @razonReferencias.Descripcion. Esta excepción vale solo para esta venta y debe autorizarla un segundo usuario con
+                        permiso de autorizar ventas, distinto de quien la creó. No levanta otros bloqueos de crédito.
+                    </p>
+                    @if (Model.ClienteId > 0)
+                    {
+                        <a class="text-sm font-semibold text-amber-300 underline" href="@Url.Action("Details", "Cliente", new { id = Model.ClienteId })#referencias-card">Ver referencias del cliente</a>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
     <section class="grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
 
         <div class="venta-section overflow-hidden shadow-sm">

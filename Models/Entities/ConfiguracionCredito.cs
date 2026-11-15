@@ -197,6 +197,23 @@ namespace TheBuryProject.Models.Entities
 
         #endregion
 
+        #region Referencias verificadas
+
+        /// <summary>Valor por defecto de <see cref="ReferenciasVerificadasMinimas"/> (decisión D-02).</summary>
+        public const int ReferenciasVerificadasMinimasPorDefecto = 1;
+
+        /// <summary>Tope de <see cref="ReferenciasVerificadasMinimas"/>.</summary>
+        public const int ReferenciasVerificadasMinimasMaximo = 10;
+
+        /// <summary>
+        /// Cantidad mínima de referencias del cliente en estado Verificada (no dadas de baja) para otorgar crédito
+        /// personal sin autorización. 0 = regla desactivada. Rango válido 0..10. Si faltan, la operación requiere la
+        /// autorización individual de un segundo usuario con <c>ventas.authorize</c> (nunca una excepción global).
+        /// </summary>
+        public int ReferenciasVerificadasMinimas { get; set; } = ReferenciasVerificadasMinimasPorDefecto;
+
+        #endregion
+
         #region Borradores de crédito abandonados
 
         /// <summary>

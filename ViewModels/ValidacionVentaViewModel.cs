@@ -132,6 +132,7 @@ namespace TheBuryProject.ViewModels
             TipoRazonAutorizacion.ExcedeUmbralRol => "Excede umbral del rol",
             TipoRazonAutorizacion.ClienteRequiereAutorizacion => "Cliente requiere autorización",
             TipoRazonAutorizacion.Punitorio => "Punitorio aplicado pendiente",
+            TipoRazonAutorizacion.ReferenciasInsuficientes => "Referencias verificadas insuficientes",
             _ => Tipo.ToString()
         };
     }
@@ -187,7 +188,13 @@ namespace TheBuryProject.ViewModels
         /// combinado con mora de capital/otra causa bloqueante, se informa como razón
         /// adicional sin duplicar el bloqueo.
         /// </summary>
-        Punitorio = 6
+        Punitorio = 6,
+
+        /// <summary>
+        /// D-02: el cliente no alcanza el mínimo de referencias verificadas. Sólo la autoriza un segundo usuario con
+        /// ventas.authorize (nunca el creador de la venta) y nunca levanta un bloqueo de otra categoría.
+        /// </summary>
+        ReferenciasInsuficientes = 7
     }
 
     /// <summary>

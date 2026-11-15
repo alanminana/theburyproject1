@@ -790,6 +790,9 @@ namespace TheBuryProject.Controllers
             if (config.SemaforoFinanciero != null)
                 await _aptitudService.UpdateSemaforoFinancieroAsync(config.SemaforoFinanciero);
 
+            if (config.ReferenciasCredito != null)
+                await _aptitudService.UpdateReferenciasCreditoAsync(config.ReferenciasCredito);
+
             TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
 
             var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
@@ -1075,6 +1078,7 @@ namespace TheBuryProject.Controllers
 
             var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
             var semaforo = await _aptitudService.GetSemaforoFinancieroAsync();
+            var referenciasCredito = await _aptitudService.GetReferenciasCreditoAsync();
             var limites = await ConstruirLimitesPorPuntajeAsync();
             var cuotas = await _configuracionPagoService.GetCuotasCreditoPersonalAsync();
 
@@ -1089,6 +1093,7 @@ namespace TheBuryProject.Controllers
                 },
                 Perfiles = perfiles,
                 SemaforoFinanciero = semaforo,
+                ReferenciasCredito = referenciasCredito,
                 LimitesPorPuntaje = limites,
                 CuotasCreditoPersonal = cuotas,
                 Punitorios = await ConstruirPunitorioPageAsync()
@@ -1099,6 +1104,7 @@ namespace TheBuryProject.Controllers
         {
             config.Perfiles ??= await _configuracionPagoService.GetPerfilesCreditoAsync();
             config.SemaforoFinanciero ??= await _aptitudService.GetSemaforoFinancieroAsync();
+            config.ReferenciasCredito ??= await _aptitudService.GetReferenciasCreditoAsync();
             config.CuotasCreditoPersonal ??= await _configuracionPagoService.GetCuotasCreditoPersonalAsync();
             config.Punitorios ??= await ConstruirPunitorioPageAsync();
 

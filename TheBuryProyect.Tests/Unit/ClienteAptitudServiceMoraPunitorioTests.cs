@@ -63,6 +63,7 @@ public class ClienteAptitudServiceMoraPunitorioTests
         decimal? montoMoraParaNoApto = null,
         int? cuotasVencidasParaNoApto = null) => new()
     {
+        ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
         ValidarDocumentacion = false,
         ValidarLimiteCredito = false,
         ValidarMora = true,
