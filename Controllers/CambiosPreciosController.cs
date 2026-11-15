@@ -1321,6 +1321,41 @@ public class CambiosPreciosController : Controller
         }
     }
 
+    /// <summary>
+    /// Exporta a Excel el historial de precios de un producto (todas sus listas) en un rango de fechas.
+    /// Incluye costos y márgenes: requiere el permiso de historial de precios.
+    /// </summary>
+    [HttpGet]
+    [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionHistorial)]
+    public async Task<IActionResult> ExportarHistorial(int productoId, DateTime? desde, DateTime? hasta)
+    {
+        var producto = await _productoService.GetByIdAsync(productoId);
+        if (producto == null)
+            return NotFound();
+
+        // Acota las fechas a un rango razonable: evita el desborde de DateTime (p. ej. 9999-12-31).
+        var minimo = new DateTime(2000, 1, 1);
+        var maximo = new DateTime(2100, 12, 31);
+        var hastaDia = (hasta ?? DateTime.UtcNow).Date;
+        hastaDia = hastaDia < minimo ? minimo : hastaDia > maximo ? maximo : hastaDia;
+        var fechaHasta = hastaDia.AddDays(1).AddTicks(-1);
+        var fechaDesde = (desde ?? fechaHasta.AddYears(-1)).Date;
+        fechaDesde = fechaDesde < minimo ? minimo : fechaDesde > maximo ? maximo : fechaDesde;
+        if (fechaHasta < fechaDesde)
+        {
+            TempData["Error"] = "La fecha final no puede ser anterior a la inicial.";
+            return RedirectToAction(nameof(Historial), new { productoId });
+        }
+
+        var contenido = await _precioService.ExportarHistorialPreciosAsync(new List<int> { productoId }, fechaDesde, fechaHasta);
+        _logger.LogInformation("Historial de precios exportado: producto {ProductoId} por {User}", productoId, _currentUser.GetUsername());
+
+        var codigo = new string(producto.Codigo.Where(char.IsLetterOrDigit).ToArray());
+        return File(contenido,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"historial-precios-{(codigo.Length > 0 ? codigo : productoId.ToString())}-{DateTime.UtcNow:yyyyMMdd}.xlsx");
+    }
+
     #endregion
 
     #region Métodos auxiliares

@@ -1095,6 +1095,65 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             "caja.movements",
             "caja.view");
 
+    public const string ClienteSoloLecturaUserId = "test-cliente-solo-lectura-id";
+    public const string ClienteEditorUserId = "test-cliente-editor-id";
+
+    /// <summary>D-02: ve clientes (clientes.view) pero NO puede editarlos (sin clientes.edit).</summary>
+    public Task SeedUserWithClienteSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            ClienteSoloLecturaUserId, "test-cliente-solo-lectura-role-id", "TestClienteSoloLecturaRole", 9420,
+            "clientes.view");
+
+    /// <summary>D-02: ve y edita clientes (clientes.view + clientes.edit).</summary>
+    public Task SeedUserWithClienteEditorAsync() =>
+        SeedPermissionUserAsync(
+            ClienteEditorUserId, "test-cliente-editor-role-id", "TestClienteEditorRole", 9400,
+            "clientes.view", "clientes.edit");
+
+    public const string CxpSoloLecturaUserId = "test-cxp-solo-lectura-id";
+    public const string CxpOperadorUserId = "test-cxp-operador-id";
+    public const string CxpAnuladorUserId = "test-cxp-anulador-id";
+
+    /// <summary>D-03: solo ve cuentas por pagar (cuentasporpagar.view).</summary>
+    public Task SeedUserWithCxpSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            CxpSoloLecturaUserId, "test-cxp-solo-lectura-role-id", "TestCxpSoloLecturaRole", 9430,
+            "cuentasporpagar.view");
+
+    /// <summary>D-03: registra comprobantes y pagos pero NO anula (view + createinvoice + pay).</summary>
+    public Task SeedUserWithCxpOperadorAsync() =>
+        SeedPermissionUserAsync(
+            CxpOperadorUserId, "test-cxp-operador-role-id", "TestCxpOperadorRole", 9440,
+            "cuentasporpagar.view", "cuentasporpagar.createinvoice", "cuentasporpagar.pay");
+
+    /// <summary>D-03: solo ve y anula (view + cancel): no registra comprobantes ni pagos.</summary>
+    public Task SeedUserWithCxpAnuladorAsync() =>
+        SeedPermissionUserAsync(
+            CxpAnuladorUserId, "test-cxp-anulador-role-id", "TestCxpAnuladorRole", 9450,
+            "cuentasporpagar.view", "cuentasporpagar.cancel");
+
+    public const string ListaPrecioAdminUserId = "test-lista-precio-admin-id";
+    public const string ListaPrecioSoloVerUserId = "test-lista-precio-solo-ver-id";
+    public const string ListaPrecioGerenteUserId = "test-lista-precio-gerente-id";
+
+    /// <summary>D-01: administra listas y fija precios (view, create, update, delete, apply, history).</summary>
+    public Task SeedUserWithListaPrecioAdminAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioAdminUserId, "test-lista-precio-admin-role-id", "TestListaPrecioAdminRole", 9470,
+            "precios.view", "precios.create", "precios.update", "precios.delete", "precios.apply", "precios.history", "productos.view");
+
+    /// <summary>D-01: solo ve las listas (precios.view): sin alta, edición, baja, precio manual ni historial exportable.</summary>
+    public Task SeedUserWithListaPrecioSoloVerAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioSoloVerUserId, "test-lista-precio-solo-ver-role-id", "TestListaPrecioSoloVerRole", 9480,
+            "precios.view", "productos.view");
+
+    /// <summary>D-01: perfil del Gerente (view + apply + history, sin create/update/delete de listas).</summary>
+    public Task SeedUserWithListaPrecioGerenteAsync() =>
+        SeedPermissionUserAsync(
+            ListaPrecioGerenteUserId, "test-lista-precio-gerente-role-id", "TestListaPrecioGerenteRole", 9490,
+            "precios.view", "precios.apply", "precios.history", "productos.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

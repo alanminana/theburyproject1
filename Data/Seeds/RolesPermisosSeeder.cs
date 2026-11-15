@@ -191,6 +191,16 @@ public static class RolesPermisosSeeder
                 ("Eliminar", "delete", 6)
             }),
 
+            // D-03: libro administrativo de cuentas por pagar (sin Caja, stock, costo ni IVA calculado).
+            // Admin lo recibe por el grant "todo salvo la lista"; Contador solo ve; Gerente no lo recibe implícitamente.
+            ("Cuentas por Pagar", "cuentasporpagar", "Compras", "bi-cash-stack", 33, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Registrar comprobantes", "createinvoice", 2),
+                ("Registrar pagos", "pay", 3),
+                ("Anular", "cancel", 4)
+            }),
+
             // STOCK
             ("Stock", "stock", "Stock", "bi-boxes", 40, new List<(string, string, int)>
             {
@@ -595,6 +605,7 @@ public static class RolesPermisosSeeder
                 { "clientes", new[] { "view" } },
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },
+                { "cuentasporpagar", new[] { "view" } },
                 { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export", "viewallcommissions" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }

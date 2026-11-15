@@ -58,6 +58,11 @@ namespace TheBuryProject.Data
         public DbSet<PunitorioAplicado> PunitoriosAplicados { get; set; }
         public DbSet<Garante> Garantes { get; set; }
         public DbSet<DocumentoCliente> DocumentosCliente { get; set; }
+        public DbSet<ClienteReferencia> ClienteReferencias { get; set; }
+        public DbSet<ComprobanteProveedor> ComprobantesProveedor { get; set; }
+        public DbSet<PagoProveedor> PagosProveedor { get; set; }
+        public DbSet<PagoProveedorImputacion> PagoProveedorImputaciones { get; set; }
+        public DbSet<ImputacionNotaCredito> ImputacionesNotaCredito { get; set; }
 
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<NumeracionVentaContador> NumeracionVentaContadores { get; set; }
@@ -1190,6 +1195,85 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.FechaSubida);
                 entity.HasIndex(e => e.FechaVencimiento);
                 entity.HasIndex(e => e.TipoDocumento);
+            });
+
+            // =======================
+            // ClienteReferencia (D-02: informativa, no afecta crédito)
+            // =======================
+            modelBuilder.Entity<ClienteReferencia>(entity =>
+            {
+                entity.HasOne(e => e.Cliente)
+                    .WithMany(c => c.Referencias)
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.ClienteId, e.IsDeleted });
+                entity.HasIndex(e => new { e.ClienteId, e.Tipo, e.TelefonoNormalizado });
+            });
+
+            // =======================
+            // Cuentas por pagar (D-03: libro administrativo; sin Caja, stock, costo ni IVA calculado)
+            // =======================
+            modelBuilder.Entity<ComprobanteProveedor>(entity =>
+            {
+                entity.Property(e => e.ImporteNeto).HasPrecision(18, 2);
+                entity.Property(e => e.ImporteIva).HasPrecision(18, 2);
+                entity.Property(e => e.ImporteTotal).HasPrecision(18, 2);
+                entity.Property(e => e.SaldoPendiente).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Proveedor).WithMany().HasForeignKey(e => e.ProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.OrdenCompra).WithMany().HasForeignKey(e => e.OrdenCompraId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Unicidad (proveedor, tipo, número) entre los NO anulados: un comprobante anulado libera el número.
+                entity.HasIndex(e => new { e.ProveedorId, e.Tipo, e.NumeroComprobante })
+                    .IsUnique()
+                    .HasFilter("Estado <> 4");
+                entity.HasIndex(e => new { e.ProveedorId, e.Estado });
+                entity.HasIndex(e => e.FechaVencimiento);
+                entity.HasIndex(e => e.OrdenCompraId);
+            });
+
+            modelBuilder.Entity<PagoProveedor>(entity =>
+            {
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Proveedor).WithMany().HasForeignKey(e => e.ProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Cheque).WithMany().HasForeignKey(e => e.ChequeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.ProveedorId, e.Fecha });
+                entity.HasIndex(e => new { e.ProveedorId, e.ClaveIdempotencia })
+                    .IsUnique()
+                    .HasFilter("ClaveIdempotencia IS NOT NULL");
+            });
+
+            modelBuilder.Entity<PagoProveedorImputacion>(entity =>
+            {
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Pago).WithMany(p => p.Imputaciones).HasForeignKey(e => e.PagoProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Comprobante).WithMany(c => c.ImputacionesPago).HasForeignKey(e => e.ComprobanteProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.PagoProveedorId);
+                entity.HasIndex(e => e.ComprobanteProveedorId);
+            });
+
+            modelBuilder.Entity<ImputacionNotaCredito>(entity =>
+            {
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.NotaCredito).WithMany(c => c.ImputacionesEmitidas).HasForeignKey(e => e.NotaCreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Comprobante).WithMany(c => c.ImputacionesRecibidas).HasForeignKey(e => e.ComprobanteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.NotaCreditoId, e.ClaveIdempotencia });
+                entity.HasIndex(e => e.ComprobanteId);
             });
 
             // =======================
@@ -2646,7 +2730,12 @@ namespace TheBuryProject.Data
                     .HasFilter("IsDeleted = 0");
 
                 entity.HasIndex(e => e.Activa);
-                entity.HasIndex(e => e.EsPredeterminada);
+                // A lo sumo una lista predeterminada entre las no eliminadas (D-01): la garantiza la base, no solo el servicio.
+                entity.HasIndex(e => e.EsPredeterminada)
+                    .IsUnique()
+                    .HasFilter(Database.IsSqlServer()
+                        ? "[IsDeleted] = 0 AND [EsPredeterminada] = 1"
+                        : "IsDeleted = 0 AND EsPredeterminada = 1");
                 entity.HasIndex(e => e.Orden);
             });
 

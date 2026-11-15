@@ -170,6 +170,8 @@ builder.Services.AddScoped<IMovimientoStockService, MovimientoStockService>();
 builder.Services.AddScoped<IMovimientoStockReferenciaResolver, MovimientoStockReferenciaResolver>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IGaranteService, GaranteService>();
+builder.Services.AddScoped<IClienteReferenciaService, ClienteReferenciaService>();
+builder.Services.AddScoped<ICuentaPorPagarService, CuentaPorPagarService>();
 builder.Services.AddScoped<ICreditoService, CreditoService>();
 builder.Services.AddScoped<IPagoCuotaBackfillService, PagoCuotaBackfillService>();
 builder.Services.AddScoped<IConfiguracionPunitorioService, ConfiguracionPunitorioService>();

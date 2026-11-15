@@ -1,0 +1,99 @@
+@using TheBuryProject.Models.Enums
+@model List<ClienteReferenciaViewModel>
+@{
+    var puedeEditar = User.TienePermiso("clientes", "edit");
+
+    string TipoLabel(TipoReferenciaCliente t) => t switch
+    {
+        TipoReferenciaCliente.Laboral => "Laboral",
+        TipoReferenciaCliente.Comercial => "Comercial",
+        _ => "Personal"
+    };
+    string TipoIcon(TipoReferenciaCliente t) => t switch
+    {
+        TipoReferenciaCliente.Laboral => "work",
+        TipoReferenciaCliente.Comercial => "storefront",
+        _ => "person"
+    };
+    string EstadoLabel(EstadoVerificacionReferencia e) => e switch
+    {
+        EstadoVerificacionReferencia.Verificada => "Verificada",
+        EstadoVerificacionReferencia.NoLocalizada => "No localizada",
+        EstadoVerificacionReferencia.Rechazada => "Rechazada",
+        _ => "Pendiente"
+    };
+    string EstadoChip(EstadoVerificacionReferencia e) => e switch
+    {
+        EstadoVerificacionReferencia.Verificada => "chip-ok",
+        EstadoVerificacionReferencia.NoLocalizada => "chip-warn",
+        EstadoVerificacionReferencia.Rechazada => "chip-bad",
+        _ => "chip-neutral"
+    };
+    string EstadoIcon(EstadoVerificacionReferencia e) => e switch
+    {
+        EstadoVerificacionReferencia.Verificada => "task_alt",
+        EstadoVerificacionReferencia.NoLocalizada => "phone_missed",
+        EstadoVerificacionReferencia.Rechazada => "block",
+        _ => "schedule"
+    };
+}
+@if (Model == null || Model.Count == 0)
+{
+    <div class="flex items-center gap-2 text-sm muted" data-referencias-vacio>
+        <span class="material-symbols-outlined shrink-0" style="font-size:18px" aria-hidden="true">contact_phone</span>
+        <span>Este cliente no tiene referencias cargadas.@(puedeEditar ? " Usá «Agregar referencia» para registrar la primera." : string.Empty)</span>
+    </div>
+}
+else
+{
+    <ul class="space-y-2" style="list-style:none;padding:0;margin:0" data-referencias-items>
+        @foreach (var r in Model)
+        {
+            <li class="doc-row" data-referencia-id="@r.Id" style="flex-wrap:wrap">
+                <div class="doc-ic"><span class="material-symbols-outlined" aria-hidden="true">@TipoIcon(r.Tipo)</span></div>
+                <div class="flex-1 min-w-0" style="min-width:12rem">
+                    <div class="text-sm text-white">@r.Nombre<span class="text-xs muted-2"> · @TipoLabel(r.Tipo)@(string.IsNullOrWhiteSpace(r.Relacion) ? "" : " · " + r.Relacion)</span></div>
+                    <div class="text-xs muted-2">
+                        <span class="mono">@r.Telefono</span>
+                        @if (!string.IsNullOrWhiteSpace(r.Email)) { <text> · @r.Email</text> }
+                        @if (!string.IsNullOrWhiteSpace(r.Empresa)) { <text> · @r.Empresa</text> }
+                    </div>
+                    @if (r.FechaVerificacion.HasValue)
+                    {
+                        <div class="text-xs muted-2">@EstadoLabel(r.EstadoVerificacion) el @r.FechaVerificacion.Value.ToLocalTime().ToString("dd/MM/yyyy")@(string.IsNullOrWhiteSpace(r.VerificadaPor) ? "" : " por " + r.VerificadaPor)</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(r.Observaciones))
+                    {
+                        <div class="text-xs muted-2">@r.Observaciones</div>
+                    }
+                </div>
+                <span class="chip @EstadoChip(r.EstadoVerificacion)"><span class="material-symbols-outlined" aria-hidden="true">@EstadoIcon(r.EstadoVerificacion)</span>@EstadoLabel(r.EstadoVerificacion)</span>
+                @if (puedeEditar)
+                {
+                    <div class="flex items-center gap-1">
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-verificar
+                                data-id="@r.Id" data-nombre="@r.Nombre" data-estado="@((int)r.EstadoVerificacion)"
+                                data-rowversion="@(r.RowVersion == null ? "" : Convert.ToBase64String(r.RowVersion))"
+                                title="Registrar verificación" aria-label="Registrar verificación de @r.Nombre">
+                            <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-editar
+                                data-id="@r.Id" data-tipo="@((int)r.Tipo)" data-nombre="@r.Nombre" data-relacion="@r.Relacion"
+                                data-telefono="@r.Telefono" data-email="@r.Email" data-empresa="@r.Empresa"
+                                data-observaciones="@r.Observaciones"
+                                data-rowversion="@(r.RowVersion == null ? "" : Convert.ToBase64String(r.RowVersion))"
+                                title="Editar referencia" aria-label="Editar referencia de @r.Nombre">
+                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ref-baja
+                                data-id="@r.Id" data-nombre="@r.Nombre"
+                                data-rowversion="@(r.RowVersion == null ? "" : Convert.ToBase64String(r.RowVersion))"
+                                title="Dar de baja" aria-label="Dar de baja la referencia de @r.Nombre">
+                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                        </button>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+}

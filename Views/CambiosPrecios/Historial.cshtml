@@ -32,6 +32,14 @@
                 Historial de precios
                 <span class="ml-auto text-xs font-normal text-slate-400">@Model.Precios.Count registros</span>
             </h2>
+            @if (User.TienePermiso("precios", "history"))
+            {
+                <a asp-action="ExportarHistorial" asp-route-productoId="@Model.ProductoId"
+                   class="btn-erp-secondary btn-sm no-underline" title="Exporta el último año de todas las listas">
+                    <span class="material-symbols-outlined text-base" aria-hidden="true">download</span>
+                    Exportar Excel
+                </a>
+            }
             <form asp-action="Historial" method="get" class="flex items-center gap-2">
                 <input type="hidden" name="productoId" value="@Model.ProductoId" />
                 <select name="listaId" aria-label="Lista de precios"

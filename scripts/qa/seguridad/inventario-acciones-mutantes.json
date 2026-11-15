@@ -1252,6 +1252,125 @@
     "excluidaPorDiseno": false
   },
   {
+    "id": "ClienteReferencia.Baja:POST",
+    "controller": "ClienteReferencia",
+    "accion": "Baja",
+    "verbo": "POST",
+    "ruta": "/ClienteReferencia/Baja",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "request",
+        "tipo": "ClienteReferenciaBajaRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ClienteReferencia.Crear:POST",
+    "controller": "ClienteReferencia",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/ClienteReferencia/Crear",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "modelo",
+        "tipo": "ClienteReferenciaViewModel",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ClienteReferencia.Editar:POST",
+    "controller": "ClienteReferencia",
+    "accion": "Editar",
+    "verbo": "POST",
+    "ruta": "/ClienteReferencia/Editar",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "modelo",
+        "tipo": "ClienteReferenciaViewModel",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ClienteReferencia.Verificar:POST",
+    "controller": "ClienteReferencia",
+    "accion": "Verificar",
+    "verbo": "POST",
+    "ruta": "/ClienteReferencia/Verificar",
+    "permisos": [
+      "clientes.edit",
+      "clientes.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "clienteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "request",
+        "tipo": "ClienteReferenciaVerificacionRequest",
+        "fuente": "Body"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
     "id": "ConfiguracionCliente.Index:POST",
     "controller": "ConfiguracionCliente",
     "accion": "Index",
@@ -2328,6 +2447,162 @@
     "excluidaPorDiseno": false
   },
   {
+    "id": "CuentaPorPagar.Anular:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "Anular",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/Anular",
+    "permisos": [
+      "cuentasporpagar.cancel",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.AnularImputacionNotaCredito:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "AnularImputacionNotaCredito",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/AnularImputacionNotaCredito",
+    "permisos": [
+      "cuentasporpagar.cancel",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "comprobanteId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.AnularPago:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "AnularPago",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/AnularPago",
+    "permisos": [
+      "cuentasporpagar.cancel",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.Crear:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/Crear",
+    "permisos": [
+      "cuentasporpagar.createinvoice",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "datos",
+        "tipo": "ComprobanteProveedorRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.ImputarNotaCredito:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "ImputarNotaCredito",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/ImputarNotaCredito",
+    "permisos": [
+      "cuentasporpagar.pay",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "claveIdempotencia",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "imputaciones",
+        "tipo": "List\u003C\u003E",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.Pagar:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "Pagar",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/Pagar",
+    "permisos": [
+      "cuentasporpagar.pay",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "datos",
+        "tipo": "PagoProveedorRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
     "id": "Devolucion.Aprobar:POST",
     "controller": "Devolucion",
     "accion": "Aprobar",
@@ -3278,6 +3553,115 @@
       {
         "nombre": "input",
         "tipo": "TipoDocumentoInput",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.Baja:POST",
+    "controller": "ListaPrecio",
+    "accion": "Baja",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Baja",
+    "permisos": [
+      "precios.delete",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "rowVersion",
+        "tipo": "Byte[]",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.Crear:POST",
+    "controller": "ListaPrecio",
+    "accion": "Crear",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Crear",
+    "permisos": [
+      "precios.create",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "modelo",
+        "tipo": "ListaPrecioFormViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.Editar:POST",
+    "controller": "ListaPrecio",
+    "accion": "Editar",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/Editar",
+    "permisos": [
+      "precios.update",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "modelo",
+        "tipo": "ListaPrecioFormViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "ListaPrecio.FijarPrecio:POST",
+    "controller": "ListaPrecio",
+    "accion": "FijarPrecio",
+    "verbo": "POST",
+    "ruta": "/ListaPrecio/FijarPrecio",
+    "permisos": [
+      "precios.apply",
+      "precios.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "listaId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "notas",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "precio",
+        "tipo": "Decimal?",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "productoId",
+        "tipo": "Int32",
         "fuente": "Auto"
       }
     ],

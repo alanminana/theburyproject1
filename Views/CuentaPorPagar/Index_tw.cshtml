@@ -1,0 +1,234 @@
+@model TheBuryProject.ViewModels.CuentaPorPagarIndexViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Cuentas por pagar";
+    ViewData["MetaDescription"] = "Libro administrativo de comprobantes de proveedores, pagos y saldos pendientes.";
+    var f = Model.Filtro;
+    var l = Model.Listado;
+    var filtroActivo = f.ProveedorId.HasValue || f.Estado.HasValue || f.Tipo.HasValue || f.SoloVencidos
+                       || f.VencimientoDesde.HasValue || f.VencimientoHasta.HasValue || !string.IsNullOrWhiteSpace(f.Busqueda);
+
+    Dictionary<string, string> Ruta(int pagina) => new Dictionary<string, string?>
+    {
+        ["ProveedorId"] = f.ProveedorId?.ToString(),
+        ["Estado"] = f.Estado?.ToString(),
+        ["Tipo"] = f.Tipo?.ToString(),
+        ["SoloVencidos"] = f.SoloVencidos ? "true" : null,
+        ["VencimientoDesde"] = f.VencimientoDesde?.ToString("yyyy-MM-dd"),
+        ["VencimientoHasta"] = f.VencimientoHasta?.ToString("yyyy-MM-dd"),
+        ["Busqueda"] = f.Busqueda,
+        ["Pagina"] = pagina.ToString()
+    }.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value!);
+}
+
+<h1 class="sr-only">Cuentas por pagar</h1>
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-resumen-titulo">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 id="cxp-resumen-titulo" class="text-lg font-bold text-white">Cuentas por pagar</h2>
+            <p class="text-sm text-slate-400">Registro administrativo de lo que informan los proveedores. No mueve Caja, stock ni costos.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a asp-action="Antiguedad" asp-route-proveedorId="@f.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
+                Antigüedad de deuda
+            </a>
+            @if (Model.PuedeRegistrarPagos)
+            {
+                <a asp-action="Pagar" asp-route-proveedorId="@f.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                    Registrar pago
+                </a>
+            }
+            @if (Model.PuedeRegistrarComprobantes)
+            {
+                <a asp-action="Crear" asp-route-proveedorId="@f.ProveedorId" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
+                    Nuevo comprobante
+                </a>
+            }
+        </div>
+    </div>
+    <dl class="mt-4 grid grid-cols-2 gap-3">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Comprobantes</dt>
+            <dd class="mt-2 text-2xl font-black text-white">@l.Total</dd>
+            <dd class="mt-1 text-xs text-slate-400">@(filtroActivo ? "según los filtros" : "registrados")</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Saldo pendiente</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@CuentaPorPagarUiHelper.Moneda(l.SaldoDeuda)</dd>
+            <dd class="mt-1 text-xs text-slate-400">facturas y notas de débito vigentes</dd>
+        </div>
+    </dl>
+</section>
+
+<form asp-action="Index" method="get" class="filter-panel-erp mb-4" aria-label="Filtros de comprobantes">
+    <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-12">
+        <div class="md:col-span-4">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-proveedor">Proveedor</label>
+            <select id="f-proveedor" name="ProveedorId" class="@CuentaPorPagarUiHelper.InputClass">
+                <option value="">Todos</option>
+                @foreach (var p in Model.Proveedores)
+                {
+                    <option value="@p.Id" selected="@(f.ProveedorId == p.Id)">@p.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="md:col-span-2">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-tipo">Tipo</label>
+            <select id="f-tipo" name="Tipo" class="@CuentaPorPagarUiHelper.InputClass">
+                <option value="">Todos</option>
+                @foreach (var t in Enum.GetValues<TipoComprobanteProveedor>())
+                {
+                    <option value="@t" selected="@(f.Tipo == t)">@CuentaPorPagarUiHelper.NombreTipo(t)</option>
+                }
+            </select>
+        </div>
+        <div class="md:col-span-2">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-estado">Estado</label>
+            <select id="f-estado" name="Estado" class="@CuentaPorPagarUiHelper.InputClass">
+                <option value="">Todos</option>
+                <option value="@EstadoComprobanteProveedor.Pendiente" selected="@(f.Estado == EstadoComprobanteProveedor.Pendiente)">Pendiente</option>
+                <option value="@EstadoComprobanteProveedor.ParcialmentePagado" selected="@(f.Estado == EstadoComprobanteProveedor.ParcialmentePagado)">Pago parcial</option>
+                <option value="@EstadoComprobanteProveedor.Pagado" selected="@(f.Estado == EstadoComprobanteProveedor.Pagado)">Pagado / aplicada</option>
+                <option value="@EstadoComprobanteProveedor.Anulado" selected="@(f.Estado == EstadoComprobanteProveedor.Anulado)">Anulado</option>
+            </select>
+        </div>
+        <div class="md:col-span-4">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-busqueda">Número de comprobante</label>
+            <input id="f-busqueda" type="text" name="Busqueda" value="@f.Busqueda" maxlength="50"
+                   class="@CuentaPorPagarUiHelper.InputClass" placeholder="Ej.: A-0001" />
+        </div>
+        <div class="md:col-span-3">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-desde">Vence desde</label>
+            <input id="f-desde" type="date" name="VencimientoDesde" value="@f.VencimientoDesde?.ToString("yyyy-MM-dd")"
+                   class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-3">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-hasta">Vence hasta</label>
+            <input id="f-hasta" type="date" name="VencimientoHasta" value="@f.VencimientoHasta?.ToString("yyyy-MM-dd")"
+                   class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="flex items-end md:col-span-3">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="SoloVencidos" value="true" checked="@f.SoloVencidos" class="h-4 w-4 rounded border-slate-600 bg-slate-900" />
+                Solo vencidos con saldo
+            </label>
+        </div>
+        <div class="flex items-end gap-2 md:col-span-3">
+            <button type="submit" class="btn-erp-primary btn-sm flex-1">Buscar</button>
+            <a asp-action="Index" class="btn-erp-ghost btn-sm no-underline" title="Limpiar filtros" aria-label="Limpiar filtros">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt_off</span>
+            </a>
+        </div>
+    </div>
+</form>
+
+<section class="card-erp-panel mb-4" aria-label="Listado de comprobantes">
+    <div class="table-erp-wrapper" role="region" aria-label="Tabla de comprobantes de proveedores" tabindex="0">
+        <table data-erp-cards class="w-full border-collapse text-left">
+            <thead>
+                <tr class="border-b border-slate-800">
+                    <th scope="col" data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Comprobante</th>
+                    <th scope="col" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Proveedor</th>
+                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Emisión / vencimiento</th>
+                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
+                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Saldo</th>
+                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                    <th scope="col" data-card="actions" class="pl-3 pr-2 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                @foreach (var c in l.Items)
+                {
+                    <tr class="transition-colors hover:bg-slate-800/50">
+                        <td class="px-3 py-2.5 whitespace-nowrap">
+                            <span class="block font-bold text-primary">@c.NumeroComprobante</span>
+                            <span class="block text-xs text-slate-400">@CuentaPorPagarUiHelper.NombreTipo(c.Tipo)</span>
+                        </td>
+                        <td class="px-3 py-2.5 font-medium">@c.ProveedorNombre</td>
+                        <td class="px-3 py-2.5 whitespace-nowrap">
+                            <span class="block text-slate-400">Emitido @CuentaPorPagarUiHelper.Fecha(c.FechaEmision)</span>
+                            <span class="block @(c.DiasVencido > 0 ? "text-rose-300 font-semibold" : "text-slate-400")">Vence @CuentaPorPagarUiHelper.Fecha(c.FechaVencimiento)</span>
+                            @if (c.DiasVencido > 0)
+                            {
+                                <span class="block text-xs font-semibold uppercase tracking-wide text-rose-300">Vencido hace @c.DiasVencido día@(c.DiasVencido == 1 ? "" : "s")</span>
+                            }
+                        </td>
+                        <td class="px-3 py-2.5 text-right font-medium whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(c.ImporteTotal)</td>
+                        <td class="px-3 py-2.5 text-right font-bold whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(c.SaldoPendiente)</td>
+                        <td class="px-3 py-2.5">
+                            <span class="@CuentaPorPagarUiHelper.EstadoBadgeClass(c.Estado) whitespace-nowrap">@CuentaPorPagarUiHelper.NombreEstado(c.Estado, c.Tipo)</span>
+                        </td>
+                        <td class="pl-3 pr-2 py-2.5 text-right whitespace-nowrap">
+                            <div class="flex flex-nowrap justify-end gap-1">
+                                <a asp-action="Detalle" asp-route-id="@c.Id" class="row-action row-action--primary no-underline"
+                                   aria-label="Ver el comprobante @c.NumeroComprobante" title="Ver detalle">
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                    <span class="row-action__label">Ver</span>
+                                </a>
+                                @if (Model.PuedeRegistrarPagos && c.EsDeuda && c.SaldoPendiente > 0m
+                                     && c.Estado is EstadoComprobanteProveedor.Pendiente or EstadoComprobanteProveedor.ParcialmentePagado)
+                                {
+                                    <a asp-action="Pagar" asp-route-proveedorId="@c.ProveedorId" asp-route-comprobanteId="@c.Id"
+                                       class="row-action row-action--primary no-underline"
+                                       aria-label="Registrar pago del comprobante @c.NumeroComprobante" title="Registrar pago">
+                                        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+                                        <span class="row-action__label">Pagar</span>
+                                    </a>
+                                }
+                                <a asp-action="EstadoCuenta" asp-route-proveedorId="@c.ProveedorId" class="row-action row-action--primary no-underline"
+                                   aria-label="Estado de cuenta de @c.ProveedorNombre" title="Estado de cuenta">
+                                    <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                                    <span class="row-action__label">Cuenta</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!l.Items.Any())
+    {
+        <div class="px-6 py-12 text-center" data-cxp-vacio>
+            <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">receipt_long</span>
+            @if (filtroActivo)
+            {
+                <p class="mt-2 text-base font-semibold text-slate-200">Ningún comprobante coincide con los filtros.</p>
+                <a asp-action="Index" class="btn-erp-secondary btn-sm mt-3 inline-flex no-underline">Limpiar filtros</a>
+            }
+            else
+            {
+                <p class="mt-2 text-base font-semibold text-slate-200">Todavía no hay comprobantes de proveedores.</p>
+                @if (Model.PuedeRegistrarComprobantes)
+                {
+                    <p class="mt-1 text-sm text-slate-400">Registrá la primera factura para empezar a llevar la deuda.</p>
+                    <a asp-action="Crear" class="btn-erp-primary btn-sm mt-3 inline-flex no-underline">Nuevo comprobante</a>
+                }
+            }
+        </div>
+    }
+
+    @if (l.TotalPaginas > 1)
+    {
+        <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 px-4 py-3" aria-label="Paginación de comprobantes">
+            <p class="text-sm text-slate-400">Página @l.Pagina de @l.TotalPaginas · @l.Total comprobantes</p>
+            <div class="flex items-center gap-2">
+                @if (l.Pagina > 1)
+                {
+                    <a asp-action="Index" asp-all-route-data="@Ruta(l.Pagina - 1)" rel="prev" class="btn-erp-ghost btn-sm no-underline">Anterior</a>
+                }
+                @if (l.Pagina < l.TotalPaginas)
+                {
+                    <a asp-action="Index" asp-all-route-data="@Ruta(l.Pagina + 1)" rel="next" class="btn-erp-ghost btn-sm no-underline">Siguiente</a>
+                }
+            </div>
+        </nav>
+    }
+</section>

@@ -1,0 +1,139 @@
+@model TheBuryProject.ViewModels.EstadoCuentaViewModel
+@using TheBuryProject.Services.Models
+@{
+    var cuenta = Model.Cuenta;
+    ViewData["Title"] = $"Estado de cuenta - {cuenta.ProveedorNombre}";
+    var cuit = cuenta.ProveedorCuit is { Length: 11 } c ? $"{c[..2]}-{c[2..10]}-{c[10]}" : cuenta.ProveedorCuit;
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-ec-titulo">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Estado de cuenta</span>
+    </nav>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 id="cxp-ec-titulo" class="text-lg font-bold tracking-tight text-white">@cuenta.ProveedorNombre</h1>
+            @if (!string.IsNullOrWhiteSpace(cuit)) { <p class="text-sm text-slate-400">CUIT @cuit</p> }
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a asp-action="Antiguedad" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
+                Antigüedad
+            </a>
+            @if (Model.PuedeRegistrarPagos)
+            {
+                <a asp-action="Pagar" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                    Registrar pago
+                </a>
+            }
+            @if (Model.PuedeRegistrarComprobantes)
+            {
+                <a asp-action="Crear" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
+                    Nuevo comprobante
+                </a>
+            }
+        </div>
+    </div>
+    <dl class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Saldo neto con el proveedor</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@CuentaPorPagarUiHelper.Moneda(cuenta.SaldoNeto)</dd>
+            <dd class="mt-1 text-xs text-slate-400">facturas y notas de débito − notas de crédito − pagos vigentes</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Saldo de comprobantes</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@CuentaPorPagarUiHelper.Moneda(cuenta.SaldoComprobantes)</dd>
+            <dd class="mt-1 text-xs text-slate-400">@Model.Pendientes.Count comprobante@(Model.Pendientes.Count == 1 ? "" : "s") con saldo</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Notas de crédito sin aplicar</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@CuentaPorPagarUiHelper.Moneda(cuenta.NotasCreditoSinAplicar)</dd>
+            <dd class="mt-1 text-xs text-slate-400">pendientes de aplicar a facturas</dd>
+        </div>
+    </dl>
+</section>
+
+<section class="card-erp-panel mb-4" aria-labelledby="cxp-ec-libro">
+    <div class="border-b border-slate-800 px-4 py-3"><h2 id="cxp-ec-libro" class="text-base font-bold text-white">Movimientos</h2></div>
+    @if (cuenta.Movimientos.Any())
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Movimientos del estado de cuenta" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-800">
+                        <th scope="col" data-card="half" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                        <th scope="col" data-card="title" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Movimiento</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Debe</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Haber</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Saldo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var m in cuenta.Movimientos)
+                    {
+                        <tr>
+                            <td class="px-3 py-2 whitespace-nowrap text-slate-400">@CuentaPorPagarUiHelper.Fecha(m.Fecha)</td>
+                            <td class="px-3 py-2">
+                                @if (m.ComprobanteId.HasValue)
+                                {
+                                    <a asp-action="Detalle" asp-route-id="@m.ComprobanteId" class="text-primary">@m.Descripcion</a>
+                                }
+                                else if (m.PagoId.HasValue)
+                                {
+                                    <a asp-action="Pago" asp-route-id="@m.PagoId" class="text-primary">@m.Descripcion</a>
+                                }
+                                else
+                                {
+                                    @m.Descripcion
+                                }
+                            </td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap">@(m.Debe == 0m ? "—" : CuentaPorPagarUiHelper.Moneda(m.Debe))</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap">@(m.Haber == 0m ? "—" : CuentaPorPagarUiHelper.Moneda(m.Haber))</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap font-bold">@CuentaPorPagarUiHelper.Moneda(m.SaldoCorrido)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="px-4 py-10 text-center text-sm text-slate-400" data-cxp-vacio>Este proveedor todavía no tiene movimientos.</p>
+    }
+</section>
+
+@if (Model.Pendientes.Any())
+{
+    <section class="card-erp-panel" aria-labelledby="cxp-ec-pend">
+        <div class="border-b border-slate-800 px-4 py-3"><h2 id="cxp-ec-pend" class="text-base font-bold text-white">Comprobantes con saldo</h2></div>
+        <div class="table-erp-wrapper" role="region" aria-label="Comprobantes con saldo pendiente" tabindex="0">
+            <table class="w-full border-collapse text-left text-sm">
+                <thead><tr class="border-b border-slate-800">
+                    <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Comprobante</th>
+                    <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Vencimiento</th>
+                    <th scope="col" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Saldo</th>
+                    <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var p in Model.Pendientes)
+                    {
+                        <tr>
+                            <td class="px-3 py-2"><a asp-action="Detalle" asp-route-id="@p.Id" class="text-primary">@CuentaPorPagarUiHelper.NombreTipo(p.Tipo) @p.NumeroComprobante</a></td>
+                            <td class="px-3 py-2 whitespace-nowrap @(p.DiasVencido > 0 ? "text-rose-300 font-semibold" : "text-slate-400")">
+                                @CuentaPorPagarUiHelper.Fecha(p.FechaVencimiento)@(p.DiasVencido > 0 ? $" · vencido hace {p.DiasVencido} día{(p.DiasVencido == 1 ? "" : "s")}" : "")
+                            </td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap font-bold">@CuentaPorPagarUiHelper.Moneda(p.SaldoPendiente)</td>
+                            <td class="px-3 py-2"><span class="@CuentaPorPagarUiHelper.EstadoBadgeClass(p.Estado)">@CuentaPorPagarUiHelper.NombreEstado(p.Estado, p.Tipo)</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

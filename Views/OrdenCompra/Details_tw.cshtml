@@ -85,6 +85,13 @@
                     </span>
                 }
             }
+            @if (User.TienePermiso("cuentasporpagar", "createinvoice") && Model.Estado != EstadoOrdenCompra.Cancelada && Model.Estado != EstadoOrdenCompra.Borrador)
+            {
+                <a asp-controller="CuentaPorPagar" asp-action="Crear" asp-route-ordenCompraId="@Model.Id" class="btn-erp-ghost btn-sm no-underline">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">receipt_long</span>
+                    Registrar factura
+                </a>
+            }
             <button type="button" id="btn-imprimir-orden" class="btn-erp-ghost btn-sm">
                 <span class="material-symbols-outlined text-sm" aria-hidden="true">print</span>
                 Imprimir

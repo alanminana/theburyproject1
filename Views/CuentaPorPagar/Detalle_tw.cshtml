@@ -1,0 +1,196 @@
+@model TheBuryProject.Services.Models.ComprobanteProveedorDetalle
+@using TheBuryProject.Models.Enums
+@{
+    var c = Model.Cabecera;
+    ViewData["Title"] = $"{CuentaPorPagarUiHelper.NombreTipo(c.Tipo)} {c.NumeroComprobante}";
+    var esNc = c.Tipo == TipoComprobanteProveedor.NotaCredito;
+    var anulado = c.Estado == EstadoComprobanteProveedor.Anulado;
+    var vigente = !anulado;
+    var puedePagar = User.TienePermiso("cuentasporpagar", "pay");
+    var puedeAnular = User.TienePermiso("cuentasporpagar", "cancel");
+    var tieneImputacionesVigentes = Model.Pagos.Any(p => !p.PagoAnulado) || Model.NotasCredito.Any(n => !n.Anulada);
+    var conSaldo = c.Estado is EstadoComprobanteProveedor.Pendiente or EstadoComprobanteProveedor.ParcialmentePagado;
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-detalle-titulo">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">@c.NumeroComprobante</span>
+    </nav>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <h1 id="cxp-detalle-titulo" class="text-lg font-bold tracking-tight text-white">@CuentaPorPagarUiHelper.NombreTipo(c.Tipo) @c.NumeroComprobante</h1>
+            <span class="@CuentaPorPagarUiHelper.EstadoBadgeClass(c.Estado)">@CuentaPorPagarUiHelper.NombreEstado(c.Estado, c.Tipo)</span>
+            @if (c.DiasVencido > 0)
+            {
+                <span class="badge-erp badge-erp-danger">Vencido hace @c.DiasVencido día@(c.DiasVencido == 1 ? "" : "s")</span>
+            }
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a asp-action="EstadoCuenta" asp-route-proveedorId="@c.ProveedorId" class="btn-erp-ghost btn-sm no-underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+                Estado de cuenta
+            </a>
+            @if (puedePagar && vigente && conSaldo && !esNc)
+            {
+                <a asp-action="Pagar" asp-route-proveedorId="@c.ProveedorId" asp-route-comprobanteId="@c.Id" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                    Registrar pago
+                </a>
+            }
+            @if (puedePagar && vigente && conSaldo && esNc)
+            {
+                <a asp-action="ImputarNotaCredito" asp-route-id="@c.Id" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">swap_horiz</span>
+                    Aplicar a facturas
+                </a>
+            }
+        </div>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Proveedor</dt>
+            <dd class="mt-2 text-base font-bold text-white">@c.ProveedorNombre</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Emisión / vencimiento</dt>
+            <dd class="mt-2 text-base font-bold text-white">@CuentaPorPagarUiHelper.Fecha(c.FechaEmision) · @CuentaPorPagarUiHelper.Fecha(c.FechaVencimiento)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Total informado</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@CuentaPorPagarUiHelper.Moneda(c.ImporteTotal)</dd>
+            <dd class="mt-1 text-xs text-slate-400">Neto @CuentaPorPagarUiHelper.Moneda(Model.ImporteNeto) + IVA @CuentaPorPagarUiHelper.Moneda(Model.ImporteIva)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">@(esNc ? "Sin aplicar" : "Saldo pendiente")</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@CuentaPorPagarUiHelper.Moneda(c.SaldoPendiente)</dd>
+        </div>
+    </dl>
+
+    <p class="mt-3 text-xs text-slate-400">
+        Importes tal como los informó el proveedor: el ERP no calcula IVA crédito fiscal ni modifica costos o stock.
+        @if (Model.OrdenCompraId.HasValue)
+        {
+            <span> · Orden de compra: <a asp-controller="OrdenCompra" asp-action="Details" asp-route-id="@Model.OrdenCompraId" class="text-primary">@Model.OrdenCompraNumero</a></span>
+        }
+        <span> · Registrado por @(Model.CreadoPor ?? "—") el @CuentaPorPagarUiHelper.Fecha(Model.CreadoEn)</span>
+    </p>
+    @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+    {
+        <p class="mt-2 text-sm text-slate-300"><span class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones:</span> @Model.Observaciones</p>
+    }
+    @if (anulado)
+    {
+        <div class="alert-erp alert-erp-warning mt-3" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">block</span>
+            Anulado por @Model.AnuladoPor el @CuentaPorPagarUiHelper.Fecha(Model.FechaAnulacion): @Model.MotivoAnulacion
+        </div>
+    }
+</section>
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    @if (!esNc)
+    {
+        <section class="card-erp-panel" aria-labelledby="cxp-pagos-titulo">
+            <div class="border-b border-slate-800 px-4 py-3"><h2 id="cxp-pagos-titulo" class="text-base font-bold text-white">Pagos imputados</h2></div>
+            @if (Model.Pagos.Any())
+            {
+                <div class="table-erp-wrapper" role="region" aria-label="Pagos imputados al comprobante" tabindex="0">
+                    <table class="w-full border-collapse text-left text-sm">
+                        <thead><tr class="border-b border-slate-800">
+                            <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                            <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Medio</th>
+                            <th scope="col" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Importe</th>
+                            <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var p in Model.Pagos)
+                            {
+                                <tr>
+                                    <td class="px-3 py-2 whitespace-nowrap"><a asp-action="Pago" asp-route-id="@p.PagoId" class="text-primary">@CuentaPorPagarUiHelper.Fecha(p.FechaPago)</a></td>
+                                    <td class="px-3 py-2">@CuentaPorPagarUiHelper.NombreMedio(p.Medio)</td>
+                                    <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(p.Monto)</td>
+                                    <td class="px-3 py-2">@(p.PagoAnulado ? "Pago anulado" : "Vigente")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="px-4 py-6 text-sm text-slate-400">Sin pagos imputados.</p>
+            }
+        </section>
+    }
+
+    <section class="card-erp-panel" aria-labelledby="cxp-nc-titulo">
+        <div class="border-b border-slate-800 px-4 py-3">
+            <h2 id="cxp-nc-titulo" class="text-base font-bold text-white">@(esNc ? "Aplicaciones de esta nota de crédito" : "Notas de crédito aplicadas")</h2>
+        </div>
+        @if (Model.NotasCredito.Any())
+        {
+            <div class="table-erp-wrapper" role="region" aria-label="Aplicaciones de notas de crédito" tabindex="0">
+                <table class="w-full border-collapse text-left text-sm">
+                    <thead><tr class="border-b border-slate-800">
+                        <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">@(esNc ? "Aplicada a" : "Nota de crédito")</th>
+                        <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                        <th scope="col" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Importe</th>
+                        <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var n in Model.NotasCredito)
+                        {
+                            <tr>
+                                <td class="px-3 py-2">
+                                    <a asp-action="Detalle" asp-route-id="@(esNc ? n.ComprobanteId : n.NotaCreditoId)" class="text-primary">@(esNc ? n.ComprobanteNumero : n.NotaCreditoNumero)</a>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap">@CuentaPorPagarUiHelper.Fecha(n.Fecha)</td>
+                                <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(n.Monto)</td>
+                                <td class="px-3 py-2">
+                                    @if (n.Anulada)
+                                    {
+                                        <span>Anulada</span>
+                                    }
+                                    else if (puedeAnular)
+                                    {
+                                        <partial name="_CxpAnular" model="@("AnularImputacionNotaCredito", n.Id, "Anular aplicación", "Restituye el saldo de la factura y de la nota de crédito.", (int?)c.Id)" />
+                                    }
+                                    else
+                                    {
+                                        <span>Vigente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="px-4 py-6 text-sm text-slate-400">@(esNc ? "Esta nota de crédito todavía no se aplicó a ninguna factura." : "Sin notas de crédito aplicadas.")</p>
+        }
+    </section>
+</div>
+
+@if (puedeAnular && vigente)
+{
+    <section class="card-erp-panel mt-4 p-4" aria-label="Anular comprobante">
+        @if (tieneImputacionesVigentes)
+        {
+            <p class="text-sm text-slate-400">
+                <span class="material-symbols-outlined align-middle text-[18px]" aria-hidden="true">info</span>
+                Este comprobante tiene pagos o notas de crédito aplicados: anulá primero esas imputaciones para poder anularlo.
+            </p>
+        }
+        else
+        {
+            <partial name="_CxpAnular" model="@("Anular", c.Id, "Anular comprobante", "El comprobante queda registrado como anulado, con tu usuario y el motivo; no se borra.", (int?)null)" />
+        }
+    </section>
+}
