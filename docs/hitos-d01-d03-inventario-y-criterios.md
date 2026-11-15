@@ -226,3 +226,23 @@ Observaciones de severidad baja señaladas por la revisión; se registran para u
 - Fechas: tratamiento de fechas en algunos filtros y vencimientos (día comercial frente a UTC) cerca del borde de medianoche.
 - Idempotencia de una nota de crédito anulada: comportamiento al reenviar la clave de idempotencia de una aplicación ya anulada.
 - Estado de cuenta: uso de UTC en la presentación de algunas fechas.
+
+## 10. Criterios transversales (AC-T) y despliegue sobre base nueva
+
+Decisión del propietario (2026-11-14): el despliegue usa una **base nueva**, con un único administrador inicial de pruebas y sin importar usuarios ni datos de `TheBuryProjectDb`, que se conserva intacta. El ERP antiguo sigue en una VM del mismo servidor, administrada por el propietario.
+
+| AC | Resultado | Evidencia |
+|---|---|---|
+| AC-T-1 instalación completa sobre SQL Server nuevo y descartable con todas las migraciones | VERIFICADO | `scripts/qa/instalacion-limpia.sh`: proyecto Compose propio con secretos sintéticos, `migrate` en Production: «142 migraciones aplicadas, 0 pendientes» y coincide con los 142 ids `[Migration]` del repo; las tablas nuevas de D-01/D-02/D-03 existen |
+| AC-T-2 un solo administrador y cero datos de negocio | VERIFICADO | `AspNetUsers = 1` (`admin`, rol SuperAdmin); toda tabla con filas debe figurar en `scripts/qa/instalacion-limpia-tablas-esperadas.txt` (solo catálogos/seed de migraciones EF y configuración); una tabla fuera de la lista falla el script |
+| AC-T-3 ningún camino importa datos históricos | VERIFICADO (auditoría de código) | ni `install.ps1`, ni `scripts/install`, `scripts/deploy` ni `docker/` referencian LocalDB, `RESTORE DATABASE` o `.bak`; `TheBuryProjectDb` solo aparece como nombre por defecto de la base dentro del contenedor, por lo que **en el servidor conviene fijar `MSSQL_DATABASE` a un nombre nuevo** en el `.env` para no confundirla con la antigua |
+| AC-T-4 build, pruebas focalizadas y CI | build y focalizadas: ver secciones 6-9; CI: se registra en la PR sobre el SHA final | — |
+
+Datos sintéticos: los tests de servicio, HTTP y SQL Server de D-01/D-02/D-03 siembran sus propios datos descartables; el script de instalación limpia verifica el estado **sin** datos. La carga de datos sintéticos sobre la base recién instalada vía UI se cubre con los specs Playwright de cada módulo (secciones 6-8), no con el script.
+
+### Lo que depende del servidor definitivo (no probado por no tener acceso)
+
+- Arranque automático del ERP sin inicio de sesión tras reinicio y corte de energía (BIOS «Restore on AC Power Loss»).
+- Convivencia real con la VM del ERP antiguo (RAM, CPU, disco) y rendimiento de SQL Server en el disco real.
+- Backups al segundo disco interno con retención por capacidad: la lógica existe (`BACKUP_DIR`, retención por días/mínimo), pero la **retención por capacidad** y el soporte de copia extraíble futura no están implementados; requieren una decisión de diseño aprobada y se prueban en el disco real. Las claves las custodia el propietario.
+- Tailscale real y ACL publicada, firewall con cliente LAN real.
