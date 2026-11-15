@@ -1281,17 +1281,27 @@ public class PrecioService : IPrecioService
         if (vigenteActual != null && vigenciaDesde.Value <= vigenteActual.VigenciaDesde)
             throw new InvalidOperationException("La vigencia debe ser posterior a la del precio vigente actual.");
 
-        // Persist updates first to avoid violating the unique vigente constraint
-        await _context.ProductosPrecios
-            .Where(p => p.ProductoId == productoId
-                     && p.ListaId == listaId
-                     && p.EsVigente
-                     && !p.IsDeleted)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(p => p.EsVigente, false)
-                .SetProperty(p => p.VigenciaHasta, vigenciaDesde.Value.AddSeconds(-1))
-                .SetProperty(p => p.UpdatedAt, now)
-                .SetProperty(p => p.UpdatedBy, currentUser));
+        // Persist updates first to avoid violating the unique vigente constraint.
+        // Se cierra EXACTAMENTE el precio que se validó (por Id) y solo si sigue vigente: si otro usuario lo cerró entre la lectura
+        // y esta sentencia (precio manual o lote simultáneo), no se pisa su precio nuevo ni se invierte la vigencia: conflicto.
+        if (vigenteActual != null)
+        {
+            // Dos cambios con menos de un segundo de diferencia no pueden dejar el cierre antes del inicio del precio que se cierra.
+            var hastaDelAnterior = Max(vigenciaDesde.Value.AddSeconds(-1), vigenteActual.VigenciaDesde);
+            var cerrados = await _context.ProductosPrecios
+                .Where(p => p.Id == vigenteActual.Id && p.EsVigente && !p.IsDeleted)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(p => p.EsVigente, false)
+                    .SetProperty(p => p.VigenciaHasta, hastaDelAnterior)
+                    .SetProperty(p => p.UpdatedAt, now)
+                    .SetProperty(p => p.UpdatedBy, currentUser));
+            if (cerrados != 1)
+            {
+                await transaction.RollbackAsync();
+                throw new InvalidOperationException(
+                    "Otro usuario cambió el precio de este producto en esta lista al mismo tiempo. Recargá e intentá de nuevo.");
+            }
+        }
 
         // Crear nuevo precio
         var margenValor = precio - costo;
@@ -1333,6 +1343,8 @@ public class PrecioService : IPrecioService
 
         return nuevoPrecio;
     }
+
+    private static DateTime Max(DateTime a, DateTime b) => a >= b ? a : b;
 
     public async Task<decimal> CalcularPrecioAutomaticoAsync(
         int productoId,
@@ -1804,24 +1816,40 @@ public class PrecioService : IPrecioService
 
             foreach (var item in batch.Items)
             {
-                // Marcar precio actual como no vigente
-                await _context.ProductosPrecios
-                    .Where(p => p.ProductoId == item.ProductoId
-                             && p.ListaId == item.ListaId
-                             && p.EsVigente
-                             && !p.IsDeleted)
-                    .ExecuteUpdateAsync(setters => setters
-                        .SetProperty(p => p.EsVigente, false)
-                        .SetProperty(p => p.VigenciaHasta, fechaVigencia.Value.AddSeconds(-1))
-                        .SetProperty(p => p.UpdatedAt, now)
-                        .SetProperty(p => p.UpdatedBy, aplicadoPor));
+                // Precio vigente que este lote reemplaza. Se lo cierra por Id y solo si sigue vigente: si otro usuario lo cambió
+                // entre la lectura y la sentencia (precio manual simultáneo) no se pisa su precio; se rechaza el lote completo.
+                var vigenteAnterior = await _context.ProductosPrecios.AsNoTracking()
+                    .Where(p => p.ProductoId == item.ProductoId && p.ListaId == item.ListaId && p.EsVigente && !p.IsDeleted)
+                    .OrderByDescending(p => p.VigenciaDesde)
+                    .Select(p => new { p.Id, p.VigenciaDesde })
+                    .FirstOrDefaultAsync();
+
+                // La vigencia nueva nunca puede ser anterior o igual a la del precio que reemplaza (invertiría el historial).
+                var desde = fechaVigencia.Value;
+                if (vigenteAnterior != null && desde <= vigenteAnterior.VigenciaDesde)
+                    desde = vigenteAnterior.VigenciaDesde.AddSeconds(1);
+
+                if (vigenteAnterior != null)
+                {
+                    var hastaDelAnterior = Max(desde.AddSeconds(-1), vigenteAnterior.VigenciaDesde);
+                    var cerrados = await _context.ProductosPrecios
+                        .Where(p => p.Id == vigenteAnterior.Id && p.EsVigente && !p.IsDeleted)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(p => p.EsVigente, false)
+                            .SetProperty(p => p.VigenciaHasta, hastaDelAnterior)
+                            .SetProperty(p => p.UpdatedAt, now)
+                            .SetProperty(p => p.UpdatedBy, aplicadoPor));
+                    if (cerrados != 1)
+                        throw new InvalidOperationException(
+                            "Otro usuario cambió el precio de un producto del lote al mismo tiempo. Recargá e intentá de nuevo.");
+                }
 
                 // Crear nuevo precio
                 var nuevoPrecio = new ProductoPrecioLista
                 {
                     ProductoId = item.ProductoId,
                     ListaId = item.ListaId,
-                    VigenciaDesde = fechaVigencia.Value,
+                    VigenciaDesde = desde,
                     Costo = item.Costo ?? 0,
                     Precio = item.PrecioNuevo,
                     MargenValor = item.PrecioNuevo - (item.Costo ?? 0),
