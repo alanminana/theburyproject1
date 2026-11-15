@@ -148,7 +148,7 @@ public class ListaPrecioUiContractTests
     }
 
     [Fact]
-    public void LaMigracionD01SoloCambiaElIndiceDeLaListaPredeterminada()
+    public void LaMigracionD01SoloCambiaElIndiceDeLaListaPredeterminada_YNormalizaDuplicadosPrevios()
     {
         var carpeta = Path.Combine(FindRepoRoot(), "Migrations");
         var archivo = Directory.GetFiles(carpeta, "*_D01_ListaPrecioPredeterminadaUnica.cs").Single();
@@ -164,7 +164,12 @@ public class ListaPrecioUiContractTests
         Assert.DoesNotContain("DropColumn", codigo);
         Assert.DoesNotContain("DeleteData", codigo);
         Assert.DoesNotContain("InsertData", codigo);
-        Assert.DoesNotContain("Sql(", codigo);
+        // La única sentencia SQL es la normalización idempotente previa al índice único: solo UPDATE de EsPredeterminada.
+        Assert.Equal(1, Regex.Matches(codigo, @"migrationBuilder\.Sql\(").Count);
+        Assert.Contains("SET lp.EsPredeterminada = 0", codigo);
+        Assert.DoesNotContain("DELETE ", codigo);
+        Assert.True(codigo.IndexOf("migrationBuilder.Sql(", StringComparison.Ordinal) < codigo.IndexOf("migrationBuilder.CreateIndex(", StringComparison.Ordinal),
+            "La normalización debe ejecutarse antes de crear el índice único.");
     }
 
     private static string FindRepoRoot()

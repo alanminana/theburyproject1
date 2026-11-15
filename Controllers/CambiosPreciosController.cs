@@ -1333,8 +1333,14 @@ public class CambiosPreciosController : Controller
         if (producto == null)
             return NotFound();
 
-        var fechaHasta = (hasta ?? DateTime.UtcNow).Date.AddDays(1).AddTicks(-1);
+        // Acota las fechas a un rango razonable: evita el desborde de DateTime (p. ej. 9999-12-31).
+        var minimo = new DateTime(2000, 1, 1);
+        var maximo = new DateTime(2100, 12, 31);
+        var hastaDia = (hasta ?? DateTime.UtcNow).Date;
+        hastaDia = hastaDia < minimo ? minimo : hastaDia > maximo ? maximo : hastaDia;
+        var fechaHasta = hastaDia.AddDays(1).AddTicks(-1);
         var fechaDesde = (desde ?? fechaHasta.AddYears(-1)).Date;
+        fechaDesde = fechaDesde < minimo ? minimo : fechaDesde > maximo ? maximo : fechaDesde;
         if (fechaHasta < fechaDesde)
         {
             TempData["Error"] = "La fecha final no puede ser anterior a la inicial.";

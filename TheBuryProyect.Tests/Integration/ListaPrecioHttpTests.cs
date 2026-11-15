@@ -413,6 +413,21 @@ public class ListaPrecioHttpTests : IClassFixture<CustomWebApplicationFactory>, 
     }
 
     [Fact]
+    public async Task ExportarHistorial_ConFechasExtremas_AcotaElRangoYNoDesborda()
+    {
+        var prod = await SembrarProductoAsync();
+        using var admin = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ListaPrecioAdminUserId);
+
+        var maxima = await admin.GetAsync($"/CambiosPrecios/ExportarHistorial?productoId={prod.Id}&desde=2026-01-01&hasta=9999-12-31");
+        var minima = await admin.GetAsync($"/CambiosPrecios/ExportarHistorial?productoId={prod.Id}&desde=0001-01-01&hasta=2026-01-01");
+        var ambas = await admin.GetAsync($"/CambiosPrecios/ExportarHistorial?productoId={prod.Id}&desde=9999-12-31&hasta=9999-12-31");
+
+        Assert.Equal(HttpStatusCode.OK, maxima.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, minima.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, ambas.StatusCode);
+    }
+
+    [Fact]
     public async Task Historial_MuestraElBotonDeExportarSoloConPermisoDeHistorial()
     {
         var prod = await SembrarProductoAsync();
