@@ -57,6 +57,15 @@ public class ClienteReferenciaServiceTests : IDisposable
         Tipo = tipo, Nombre = nombre, Telefono = telefono, Relacion = "Hermano"
     };
 
+    private async Task<byte[]> RvAsync(int id) =>
+        (await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id)).RowVersion;
+
+    private async Task<ClienteReferenciaViewModel> ConRvAsync(int id, ClienteReferenciaViewModel modelo)
+    {
+        modelo.RowVersion = await RvAsync(id);
+        return modelo;
+    }
+
     // ── AC-02-1 ──────────────────────────────────────────────────────────
 
     [Fact]
@@ -85,7 +94,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         var edicion = Modelo("Juan P. Perez", "341 444-0001", TipoReferenciaCliente.Personal);
         edicion.Relacion = "Primo";
         edicion.Email = "juan@example.com";
-        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, edicion, "operador");
+        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, await ConRvAsync(id.Value, edicion), "operador");
 
         Assert.True(ok, error);
         var bd = await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id);
@@ -100,9 +109,9 @@ public class ClienteReferenciaServiceTests : IDisposable
     {
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
-        await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.Verificada, null, "operador");
+        await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.Verificada, null, "operador", await RvAsync(id.Value));
 
-        await _service.EditarAsync(cliente.Id, id.Value, Modelo(telefono: "341 444-0099"), "operador");
+        await _service.EditarAsync(cliente.Id, id.Value, await ConRvAsync(id.Value, Modelo(telefono: "341 444-0099")), "operador");
 
         var bd = await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id);
         Assert.Equal(EstadoVerificacionReferencia.Pendiente, bd.EstadoVerificacion);
@@ -116,7 +125,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
-        var (ok, error) = await _service.DarDeBajaAsync(cliente.Id, id!.Value, "operador");
+        var (ok, error) = await _service.DarDeBajaAsync(cliente.Id, id!.Value, "operador", await RvAsync(id.Value));
 
         Assert.True(ok, error);
         Assert.Empty(await _service.ListarPorClienteAsync(cliente.Id));
@@ -130,7 +139,7 @@ public class ClienteReferenciaServiceTests : IDisposable
     {
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
-        await _service.DarDeBajaAsync(cliente.Id, id!.Value, "operador");
+        await _service.DarDeBajaAsync(cliente.Id, id!.Value, "operador", await RvAsync(id.Value));
 
         var (ok, error, _) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
@@ -146,14 +155,14 @@ public class ClienteReferenciaServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
-        var (ok, error) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, estado, "Atendió su madre", "verificador");
+        var (ok, error) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, estado, "Atendió su madre", "verificador", await RvAsync(id.Value));
 
         Assert.True(ok, error);
         var bd = await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id);
         Assert.Equal(estado, bd.EstadoVerificacion);
         Assert.NotNull(bd.FechaVerificacion);
         Assert.Equal("verificador", bd.VerificadaPor);
-        Assert.Equal("Atendió su madre", bd.Observaciones);
+        Assert.EndsWith("] Atendió su madre", bd.Observaciones);
     }
 
     [Fact]
@@ -162,7 +171,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
-        var (ok, _) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, (EstadoVerificacionReferencia)99, null, "operador");
+        var (ok, _) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, (EstadoVerificacionReferencia)99, null, "operador", await RvAsync(id.Value));
 
         Assert.False(ok);
     }
@@ -246,7 +255,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         await _service.CrearAsync(cliente.Id, Modelo("Uno", "341 444-0001"), "operador");
         var (_, _, id2) = await _service.CrearAsync(cliente.Id, Modelo("Dos", "341 444-0002"), "operador");
 
-        var (ok, _) = await _service.EditarAsync(cliente.Id, id2!.Value, Modelo("Dos", "341 444-0001"), "operador");
+        var (ok, _) = await _service.EditarAsync(cliente.Id, id2!.Value, await ConRvAsync(id2.Value, Modelo("Dos", "341 444-0001")), "operador");
 
         Assert.False(ok);
     }
@@ -257,7 +266,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
-        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, Modelo(), "operador");
+        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, await ConRvAsync(id.Value, Modelo()), "operador");
 
         Assert.True(ok, error);
     }
@@ -282,7 +291,7 @@ public class ClienteReferenciaServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
 
-        var (ok, _) = await _service.EditarAsync(cliente.Id, id!.Value, Modelo(telefono: "341 555-1000"), "operador");
+        var (ok, _) = await _service.EditarAsync(cliente.Id, id!.Value, await ConRvAsync(id.Value, Modelo(telefono: "341 555-1000")), "operador");
 
         Assert.False(ok);
     }
@@ -333,9 +342,9 @@ public class ClienteReferenciaServiceTests : IDisposable
         var b = await SeedClienteAsync();
         var (_, _, idDeA) = await _service.CrearAsync(a.Id, Modelo("De A"), "operador");
 
-        var editar = await _service.EditarAsync(b.Id, idDeA!.Value, Modelo("Hackeada", "341 444-0777"), "operador");
-        var verificar = await _service.CambiarVerificacionAsync(b.Id, idDeA.Value, EstadoVerificacionReferencia.Verificada, null, "operador");
-        var baja = await _service.DarDeBajaAsync(b.Id, idDeA.Value, "operador");
+        var editar = await _service.EditarAsync(b.Id, idDeA!.Value, await ConRvAsync(idDeA.Value, Modelo("Hackeada", "341 444-0777")), "operador");
+        var verificar = await _service.CambiarVerificacionAsync(b.Id, idDeA.Value, EstadoVerificacionReferencia.Verificada, null, "operador", await RvAsync(idDeA.Value));
+        var baja = await _service.DarDeBajaAsync(b.Id, idDeA.Value, "operador", await RvAsync(idDeA.Value));
 
         Assert.False(editar.Ok);
         Assert.False(verificar.Ok);
@@ -344,6 +353,120 @@ public class ClienteReferenciaServiceTests : IDisposable
         Assert.Equal("De A", bd.Nombre);
         Assert.Equal(EstadoVerificacionReferencia.Pendiente, bd.EstadoVerificacion);
         Assert.False(bd.IsDeleted);
+    }
+
+    // ── Hallazgos de la revisión independiente ───────────────────────────
+
+    [Fact]
+    public async Task Listar_ExcluyeLasReferenciasDeUnClienteEliminado()
+    {
+        var cliente = await SeedClienteAsync();
+        await _service.CrearAsync(cliente.Id, Modelo(), "operador");
+        Assert.Single(await _service.ListarPorClienteAsync(cliente.Id));
+
+        cliente = await _context.Clientes.SingleAsync(c => c.Id == cliente.Id);
+        cliente.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        Assert.Empty(await _service.ListarPorClienteAsync(cliente.Id));
+    }
+
+    [Fact]
+    public async Task Editar_SinRowVersion_SeRechazaYNoCambiaNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
+
+        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, Modelo("Cambiada", "341 444-0001"), "operador");
+
+        Assert.False(ok);
+        Assert.Contains("versión", error);
+        Assert.Equal("Juan Perez", (await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id)).Nombre);
+    }
+
+    [Fact]
+    public async Task Editar_ConRowVersionVieja_SeRechazaPorConcurrencia()
+    {
+        var cliente = await SeedClienteAsync();
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
+        var modelo = Modelo("Cambiada", "341 444-0001");
+        modelo.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 9 };
+
+        var (ok, error) = await _service.EditarAsync(cliente.Id, id!.Value, modelo, "operador");
+
+        Assert.False(ok);
+        Assert.Contains("otro usuario", error);
+        Assert.Equal("Juan Perez", (await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id)).Nombre);
+    }
+
+    [Fact]
+    public async Task Verificar_YBaja_ExigenRowVersionVigente()
+    {
+        var cliente = await SeedClienteAsync();
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
+        var vieja = new byte[] { 1, 2, 3, 4, 5, 6, 7, 9 };
+
+        var sinVersionV = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.Verificada, null, "operador", null);
+        var viejaV = await _service.CambiarVerificacionAsync(cliente.Id, id.Value, EstadoVerificacionReferencia.Verificada, null, "operador", vieja);
+        var sinVersionB = await _service.DarDeBajaAsync(cliente.Id, id.Value, "operador", Array.Empty<byte>());
+        var viejaB = await _service.DarDeBajaAsync(cliente.Id, id.Value, "operador", vieja);
+
+        Assert.False(sinVersionV.Ok);
+        Assert.False(viejaV.Ok);
+        Assert.Contains("otro usuario", viejaV.Error);
+        Assert.False(sinVersionB.Ok);
+        Assert.False(viejaB.Ok);
+        Assert.Contains("otro usuario", viejaB.Error);
+        var bd = await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id);
+        Assert.Equal(EstadoVerificacionReferencia.Pendiente, bd.EstadoVerificacion);
+        Assert.False(bd.IsDeleted);
+    }
+
+    [Fact]
+    public async Task CambiarVerificacion_ConservaLasObservacionesGeneralesYAgregaLaNota()
+    {
+        var cliente = await SeedClienteAsync();
+        var modelo = Modelo();
+        modelo.Observaciones = "Prefiere que lo llamen a la tarde";
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, modelo, "operador");
+
+        var (ok, error) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.Verificada, "Confirmó datos", "verificador", await RvAsync(id.Value));
+
+        Assert.True(ok, error);
+        var obs = (await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id)).Observaciones!;
+        Assert.StartsWith("Prefiere que lo llamen a la tarde\n[Verificación ", obs);
+        Assert.EndsWith("] Confirmó datos", obs);
+    }
+
+    [Fact]
+    public async Task CambiarVerificacion_SinNota_NoTocaLasObservaciones()
+    {
+        var cliente = await SeedClienteAsync();
+        var modelo = Modelo();
+        modelo.Observaciones = "Nota original";
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, modelo, "operador");
+
+        var (ok, _) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.NoLocalizada, "  ", "verificador", await RvAsync(id.Value));
+
+        Assert.True(ok);
+        Assert.Equal("Nota original", (await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id)).Observaciones);
+    }
+
+    [Fact]
+    public async Task CambiarVerificacion_SiLaNotaAcumuladaSuperaElMaximo_SeRechazaSinPerderNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var modelo = Modelo();
+        modelo.Observaciones = new string('x', 990);
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, modelo, "operador");
+
+        var (ok, error) = await _service.CambiarVerificacionAsync(cliente.Id, id!.Value, EstadoVerificacionReferencia.Verificada, "una nota larga", "verificador", await RvAsync(id.Value));
+
+        Assert.False(ok);
+        Assert.Contains("1000", error);
+        var bd = await _context.ClienteReferencias.AsNoTracking().SingleAsync(r => r.Id == id);
+        Assert.Equal(new string('x', 990), bd.Observaciones);
+        Assert.Equal(EstadoVerificacionReferencia.Pendiente, bd.EstadoVerificacion);
     }
 
     // ── Normalizador ─────────────────────────────────────────────────────

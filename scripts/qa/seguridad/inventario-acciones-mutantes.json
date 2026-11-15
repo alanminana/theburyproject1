@@ -1273,6 +1273,11 @@
         "nombre": "id",
         "tipo": "Int32",
         "fuente": "Auto"
+      },
+      {
+        "nombre": "request",
+        "tipo": "ClienteReferenciaBajaRequest",
+        "fuente": "Body"
       }
     ],
     "excluidaPorDiseno": false

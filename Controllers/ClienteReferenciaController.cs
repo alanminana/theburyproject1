@@ -77,19 +77,19 @@ namespace TheBuryProject.Controllers
                 return BadRequest(new { ok = false, error = PrimerError() });
 
             var (ok, error) = await _service.CambiarVerificacionAsync(
-                clienteId, id, request.Estado, request.Observaciones, _currentUser.GetUsername());
+                clienteId, id, request.Estado, request.Observaciones, _currentUser.GetUsername(), request.RowVersion);
             return ok ? Ok(new { ok = true }) : BadRequest(new { ok = false, error });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
-        public async Task<IActionResult> Baja(int clienteId, int id)
+        public async Task<IActionResult> Baja(int clienteId, int id, [FromBody] ClienteReferenciaBajaRequest request)
         {
-            if (clienteId <= 0 || id <= 0)
+            if (clienteId <= 0 || id <= 0 || request is null)
                 return BadRequest(new { ok = false, error = "Datos inválidos." });
 
-            var (ok, error) = await _service.DarDeBajaAsync(clienteId, id, _currentUser.GetUsername());
+            var (ok, error) = await _service.DarDeBajaAsync(clienteId, id, _currentUser.GetUsername(), request.RowVersion);
             return ok ? Ok(new { ok = true }) : BadRequest(new { ok = false, error });
         }
 

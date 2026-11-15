@@ -16,10 +16,14 @@ namespace TheBuryProject.Services.Interfaces
 
         Task<(bool Ok, string? Error)> EditarAsync(int clienteId, int referenciaId, ClienteReferenciaViewModel modelo, string usuario);
 
-        /// <summary>Baja lógica.</summary>
-        Task<(bool Ok, string? Error)> DarDeBajaAsync(int clienteId, int referenciaId, string usuario);
+        /// <summary>Baja lógica. Exige el RowVersion leído (control de concurrencia optimista).</summary>
+        Task<(bool Ok, string? Error)> DarDeBajaAsync(int clienteId, int referenciaId, string usuario, byte[]? rowVersion);
 
+        /// <summary>
+        /// Registra la verificación. Exige el RowVersion leído. La nota se agrega a las observaciones existentes
+        /// (con fecha); nunca las reemplaza.
+        /// </summary>
         Task<(bool Ok, string? Error)> CambiarVerificacionAsync(
-            int clienteId, int referenciaId, EstadoVerificacionReferencia estado, string? observaciones, string usuario);
+            int clienteId, int referenciaId, EstadoVerificacionReferencia estado, string? observaciones, string usuario, byte[]? rowVersion);
     }
 }

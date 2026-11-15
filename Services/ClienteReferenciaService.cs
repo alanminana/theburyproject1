@@ -12,6 +12,9 @@ namespace TheBuryProject.Services
     {
         private const int MinDigitosTelefono = 7;
         private const int MaxDigitosTelefono = 14;
+        private const int MaxObservaciones = 1000;
+        private const string MensajeConcurrencia = "La referencia fue modificada por otro usuario. Recargá la página e intentá de nuevo.";
+        private const string MensajeRowVersionFaltante = "Falta la versión de la referencia. Recargá la página e intentá de nuevo.";
 
         private readonly AppDbContext _context;
         private readonly ILogger<ClienteReferenciaService> _logger;
@@ -26,7 +29,7 @@ namespace TheBuryProject.Services
         {
             var items = await _context.ClienteReferencias
                 .AsNoTracking()
-                .Where(r => r.ClienteId == clienteId && !r.IsDeleted)
+                .Where(r => r.ClienteId == clienteId && !r.IsDeleted && !r.Cliente.IsDeleted)
                 .OrderBy(r => r.Tipo).ThenBy(r => r.Nombre).ThenBy(r => r.Id)
                 .ToListAsync();
 
@@ -60,6 +63,9 @@ namespace TheBuryProject.Services
 
         public async Task<(bool Ok, string? Error)> EditarAsync(int clienteId, int referenciaId, ClienteReferenciaViewModel modelo, string usuario)
         {
+            if (modelo?.RowVersion is not { Length: > 0 })
+                return (false, MensajeRowVersionFaltante);
+
             var referencia = await ObtenerReferenciaAsync(clienteId, referenciaId);
             if (referencia == null)
                 return (false, "La referencia no existe.");
@@ -75,8 +81,7 @@ namespace TheBuryProject.Services
             // Si cambia el número o el tipo, la verificación anterior ya no corresponde a lo que se guarda.
             var cambiaIdentidad = referencia.TelefonoNormalizado != normalizado || referencia.Tipo != modelo.Tipo;
 
-            if (modelo.RowVersion is { Length: > 0 })
-                _context.Entry(referencia).Property(r => r.RowVersion).OriginalValue = modelo.RowVersion;
+            _context.Entry(referencia).Property(r => r.RowVersion).OriginalValue = modelo.RowVersion;
 
             Aplicar(referencia, modelo, normalizado);
             if (cambiaIdentidad && referencia.EstadoVerificacion != EstadoVerificacionReferencia.Pendiente)
@@ -92,29 +97,45 @@ namespace TheBuryProject.Services
             }
             catch (DbUpdateConcurrencyException)
             {
-                return (false, "La referencia fue modificada por otro usuario. Recargá la página e intentá de nuevo.");
+                _context.ChangeTracker.Clear();
+                return (false, MensajeConcurrencia);
             }
 
             _logger.LogInformation("Referencia {Id} del cliente {ClienteId} editada por {Usuario}", referenciaId, clienteId, usuario);
             return (true, null);
         }
 
-        public async Task<(bool Ok, string? Error)> DarDeBajaAsync(int clienteId, int referenciaId, string usuario)
+        public async Task<(bool Ok, string? Error)> DarDeBajaAsync(int clienteId, int referenciaId, string usuario, byte[]? rowVersion)
         {
+            if (rowVersion is not { Length: > 0 })
+                return (false, MensajeRowVersionFaltante);
+
             var referencia = await ObtenerReferenciaAsync(clienteId, referenciaId);
             if (referencia == null)
                 return (false, "La referencia no existe.");
 
+            _context.Entry(referencia).Property(r => r.RowVersion).OriginalValue = rowVersion;
             referencia.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _context.ChangeTracker.Clear();
+                return (false, MensajeConcurrencia);
+            }
 
             _logger.LogInformation("Referencia {Id} del cliente {ClienteId} dada de baja por {Usuario}", referenciaId, clienteId, usuario);
             return (true, null);
         }
 
         public async Task<(bool Ok, string? Error)> CambiarVerificacionAsync(
-            int clienteId, int referenciaId, EstadoVerificacionReferencia estado, string? observaciones, string usuario)
+            int clienteId, int referenciaId, EstadoVerificacionReferencia estado, string? observaciones, string usuario, byte[]? rowVersion)
         {
+            if (rowVersion is not { Length: > 0 })
+                return (false, MensajeRowVersionFaltante);
+
             if (!Enum.IsDefined(estado))
                 return (false, "El estado de verificación no es válido.");
 
@@ -124,6 +145,20 @@ namespace TheBuryProject.Services
             var referencia = await ObtenerReferenciaAsync(clienteId, referenciaId);
             if (referencia == null)
                 return (false, "La referencia no existe.");
+
+            // Las observaciones generales no se pisan: la nota de verificación se agrega con fecha.
+            string? observacionesNuevas = null;
+            if (!string.IsNullOrWhiteSpace(observaciones))
+            {
+                var nota = $"[Verificación {DateTime.UtcNow:dd/MM/yyyy}] {observaciones.Trim()}";
+                observacionesNuevas = string.IsNullOrWhiteSpace(referencia.Observaciones)
+                    ? nota
+                    : $"{referencia.Observaciones.Trim()}\n{nota}";
+                if (observacionesNuevas.Length > MaxObservaciones)
+                    return (false, $"Las observaciones acumuladas superarían los {MaxObservaciones} caracteres. Acortá la nota o editá las observaciones de la referencia.");
+            }
+
+            _context.Entry(referencia).Property(r => r.RowVersion).OriginalValue = rowVersion;
 
             referencia.EstadoVerificacion = estado;
             if (estado == EstadoVerificacionReferencia.Pendiente)
@@ -137,10 +172,18 @@ namespace TheBuryProject.Services
                 referencia.VerificadaPor = string.IsNullOrWhiteSpace(usuario) ? null : usuario;
             }
 
-            if (!string.IsNullOrWhiteSpace(observaciones))
-                referencia.Observaciones = observaciones.Trim();
+            if (observacionesNuevas != null)
+                referencia.Observaciones = observacionesNuevas;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _context.ChangeTracker.Clear();
+                return (false, MensajeConcurrencia);
+            }
 
             _logger.LogInformation("Referencia {Id} del cliente {ClienteId}: verificación {Estado} por {Usuario}",
                 referenciaId, clienteId, estado, usuario);

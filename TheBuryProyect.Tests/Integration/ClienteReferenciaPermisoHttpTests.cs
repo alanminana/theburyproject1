@@ -89,8 +89,10 @@ public class ClienteReferenciaPermisoHttpTests : IClassFixture<CustomWebApplicat
         return await client.SendAsync(req);
     }
 
-    private static object NuevaReferencia(string nombre = "Pedro Nuevo", string telefono = "341 444-0002") =>
-        new { tipo = 1, nombre, telefono, relacion = "Vecino" };
+    private static object NuevaReferencia(string nombre = "Pedro Nuevo", string telefono = "341 444-0002", string? rowVersion = null) =>
+        new { tipo = 1, nombre, telefono, relacion = "Vecino", rowVersion };
+
+    private async Task<string> RvAsync(int id) => Convert.ToBase64String((await LeerAsync(id)).RowVersion);
 
     private static void AssertDenegado(HttpResponseMessage resp) =>
         Assert.True(resp.StatusCode == HttpStatusCode.Forbidden || resp.StatusCode == HttpStatusCode.Redirect,
@@ -177,17 +179,17 @@ public class ClienteReferenciaPermisoHttpTests : IClassFixture<CustomWebApplicat
         Assert.Contains("id=\"referenciaModal\"", html);
         Assert.Contains("role=\"dialog\"", html);
 
-        var editar = await PostJsonAsync(client, $"/ClienteReferencia/Editar?clienteId={clienteId}&id={id}", NuevaReferencia("Pedro Editado", "341 444-0002"));
+        var editar = await PostJsonAsync(client, $"/ClienteReferencia/Editar?clienteId={clienteId}&id={id}", NuevaReferencia("Pedro Editado", "341 444-0002", await RvAsync(id)));
         Assert.Equal(HttpStatusCode.OK, editar.StatusCode);
         Assert.Equal("Pedro Editado", (await LeerAsync(id)).Nombre);
 
-        var verificar = await PostJsonAsync(client, $"/ClienteReferencia/Verificar?clienteId={clienteId}&id={id}", new { estado = 2, observaciones = "Confirmó" });
+        var verificar = await PostJsonAsync(client, $"/ClienteReferencia/Verificar?clienteId={clienteId}&id={id}", new { estado = 2, observaciones = "Confirmó", rowVersion = await RvAsync(id) });
         Assert.Equal(HttpStatusCode.OK, verificar.StatusCode);
         var verificada = await LeerAsync(id);
         Assert.Equal(EstadoVerificacionReferencia.Verificada, verificada.EstadoVerificacion);
         Assert.NotNull(verificada.VerificadaPor);
 
-        var baja = await PostJsonAsync(client, $"/ClienteReferencia/Baja?clienteId={clienteId}&id={id}", null);
+        var baja = await PostJsonAsync(client, $"/ClienteReferencia/Baja?clienteId={clienteId}&id={id}", new { rowVersion = await RvAsync(id) });
         Assert.Equal(HttpStatusCode.OK, baja.StatusCode);
         Assert.True((await LeerAsync(id)).IsDeleted);
     }
@@ -205,6 +207,26 @@ public class ClienteReferenciaPermisoHttpTests : IClassFixture<CustomWebApplicat
         Assert.Equal(HttpStatusCode.BadRequest, telefonoPropio.StatusCode);
         await using var ctx = await NuevoContextoAsync();
         Assert.Equal(0, await ctx.ClienteReferencias.CountAsync(r => r.ClienteId == clienteId));
+    }
+
+    [Fact]
+    public async Task Editor_SinRowVersion_NoPuedeEditarVerificarNiDarDeBaja()
+    {
+        var clienteId = await SembrarClienteAsync();
+        var refId = await SembrarReferenciaAsync(clienteId, "Intacta");
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ClienteEditorUserId);
+
+        var editar = await PostJsonAsync(client, $"/ClienteReferencia/Editar?clienteId={clienteId}&id={refId}", NuevaReferencia("Cambiada", "341 444-0777"));
+        var verificar = await PostJsonAsync(client, $"/ClienteReferencia/Verificar?clienteId={clienteId}&id={refId}", new { estado = 2 });
+        var baja = await PostJsonAsync(client, $"/ClienteReferencia/Baja?clienteId={clienteId}&id={refId}", new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, editar.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, verificar.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, baja.StatusCode);
+        var bd = await LeerAsync(refId);
+        Assert.Equal("Intacta", bd.Nombre);
+        Assert.Equal(EstadoVerificacionReferencia.Pendiente, bd.EstadoVerificacion);
+        Assert.False(bd.IsDeleted);
     }
 
     [Fact]
@@ -230,9 +252,9 @@ public class ClienteReferenciaPermisoHttpTests : IClassFixture<CustomWebApplicat
         var refDeA = await SembrarReferenciaAsync(clienteA, "Solo de A");
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ClienteEditorUserId);
 
-        var editar = await PostJsonAsync(client, $"/ClienteReferencia/Editar?clienteId={clienteB}&id={refDeA}", NuevaReferencia("Robada", "341 444-0888"));
-        var verificar = await PostJsonAsync(client, $"/ClienteReferencia/Verificar?clienteId={clienteB}&id={refDeA}", new { estado = 2 });
-        var baja = await PostJsonAsync(client, $"/ClienteReferencia/Baja?clienteId={clienteB}&id={refDeA}", null);
+        var editar = await PostJsonAsync(client, $"/ClienteReferencia/Editar?clienteId={clienteB}&id={refDeA}", NuevaReferencia("Robada", "341 444-0888", await RvAsync(refDeA)));
+        var verificar = await PostJsonAsync(client, $"/ClienteReferencia/Verificar?clienteId={clienteB}&id={refDeA}", new { estado = 2, rowVersion = await RvAsync(refDeA) });
+        var baja = await PostJsonAsync(client, $"/ClienteReferencia/Baja?clienteId={clienteB}&id={refDeA}", new { rowVersion = await RvAsync(refDeA) });
 
         Assert.Equal(HttpStatusCode.BadRequest, editar.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, verificar.StatusCode);

@@ -73,6 +73,7 @@ else
                     <div class="flex items-center gap-1">
                         <button type="button" class="btn btn-ghost btn-sm" data-ref-verificar
                                 data-id="@r.Id" data-nombre="@r.Nombre" data-estado="@((int)r.EstadoVerificacion)"
+                                data-rowversion="@(r.RowVersion == null ? "" : Convert.ToBase64String(r.RowVersion))"
                                 title="Registrar verificación" aria-label="Registrar verificación de @r.Nombre">
                             <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
                         </button>
@@ -86,6 +87,7 @@ else
                         </button>
                         <button type="button" class="btn btn-ghost btn-sm" data-ref-baja
                                 data-id="@r.Id" data-nombre="@r.Nombre"
+                                data-rowversion="@(r.RowVersion == null ? "" : Convert.ToBase64String(r.RowVersion))"
                                 title="Dar de baja" aria-label="Dar de baja la referencia de @r.Nombre">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                         </button>

@@ -9,6 +9,7 @@
     var abierto = null;   // modal abierto
     var origenFoco = null;
     var bajaId = null;
+    var bajaRowVersion = null;
 
     function csrf() {
         var meta = document.querySelector('meta[name="csrf-token"]');
@@ -154,7 +155,8 @@
         btn.disabled = true;
         post('/ClienteReferencia/Verificar?clienteId=' + encodeURIComponent(clienteId()) + '&id=' + encodeURIComponent(id), {
             estado: parseInt($('refVerifEstado').value, 10),
-            observaciones: $('refVerifObs').value.trim() || null
+            observaciones: $('refVerifObs').value.trim() || null,
+            rowVersion: verifForm.getAttribute('data-rowversion') || null
         }).then(function (res) {
             btn.disabled = false;
             if (!res.ok) { mostrarError($('refVerifError'), textoError(res)); return; }
@@ -170,7 +172,8 @@
     function confirmarBaja() {
         var btn = $('refBajaConfirmar');
         btn.disabled = true;
-        post('/ClienteReferencia/Baja?clienteId=' + encodeURIComponent(clienteId()) + '&id=' + encodeURIComponent(bajaId)).then(function (res) {
+        post('/ClienteReferencia/Baja?clienteId=' + encodeURIComponent(clienteId()) + '&id=' + encodeURIComponent(bajaId),
+            { rowVersion: bajaRowVersion || null }).then(function (res) {
             btn.disabled = false;
             if (!res.ok) { mostrarError($('refBajaError'), textoError(res)); return; }
             cerrar();
@@ -196,6 +199,7 @@
         lista.querySelectorAll('[data-ref-verificar]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 verifForm.setAttribute('data-id', btn.dataset.id);
+                verifForm.setAttribute('data-rowversion', btn.dataset.rowversion || '');
                 $('refVerifNombre').textContent = btn.dataset.nombre;
                 $('refVerifEstado').value = btn.dataset.estado;
                 $('refVerifObs').value = '';
@@ -207,6 +211,7 @@
         lista.querySelectorAll('[data-ref-baja]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 bajaId = btn.dataset.id;
+                bajaRowVersion = btn.dataset.rowversion || '';
                 $('referenciaBajaDesc').textContent = 'Se dará de baja la referencia de ' + btn.dataset.nombre +
                     '. Dejará de mostrarse en la ficha; el registro se conserva para auditoría.';
                 limpiarError($('refBajaError'));

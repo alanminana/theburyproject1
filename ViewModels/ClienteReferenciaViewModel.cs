@@ -48,5 +48,15 @@ namespace TheBuryProject.ViewModels
 
         [StringLength(1000, ErrorMessage = "Las observaciones no pueden superar los 1000 caracteres.")]
         public string? Observaciones { get; set; }
+
+        /// <summary>RowVersion leído al abrir el diálogo (control de concurrencia).</summary>
+        public byte[]? RowVersion { get; set; }
+    }
+
+    /// <summary>Pedido para dar de baja una referencia.</summary>
+    public class ClienteReferenciaBajaRequest
+    {
+        /// <summary>RowVersion leído al listar (control de concurrencia).</summary>
+        public byte[]? RowVersion { get; set; }
     }
 }
