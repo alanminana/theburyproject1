@@ -318,6 +318,28 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
+    public async Task AnularImputacionNotaCredito_RedirigeAUnComprobanteRealDeLaAplicacion_NoAlIdArbitrarioDelPost()
+    {
+        var (prov, _) = await SembrarProveedorConOrdenAsync("Redirect NC");
+        var factura = await SembrarComprobanteAsync(prov, "F-RD-1", 1000m);
+        var nc = await SembrarComprobanteAsync(prov, "NC-RD-1", 300m, TipoComprobanteProveedor.NotaCredito);
+        using var client = _factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.Redirect, (await PostFormAsync(client, $"/CuentaPorPagar/ImputarNotaCredito/{nc}", ("claveIdempotencia", "k-rd-" + prov),
+            ("imputaciones[0].ComprobanteId", factura.ToString()), ("imputaciones[0].Monto", "100.00"))).StatusCode);
+        int impId;
+        await using (var ctx = await NuevoContextoAsync())
+            impId = (await ctx.ImputacionesNotaCredito.AsNoTracking().SingleAsync(i => i.NotaCreditoId == nc)).Id;
+
+        // El POST trae un comprobanteId ajeno a la aplicación: se redirige a la nota real, no a ese id.
+        var ajeno = await PostFormAsync(client, "/CuentaPorPagar/AnularImputacionNotaCredito", ("id", impId.ToString()), ("comprobanteId", "999999"), ("motivo", "error de carga"));
+        Assert.EndsWith($"/CuentaPorPagar/Detalle/{nc}", DestinoRedireccion(ajeno));
+
+        // Con un comprobanteId que sí pertenece a la aplicación se conserva el destino de origen (aquí ya anulada: mismo destino).
+        var propio = await PostFormAsync(client, "/CuentaPorPagar/AnularImputacionNotaCredito", ("id", impId.ToString()), ("comprobanteId", factura.ToString()), ("motivo", "otra vez"));
+        Assert.EndsWith($"/CuentaPorPagar/Detalle/{factura}", DestinoRedireccion(propio));
+    }
+
+    [Fact]
     public async Task ElMenuYLosEnlacesRespetanElPermiso()
     {
         var (prov, oc) = await SembrarProveedorConOrdenAsync();

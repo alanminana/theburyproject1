@@ -31,6 +31,9 @@ namespace TheBuryProject.Services.Interfaces
 
         Task<ResultadoCxp> AnularImputacionNotaCreditoAsync(int imputacionId, string? motivo, string usuario);
 
+        /// <summary>Ids de la nota de crédito y del comprobante de una aplicación (null si no existe). Para redirigir a un comprobante real.</summary>
+        Task<(int NotaCreditoId, int ComprobanteId)?> ObtenerComprobantesDeImputacionAsync(int imputacionId);
+
         // ---------- consultas ----------
         Task<ListadoComprobantesProveedor> ListarComprobantesAsync(FiltroComprobantesProveedor filtro);
 

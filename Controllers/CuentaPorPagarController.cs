@@ -245,7 +245,17 @@ namespace TheBuryProject.Controllers
         {
             var resultado = await _service.AnularImputacionNotaCreditoAsync(id, motivo, _currentUser.GetUsername());
             Avisar(resultado, "Aplicación anulada: los saldos fueron restituidos.");
-            return RedirectToAction(nameof(Detalle), new { id = comprobanteId });
+
+            // Se vuelve al comprobante desde el que se operó solo si realmente forma parte de la aplicación;
+            // un comprobanteId arbitrario del POST no se usa como destino.
+            var destino = comprobanteId;
+            var partes = await _service.ObtenerComprobantesDeImputacionAsync(id);
+            if (partes is { } p && comprobanteId != p.NotaCreditoId && comprobanteId != p.ComprobanteId)
+                destino = p.NotaCreditoId;
+            else if (partes is null)
+                return RedirectToAction(nameof(Index));
+
+            return RedirectToAction(nameof(Detalle), new { id = destino });
         }
 
         // ---------- armado de pantallas ----------

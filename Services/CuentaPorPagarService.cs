@@ -218,10 +218,13 @@ namespace TheBuryProject.Services
 
                 if (request.ChequeId.HasValue)
                 {
-                    var chequeValido = await _context.Cheques.AnyAsync(c =>
-                        c.Id == request.ChequeId.Value && !c.IsDeleted && c.ProveedorId == request.ProveedorId);
-                    if (!chequeValido)
+                    var cheque = await _context.Cheques.AsNoTracking()
+                        .Where(c => c.Id == request.ChequeId.Value && !c.IsDeleted && c.ProveedorId == request.ProveedorId)
+                        .Select(c => new { c.Estado }).FirstOrDefaultAsync();
+                    if (cheque is null)
                         return ResultadoCxp.Falla("El cheque no existe o pertenece a otro proveedor.");
+                    if (cheque.Estado is EstadoCheque.Anulado or EstadoCheque.Rechazado)
+                        return ResultadoCxp.Falla("El cheque está anulado o rechazado y no puede usarse para un pago.");
                 }
 
                 var ids = imputaciones.Select(i => i.ComprobanteId).ToList();
@@ -433,6 +436,15 @@ namespace TheBuryProject.Services
                 _logger.LogInformation("Aplicación de nota de crédito {Id} anulada por {Usuario}: {Motivo}", imputacionId, usuario, motivoLimpio);
                 return ResultadoCxp.Exito(imputacionId);
             });
+        }
+
+        public async Task<(int NotaCreditoId, int ComprobanteId)?> ObtenerComprobantesDeImputacionAsync(int imputacionId)
+        {
+            var fila = await _context.ImputacionesNotaCredito.AsNoTracking()
+                .Where(i => i.Id == imputacionId)
+                .Select(i => new { i.NotaCreditoId, i.ComprobanteId })
+                .FirstOrDefaultAsync();
+            return fila is null ? null : (fila.NotaCreditoId, fila.ComprobanteId);
         }
 
         // =====================================================================================
@@ -795,6 +807,14 @@ namespace TheBuryProject.Services
                 _context.ChangeTracker.Clear();
                 _logger.LogWarning(ex, "Conflicto de concurrencia en cuentas por pagar (proveedor {ProveedorId})", proveedorId);
                 return ResultadoCxp.Falla("Otro usuario modificó estos datos al mismo tiempo. Recargá la pantalla e intentá nuevamente.");
+            }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("Invariante violada", StringComparison.Ordinal))
+            {
+                // Invariante de saldo (p. ej. saldo negativo): nada se persiste y el detalle técnico queda solo en el log.
+                await transaccion.RollbackAsync(CancellationToken.None);
+                _context.ChangeTracker.Clear();
+                _logger.LogError(ex, "Invariante de saldo violada en cuentas por pagar (proveedor {ProveedorId}); operación revertida", proveedorId);
+                return ResultadoCxp.Falla("No se pudo completar la operación porque dejaría saldos inconsistentes. No se registró ningún cambio; recargá la pantalla y avisá a un administrador si persiste.");
             }
             catch (DbUpdateException ex)
             {

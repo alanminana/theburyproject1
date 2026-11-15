@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -365,6 +366,67 @@ public class CuentaPorPagarServiceTests : IDisposable
         Assert.True(r.Ok, r.Error);
         Assert.Equal(cheque.Id, (await _context.PagosProveedor.AsNoTracking().SingleAsync()).ChequeId);
         Assert.Equal(EstadoCheque.Emitido, (await _context.Cheques.AsNoTracking().SingleAsync(c => c.Id == cheque.Id)).Estado);
+    }
+
+    [Theory]
+    [InlineData(EstadoCheque.Anulado)]
+    [InlineData(EstadoCheque.Rechazado)]
+    public async Task Pago_ConChequeAnuladoORechazado_SeRechazaYNoPersisteNada(EstadoCheque estado)
+    {
+        var prov = await SeedProveedorAsync();
+        var f = await NuevoComprobanteAsync(prov.Id, "F-1", 500m);
+        var cheque = new Cheque { Numero = "0003", Banco = "Banco", Monto = 500m, ProveedorId = prov.Id, Estado = estado };
+        _context.Cheques.Add(cheque);
+        await _context.SaveChangesAsync();
+        var req = Pago(prov.Id, 500m, (f, 500m));
+        req.Medio = MedioPagoProveedor.Cheque;
+        req.ChequeId = cheque.Id;
+
+        var r = await _service.RegistrarPagoAsync(req, "t");
+
+        Assert.False(r.Ok);
+        Assert.Contains("anulado o rechazado", r.Error);
+        Assert.Empty(await _context.PagosProveedor.ToListAsync());
+        Assert.Equal(500m, (await LeerAsync(f)).SaldoPendiente);
+    }
+
+    [Fact]
+    public async Task Pago_SiLaInvarianteDeSaldoSeViola_HaceRollbackLoguearErrorYDevuelveFallaGenerica()
+    {
+        var prov = await SeedProveedorAsync();
+        var f = await NuevoComprobanteAsync(prov.Id, "F-1", 1000m);
+        Assert.True((await _service.RegistrarPagoAsync(Pago(prov.Id, 600m, (f, 600m)), "t")).Ok);
+        // Se simula la carrera que el lock del proveedor evita: justo tras guardar el pago aparece otra imputación
+        // por fuera del servicio y el recálculo dejaría el saldo negativo.
+        var primerPago = (await _context.PagosProveedor.AsNoTracking().SingleAsync()).Id;
+        var interceptor = new ImputacionIntrusaInterceptor(primerPago, f);
+        var contexto = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).AddInterceptors(interceptor).Options);
+        var logger = new LoggerCapturador<CuentaPorPagarService>();
+        var servicio = new CuentaPorPagarService(contexto, _reloj, logger);
+
+        var r = await servicio.RegistrarPagoAsync(Pago(prov.Id, 100m, (f, 100m)), "t");
+
+        Assert.False(r.Ok);
+        Assert.DoesNotContain("Invariante", r.Error);
+        Assert.DoesNotContain("saldo negativo", r.Error);
+        Assert.Contains(logger.Entradas, e => e.Nivel == LogLevel.Error);
+        Assert.Single(await _context.PagosProveedor.ToListAsync()); // solo el primero: el segundo se revirtió
+        Assert.Empty(contexto.ChangeTracker.Entries());
+        Assert.True(interceptor.Disparado);
+        Assert.Equal(1, await _context.PagoProveedorImputaciones.CountAsync()); // la imputación intrusa se revirtió con la transacción
+    }
+
+    [Fact]
+    public async Task ObtenerComprobantesDeImputacion_DevuelveLaNotaYElComprobanteReales()
+    {
+        var prov = await SeedProveedorAsync();
+        var f = await NuevoComprobanteAsync(prov.Id, "F-1", 1000m);
+        var nc = await NuevoComprobanteAsync(prov.Id, "NC-1", 300m, TipoComprobanteProveedor.NotaCredito);
+        Assert.True((await _service.ImputarNotaCreditoAsync(nc, new[] { new ImputacionRequest { ComprobanteId = f, Monto = 100m } }, null, "t")).Ok);
+        var impId = (await _context.ImputacionesNotaCredito.AsNoTracking().SingleAsync()).Id;
+
+        Assert.Equal((nc, f), await _service.ObtenerComprobantesDeImputacionAsync(impId));
+        Assert.Null(await _service.ObtenerComprobantesDeImputacionAsync(999_999));
     }
 
     [Fact]
@@ -839,5 +901,36 @@ public class CuentaPorPagarServiceTests : IDisposable
         }
 
         throw new DirectoryNotFoundException("No se encontró la raíz del repositorio.");
+    }
+}
+
+internal sealed class LoggerCapturador<T> : ILogger<T>
+{
+    public List<(LogLevel Nivel, string Mensaje)> Entradas { get; } = new();
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+        Entradas.Add((logLevel, formatter(state, exception)));
+}
+
+/// <summary>Tras el primer guardado inserta por SQL una imputación extra, para forzar el caso de saldo negativo.</summary>
+internal sealed class ImputacionIntrusaInterceptor(int pagoId, int comprobanteId) : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+{
+    public bool Disparado { get; private set; }
+
+    public override async ValueTask<int> SavedChangesAsync(
+        Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
+    {
+        if (!Disparado && eventData.Context is not null)
+        {
+            Disparado = true;
+            await eventData.Context.Database.ExecuteSqlRawAsync(
+                "INSERT INTO PagoProveedorImputaciones (PagoProveedorId, ComprobanteProveedorId, Monto, CreatedAt, IsDeleted) VALUES ({0}, {1}, 900, '2026-11-14', 0)",
+                pagoId, comprobanteId);
+        }
+        return await base.SavedChangesAsync(eventData, result, cancellationToken);
     }
 }
