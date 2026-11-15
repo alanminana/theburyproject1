@@ -922,7 +922,7 @@ namespace TheBuryProject.Services
             };
         }
 
-        public static string NombreTipo(TipoComprobanteProveedor tipo) => tipo switch
+        private static string NombreTipo(TipoComprobanteProveedor tipo) => tipo switch
         {
             TipoComprobanteProveedor.Factura => "Factura",
             TipoComprobanteProveedor.NotaDebito => "Nota de débito",
@@ -930,7 +930,7 @@ namespace TheBuryProject.Services
             _ => tipo.ToString()
         };
 
-        public static string NombreMedio(MedioPagoProveedor medio) => medio switch
+        private static string NombreMedio(MedioPagoProveedor medio) => medio switch
         {
             MedioPagoProveedor.Efectivo => "en efectivo",
             MedioPagoProveedor.Transferencia => "por transferencia",

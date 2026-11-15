@@ -1,0 +1,88 @@
+@model TheBuryProject.Services.Models.PagoProveedorItem
+@{
+    ViewData["Title"] = $"Pago del {CuentaPorPagarUiHelper.Fecha(Model.Fecha)}";
+    var puedeAnular = User.TienePermiso("cuentasporpagar", "cancel");
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-pago-titulo">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Pago</span>
+    </nav>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <h1 id="cxp-pago-titulo" class="text-lg font-bold tracking-tight text-white">Pago a @Model.ProveedorNombre</h1>
+            <span class="@(Model.Anulado ? "badge-erp badge-erp-neutral" : "badge-erp badge-erp-success")">@(Model.Anulado ? "Anulado" : "Vigente")</span>
+        </div>
+        <a asp-action="EstadoCuenta" asp-route-proveedorId="@Model.ProveedorId" class="btn-erp-ghost btn-sm no-underline">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+            Estado de cuenta
+        </a>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Fecha</dt>
+            <dd class="mt-2 text-base font-bold text-white">@CuentaPorPagarUiHelper.Fecha(Model.Fecha)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Monto</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@CuentaPorPagarUiHelper.Moneda(Model.Monto)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Medio</dt>
+            <dd class="mt-2 text-base font-bold text-white">@CuentaPorPagarUiHelper.NombreMedio(Model.Medio)</dd>
+            @if (!string.IsNullOrWhiteSpace(Model.ChequeNumero))
+            {
+                <dd class="mt-1 text-xs text-slate-400">Cheque Nº @Model.ChequeNumero</dd>
+            }
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Referencia</dt>
+            <dd class="mt-2 text-base font-bold text-white">@(string.IsNullOrWhiteSpace(Model.Referencia) ? "—" : Model.Referencia)</dd>
+        </div>
+    </dl>
+    <p class="mt-3 text-xs text-slate-400">Registrado por @(Model.CreadoPor ?? "—"). Registro administrativo: no generó movimientos de Caja.</p>
+    @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+    {
+        <p class="mt-2 text-sm text-slate-300"><span class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones:</span> @Model.Observaciones</p>
+    }
+    @if (Model.Anulado)
+    {
+        <div class="alert-erp alert-erp-warning mt-3" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">block</span>
+            Anulado por @Model.AnuladoPor el @CuentaPorPagarUiHelper.Fecha(Model.FechaAnulacion): @Model.MotivoAnulacion
+        </div>
+    }
+</section>
+
+<section class="card-erp-panel" aria-labelledby="cxp-pago-imp-titulo">
+    <div class="border-b border-slate-800 px-4 py-3"><h2 id="cxp-pago-imp-titulo" class="text-base font-bold text-white">Comprobantes a los que se imputó</h2></div>
+    <div class="table-erp-wrapper" role="region" aria-label="Imputaciones del pago" tabindex="0">
+        <table class="w-full border-collapse text-left text-sm">
+            <thead><tr class="border-b border-slate-800">
+                <th scope="col" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Comprobante</th>
+                <th scope="col" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Importe imputado</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-800">
+                @foreach (var i in Model.Imputaciones)
+                {
+                    <tr>
+                        <td class="px-3 py-2"><a asp-action="Detalle" asp-route-id="@i.ComprobanteId" class="text-primary">@i.ComprobanteNumero</a></td>
+                        <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(i.Monto)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@if (puedeAnular && !Model.Anulado)
+{
+    <section class="card-erp-panel mt-4 p-4" aria-label="Anular pago">
+        <partial name="_CxpAnular" model="@("AnularPago", Model.Id, "Anular pago", "Contra-registro: el pago queda como historia, deja de contar para los saldos y se restituye lo imputado.", (int?)null)" />
+    </section>
+}

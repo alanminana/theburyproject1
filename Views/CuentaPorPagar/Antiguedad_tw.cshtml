@@ -1,0 +1,85 @@
+@model TheBuryProject.ViewModels.AntiguedadDeudaViewModel
+@{
+    ViewData["Title"] = "Antigüedad de deuda con proveedores";
+    var a = Model.Antiguedad;
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-ant-titulo">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Antigüedad de deuda</span>
+    </nav>
+    <h1 id="cxp-ant-titulo" class="mt-2 text-lg font-bold tracking-tight text-white">Antigüedad de deuda con proveedores</h1>
+    <p class="mt-1 text-sm text-slate-400">
+        Saldos pendientes de facturas y notas de débito al @CuentaPorPagarUiHelper.Fecha(a.FechaCorte). Un comprobante que vence hoy o no tiene vencimiento figura como «Por vencer».
+    </p>
+    <form asp-action="Antiguedad" method="get" class="mt-3 flex flex-wrap items-end gap-3">
+        <div class="w-full max-w-xs">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="proveedorId">Proveedor</label>
+            <select id="proveedorId" name="proveedorId" class="@CuentaPorPagarUiHelper.InputClass">
+                <option value="">Todos los proveedores</option>
+                @foreach (var p in Model.Proveedores)
+                {
+                    <option value="@p.Id" selected="@(Model.ProveedorId == p.Id)">@p.Nombre</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn-erp-primary btn-sm">Ver</button>
+    </form>
+</section>
+
+<section class="card-erp-panel" aria-labelledby="cxp-ant-tabla">
+    <h2 id="cxp-ant-tabla" class="sr-only">Deuda por proveedor y tramo de antigüedad</h2>
+    @if (a.Proveedores.Any())
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Antigüedad de deuda por proveedor" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-800">
+                        <th scope="col" data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Por vencer</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Vencido 1-30 días</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Vencido 31-60 días</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Vencido +60 días</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var p in a.Proveedores)
+                    {
+                        <tr>
+                            <td class="px-3 py-2.5 font-medium">
+                                <a asp-action="EstadoCuenta" asp-route-proveedorId="@p.ProveedorId" class="text-primary">@p.ProveedorNombre</a>
+                            </td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(p.PorVencer)</td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(p.Vencido1a30)</td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(p.Vencido31a60)</td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap @(p.VencidoMas60 > 0m ? "text-rose-300 font-semibold" : "")">@CuentaPorPagarUiHelper.Moneda(p.VencidoMas60)</td>
+                            <td class="px-3 py-2.5 text-right whitespace-nowrap font-bold">@CuentaPorPagarUiHelper.Moneda(p.Total)</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="border-t border-slate-700">
+                        <th scope="row" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-300">Total</th>
+                        <td class="px-3 py-3 text-right font-bold whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.PorVencer)</td>
+                        <td class="px-3 py-3 text-right font-bold whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.Vencido1a30)</td>
+                        <td class="px-3 py-3 text-right font-bold whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.Vencido31a60)</td>
+                        <td class="px-3 py-3 text-right font-bold whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.VencidoMas60)</td>
+                        <td class="px-3 py-3 text-right font-black whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.Total)</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="px-6 py-12 text-center" data-cxp-vacio>
+            <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">task_alt</span>
+            <p class="mt-2 text-base font-semibold text-slate-200">No hay deuda pendiente con proveedores.</p>
+        </div>
+    }
+</section>

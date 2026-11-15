@@ -1,0 +1,102 @@
+@model TheBuryProject.ViewModels.ImputarNotaCreditoViewModel
+@{
+    var nc = Model.NotaCredito;
+    ViewData["Title"] = $"Aplicar nota de crédito {nc.NumeroComprobante}";
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var filas = Model.Pendientes;
+    decimal? MontoPrevio(int comprobanteId) =>
+        Model.Imputaciones.FirstOrDefault(i => i.ComprobanteId == comprobanteId)?.Monto;
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <a asp-action="Detalle" asp-route-id="@nc.Id" class="no-underline hover:text-primary">@nc.NumeroComprobante</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Aplicar</span>
+    </nav>
+    <h1 class="mt-2 text-lg font-bold tracking-tight text-white">Aplicar nota de crédito @nc.NumeroComprobante</h1>
+    <p class="mt-1 text-sm text-slate-400">
+        @nc.ProveedorNombre · sin aplicar: <strong class="text-white">@CuentaPorPagarUiHelper.Moneda(nc.SaldoPendiente)</strong>.
+        La nota solo compensa deuda de facturas o notas de débito del mismo proveedor; no mueve dinero.
+    </p>
+</section>
+
+@if (!filas.Any())
+{
+    <section class="card-erp-panel px-6 py-12 text-center" data-cxp-vacio>
+        <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">task_alt</span>
+        <p class="mt-2 text-base font-semibold text-slate-200">@nc.ProveedorNombre no tiene facturas con saldo pendiente para aplicar.</p>
+        <a asp-action="Detalle" asp-route-id="@nc.Id" class="btn-erp-secondary btn-sm mt-3 inline-flex no-underline">Volver a la nota de crédito</a>
+    </section>
+}
+else
+{
+    <form asp-action="ImputarNotaCredito" asp-route-id="@nc.Id" method="post" data-cxp-imputacion aria-label="Aplicación de nota de crédito">
+        <input type="hidden" name="claveIdempotencia" value="@Model.ClaveIdempotencia" />
+        <section class="card-erp-panel" aria-labelledby="cxp-nc-aplicar">
+            <div class="border-b border-slate-800 px-4 py-3">
+                <h2 id="cxp-nc-aplicar" class="text-base font-bold text-white">Facturas pendientes del proveedor</h2>
+                <p class="text-xs text-slate-400">Ninguna fila puede superar el saldo de su factura y la suma no puede superar lo que queda de la nota de crédito.</p>
+            </div>
+            <div class="table-erp-wrapper" role="region" aria-label="Facturas pendientes del proveedor" tabindex="0">
+                <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800">
+                            <th scope="col" data-card="title" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Comprobante</th>
+                            <th scope="col" data-card="half" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Vencimiento</th>
+                            <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Saldo</th>
+                            <th scope="col" data-card="actions" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Importe a aplicar</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @for (var i = 0; i < filas.Count; i++)
+                        {
+                            var c = filas[i];
+                            var previo = MontoPrevio(c.Id);
+                            <tr>
+                                <td class="px-3 py-2">
+                                    <span class="block font-bold text-primary">@c.NumeroComprobante</span>
+                                    <span class="block text-xs text-slate-400">@CuentaPorPagarUiHelper.NombreTipo(c.Tipo)</span>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-slate-400">@CuentaPorPagarUiHelper.Fecha(c.FechaVencimiento)</td>
+                                <td class="px-3 py-2 text-right whitespace-nowrap font-medium">@CuentaPorPagarUiHelper.Moneda(c.SaldoPendiente)</td>
+                                <td class="px-3 py-2">
+                                    <input type="hidden" name="imputaciones[@i].ComprobanteId" value="@c.Id" />
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" step="0.01" min="0" max="@c.SaldoPendiente.ToString(inv)" inputmode="decimal"
+                                               name="imputaciones[@i].Monto" data-cxp-imputar
+                                               aria-label="Importe a aplicar a la factura @c.NumeroComprobante"
+                                               value="@(previo.HasValue && previo.Value != 0 ? previo.Value.ToString(inv) : "")"
+                                               class="@CuentaPorPagarUiHelper.InputClass" />
+                                        <button type="button" class="btn-erp-ghost btn-sm shrink-0" data-cxp-saldo="@c.SaldoPendiente.ToString(inv)"
+                                                aria-label="Aplicar el saldo completo de @c.NumeroComprobante">Saldo</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 px-4 py-3">
+                <p class="text-sm text-slate-300" role="status" aria-live="polite" data-cxp-limite="@nc.SaldoPendiente.ToString(inv)">
+                    Aplicado: <strong data-cxp-total>$ 0,00</strong> · <span data-cxp-diferencia></span>
+                </p>
+                <div class="flex gap-2">
+                    <a asp-action="Detalle" asp-route-id="@nc.Id" class="btn-erp-ghost btn-sm no-underline">Cancelar</a>
+                    <button type="submit" class="btn-erp-primary btn-sm" data-cxp-submit>
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">swap_horiz</span>
+                        Aplicar nota de crédito
+                    </button>
+                </div>
+            </div>
+        </section>
+    </form>
+}
+
+@section Scripts {
+    <script src="~/js/cuenta-por-pagar-imputacion.js" asp-append-version="true"></script>
+}

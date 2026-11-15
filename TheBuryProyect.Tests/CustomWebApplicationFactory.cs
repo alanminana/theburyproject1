@@ -1110,6 +1110,28 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ClienteEditorUserId, "test-cliente-editor-role-id", "TestClienteEditorRole", 9400,
             "clientes.view", "clientes.edit");
 
+    public const string CxpSoloLecturaUserId = "test-cxp-solo-lectura-id";
+    public const string CxpOperadorUserId = "test-cxp-operador-id";
+    public const string CxpAnuladorUserId = "test-cxp-anulador-id";
+
+    /// <summary>D-03: solo ve cuentas por pagar (cuentasporpagar.view).</summary>
+    public Task SeedUserWithCxpSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            CxpSoloLecturaUserId, "test-cxp-solo-lectura-role-id", "TestCxpSoloLecturaRole", 9430,
+            "cuentasporpagar.view");
+
+    /// <summary>D-03: registra comprobantes y pagos pero NO anula (view + createinvoice + pay).</summary>
+    public Task SeedUserWithCxpOperadorAsync() =>
+        SeedPermissionUserAsync(
+            CxpOperadorUserId, "test-cxp-operador-role-id", "TestCxpOperadorRole", 9440,
+            "cuentasporpagar.view", "cuentasporpagar.createinvoice", "cuentasporpagar.pay");
+
+    /// <summary>D-03: solo ve y anula (view + cancel): no registra comprobantes ni pagos.</summary>
+    public Task SeedUserWithCxpAnuladorAsync() =>
+        SeedPermissionUserAsync(
+            CxpAnuladorUserId, "test-cxp-anulador-role-id", "TestCxpAnuladorRole", 9450,
+            "cuentasporpagar.view", "cuentasporpagar.cancel");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

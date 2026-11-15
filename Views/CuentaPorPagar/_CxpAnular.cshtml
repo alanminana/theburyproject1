@@ -1,0 +1,25 @@
+@* D-03: anulación con motivo obligatorio, sin JavaScript. Model = (accion, rutaId, etiqueta, hiddenExtra). Antiforgery incluido por el form tag helper. *@
+@model (string Accion, int Id, string Etiqueta, string Ayuda, int? ComprobanteId)
+@using TheBuryProject.Helpers
+<details class="rounded-lg border border-rose-500/30 bg-slate-900">
+    <summary class="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-rose-300">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">block</span>
+        @Model.Etiqueta
+    </summary>
+    <form asp-controller="CuentaPorPagar" asp-action="@Model.Accion" asp-route-id="@Model.Id" method="post" class="space-y-3 px-3 pb-3 pt-1">
+        @if (Model.ComprobanteId.HasValue)
+        {
+            <input type="hidden" name="comprobanteId" value="@Model.ComprobanteId" />
+        }
+        <p class="text-xs text-slate-400">@Model.Ayuda</p>
+        <div>
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="motivo-@Model.Accion-@Model.Id">Motivo de la anulación</label>
+            <textarea id="motivo-@Model.Accion-@Model.Id" name="motivo" rows="2" maxlength="500" required
+                      class="@CuentaPorPagarUiHelper.InputClass"></textarea>
+        </div>
+        <button type="submit" class="btn-erp-danger btn-sm">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">block</span>
+            Confirmar anulación
+        </button>
+    </form>
+</details>
