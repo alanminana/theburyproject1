@@ -65,6 +65,8 @@ La tarea de D-01 comienza con una verificación de huecos contra el código y te
 | R-18 | Redondeo por defecto | Sin regla en la lista se redondea a la centena (comportamiento existente de `AplicarRedondeo`); el formulario lo dice (**implementada**) | Que el valor por defecto sea «sin redondeo» | B cambia los precios sugeridos de todas las listas existentes sin regla. |
 | R-19 | Costo del precio por lista | El costo del precio manual es el costo actual del producto (`Producto.PrecioCompra`), tomado en el servidor (**implementada**) | Costo editable por lista | Depende de R-03 (método de costeo). |
 | R-20 | Exportación del historial de precios | Por producto, todas sus listas, último año, solo con `precios.history` (**implementada**) | Exportación masiva por lista o rango de fechas | B expone costos y márgenes de todo el catálogo: requiere definir permiso y volumen. |
+| R-21 | Unicidad del cheque en pagos a proveedor | Un mismo cheque puede referenciarse en más de un pago (no hay restricción de unicidad); el servicio solo rechaza cheques inexistentes, de otro proveedor, anulados o rechazados (**implementada: sin unicidad**) | Un cheque solo puede respaldar un pago (índice único filtrado y control en el servicio) | B evita registrar dos veces el mismo cheque, pero impide repartir un cheque entre pagos o corregir un pago anulado reutilizándolo salvo que anular libere el cheque; requiere definir si el monto del cheque debe coincidir con el pago. Decisión del propietario. |
+| R-22 | Costo y margen en la pantalla de precios de una lista | Quien tiene `precios.view` ve costo, margen y sugerido por producto en `ListaPrecio/Precios`, igual que ya ve costo y margen en `CambiosPrecios/Historial` (mismo criterio de visibilidad; **implementada: sin restricción adicional**) | Mostrar costo y margen solo con `precios.history` o `precios.apply` (en ambas pantallas) | B oculta costos al perfil de solo consulta, pero hay que cambiar también `Historial` y definir qué ve ese perfil. La exportación a Excel sí exige `precios.history` (R-20). Decisión del propietario. |
 
 ## 4. Criterios de aceptación (cada uno debe tener prueba; si no la tiene, el módulo no se marca completo)
 
@@ -199,3 +201,28 @@ Validación ejecutada: build 0 errores; `dotnet test --filter` focalizado (Autor
 Revisión visual: se corrigió, tras las capturas, la columna Acciones que quedaba fuera de vista en 1024 (se unió el tipo a la celda de la lista y margen/vigencia a la del precio), los valores `25.00` en inputs numéricos y los textos «— recargo». Estados NO VERIFICADOS: tablet 768×1024; el historial con filas dentro de «Fijar precio» solo se capturó en 1366 por aserciones (no se revisó visualmente en 1024/390); lector de pantalla; el spec e2e no se corrió en CI (solo local, y solo el proyecto 1366×768, que recorre los tres viewports con `setViewportSize`); la concurrencia real de la predeterminada y del precio manual sobre SQL Server (solo SQLite e índices); la baja de una lista con precios se probó por servicio, no en navegador.
 
 Ambigüedades abiertas (decisión del propietario): R-07 (lista por cliente o medio de pago), R-03 (costeo), R-14 (separación de funciones y umbral de autorización de lotes), R-15 (margen mínimo en lotes), R-16 (efecto de cambiar la predeterminada), R-17 (vigencia futura), R-18 (redondeo por defecto), R-19 (costo por lista) y R-20 (exportación masiva).
+
+## 9. Observaciones de la revisión independiente
+
+Hallazgos de la revisión independiente y su tratamiento. Los corregidos tienen prueba; los demás quedan documentados sin cambio de código.
+
+### Corregidos
+
+- **D-01** índice único de la lista predeterminada: la migración normaliza antes de crear el índice (si hubiera más de una predeterminada no eliminada, queda la de menor Orden/Id; idempotente). Verificado aplicando la migración sobre un SQL Server descartable con 2 predeterminadas sembradas.
+- **D-01** `ExportarHistorial`: `desde`/`hasta` se acotan a 2000-01-01..2100-12-31 (sin desborde con 9999-12-31).
+- **D-02** `ListarPorClienteAsync` excluye referencias de clientes eliminados; `EditarAsync`, verificación y baja exigen el RowVersion leído (la vista y el JS lo envían) y devuelven el mensaje de concurrencia si cambió; la verificación ya no pisa las observaciones generales: agrega la nota con fecha y rechaza (sin perder nada) si el acumulado superaría 1000 caracteres. No se agregó una columna: la migración `AddClienteReferencia` y el snapshot no cambian.
+- **D-03** una invariante de saldo violada dentro de la transacción hace rollback, limpia el ChangeTracker, registra Error y devuelve un mensaje genérico; un pago con cheque anulado o rechazado se rechaza en el servicio; `AnularImputacionNotaCredito` redirige a un comprobante de la aplicación (si el `comprobanteId` del POST no pertenece a ella, a la nota de crédito).
+
+### No cambiados (decisión o criterio documentado)
+
+- Costo y margen por producto con solo `precios.view`: ver R-22.
+- Unicidad de cheque por pago: ver R-21.
+- AC-02-2, teléfono coincidente con el propio cliente: decisión de producto abierta (ya documentada); no se implementó.
+
+### Observaciones menores (sin cambio de código)
+
+Observaciones de severidad baja señaladas por la revisión; se registran para una próxima iteración y no se modificó código:
+
+- Fechas: tratamiento de fechas en algunos filtros y vencimientos (día comercial frente a UTC) cerca del borde de medianoche.
+- Idempotencia de una nota de crédito anulada: comportamiento al reenviar la clave de idempotencia de una aplicación ya anulada.
+- Estado de cuenta: uso de UTC en la presentación de algunas fechas.
