@@ -100,7 +100,8 @@ public class TesoreriaMigracionSqlServerTests
 
             // 1) Esquema ANTERIOR + datos sintéticos con el defecto: tres pagos vigentes con el mismo cheque, uno anulado y un cheque sin repetir.
             await ctx.GetService<IMigrator>().MigrateAsync(anterior);
-            int pagoViejo, pagoMedio, pagoNuevo, pagoAnulado, pagoUnico, cheque, chequeUnico;
+            int pagoViejo, pagoMedio, pagoNuevo, pagoLargo, pagoAnulado, pagoUnico, cheque, chequeUnico;
+            var observacionLarga = new string('o', 1000);
             await using (var cn = new SqlConnection(cs))
             {
                 await cn.OpenAsync();
@@ -125,6 +126,7 @@ public class TesoreriaMigracionSqlServerTests
                 pagoViejo = await Pago(cheque, 500m, false);
                 pagoMedio = await Pago(cheque, 500m, false, "pago cargado dos veces");
                 pagoNuevo = await Pago(cheque, 500m, false);
+                pagoLargo = await Pago(cheque, 500m, false, observacionLarga); // observación ya en el límite: no cabe la nota
                 pagoAnulado = await Pago(cheque, 500m, true); // anulado: no cuenta para el índice y no se toca
                 pagoUnico = await Pago(chequeUnico, 300m, false);
             }
@@ -140,6 +142,7 @@ public class TesoreriaMigracionSqlServerTests
                 Assert.Equal(cheque, await ChequeDe(pagoViejo)); // el más antiguo conserva el cheque
                 Assert.Null(await ChequeDe(pagoMedio));
                 Assert.Null(await ChequeDe(pagoNuevo));
+                Assert.Null(await ChequeDe(pagoLargo));
                 Assert.Equal(cheque, await ChequeDe(pagoAnulado)); // anulado: intacto
                 Assert.Equal(chequeUnico, await ChequeDe(pagoUnico)); // sin repetir: intacto
 
@@ -148,10 +151,22 @@ public class TesoreriaMigracionSqlServerTests
                 Assert.Contains($"ya lo respalda el pago #{pagoViejo}", nota);
                 Assert.Null(await EscalarAsync<string>(cn, $"SELECT Observaciones FROM PagosProveedor WHERE Id = {pagoViejo}"));
 
+                // Observación en el límite: el texto original queda intacto (no se recorta) y la trazabilidad vive en la auditoría.
+                Assert.Equal(observacionLarga, await EscalarAsync<string>(cn, $"SELECT Observaciones FROM PagosProveedor WHERE Id = {pagoLargo}"));
+                foreach (var afectado in new[] { pagoMedio, pagoNuevo, pagoLargo })
+                {
+                    var detalle = await EscalarAsync<string>(cn, $"SELECT Detalle FROM SeguridadEventosAuditoria WHERE Modulo = 'CuentasPorPagar' AND Accion = 'ConciliarChequeRepetido' AND Entidad = 'Pago:{afectado}'");
+                    Assert.NotNull(detalle);
+                    Assert.Contains($"cheque Id {cheque}", detalle);
+                    Assert.Contains($"del pago #{afectado}", detalle);
+                    Assert.Contains($"lo conserva el pago #{pagoViejo}", detalle);
+                }
+                Assert.Equal(3, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM SeguridadEventosAuditoria WHERE Accion = 'ConciliarChequeRepetido'"));
+
                 // Importes, imputaciones y cantidad de pagos: ninguno se pierde ni cambia.
-                Assert.Equal(5, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM PagosProveedor"));
-                Assert.Equal(2300m, await EscalarAsync<decimal>(cn, "SELECT SUM(Monto) FROM PagosProveedor"));
-                Assert.Equal(5, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM PagoProveedorImputaciones"));
+                Assert.Equal(6, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM PagosProveedor"));
+                Assert.Equal(2800m, await EscalarAsync<decimal>(cn, "SELECT SUM(Monto) FROM PagosProveedor"));
+                Assert.Equal(6, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM PagoProveedorImputaciones"));
                 Assert.Equal(1, await EscalarAsync<int>(cn, "SELECT COUNT(*) FROM sys.indexes WHERE name = 'IX_PagosProveedor_ChequeId_Vigente' AND is_unique = 1"));
             }
 

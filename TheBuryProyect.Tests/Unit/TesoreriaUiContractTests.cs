@@ -135,8 +135,10 @@ public class TesoreriaUiContractTests
         sql = sql[..sql.IndexOf("\");", StringComparison.Ordinal)];
         Assert.Contains("SET p.ChequeId = NULL", sql);
         Assert.Contains("p.Id <> k.IdConserva", sql);
+        Assert.Contains("INSERT INTO SeguridadEventosAuditoria", sql); // trazabilidad duradera, no solo una nota recortable
+        var actualiza = sql[sql.IndexOf("UPDATE p", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("Monto", actualiza); // el UPDATE nunca toca importes (el INSERT de auditoría solo los lee)
         Assert.DoesNotMatch(@"(?i)DELETE", sql); // (IsDeleted es otra cosa: solo se lee)
-        Assert.DoesNotContain("Monto", sql);
         Assert.DoesNotContain("Anulado =", sql.Replace("Anulado = 0", ""));
         Assert.DoesNotContain("DropTable", up);
         Assert.DoesNotContain("DropColumn", up);

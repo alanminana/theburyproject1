@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -134,20 +134,36 @@ namespace TheBuryProyect.Migrations
 
             // El esquema anterior permitía que un mismo cheque respaldara varios pagos vigentes (solo era una referencia). Antes de crear el
             // índice único se concilia de forma conservadora y trazable: el pago MÁS ANTIGUO conserva el cheque y los demás pierden solo la
-            // referencia, con una nota en sus observaciones. No se tocan importes, imputaciones, saldos ni estados: toda la historia queda.
-            // En una base nueva (sin pagos) no afecta ninguna fila.
+            // referencia. La trazabilidad completa (pago afectado, cheque retirado, pago que lo conserva) queda en un evento de auditoría
+            // duradero por cada pago afectado; además se agrega una nota a sus observaciones SOLO si cabe sin recortar el texto original.
+            // No se tocan importes, imputaciones, saldos ni estados: toda la historia queda. En una base nueva (sin pagos) no afecta ninguna fila.
             migrationBuilder.Sql(@"
-UPDATE p
-SET p.ChequeId = NULL,
-    p.Observaciones = LEFT(CONCAT(ISNULL(p.Observaciones + N' ', N''),
-        N'[Migración D-03] Se quitó la referencia al cheque Nº ', c.Numero,
-        N': un cheque físico respalda un único pago y ya lo respalda el pago #', CAST(k.IdConserva AS nvarchar(20)), N'.'), 1000)
+INSERT INTO SeguridadEventosAuditoria (FechaEvento, UsuarioNombre, Modulo, Accion, Entidad, Detalle, CreatedAt, IsDeleted)
+SELECT SYSUTCDATETIME(), N'Migración D-03', N'CuentasPorPagar', N'ConciliarChequeRepetido', CONCAT(N'Pago:', p.Id),
+       CONCAT(N'Se quitó la referencia al cheque Id ', p.ChequeId, N' (Nº ', c.Numero, N') del pago #', p.Id, N' por ', CONVERT(nvarchar(40), p.Monto),
+              N'; un cheque físico respalda un único pago y lo conserva el pago #', k.IdConserva, N'.'),
+       SYSUTCDATETIME(), 0
 FROM PagosProveedor p
 JOIN Cheques c ON c.Id = p.ChequeId
 JOIN (SELECT ChequeId, MIN(Id) AS IdConserva
       FROM PagosProveedor
       WHERE ChequeId IS NOT NULL AND Anulado = 0 AND IsDeleted = 0
       GROUP BY ChequeId HAVING COUNT(*) > 1) k ON k.ChequeId = p.ChequeId
+WHERE p.ChequeId IS NOT NULL AND p.Anulado = 0 AND p.IsDeleted = 0 AND p.Id <> k.IdConserva;
+
+UPDATE p
+SET p.ChequeId = NULL,
+    p.Observaciones = CASE
+        WHEN LEN(ISNULL(p.Observaciones, N'')) + LEN(n.Nota) + 1 <= 1000 THEN CONCAT(ISNULL(p.Observaciones + N' ', N''), n.Nota)
+        ELSE p.Observaciones END
+FROM PagosProveedor p
+JOIN Cheques c ON c.Id = p.ChequeId
+JOIN (SELECT ChequeId, MIN(Id) AS IdConserva
+      FROM PagosProveedor
+      WHERE ChequeId IS NOT NULL AND Anulado = 0 AND IsDeleted = 0
+      GROUP BY ChequeId HAVING COUNT(*) > 1) k ON k.ChequeId = p.ChequeId
+CROSS APPLY (SELECT CONCAT(N'[Migración D-03] Se quitó la referencia al cheque Nº ', c.Numero,
+        N': un cheque físico respalda un único pago y ya lo respalda el pago #', CAST(k.IdConserva AS nvarchar(20)), N'.') AS Nota) n
 WHERE p.ChequeId IS NOT NULL AND p.Anulado = 0 AND p.IsDeleted = 0 AND p.Id <> k.IdConserva;");
 
             migrationBuilder.CreateIndex(
