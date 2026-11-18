@@ -71,6 +71,10 @@ public class FinS002VentaSqlServerTests : IAsyncLifetime
 
         _context = Nuevo();
         await _context.Database.MigrateAsync();
+        // D-02: la base nueva exige referencias verificadas para el credito personal (minimo 1 por defecto). Este arnes verifica
+        // concurrencia, no esa regla (cubierta en ReferenciasCredito*/VentaReferenciasCredito*): se aisla fijando el minimo en 0,
+        // igual que el dataset E2E comun.
+        await _context.Database.ExecuteSqlRawAsync("UPDATE ConfiguracionesCredito SET ReferenciasVerificadasMinimas = 0");
 
         var caja = new Caja { Codigo = "FS2", Nombre = "Caja FS2" };
         _context.Cajas.Add(caja);

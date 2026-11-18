@@ -332,6 +332,10 @@ public class ConcSqlHostFixture : IAsyncLifetime
         using var scope = Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await ctx.Database.MigrateAsync();
+        // D-02: la base nueva exige referencias verificadas para el credito personal (minimo 1 por defecto). Este arnes verifica
+        // concurrencia, no esa regla (cubierta en ReferenciasCredito*/VentaReferenciasCredito*): se aisla fijando el minimo en 0,
+        // igual que el dataset E2E comun.
+        await ctx.Database.ExecuteSqlRawAsync("UPDATE ConfiguracionesCredito SET ReferenciasVerificadasMinimas = 0");
 
         AperturaCajaId = await ConcSeed.SembrarAperturaAsync(ctx);
     }
