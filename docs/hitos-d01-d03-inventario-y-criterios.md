@@ -443,3 +443,35 @@ Ambigüedades: (1) si aparece una razón nueva en una venta que nunca requirió 
 | H5 sin editor registrado: estricto; con editor registrado: CreatedBy + UsuarioSolicita | VERIFICADO |
 
 Ambigüedad nueva: en una venta sin editor registrado, quien autorizó una razón en un acto previo no puede autorizar después las referencias (aceptado por el coordinador; en un solo acto con ambas casillas sí puede si no es creador ni editor).
+
+## 15. Cierre de la tanda D-01 / D-02 / costeo / backups / CI (2026-11-18)
+
+Decisiones del propietario incorporadas: la excepción individual solo exime referencias (no mora ni otros bloqueos; se mantiene la distinción mora bloqueante / no bloqueante), CI con el E2E de referencias y la concurrencia SQL de D-01, y D-03 en una tanda aparte (Tesorería administrativa separada de la Caja de ventas, fuentes de fondos por catálogo configurable, anticipos aplicables a una o varias facturas del mismo proveedor, un cheque físico no reutilizable en varios pagos, cheques recibidos de clientes solo informativos, sin pagos con cheques propios hasta resolver ese punto, costeo gerencial separado de la contabilidad fiscal). **D-03 no forma parte de esta PR.**
+
+### Evidencia final (sobre el SHA de la PR)
+
+| Verificación | Resultado |
+|---|---|
+| Suite .NET completa | 8698 correctas, 0 fallos, 238 omitidas |
+| Concurrencia SQL Server real (D-01, D-03, OC, precios) | 18/18, 0 omitidas |
+| Instalación limpia sobre SQL Server descartable | 143 migraciones, 1 administrador, 0 datos de negocio |
+| Backups: retención por capacidad | 96/96 sintéticas y 112/112 con SQL Server real; `test-hardening` 81/81; portabilidad 9/9 |
+| E2E de referencias y crédito (local, base descartable) | 7/7 (en CI: se valida en esta PR) |
+| Valoración de stock en 1366, 1024 y 390 px | validada con capturas reales; 3 defectos corregidos |
+| Revisión independiente de Codex | 7 pasadas; 9 hallazgos altos reales, todos corregidos con regresión que falla sin la corrección; última pasada: approve |
+
+### Criterios cerrados
+
+- D-02 referencias exigidas para crédito personal con cantidad mínima configurable; excepción individual por segundo usuario con `ventas.authorize`, motivo y auditoría; sin autoautorización ni excepciones globales; no exime mora ni demás bloqueos; autorización expresa por razón (secciones 14-14c).
+- D-01 lista general predeterminada única; circuito de lotes con un mismo usuario con auditoría; concurrencia SQL Server de la lista predeterminada y de los precios manuales.
+- Costeo gerencial de solo lectura (promedio ponderado e indicador de último costo), sin modificar costos, márgenes ni valuaciones persistidas.
+- Backups: retención por capacidad con cadenas recuperables, copia verificada a disco extraíble futuro, instalación limpia sin falla intermitente por colisión de subred.
+
+### Criterios que siguen pendientes (no marcar como Finalizados)
+
+- **Hardware real (no hay acceso al servidor):** cantidad de discos, prueba en el disco definitivo y en un extraíble físico, arranque sin sesión, convivencia con la VM del ERP antiguo, Tailscale y firewall con cliente real.
+- **E2E en CI:** el paso nuevo corre por primera vez en esta PR; hasta ver verde el job `test` no se considera verificado en CI.
+- **Sin prueba de punta a punta:** `ConfirmarVentaCreditoAsync` completo con razón nueva (se probó la revalidación y el gate por separado); conversión de cotización y simulador con el invariante (comparten código con Create); concurrencia SQL Server de dos autorizaciones parciales; lector de pantalla; botón «Exportar a Excel» de Valoración.
+- **Decisión del propietario:** rechazar `NoViable`/`PendienteRequisitos` dentro del servicio de confirmación (hoy vive en el controller, como en `main`); en una venta sin editor registrado, quien autorizó una razón no puede autorizar después las referencias en otro acto.
+- **Contador:** valuación fiscal, método oficial de costeo, ajuste por inflación y efecto en márgenes históricos.
+- **D-03 (tanda aparte):** todo lo indicado arriba; el pago con cheques propios queda sin implementar hasta resolverlo expresamente.
