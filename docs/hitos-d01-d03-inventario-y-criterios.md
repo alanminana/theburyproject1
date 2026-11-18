@@ -351,3 +351,17 @@ Limitaciones: el cálculo se rehace en cada consulta desde el Kardex (no hay cos
 3. **Ajuste por inflación** del costo de las existencias.
 4. **Efecto en márgenes históricos y precios**: si el costo de la venta o de las listas pasara a ser el promedio, cambiarían los márgenes ya registrados y los precios sugeridos de D-01; requiere decidir si se recalcula, desde qué fecha y con qué tratamiento de lo ya vendido.
 5. Tratamiento de fletes, impuestos no recuperables, descuentos y moneda extranjera dentro del costo de compra.
+
+## 13. Revisión independiente de Codex (2026-11-18) y validación de cierre del tramo D-01/D-02/costeo/backups
+
+Dos trabajos de Codex en solo lectura (`adversarial-review`; hash del worktree idéntico antes y después). Hallazgos y disposición:
+
+| # | Sev. | Hallazgo | Disposición |
+|---|---|---|---|
+| 1 | alta | La excepción de referencias sobrevivía a un cambio de monto si en ese momento las referencias alcanzaban; al faltar de nuevo, volvía a valer para un monto nunca autorizado (`VentaService.AplicarAutorizacionDeReferenciasEnEdicion`) | **Confirmado y corregido**: se retira la razón de lo autorizado al cambiar el monto. Regresión `Editar_AutorizarCompletarReferenciasCambiarMontoYRetirarlas_...`; con la corrección anulada la prueba falla (verificado por mutación) |
+| 2 | alta | La retención por capacidad podía borrar el único tar de archivos si había dos fulls SQL sueltos posteriores (`lib-capacity.sh`) | **Confirmado y corregido**: la última cadena con conjunto de archivos acreditado nunca se borra |
+| 3 | alta | (re-revisión) un tar interrumpido (sin checksum, manifiesto o `.caseal`) podía desplazar esa protección | **Confirmado y corregido**: solo acredita tar + `.sha256` + manifiesto (+ `.caseal` con `BACKUP_CA_KEY=seal`); línea `P\|idx` en `bk_chains` |
+
+Pruebas tras las correcciones: `test-retention-capacity.sh` 89/89 (sintético) y 105/105 con SQL Server real (`--db`); `test-hardening.sh` 81/81; `test-host-portability.sh` 9/9; con la corrección 2 anulada fallan exactamente las 2 pruebas nuevas. Suite .NET completa previa a las correcciones: 8657 correctas, 0 fallos, 238 omitidas; tras las correcciones, 291/291 en referencias, autorización y conversión. Concurrencia en SQL Server real (contenedor descartable): `ListaPrecioPrecioManualSqlServerTests` + `CuentaPorPagarSqlServerTests` 14/14.
+
+La corrección del hallazgo 3 **no** tuvo una tercera revisión de Codex (presupuesto de dos revisiones finales por tanda).
