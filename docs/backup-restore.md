@@ -239,7 +239,17 @@ nombre no es evidencia de cadena LSN, por eso la poda de logs es conservadora (s
 
 ### 8.2 Retención por capacidad y disco extraíble (2026-11-15)
 
-Decisión del propietario: los backups irán a un **segundo disco rígido interno** y, más adelante, a un **disco extraíble**. La retención por días (§8) no
+Estado de la suposición de hardware: **no está confirmado** que el servidor definitivo tenga un segundo disco interno. El mecanismo es **independiente de cuántos discos haya**:
+opera sobre el directorio `BACKUP_DIR` (y, si se define, sobre `BACKUP_REMOVABLE_DIR`) y mide el espacio del volumen donde está cada uno. Según el escenario:
+
+| Escenario | Qué configurar | Riesgo que sigue abierto |
+|---|---|---|
+| Hay un segundo disco interno dedicado | `BACKUP_DIR` en ese disco; `BACKUP_MAX_TOTAL_GB` ≈ 80 % de su capacidad | un solo servidor: no cubre robo, incendio ni fallo del equipo |
+| **Un solo disco** (backups en el mismo volumen que SQL Server y Docker) | `BACKUP_MIN_FREE_GB` (p. ej. 20–30 GB) en lugar de un tope total, porque el volumen se comparte con la base y las imágenes | **un fallo de ese disco pierde la base y todas sus copias a la vez**: el disco extraíble (o cualquier destino físicamente separado) pasa de «futuro» a **necesario** |
+| Disco extraíble | `BACKUP_REMOVABLE_DIR` + marca; cifrar el disco si sale del servidor | depende de que alguien lo conecte y lo rote |
+
+No se contratan servicios cloud de backups (decisión del propietario), así que sin un destino físicamente separado la recuperación ante la pérdida del disco no está garantizada.
+Con los valores por defecto (`0`) la retención por capacidad no hace nada. La retención por días (§8) no
 acota el uso de disco: si los backups crecen o se acumulan, el disco se llena y `BACKUP DATABASE` falla. La retención **por capacidad** lo acota
 (`scripts/backup/lib-capacity.sh`; la corre `backup.sh` tras la retención por días y puede correrse sola con `retention-capacity.sh`).
 
@@ -321,7 +331,7 @@ reales (full + logs + tar + manifiesto, manifiesto vs fecha, huérfanos, incompl
 peligrosas, enlaces simbólicos, lock, extraíble ausente/presente/atrasado/corrupto/chico. Con `--db` (SQL Server real descartable, proyecto Compose `bury-bkcap-<rand>`):
 4 cadenas reales (full + log) generadas por `backup.sh`, el tope borra **solo** la más antigua, **restore real** (`restore-sql.sh` con logs) del full más antiguo que queda
 y del más nuevo, exit 7 + estado del monitor con tope imposible, restore de la última cadena tras la falla, y copia al extraíble por el contenedor `backup-files`.
-**No probado**: el disco interno real (rendimiento, permisos definitivos); un disco extraíble físico (hot-plug, suspensión USB, NTFS/exFAT: sin `chmod`, lo copiado queda
+**No probado**: el disco definitivo del servidor, sea interno dedicado o compartido (rendimiento, permisos); un disco extraíble físico (hot-plug, suspensión USB, NTFS/exFAT: sin `chmod`, lo copiado queda
 accesible a quien monte el disco; **cifrar el disco** con BitLocker/LUKS si sale del servidor); ni la interacción con la copia externa real (la capacidad no mira el remoto:
 su retención es la de §8.1). La capacidad suma archivos por nombre y tamaño; no es un contador de uso del filesystem (usar `BACKUP_MIN_FREE_GB` si el disco se comparte).
 
@@ -487,7 +497,7 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 - Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba). En Windows las tareas
   las crea `install-windows.ps1` (usan `.env`, así que la configuración del overlay de 6.2 también aplica).
 - Permisos verificados en Linux (VM de Docker), no en el disco definitivo del servidor.
-- **Retención por capacidad y disco extraíble (2026-11-15, §8.2)**: implementadas y ensayadas con cadenas sintéticas y con SQL Server real descartable. Pendiente: probarlas en el disco interno definitivo y con un extraíble físico; fijar `BACKUP_MAX_TOTAL_GB`/`BACKUP_MIN_FREE_GB` según el tamaño real del disco; cifrar el extraíble si sale del servidor.
+- **Retención por capacidad y disco extraíble (2026-11-15, §8.2)**: implementadas y ensayadas con cadenas sintéticas y con SQL Server real descartable. Pendiente: confirmar con cuántos discos contará el servidor (§8.2, tabla de escenarios); probarlas en el disco definitivo y con un extraíble físico; fijar `BACKUP_MAX_TOTAL_GB`/`BACKUP_MIN_FREE_GB` según el tamaño real; cifrar el extraíble si sale del servidor.
 - El aviso activo ante fallos depende del monitor (`docs/monitoreo-alertas.md`); sin él, un `exit 6` solo queda en `backup.log` y `monitor-status/`.
 - Sin retención "mensual/anual": si se necesita histórico largo, definirla (p. ej. conservar el full del día 1 de cada mes).
 - El backup no incluye `.env`/`backup-offsite.env`: mantener su copia manual y actualizada.

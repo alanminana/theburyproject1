@@ -36,6 +36,12 @@
     };
 }
 
+<style>
+    @@media (min-width: 768px) {
+        .vsg-col-producto { min-width: 14rem; max-width: 20rem; }
+    }
+</style>
+
 <h1 class="sr-only">Valoración de stock (gerencial)</h1>
 
 <section class="card-erp-panel mb-4 p-4" aria-labelledby="vsg-titulo">
@@ -147,19 +153,19 @@
                         <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Stock</th>
                         <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Costo promedio</th>
                         <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Último costo</th>
-                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Valor gerencial</th>
-                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Dif. vs último costo</th>
-                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cálculo</th>
+                        <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Valor gerencial / dif. vs último</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">
                     @foreach (var i in Model.Items)
                     {
                         <tr class="transition-colors hover:bg-slate-800/50">
-                            <td class="px-3 py-2.5">
-                                <span class="block font-bold text-primary">@i.Codigo</span>
+                            <td class="px-3 py-2.5 vsg-col-producto">
+                                <span class="block whitespace-nowrap font-bold text-primary">@i.Codigo</span>
                                 <span class="block text-sm">@i.Nombre</span>
                                 <span class="block text-xs text-slate-400">@i.Categoria · @i.Marca</span>
+                                <span class="@BadgeClase(i.Estado) mt-1.5">@ValoracionStockGerencialService.EtiquetaEstado(i.Estado)</span>
+                                <span class="mt-1 block text-xs text-slate-400">@i.Observacion</span>
                             </td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">@Cantidad(i.StockActual)</td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">@Costo(i.CostoPromedioPonderado)</td>
@@ -183,11 +189,10 @@
                                 {
                                     <span class="text-slate-500">—</span>
                                 }
-                            </td>
-                            <td class="px-3 py-2.5 text-right whitespace-nowrap">@Total(i.DiferenciaVsUltimoCosto)</td>
-                            <td class="px-3 py-2.5">
-                                <span class="@BadgeClase(i.Estado) whitespace-nowrap">@ValoracionStockGerencialService.EtiquetaEstado(i.Estado)</span>
-                                <span class="mt-1 block max-w-xs text-xs text-slate-400">@i.Observacion</span>
+                                @if (i.DiferenciaVsUltimoCosto.HasValue)
+                                {
+                                    <span class="block text-xs font-normal text-slate-400" title="Valor a último costo menos valor gerencial">dif. @Total(i.DiferenciaVsUltimoCosto)</span>
+                                }
                             </td>
                         </tr>
                     }
