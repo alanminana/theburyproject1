@@ -2246,6 +2246,20 @@
         return data && data.cupoEvaluado === false ? 'sin validar' : formatCurrency(data.cupoDisponible);
     }
 
+    // D-02: el backend (IClienteAptitudService) decide si las referencias verificadas alcanzan; acá sólo se muestra
+    // «verificadas de requeridas» y el enlace a la sección de referencias del cliente.
+    function referenciasFaltan(data) {
+        return !!data?.referencias && data.referencias.evaluada === true && data.referencias.cumple === false;
+    }
+
+    function referenciasHtml(data) {
+        if (!referenciasFaltan(data)) return '';
+        const r = data.referencias;
+        const url = typeof r.url === 'string' && r.url.startsWith('/') ? r.url : '';
+        const enlace = url ? ` <a href="${esc(url)}" class="aptitud-card__enlace">Ver referencias del cliente</a>` : '';
+        return `<p class="aptitud-card__resumen" data-cotizacion-referencias>Referencias verificadas: ${esc(String(r.verificadas))} de ${esc(String(r.requeridas))} requeridas. La venta va a requerir la autorización de un segundo usuario.${enlace}</p>`;
+    }
+
     function aptitudTone(data) {
         if (!data) return null;
         if (data.estado === 'RequiereAutorizacion') return 'requiere-autorizacion';
@@ -2383,6 +2397,7 @@
         if (data.mora?.tiene && Number(data.mora.dias) > 0) resumenPartes.push(`Mora ${data.mora.dias} ${Number(data.mora.dias) === 1 ? 'día' : 'días'}`);
         const faltantesCount = Array.isArray(data.documentacion?.faltantes) ? data.documentacion.faltantes.length : 0;
         if (faltantesCount > 0) resumenPartes.push(`${faltantesCount} documento${faltantesCount === 1 ? '' : 's'} faltante${faltantesCount === 1 ? '' : 's'}`);
+        if (referenciasFaltan(data)) resumenPartes.push(`Referencias verificadas ${data.referencias.verificadas} de ${data.referencias.requeridas}`);
         const resumenLinea = resumenPartes.length ? resumenPartes.join(' · ') : (motivos[0] || '');
 
         // Prioridad 1: RequiereAutorizacion NO es un bloqueo — Venta va a pedir autorización
@@ -2405,6 +2420,7 @@
                             ${data.excedeCupo === true ? `<dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>` : ''}
                         </dl>
                         ${motivosHtml}
+                        ${referenciasHtml(data)}
                     </details>
                 </div>`;
             return;
@@ -2422,6 +2438,7 @@
                         ${data.cupoEvaluado === false ? '' : `<dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>`}
                     </dl>
                     ${motivosHtml}
+                    ${referenciasHtml(data)}
                 </details>
             </div>`;
     }

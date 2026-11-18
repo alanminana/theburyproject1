@@ -122,6 +122,15 @@ namespace TheBuryProject.ViewModels
         public decimal? ValorLimite { get; set; }
 
         /// <summary>
+        /// D-02: esta razón ya fue autorizada de forma expresa. Cada razón se autoriza por separado; la venta solo pasa a
+        /// Autorizada cuando todas las razones presentes lo están. Sin este dato (JSON anterior) la razón cuenta como no autorizada.
+        /// </summary>
+        public bool Autorizada { get; set; }
+        public string? AutorizadaPor { get; set; }
+        public DateTime? FechaAutorizacion { get; set; }
+        public string? MotivoAutorizacion { get; set; }
+
+        /// <summary>
         /// Texto legible del tipo de razón para mostrar en pantallas de autorización.
         /// </summary>
         public string TipoDisplay => Tipo switch
@@ -132,6 +141,7 @@ namespace TheBuryProject.ViewModels
             TipoRazonAutorizacion.ExcedeUmbralRol => "Excede umbral del rol",
             TipoRazonAutorizacion.ClienteRequiereAutorizacion => "Cliente requiere autorización",
             TipoRazonAutorizacion.Punitorio => "Punitorio aplicado pendiente",
+            TipoRazonAutorizacion.ReferenciasInsuficientes => "Referencias verificadas insuficientes",
             _ => Tipo.ToString()
         };
     }
@@ -187,7 +197,13 @@ namespace TheBuryProject.ViewModels
         /// combinado con mora de capital/otra causa bloqueante, se informa como razón
         /// adicional sin duplicar el bloqueo.
         /// </summary>
-        Punitorio = 6
+        Punitorio = 6,
+
+        /// <summary>
+        /// D-02: el cliente no alcanza el mínimo de referencias verificadas. Sólo la autoriza un segundo usuario con
+        /// ventas.authorize (nunca el creador de la venta) y nunca levanta un bloqueo de otra categoría.
+        /// </summary>
+        ReferenciasInsuficientes = 7
     }
 
     /// <summary>

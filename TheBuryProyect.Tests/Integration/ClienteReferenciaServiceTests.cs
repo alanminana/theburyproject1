@@ -285,6 +285,37 @@ public class ClienteReferenciaServiceTests : IDisposable
         Assert.Contains("propio cliente", error);
     }
 
+    [Theory]
+    [InlineData("341 555-4000")]        // tal cual
+    [InlineData("0341 5554000")]        // con 0 de acceso
+    [InlineData("+54 9 341 5554000")]   // con prefijo internacional y 9
+    public async Task Crear_ConTelefonoDelConyuge_SeRechaza(string telefono)
+    {
+        var cliente = await SeedClienteAsync();
+        var entidad = await _context.Clientes.SingleAsync(c => c.Id == cliente.Id);
+        entidad.ConyugeTelefono = "341 555-4000";
+        await _context.SaveChangesAsync();
+
+        var (ok, error, _) = await _service.CrearAsync(cliente.Id, Modelo(telefono: telefono), "operador");
+
+        Assert.False(ok);
+        Assert.Contains("cónyuge", error);
+    }
+
+    [Fact]
+    public async Task Editar_ATelefonoDelConyuge_SeRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var (_, _, id) = await _service.CrearAsync(cliente.Id, Modelo(), "operador");
+        var entidad = await _context.Clientes.SingleAsync(c => c.Id == cliente.Id);
+        entidad.ConyugeTelefono = "341 555-4000";
+        await _context.SaveChangesAsync();
+
+        var (ok, _) = await _service.EditarAsync(cliente.Id, id!.Value, await ConRvAsync(id.Value, Modelo(telefono: "341 555-4000")), "operador");
+
+        Assert.False(ok);
+    }
+
     [Fact]
     public async Task Editar_ATelefonoDelPropioCliente_SeRechaza()
     {

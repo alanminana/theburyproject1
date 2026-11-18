@@ -1154,6 +1154,43 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ListaPrecioGerenteUserId, "test-lista-precio-gerente-role-id", "TestListaPrecioGerenteRole", 9490,
             "precios.view", "precios.apply", "precios.history", "productos.view");
 
+    public const string PreciosSimularAprobarUserId = "test-precios-sim-apr-id";
+    public const string PreciosSimularAplicarUserId = "test-precios-sim-apl-id";
+    public const string PreciosAprobarAplicarUserId = "test-precios-apr-apl-id";
+
+    /// <summary>D-01 R-14: simular + aprobar, sin aplicar.</summary>
+    public Task SeedUserWithPreciosSimularAprobarAsync() =>
+        SeedPermissionUserAsync(
+            PreciosSimularAprobarUserId, "test-precios-sim-apr-role-id", "TestPreciosSimAprRole", 9970,
+            "precios.view", "precios.simulate", "precios.approve", "productos.view");
+
+    /// <summary>D-01 R-14: simular + aplicar, sin aprobar.</summary>
+    public Task SeedUserWithPreciosSimularAplicarAsync() =>
+        SeedPermissionUserAsync(
+            PreciosSimularAplicarUserId, "test-precios-sim-apl-role-id", "TestPreciosSimAplRole", 9980,
+            "precios.view", "precios.simulate", "precios.apply", "productos.view");
+
+    /// <summary>D-01 R-14: aprobar + aplicar, sin simular.</summary>
+    public Task SeedUserWithPreciosAprobarAplicarAsync() =>
+        SeedPermissionUserAsync(
+            PreciosAprobarAplicarUserId, "test-precios-apr-apl-role-id", "TestPreciosAprAplRole", 9990,
+            "precios.view", "precios.approve", "precios.apply", "productos.view");
+
+    public const string ValoracionStockLectorUserId = "test-valoracion-stock-lector-id";
+    public const string ValoracionStockSinPermisoUserId = "test-valoracion-stock-sin-permiso-id";
+
+    /// <summary>R-03: solo valoracionstock.view.</summary>
+    public Task SeedUserWithValoracionStockLectorAsync() =>
+        SeedPermissionUserAsync(
+            ValoracionStockLectorUserId, "test-valoracion-stock-lector-role-id", "TestValoracionStockLectorRole", 10000,
+            "valoracionstock.view");
+
+    /// <summary>R-03: todo lo de stock y reportes pero SIN valoracionstock.view.</summary>
+    public Task SeedUserWithValoracionStockSinPermisoAsync() =>
+        SeedPermissionUserAsync(
+            ValoracionStockSinPermisoUserId, "test-valoracion-stock-sin-permiso-role-id", "TestValoracionStockSinPermisoRole", 10100,
+            "stock.view", "stock.viewkardex", "movimientos.view", "reportes.view", "reportes.stock", "productos.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

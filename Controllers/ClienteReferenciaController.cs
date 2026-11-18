@@ -7,7 +7,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     /// <summary>
-    /// D-02: referencias informativas de un cliente (no afectan aptitud ni límite de crédito).
+    /// D-02: referencias de un cliente. Las verificadas cuentan contra el mínimo configurable para otorgar crédito personal sin autorización (la regla vive en ClienteAptitudService); no cambian el límite.
     /// Lectura con clientes.view; alta, edición, baja y verificación con clientes.edit.
     /// El id de la referencia siempre se resuelve dentro del cliente indicado (aislamiento entre clientes).
     /// </summary>

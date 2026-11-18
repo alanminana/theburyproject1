@@ -15,5 +15,6 @@ namespace TheBuryProject.ViewModels
         string ConfirmText,
         string ConfirmIcon,
         string ConfirmButtonClass,
-        string? RequiredCheckText = null);
+        string? RequiredCheckText = null,
+        IReadOnlyList<RazonAutorizacion>? RazonesPendientes = null);
 }

@@ -1499,7 +1499,7 @@ namespace TheBuryProject.Controllers
         [HttpPost, ActionName("Autorizar")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionAutorizar)]
-        public async Task<IActionResult> AutorizarConfirmed(int id, string motivo)
+        public async Task<IActionResult> AutorizarConfirmed(int id, string motivo, int[]? razones = null)
         {
             try
             {
@@ -1509,12 +1509,36 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Autorizar), new { id });
                 }
 
+                // D-02: cada razón se autoriza de forma expresa. Un tipo que no existe nunca llega al servicio como valor válido.
+                IReadOnlyCollection<TipoRazonAutorizacion>? tiposAutorizados = null;
+                if (razones != null && razones.Length > 0)
+                {
+                    if (razones.Any(r => !Enum.IsDefined(typeof(TipoRazonAutorizacion), r)))
+                    {
+                        TempData["Error"] = "La lista de razones a autorizar no es válida.";
+                        return RedirectToAction(nameof(Autorizar), new { id });
+                    }
+
+                    tiposAutorizados = razones.Select(r => (TipoRazonAutorizacion)r).ToList();
+                }
+
                 var usuarioAutoriza = _currentUser.GetUsername();
 
-                var resultado = await _ventaService.AutorizarVentaAsync(id, usuarioAutoriza, motivo);
+                var resultado = await _ventaService.AutorizarVentaAsync(id, usuarioAutoriza, motivo, tiposAutorizados);
                 if (resultado)
                 {
-                    TempData["Success"] = "Venta autorizada exitosamente";
+                    var actual = await _ventaService.GetByIdAsync(id);
+                    var faltan = actual?.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion
+                        ? actual.RazonesAutorizacion.Where(r => !r.Autorizada).Select(r => r.TipoDisplay).ToList()
+                        : new List<string>();
+                    if (faltan.Count > 0)
+                    {
+                        TempData["Success"] = "Se registró la autorización de las razones indicadas. La venta sigue pendiente: falta autorizar " + string.Join("; ", faltan) + ".";
+                    }
+                    else
+                    {
+                        TempData["Success"] = "Venta autorizada exitosamente";
+                    }
                 }
                 else
                 {

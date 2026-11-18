@@ -1223,7 +1223,24 @@ else
                         </button>
                     }
                 </div>
-                <p class="text-xs muted mb-3">Referencias personales, laborales y comerciales. Son informativas: no modifican la aptitud ni el límite de crédito del cliente.</p>
+                <p class="text-xs muted mb-3">Referencias personales, laborales y comerciales. Para otorgar crédito personal se exige un mínimo de referencias verificadas; si faltan, la venta requiere la autorización de un segundo usuario. No cambian el límite de crédito.</p>
+                @if (apt?.Referencias is { } refCredito)
+                {
+                    var refCumple = refCredito.Cumple;
+                    <p id="referencias-resumen" class="text-sm mb-3 flex items-center gap-2" style="flex-wrap:wrap" role="status" aria-live="polite"
+                       data-requeridas="@(refCredito.Evaluada ? refCredito.Requeridas : 0)" data-evaluada="@(refCredito.Evaluada ? "true" : "false")">
+                        @if (!refCredito.Evaluada)
+                        {
+                            <span class="chip chip-warn"><span class="material-symbols-outlined" aria-hidden="true">info</span>Regla desactivada</span>
+                            <span class="muted" data-referencias-resumen-texto>La configuración no exige referencias verificadas para otorgar crédito personal.</span>
+                        }
+                        else
+                        {
+                            <span class="chip @(refCumple ? "chip-ok" : "chip-warn")" data-referencias-resumen-chip><span class="material-symbols-outlined" aria-hidden="true">@(refCumple ? "task_alt" : "warning")</span><span data-referencias-resumen-chip-texto>@(refCumple ? "Cumple" : "No alcanza")</span></span>
+                            <span data-referencias-resumen-texto>Referencias verificadas: <strong data-referencias-verificadas>@refCredito.Verificadas</strong> de <strong>@refCredito.Requeridas</strong> requeridas para crédito personal.</span>
+                        }
+                    </p>
+                }
                 <div id="referenciasMensaje" class="hidden alert" role="status" aria-live="polite" style="margin-bottom:.75rem"></div>
                 <div id="referenciasLista">
                     @await Component.InvokeAsync("ClienteReferencias", new { clienteId = c.Id })

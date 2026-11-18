@@ -935,6 +935,12 @@ internal sealed class StubClienteAptitudService : IClienteAptitudService
 
     public Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model)
         => Task.CompletedTask;
+
+    public Task<ReferenciasCreditoViewModel> GetReferenciasCreditoAsync()
+        => Task.FromResult(new ReferenciasCreditoViewModel());
+
+    public Task UpdateReferenciasCreditoAsync(ReferenciasCreditoViewModel model)
+        => Task.CompletedTask;
 }
 
 // ---------------------------------------------------------------------------

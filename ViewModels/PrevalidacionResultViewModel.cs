@@ -219,7 +219,13 @@ namespace TheBuryProject.ViewModels
         /// capital, ver <see cref="TheBuryProject.ViewModels.AptitudMoraDetalle"/>). Nunca
         /// <see cref="Mora"/> — evita que la UI lo etiquete como mora de capital.
         /// </summary>
-        Punitorio = 6
+        Punitorio = 6,
+
+        /// <summary>
+        /// D-02: referencias verificadas del cliente por debajo del mínimo configurado. No bloquea por sí sola:
+        /// requiere la autorización de un segundo usuario.
+        /// </summary>
+        Referencias = 7
     }
 
     /// <summary>

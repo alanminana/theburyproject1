@@ -152,6 +152,24 @@ namespace TheBuryProject.Services
                 EvaluarSegunEstadoAptitud(evaluacion, aptitud);
             }
 
+            // 4b. D-02: referencias verificadas insuficientes. Es razón de autorización, nunca bloqueo: si el resultado ya es
+            // NoViable (mora, BCRA, cupo, documentación) se informa pero NO lo levanta; si era Aprobable (incluida la
+            // rama de edición que reevalúa el cupo) pasa a RequiereAutorizacion.
+            if (aptitud.ConfiguracionCompleta
+                && aptitud.Referencias.Evaluada
+                && !aptitud.Referencias.Cumple
+                && !evaluacion.Problemas.Any(p => p.Categoria == CategoriaMotivo.Referencias))
+            {
+                var problemaReferencias = new ProblemaCredito();
+                AplicarProblemaReferencias(problemaReferencias, clienteId, aptitud.Referencias.Mensaje);
+                evaluacion.Problemas.Add(problemaReferencias);
+
+                if (evaluacion.Resultado == ResultadoPrevalidacion.Aprobable)
+                {
+                    evaluacion.Resultado = ResultadoPrevalidacion.RequiereAutorizacion;
+                }
+            }
+
             // 5. Verificar cupo para el monto específico (si no es NoViable)
             if (!evaluacion.EsNoViable)
             {
@@ -400,6 +418,25 @@ namespace TheBuryProject.Services
             // marca EsBloqueo=false, PUN-ML10-C regla 4), pero se informa como deuda adicional sin
             // duplicar bloqueo ni autorización: el resultado ya quedó NoViable arriba y este motivo
             // se agrega sólo como razón informativa adicional.
+            // Mismo criterio para la mora NO bloqueante: si la causa bloqueante se exceptúa (documentación/cupo), la mora sigue
+            // siendo una razón que necesita su propia autorización; no puede perderse por estar el cliente NoApto por otra causa.
+            foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria == "Mora"))
+            {
+                evaluacion.Problemas.Add(new ProblemaCredito
+                {
+                    Categoria = CategoriaMotivo.Mora,
+                    Titulo = "Mora no bloqueante",
+                    Descripcion = detalle.Descripcion,
+                    AccionSugerida = "Supervisor debe autorizar venta",
+                    DetalleAdicional = detalle.Descripcion,
+                    EsBloqueante = false,
+                    TipoRazon = TipoRazonAutorizacion.MoraActiva,
+                    DiasAsociado = aptitud.Mora?.DiasMaximoMora,
+                    ValorAsociado = aptitud.Mora?.DiasMaximoMora,
+                    Unidad = UnidadValorAsociado.Dias
+                });
+            }
+
             foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria == "Punitorio"))
             {
                 evaluacion.Problemas.Add(new ProblemaCredito
@@ -418,6 +455,25 @@ namespace TheBuryProject.Services
                     Unidad = UnidadValorAsociado.Monto
                 });
             }
+        }
+
+        /// <summary>
+        /// D-02: describe el faltante de referencias como razón de autorización (nunca como bloqueo). La autoridad es
+        /// <c>ClienteAptitudService</c>; acá sólo se traduce a la presentación de crédito.
+        /// </summary>
+        private const string DetalleExcepcionReferencias =
+            "La autoriza un segundo usuario con permiso de autorizar ventas y vale solo para esta venta";
+
+        private static void AplicarProblemaReferencias(ProblemaCredito problema, int clienteId, string descripcion)
+        {
+            problema.Categoria = CategoriaMotivo.Referencias;
+            problema.Titulo = "Referencias verificadas insuficientes";
+            problema.Descripcion = descripcion;
+            problema.AccionSugerida = "Verificar las referencias del cliente o pedir la autorización de un segundo usuario con permiso de autorizar ventas";
+            problema.UrlAccion = $"/Cliente/Details/{clienteId}#referencias-card";
+            problema.DetalleAdicional = DetalleExcepcionReferencias;
+            problema.EsBloqueante = false;
+            problema.TipoRazon = TipoRazonAutorizacion.ReferenciasInsuficientes;
         }
 
         private void EvaluarClienteRequiereAutorizacionUnificado(
@@ -463,6 +519,10 @@ namespace TheBuryProject.Services
                         problema.MontoAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;
                         problema.ValorAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;
                         problema.Unidad = UnidadValorAsociado.Monto;
+                        break;
+
+                    case "Referencias":
+                        AplicarProblemaReferencias(problema, evaluacion.ClienteId, detalle.Descripcion);
                         break;
 
                     default:
@@ -764,6 +824,45 @@ namespace TheBuryProject.Services
             {
                 resultado.NoViable          = true;
                 resultado.PendienteRequisitos = true;
+            }
+
+            // Razones de autorización NO bloqueantes vigentes hoy (mora no bloqueante, punitorio pendiente, revisión del cliente):
+            // la confirmación debe exigir que cada una tenga su autorización expresa, no solo el estado global de la venta.
+            // El cupo no se revalida acá (ya fue comprometido) y las referencias se agregan abajo con su propia razón.
+            // Se conservan aunque coexista un bloqueo (p. ej. documentación vencida): una razón vigente nunca se pierde.
+            foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria != "Cupo" && d.Categoria != "Referencias"))
+            {
+                var tipo = detalle.Categoria switch
+                {
+                    "Mora" => TipoRazonAutorizacion.MoraActiva,
+                    "Punitorio" => TipoRazonAutorizacion.Punitorio,
+                    _ => TipoRazonAutorizacion.ClienteRequiereAutorizacion
+                };
+                if (resultado.RazonesAutorizacion.Any(r => r.Tipo == tipo))
+                {
+                    continue;
+                }
+
+                resultado.RequiereAutorizacion = true;
+                resultado.RazonesAutorizacion.Add(new RazonAutorizacion
+                {
+                    Tipo = tipo,
+                    Descripcion = detalle.Descripcion,
+                    DetalleAdicional = detalle.Descripcion
+                });
+            }
+
+            // D-02: en la confirmación también se revalida el mínimo de referencias (pudieron darse de baja o dejar de
+            // estar verificadas desde que se armó la venta). Es razón de autorización, no bloqueo.
+            if (aptitud.Referencias.Evaluada && !aptitud.Referencias.Cumple)
+            {
+                resultado.RequiereAutorizacion = true;
+                resultado.RazonesAutorizacion.Add(new RazonAutorizacion
+                {
+                    Tipo = TipoRazonAutorizacion.ReferenciasInsuficientes,
+                    Descripcion = aptitud.Referencias.Mensaje,
+                    DetalleAdicional = DetalleExcepcionReferencias
+                });
             }
 
             return resultado;

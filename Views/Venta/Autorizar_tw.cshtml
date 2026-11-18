@@ -38,7 +38,7 @@
                 <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-500">Autorización requerida</p>
                 <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white">Autorizar venta</h1>
                 <p class="max-w-2xl text-sm text-slate-400">
-                    Revisá el detalle de la operación antes de autorizar. Ingresá el motivo o referencia de aprobación.
+                    Revisá el detalle de la operación antes de autorizar. Cada razón se autoriza de forma expresa; ingresá el motivo o referencia de aprobación.
                 </p>
             </div>
         </div>
@@ -58,6 +58,27 @@
             </div>
         </div>
     </section>
+
+    @if (Model.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes))
+    {
+        var razonReferencias = Model.RazonesAutorizacion.First(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        <section class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5" role="note" data-venta-autorizar-referencias>
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined mt-0.5 text-amber-400" aria-hidden="true">contacts</span>
+                <div class="space-y-1">
+                    <p class="text-sm font-bold text-amber-300">Excepción por referencias insuficientes</p>
+                    <p class="text-sm text-amber-200/90">
+                        @razonReferencias.Descripcion. Esta excepción vale solo para esta venta y debe autorizarla un segundo usuario con
+                        permiso de autorizar ventas, distinto de quien la creó. Se confirma de forma separada y solo exime las referencias: no levanta la mora ni otros bloqueos de crédito.
+                    </p>
+                    @if (Model.ClienteId > 0)
+                    {
+                        <a class="text-sm font-semibold text-amber-300 underline" href="@Url.Action("Details", "Cliente", new { id = Model.ClienteId })#referencias-card">Ver referencias del cliente</a>
+                    }
+                </div>
+            </div>
+        </section>
+    }
 
     <section class="grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
 
@@ -126,6 +147,8 @@
 
             <form asp-action="Autorizar" asp-route-id="@Model.Id" method="post" class="mt-4 flex flex-col gap-3">
                 @Html.AntiForgeryToken()
+
+                <partial name="_VentaAutorizarRazones" model="Model.RazonesAutorizacion" view-data="@(new ViewDataDictionary(ViewData) { { "prefijo", "autorizar" } })" />
 
                 <div>
                     <label for="motivo" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">

@@ -11,7 +11,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 # --- sintaxis -------------------------------------------------------------------------------------------------------------
-for f in lib.sh backup.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh check-custody.sh rotate-crypt.sh test-hardening.sh test-offsite-sftp.sh test-key-rotation.sh test-dr-integral.sh; do
+for f in lib.sh backup.sh lib-capacity.sh retention-capacity.sh copy-removable.sh restore-test.sh restore-sql.sh restore-files.sh fetch-offsite.sh prepare-dir.sh install-schedule.sh check-custody.sh rotate-crypt.sh test-hardening.sh test-offsite-sftp.sh test-key-rotation.sh test-dr-integral.sh; do
   check "bash -n $f" bash -n "$HERE/$f"
 done
 
@@ -177,7 +177,8 @@ grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
 check "test-retention-remote.sh ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0
 
 # --- P-06/P-07: custodia de claves y restore desde la copia externa (archivos propios) ---------------------------------------
-for t in test-check-custody.sh test-offsite-restore-test.sh; do
+# --- retencion por capacidad y copia al disco extraible (cadenas sinteticas, sin docker; con --db usa SQL Server real: ver el archivo) ---
+for t in test-check-custody.sh test-offsite-restore-test.sh test-retention-capacity.sh; do
   out=$(bash "$HERE/$t" 2>&1); rc=$?
   grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
   check "$t ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0

@@ -543,6 +543,8 @@ public class CreditoControllerSimularPlanVentaTests
 
         public Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync() => Task.FromResult(_semaforo);
         public Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model) => Task.CompletedTask;
+        public Task<ReferenciasCreditoViewModel> GetReferenciasCreditoAsync() => Task.FromResult(new ReferenciasCreditoViewModel());
+        public Task UpdateReferenciasCreditoAsync(ReferenciasCreditoViewModel model) => Task.CompletedTask;
 
         public Task<AptitudCrediticiaViewModel> EvaluarAptitudAsync(int clienteId, bool guardarResultado = true) => throw new NotImplementedException();
         public Task<AptitudCrediticiaViewModel> EvaluarAptitudSinGuardarAsync(int clienteId) => throw new NotImplementedException();

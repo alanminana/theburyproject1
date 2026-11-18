@@ -95,8 +95,24 @@ namespace TheBuryProject.Services.Interfaces
 
         // Autorización
         Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo);
+
+        /// <summary>
+        /// D-02: autoriza solo las razones indicadas (cada una de forma expresa). La venta pasa a Autorizada cuando todas sus
+        /// razones estan autorizadas. La implementacion por defecto delega en la sobrecarga sin razones (dobles de prueba).
+        /// </summary>
+        Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo, IReadOnlyCollection<TheBuryProject.ViewModels.TipoRazonAutorizacion>? razonesAutorizadas)
+            => AutorizarVentaAsync(id, usuarioAutoriza, motivo);
         Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo);
+
+        /// <summary>
+        /// D-02: gate de referencias verificadas para continuar una venta a crédito personal (configurar el crédito,
+        /// confirmar). Si el cliente no alcanza el mínimo, solo avanza con una autorización registrada que cubrió esa razón
+        /// (un segundo usuario con ventas.authorize); si no, lanza <see cref="InvalidOperationException"/> con el motivo.
+        /// No hace nada para ventas que no son crédito personal. La implementación real es <c>VentaService</c>; los dobles de
+        /// prueba heredan este no-op (nunca enmascara la regla: la fuente es la validación unificada).
+        /// </summary>
+        Task AsegurarReferenciasAutorizadasAsync(int ventaId) => Task.CompletedTask;
 
         // Métodos para datos adicionales
         Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta);

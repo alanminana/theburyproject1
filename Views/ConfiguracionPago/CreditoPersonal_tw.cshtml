@@ -508,6 +508,19 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="mt-6" id="referencias-credito">
+                    <h3 class="text-base font-semibold text-white">Referencias verificadas para otorgar crédito</h3>
+                    <p class="text-xs text-slate-400 mt-0.5 mb-3">Cantidad mínima de referencias del cliente en estado «Verificada». Si faltan, la venta o cotización a crédito personal requiere la autorización individual de un segundo usuario con permiso de autorizar ventas. No levanta mora, BCRA, cupo ni documentación. 0 desactiva la regla.</p>
+                    <div class="cp-card grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                        <div>
+                            <label asp-for="ReferenciasCredito.ReferenciasVerificadasMinimas" class="cp-label">Referencias verificadas mínimas</label>
+                            <input asp-for="ReferenciasCredito.ReferenciasVerificadasMinimas" type="number" step="1" min="0" max="10" inputmode="numeric" readonly="@(!puedeEditar)" class="cp-field" />
+                            <p class="cp-hint">Entre 0 y 10. Valor inicial: 1.</p>
+                            <span asp-validation-for="ReferenciasCredito.ReferenciasVerificadasMinimas" class="text-xs text-red-500"></span>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="s3" class="cp-section">

@@ -988,6 +988,8 @@ public sealed class ConfiguracionPagoControllerTests
         public Task UpdateScoringThresholdsAsync(ScoringThresholdsViewModel model) => Task.CompletedTask;
         public Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync() => Task.FromResult(new SemaforoFinancieroViewModel());
         public Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model) => Task.CompletedTask;
+        public Task<ReferenciasCreditoViewModel> GetReferenciasCreditoAsync() => Task.FromResult(new ReferenciasCreditoViewModel());
+        public Task UpdateReferenciasCreditoAsync(ReferenciasCreditoViewModel model) => Task.CompletedTask;
         public Task<bool> AsignarLimiteCreditoAsync(int clienteId, decimal limite, string? motivo = null) => throw new NotImplementedException();
         public Task<decimal> GetCupoDisponibleAsync(int clienteId) => throw new NotImplementedException();
         public Task<decimal> GetCreditoUtilizadoAsync(int clienteId) => throw new NotImplementedException();

@@ -96,6 +96,15 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model);
 
+        /// <summary>D-02: mínimo configurado de referencias verificadas (0 = desactivado).</summary>
+        Task<ReferenciasCreditoViewModel> GetReferenciasCreditoAsync();
+
+        /// <summary>
+        /// D-02: persiste el mínimo de referencias verificadas (0..10) con auditoría del cambio.
+        /// Lanza <see cref="ArgumentOutOfRangeException"/> fuera de rango.
+        /// </summary>
+        Task UpdateReferenciasCreditoAsync(ReferenciasCreditoViewModel model);
+
         #endregion
 
         #region Gestión de Límite de Crédito

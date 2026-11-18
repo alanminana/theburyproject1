@@ -1,7 +1,7 @@
 /* cliente-referencias.js — solapa "Referencias" de Cliente/Details (D-02).
    Alta, edición, verificación y baja lógica por JSON hacia /ClienteReferencia/*;
    el listado se vuelve a pedir como parcial server-rendered tras cada cambio.
-   Las referencias son informativas: no modifican aptitud ni límite de crédito. */
+   Las referencias verificadas se exigen (mínimo configurable) para otorgar crédito personal sin autorización; no modifican el límite. */
 (function () {
     'use strict';
 
@@ -51,6 +51,27 @@
         el.classList.add('hidden');
     }
 
+    // Solo presentación: el servidor decide si alcanzan (aptitud). Acá se refleja el conteo del listado recién traído para que el
+    // resumen no quede desactualizado hasta recargar la página; el backend revalida siempre en la venta.
+    function actualizarResumen() {
+        var resumen = $('referencias-resumen');
+        if (!resumen || resumen.getAttribute('data-evaluada') !== 'true') return;
+        var requeridas = parseInt(resumen.getAttribute('data-requeridas'), 10) || 0;
+        var verificadas = lista.querySelectorAll('[data-referencia-estado="2"]').length;
+        var cuenta = resumen.querySelector('[data-referencias-verificadas]');
+        if (cuenta) cuenta.textContent = String(verificadas);
+        var cumple = verificadas >= requeridas;
+        var chip = resumen.querySelector('[data-referencias-resumen-chip]');
+        if (chip) {
+            chip.classList.toggle('chip-ok', cumple);
+            chip.classList.toggle('chip-warn', !cumple);
+            var icono = chip.querySelector('.material-symbols-outlined');
+            if (icono) icono.textContent = cumple ? 'task_alt' : 'warning';
+            var texto = chip.querySelector('[data-referencias-resumen-chip-texto]');
+            if (texto) texto.textContent = cumple ? 'Cumple' : 'No alcanza';
+        }
+    }
+
     function recargarLista() {
         return fetch('/ClienteReferencia/Lista?clienteId=' + encodeURIComponent(clienteId()), { credentials: 'same-origin' })
             .then(function (r) {
@@ -60,6 +81,7 @@
             .then(function (html) {
                 lista.innerHTML = html;
                 enlazarLista();
+                actualizarResumen();
             })
             .catch(function () {
                 mostrarMensaje('No se pudo actualizar el listado. Recargá la página.', 'error');

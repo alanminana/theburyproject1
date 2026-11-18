@@ -10,16 +10,19 @@
 #   files  solo archivos (detiene `app` unos segundos).
 #
 # Codigos de salida: 0 ok | 1 uso/config | 2 BACKUP SQL fallo | 3 verificacion fallo | 4 ocupado | 5 archivos fallo |
-#                    6 copia externa fallo (incluye retencion remota) | 7 retencion local fallo | 8 prerequisito (docker/SQL) | 10 app no volvio healthy
+#                    6 copia externa fallo (incluye retencion remota) | 7 retencion local o POR CAPACIDAD fallo (disco insuficiente) | 8 prerequisito (docker/SQL) | 10 app no volvio healthy
 # Nunca imprime ni registra passwords ni credenciales del proveedor externo. Log: $BACKUP_DIR/logs/backup.log
 # Documentacion: docs/backup-restore.md
 # shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=lib-capacity.sh
+source "$BK_SCRIPT_DIR/lib-capacity.sh"
 
 MODE="${1:-all}"
 case "$MODE" in all|full|log|files) ;; -h|--help) sed -n '2,15p' "$0"; exit 0 ;; *) echo "modo invalido: $MODE (all|full|log|files)" >&2; exit $EX_USAGE ;; esac
 
 load_config
+load_capacity_config
 START=$(date +%s)
 # BACKUP_DIR debe existir antes de levantar `db` (prepare-dir.sh / install.sh). Si falta, se crea con el usuario actual y modo 700;
 # nunca se cambia el modo de un directorio que ya existe.
@@ -409,6 +412,22 @@ retention() {
   while IFS= read -r l; do log INFO "  $l"; done <<<"$out"
 }
 
+# ---------------------------------------------------------------- retencion por capacidad (lib-capacity.sh)
+# Tras la retencion por dias. Borra cadenas completas de la mas antigua a la mas nueva hasta cumplir BACKUP_MAX_TOTAL_GB / BACKUP_MIN_FREE_GB, sin bajar de
+# BACKUP_CAPACITY_MIN_CHAINS; si no alcanza: exit 7 + monitor-status/capacity.json (el monitor alerta). Sin limites configurados no hace nada.
+capacity_step() {
+  (( CAPACITY_ENABLED )) || return 0
+  local crc=0
+  log INFO "retencion por capacidad: tope=${MAX_TOTAL_BYTES}B libre_min=${MIN_FREE_BYTES}B min_cadenas=$CAPACITY_MIN_CHAINS"
+  capacity_run local 1 "$MAX_TOTAL_BYTES" "$MIN_FREE_BYTES" "$CAPACITY_MIN_CHAINS" || crc=$?
+  if (( crc )); then
+    capacity_status "$EX_RETENTION" false "disco insuficiente o fallo: $CAP_LAST"
+    fail $EX_RETENTION "retencion por capacidad: NO se cumple el limite aun conservando las cadenas minimas (disco insuficiente): ampliar el disco de backups o revisar BACKUP_MAX_TOTAL_GB/BACKUP_MIN_FREE_GB"
+    return 1
+  fi
+  capacity_status 0 true "ok: $CAP_LAST"
+}
+
 # ---------------------------------------------------------------- orquestacion
 need_stop=0
 if [[ "$BACKUP_STOP_APP" == "true" && ( "$MODE" == all || "$MODE" == files ) ]]; then need_stop=1; fi
@@ -426,8 +445,11 @@ fi
 
 if (( APP_STOPPED == 1 )); then start_app || true; fi
 
+BACKUP_RUN_OK=0; if (( RC == 0 )); then BACKUP_RUN_OK=1; fi   # el backup local salio bien (la copia extraible no depende de la externa)
 if (( RC == 0 )); then offsite || true; fi
 if (( RC == 0 )) && [[ "$MODE" != log ]]; then retention || true; fi
+if (( RC == 0 )); then capacity_step || true; fi          # retencion por capacidad (solo si hay limites; ver docs §8.2)
+if (( BACKUP_RUN_OK )) && [[ "$MODE" != log ]]; then removable_sync 1 || true; fi   # copia al disco extraible si esta conectado (nunca falla el backup)
 
 DUR=$(( $(date +%s) - START ))
 if (( RC == 0 )); then log INFO "=== backup '$MODE' OK (${DUR}s) ==="; else log ERROR "=== backup '$MODE' FALLO codigo=$RC (${DUR}s) ==="; fi

@@ -403,6 +403,40 @@ class Collector:
         if flag(self.cfg.get("custody", {}).get("enabled", True)) is not False:
             self.restore_test("custody", "custody", (8 * 86400, 15 * 86400))
 
+    def capacity(self):
+        """Retencion POR CAPACIDAD de BACKUP_DIR (backup.sh / retention-capacity.sh --> monitor-status/capacity.json). Solo existe si hay limites
+        configurados (BACKUP_MAX_TOTAL_GB / BACKUP_MIN_FREE_GB). exit != 0 = el limite no se puede cumplir ni conservando las cadenas minimas
+        (DISCO INSUFICIENTE): CRITICAL inmediato hasta que una corrida posterior pase. Sin exito reciente sube a warning/critical (2 / 4 dias)."""
+        path = Path(self.cfg["backup_dir"]) / "monitor-status" / "capacity.json"
+        if path.exists() and flag(self.cfg.get("capacity", {}).get("enabled", True)) is not False:
+            self.restore_test("capacity", "capacity", (2 * 86400, 4 * 86400))
+
+    def removable_copy(self):
+        """Copia al disco EXTRAIBLE (copy-removable.sh / backup.sh --> monitor-status/removable-copy.json). Existe solo si BACKUP_REMOVABLE_DIR esta
+        definido. Un disco desconectado NO es critico de inmediato: se mide la antiguedad del ultimo exito verificado (copia "al dia"):
+        warning 3 dias, critical 7 (configurable en removable_copy). El detalle trae el motivo de "atrasada" (sanitizado, sin rutas de credenciales)."""
+        path = Path(self.cfg["backup_dir"]) / "monitor-status" / "removable-copy.json"
+        if not path.exists() or flag(self.cfg.get("removable_copy", {}).get("enabled", True)) is False:
+            return
+        cfg = self.cfg.get("removable_copy", {})
+        warning, critical = cfg.get("warning", 3 * 86400), cfg.get("critical", 7 * 86400)
+        key = "backup.removable-copy"
+        now = time.time()
+        try:
+            status = json.loads(path.read_text())
+            attempt, exit_code = float(status["time"]), int(status["exit"])
+            last_ok = status.get("last_success")
+            last_ok = float(last_ok) if last_ok is not None else None
+        except Exception:
+            self.emit(key, "CRITICAL", "removable-copy status invalid")
+            return
+        if attempt - now > 60:
+            self.emit(key, "CRITICAL", "removable-copy status has future timestamp")
+            return
+        self.threshold(key, now - (last_ok if last_ok is not None else attempt), warning, critical)
+        if exit_code != 0 or status.get("verified") is not True:
+            self.signals[key]["detail"] += f"; copia ATRASADA (ultimo intento exit={exit_code}, last_success={last_ok}): " + str(status.get("message", ""))[:200]
+
     def collect(self):
         self.signals = {}
         now = time.time()
@@ -422,6 +456,8 @@ class Collector:
         self.safe("restore-test", self.restore_test)
         self.safe("offsite-restore-test", self.offsite_restore_test)
         self.safe("custody", self.custody)
+        self.safe("capacity", self.capacity)
+        self.safe("removable-copy", self.removable_copy)
         if self.slow:
             self.safe("sql", self.sql)
             self.safe("tls", lambda: self.threshold("tls.expiry", -tls_days(base), -21, -7))

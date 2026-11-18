@@ -40,6 +40,11 @@
                           class="venta-input"></textarea>
             </div>
 
+            @if (Model.RazonesPendientes != null)
+            {
+                <partial name="_VentaAutorizarRazones" model="Model.RazonesPendientes" view-data="@(new ViewDataDictionary(ViewData) { { "prefijo", Model.Name } })" />
+            }
+
             @if (!string.IsNullOrWhiteSpace(Model.RequiredCheckText))
             {
                 <label class="flex items-start gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3 text-sm text-amber-200">

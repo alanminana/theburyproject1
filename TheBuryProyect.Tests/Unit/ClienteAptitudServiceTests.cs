@@ -59,6 +59,7 @@ public class ClienteAptitudServiceTests
     /// </summary>
     private static ConfiguracionCredito ConfigSinValidaciones() => new()
     {
+        ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
         ValidarDocumentacion = false,
         ValidarLimiteCredito = false,
         ValidarMora = false

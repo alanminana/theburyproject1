@@ -90,6 +90,10 @@ public class ConfigurarVentaConcurrenciaSqlServerTests : IAsyncLifetime
 
         await using var context = NuevoContexto();
         await context.Database.MigrateAsync();
+        // D-02: la base nueva exige referencias verificadas para el credito personal (minimo 1 por defecto). Este arnes verifica
+        // concurrencia, no esa regla (cubierta en ReferenciasCredito*/VentaReferenciasCredito*): se aisla fijando el minimo en 0,
+        // igual que el dataset E2E comun.
+        await context.Database.ExecuteSqlRawAsync("UPDATE ConfiguracionesCredito SET ReferenciasVerificadasMinimas = 0");
     }
 
     public async Task DisposeAsync()

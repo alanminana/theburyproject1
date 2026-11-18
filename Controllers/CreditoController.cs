@@ -813,6 +813,24 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }
 
+            // D-02: referencias verificadas. Aunque la venta figure autorizada, esa autorización debe haber cubierto la falta
+            // de referencias (o las referencias alcanzar hoy); si no, no se configura el crédito.
+            if (venta != null)
+            {
+                try
+                {
+                    await _ventaService.AsegurarReferenciasAutorizadasAsync(venta.Id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    if (embedded)
+                        return ErrorConfigurarVenta(StatusCodes.Status409Conflict, ex.Message);
+
+                    TempData["Error"] = ex.Message;
+                    return RedirectToAction("Details", "Venta", new { id = ventaId });
+                }
+            }
+
             var rangoGet = await ResolverRangoCreditoProductoAsync(venta, cuotasMinGet, cuotasMaxGet);
             if (rangoGet.Error is not null)
             {
@@ -896,10 +914,16 @@ namespace TheBuryProject.Controllers
             if (razones is null || razones.Count == 0)
                 return mensajeGenerico;
 
+            // La descripción de «referencias insuficientes» ya empieza con el nombre del tipo: no se repite.
+            static string Encabezado(RazonAutorizacion r) =>
+                r.Descripcion.StartsWith(r.TipoDisplay, StringComparison.OrdinalIgnoreCase)
+                    ? r.Descripcion
+                    : $"{r.TipoDisplay}: {r.Descripcion}";
+
             var detalles = razones.Select(r =>
                 string.IsNullOrWhiteSpace(r.DetalleAdicional)
-                    ? $"{r.TipoDisplay}: {r.Descripcion}"
-                    : $"{r.TipoDisplay}: {r.Descripcion} ({r.DetalleAdicional})");
+                    ? Encabezado(r)
+                    : $"{Encabezado(r)} ({r.DetalleAdicional})");
 
             return $"{mensajeGenerico} Motivo: {string.Join("; ", detalles)}";
         }
@@ -1031,6 +1055,23 @@ namespace TheBuryProject.Controllers
 
                 TempData["Error"] = mensajeAutorizacionPost;
                 return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
+            }
+
+            // D-02: ver el mismo gate en el GET de esta acción.
+            if (venta != null)
+            {
+                try
+                {
+                    await _ventaService.AsegurarReferenciasAutorizadasAsync(venta.Id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    if (embedded)
+                        return ErrorConfigurarVenta(StatusCodes.Status409Conflict, ex.Message);
+
+                    TempData["Error"] = ex.Message;
+                    return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
+                }
             }
 
             var resultadoConfiguracion = await _creditoConfiguracionVentaService.ResolverAsync(modelo, venta);

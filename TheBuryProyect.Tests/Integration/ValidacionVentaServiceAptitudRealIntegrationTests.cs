@@ -64,6 +64,7 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
 
     private static ConfiguracionCredito ConfigSinValidaciones() => new()
     {
+        ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
         ValidarDocumentacion = false,
         ValidarLimiteCredito = false,
         ValidarMora = false
@@ -216,6 +217,7 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
 
     private static ConfiguracionCredito ConfigSoloMora(int? diasParaRequerirAutorizacion = 1) => new()
     {
+        ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
         ValidarDocumentacion = false,
         ValidarLimiteCredito = false,
         ValidarMora = true,
@@ -265,6 +267,7 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
 
     private static ConfiguracionCredito ConfigMoraNoApto(int diasParaNoApto = 1) => new()
     {
+        ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
         ValidarDocumentacion = false,
         ValidarLimiteCredito = false,
         ValidarMora = true,
@@ -474,6 +477,7 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
             // ValidarLimiteCredito = true: la aptitud calcula el cupo contando el crédito propio como usado.
             ctx.Set<ConfiguracionCredito>().Add(new ConfiguracionCredito
             {
+                ReferenciasVerificadasMinimas = 0, // D-02: estos tests no ejercen la regla de referencias
                 ValidarDocumentacion = false, ValidarLimiteCredito = true, ValidarMora = false
             });
             var preset = await ctx.PuntajesCreditoLimite.FindAsync(4);

@@ -122,6 +122,9 @@ namespace TheBuryProject.Tests.E2ESeeding
             config.ValidarDocumentacion = false;
             config.ValidarLimiteCredito = false;
             config.ValidarMora = true;
+            // D-02: el dataset E2E general no ejercita la regla de referencias verificadas (los clientes sintéticos no las
+            // tienen); el spec e2e/cliente-referencias-credito.spec.js la activa explícitamente y la restaura al terminar.
+            config.ReferenciasVerificadasMinimas = 0;
             config.DiasParaRequerirAutorizacion = 1;
             config.DiasParaNoApto = 30; // escenario NoApto necesita mora de capital >= 30 días
             config.MontoMoraParaNoApto = null;

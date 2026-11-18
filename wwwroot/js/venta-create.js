@@ -2593,7 +2593,7 @@
             motivos.forEach(m => {
                 // PUN-ML10-F: categoría 6 = Punitorio (CategoriaMotivo.Punitorio). Ícono propio para
                 // no mostrarlo genérico ("info") junto a Documentación/Cupo/Mora/EstadoCliente/Config.
-                const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings', 6: 'paid' };
+                const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings', 6: 'paid', 7: 'contacts' };
                 // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§11/§12): con la excepción documental
                 // aplicada, #panel-documentacion-faltante se oculta y este motivo (categoría 1)
                 // vuelve a filtrarse acá — sin recategorizar, seguiría pintándose con el rojo de
@@ -2617,14 +2617,19 @@
                     ? formatCurrency(m.montoAsociado)
                     : (m.diasAsociado != null ? `${m.diasAsociado} día${m.diasAsociado === 1 ? '' : 's'}` : null);
                 const titulo = esDocumentacionExceptuada ? 'Documentación — exceptuada' : humanizarDocumentos(m.titulo);
-                const descripcion = esDocumentacionExceptuada
+                // D-02: categoría 7 = Referencias. La decisión es del servidor; acá sólo se muestra el motivo y el enlace
+                // (relativo, generado por el servidor) a la sección de referencias del cliente.
+                const enlaceReferencias = (m.categoria === 7 && typeof m.urlAccion === 'string' && m.urlAccion.startsWith('/'))
+                    ? ` <a href="${encodeURI(m.urlAccion)}" class="underline" data-venta-referencias-enlace>Ver referencias del cliente</a>`
+                    : '';
+                const descripcion = (esDocumentacionExceptuada
                     ? 'Se aplicó una excepción documental para esta operación.'
-                    : humanizarDocumentos(m.descripcion);
+                    : humanizarDocumentos(m.descripcion)) + (m.categoria === 7 ? '. La venta quedará pendiente de la autorización de un segundo usuario.' : '');
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm mt-0.5 ${colorCls}">${icon}</span>
                     <div class="flex-1">
                         <p class="text-[11px] font-bold ${colorCls}">${titulo}</p>
-                        <p class="text-[10px] text-slate-400">${descripcion}</p>
+                        <p class="text-[10px] text-slate-400">${descripcion}${enlaceReferencias}</p>
                     </div>
                     ${(valorTexto && !esDocumentacionExceptuada) ? `<p class="text-[10px] font-bold ${colorCls} shrink-0">${valorTexto}</p>` : ''}`;
                 lista.appendChild(div);

@@ -390,5 +390,46 @@ class MonitoringTests(unittest.TestCase):
         self.assertIn("backup.offsite-restore-test", self.collector.signals)   # auto: hay offsite-sql.json
 
 
+    def test_capacity_absent_ok_failed_and_recovery(self):
+        now = monitor.time.time()
+        self.collector.capacity()
+        self.assertNotIn("backup.capacity", self.collector.signals)   # sin limites configurados no hay estado: no se alerta
+        self.write_status("capacity", time=now - 900, exit=0, verified=True, last_success=now - 900, message="ok")
+        self.assertEqual(self.severity("capacity", "backup.capacity"), "INFO")
+        self.write_status("capacity", time=now, exit=7, verified=False, last_success=now - 900, message="disco insuficiente o fallo")
+        self.assertEqual(self.severity("capacity", "backup.capacity"), "CRITICAL")
+        self.assertIn("FAILED", self.collector.signals["backup.capacity"]["detail"])
+        self.write_status("capacity", time=now, exit=0, verified=True, last_success=now, message="ok")
+        self.assertEqual(self.severity("capacity", "backup.capacity"), "INFO")
+        for age, expected in ((3 * 86400, "WARNING"), (5 * 86400, "CRITICAL")):
+            self.write_status("capacity", time=now - age, exit=0, verified=True, last_success=now - age, message="ok")
+            self.assertEqual(self.severity("capacity", "backup.capacity"), expected)
+        self.cfg["capacity"] = {"enabled": False}
+        self.collector.signals = {}
+        self.collector.capacity()
+        self.assertNotIn("backup.capacity", self.collector.signals)
+
+    def test_removable_copy_absent_current_stale_and_invalid(self):
+        now = monitor.time.time()
+        self.collector.removable_copy()
+        self.assertNotIn("backup.removable-copy", self.collector.signals)   # sin BACKUP_REMOVABLE_DIR no hay estado
+        self.write_status("removable-copy", time=now - 60, exit=0, verified=True, last_success=now - 60, message="al dia")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "INFO")
+        # disco desconectado: el ultimo intento fallo pero el ultimo exito es reciente -> no es critico todavia
+        self.write_status("removable-copy", time=now, exit=1, verified=False, last_success=now - 86400, message="atrasada: destino no disponible")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "INFO")
+        self.assertIn("ATRASADA", self.collector.signals["backup.removable-copy"]["detail"])
+        self.write_status("removable-copy", time=now, exit=1, verified=False, last_success=now - 4 * 86400, message="atrasada: destino no disponible")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "WARNING")
+        self.write_status("removable-copy", time=now, exit=1, verified=False, last_success=now - 8 * 86400, message="atrasada: destino no disponible")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "CRITICAL")
+        self.write_status("removable-copy", time=now, exit=1, verified=False, last_success=None, message="atrasada")   # nunca tuvo exito: se mide desde el intento
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "INFO")
+        self.write_status("removable-copy", time=now + 9999, exit=0, verified=True, last_success=now, message="x")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "CRITICAL")
+        (Path(self.tmp.name) / "monitor-status" / "removable-copy.json").write_text("{no json")
+        self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "CRITICAL")
+
+
 if __name__ == "__main__":
     unittest.main()

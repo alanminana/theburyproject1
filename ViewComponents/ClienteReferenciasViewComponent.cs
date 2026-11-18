@@ -4,7 +4,7 @@ using TheBuryProject.Services.Interfaces;
 namespace TheBuryProject.ViewComponents
 {
     /// <summary>
-    /// Listado de referencias informativas del cliente (solo registro administrativo; no afecta el crédito).
+    /// Listado de referencias del cliente (las verificadas cuentan contra el mínimo exigido para crédito personal).
     /// La vista que lo usa ya exige clientes.view.
     /// </summary>
     public class ClienteReferenciasViewComponent : ViewComponent

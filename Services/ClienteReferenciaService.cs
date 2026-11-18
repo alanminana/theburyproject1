@@ -227,11 +227,11 @@ namespace TheBuryProject.Services
             if (normalizado.Length == 0)
                 return ("El teléfono no es válido.", string.Empty);
 
-            var propios = new[] { cliente.Telefono, cliente.TelefonoAlternativo, cliente.TelefonoLaboral }
+            var propios = new[] { cliente.Telefono, cliente.TelefonoAlternativo, cliente.TelefonoLaboral, cliente.ConyugeTelefono }
                 .Select(TelefonoNormalizador.Normalizar)
                 .Where(t => t.Length > 0);
             if (propios.Contains(normalizado))
-                return ("El teléfono coincide con uno de los teléfonos del propio cliente.", string.Empty);
+                return ("El teléfono coincide con uno de los teléfonos del propio cliente o de su cónyuge.", string.Empty);
 
             var duplicada = await _context.ClienteReferencias.AsNoTracking().AnyAsync(r =>
                 r.ClienteId == cliente.Id && !r.IsDeleted

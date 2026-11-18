@@ -7067,6 +7067,11 @@
         "nombre": "motivo",
         "tipo": "String",
         "fuente": "Auto"
+      },
+      {
+        "nombre": "razones",
+        "tipo": "Int32[]",
+        "fuente": "Auto"
       }
     ],
     "excluidaPorDiseno": false

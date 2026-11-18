@@ -82,6 +82,15 @@ public sealed class CotizacionApiController : ControllerBase
                 excedeCupo,
                 faltante,
                 mora = new { tiene = aptitud.Mora.TieneMora, dias = aptitud.Mora.DiasMaximoMora },
+                // D-02: referencias verificadas vs. mínimo configurado (la decisión es del servicio de aptitud).
+                referencias = new
+                {
+                    evaluada = aptitud.Referencias.Evaluada,
+                    requeridas = aptitud.Referencias.Requeridas,
+                    verificadas = aptitud.Referencias.Verificadas,
+                    cumple = aptitud.Referencias.Cumple,
+                    url = $"/Cliente/Details/{clienteId}#referencias-card"
+                },
                 documentacion = new
                 {
                     completa = aptitud.Documentacion.Completa,
