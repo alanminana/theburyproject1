@@ -5125,6 +5125,19 @@ namespace TheBuryProject.Services
         {
             if (!validacion.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes))
             {
+                // Hoy las referencias alcanzan. Si el monto cambió, la excepción que se dio para el monto anterior ya no
+                // puede volver a valer: se retira esa razón de lo autorizado, de modo que si las referencias vuelven a
+                // faltar se exija un segundo usuario nuevo para el monto actual (la fecha y el usuario originales quedan
+                // en la auditoría).
+                if (venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                    && venta.Total != totalAnterior
+                    && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson))
+                {
+                    _auditoria?.AgregarEvento("Ventas", "InvalidarExcepcionReferencias", $"Venta:{venta.Id}",
+                        $"El total cambió de {totalAnterior.ToString("0.00", CultureInfo.InvariantCulture)} a {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)} con las referencias ya suficientes: la excepción de {venta.UsuarioAutoriza} por referencias deja de valer para este monto");
+                    venta.RazonesAutorizacionJson = VentaAutorizacionReferencias.QuitarReferencias(venta.RazonesAutorizacionJson);
+                }
+
                 return;
             }
 

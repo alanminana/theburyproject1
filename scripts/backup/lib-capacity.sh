@@ -121,7 +121,7 @@ bk_chains() {
 
 # capacity_plan <min_cadenas> <tope_total_bytes|0> <libre_minimo_bytes|0> <libre_actual_bytes>      < salida de bk_chains
 # Decide SIN tocar nada. Necesidad = max(total - tope, minimo_libre - libre_actual). Se borra primero lo huerfano (idx 0), despues cadenas de la mas
-# antigua a la mas nueva, SIN bajar de <min_cadenas> (las mas nuevas se conservan SIEMPRE). Salida: SUMMARY, CHAIN <ts> <bytes> DEL|KEEP,
+# antigua a la mas nueva, SIN bajar de <min_cadenas> (las mas nuevas se conservan SIEMPRE) y SIN borrar la ultima cadena que contiene el tar de archivos. Salida: SUMMARY, CHAIN <ts> <bytes> DEL|KEEP,
 # DELETE <relpath>, y al final OK | FAIL <motivo> (rc 3: disco insuficiente; igual se aplican los DELETE ya decididos: lo que se borro excedia
 # el limite y NO era necesario para el minimo). rc 2 = argumentos invalidos.
 capacity_plan() {
@@ -130,13 +130,16 @@ capacity_plan() {
   minc=$((10#$minc)); maxt=$((10#$maxt)); minf=$((10#$minf)); free=$((10#$free))
   (( minc >= 1 )) || { echo "FAIL min_cadenas debe ser >= 1"; return 2; }
   local -A cb=() cf=() cts=()
-  local tag idx ts bytes rel total=0 guard=0 maxi=0 line
+  local tag idx ts bytes rel total=0 guard=0 maxi=0 keeptar=0 line
   while IFS= read -r line; do
     case "$line" in
       R\|*) IFS='|' read -r tag idx ts bytes rel <<<"$line"
             [[ "$bytes" =~ ^[0-9]+$ ]] || continue
             cb[$idx]=$(( ${cb[$idx]:-0} + bytes )); cf[$idx]+="$rel"$'\n'; cts[$idx]=$ts; total=$((total + bytes))
-            if [[ "$idx" =~ ^[1-9][0-9]*$ ]] && (( idx > maxi )); then maxi=$idx; fi ;;
+            if [[ "$idx" =~ ^[1-9][0-9]*$ ]] && (( idx > maxi )); then maxi=$idx; fi
+            # La ultima cadena que contiene el tar de archivos (uploads, claves) es el ULTIMO par recuperable full+tar+manifiesto: nunca se
+            # borra, aunque despues haya fulls SQL sueltos (p. ej. los previos a un deploy) que la desplacen del minimo de cadenas.
+            if [[ "$idx" =~ ^[1-9][0-9]*$ && "$rel" =~ ^files/files_[^/]+\.tar\.gz$ ]] && (( bytes > 0 && idx > keeptar )); then keeptar=$idx; fi ;;
       GUARD\ *) guard=1; echo "$line" ;;
       WARN\ *) echo "$line" ;;
     esac
@@ -155,7 +158,7 @@ capacity_plan() {
     freed=$((freed + cb[0]))
   fi
   for (( i = 1; i <= maxi; i++ )); do
-    if (( freed < need && i <= del_upto )); then
+    if (( freed < need && i <= del_upto && i != keeptar )); then
       echo "CHAIN ${cts[$i]} ${cb[$i]:-0} DEL"
       while IFS= read -r f; do [[ -n "$f" ]] && echo "DELETE $f"; done <<<"${cf[$i]:-}"
       freed=$((freed + ${cb[$i]:-0}))

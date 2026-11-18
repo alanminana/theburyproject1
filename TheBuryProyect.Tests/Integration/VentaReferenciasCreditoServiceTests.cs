@@ -593,6 +593,71 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         Assert.True(VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson));
     }
 
+    [Fact]
+    public async Task Editar_AutorizarCompletarReferenciasCambiarMontoYRetirarlas_ExigeUnaAutorizacionNuevaParaElMontoActual()
+    {
+        // Hallazgo de la revisión independiente: la excepción dada para un monto no puede sobrevivir a un cambio de monto
+        // aunque, en ese momento, las referencias alcancen.
+        await SembrarAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original");
+
+        // 1) Las referencias pasan a alcanzar.
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+
+        // 2) Se cambia el monto mientras las referencias alcanzan.
+        _auditoria.Eventos.Clear();
+        ComoUsuario(Creador, autoriza: true);
+        var vm = await _svc.GetByIdAsync(creada.Id);
+        vm!.RowVersion = await FijarRowVersionAsync(creada.Id);
+        vm.Detalles[0].Cantidad = 3;
+        vm.Detalles[0].Subtotal = 3_000m;
+        await _svc.UpdateAsync(creada.Id, vm);
+
+        var tras = await VentaAsync(creada.Id);
+        Assert.False(VentaAutorizacionReferencias.ContieneReferencias(tras.RazonesAutorizacionJson),
+            "la excepción por referencias del monto anterior no debe seguir registrada como cubierta");
+        Assert.Contains(_auditoria.Eventos, e => e.Accion == "InvalidarExcepcionReferencias");
+
+        // 3) Las referencias vuelven a faltar y se edita otra vez sin tocar el monto.
+        var referencia = await _ctx.ClienteReferencias.FirstAsync();
+        referencia.IsDeleted = true;
+        await _ctx.SaveChangesAsync();
+        _ctx.ChangeTracker.Clear();
+
+        vm = await _svc.GetByIdAsync(creada.Id);
+        vm!.RowVersion = await FijarRowVersionAsync(creada.Id);
+        vm.Observaciones = "Edición tras retirar la referencia";
+        await _svc.UpdateAsync(creada.Id, vm);
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.Null(venta.UsuarioAutoriza);
+        Assert.True(VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson));
+    }
+
+    [Fact]
+    public async Task Editar_ConReferenciasSuficientes_YSinCambiarElMonto_NoRetiraLaRazonDeLoAutorizado()
+    {
+        await SembrarAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original");
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        _auditoria.Eventos.Clear();
+
+        ComoUsuario(Creador, autoriza: true);
+        var vm = await _svc.GetByIdAsync(creada.Id);
+        vm!.RowVersion = await FijarRowVersionAsync(creada.Id);
+        vm.Observaciones = "Solo una observación";
+        await _svc.UpdateAsync(creada.Id, vm);
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.True(VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson));
+        Assert.DoesNotContain(_auditoria.Eventos, e => e.Accion == "InvalidarExcepcionReferencias");
+    }
+
     // ------------------------------------------------------------------ dobles
 
     private sealed class UsuarioMutable : ICurrentUserService

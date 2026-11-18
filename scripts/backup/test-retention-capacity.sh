@@ -130,6 +130,16 @@ R=$(newbk m7); mkf "$R" "files/files_$(stamp $((2*D))).tar.gz" 500; shaf "$R" "f
 out=$(plan_of "$R" 1 1 0 999999999999); rc=$?
 check "sin ninguna cadena completa y limite excedido -> FAIL rc 3 y 0 DELETE (solo tars: nada que 'cadena' proteja)" bash -c '[[ $(grep -c "^DELETE" <<<"$1") == 0 && "$2" == 3 ]]' _ "$out" "$rc"
 
+# Hallazgo de la revision independiente: un backup completo (full + tar de archivos) seguido de DOS fulls SQL sueltos (los previos a un deploy)
+# no deben permitir que el minimo de 2 cadenas borre el unico tar de archivos (uploads, claves): la ultima cadena con tar nunca se borra.
+R=$(newbk m8); mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+check "tar protegido: all -> full -> full con minimo 2 y tope imposible -> 0 DELETE de la cadena con tar y FAIL rc 3" bash -c '[[ $(grep -c "^DELETE" <<<"$1") == 0 && "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "files_"' _ "$out" "$rc"
+check "tar protegido: la cadena con el tar figura como KEEP" bash -c 'grep -q "^CHAIN .* KEEP" <<<"$1" && [[ $(grep -c "^CHAIN .* DEL" <<<"$1") == 0 ]]' _ "$out"
+R=$(newbk m9); mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 1; mkchain "$R" $((1*D)) 1 1000 0
+out=$(plan_of "$R" 2 $(( $(total_of "$R") - 100 )) 0 999999999999); rc=$?
+check "tar protegido: si una cadena MAS NUEVA tambien tiene tar, la mas antigua si se puede borrar (rc 0)" bash -c '[[ $(grep -c "^CHAIN .* DEL" <<<"$1") == 1 && "$2" == 0 ]]' _ "$out" "$rc"
+
 # ================================================================================================================ 2. scripts (hostfs)
 cfgrun() { # cfgrun <raiz> [VAR=valor...] -- <script> [args]: ejecuta un script con entorno aislado del .env real
   local r=$1; shift; local -a ev=()
