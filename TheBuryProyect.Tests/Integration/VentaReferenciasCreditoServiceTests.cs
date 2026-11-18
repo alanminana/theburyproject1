@@ -350,6 +350,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
         var entidad = await _ctx.Ventas.FirstAsync(v => v.Id == creada.Id);
+        entidad.UsuarioSolicita = null; // venta anterior al registro del editor de condiciones
         entidad.Observaciones = "Editada por el futuro autorizador"; // UpdatedBy = autorizador
         await _ctx.SaveChangesAsync();
         _ctx.ChangeTracker.Clear();
@@ -1182,5 +1183,76 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
         Assert.Null(venta.UsuarioAutoriza);
         Assert.Contains(_auditoria.Eventos, e => e.Accion == "InvalidarAutorizacionRazonNueva");
+    }
+
+    // ============================================================================================
+    // Segunda revisión de Codex (H4-H5)
+    // ============================================================================================
+
+    [Fact]
+    public async Task H4_DocumentacionVencidaYMoraNuevaTrasAutorizarSoloReferencias_ConfirmarNoProcede()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        var creada = await _svc.CreateAsync(NuevaVenta()); // solo faltan referencias
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Referencias", Refs);
+
+        // Crédito configurado; después vence la documentación Y entra en mora no bloqueante otra cuota.
+        var credito = new Credito { ClienteId = _cliente.Id, Numero = "CRED-H4", Estado = EstadoCredito.Configurado, SaldoPendiente = 0m };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET CreditoId = {0}, Estado = {1} WHERE Id = {2}", credito.Id, (int)EstadoVenta.Presupuesto, creada.Id);
+        (await _ctx.Set<ConfiguracionCredito>().FirstAsync()).ValidarDocumentacion = true;
+        await _ctx.SaveChangesAsync();
+        _ctx.ChangeTracker.Clear();
+        await SembrarMoraNoBloqueanteAsync();
+
+        var vigente = await _validacionSvc.ValidarConfirmacionVentaAsync(creada.Id);
+        Assert.True(vigente.NoViable); // el bloqueo de documentación coexiste...
+        Assert.Contains(vigente.RazonesAutorizacion, r => r.Tipo == TipoRazonAutorizacion.MoraActiva); // ...y la mora vigente no se pierde
+
+        var venta = await VentaAsync(creada.Id);
+        VentaService.ExigirAutorizacionDeReferencias(venta, vigente);
+        var ex = Assert.Throws<InvalidOperationException>(() => VentaService.ExigirTodasLasRazonesAutorizadas(venta, vigente));
+        Assert.Contains("Mora activa", ex.Message);
+
+    }
+
+    [Fact]
+    public async Task H5_VentaLegadaSinEditorRegistrado_QuienEditoYAutorizoLaMora_NoPuedeAutorizarLasReferencias()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync(); // CreatedBy = Creador (A)
+        const string B = "gerente.b";
+        // Venta legada: B editó las condiciones (UpdatedBy = B) pero no hay editor registrado.
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET UsuarioSolicita = NULL, UpdatedBy = {0} WHERE Id = {1}", B, id);
+        _ctx.ChangeTracker.Clear();
+
+        ComoUsuario(B, autoriza: true);
+        // B autoriza primero la mora (la guarda de creador/editor para referencias solo aplica a las referencias)...
+        await _svc.AutorizarVentaAsync(id, B, "Mora", SoloMora);
+        Assert.Equal(B, (await VentaAsync(id)).UpdatedBy);
+
+        // ...y en la siguiente solicitud ya no puede autorizar las referencias: UpdatedBy se compara de forma estricta.
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, B, "Referencias", Refs));
+        Assert.Contains("segundo usuario", ex.Message);
+        Assert.False((await RazonesAsync(id)).Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes).Autorizada);
+
+        // Un tercero sí puede.
+        ComoUsuario("gerente.d", autoriza: true);
+        await _svc.AutorizarVentaAsync(id, "gerente.d", "Referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task H5_VentaLegadaSinEditorRegistrado_UnSoloActoConAmbasCasillas_SigueFuncionandoParaQuienNoEditoNiCreo()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET UsuarioSolicita = NULL WHERE Id = {0}", id);
+        _ctx.ChangeTracker.Clear();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Ambas", MoraYRefs);
+
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
     }
 }

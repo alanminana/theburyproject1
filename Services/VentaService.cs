@@ -5140,21 +5140,16 @@ namespace TheBuryProject.Services
             const string mensaje =
                 "La excepción por referencias insuficientes debe autorizarla un segundo usuario con permiso de autorizar ventas, distinto de quien creó o modificó la venta.";
 
-            // Quien modificó la venta: el último editor de condiciones (UsuarioSolicita) y, además, UpdatedBy salvo que ese
-            // último guardado haya sido una autorización parcial de una razón (un autorizador no es editor de condiciones).
-            var autorizadores = VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson)
-                .Where(r => r.Autorizada && !string.IsNullOrWhiteSpace(r.AutorizadaPor))
-                .Select(r => r.AutorizadaPor!)
-                .ToList();
-            var updatedByEsAutorizacion = !string.IsNullOrWhiteSpace(venta.UpdatedBy)
-                && autorizadores.Contains(venta.UpdatedBy, StringComparer.OrdinalIgnoreCase)
-                && !string.Equals(venta.UpdatedBy, venta.UsuarioSolicita, StringComparison.OrdinalIgnoreCase);
+            // Quien modificó la venta: el último editor de condiciones (UsuarioSolicita) cuando está registrado (ahí UpdatedBy
+            // no cuenta: lo actualiza también cada autorización parcial). Sin editor registrado (venta anterior al registro) se
+            // compara con UpdatedBy de forma estricta: nunca se infiere el editor a partir de quién autorizó razones.
+            var editorRegistrado = !string.IsNullOrWhiteSpace(venta.UsuarioSolicita);
 
             if (string.IsNullOrWhiteSpace(usuarioAutoriza)
                 || string.IsNullOrWhiteSpace(venta.CreatedBy)
                 || string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(venta.UsuarioSolicita, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
-                || (!updatedByEsAutorizacion && string.Equals(venta.UpdatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
+                || (!editorRegistrado && string.Equals(venta.UpdatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
                 || !_currentUserService.HasPermission("ventas", "authorize"))
             {
                 throw new InvalidOperationException(mensaje);

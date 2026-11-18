@@ -829,29 +829,27 @@ namespace TheBuryProject.Services
             // Razones de autorización NO bloqueantes vigentes hoy (mora no bloqueante, punitorio pendiente, revisión del cliente):
             // la confirmación debe exigir que cada una tenga su autorización expresa, no solo el estado global de la venta.
             // El cupo no se revalida acá (ya fue comprometido) y las referencias se agregan abajo con su propia razón.
-            if (!resultado.NoViable)
+            // Se conservan aunque coexista un bloqueo (p. ej. documentación vencida): una razón vigente nunca se pierde.
+            foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria != "Cupo" && d.Categoria != "Referencias"))
             {
-                foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria != "Cupo" && d.Categoria != "Referencias"))
+                var tipo = detalle.Categoria switch
                 {
-                    var tipo = detalle.Categoria switch
-                    {
-                        "Mora" => TipoRazonAutorizacion.MoraActiva,
-                        "Punitorio" => TipoRazonAutorizacion.Punitorio,
-                        _ => TipoRazonAutorizacion.ClienteRequiereAutorizacion
-                    };
-                    if (resultado.RazonesAutorizacion.Any(r => r.Tipo == tipo))
-                    {
-                        continue;
-                    }
-
-                    resultado.RequiereAutorizacion = true;
-                    resultado.RazonesAutorizacion.Add(new RazonAutorizacion
-                    {
-                        Tipo = tipo,
-                        Descripcion = detalle.Descripcion,
-                        DetalleAdicional = detalle.Descripcion
-                    });
+                    "Mora" => TipoRazonAutorizacion.MoraActiva,
+                    "Punitorio" => TipoRazonAutorizacion.Punitorio,
+                    _ => TipoRazonAutorizacion.ClienteRequiereAutorizacion
+                };
+                if (resultado.RazonesAutorizacion.Any(r => r.Tipo == tipo))
+                {
+                    continue;
                 }
+
+                resultado.RequiereAutorizacion = true;
+                resultado.RazonesAutorizacion.Add(new RazonAutorizacion
+                {
+                    Tipo = tipo,
+                    Descripcion = detalle.Descripcion,
+                    DetalleAdicional = detalle.Descripcion
+                });
             }
 
             // D-02: en la confirmación también se revalida el mínimo de referencias (pudieron darse de baja o dejar de
