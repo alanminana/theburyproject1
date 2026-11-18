@@ -1391,10 +1391,14 @@ namespace TheBuryProject.Services
                 // D-02: referencias verificadas y toda razón de autorización vigente HOY (una autorización previa que no las
                 // cubría no sirve).
                 var validacionVigente = await _validacionVentaService.ValidarConfirmacionVentaAsync(id);
-                // Mismo criterio que ConfirmarVentaAsync y que el controller: un bloqueo vigente hoy (mora bloqueante,
-                // documentación) no se levanta con ninguna autorización previa. Se rechaza también en el servicio para que
-                // ningún otro llamador pueda confirmar un crédito que el cliente ya no puede recibir.
-                if (validacionVigente.NoViable || validacionVigente.PendienteRequisitos)
+                // Un bloqueo vigente hoy que NO es solo documentación faltante (mora bloqueante, cliente no apto) no se levanta
+                // con ninguna autorización previa ni excepción: se rechaza también en el servicio, para que ningún llamador
+                // confirme un crédito que el cliente ya no puede recibir (el controller ya lo rechazaba). La documentación
+                // faltante sigue resolviéndose en el controller (excepción documental al confirmar o ya registrada), que es
+                // quien decide si corresponde; el servicio no la reinterpreta.
+                var soloDocumentacionFaltante = validacionVigente.RequisitosPendientes.Count > 0
+                    && validacionVigente.RequisitosPendientes.All(r => r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
+                if ((validacionVigente.NoViable || validacionVigente.PendienteRequisitos) && !soloDocumentacionFaltante)
                 {
                     throw new InvalidOperationException(
                         $"No se puede confirmar la venta. {validacionVigente.MensajeResumen}");

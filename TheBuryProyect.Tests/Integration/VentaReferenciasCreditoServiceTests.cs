@@ -1396,6 +1396,48 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await AfirmarSinCambiosAsync(id);
     }
 
+    /// <summary>La documentación pasa a ser exigida DESPUÉS de crear y configurar la venta (así la venta ya no se podría crear).</summary>
+    private async Task ExigirDocumentacionAhoraAsync()
+    {
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE ConfiguracionesCredito SET ValidarDocumentacion = 1");
+        _ctx.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_ConDocumentacionFaltanteYExcepcionDocumentalRegistrada_SigueConfirmando()
+    {
+        // La excepción documental la resuelve el controller (la registra o reutiliza una ya registrada) y luego llama al
+        // servicio, que revalida y vuelve a ver la documentación faltante: el guard de bloqueos NO debe rechazarla.
+        await SembrarAsync(minimo: 0);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+        await ExigirDocumentacionAhoraAsync();
+        var vigente = await _validacionSvc.ValidarConfirmacionVentaAsync(id);
+        Assert.True(vigente.PendienteRequisitos);
+        Assert.All(vigente.RequisitosPendientes, r => Assert.Equal(TipoRequisitoPendiente.DocumentacionFaltante, r.Tipo));
+
+        ComoUsuario(Autorizador, autoriza: true);
+        Assert.True(await _svc.RegistrarExcepcionDocumentalAsync(id, Autorizador, "Documentación en trámite"));
+
+        Assert.True(await _svc.ConfirmarVentaCreditoAsync(id));
+        Assert.Equal(EstadoVenta.Confirmada, (await VentaAsync(id)).Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_ConDocumentacionFaltanteYMoraBloqueante_SeRechazaAunConExcepcionDocumentalRegistrada()
+    {
+        await SembrarAsync(minimo: 0, mora: true);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+        await ExigirDocumentacionAhoraAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.RegistrarExcepcionDocumentalAsync(id, Autorizador, "Documentación en trámite");
+        await SembrarMoraBloqueanteAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaCreditoAsync(id));
+
+        Assert.Contains("No se puede confirmar la venta", ex.Message);
+        await AfirmarSinCambiosAsync(id);
+    }
+
     private sealed class StubMovimientoStockD02 : IMovimientoStockService
     {
         public Task<List<MovimientoStock>> RegistrarSalidasAsync(
