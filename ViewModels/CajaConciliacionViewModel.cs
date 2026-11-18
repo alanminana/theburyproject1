@@ -234,7 +234,7 @@ public class MovimientoCajaLineaViewModel
         CategoriaImpactoCaja.CajaFisica => "chip-ok",
         CategoriaImpactoCaja.CuentaBancaria => "chip-violet",
         CategoriaImpactoCaja.AAcreditar => "chip-warn",
-        CategoriaImpactoCaja.ChequeRecibido => "chip-violet",
+        CategoriaImpactoCaja.ChequeRecibido => "chip-info",
         CategoriaImpactoCaja.SinIngresoInmediato => "chip-neutral",
         _ => "chip-neutral"
     };

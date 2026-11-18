@@ -60,6 +60,18 @@ public static class CajaConciliacionBuilder
             .ToDictionary(g => g.Key, g => g.Sum(m => m.Monto));
         var totalChequesRecibidos = chequePendienteMovs.Sum(m => m.Monto);
 
+        // Un ingreso Anulado (p. ej. cheque pendiente de una venta cancelada) nunca fue dinero cobrado: su egreso de reversión queda
+        // como historial, pero el ingreso tampoco debe figurar como "Cobrado". Solo aplica a medios no físicos (el efectivo no se anula).
+        var anulados = movimientos
+            .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                     && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Anulado
+                     && !EsMovimientoFisico(m))
+            .ToList();
+        var totalAnulados = anulados.Sum(m => m.Monto);
+        var anuladosPorMedio = anulados
+            .GroupBy(m => m.TipoPago.HasValue ? MedioKey(m.TipoPago.Value) : MedioKey(MedioLabelMovimiento(m)))
+            .ToDictionary(g => g.Key, g => g.Sum(m => m.Monto));
+
         var lineasVenta = ventas.Select(v => MapVenta(v, cobradoPorVenta, chequePorVenta)).ToList();
 
         var ventasEfectivas = lineasVenta.Where(v => v.Categoria == VentaTurnoCategoria.Efectiva).ToList();
@@ -89,9 +101,9 @@ public static class CajaConciliacionBuilder
 
             FondoInicial = apertura.MontoInicial,
             TotalVendido = totalVendido,
-            TotalCobrado = detalle.TotalIngresosFisicos + detalle.TotalIngresosDigitales - totalChequesRecibidos,
+            TotalCobrado = detalle.TotalIngresosFisicos + detalle.TotalIngresosDigitales - totalChequesRecibidos - totalAnulados,
             TotalCobradoEfectivo = detalle.TotalIngresosFisicos,
-            TotalCobradoDigital = detalle.TotalIngresosDigitales - totalChequesRecibidos,
+            TotalCobradoDigital = detalle.TotalIngresosDigitales - totalChequesRecibidos - totalAnulados,
             TotalChequesRecibidos = totalChequesRecibidos,
             TotalPendiente = totalPendiente,
             TotalIvaFacturado = totalIvaFacturado,
@@ -105,7 +117,7 @@ public static class CajaConciliacionBuilder
                 .Select(m => MapMovimiento(m, cuotaToCreditoId, cuotaToCliente))
                 .ToList(),
             LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId),
-            ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago, totalChequesRecibidos),
+            ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago, totalChequesRecibidos, anuladosPorMedio),
             Auditoria = BuildAuditoria(apertura, movimientos, cierre, lineasVenta),
         };
 
@@ -423,7 +435,8 @@ public static class CajaConciliacionBuilder
     private static List<ResumenMedioConciliacionViewModel> BuildResumenPorMedio(
         List<VentaTurnoLineaViewModel> ventasEfectivas,
         List<ResumenMedioPagoCajaViewModel> resumenReal,
-        decimal totalChequesRecibidos = 0m)
+        decimal totalChequesRecibidos = 0m,
+        IReadOnlyDictionary<string, decimal>? anuladosPorMedio = null)
     {
         var acc = new Dictionary<string, ResumenMedioConciliacionViewModel>();
 
@@ -449,6 +462,12 @@ public static class CajaConciliacionBuilder
             var key = MedioKey(medio.MedioPago);
             var r = Get(key);
             r.TotalCobrado += medio.TotalIngresos;
+        }
+
+        foreach (var (key, monto) in anuladosPorMedio ?? new Dictionary<string, decimal>())
+        {
+            var r = Get(key);
+            r.TotalCobrado = Math.Max(0m, r.TotalCobrado - monto);
         }
 
         // V-02: el cheque recibido pendiente se informa aparte, no como dinero cobrado.

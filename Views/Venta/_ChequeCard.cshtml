@@ -17,7 +17,7 @@
             </div>
         </div>
         <span class="inline-flex items-center self-start rounded-full border px-3 py-1 text-xs font-bold @chip" data-cheque-estado>
-            @(rechazado ? "Rechazado" : Model.Estado == "Pendiente" ? "Pago pendiente" : Model.Estado)
+            @(rechazado ? "Rechazado" : Model.Estado)
         </span>
     </div>
 
@@ -33,7 +33,7 @@
         </div>
     }
 
-    @if (!rechazado && Model.Estado == "Pendiente")
+    @if (!rechazado && Model.Estado == "Pago pendiente")
     {
         <p class="mb-4 text-sm text-slate-300" data-cheque-informativo>
             Cheque recibido como pago pendiente: la venta está confirmada, pero el importe no ingresa al efectivo de la caja y el sistema no registra su depósito, acreditación ni rechazo.

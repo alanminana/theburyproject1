@@ -1,6 +1,8 @@
 # Procedimiento supervisado: primer cheque bancario auténtico (V-02)
 
-**Estado: NO EJECUTAR sin autorización expresa y por escrito del propietario.** Este documento solo describe el procedimiento. Mientras no se ejecute y verifique con un cheque real depositado y acreditado por el banco, V-02 queda **Bloqueado para cierre**.
+**Estado: SUPERADO (2026-11-19).** El propietario decidió que el ERP **no** hace seguimiento de depósito, acreditación, rechazo ni conciliación bancaria de los cheques recibidos (son un pago pendiente informativo) y que **no se requiere probar un cheque bancario real**. Este procedimiento queda solo como referencia histórica de un circuito (acreditar/rechazar) que ya no está expuesto en la interfaz; **no ejecutar**. V-02 se cierra con el alcance informativo (ver `docs/hitos-d01-d03-inventario-y-criterios.md` §18).
+
+> Texto original (histórico): «NO EJECUTAR sin autorización expresa y por escrito del propietario. Mientras no se ejecute y verifique con un cheque real depositado y acreditado por el banco, V-02 queda Bloqueado para cierre.»
 
 Referencias: `docs/cheques-circuito-propuesta.md` (§6 diseño, §7 prueba en clon), `docs/cheques-migracion-autorizacion.md`, `docs/aceptacion-erp.md`.
 
@@ -67,4 +69,4 @@ Para la venta de prueba `@VentaId`, verificar y archivar el resultado:
 
 ## 7. Criterios de cierre de V-02
 
-V-02 pasa a **Finalizado** únicamente si: (a) se ejecutó §4 con autorización; (b) la acreditación bancaria real coincide con el asiento del sistema; (c) la conciliación §5 da 0 diferencias; (d) la comparación con la línea base §3 muestra solo las filas de la prueba; (e) el resultado se documenta con evidencia (capturas bancarias fuera del repositorio). Hasta entonces: **Bloqueado para cierre — falta validación bancaria real**.
+**Reemplazado el 2026-11-19 por la decisión del propietario (alcance informativo, ver hitos §18): V-02 está Finalizado sin la validación bancaria real.** Criterio histórico: V-02 pasaba a **Finalizado** únicamente si: (a) se ejecutó §4 con autorización; (b) la acreditación bancaria real coincide con el asiento del sistema; (c) la conciliación §5 da 0 diferencias; (d) la comparación con la línea base §3 muestra solo las filas de la prueba; (e) el resultado se documenta con evidencia (capturas bancarias fuera del repositorio). Hasta entonces: **Bloqueado para cierre — falta validación bancaria real**.

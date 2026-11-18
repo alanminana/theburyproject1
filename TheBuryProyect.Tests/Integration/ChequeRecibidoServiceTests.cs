@@ -433,7 +433,7 @@ public class ChequeRecibidoServiceTests : IDisposable
         var est = (await _service.ObtenerEstadoChequeVentaAsync(rechazado.Id))!;
         Assert.True(est.Rechazado);
         Assert.Equal("Rechazado", est.Estado);
-        Assert.Equal("Pendiente de acreditar", (await _service.ObtenerEstadoChequeVentaAsync(pendiente.Id))!.Estado);
+        Assert.Equal("Pago pendiente", (await _service.ObtenerEstadoChequeVentaAsync(pendiente.Id))!.Estado);
     }
 
     // ------------------------------------------------------------------ D4: devolución

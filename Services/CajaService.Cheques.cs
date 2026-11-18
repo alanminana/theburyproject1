@@ -781,7 +781,7 @@ namespace TheBuryProject.Services
                     ? "Sin cobrar"
                     : mov.EstadoAcreditacion switch
                     {
-                        EstadoAcreditacionMovimientoCaja.Pendiente => "Pendiente de acreditar",
+                        EstadoAcreditacionMovimientoCaja.Pendiente => "Pago pendiente",
                         EstadoAcreditacionMovimientoCaja.Acreditado => "Acreditado",
                         EstadoAcreditacionMovimientoCaja.Anulado => "Anulado",
                         EstadoAcreditacionMovimientoCaja.Rechazado => "Rechazado",

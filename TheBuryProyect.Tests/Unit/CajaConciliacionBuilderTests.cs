@@ -220,6 +220,10 @@ public class CajaConciliacionBuilderTests
 
         Assert.Equal(0m, vm.TotalChequesRecibidos);
         Assert.Equal(0m, vm.Ventas.Single(v => v.VentaId == 4).ChequeRecibido);
+        // Nunca se cobró: el ingreso anulado tampoco figura como "Cobrado" (ni en el total ni en el medio).
+        Assert.Equal(10935.26m, vm.TotalCobrado);
+        Assert.Equal(5000m, vm.TotalCobradoDigital);
+        Assert.Equal(0m, vm.ResumenPorMedio.Single(r => r.MedioKey == "cheque").TotalCobrado);
     }
 
     [Fact]
