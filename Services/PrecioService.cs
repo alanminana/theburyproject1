@@ -5,6 +5,7 @@
 
 using TheBuryProject.Validation;
 using ClosedXML.Excel;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
@@ -772,6 +773,13 @@ public class PrecioService : IPrecioService
             }
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (EsViolacionIndicePrecioVigente(ex))
+        {
+            // Otro precio (manual o de lote) quedó vigente entre la lectura y el alta: conflicto esperado, no un error del servidor.
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Conflicto de precio vigente al aplicar cambio directo de precio.");
+            return new ResultadoAplicacionPrecios { Exitoso = false, Mensaje = MensajeConflictoCambioDirecto };
         }
         catch (Exception ex)
         {
@@ -1884,12 +1892,42 @@ public class PrecioService : IPrecioService
 
             return batch;
         }
+        catch (DbUpdateException ex) when (EsViolacionIndicePrecioVigente(ex))
+        {
+            // Un precio manual (u otro lote) quedó vigente entre el cierre del anterior y el alta del nuevo: el índice único impidió
+            // el duplicado. Es un conflicto de concurrencia esperado, no un error del servidor: se revierte todo y se informa.
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Conflicto de precio vigente al aplicar batch {BatchId}", batchId);
+            throw new InvalidOperationException(MensajeConflictoPrecioLote);
+        }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al aplicar batch {BatchId}", batchId);
             throw;
         }
+    }
+
+    private const string IndicePrecioVigente = "IX_ProductosPrecios_ProductoId_ListaId_Vigente";
+    private const string MensajeConflictoCambioDirecto = "Otro usuario cambió el precio de un producto al mismo tiempo. Recargá e intentá de nuevo.";
+    private const string MensajeConflictoPrecioLote = "Otro usuario cambió el precio de un producto del lote al mismo tiempo. Recargá e intentá de nuevo.";
+
+    /// <summary>
+    /// True solo si la excepción es una violación REAL de unicidad (SQL Server 2601/2627) del índice del precio vigente por
+    /// producto y lista. Cualquier otro error de persistencia (FK, timeout, deadlock, otra unicidad) NO es este conflicto y se propaga.
+    /// </summary>
+    internal static bool EsViolacionIndicePrecioVigente(DbUpdateException ex)
+    {
+        for (Exception? actual = ex; actual != null; actual = actual.InnerException)
+        {
+            if (actual is SqlException sql)
+            {
+                return sql.Errors.Cast<SqlError>().Any(e =>
+                    e.Number is 2601 or 2627 && e.Message.Contains(IndicePrecioVigente, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        return false;
     }
 
     public async Task<PriceChangeBatch> RevertirBatchAsync(
@@ -2029,6 +2067,12 @@ public class PrecioService : IPrecioService
                 batchId, revertidoPor, motivo, batchReversion.Id);
 
             return batchReversion; // Retornar el batch de reversión para referencia
+        }
+        catch (DbUpdateException ex) when (EsViolacionIndicePrecioVigente(ex))
+        {
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Conflicto de precio vigente al revertir batch {BatchId}", batchId);
+            throw new InvalidOperationException(MensajeConflictoPrecioLote);
         }
         catch (Exception ex)
         {
