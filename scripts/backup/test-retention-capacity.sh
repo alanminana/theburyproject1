@@ -159,6 +159,25 @@ mkf "$R" "files/files_$(stamp $((4*D - 30))).tar.gz.caseal" 100   # solo el conj
 out=$(BACKUP_CA_KEY=seal plan_of "$R" 2 1 0 999999999999); rc=$?
 check "seal: solo el conjunto con .caseal acredita; el posterior sin .caseal no desplaza la proteccion del anterior" bash -c '[[ "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'"' _ "$out" "$rc"
 
+# Tercera revision de Codex: (a) un manifiesto que nombra un full BORRADO no acredita nada; (b) si BACKUP_CA_KEY no se puede determinar, no se
+# asume "include" (relajaria la exigencia de .caseal): GUARD y no se borra nada.
+R=$(newbk m14); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 0; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+tts=$(stamp $((3*D - 30))); dts=$(stamp $((3*D + 5)))   # el manifiesto apunta a un full inexistente (borrado)
+mkf "$R" "files/files_${tts}.tar.gz" 500; shaf "$R" "files/files_${tts}.tar.gz"; printf 'bury-backup-set v1
+full=x
+' >"$R/files/set_${tts}_${dts}.txt"
+out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+check "manifiesto hacia un full borrado: no acredita; el ultimo conjunto valido (cadena 1) NO se borra y el FAIL es ruidoso" bash -c '[[ "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'" && ! grep "^DELETE" <<<"$1" | grep -q "files_'"$(stamp $((4*D - 30)))"'" && tail -n1 <<<"$1" | grep -q "^FAIL"' _ "$out" "$rc"
+R=$(newbk m15); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+out=$( unset BACKUP_CA_KEY; cfg() { return 1; }; plan_of "$R" 2 1 0 999999999999 ); rc=$?
+check "cfg falla y BACKUP_CA_KEY no esta definida: GUARD, 0 DELETE y FAIL (no se asume include)" bash -c '[[ $(grep -c "^GUARD" <<<"$1") -ge 1 && $(grep -c "^DELETE" <<<"$1") == 0 ]] && grep -q "^FAIL" <<<"$1" && [[ "$2" == 3 ]]' _ "$out" "$rc"
+out=$( unset -f cfg; unset BACKUP_CA_KEY; plan_of "$R" 2 1 0 999999999999 ); rc=$?
+check "cfg inexistente y BACKUP_CA_KEY no definida: GUARD, 0 DELETE y FAIL" bash -c '[[ $(grep -c "^GUARD" <<<"$1") -ge 1 && $(grep -c "^DELETE" <<<"$1") == 0 && "$2" == 3 ]]' _ "$out" "$rc"
+out=$( BACKUP_CA_KEY=exclude plan_of "$R" 2 1 0 999999999999 ); rc=$?
+check "BACKUP_CA_KEY con valor invalido: GUARD, 0 DELETE y FAIL" bash -c '[[ $(grep -c "^GUARD" <<<"$1") -ge 1 && $(grep -c "^DELETE" <<<"$1") == 0 && "$2" == 3 ]]' _ "$out" "$rc"
+out=$( BACKUP_CA_KEY=include plan_of "$R" 2 1 0 999999999999 ); rc=$?
+check "BACKUP_CA_KEY=include explicito: sin GUARD (la decision se toma con normalidad)" bash -c '[[ $(grep -c "^GUARD" <<<"$1") == 0 ]]' _ "$out" "$rc"
+
 # ================================================================================================================ 2. scripts (hostfs)
 cfgrun() { # cfgrun <raiz> [VAR=valor...] -- <script> [args]: ejecuta un script con entorno aislado del .env real
   local r=$1; shift; local -a ev=()

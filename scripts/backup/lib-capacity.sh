@@ -57,6 +57,14 @@ bk_chains() {
   local db=${1:-} now=${2:-}
   [[ "$db" =~ ^[A-Za-z_][A-Za-z0-9_]{0,63}$ ]] || { echo "GUARD nombre de base invalido"; return 2; }
   [[ "$now" =~ ^[0-9]{9,11}$ ]] || { echo "GUARD ahora invalido"; return 2; }
+  # Modo de custodia de la CA (include|seal): condiciona que un conjunto de archivos se considere acreditado. Si no se puede determinar
+  # con certeza NO se asume "include" (relajaria la exigencia de .caseal): GUARD y no se decide ningun borrado.
+  local seal=${BACKUP_CA_KEY:-}
+  if [[ -z "$seal" ]] && declare -F cfg >/dev/null 2>&1; then seal=$(cfg BACKUP_CA_KEY include 2>/dev/null) || seal=""; fi
+  if [[ "$seal" != include && "$seal" != seal ]]; then
+    cat >/dev/null
+    echo "GUARD BACKUP_CA_KEY ausente o invalido (debe ser include|seal): no se puede acreditar ningun conjunto de archivos y no se decide nada"; return 0
+  fi
   local LC_ALL=C
   local rx_full="^sql/${db}_full_(${BK_TS})\.bak(\.sha256)?\$" rx_log="^sql/${db}_log_(${BK_TS})\.trn(\.sha256)?\$"
   local rx_tar="^files/files_(${BK_TS})\.tar\.gz(\.sha256|\.caseal)?\$" rx_set="^files/set_(${BK_TS})_(${BK_TS})\.txt\$"
@@ -120,15 +128,14 @@ bk_chains() {
   # Conjuntos de archivos ACREDITADOS (uploads, claves): tar con bytes, su .sha256 completo y su manifiesto set_<tar>_<full>.txt; con
   # BACKUP_CA_KEY=seal ademas su .caseal (sin el, Caddy podria no arrancar tras restaurar). Un tar interrumpido (sin checksum, manifiesto o
   # .caseal) NO acredita nada. capacity_plan nunca borra la ultima cadena con un conjunto acreditado.
-  local seal; seal=$(cfg BACKUP_CA_KEY include 2>/dev/null || echo include)
   for r in "${names[@]}"; do
     [[ "${typ[$r]}" == tar && -z "${suf[$r]}" ]] || continue
     (( ${size[$r]} > 0 )) || continue
     [[ -n "${size[$r.sha256]+x}" ]] && (( ${size[$r.sha256]} >= 64 )) || continue
-    [[ -n "${settar[${t1[$r]}]:-}" ]] || continue
+    local mfull=${settar[${t1[$r]}]:-}
+    [[ -n "$mfull" && -n "${fidx[$mfull]:-}" ]] || continue   # el manifiesto debe nombrar un full COMPLETO que exista (la fecha solo agrupa, no acredita)
     if [[ "$seal" == seal ]]; then [[ -n "${size[$r.caseal]+x}" ]] && (( ${size[$r.caseal]} > 0 )) || continue; fi
-    idx=$(tar_idx "${t1[$r]}")
-    [[ "$idx" =~ ^[1-9][0-9]*$ ]] && echo "P|$idx"
+    echo "P|${fidx[$mfull]}"
   done
 }
 
