@@ -446,7 +446,62 @@ public class ListaPrecioPrecioManualSqlServerTests : IClassFixture<ListaPrecioPr
         await AssertHistorialCoherenteAsync(producto, lista, "D01-CONC-09");
     }
 
-    [SqlServerConcFact(DisplayName = "D01-CONC-08el indice unico del precio vigente impide dos vigentes aunque se salte el servicio")]
+    [SqlServerConcFact(DisplayName = "D01-CONC-10 cambio directo de precio que pierde la carrera contra un precio manual: resultado fallido controlado, sin duplicado ni excepcion")]
+    public async Task Cambio_Directo_Que_Pierde_La_Carrera_Contra_Un_Precio_Manual_Falla_De_Forma_Controlada()
+    {
+        await LimpiarListasAsync();
+        var lista = await SembrarListaAsync(false);
+        var producto = await SembrarProductoAsync(lista, 100m);
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await ctx.Database.ExecuteSqlRawAsync(
+                "UPDATE ProductosPrecios SET EsVigente = 0, VigenciaHasta = {0} WHERE ProductoId = {1} AND ListaId = {2}",
+                DateTime.UtcNow.AddHours(-1), producto, lista);
+        }
+
+        var plan = new GatePlan("directo-antes-del-alta", sql => sql.Contains("INSERT INTO [ProductosPrecios]", StringComparison.Ordinal));
+        var directo = Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                var r = await scope.ServiceProvider.GetRequiredService<IPrecioService>().AplicarCambioPrecioDirectoAsync(
+                    new ViewModels.AplicarCambioPrecioDirectoViewModel
+                    {
+                        Alcance = "seleccionados", ProductoIdsText = producto.ToString(), ValorPorcentaje = 10m,
+                        TipoCambio = "porcentaje", ListaPrecioId = lista, Motivo = "D01 concurrencia"
+                    });
+                return r.Exitoso ? "OK" : "RECHAZADA: " + r.Mensaje;
+            }
+            catch (Exception ex) { return "EXCEPCION: " + ex.GetType().Name + " " + ex.Message; }
+            finally { ConcGateInterceptor.Plan.Value = null; }
+        });
+
+        Assert.True(await Task.WhenAny(plan.Reached.Task, directo, Task.Delay(TimeSpan.FromSeconds(30))) == plan.Reached.Task,
+            "el cambio directo no llego a la compuerta");
+
+        using (var scope = _fx.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IPrecioService>().SetPrecioManualAsync(producto, lista, 140m, 50m);
+
+        plan.Release.TrySetResult();
+        var resultado = await directo;
+
+        Assert.True(resultado.StartsWith("RECHAZADA") && resultado.Contains("al mismo tiempo"), $"debia fallar de forma controlada: {resultado}");
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var vigentes = await ctx.ProductosPrecios.AsNoTracking().Where(p => p.ProductoId == producto && p.ListaId == lista && p.EsVigente && !p.IsDeleted).ToListAsync();
+            Assert.Single(vigentes);
+            Assert.Equal(140m, vigentes[0].Precio);
+            // El cambio directo se revirtio por completo: no cambio el precio base del producto.
+            Assert.Equal(100m, (await ctx.Productos.AsNoTracking().SingleAsync(p => p.Id == producto)).PrecioVenta);
+        }
+        await AssertHistorialCoherenteAsync(producto, lista, "D01-CONC-10");
+    }
+
+    [SqlServerConcFact(DisplayName = "D01-CONC-08 el indice unico del precio vigente impide dos vigentes aunque se salte el servicio")]
     public async Task El_Indice_Unico_De_La_Base_Impide_Dos_Vigentes()
     {
         await LimpiarListasAsync();

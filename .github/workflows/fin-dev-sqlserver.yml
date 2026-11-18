@@ -221,8 +221,8 @@ jobs:
           done
           exit $RC
 
-      # D-01: concurrencia de la lista predeterminada unica y de los precios manuales / lotes (D01-CONC-01..08). Un omitido no es un aprobado.
-      - name: D-01 - lista predeterminada y precios manuales (D01-CONC-01..08)
+      # D-01: concurrencia de la lista predeterminada unica y de los precios manuales / lotes (D01-CONC-01..10). Un omitido no es un aprobado.
+      - name: D-01 - lista predeterminada y precios manuales (D01-CONC-01..10)
         env:
           QA_RELEASE_TURNO: '1'
           QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
@@ -232,7 +232,7 @@ jobs:
           dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~ListaPrecioPrecioManualSqlServerTests"             --logger "trx;LogFileName=d01-lista-precio-sql-rcsi${{ matrix.rcsi }}.trx"             --logger "console;verbosity=detailed"             --results-directory ./TestResults
           TRX=./TestResults/d01-lista-precio-sql-rcsi${{ matrix.rcsi }}.trx
           RC=0
-          for R in D01-CONC-01 D01-CONC-02 D01-CONC-03 D01-CONC-04 D01-CONC-05 D01-CONC-06 D01-CONC-07 D01-CONC-08; do
+          for R in D01-CONC-01 D01-CONC-02 D01-CONC-03 D01-CONC-04 D01-CONC-05 D01-CONC-06 D01-CONC-07 D01-CONC-08 D01-CONC-09 D01-CONC-10; do
             LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*$R[^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
             if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
             echo "$R -> $OUT"

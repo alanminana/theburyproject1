@@ -774,6 +774,13 @@ public class PrecioService : IPrecioService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
         }
+        catch (DbUpdateException ex) when (EsViolacionIndicePrecioVigente(ex))
+        {
+            // Otro precio (manual o de lote) quedó vigente entre la lectura y el alta: conflicto esperado, no un error del servidor.
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Conflicto de precio vigente al aplicar cambio directo de precio.");
+            return new ResultadoAplicacionPrecios { Exitoso = false, Mensaje = MensajeConflictoCambioDirecto };
+        }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
@@ -1902,6 +1909,7 @@ public class PrecioService : IPrecioService
     }
 
     private const string IndicePrecioVigente = "IX_ProductosPrecios_ProductoId_ListaId_Vigente";
+    private const string MensajeConflictoCambioDirecto = "Otro usuario cambió el precio de un producto al mismo tiempo. Recargá e intentá de nuevo.";
     private const string MensajeConflictoPrecioLote = "Otro usuario cambió el precio de un producto del lote al mismo tiempo. Recargá e intentá de nuevo.";
 
     /// <summary>
