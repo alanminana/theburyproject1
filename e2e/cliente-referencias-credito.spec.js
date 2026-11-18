@@ -310,6 +310,10 @@ test.describe('@config-referencias D-02 — referencias verificadas para otorgar
         const nota = page.locator('[data-venta-autorizar-referencias]');
         await expect(nota).toBeVisible();
         await expect(nota).toContainText('segundo usuario');
+        // Cada razón se confirma de forma expresa: la de referencias tiene su propia casilla, rotulada aparte.
+        const casilla = page.locator('#autorizar-razon-7');
+        await expect(page.locator('label[for="autorizar-razon-7"]')).toContainText('Excepción por referencias insuficientes: solo exime las referencias.');
+        await casilla.check();
         await page.locator('#motivo').fill('Me autorizo yo mismo');
         await page.getByRole('button', { name: /Confirmar autorización/ }).click();
         await page.waitForURL(new RegExp(`/Venta/Details/${ventaId}`), { timeout: 15_000 });
@@ -322,6 +326,13 @@ test.describe('@config-referencias D-02 — referencias verificadas para otorgar
             const p2 = autorizador.page;
             await p2.goto(`/Venta/Autorizar/${ventaId}`, { waitUntil: 'domcontentloaded' });
             await expect(p2.locator('[data-venta-autorizar-referencias]')).toBeVisible();
+            // Sin marcar la casilla de referencias la excepción no se da por implícita: no autoriza nada.
+            await p2.locator('#motivo').fill('Sin marcar nada');
+            await p2.getByRole('button', { name: /Confirmar autorización/ }).click();
+            await p2.waitForURL(new RegExp(`/Venta/Details/${ventaId}`), { timeout: 15_000 });
+            await expect(p2.getByText('Pendiente', { exact: true }).first()).toBeVisible();
+            await p2.goto(`/Venta/Autorizar/${ventaId}`, { waitUntil: 'domcontentloaded' });
+            await p2.locator('#autorizar-razon-7').check();
             await p2.locator('#motivo').fill('E2E: cliente conocido, referencias en trámite');
             await p2.getByRole('button', { name: /Confirmar autorización/ }).click();
             await p2.waitForURL(new RegExp(`/Venta/Details/${ventaId}`), { timeout: 15_000 });

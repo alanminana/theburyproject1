@@ -623,6 +623,7 @@ namespace TheBuryProject.Services
                 venta.FechaAutorizacion = fechaAutorizacion;
                 venta.MotivoAutorizacion =
                     $"EXCEPCION_DOC|{fechaAutorizacion:O}|{usuarioActual}|{validacion.MotivoExcepcionDocumentalAutorizada}";
+                SellarRazonesExceptuadasEnAlta(validacion, usuarioActual, fechaAutorizacion);
                 venta.RazonesAutorizacionJson = SerializarRazonesAutorizacion(validacion);
 
                 _logger.LogWarning(
@@ -637,6 +638,7 @@ namespace TheBuryProject.Services
                 venta.Estado = EstadoVenta.PendienteFinanciacion; // También PendienteFinanciacion
                 venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
                 venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
+                SellarRazonesExceptuadasEnAlta(validacion, usuarioActual, DateTime.UtcNow);
                 venta.RazonesAutorizacionJson = SerializarRazonesAutorizacion(validacion);
 
                 _logger.LogInformation(
@@ -761,7 +763,9 @@ namespace TheBuryProject.Services
                 {
                     Tipo = MapearTipoRazonExcepcionDocumentalCreate(requisito),
                     Descripcion = requisito.Descripcion,
-                    DetalleAdicional = $"Excepción solicitada en creación: {motivoExcepcion}"
+                    DetalleAdicional = $"Excepción solicitada en creación: {motivoExcepcion}",
+                    Autorizada = true,
+                    MotivoAutorizacion = motivoExcepcion
                 });
             }
         }
@@ -1177,16 +1181,7 @@ namespace TheBuryProject.Services
                     }
 
                     ExigirAutorizacionDeReferencias(venta, validacion);
-
-                    if (validacion.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
-                    {
-                        _logger.LogWarning(
-                            "ConfirmarVentaAsync venta {Id} requiere autorizacion y no esta autorizada. EstadoAutorizacion:{EstadoAutorizacion}",
-                            id,
-                            venta.EstadoAutorizacion);
-                        throw new InvalidOperationException(
-                            $"La venta requiere autorización. {validacion.MensajeResumen}");
-                    }
+                    ExigirTodasLasRazonesAutorizadas(venta, validacion);
 
                     await ValidarCupoDisponibleEnConfirmacionAsync(venta, venta.Total);
                     await ValidarContratoCreditoPersonalGeneradoAsync(venta);
@@ -2444,7 +2439,18 @@ namespace TheBuryProject.Services
 
         #region Autorización
 
-        public async Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo)
+        public Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo) =>
+            AutorizarVentaAsync(id, usuarioAutoriza, motivo, null);
+
+        /// <summary>
+        /// Autoriza razones de una venta pendiente. Cada razón se autoriza de forma expresa y por separado:
+        /// <paramref name="razonesAutorizadas"/> indica cuáles cubre este acto. La venta solo pasa a Autorizada cuando TODAS
+        /// las razones presentes tienen su autorización; si queda alguna sin autorizar sigue PendienteAutorizacion.
+        /// Sin parámetro (null) se autorizan todas las razones pendientes, salvo que entre ellas esté «referencias
+        /// insuficientes»: esa excepción nunca se da por implícita y exige el parámetro con ella incluida.
+        /// </summary>
+        public async Task<bool> AutorizarVentaAsync(
+            int id, string usuarioAutoriza, string motivo, IReadOnlyCollection<TipoRazonAutorizacion>? razonesAutorizadas)
         {
             ValidarLongitudMotivo(motivo, MaxLongitudMotivoAutorizacion);
 
@@ -2468,35 +2474,107 @@ namespace TheBuryProject.Services
             ValidarCreadorDistintoDeQuienAutoriza(venta, usuarioAutoriza,
                 "La venta debe ser autorizada por un usuario distinto al que la creó.");
 
+            var razones = VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson);
+            // Un JSON que no es la lista estructurada de razones (ventas anteriores a la trazabilidad, otro formato) no se
+            // reescribe ni se separa por razón: se autoriza como siempre y el JSON queda intacto.
+            var estructurado = razones.Count > 0 && razones.All(r => Enum.IsDefined(r.Tipo));
+            if (!estructurado)
+            {
+                razones = new List<RazonAutorizacion>();
+            }
+
+            var pendientes = razones.Where(r => !r.Autorizada).ToList();
+
+            List<RazonAutorizacion> aAutorizar;
+            if (!estructurado)
+            {
+                aAutorizar = new List<RazonAutorizacion>();
+            }
+            else if (razonesAutorizadas == null)
+            {
+                if (pendientes.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes))
+                {
+                    throw new InvalidOperationException(
+                        "La excepción por referencias insuficientes debe confirmarse de forma expresa e individual: indicá las razones que autorizás, incluida «Referencias verificadas insuficientes».");
+                }
+
+                aAutorizar = pendientes;
+            }
+            else
+            {
+                var tipos = razonesAutorizadas.ToList();
+                if (tipos.Count == 0)
+                {
+                    throw new InvalidOperationException("Debe indicar al menos una razón a autorizar.");
+                }
+
+                if (tipos.Any(t => !Enum.IsDefined(t)) || tipos.Distinct().Count() != tipos.Count)
+                {
+                    throw new InvalidOperationException("La lista de razones a autorizar no es válida: hay tipos desconocidos o repetidos.");
+                }
+
+                aAutorizar = new List<RazonAutorizacion>();
+                foreach (var tipo in tipos)
+                {
+                    var razon = pendientes.FirstOrDefault(r => r.Tipo == tipo);
+                    if (razon == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"La razón «{new RazonAutorizacion { Tipo = tipo }.TipoDisplay}» no está pendiente de autorización en esta venta.");
+                    }
+
+                    aAutorizar.Add(razon);
+                }
+            }
+
             // D-02: la autorización de referencias insuficientes exige un SEGUNDO usuario con ventas.authorize: el creador
             // (o quien la modificó) no puede autorizarla ni siquiera teniendo el permiso.
-            var autorizaReferencias = VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+            var autorizaReferencias = aAutorizar.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
             if (autorizaReferencias)
             {
                 ValidarSegundoUsuarioParaReferencias(venta, usuarioAutoriza);
             }
 
-            // E3: Registrar auditoría completa
-            venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
-            venta.UsuarioAutoriza = usuarioAutoriza;
-            venta.FechaAutorizacion = DateTime.UtcNow;
-            venta.MotivoAutorizacion = motivo.Trim();
-            
-            // Las razones autorizadas ya están en RazonesAutorizacionJson (guardadas al crear)
-            // No se modifican, quedan como registro de qué se autorizó
-
-            if (autorizaReferencias)
+            var fechaUtc = DateTime.UtcNow;
+            var motivoNormalizado = motivo.Trim();
+            foreach (var razon in aAutorizar)
             {
-                // Evento de auditoría en el mismo SaveChanges que la autorización (si una falla, no queda ninguna).
-                _auditoria?.AgregarEvento("Ventas", "AutorizarExcepcionReferencias", $"Venta:{venta.Id}",
-                    $"Autorizó {usuarioAutoriza}; solicitó {venta.CreatedBy}; cliente {venta.ClienteId}; total {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)}; motivo: {motivo.Trim()}");
+                razon.Autorizada = true;
+                razon.AutorizadaPor = usuarioAutoriza;
+                razon.FechaAutorizacion = fechaUtc;
+                razon.MotivoAutorizacion = motivoNormalizado;
+            }
+
+            // Sin JSON estructurado (ventas anteriores a la trazabilidad) no hay razones que separar: se autoriza como siempre.
+            if (razones.Count > 0)
+            {
+                venta.RazonesAutorizacionJson = VentaRazonesAutorizacionJson.Serializar(razones);
+            }
+
+            // E3: Registrar auditoría completa (una entrada por razón autorizada, en el mismo SaveChanges)
+            foreach (var razon in aAutorizar)
+            {
+                var accion = razon.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes
+                    ? "AutorizarExcepcionReferencias"
+                    : "AutorizarRazonVenta";
+                _auditoria?.AgregarEvento("Ventas", accion, $"Venta:{venta.Id}",
+                    $"Razón {razon.Tipo}; autorizó {usuarioAutoriza}; solicitó {venta.CreatedBy}; cliente {venta.ClienteId}; total {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)}; motivo: {motivoNormalizado}");
+            }
+
+            var quedanSinAutorizar = razones.Any(r => !r.Autorizada);
+            if (!quedanSinAutorizar)
+            {
+                venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+                venta.UsuarioAutoriza = usuarioAutoriza;
+                venta.FechaAutorizacion = fechaUtc;
+                venta.MotivoAutorizacion = motivoNormalizado;
             }
 
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Venta {Id} autorizada por {Usuario}. Motivo: {Motivo}. Razones: {Razones}",
-                id, usuarioAutoriza, motivo, venta.RazonesAutorizacionJson ?? "N/A");
+                "Venta {Id}: {Usuario} autorizó {Razones}. Estado {Estado}. Motivo: {Motivo}",
+                id, usuarioAutoriza, string.Join(",", aAutorizar.Select(r => r.Tipo)), venta.EstadoAutorizacion, motivoNormalizado);
             return true;
         }
 
@@ -5010,16 +5088,20 @@ namespace TheBuryProject.Services
         // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
         // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
         private static string SerializarRazonesAutorizacion(ValidacionVentaResult validacion) =>
-            System.Text.Json.JsonSerializer.Serialize(
-                validacion.RazonesAutorizacion.Select(r => new
-                {
-                    r.Tipo,
-                    r.Descripcion,
-                    r.DetalleAdicional,
-                    r.Unidad,
-                    r.MontoAsociado,
-                    r.DiasAsociado
-                }));
+            VentaRazonesAutorizacionJson.Serializar(validacion.RazonesAutorizacion);
+
+        /// <summary>
+        /// D-02: las razones exceptuadas en el alta (excepción documental/de cupo) ya tienen su autorización: se marcan por
+        /// razón con el usuario y la fecha del acto. Las demás (incluida «referencias») quedan sin autorizar.
+        /// </summary>
+        private static void SellarRazonesExceptuadasEnAlta(ValidacionVentaResult validacion, string usuario, DateTime fechaUtc)
+        {
+            foreach (var razon in validacion.RazonesAutorizacion.Where(r => r.Autorizada && r.AutorizadaPor == null))
+            {
+                razon.AutorizadaPor = usuario;
+                razon.FechaAutorizacion = fechaUtc;
+            }
+        }
 
         // CreatedBy (interceptor de auditoría) es la fuente confiable del creador. El creador sólo puede
         // autorizar si además tiene el permiso ventas.authorize.
@@ -5079,12 +5161,30 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            var cubierta = venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
-                && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+            // La razón de referencias tiene su propia autorización expresa. Si está dada pero la venta sigue pendiente por otra
+            // razón, el bloqueo que corresponde es el de esa otra razón (lo informa el chequeo general de autorización).
+            var cubierta = venta.EstadoAutorizacion is EstadoAutorizacionVenta.Autorizada or EstadoAutorizacionVenta.PendienteAutorizacion
+                && VentaAutorizacionReferencias.ReferenciasAutorizadas(venta.RazonesAutorizacionJson);
             if (!cubierta)
             {
                 throw new InvalidOperationException(
                     $"{faltan.Descripcion}. La venta a crédito personal requiere la autorización de un segundo usuario con permiso de autorizar ventas antes de continuar.");
+            }
+        }
+
+        /// <summary>
+        /// D-02: la venta solo avanza (confirmar, facturar) con TODAS sus razones autorizadas: el estado Autorizada solo se
+        /// alcanza cuando cada razón tiene su autorización, y si no, el mensaje nombra las que faltan.
+        /// </summary>
+        internal static void ExigirTodasLasRazonesAutorizadas(Venta venta, ValidacionVentaResult validacion)
+        {
+            if (validacion.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
+            {
+                var faltan = VentaRazonesAutorizacionJson.DescribirPendientes(venta.RazonesAutorizacionJson);
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(faltan)
+                        ? $"La venta requiere autorización. {validacion.MensajeResumen}"
+                        : $"La venta requiere autorización. Falta autorizar: {faltan}. {validacion.MensajeResumen}");
             }
         }
 
@@ -5129,9 +5229,12 @@ namespace TheBuryProject.Services
                 // puede volver a valer: se retira esa razón de lo autorizado, de modo que si las referencias vuelven a
                 // faltar se exija un segundo usuario nuevo para el monto actual (la fecha y el usuario originales quedan
                 // en la auditoría).
-                if (venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
-                    && venta.Total != totalAnterior
-                    && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson))
+                // Solo se retira la razon de referencias (con su autorizacion); las demas razones conservan la suya.
+                if (venta.Total != totalAnterior
+                    && ((venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                            && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson))
+                        || (venta.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion
+                            && VentaAutorizacionReferencias.ReferenciasAutorizadas(venta.RazonesAutorizacionJson))))
                 {
                     _auditoria?.AgregarEvento("Ventas", "InvalidarExcepcionReferencias", $"Venta:{venta.Id}",
                         $"El total cambió de {totalAnterior.ToString("0.00", CultureInfo.InvariantCulture)} a {venta.Total.ToString("0.00", CultureInfo.InvariantCulture)} con las referencias ya suficientes: la excepción de {venta.UsuarioAutoriza} por referencias deja de valer para este monto");
@@ -5141,8 +5244,8 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            var cubria = venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
-                && VentaAutorizacionReferencias.ContieneReferencias(venta.RazonesAutorizacionJson);
+            var cubria = venta.EstadoAutorizacion is EstadoAutorizacionVenta.Autorizada or EstadoAutorizacionVenta.PendienteAutorizacion
+                && VentaAutorizacionReferencias.ReferenciasAutorizadas(venta.RazonesAutorizacionJson);
 
             if (cubria && venta.Total == totalAnterior)
             {

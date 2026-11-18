@@ -24,6 +24,7 @@ namespace TheBuryProject.Tests.Integration;
 /// </summary>
 public class VentaReferenciasCreditoServiceTests : IDisposable
 {
+    private static readonly TipoRazonAutorizacion[] Refs = { TipoRazonAutorizacion.ReferenciasInsuficientes };
     private const string Creador = "vendedor.uno";
     private const string Autorizador = "gerente.dos";
 
@@ -95,7 +96,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
     }
 
     /// <summary>Config + cliente apto salvo por lo que cada prueba pida (BCRA ok, sin docs ni cupo exigidos).</summary>
-    private async Task SembrarAsync(int minimo = 1, bool mora = false, int bcra = 1, bool cupo = false, decimal limite = 1_000_000m)
+    private async Task SembrarAsync(int minimo = 1, bool mora = false, int bcra = 1, bool cupo = false, decimal limite = 1_000_000m, int? diasNoApto = null)
     {
         _ctx.Set<ConfiguracionCredito>().Add(new ConfiguracionCredito
         {
@@ -103,7 +104,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
             ValidarDocumentacion = false,
             ValidarLimiteCredito = cupo,
             ValidarMora = mora,
-            DiasParaNoApto = mora ? 1 : null
+            DiasParaNoApto = mora ? (diasNoApto ?? 1) : null
         });
         (await _ctx.PuntajesCreditoLimite.FindAsync(1))!.LimiteMonto = limite;
 
@@ -265,7 +266,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var creada = await _svc.CreateAsync(NuevaVenta());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _svc.AutorizarVentaAsync(creada.Id, Creador, "Lo autorizo yo"));
+            _svc.AutorizarVentaAsync(creada.Id, Creador, "Lo autorizo yo", Refs));
 
         Assert.Contains("segundo usuario", ex.Message);
         var venta = await VentaAsync(creada.Id);
@@ -281,7 +282,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: false);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Motivo"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Motivo", Refs));
 
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(creada.Id)).EstadoAutorizacion);
     }
@@ -293,7 +294,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "   "));
+        await Assert.ThrowsAsync<ArgumentException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "   ", Refs));
 
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(creada.Id)).EstadoAutorizacion);
     }
@@ -305,9 +306,9 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
 
-        var primera = await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Cliente conocido, referencias en trámite");
+        var primera = await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Cliente conocido, referencias en trámite", Refs);
         // doble uso / reintento: ya no está pendiente, se rechaza y no se registra una segunda autorización
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Reintento"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Reintento", Refs));
 
         Assert.True(primera);
         var venta = await VentaAsync(creada.Id);
@@ -329,7 +330,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         var primera = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(primera.Id, Autorizador, "Excepción para esta venta");
+        await _svc.AutorizarVentaAsync(primera.Id, Autorizador, "Excepción para esta venta", Refs);
 
         ComoUsuario(Creador, autoriza: true);
         var segunda = await _svc.CreateAsync(NuevaVenta());
@@ -351,7 +352,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await _ctx.SaveChangesAsync();
         _ctx.ChangeTracker.Clear();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Motivo"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Motivo", Refs));
     }
 
     [Fact]
@@ -360,7 +361,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         ComoUsuario(Autorizador, autoriza: true);
 
-        Assert.False(await _svc.AutorizarVentaAsync(987_654, Autorizador, "Motivo"));
+        Assert.False(await _svc.AutorizarVentaAsync(987_654, Autorizador, "Motivo", Refs));
         Assert.Empty(_auditoria.Eventos);
     }
 
@@ -452,8 +453,13 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => VentaService.ExigirAutorizacionDeReferencias(venta, validacion));
 
         // Autorizada y cubriendo las referencias: pasa.
-        venta.RazonesAutorizacionJson = "[{\"Tipo\":7,\"Descripcion\":\"Referencias\"}]";
+        venta.RazonesAutorizacionJson = "[{\"Tipo\":7,\"Descripcion\":\"Referencias\",\"Autorizada\":true}]";
         VentaService.ExigirAutorizacionDeReferencias(venta, validacion);
+
+        // Referencias en lo autorizado pero SIN la confirmación expresa por razón: no cubre.
+        venta.RazonesAutorizacionJson = "[{\"Tipo\":7,\"Descripcion\":\"Referencias\"}]";
+        Assert.Throws<InvalidOperationException>(() => VentaService.ExigirAutorizacionDeReferencias(venta, validacion));
+        venta.RazonesAutorizacionJson = "[{\"Tipo\":7,\"Descripcion\":\"Referencias\",\"Autorizada\":true}]";
 
         // Si cubre pero fue Rechazada: no sirve.
         venta.EstadoAutorizacion = EstadoAutorizacionVenta.Rechazada;
@@ -481,7 +487,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         Assert.Contains("segundo usuario", ex.Message);
 
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta");
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta", Refs);
 
         await _svc.AsegurarReferenciasAutorizadasAsync(creada.Id); // ahora cubre
         await _svc.AsegurarReferenciasAutorizadasAsync(987_654);   // inexistente: no hace nada
@@ -524,7 +530,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta");
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta", Refs);
         _auditoria.Eventos.Clear();
 
         ComoUsuario(Creador, autoriza: true);
@@ -549,7 +555,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta");
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para esta venta", Refs);
         _auditoria.Eventos.Clear();
 
         ComoUsuario(Creador, autoriza: true);
@@ -601,7 +607,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original");
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original", Refs);
 
         // 1) Las referencias pasan a alcanzar.
         await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
@@ -643,7 +649,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await SembrarAsync();
         var creada = await _svc.CreateAsync(NuevaVenta());
         ComoUsuario(Autorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original");
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Excepción para el monto original", Refs);
         await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
         _auditoria.Eventos.Clear();
 
@@ -691,5 +697,331 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
             string? usuario = null, string? modulo = null, string? accion = null,
             DateOnly? desde = null, DateOnly? hasta = null, int skip = 0, int? take = null) =>
             Task.FromResult(new AuditoriaQueryResult());
+    }
+
+    // ============================================================================================
+    // Excepción de referencias: alcance exacto. Cada razón se autoriza de forma expresa y por
+    // separado; la excepción de referencias solo exime las referencias.
+    // ============================================================================================
+
+    private static readonly TipoRazonAutorizacion[] SoloMora = { TipoRazonAutorizacion.MoraActiva };
+    private static readonly TipoRazonAutorizacion[] MoraYRefs = { TipoRazonAutorizacion.MoraActiva, TipoRazonAutorizacion.ReferenciasInsuficientes };
+
+    private async Task SembrarMoraNoBloqueanteAsync()
+    {
+        var credito = new Credito
+        {
+            ClienteId = _cliente.Id, Numero = "MORA-NB-D02", Estado = EstadoCredito.Activo, SaldoPendiente = 500m
+        };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        _ctx.Cuotas.Add(new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, FechaVencimiento = DateTime.UtcNow.Date.AddDays(-10),
+            MontoCapital = 500m, MontoTotal = 500m, MontoPagado = 0m, Estado = EstadoCuota.Vencida
+        });
+        await _ctx.SaveChangesAsync();
+    }
+
+    private async Task<int> CrearVentaConMoraNoBloqueanteYSinReferenciasAsync()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        await SembrarMoraNoBloqueanteAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        var razones = VentaRazonesAutorizacionJson.Leer((await VentaAsync(creada.Id)).RazonesAutorizacionJson);
+        Assert.Contains(razones, r => r.Tipo == TipoRazonAutorizacion.MoraActiva);
+        Assert.Contains(razones, r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        Assert.All(razones, r => Assert.False(r.Autorizada));
+        return creada.Id;
+    }
+
+    private async Task<List<RazonAutorizacion>> RazonesAsync(int id) =>
+        VentaRazonesAutorizacionJson.Leer((await VentaAsync(id)).RazonesAutorizacionJson);
+
+    [Fact]
+    public async Task Razones_MoraNoBloqueanteMasReferencias_AutorizarSoloReferenciasDejaLaVentaPendienteYElConfirmarBloqueado()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        Assert.True(await _svc.AutorizarVentaAsync(id, Autorizador, "Solo exceptúo las referencias", Refs));
+
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.Null(venta.UsuarioAutoriza);
+        var razones = await RazonesAsync(id);
+        var refs = razones.Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        Assert.True(refs.Autorizada);
+        Assert.Equal(Autorizador, refs.AutorizadaPor);
+        Assert.Equal("Solo exceptúo las referencias", refs.MotivoAutorizacion);
+        Assert.False(razones.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva).Autorizada);
+
+        // Confirmar: el chequeo de referencias pasa (están autorizadas) pero la mora sigue sin autorizar y el mensaje la nombra.
+        var validacion = new ValidacionVentaResult { RequiereAutorizacion = true };
+        validacion.RazonesAutorizacion.Add(new RazonAutorizacion { Tipo = TipoRazonAutorizacion.ReferenciasInsuficientes, Descripcion = "Referencias verificadas insuficientes: 0 de 1 requeridas" });
+        var entidad = await VentaAsync(id);
+        VentaService.ExigirAutorizacionDeReferencias(entidad, validacion);
+        var ex = Assert.Throws<InvalidOperationException>(() => VentaService.ExigirTodasLasRazonesAutorizadas(entidad, validacion));
+        Assert.Contains("Falta autorizar", ex.Message);
+        Assert.Contains("Mora activa", ex.Message);
+        Assert.DoesNotContain("Referencias verificadas insuficientes", ex.Message.Split("Falta autorizar")[1].Split('.')[0]);
+        // Y el flujo real de confirmación tampoco avanza.
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET Estado = {0} WHERE Id = {1}", (int)EstadoVenta.Presupuesto, id);
+        _ctx.ChangeTracker.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaAsync(id));
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task Razones_MoraNoBloqueanteMasReferencias_AutorizarSoloLaMoraSinReferenciasDejaLaVentaPendiente()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        Assert.True(await _svc.AutorizarVentaAsync(id, Autorizador, "Autorizo la mora", SoloMora));
+
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        var razones = await RazonesAsync(id);
+        Assert.True(razones.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva).Autorizada);
+        Assert.False(razones.Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes).Autorizada);
+        // Las referencias siguen bloqueando la confirmación.
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AsegurarReferenciasAutorizadasAsync(id));
+        Assert.Contains("segundo usuario", ex.Message);
+    }
+
+    [Fact]
+    public async Task Razones_MoraNoBloqueanteMasReferencias_AutorizarAmbasExpresamente_AutorizaLaVenta()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        // En dos actos. Autorizar una razón modifica el registro de la venta: quien ya la autorizó parcialmente no puede,
+        // después, ser el segundo usuario de las referencias (la excepción exige alguien que no haya tocado la venta).
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Primero la mora", SoloMora);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(id)).EstadoAutorizacion);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Ahora las referencias", Refs));
+
+        const string OtroAutorizador = "gerente.tres";
+        ComoUsuario(OtroAutorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, OtroAutorizador, "Ahora las referencias", Refs);
+
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+        Assert.Equal(OtroAutorizador, venta.UsuarioAutoriza);
+        Assert.Equal("Ahora las referencias", venta.MotivoAutorizacion);
+        Assert.All(await RazonesAsync(id), r => Assert.True(r.Autorizada));
+        await _svc.AsegurarReferenciasAutorizadasAsync(id);
+    }
+
+    [Fact]
+    public async Task Razones_MoraNoBloqueanteMasReferencias_AmbasEnUnSoloActo_AutorizaLaVentaYAuditaCadaRazon()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Ambas", MoraYRefs);
+
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+        Assert.Equal(2, _auditoria.Eventos.Count);
+        var refs = Assert.Single(_auditoria.Eventos, e => e.Accion == "AutorizarExcepcionReferencias");
+        Assert.Contains("ReferenciasInsuficientes", refs.Detalle);
+        var mora = Assert.Single(_auditoria.Eventos, e => e.Accion == "AutorizarRazonVenta");
+        Assert.Contains("MoraActiva", mora.Detalle);
+    }
+
+    [Fact]
+    public async Task Razones_VentaConReferenciasPendientes_SinListaExpresa_SeRechazaYNoCambiaNada()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Autorizo todo"));
+        Assert.Contains("expresa", ex.Message);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Autorizo todo", null));
+
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(id)).EstadoAutorizacion);
+        Assert.All(await RazonesAsync(id), r => Assert.False(r.Autorizada));
+        Assert.Empty(_auditoria.Eventos);
+    }
+
+    [Theory]
+    [InlineData("vacia")]
+    [InlineData("repetida")]
+    [InlineData("desconocida")]
+    [InlineData("ajena")]
+    public async Task Razones_ListaManipulada_SeRechazaSinAutorizarNada(string caso)
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        TipoRazonAutorizacion[] lista = caso switch
+        {
+            "vacia" => Array.Empty<TipoRazonAutorizacion>(),
+            "repetida" => new[] { TipoRazonAutorizacion.MoraActiva, TipoRazonAutorizacion.MoraActiva },
+            "desconocida" => new[] { (TipoRazonAutorizacion)99, TipoRazonAutorizacion.ReferenciasInsuficientes },
+            _ => new[] { TipoRazonAutorizacion.ExcedeCupo, TipoRazonAutorizacion.ReferenciasInsuficientes } // una razón que la venta no tiene
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Manipulada", lista));
+
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(id)).EstadoAutorizacion);
+        Assert.All(await RazonesAsync(id), r => Assert.False(r.Autorizada));
+        Assert.Empty(_auditoria.Eventos);
+    }
+
+    [Fact]
+    public async Task Razones_YaAutorizadaNoSePuedeAutorizarDeNuevo()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Primero la mora", SoloMora);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Otra vez la mora", SoloMora));
+    }
+
+    [Fact]
+    public async Task Razones_ElCreadorNoPuedeAutorizarLasReferencias_AunqueLasIncluyaJuntoConOtrasRazones()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Creador, autoriza: true);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Creador, "Me autorizo", MoraYRefs));
+
+        Assert.Contains("segundo usuario", ex.Message);
+        Assert.All(await RazonesAsync(id), r => Assert.False(r.Autorizada));
+
+        // Segundo usuario sin ventas.authorize: tampoco.
+        ComoUsuario(Autorizador, autoriza: false);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Sin permiso", Refs));
+        Assert.All(await RazonesAsync(id), r => Assert.False(r.Autorizada));
+    }
+
+    [Fact]
+    public async Task Razones_CupoExceptuadoEnElAltaMasReferencias_AutorizarLasReferenciasCompletaLaVenta_YElCupoNoAutorizaLasReferencias()
+    {
+        await SembrarAsync(cupo: true, limite: 500m);
+        var creada = await _svc.CreateAsync(NuevaVenta(excepcion: true, motivo: "Cupo excedido, lo autorizo"));
+
+        var antes = await RazonesAsync(creada.Id);
+        Assert.True(antes.Single(r => r.Tipo == TipoRazonAutorizacion.ExcedeCupo).Autorizada);
+        Assert.False(antes.Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes).Autorizada);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+
+        ComoUsuario(Autorizador, autoriza: true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Ya autorizada", new[] { TipoRazonAutorizacion.ExcedeCupo }));
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Referencias", Refs);
+
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task Razones_BcraConRequiereAutorizacionMasReferencias_NingunaCubreALaOtra()
+    {
+        await SembrarAsync(bcra: 2);
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        var razones = await RazonesAsync(creada.Id);
+        var otras = razones.Where(r => r.Tipo != TipoRazonAutorizacion.ReferenciasInsuficientes).Select(r => r.Tipo).ToArray();
+        Assert.NotEmpty(otras); // BCRA situación 2 agrega su propia razón de autorización
+        ComoUsuario(Autorizador, autoriza: true);
+
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Solo referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "El resto", otras);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task Razones_MoraBloqueanteSigueSiendoNoViable_AunQueSeQuieraExceptuarLasReferencias()
+    {
+        await SembrarAsync(mora: true);
+        await SembrarMoraBloqueanteAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.CreateAsync(NuevaVenta(excepcion: true, motivo: "Quiero igual")));
+
+        Assert.Contains("No es posible crear la venta con crédito personal", ex.Message);
+        Assert.Empty(await _ctx.Ventas.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Razones_SinReferenciasFaltantes_ElComportamientoAnteriorNoCambia()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        await SembrarMoraNoBloqueanteAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        var razones = await RazonesAsync(creada.Id);
+        Assert.DoesNotContain(razones, r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        ComoUsuario(Autorizador, autoriza: true);
+
+        // Sin parámetro: autoriza todas las razones presentes, como antes.
+        Assert.True(await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Autorizo la mora"));
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+        Assert.Equal(Autorizador, venta.UsuarioAutoriza);
+        Assert.Equal("Autorizo la mora", venta.MotivoAutorizacion);
+        var evento = Assert.Single(_auditoria.Eventos);
+        Assert.Equal("AutorizarRazonVenta", evento.Accion);
+    }
+
+    [Fact]
+    public async Task Razones_SinReferenciasFaltantes_AutorizarLaMoraPorSuTipoTambienAutorizaLaVenta()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        await SembrarMoraNoBloqueanteAsync();
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        ComoUsuario(Autorizador, autoriza: true);
+
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Autorizo la mora", SoloMora);
+
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task Razones_ElCambioDeMontoConReferenciasYaSuficientes_RetiraSoloLaAutorizacionDeReferencias_NoLaDeLaMora()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Ambas", MoraYRefs);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada); // ahora las referencias alcanzan
+        _auditoria.Eventos.Clear();
+
+        ComoUsuario(Creador, autoriza: true);
+        var vm = await _svc.GetByIdAsync(id);
+        vm!.RowVersion = await FijarRowVersionAsync(id);
+        vm.Detalles[0].Cantidad = 2;
+        vm.Detalles[0].Subtotal = 2_000m;
+        await _svc.UpdateAsync(id, vm);
+
+        var venta = await VentaAsync(id);
+        var razones = VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson);
+        Assert.DoesNotContain(razones, r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
+        var mora = razones.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva);
+        Assert.True(mora.Autorizada);
+        Assert.Equal(Autorizador, mora.AutorizadaPor);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+        Assert.Contains(_auditoria.Eventos, e => e.Accion == "InvalidarExcepcionReferencias");
+    }
+
+    [Fact]
+    public async Task Razones_SoloReferenciasAutorizadas_YCambioDeMontoConReferenciasQueSiguenFaltando_ExigeAutorizarDeNuevo()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Solo referencias", Refs);
+
+        ComoUsuario(Creador, autoriza: true);
+        var vm = await _svc.GetByIdAsync(id);
+        vm!.RowVersion = await FijarRowVersionAsync(id);
+        vm.Detalles[0].Cantidad = 2;
+        vm.Detalles[0].Subtotal = 2_000m;
+        await _svc.UpdateAsync(id, vm);
+
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.All(VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson), r => Assert.False(r.Autorizada));
     }
 }

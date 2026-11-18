@@ -1601,7 +1601,8 @@
         Name: "autorizar-venta", Action: "Autorizar", VentaId: Model.Id,
         Title: "Autorizar venta", Description: $"Indicá el motivo de la autorización de {Model.Numero}. Queda registrado en auditoría.",
         MotivoLabel: "Motivo de la autorización", MotivoPlaceholder: "Describí el motivo de la autorización…",
-        ConfirmText: "Confirmar autorización", ConfirmIcon: "thumb_up", ConfirmButtonClass: "btn-erp-success");
+        ConfirmText: "Confirmar autorización", ConfirmIcon: "thumb_up", ConfirmButtonClass: "btn-erp-success",
+        RazonesPendientes: Model.RazonesAutorizacion);
     <partial name="_VentaDecisionModal" model="decisionVm" />
 }
 @if (Model.PuedeAutorizar && puedeRechazarVentas)

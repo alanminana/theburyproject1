@@ -95,6 +95,13 @@ namespace TheBuryProject.Services.Interfaces
 
         // Autorización
         Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo);
+
+        /// <summary>
+        /// D-02: autoriza solo las razones indicadas (cada una de forma expresa). La venta pasa a Autorizada cuando todas sus
+        /// razones estan autorizadas. La implementacion por defecto delega en la sobrecarga sin razones (dobles de prueba).
+        /// </summary>
+        Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo, IReadOnlyCollection<TheBuryProject.ViewModels.TipoRazonAutorizacion>? razonesAutorizadas)
+            => AutorizarVentaAsync(id, usuarioAutoriza, motivo);
         Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo);
 

@@ -70,6 +70,24 @@ public class ReferenciasCreditoUiContractTests
     }
 
     [Fact]
+    public void AutorizarVenta_CadaRazonTieneSuPropiaConfirmacion_YLaDeReferenciasEsExplicitaYAparte()
+    {
+        var parcial = Leer("Views", "Venta", "_VentaAutorizarRazones.cshtml");
+        var pagina = Leer("Views", "Venta", "Autorizar_tw.cshtml");
+        var modal = Leer("Views", "Venta", "_VentaDecisionModal.cshtml");
+        var controller = Leer("Controllers", "VentaController.cs");
+
+        Assert.Contains("name=\"razones\"", parcial);
+        Assert.Contains("<label for=\"@idCheck\"", parcial);
+        Assert.Contains("Excepción por referencias insuficientes: solo exime las referencias.", parcial);
+        Assert.Contains("<partial name=\"_VentaAutorizarRazones\"", pagina);
+        Assert.Contains("<partial name=\"_VentaAutorizarRazones\"", modal);
+        Assert.DoesNotContain("No levanta otros bloqueos de crédito.", pagina);
+        Assert.Contains("int[]? razones", controller);
+        Assert.Contains("Enum.IsDefined(typeof(TipoRazonAutorizacion), r)", controller);
+    }
+
+    [Fact]
     public void Wizard_YSimulador_MuestranElMotivoYElEnlaceSinReimplementarLaRegla()
     {
         var wizard = Leer("wwwroot", "js", "venta-create.js");

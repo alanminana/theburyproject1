@@ -176,7 +176,7 @@ Decisión del propietario (R-06, alternativa B), implementada en la rama `task/d
 | AC-02-2 teléfono del cónyuge | VERIFICADO | `Crear_ConTelefonoDelConyuge_SeRechaza` (3 formas del número), `Editar_ATelefonoDelConyuge_SeRechaza` |
 | AC-02-6 E2E Playwright | VERIFICADO (local) / NO VERIFICADO en el job de CI | `e2e/cliente-referencias-credito.spec.js` (7 pruebas, tag `@config-referencias`, instancia propia sobre LocalDB descartable ya eliminada, dos corridas seguidas). Falta el cambio de workflow descripto en el informe de entrega |
 
-Decisiones conservadoras / ambigüedades: (1) con mora **no bloqueante** (solo «requiere autorización») y referencias insuficientes, el segundo usuario autoriza ambas razones juntas en un único acto; si el propietario prefiere autorizaciones separadas, cambia el modelo de razones. (2) Una venta ya existente de un cliente sin referencias, al activarse la regla, no se invalida retroactivamente: solo se revalida al editar o al confirmar. (3) Con `DEFAULT 1` la regla queda activa también en la fila de configuración ya existente. (4) El cambio de monto invalida la excepción por el criterio conservador del total, aunque la regla de referencias no dependa del monto. (5) El dataset E2E común deja el mínimo en 0; el spec lo activa con `ReferenciasCreditoE2ESeedRunner.Activar` (editar el valor por la UI exige `configuracion.update`, que el usuario E2E no tiene).
+Decisiones conservadoras / ambigüedades: (1) ~~con mora no bloqueante y referencias insuficientes se autorizaban ambas razones juntas~~ SUPERADO por la sección 14: cada razón se autoriza de forma expresa y separada. (2) Una venta ya existente de un cliente sin referencias, al activarse la regla, no se invalida retroactivamente: solo se revalida al editar o al confirmar. (3) Con `DEFAULT 1` la regla queda activa también en la fila de configuración ya existente. (4) El cambio de monto invalida la excepción por el criterio conservador del total, aunque la regla de referencias no dependa del monto. (5) El dataset E2E común deja el mínimo en 0; el spec lo activa con `ReferenciasCreditoE2ESeedRunner.Activar` (editar el valor por la UI exige `configuracion.update`, que el usuario E2E no tiene).
 
 Validación ejecutada: build 0 errores (5 advertencias preexistentes); `dotnet test --filter` focalizado (Venta, Credito, Cotizacion, Cliente, Autorizacion, Permiso, Architecture, Migracion, HttpIntegration, ConfiguracionPago, Seguridad, UiContract, Layout, Mora): 5114 superadas, 0 fallidas, 66 omitidas (harness de concurrencia y seeds E2E que exigen variables de entorno); `dotnet ef migrations has-pending-model-changes` sin cambios pendientes; `git diff --check` limpio. Playwright local: `cliente-referencias-credito.spec.js` 7/7 (dos corridas seguidas) y regresión de `cliente-details-tabs`, `cliente-aptitud-punitorio`, `cliente-form-validacion`, `credito-visual-*` y `cotizacion-credito-personal-aptitud-contradiccion` con el mínimo en 0 (dataset común), todos verdes. No se corrió la suite completa del repositorio ni la del job de CI.
 
@@ -365,3 +365,43 @@ Dos trabajos de Codex en solo lectura (`adversarial-review`; hash del worktree i
 Pruebas tras las correcciones: `test-retention-capacity.sh` 89/89 (sintético) y 105/105 con SQL Server real (`--db`); `test-hardening.sh` 81/81; `test-host-portability.sh` 9/9; con la corrección 2 anulada fallan exactamente las 2 pruebas nuevas. Suite .NET completa previa a las correcciones: 8657 correctas, 0 fallos, 238 omitidas; tras las correcciones, 291/291 en referencias, autorización y conversión. Concurrencia en SQL Server real (contenedor descartable): `ListaPrecioPrecioManualSqlServerTests` + `CuentaPorPagarSqlServerTests` 14/14.
 
 La corrección del hallazgo 3 **no** tuvo una tercera revisión de Codex (presupuesto de dos revisiones finales por tanda).
+
+
+## 14. Excepción de referencias: alcance exacto
+
+Regla del propietario: **la excepción individual solo autoriza omitir REFERENCIAS. No exceptúa mora ni otros bloqueos; se mantiene la distinción entre mora bloqueante (NoViable) y no bloqueante (razón de autorización).**
+
+Implementación (sin migración: el estado por razón vive dentro de `Venta.RazonesAutorizacionJson`):
+- Cada razón del JSON lleva `Autorizada`, `AutorizadaPor`, `FechaAutorizacion` y `MotivoAutorizacion`. Las razones exceptuadas en el alta (excepción documental/de cupo, que aplica quien tiene `ventas.authorize`) se sellan como autorizadas en ese acto; las demás nacen sin autorizar.
+- `IVentaService.AutorizarVentaAsync(id, usuario, motivo, razonesAutorizadas)` autoriza solo las razones indicadas. La venta pasa a `Autorizada` únicamente cuando TODAS sus razones están autorizadas; si no, sigue `PendienteAutorizacion` y la respuesta/pantalla nombra las que faltan. Sin lista (sobrecarga anterior) se autorizan todas las razones pendientes, como antes, salvo que entre ellas esté la de referencias: en ese caso la lista es obligatoria e incluye expresamente `ReferenciasInsuficientes` (si no, se rechaza). Lista vacía, repetida, con tipos desconocidos o con una razón que la venta no tiene o ya autorizó: se rechaza sin cambiar nada.
+- Autorizar referencias sigue exigiendo un segundo usuario con `ventas.authorize`, distinto de quien creó o modificó la venta, con motivo, y registra `Ventas/AutorizarExcepcionReferencias`; cada otra razón autorizada registra `Ventas/AutorizarRazonVenta` (una entrada por razón, en el mismo `SaveChanges`).
+- Confirmar, ConfigurarVenta, facturar y conversión de cotización siguen exigiendo `Autorizada` (todas las razones) y el mensaje de Confirmar dice «Falta autorizar: …». La invalidación por cambio de monto retira solo la razón de referencias (con su autorización); las demás conservan la suya, salvo que el flujo existente ya reiniciara toda la autorización (referencias que siguen faltando con otro monto).
+- UI: la pantalla de autorización y el modal de Venta/Details muestran una casilla por razón pendiente (parcial `_VentaAutorizarRazones`), la de referencias rotulada «Excepción por referencias insuficientes: solo exime las referencias.»; las razones ya autorizadas se listan con quién las autorizó. Una venta sin razón de referencias conserva el flujo de siempre (sin casillas).
+
+| Razones de la venta | Acto | Resultado |
+|---|---|---|
+| Mora no bloqueante + referencias | solo referencias | Pendiente (falta mora); Confirmar bloqueado |
+| Mora no bloqueante + referencias | solo mora | Pendiente (faltan referencias) |
+| Mora no bloqueante + referencias | ambas (un acto, o dos actos con **otro** usuario para referencias) | Autorizada |
+| Cupo/documentación exceptuado en el alta + referencias | referencias | Autorizada |
+| BCRA «requiere autorización» + referencias | solo referencias | Pendiente; luego el resto -> Autorizada |
+| Mora bloqueante (+ referencias, con o sin excepción) | cualquiera | NoViable: no se crea ni se avanza |
+| Sin razón de referencias (p. ej. solo mora) | sin lista (o con su tipo) | Autorizada, igual que antes |
+| Con referencias | sin lista / lista manipulada | Se rechaza; no cambia nada |
+
+| AC | Estado | Evidencia |
+|---|---|---|
+| (a) mora no bloqueante + referencias: solo referencias / solo mora / ambas | VERIFICADO | `VentaReferenciasCreditoServiceTests.Razones_MoraNoBloqueanteMasReferencias_*`; HTTP `ReferenciasCreditoHttpTests.Autorizar_SoloReferencias_*`, `Autorizar_OmitiendoLasReferencias_*`, `Autorizar_MoraYReferenciasExpresamente_*` |
+| (b) cupo y BCRA con referencias faltantes; documentación | VERIFICADO cupo y BCRA / NO VERIFICADO documentación | `Razones_CupoExceptuadoEnElAlta*`, `Razones_BcraConRequiereAutorizacion*`. La excepción documental usa el mismo sellado por razón que la de cupo, pero no hay un test propio |
+| (c) mora bloqueante + excepción -> NoViable | VERIFICADO | `Razones_MoraBloqueanteSigueSiendoNoViable_*` y los previos `ConMoraBloqueante_*` |
+| (d) ventas sin razón de referencias: sin regresión | VERIFICADO | `Razones_SinReferenciasFaltantes_*`, `VentaServiceAutorizacionTests` (incl. JSON no estructurado intacto), HTTP `Autorizar_UnaVentaNoCreditoOSinRazonDeReferencias_*` |
+| (e) auditoría por razón | VERIFICADO | `Razones_..._AmbasEnUnSoloActo_AutorizaLaVentaYAuditaCadaRazon` |
+| (f) segundo usuario / autoautorización para referencias | VERIFICADO | `Razones_ElCreadorNoPuedeAutorizarLasReferencias_*`, tests previos del creador |
+| POST directo con lista manipulada (omitir, repetir, tipos inválidos o negativos, razón ajena, sin lista) | VERIFICADO | HTTP `Autorizar_ListaManipulada_NoAutorizaNada` (4 casos), `Autorizar_SinListaDeRazones_*`; servicio `Razones_ListaManipulada_*` |
+| «Incluirla sin permiso»/ids ajenos | VERIFICADO (permiso por atributo, venta inexistente) | tests previos `Autorizar_UnUsuarioSinPermiso_*`, `Autorizar_UnaVentaInexistente_*`; no hay ids ajenos que mezclar: el id de la ruta es la única venta |
+| Cambio de monto retira solo la autorización de referencias | VERIFICADO | `Razones_ElCambioDeMontoConReferenciasYaSuficientes_*`, `Razones_SoloReferenciasAutorizadas_YCambioDeMonto*` |
+| UI: casillas por razón, accesibles | VERIFICADO (HTML, contrato y E2E; sin lector de pantalla ni capturas nuevas) | `ReferenciasCreditoUiContractTests`, HTTP `AutorizarPagina_*`, `VentaDetails_ElModalDeAutorizar*`, E2E `cliente-referencias-credito.spec.js` 7/7 (local, LocalDB descartable ya eliminada, 1366x768) |
+| ConfigurarVenta con venta pendiente parcial | NO VERIFICADO por test propio | Usa el mismo estado `Autorizada` (solo se alcanza con todas las razones); sin test dedicado |
+| Concurrencia SQL Server de dos autorizaciones parciales | NO VERIFICADO | Acotada por el estado pendiente y el `RowVersion`; sin harness SQL Server |
+
+Decisiones y ambigüedades: (1) autorizar una razón modifica el registro de la venta (`UpdatedBy`), por lo que quien ya autorizó la mora en un acto previo no puede ser, después, el segundo usuario de las referencias; en un único acto con ambas casillas sí puede (el chequeo ocurre antes de guardar). (2) Editar una venta con autorizaciones parciales y referencias que siguen faltando reinicia todas las autorizaciones (criterio conservador previo). (3) El JSON de razones que no es la lista estructurada (ventas anteriores a la trazabilidad) se autoriza como siempre y no se reescribe. (4) Una venta ya `Autorizada` antes de este cambio con la razón de referencias sin el sello por razón ya no cubre las referencias (se exige autorizar de nuevo); no hay datos reales así (base nueva).

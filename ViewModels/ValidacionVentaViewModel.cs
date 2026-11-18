@@ -122,6 +122,15 @@ namespace TheBuryProject.ViewModels
         public decimal? ValorLimite { get; set; }
 
         /// <summary>
+        /// D-02: esta razón ya fue autorizada de forma expresa. Cada razón se autoriza por separado; la venta solo pasa a
+        /// Autorizada cuando todas las razones presentes lo están. Sin este dato (JSON anterior) la razón cuenta como no autorizada.
+        /// </summary>
+        public bool Autorizada { get; set; }
+        public string? AutorizadaPor { get; set; }
+        public DateTime? FechaAutorizacion { get; set; }
+        public string? MotivoAutorizacion { get; set; }
+
+        /// <summary>
         /// Texto legible del tipo de razón para mostrar en pantallas de autorización.
         /// </summary>
         public string TipoDisplay => Tipo switch

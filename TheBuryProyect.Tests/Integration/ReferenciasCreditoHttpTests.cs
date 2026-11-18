@@ -147,13 +147,14 @@ public class ReferenciasCreditoHttpTests : IClassFixture<CustomWebApplicationFac
         return JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.Clone();
     }
 
-    private static async Task<HttpResponseMessage> AutorizarAsync(HttpClient client, string token, int ventaId, string? motivo, bool conToken = true)
+    private static async Task<HttpResponseMessage> AutorizarAsync(HttpClient client, string token, int ventaId, string? motivo, bool conToken = true, params int[] razones)
     {
         var campos = new List<KeyValuePair<string, string>>
         {
             new("id", ventaId.ToString())
         };
         if (motivo != null) campos.Add(new("motivo", motivo));
+        foreach (var razon in razones) campos.Add(new("razones", razon.ToString()));
         if (conToken) campos.Add(new("__RequestVerificationToken", token));
         return await client.PostAsync($"/Venta/Autorizar/{ventaId}", new FormUrlEncodedContent(campos));
     }
@@ -253,8 +254,8 @@ public class ReferenciasCreditoHttpTests : IClassFixture<CustomWebApplicationFac
         var client = _factory.CreateAuthenticatedClient();
         var token = await TokenAsync(client);
 
-        var primera = await AutorizarAsync(client, token, ventaId, "Cliente conocido");
-        var reintento = await AutorizarAsync(client, token, ventaId, "Reintento del mismo POST");
+        var primera = await AutorizarAsync(client, token, ventaId, "Cliente conocido", true, 7);
+        var reintento = await AutorizarAsync(client, token, ventaId, "Reintento del mismo POST", true, 7);
 
         Assert.True((int)primera.StatusCode is >= 300 and < 400);
         Assert.True((int)reintento.StatusCode is >= 300 and < 400);
@@ -449,5 +450,147 @@ public class ReferenciasCreditoHttpTests : IClassFixture<CustomWebApplicationFac
         Assert.NotEqual(HttpStatusCode.OK, resp.StatusCode);
         await using var ctx = await NuevoContextoAsync();
         Assert.Equal(1, (await ctx.ConfiguracionesCredito.OrderByDescending(c => c.Id).FirstAsync()).ReferenciasVerificadasMinimas);
+    }
+
+    // ------------------------------------------------------------------ alcance exacto de la excepción
+
+    private async Task<int> SeedVentaMoraYReferenciasAsync()
+    {
+        var (clienteId, productoId) = await SeedAsync();
+        var ventaId = await SeedVentaPendienteDeOtroUsuarioAsync(clienteId, productoId);
+        await using var ctx = await NuevoContextoAsync();
+        var venta = await ctx.Ventas.FirstAsync(v => v.Id == ventaId);
+        venta.RazonesAutorizacionJson =
+            "[{\"Tipo\":2,\"Descripcion\":\"Mora activa de 10 dias\"},{\"Tipo\":7,\"Descripcion\":\"Referencias verificadas insuficientes: 0 de 1 requeridas\"}]";
+        await ctx.SaveChangesAsync();
+        return ventaId;
+    }
+
+    private async Task<List<(int Tipo, bool Autorizada)>> RazonesDeAsync(int ventaId)
+    {
+        var json = (await VentaAsync(ventaId)).RazonesAutorizacionJson!;
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.EnumerateArray()
+            .Select(e => (e.GetProperty("Tipo").GetInt32(), e.TryGetProperty("Autorizada", out var a) && a.GetBoolean()))
+            .ToList();
+    }
+
+    [Fact]
+    public async Task Autorizar_SoloReferencias_ConMoraSinAutorizar_LaVentaSigueAutorizacionPendiente()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+
+        await AutorizarAsync(client, token, ventaId, "Solo referencias", true, 7);
+
+        var venta = await VentaAsync(ventaId);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.Null(venta.UsuarioAutoriza);
+        var razones = await RazonesDeAsync(ventaId);
+        Assert.True(razones.Single(r => r.Tipo == 7).Autorizada);
+        Assert.False(razones.Single(r => r.Tipo == 2).Autorizada);
+        Assert.Equal(1, await EventosDeAutorizacionAsync(ventaId));
+
+        // La pantalla de la venta muestra qué razón falta.
+        var detalle = await (await client.GetAsync($"/Venta/Details/{ventaId}")).Content.ReadAsStringAsync();
+        Assert.Contains("Pendiente de autorización", detalle);
+        Assert.Contains("data-razon-estado=\"autorizada\"", detalle);
+    }
+
+    [Fact]
+    public async Task Autorizar_OmitiendoLasReferencias_NoLasAutoriza()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+
+        await AutorizarAsync(client, token, ventaId, "Solo la mora", true, 2);
+
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(ventaId)).EstadoAutorizacion);
+        Assert.False((await RazonesDeAsync(ventaId)).Single(r => r.Tipo == 7).Autorizada);
+        Assert.Equal(0, await EventosDeAutorizacionAsync(ventaId));
+    }
+
+    [Fact]
+    public async Task Autorizar_SinListaDeRazones_UnaVentaConReferenciasNoSeAutorizaPorOmision()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+
+        var resp = await AutorizarAsync(client, token, ventaId, "Autorizo todo sin marcar nada");
+
+        Assert.True((int)resp.StatusCode is >= 300 and < 400);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(ventaId)).EstadoAutorizacion);
+        Assert.All(await RazonesDeAsync(ventaId), r => Assert.False(r.Autorizada));
+        Assert.Equal(0, await EventosDeAutorizacionAsync(ventaId));
+    }
+
+    [Theory]
+    [InlineData("99,7")]     // tipo que no existe
+    [InlineData("7,7")]      // repetido
+    [InlineData("1,7")]      // razón que la venta no tiene (cupo)
+    [InlineData("-3")]       // negativo
+    public async Task Autorizar_ListaManipulada_NoAutorizaNada(string lista)
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+
+        await AutorizarAsync(client, token, ventaId, "Lista manipulada", true, lista.Split(',').Select(int.Parse).ToArray());
+
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(ventaId)).EstadoAutorizacion);
+        Assert.All(await RazonesDeAsync(ventaId), r => Assert.False(r.Autorizada));
+        Assert.Equal(0, await EventosDeAutorizacionAsync(ventaId));
+    }
+
+    [Fact]
+    public async Task Autorizar_MoraYReferenciasExpresamente_AutorizaLaVenta()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var token = await TokenAsync(client);
+
+        await AutorizarAsync(client, token, ventaId, "Ambas razones", true, 2, 7);
+
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(ventaId)).EstadoAutorizacion);
+        Assert.All(await RazonesDeAsync(ventaId), r => Assert.True(r.Autorizada));
+        Assert.Equal(1, await EventosDeAutorizacionAsync(ventaId));
+    }
+
+    [Fact]
+    public async Task AutorizarPagina_MuestraCadaRazonConSuPropiaConfirmacion_YLaDeReferenciasRotuladaAparte()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+
+        var html = await (await client.GetAsync($"/Venta/Autorizar/{ventaId}")).Content.ReadAsStringAsync();
+
+        Assert.Contains("data-venta-autorizar-razones", html);
+        Assert.Contains("name=\"razones\" value=\"7\"", html);
+        Assert.Contains("name=\"razones\" value=\"2\"", html);
+        Assert.Contains("Excepción por referencias insuficientes: solo exime las referencias.", html);
+        Assert.Contains("for=\"autorizar-razon-7\"", html);
+        Assert.Contains("id=\"autorizar-razon-7\"", html);
+    }
+
+    [Fact]
+    public async Task VentaDetails_ElModalDeAutorizarTrae_LasMismasConfirmacionesPorRazon()
+    {
+        await ConfigurarAsync(minimo: 1);
+        var ventaId = await SeedVentaMoraYReferenciasAsync();
+        var client = _factory.CreateAuthenticatedClient();
+
+        var html = await (await client.GetAsync($"/Venta/Details/{ventaId}")).Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"autorizar-venta-razon-7\"", html);
+        Assert.Contains("id=\"autorizar-venta-razon-2\"", html);
     }
 }

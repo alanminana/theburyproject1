@@ -1,0 +1,43 @@
+@model IReadOnlyList<TheBuryProject.ViewModels.RazonAutorizacion>
+@* D-02: cada razón se autoriza de forma expresa y por separado. Solo se muestra cuando la venta tiene la razón de
+   referencias insuficientes (el resto de las ventas autoriza todas sus razones en un solo acto, como siempre).
+   La excepción por referencias solo exime las referencias: nunca cubre mora, cupo, documentación ni otras razones. *@
+@{
+    var prefijo = ViewData["prefijo"] as string ?? "autorizar";
+    var tieneReferencias = Model.Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes && !r.Autorizada);
+}
+@if (tieneReferencias)
+{
+    <fieldset class="space-y-2" data-venta-autorizar-razones>
+        <legend class="venta-label">Razones que autorizás con este motivo</legend>
+        <p class="text-xs text-slate-400">Marcá cada razón que confirmás de forma expresa. La venta se autoriza cuando todas sus razones están autorizadas.</p>
+        @foreach (var razon in Model)
+        {
+            var esReferencias = razon.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes;
+            var idCheck = $"{prefijo}-razon-{(int)razon.Tipo}";
+            if (razon.Autorizada)
+            {
+                <p class="rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3 text-sm text-emerald-300">
+                    <span class="font-semibold">@razon.TipoDisplay</span>: ya autorizada@(string.IsNullOrWhiteSpace(razon.AutorizadaPor) ? "" : $" por {razon.AutorizadaPor}").
+                </p>
+                continue;
+            }
+
+            <label for="@idCheck" class="flex items-start gap-2 rounded-lg border @(esReferencias ? "border-amber-500/40 bg-amber-500/10" : "border-slate-700 bg-slate-950/20") p-3 text-sm text-slate-200" data-venta-razon-tipo="@((int)razon.Tipo)">
+                <input id="@idCheck" type="checkbox" name="razones" value="@((int)razon.Tipo)" class="mt-0.5" />
+                <span>
+                    @if (esReferencias)
+                    {
+                        <span class="font-semibold text-amber-300">Excepción por referencias insuficientes: solo exime las referencias.</span>
+                        <span class="block text-xs text-amber-200/90">@razon.Descripcion. Requiere un segundo usuario con permiso de autorizar ventas, distinto de quien la creó. No autoriza ninguna otra razón.</span>
+                    }
+                    else
+                    {
+                        <span class="font-semibold">@razon.TipoDisplay</span>
+                        <span class="block text-xs text-slate-400">@razon.Descripcion</span>
+                    }
+                </span>
+            </label>
+        }
+    </fieldset>
+}

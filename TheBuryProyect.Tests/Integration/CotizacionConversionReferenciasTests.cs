@@ -22,6 +22,7 @@ namespace TheBuryProject.Tests.Integration;
 /// </summary>
 public sealed class CotizacionConversionReferenciasTests : IDisposable
 {
+    private static readonly TheBuryProject.ViewModels.TipoRazonAutorizacion[] Refs = { TheBuryProject.ViewModels.TipoRazonAutorizacion.ReferenciasInsuficientes };
     private readonly SqliteConnection _conn;
     private readonly AppDbContext _ctx;
     private readonly HttpContextAccessor _accessor = new();
@@ -225,12 +226,12 @@ public sealed class CotizacionConversionReferenciasTests : IDisposable
         Assert.True(resultado.Exitoso);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _ventaService.AutorizarVentaAsync(resultado.VentaId!.Value, "carlos.creador", "Me autorizo"));
+            _ventaService.AutorizarVentaAsync(resultado.VentaId!.Value, "carlos.creador", "Me autorizo", Refs));
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion,
             (await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.VentaId)).EstadoAutorizacion);
 
         ComoUsuario("marta.gerente", autoriza: true);
-        Assert.True(await _ventaService.AutorizarVentaAsync(resultado.VentaId!.Value, "marta.gerente", "Excepción de referencias"));
+        Assert.True(await _ventaService.AutorizarVentaAsync(resultado.VentaId!.Value, "marta.gerente", "Excepción de referencias", Refs));
         var venta = await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.VentaId);
         Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
         Assert.Equal("marta.gerente", venta.UsuarioAutoriza);
