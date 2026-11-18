@@ -44,7 +44,7 @@
     --pal-neutral-350: #c1b9d3;
     --pal-neutral-400: #afa6c3;
     --pal-neutral-450: #9d93b5;
-    --pal-neutral-500: #70648b;
+    --pal-neutral-500: #8f84ac;  /* A11Y: era #70648b (3,5:1 sobre #13101b); ahora >= 4,5:1 sobre neutral-800 a 950 */
     --pal-neutral-600: #514769;
     --pal-neutral-650: #423a56;
     --pal-neutral-700: #3d3355;

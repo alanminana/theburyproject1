@@ -412,7 +412,7 @@
     padding-inline: 1.25rem;
     border-radius: 0.75rem;
     background-color: var(--pal-success-600);       /* emerald-600 */
-    color: var(--pal-white);
+    color: var(--pal-on-accent);                    /* A11Y: texto oscuro (7,9:1); el blanco daba 2,5:1 sobre este verde */
     font-size: 0.875rem;
     font-weight: 700;
     text-decoration: none;
