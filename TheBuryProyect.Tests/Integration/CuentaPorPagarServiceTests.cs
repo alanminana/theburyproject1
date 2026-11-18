@@ -34,6 +34,9 @@ public class CuentaPorPagarServiceTests : IDisposable
         _context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
         _context.Database.EnsureCreated();
         _service = new CuentaPorPagarService(_context, _reloj, NullLogger<CuentaPorPagarService>.Instance);
+        // D-03 Tesorería: todo pago nuevo exige un origen de fondos activo (base nueva: el primero tiene Id 1).
+        _context.OrigenesFondos.Add(new OrigenFondos { Codigo = "EFE", Nombre = "Efectivo administrativo", Tipo = TipoOrigenFondos.Efectivo });
+        _context.SaveChanges();
     }
 
     public void Dispose()
@@ -78,7 +81,7 @@ public class CuentaPorPagarServiceTests : IDisposable
     private static PagoProveedorRequest Pago(int proveedorId, decimal monto, params (int Id, decimal Monto)[] imputaciones) => new()
     {
         ProveedorId = proveedorId, Fecha = new DateTime(2026, 11, 10), Medio = MedioPagoProveedor.Transferencia, Monto = monto,
-        Referencia = "TRF-1",
+        Referencia = "TRF-1", OrigenFondosId = 1,
         Imputaciones = imputaciones.Select(i => new ImputacionRequest { ComprobanteId = i.Id, Monto = i.Monto }).ToList()
     };
 
@@ -848,7 +851,7 @@ public class CuentaPorPagarServiceTests : IDisposable
             Numero = "OC-NR", ProveedorId = prov.Id, Estado = EstadoOrdenCompra.Recibida, FechaEmision = DateTime.UtcNow,
             Subtotal = 100m, Iva = 21m, Total = 121m
         };
-        var cheque = new Cheque { Numero = "9", Banco = "B", Monto = 121m, ProveedorId = prov.Id, Estado = EstadoCheque.Emitido };
+        var cheque = new Cheque { Numero = "9", Banco = "B", Monto = 50m, ProveedorId = prov.Id, Estado = EstadoCheque.Emitido };
         _context.AddRange(oc, cheque);
         await _context.SaveChangesAsync();
 
@@ -885,9 +888,15 @@ public class CuentaPorPagarServiceTests : IDisposable
     [InlineData("Venta")]
     public void Contrato_ElServicioNoReferenciaCajaStockCostoNiIvaDeProductos(string prohibido)
     {
-        var codigo = File.ReadAllText(Path.Combine(FindRepoRoot(), "Services", "CuentaPorPagarService.cs"));
+        // El libro (incluido el archivo parcial de anticipos) y la Tesorería administrativa no dependen de Caja, stock, costo ni IVA de
+        // productos. Se ignoran los comentarios: ahí se explica justamente que NO se toca la Caja.
+        foreach (var archivo in new[] { "CuentaPorPagarService.cs", "CuentaPorPagarService.Anticipos.cs", "TesoreriaService.cs" })
+        {
+            var codigo = string.Join("\n", File.ReadAllLines(Path.Combine(FindRepoRoot(), "Services", archivo))
+                .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
 
-        Assert.DoesNotContain(prohibido, codigo);
+            Assert.True(!codigo.Contains(prohibido, StringComparison.Ordinal), $"{archivo} referencia {prohibido}.");
+        }
     }
 
     private static string FindRepoRoot()

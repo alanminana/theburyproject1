@@ -22,7 +22,7 @@ public class CuentaPorPagarUiContractTests
         var codigo = Leer("Controllers", "CuentaPorPagarController.cs");
         var bloques = Regex.Split(codigo, @"\[HttpPost\]").Skip(1).ToList();
 
-        Assert.Equal(6, bloques.Count); // Crear, Anular, Pagar, AnularPago, ImputarNotaCredito, AnularImputacionNotaCredito
+        Assert.Equal(10, bloques.Count); // Crear, Anular, Pagar, AnularPago, ImputarNotaCredito, AnularImputacionNotaCredito + Anticipar, AnularAnticipo, AplicarAnticipo, AnularAplicacionAnticipo
         foreach (var bloque in bloques)
         {
             var cabecera = bloque[..bloque.IndexOf("public async", StringComparison.Ordinal)];
@@ -40,7 +40,8 @@ public class CuentaPorPagarUiContractTests
         foreach (var (accion, permiso) in new[]
                  {
                      ("Crear", "createinvoice"), ("Pagar", "pay"), ("ImputarNotaCredito", "pay"),
-                     ("Anular", "cancel"), ("AnularPago", "cancel"), ("AnularImputacionNotaCredito", "cancel")
+                     ("Anular", "cancel"), ("AnularPago", "cancel"), ("AnularImputacionNotaCredito", "cancel"),
+                     ("Anticipar", "pay"), ("AplicarAnticipo", "pay"), ("AnularAnticipo", "cancel"), ("AnularAplicacionAnticipo", "cancel")
                  })
         {
             var patron = new Regex($@"Accion = ""{permiso}""\)\]\s+public async Task<IActionResult> {accion}\(");
