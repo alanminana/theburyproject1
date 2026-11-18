@@ -370,7 +370,83 @@ public class ListaPrecioPrecioManualSqlServerTests : IClassFixture<ListaPrecioPr
         }
     }
 
-    [SqlServerConcFact(DisplayName = "D01-CONC-08 el indice unico del precio vigente impide dos vigentes aunque se salte el servicio")]
+    [SqlServerConcFact(DisplayName = "D01-CONC-09 aplicar lote que pierde la carrera contra un precio manual (leyo «sin vigente»): rechazo controlado, sin duplicado ni 500")]
+    public async Task Aplicar_Lote_Que_Pierde_La_Carrera_Contra_Un_Precio_Manual_Falla_De_Forma_Controlada()
+    {
+        // Reproduccion DETERMINISTA del fallo visto en CI (SQL 2601 sin controlar): el lote lee «sin precio vigente», un precio
+        // manual completo toma el lugar vigente antes del alta del lote, y el indice unico rechaza el INSERT del lote.
+        await LimpiarListasAsync();
+        var lista = await SembrarListaAsync(false);
+        var producto = await SembrarProductoAsync(lista, 100m);
+
+        int batchId;
+        byte[] rowVersion;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var svc = scope.ServiceProvider.GetRequiredService<IPrecioService>();
+            var simulado = await svc.SimularCambioMasivoAsync(
+                "D01-conc-" + Sufijo(), TipoCambio.PorcentajeSobrePrecioActual, TipoAplicacion.Aumento, 10m,
+                new List<int> { lista }, productoIds: new List<int> { producto });
+            var aprobado = await svc.AprobarBatchAsync(simulado.Id, "conc", simulado.RowVersion);
+            batchId = aprobado.Id;
+            using var ctx2 = _fx.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
+            rowVersion = await ctx2.PriceChangeBatches.AsNoTracking().Where(b => b.Id == batchId).Select(b => b.RowVersion).SingleAsync();
+        }
+
+        // El producto queda sin precio vigente en la lista: el lote lo leera como «sin vigente» (no cierra nada).
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await ctx.Database.ExecuteSqlRawAsync(
+                "UPDATE ProductosPrecios SET EsVigente = 0, VigenciaHasta = {0} WHERE ProductoId = {1} AND ListaId = {2}",
+                DateTime.UtcNow.AddHours(-1), producto, lista);
+        }
+
+        var plan = new GatePlan("lote-antes-del-alta", sql => sql.Contains("INSERT INTO [ProductosPrecios]", StringComparison.Ordinal));
+        var lote = Task.Run(async () =>
+        {
+            try
+            {
+                ConcGateInterceptor.Plan.Value = plan;
+                using var scope = _fx.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<IPrecioService>().AplicarBatchAsync(batchId, "conc", rowVersion);
+                return "OK";
+            }
+            catch (InvalidOperationException ex) { return "RECHAZADA: " + ex.Message; }
+            catch (Exception ex) { return "EXCEPCION: " + ex.GetType().Name + " " + ex.Message; }
+            finally { ConcGateInterceptor.Plan.Value = null; }
+        });
+
+        Assert.True(await Task.WhenAny(plan.Reached.Task, lote, Task.Delay(TimeSpan.FromSeconds(30))) == plan.Reached.Task,
+            "el lote no llego a la compuerta");
+
+        // Con el lote detenido justo antes de su alta, un precio manual completo toma el lugar vigente.
+        string manual;
+        using (var scope = _fx.Services.CreateScope())
+        {
+            try { await scope.ServiceProvider.GetRequiredService<IPrecioService>().SetPrecioManualAsync(producto, lista, 140m, 50m); manual = "OK"; }
+            catch (InvalidOperationException ex) { manual = "RECHAZADA: " + ex.Message; }
+        }
+        Assert.Equal("OK", manual);
+
+        plan.Release.TrySetResult();
+        var resultado = await lote;
+
+        Assert.True(resultado.StartsWith("RECHAZADA") && resultado.Contains("al mismo tiempo"), $"el lote debia fallar de forma controlada: {resultado}");
+        using (var scope = _fx.Services.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var vigentes = await ctx.ProductosPrecios.AsNoTracking().Where(p => p.ProductoId == producto && p.ListaId == lista && p.EsVigente && !p.IsDeleted).ToListAsync();
+            Assert.Single(vigentes);
+            Assert.Equal(140m, vigentes[0].Precio);
+            Assert.Equal(0, await ctx.ProductosPrecios.AsNoTracking().CountAsync(p => p.BatchId == batchId));
+            // La transaccion del lote se revirtio por completo: el lote sigue sin aplicarse y se puede reintentar.
+            Assert.Equal(EstadoBatch.Aprobado, (await ctx.PriceChangeBatches.AsNoTracking().SingleAsync(b => b.Id == batchId)).Estado);
+        }
+        await AssertHistorialCoherenteAsync(producto, lista, "D01-CONC-09");
+    }
+
+    [SqlServerConcFact(DisplayName = "D01-CONC-08el indice unico del precio vigente impide dos vigentes aunque se salte el servicio")]
     public async Task El_Indice_Unico_De_La_Base_Impide_Dos_Vigentes()
     {
         await LimpiarListasAsync();

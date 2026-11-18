@@ -531,3 +531,10 @@ Evidencia local sobre el commit final: suite .NET completa **8706 correctas, 0 f
 | Backups por capacidad | No Finalizado | falta probar en el disco real |
 | Instalación limpia | Finalizado | 143 migraciones, un administrador, sin datos de negocio |
 | D-03 | No iniciado | tanda aparte |
+
+### 16.5 Corrección posterior a #320: D01-CONC-07 en CI (2026-11-18)
+
+El CI posterior al merge mostró `D01-CONC-07` con 1 fallo (ronda 5, RCSI 0): `DbUpdateException` SQL 2601 sobre `IX_ProductosPrecios_ProductoId_ListaId_Vigente`. **El índice cumplió su función** (no hubo precio vigente duplicado ni solapamiento); el defecto era que `AplicarBatchAsync` y `RevertirBatchAsync` dejaban escapar esa excepción como error no controlado (un 500 en la UI), mientras que el precio manual ya la traducía. Ocurre cuando el lote leyó «sin precio vigente» y un precio manual completo tomó el lugar antes del alta del lote.
+
+- Corrección: `PrecioService.EsViolacionIndicePrecioVigente` (solo SQL 2601/2627 de ese índice; cualquier otro error se propaga) y, en Aplicar y Revertir lote, rollback completo + `InvalidOperationException` «Otro usuario cambió el precio de un producto del lote al mismo tiempo. Recargá e intentá de nuevo.». El índice y los demás controles no se tocaron.
+- Reproducción determinista (la natural no se repite: 360 rondas locales sin fallo): `D01-CONC-09`, con el interceptor de compuertas detiene al lote justo antes de su alta mientras un precio manual se completa. Sin la corrección falla con `DbUpdateException`; con ella el lote se rechaza de forma controlada, queda un único vigente, el lote sigue `Aprobado` sin filas aplicadas y el historial es coherente (RCSI 0 y 1).
