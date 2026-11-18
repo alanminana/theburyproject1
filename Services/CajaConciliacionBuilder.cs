@@ -49,7 +49,18 @@ public static class CajaConciliacionBuilder
                 g => g.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).Sum(m => m.Monto)
                    - g.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto));
 
-        var lineasVenta = ventas.Select(v => MapVenta(v, cobradoPorVenta)).ToList();
+        // V-02: un cheque recibido pendiente es un pago registrado (la venta no queda "por cobrar") pero NO es dinero acreditado ni
+        // efectivo: se informa aparte para no inflar "Cobrado". Cobrado + cheque recibido + pendiente = total de la venta.
+        var chequePendienteMovs = movimientos
+            .Where(EsChequeRecibidoPendiente)
+            .ToList();
+        var chequePorVenta = chequePendienteMovs
+            .Where(m => m.VentaId.HasValue)
+            .GroupBy(m => m.VentaId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(m => m.Monto));
+        var totalChequesRecibidos = chequePendienteMovs.Sum(m => m.Monto);
+
+        var lineasVenta = ventas.Select(v => MapVenta(v, cobradoPorVenta, chequePorVenta)).ToList();
 
         var ventasEfectivas = lineasVenta.Where(v => v.Categoria == VentaTurnoCategoria.Efectiva).ToList();
         var totalVendido = ventasEfectivas.Sum(v => v.TotalVenta);
@@ -78,9 +89,10 @@ public static class CajaConciliacionBuilder
 
             FondoInicial = apertura.MontoInicial,
             TotalVendido = totalVendido,
-            TotalCobrado = detalle.TotalIngresosFisicos + detalle.TotalIngresosDigitales,
+            TotalCobrado = detalle.TotalIngresosFisicos + detalle.TotalIngresosDigitales - totalChequesRecibidos,
             TotalCobradoEfectivo = detalle.TotalIngresosFisicos,
-            TotalCobradoDigital = detalle.TotalIngresosDigitales,
+            TotalCobradoDigital = detalle.TotalIngresosDigitales - totalChequesRecibidos,
+            TotalChequesRecibidos = totalChequesRecibidos,
             TotalPendiente = totalPendiente,
             TotalIvaFacturado = totalIvaFacturado,
             IngresosEfectivo = detalle.TotalIngresosFisicos,
@@ -93,7 +105,7 @@ public static class CajaConciliacionBuilder
                 .Select(m => MapMovimiento(m, cuotaToCreditoId, cuotaToCliente))
                 .ToList(),
             LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId),
-            ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago),
+            ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago, totalChequesRecibidos),
             Auditoria = BuildAuditoria(apertura, movimientos, cierre, lineasVenta),
         };
 
@@ -127,7 +139,17 @@ public static class CajaConciliacionBuilder
     // Mapeos de venta
     // ──────────────────────────────────────────────────────────────────────
 
-    private static VentaTurnoLineaViewModel MapVenta(Venta v, IReadOnlyDictionary<int, decimal> cobradoPorVenta)
+    /// <summary>Ingreso de un cheque recibido (de venta) que sigue como pago pendiente. No incluye anulados ni rechazados.</summary>
+    private static bool EsChequeRecibidoPendiente(MovimientoCaja m) =>
+        m.Tipo == TipoMovimientoCaja.Ingreso
+        && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
+        && (m.Concepto == ConceptoMovimientoCaja.VentaCheque
+            || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque));
+
+    private static VentaTurnoLineaViewModel MapVenta(
+        Venta v,
+        IReadOnlyDictionary<int, decimal> cobradoPorVenta,
+        IReadOnlyDictionary<int, decimal> chequePorVenta)
     {
         var categoria = CategoriaVenta(v.Estado);
         var impacta = v.TipoPago == TipoPago.Efectivo;
@@ -143,7 +165,10 @@ public static class CajaConciliacionBuilder
         var totalACobrar = v.TotalACobrar;
         if (cobrado > totalACobrar) cobrado = totalACobrar;
 
+        // Se descuenta el cheque pendiente de "cobrado" (no es dinero acreditado) sin tocar lo pendiente: el pago está registrado.
+        var chequeRecibido = chequePorVenta.TryGetValue(v.Id, out var chq) ? Math.Min(Math.Max(chq, 0m), cobrado) : 0m;
         var pendiente = totalACobrar - cobrado;
+        cobrado -= chequeRecibido;
 
         // Presentación desde los importes históricos: nunca consultar las tarifas actuales
         // ni volver a sumar servicios al total que ya registra caja.
@@ -162,6 +187,7 @@ public static class CajaConciliacionBuilder
             {
                 TipoPago.CreditoPersonal => "Crédito personal pendiente de cobro",
                 TipoPago.CuentaCorriente => "Cuenta corriente pendiente de cobro",
+                TipoPago.Cheque => "Cheque recibido como pago pendiente (no es efectivo)",
                 _ => "Cobro digital (no es efectivo en caja)"
             };
         }
@@ -185,6 +211,7 @@ public static class CajaConciliacionBuilder
             ImporteEnvio = v.ImporteEnvio,
             AjusteTotal = totalACobrar - totalProductos - totalArmados - v.ImporteEnvio,
             CobradoAhora = cobrado,
+            ChequeRecibido = chequeRecibido,
             Pendiente = pendiente,
             ImpactaCajaFisica = impacta,
             Referencia = v.Numero,
@@ -313,7 +340,9 @@ public static class CajaConciliacionBuilder
         {
             "efectivo" => CategoriaImpactoCaja.CajaFisica,
             "transferencia" or "mercadopago" => CategoriaImpactoCaja.CuentaBancaria,
-            "tarjeta" or "cheque" => CategoriaImpactoCaja.AAcreditar,
+            "tarjeta" => CategoriaImpactoCaja.AAcreditar,
+            // V-02: el cheque recibido es un pago pendiente informativo, no un valor "a acreditar" dentro del ERP.
+            "cheque" => CategoriaImpactoCaja.ChequeRecibido,
             "credito" or "cuentacorriente" => CategoriaImpactoCaja.SinIngresoInmediato,
             // Ajustes/gastos/extracciones/depósitos de efectivo caen en "otro" pero mueven caja física.
             _ => EsMovimientoFisico(m) ? CategoriaImpactoCaja.CajaFisica : CategoriaImpactoCaja.SinIngresoInmediato
@@ -393,7 +422,8 @@ public static class CajaConciliacionBuilder
 
     private static List<ResumenMedioConciliacionViewModel> BuildResumenPorMedio(
         List<VentaTurnoLineaViewModel> ventasEfectivas,
-        List<ResumenMedioPagoCajaViewModel> resumenReal)
+        List<ResumenMedioPagoCajaViewModel> resumenReal,
+        decimal totalChequesRecibidos = 0m)
     {
         var acc = new Dictionary<string, ResumenMedioConciliacionViewModel>();
 
@@ -419,6 +449,14 @@ public static class CajaConciliacionBuilder
             var key = MedioKey(medio.MedioPago);
             var r = Get(key);
             r.TotalCobrado += medio.TotalIngresos;
+        }
+
+        // V-02: el cheque recibido pendiente se informa aparte, no como dinero cobrado.
+        if (totalChequesRecibidos > 0m)
+        {
+            var cheque = Get("cheque");
+            cheque.TotalChequeRecibido = totalChequesRecibidos;
+            cheque.TotalCobrado = Math.Max(0m, cheque.TotalCobrado - totalChequesRecibidos);
         }
 
         return acc.Values

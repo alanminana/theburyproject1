@@ -22,8 +22,8 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
-/// Hito 10 - autorización del circuito del cheque recibido: Acreditar/Rechazar exigen caja.edit y poder operar la apertura REAL
-/// del movimiento (anti-IDOR, igual que FIN-S-006), llevan antiforgery y no filtran la existencia de movimientos ajenos.
+/// V-02 - el cheque recibido es un pago pendiente informativo: la interfaz y los endpoints de Acreditar/Rechazar se retiraron,
+/// el endpoint genérico de acreditar movimientos rechaza los cheques y la lista solo muestra los de las cajas visibles.
 /// </summary>
 public class ChequeRecibidoAutorizacionTests : IDisposable
 {
@@ -120,108 +120,34 @@ public class ChequeRecibidoAutorizacionTests : IDisposable
 
     private static string Error(CajaController c) => c.TempData["Error"]?.ToString() ?? "";
 
-    // ------------------------------------------------------------------ acreditar
+    // ------------------------------------------------------------------ V-02: sin seguimiento de acreditación
 
     [Fact]
-    public async Task Acreditar_MiembroDeLaCaja_Acredita()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-
-        var result = await ControllerPara("cajero-a").AcreditarCheque(a.Cheque.Id);
-
-        Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoAsync(a.Cheque.Id));
-    }
-
-    [Fact]
-    public async Task Acreditar_MiembroDeOtraCaja_NoPuedeAcreditarElChequeAjeno()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-        var b = await SeedCajaConChequeAsync("cajero-b");
-
-        var controller = ControllerPara("cajero-a");
-        await controller.AcreditarCheque(b.Cheque.Id);
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, await EstadoAsync(b.Cheque.Id));
-        Assert.NotEmpty(Error(controller));
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, await EstadoAsync(a.Cheque.Id));
-    }
-
-    [Fact]
-    public async Task Acreditar_UsuarioSinPadron_NoAcredita()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-
-        await ControllerPara("intruso").AcreditarCheque(a.Cheque.Id);
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, await EstadoAsync(a.Cheque.Id));
-    }
-
-    [Fact]
-    public async Task Acreditar_ChequeInexistente_NoFiltraExistenciaAUnNoSupervisor()
-    {
-        await SeedCajaConChequeAsync("cajero-a");
-
-        var comun = ControllerPara("cajero-a");
-        await comun.AcreditarCheque(999_999);
-        var supervisor = ControllerPara("admin", true, Roles.Administrador);
-        await supervisor.AcreditarCheque(999_999);
-
-        Assert.DoesNotContain("no encontrado", Error(comun), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("no encontrado", Error(supervisor), StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Acreditar_ElEndpointGenericoDeAcreditarMovimiento_TambienPasaPorElCircuitoDelCheque()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-
-        await ControllerPara("cajero-a").AcreditarMovimiento(a.Cheque.Id, a.Apertura.Id);
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoAsync(a.Cheque.Id));
-        // La auditoría específica del cheque y su trazabilidad (no hay venta: no hay DatosCheque) no se pierden.
-        Assert.Equal(0, await _context.DatosCheque.CountAsync());
-    }
-
-    // ------------------------------------------------------------------ rechazar
-
-    [Fact]
-    public async Task Rechazar_MiembroDeLaCaja_RechazaConMotivo()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-
-        await ControllerPara("cajero-a").RechazarCheque(a.Cheque.Id, "sin fondos");
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Rechazado, await EstadoAsync(a.Cheque.Id));
-    }
-
-    [Fact]
-    public async Task Rechazar_SinMotivo_NoRechaza_YMuestraElError()
+    public async Task AcreditarMovimiento_ConUnChequeRecibido_NoLoAcredita_YExplicaElAlcanceInformativo()
     {
         var a = await SeedCajaConChequeAsync("cajero-a");
 
         var controller = ControllerPara("cajero-a");
-        await controller.RechazarCheque(a.Cheque.Id, "  ");
+        await controller.AcreditarMovimiento(a.Cheque.Id, a.Apertura.Id);
 
         Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, await EstadoAsync(a.Cheque.Id));
-        Assert.Contains("motivo", Error(controller), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no registra su acreditación", Error(controller));
+        Assert.Equal(0, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.AcreditacionCheque));
     }
 
-    [Fact]
-    public async Task Rechazar_MiembroDeOtraCaja_NoPuedeRechazarElChequeAjeno()
+    [Theory]
+    [InlineData("AcreditarCheque")]
+    [InlineData("RechazarCheque")]
+    [InlineData("ChequesAcreditados")]
+    public void LasAccionesDeAcreditarYRechazarChequesYaNoEstanExpuestas(string accion)
     {
-        await SeedCajaConChequeAsync("cajero-a");
-        var b = await SeedCajaConChequeAsync("cajero-b");
-
-        await ControllerPara("cajero-a").RechazarCheque(b.Cheque.Id, "intento");
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Pendiente, await EstadoAsync(b.Cheque.Id));
+        Assert.DoesNotContain(typeof(CajaController).GetMethods(), m => m.Name == accion);
     }
 
-    // ------------------------------------------------------------------ lista
+    // ------------------------------------------------------------------ lista informativa
 
     [Fact]
-    public async Task Lista_UnNoSupervisorSoloVeLosChequesDeSuPadronYSoloAccionaLosQuePuedeOperar()
+    public async Task Lista_UnNoSupervisorSoloVeLosChequesDeSuPadron()
     {
         var a = await SeedCajaConChequeAsync("cajero-a");
         var b = await SeedCajaConChequeAsync("cajero-b");
@@ -229,96 +155,16 @@ public class ChequeRecibidoAutorizacionTests : IDisposable
         var vista = Assert.IsType<ViewResult>(await ControllerPara("cajero-a").Cheques());
         var lista = Assert.IsType<List<ChequePendienteViewModel>>(vista.Model);
 
-        var fila = Assert.Single(lista);
-        Assert.Equal(a.Cheque.Id, fila.MovimientoId);
-        Assert.True(fila.PuedeAccionar);
+        Assert.Equal(a.Cheque.Id, Assert.Single(lista).MovimientoId);
 
         var supervisor = Assert.IsType<List<ChequePendienteViewModel>>(
             Assert.IsType<ViewResult>(await ControllerPara("admin", true, Roles.Administrador).Cheques()).Model);
         Assert.Equal(2, supervisor.Count);
-        Assert.Contains(supervisor, c => c.MovimientoId == b.Cheque.Id && c.PuedeAccionar);
-    }
-
-    [Fact]
-    public async Task Lista_SinPermisoCajaEdit_NoOfreceAcciones()
-    {
-        await SeedCajaConChequeAsync("cajero-a");
-
-        var lista = Assert.IsType<List<ChequePendienteViewModel>>(
-            Assert.IsType<ViewResult>(await ControllerPara("cajero-a", puedeEditar: false).Cheques()).Model);
-
-        Assert.False(Assert.Single(lista).PuedeAccionar);
-    }
-
-    // ------------------------------------------------------------------ F-2: lista de acreditados (rechazo posterior)
-
-    [Fact]
-    public async Task ListaAcreditados_UnNoSupervisorSoloVeLosDeSuPadron_YElRechazoVuelveALaMismaLista()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-        var b = await SeedCajaConChequeAsync("cajero-b");
-        await _service.AcreditarChequeAsync(a.Cheque.Id, "cajero-a");
-        await _service.AcreditarChequeAsync(b.Cheque.Id, "cajero-b");
-
-        var lista = Assert.IsType<List<ChequePendienteViewModel>>(
-            Assert.IsType<ViewResult>(await ControllerPara("cajero-a").ChequesAcreditados()).Model);
-        var fila = Assert.Single(lista);
-        Assert.Equal(a.Cheque.Id, fila.MovimientoId);
-        Assert.True(fila.PuedeAccionar);
-
-        var supervisor = Assert.IsType<List<ChequePendienteViewModel>>(
-            Assert.IsType<ViewResult>(await ControllerPara("admin", true, Roles.Administrador).ChequesAcreditados()).Model);
-        Assert.Equal(2, supervisor.Count);
-
-        var r = Assert.IsType<RedirectToActionResult>(
-            await ControllerPara("cajero-a").RechazarCheque(a.Cheque.Id, "devuelto", "acreditados"));
-        Assert.Equal(nameof(CajaController.ChequesAcreditados), r.ActionName);
-        Assert.Equal(1, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque));
-    }
-
-    [Fact]
-    public async Task ListaAcreditados_SinPermisoCajaEdit_NoOfreceElRechazo()
-    {
-        var a = await SeedCajaConChequeAsync("cajero-a");
-        await _service.AcreditarChequeAsync(a.Cheque.Id, "cajero-a");
-
-        var lista = Assert.IsType<List<ChequePendienteViewModel>>(
-            Assert.IsType<ViewResult>(await ControllerPara("cajero-a", puedeEditar: false).ChequesAcreditados()).Model);
-
-        Assert.False(Assert.Single(lista).PuedeAccionar);
-    }
-
-    [Fact]
-    public async Task RechazarAcreditado_DeUnaCajaAjena_SinSerSupervisor_EsDenegado()
-    {
-        var b = await SeedCajaConChequeAsync("cajero-b");
-        await _service.AcreditarChequeAsync(b.Cheque.Id, "cajero-b");
-
-        await ControllerPara("cajero-a").RechazarCheque(b.Cheque.Id, "intento", "acreditados");
-
-        Assert.Equal(EstadoAcreditacionMovimientoCaja.Acreditado, await EstadoAsync(b.Cheque.Id));
-        Assert.Equal(0, await _context.MovimientosCaja.CountAsync(m => m.Concepto == ConceptoMovimientoCaja.RechazoCheque));
-    }
-
-    // ------------------------------------------------------------------ contrato de seguridad de los endpoints
-
-    [Theory]
-    [InlineData(nameof(CajaController.AcreditarCheque))]
-    [InlineData(nameof(CajaController.RechazarCheque))]
-    public void LosEndpointsDeEscritura_SonPostConAntiforgeryYExigenCajaEdit(string accion)
-    {
-        var metodo = typeof(CajaController).GetMethods().Single(m => m.Name == accion);
-
-        Assert.NotNull(metodo.GetCustomAttribute<HttpPostAttribute>());
-        Assert.NotNull(metodo.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
-        var permiso = metodo.GetCustomAttribute<PermisoRequeridoAttribute>();
-        Assert.NotNull(permiso);
-        Assert.Equal("caja", permiso!.Modulo);
-        Assert.Equal("edit", permiso.Accion);
+        Assert.Contains(supervisor, c => c.MovimientoId == b.Cheque.Id);
     }
 }
 
-/// <summary>El POST sin token antiforgery se rechaza en el pipeline real (antes de llegar a la acción).</summary>
+/// <summary>V-02: las rutas retiradas ya no existen y la lista informativa responde sin acciones.</summary>
 [Collection("HttpIntegration.4")]
 public class ChequeRecibidoAntiforgeryHttpTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
@@ -333,21 +179,33 @@ public class ChequeRecibidoAntiforgeryHttpTests : IClassFixture<CustomWebApplica
     [Theory]
     [InlineData("/Caja/AcreditarCheque", "movimientoId=1")]
     [InlineData("/Caja/RechazarCheque", "movimientoId=1&motivo=x")]
-    public async Task PostSinToken_SeRechaza(string url, string cuerpo)
+    public async Task LasRutasRetiradasDeAcreditarYRechazar_ResponderNotFound(string url, string cuerpo)
     {
         var client = _factory.CreateAuthenticatedClient();
 
         var resp = await client.PostAsync(url, new StringContent(cuerpo, System.Text.Encoding.UTF8, "application/x-www-form-urlencoded"));
 
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
     }
 
     [Fact]
-    public async Task ListaDeChequesPendientes_RespondeParaUnUsuarioAutenticado()
+    public async Task LaListaDeAcreditadosYaNoExiste()
+    {
+        var resp = await _factory.CreateAuthenticatedClient().GetAsync("/Caja/ChequesAcreditados");
+
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListaDeChequesRecibidos_RespondeSinAccionesDeAcreditarNiRechazar()
     {
         var resp = await _factory.CreateAuthenticatedClient().GetAsync("/Caja/Cheques");
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        Assert.Contains("Cheques pendientes", await resp.Content.ReadAsStringAsync());
+        var html = await resp.Content.ReadAsStringAsync();
+        Assert.Contains("Cheques recibidos", html);
+        Assert.DoesNotContain("data-cheque-acreditar", html);
+        Assert.DoesNotContain("data-cheque-rechazo", html);
+        Assert.DoesNotContain("Rechazar un cheque acreditado", html);
     }
 }

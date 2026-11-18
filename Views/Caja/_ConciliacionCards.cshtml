@@ -20,6 +20,14 @@
         <div class="result-value">$ @Model.TotalCobrado.ToString("N2")</div>
         <div class="cc-card-foot">efectivo $@Model.TotalCobradoEfectivo.ToString("N2") · digital $@Model.TotalCobradoDigital.ToString("N2")</div>
     </div>
+    @if (Model.TotalChequesRecibidos > 0)
+    {
+        <div class="result-card" data-cc-cheques-recibidos>
+            <div class="result-label">Cheques recibidos</div>
+            <div class="result-value">$ @Model.TotalChequesRecibidos.ToString("N2")</div>
+            <div class="cc-card-foot">pago pendiente · no es efectivo ni dinero acreditado</div>
+        </div>
+    }
     <div class="result-card @(Model.TotalPendiente > 0 ? "is-warn" : "")">
         <div class="result-label">Pendiente</div>
         <div class="result-value">$ @Model.TotalPendiente.ToString("N2")</div>

@@ -447,7 +447,7 @@ public class ChequeRecibidoServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
 
-        Assert.Contains("todavía no fue acreditado", ex.Message);
+        Assert.Contains("se recibió como pago pendiente", ex.Message);
     }
 
     [Fact]

@@ -2,7 +2,7 @@
 
 namespace TheBuryProject.ViewModels;
 
-/// <summary>Fila de la lista "Cheques pendientes" (cheques recibidos aún no acreditados).</summary>
+/// <summary>Fila de la lista informativa "Cheques recibidos" (pago pendiente; el ERP no hace seguimiento de acreditación).</summary>
 public class ChequePendienteViewModel
 {
     public int MovimientoId { get; set; }
@@ -22,15 +22,10 @@ public class ChequePendienteViewModel
     public int? DiasParaVencer { get; set; }
     public bool PorVencer { get; set; }
     public bool Vencido { get; set; }
-    /// <summary>El usuario puede acreditar/rechazar (caja.edit + operar la apertura del ingreso). Lo completa el controller.</summary>
-    public bool PuedeAccionar { get; set; }
     /// <summary>Solo en cheques ya acreditados: cuando y quien los acredito.</summary>
     public DateTime? AcreditadoAt { get; set; }
     public string? AcreditadoPor { get; set; }
 }
-
-/// <summary>Modelo del parcial de acciones Acreditar/Rechazar de un cheque. <c>Origen</c> = "cheques" (lista) o "apertura" (detalle de caja).</summary>
-public sealed record ChequeAccionesModel(int MovimientoId, bool PuedeAcreditar, bool PuedeRechazar, string Origen);
 
 /// <summary>Tarjeta "Cheque" de Venta/Details.</summary>
 public class ChequeVentaEstadoViewModel

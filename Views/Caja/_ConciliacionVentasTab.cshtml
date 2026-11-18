@@ -130,7 +130,12 @@
                                             <span class="chip chip-neutral" title="Venta confirmada sin facturar: no discrimina IVA">No discrimina</span>
                                         }
                                     </td>
-                                    <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")</td>
+                                    <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")
+                                        @if (v.ChequeRecibido > 0)
+                                        {
+                                            <div class="text-xs text-amber-300" data-venta-cheque-recibido>+ cheque recibido $@v.ChequeRecibido.ToString("N2")</div>
+                                        }
+                                    </td>
                                     <td style="text-align:right" class="num @(v.Pendiente > 0 ? "text-amber-300" : "muted-2")">$@v.Pendiente.ToString("N2")</td>
                                     <td style="text-align:center">
                                         <span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(v.ImpactaCajaFisica ? "Sí" : "No")</span>

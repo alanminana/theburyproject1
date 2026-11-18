@@ -155,6 +155,73 @@ public class CajaConciliacionBuilderTests
         Assert.Equal(15435.26m, vm.CajaFisicaEsperada);        // 10000 + 5935.26 - 500
     }
 
+    private static DetallesAperturaViewModel ConVentaConCheque(EstadoAcreditacionMovimientoCaja estado, decimal monto = 4000m)
+    {
+        var detalle = BuildDetalleStandard();
+        detalle.VentasDelTurno.Add(new Venta { Id = 4, Numero = "VTA-4", Subtotal = 3305.79m, IVA = 694.21m, Total = monto, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Cheque, FechaVenta = Base.AddMinutes(7) });
+        detalle.Movimientos.Add(new MovimientoCaja { Id = 16, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaCheque, Monto = monto, FechaMovimiento = Base.AddMinutes(7), VentaId = 4, TipoPago = TipoPago.Cheque, EstadoAcreditacion = estado, Usuario = "admin" });
+        detalle.TotalIngresosDigitales += monto; // CajaService suma todo ingreso no físico, también el cheque pendiente
+        detalle.ResumenRealPorMedioPago.Add(new ResumenMedioPagoCajaViewModel { MedioPago = "Cheque", TotalIngresos = monto, TotalEgresos = 0m, CantidadMovimientos = 1 });
+        return detalle;
+    }
+
+    [Fact]
+    public void ChequeRecibidoPendiente_SeInformaAparte_NoComoCobrado_NiComoEfectivo_NiComoPendienteDeCobro()
+    {
+        var vm = CajaConciliacionBuilder.Build(ConVentaConCheque(EstadoAcreditacionMovimientoCaja.Pendiente), cierre: null, puedeOperar: true);
+
+        // Venta confirmada: cuenta como vendida.
+        Assert.Equal(32000m, vm.TotalVendido);
+        // El cheque no es dinero cobrado ni efectivo físico; los importes del resto no cambian.
+        Assert.Equal(4000m, vm.TotalChequesRecibidos);
+        Assert.Equal(10935.26m, vm.TotalCobrado);
+        Assert.Equal(5000m, vm.TotalCobradoDigital);
+        Assert.Equal(5935.26m, vm.TotalCobradoEfectivo);
+        Assert.Equal(15435.26m, vm.CajaFisicaEsperada);
+        // El pago está registrado: la venta no queda "por cobrar" (solo el crédito personal).
+        Assert.Equal(20000m, vm.TotalPendiente);
+
+        var linea = vm.Ventas.Single(v => v.VentaId == 4);
+        Assert.Equal(0m, linea.CobradoAhora);
+        Assert.Equal(4000m, linea.ChequeRecibido);
+        Assert.Equal(0m, linea.Pendiente);
+        Assert.Equal(linea.TotalVenta, linea.CobradoAhora + linea.ChequeRecibido + linea.Pendiente);
+        Assert.False(linea.ImpactaCajaFisica);
+        Assert.Contains("Cheque recibido", linea.MotivoNoImpacta);
+
+        var medio = vm.ResumenPorMedio.Single(r => r.MedioKey == "cheque");
+        Assert.Equal(0m, medio.TotalCobrado);
+        Assert.Equal(4000m, medio.TotalChequeRecibido);
+        Assert.Equal(4000m, medio.TotalVendido);
+
+        var mov = vm.Movimientos.Single(m => m.MovimientoId == 16);
+        Assert.Equal(CategoriaImpactoCaja.ChequeRecibido, mov.CategoriaImpacto);
+        Assert.False(mov.ImpactaCajaFisica);
+    }
+
+    [Fact]
+    public void ChequeRecibido_YaMarcadoComoAcreditadoEnDatosHistoricos_SigueContandoComoCobrado()
+    {
+        var vm = CajaConciliacionBuilder.Build(ConVentaConCheque(EstadoAcreditacionMovimientoCaja.Acreditado), cierre: null, puedeOperar: true);
+
+        Assert.Equal(0m, vm.TotalChequesRecibidos);
+        Assert.Equal(14935.26m, vm.TotalCobrado);
+        Assert.Equal(4000m, vm.Ventas.Single(v => v.VentaId == 4).CobradoAhora);
+        Assert.Equal(0m, vm.Ventas.Single(v => v.VentaId == 4).ChequeRecibido);
+    }
+
+    [Fact]
+    public void ChequeRecibidoAnulado_NoSeInformaComoPagoPendiente()
+    {
+        var detalle = ConVentaConCheque(EstadoAcreditacionMovimientoCaja.Anulado);
+        detalle.VentasDelTurno.Single(v => v.Id == 4).Estado = EstadoVenta.Cancelada;
+
+        var vm = CajaConciliacionBuilder.Build(detalle, cierre: null, puedeOperar: true);
+
+        Assert.Equal(0m, vm.TotalChequesRecibidos);
+        Assert.Equal(0m, vm.Ventas.Single(v => v.VentaId == 4).ChequeRecibido);
+    }
+
     [Fact]
     public void Movimiento_ConRecargoMedioPago_MapeaDesgloseBaseYRecargo()
     {
