@@ -178,6 +178,18 @@ check "BACKUP_CA_KEY con valor invalido: GUARD, 0 DELETE y FAIL" bash -c '[[ $(g
 out=$( BACKUP_CA_KEY=include plan_of "$R" 2 1 0 999999999999 ); rc=$?
 check "BACKUP_CA_KEY=include explicito: sin GUARD (la decision se toma con normalidad)" bash -c '[[ $(grep -c "^GUARD" <<<"$1") == 0 ]]' _ "$out" "$rc"
 
+# Cuarta revision de Codex: dos manifiestos contradictorios para un mismo tar -> GUARD y 0 DELETE, sin depender del orden del listado.
+for v in a b; do
+  R=$(newbk "m16$v"); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 0; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+  tts=$(stamp $((4*D - 30)))
+  # a: el segundo manifiesto nombra un full POSTERIOR (se ordena despues); b: uno ANTERIOR (se ordena antes): el resultado no depende del orden
+  if [[ $v == a ]]; then f2=$(stamp $((3*D))); else f2=$(stamp $((5*D))); fi
+  printf 'x
+' >"$R/files/set_${tts}_${f2}.txt"
+  out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+  check "manifiestos contradictorios ($v): GUARD, 0 DELETE y FAIL ruidoso (el full coherente no se pierde)" bash -c '[[ $(grep -c "^GUARD.*contradictorios" <<<"$1") -ge 1 && $(grep -c "^DELETE" <<<"$1") == 0 && "$2" == 3 ]]' _ "$out" "$rc"
+done
+
 # ================================================================================================================ 2. scripts (hostfs)
 cfgrun() { # cfgrun <raiz> [VAR=valor...] -- <script> [args]: ejecuta un script con entorno aislado del .env real
   local r=$1; shift; local -a ev=()

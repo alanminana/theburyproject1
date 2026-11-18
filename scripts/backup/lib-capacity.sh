@@ -106,7 +106,15 @@ bk_chains() {
   local n=${#fl[@]} i
   for (( i = 0; i < n; i++ )); do fidx[${fl[$i]}]=$((i + 1)); done
   chain_of() { local x=$1 j; for (( j = n - 1; j >= 0; j-- )); do [[ "${fl[$j]}" > "$x" ]] || { echo $((j + 1)); return; }; done; echo 0; }
-  for r in "${names[@]}"; do [[ "${typ[$r]}" == set ]] && settar[${t1[$r]}]=${t2[$r]}; done
+  for r in "${names[@]}"; do
+    [[ "${typ[$r]}" == set ]] || continue
+    # Un tar tiene UN manifiesto. Dos manifiestos que nombran fulls distintos para el mismo tar son contradictorios: no se elige "el ultimo"
+    # (dependeria del orden del listado); GUARD y no se decide ningun borrado ni copia.
+    if [[ -n "${settar[${t1[$r]}]:-}" && "${settar[${t1[$r]}]}" != "${t2[$r]}" ]]; then
+      echo "GUARD manifiestos contradictorios para el tar ${t1[$r]} (full ${settar[${t1[$r]}]} y ${t2[$r]}): no se decide nada"; return 0
+    fi
+    settar[${t1[$r]}]=${t2[$r]}
+  done
   tar_idx() { # tar_idx <ts-tar>: el manifiesto manda; sin el, el full anterior por fecha; sin ninguno, la cadena mas antigua; sin cadenas, K
     local x=$1 c
     if [[ -n "${settar[$x]:-}" && -n "${fidx[${settar[$x]}]:-}" ]]; then echo "${fidx[${settar[$x]}]}"; return; fi
