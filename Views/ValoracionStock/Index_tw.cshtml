@@ -37,8 +37,32 @@
 }
 
 <style>
+    /* KPIs: 4 columnas solo cuando el contenido las sostiene (>= 1280px de viewport con sidebar); debajo, 2 columnas
+       para que el valor «$ 7.981.355,00» no quede recortado dentro de la tarjeta. */
+    .vsg-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    @@media (min-width: 1280px) { .vsg-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+    /* Tabla (>= 768px): sin scroll horizontal a 1024px. Encabezados que pueden partir línea y columna Producto más angosta. */
     @@media (min-width: 768px) {
-        .vsg-col-producto { min-width: 14rem; max-width: 20rem; }
+        .vsg-col-producto { min-width: 11rem; max-width: 20rem; }
+        .vsg-tabla th, .vsg-tabla td { padding-left: .5rem; padding-right: .5rem; }
+        .vsg-tabla th { white-space: normal; vertical-align: bottom; }
+        .vsg-tabla td { font-size: .875rem; }
+    }
+    @@media (min-width: 1280px) {
+        .vsg-col-producto { min-width: 14rem; }
+        .vsg-tabla th, .vsg-tabla td { padding-left: .75rem; padding-right: .75rem; }
+    }
+
+    /* Filtros: la acción y el check van en una fila propia; objetivos táctiles de 44px en pantallas chicas. */
+    .vsg-filtros-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+    .vsg-check { display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap; }
+    @@media (max-width: 767px) {
+        .vsg-filtros-acciones .btn-sm, .vsg-check, .vsg-export { min-height: 2.75rem; }
+        .vsg-check { padding-right: .5rem; }
+        .vsg-check input { width: 1.25rem; height: 1.25rem; }
+        .vsg-filtros-acciones .btn-sm:not(.btn-erp-ghost) { flex: 1 1 8rem; justify-content: center; }
+        .vsg-filtros-acciones .btn-erp-ghost { min-width: 2.75rem; justify-content: center; }
     }
 </style>
 
@@ -51,7 +75,7 @@
             <p class="text-sm text-slate-400">Costo promedio ponderado de las compras recibidas, junto al último costo de compra como indicador de reposición.</p>
         </div>
         <a asp-action="Exportar" asp-all-route-data="RutaExport"
-           class="btn-erp-secondary btn-sm no-underline">
+           class="btn-erp-secondary btn-sm no-underline vsg-export">
             <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
             Exportar a Excel
         </a>
@@ -62,7 +86,7 @@
         Los precios sugeridos y los márgenes siguen usando el costo de ficha del producto.
     </p>
 
-    <dl class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <dl class="mt-4 vsg-kpis">
         <div class="card-erp-metric">
             <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Valor gerencial</dt>
             <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@Total(r.ValorGerencialTotal)</dd>
@@ -93,7 +117,7 @@
             <input id="f-busqueda" type="text" name="Busqueda" value="@f.Busqueda" maxlength="100"
                    class="@CuentaPorPagarUiHelper.InputClass" placeholder="Buscar producto" />
         </div>
-        <div class="md:col-span-2">
+        <div class="md:col-span-3">
             <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-categoria">Categoría</label>
             <select id="f-categoria" name="CategoriaId" class="@CuentaPorPagarUiHelper.InputClass">
                 <option value="">Todas</option>
@@ -103,7 +127,7 @@
                 }
             </select>
         </div>
-        <div class="md:col-span-2">
+        <div class="md:col-span-3">
             <label class="@CuentaPorPagarUiHelper.LabelClass" for="f-marca">Marca</label>
             <select id="f-marca" name="MarcaId" class="@CuentaPorPagarUiHelper.InputClass">
                 <option value="">Todas</option>
@@ -123,17 +147,15 @@
                 }
             </select>
         </div>
-        <div class="flex items-end md:col-span-2">
-            <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input type="checkbox" name="IncluirSinStock" value="true" checked="@f.IncluirSinStock" class="h-4 w-4 rounded border-slate-600 bg-slate-900" />
-                Incluir sin stock
-            </label>
-        </div>
-        <div class="flex items-end gap-2 md:col-span-12">
+        <div class="vsg-filtros-acciones md:col-span-12">
             <button type="submit" class="btn-erp-primary btn-sm">Buscar</button>
             <a asp-action="Index" class="btn-erp-ghost btn-sm no-underline" title="Limpiar filtros" aria-label="Limpiar filtros">
                 <span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt_off</span>
             </a>
+            <label class="vsg-check text-sm text-slate-300">
+                <input type="checkbox" name="IncluirSinStock" value="true" checked="@f.IncluirSinStock" class="h-4 w-4 rounded border-slate-600 bg-slate-900" />
+                Incluir sin stock
+            </label>
         </div>
     </div>
 </form>
@@ -146,7 +168,7 @@
     else
     {
         <div class="table-erp-wrapper" role="region" aria-label="Tabla de valoración de stock" tabindex="0">
-            <table data-erp-cards class="w-full border-collapse text-left">
+            <table data-erp-cards class="vsg-tabla w-full border-collapse text-left">
                 <thead>
                     <tr class="border-b border-slate-800">
                         <th scope="col" data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Producto</th>
