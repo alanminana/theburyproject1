@@ -547,11 +547,10 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                // Un cheque recibido se acredita por su circuito (trazabilidad en el cheque y, si su caja cerró, asiento en la caja vigente).
-                if (_chequeService != null && await EsChequeRecibidoAsync(movimientoId))
-                    await _chequeService.AcreditarChequeAsync(movimientoId, _currentUser.GetUsername());
-                else
-                    await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
+                // V-02: el cheque recibido es un pago pendiente informativo; el ERP no registra su acreditación.
+                if (await EsChequeRecibidoAsync(movimientoId))
+                    throw new InvalidOperationException(MensajeChequeInformativo);
+                await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
                 TempData["Success"] = "Movimiento acreditado correctamente.";
             }
             catch (InvalidOperationException ex)
@@ -570,7 +569,7 @@ namespace TheBuryProject.Controllers
 
         // ---------------------------------------------------------------- Cheques recibidos
 
-        private const string MensajeChequeSinServicio = "El circuito de cheques no está disponible.";
+        private const string MensajeChequeInformativo = "Los cheques recibidos se registran como pago pendiente: el ERP no registra su acreditación, depósito ni rechazo.";
 
         private async Task<bool> EsChequeRecibidoAsync(int movimientoId) =>
             await _context.MovimientosCaja.AsNoTracking().AnyAsync(m => m.Id == movimientoId && !m.IsDeleted
@@ -579,27 +578,13 @@ namespace TheBuryProject.Controllers
                     || (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.TipoPago == TipoPago.Cheque)));
 
         /// <summary>
-        /// Lista simple de cheques recibidos pendientes de acreditar, por vencimiento, con aviso de por vencer. Solo muestra los de
-        /// las cajas que el usuario puede ver; las acciones solo donde puede operar la apertura del ingreso (caja.edit).
+        /// V-02. Lista informativa de cheques recibidos como pago pendiente, por vencimiento, con aviso de por vencer. Solo muestra los de
+        /// las cajas que el usuario puede ver. No ofrece acciones: el ERP no hace seguimiento de acreditación, depósito ni rechazo.
         /// </summary>
         public async Task<IActionResult> Cheques()
         {
             var lista = await CargarChequesVisiblesAsync(c => c.ObtenerChequesPendientesAsync());
             return View("Cheques_tw", lista);
-        }
-
-        /// <summary>
-        /// F-2. Cheques ya acreditados que todavía pueden rechazarse (el banco lo devolvió después de acreditarlo), aunque la caja donde
-        /// se asentaron esté cerrada. Mismas reglas de visibilidad y autorización que la lista de pendientes; el rechazo reutiliza
-        /// <see cref="RechazarCheque"/> (contrapartida en la caja abierta del usuario, sin tocar las cajas históricas).
-        /// </summary>
-        public async Task<IActionResult> ChequesAcreditados(string? buscar = null)
-        {
-            // La visibilidad se resuelve ANTES del limite del listado (si no, cheques ajenos recientes ocultarian los propios).
-            var visiblesPrevias = await ObtenerCajaIdsVisiblesAsync();
-            var lista = await CargarChequesVisiblesAsync(c => c.ObtenerChequesAcreditadosRechazablesAsync(visiblesPrevias, buscar));
-            ViewData["Buscar"] = buscar;
-            return View("ChequesAcreditados_tw", lista);
         }
 
         private async Task<List<ChequePendienteViewModel>> CargarChequesVisiblesAsync(
@@ -619,113 +604,12 @@ namespace TheBuryProject.Controllers
             if (visibles != null)
                 lista = lista.Where(c => cajaPorApertura.TryGetValue(c.AperturaId, out var cajaId) && visibles.Contains(cajaId)).ToList();
 
-            var puedeEditar = _currentUser.HasPermission("caja", "edit");
-            var operables = new Dictionary<int, bool>();
-            foreach (var c in lista)
-            {
-                if (!operables.TryGetValue(c.AperturaId, out var ok))
-                    operables[c.AperturaId] = ok = puedeEditar && await PuedeOperarAperturaAsync(c.AperturaId);
-                c.PuedeAccionar = ok;
-            }
-
             return lista;
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "caja", Accion = "edit")]
-        public async Task<IActionResult> AcreditarCheque(int movimientoId, string? origen = null)
-        {
-            var (aperturaId, rechazo) = await AutorizarOperacionChequeAsync(movimientoId);
-            if (rechazo != null) return rechazo;
-
-            try
-            {
-                if (_chequeService == null) throw new InvalidOperationException(MensajeChequeSinServicio);
-                var r = await _chequeService.AcreditarChequeAsync(movimientoId, _currentUser.GetUsername());
-                TempData["Success"] = r.MovimientoAsentadoId.HasValue
-                    ? "Cheque acreditado. El ingreso se asentó en tu caja abierta; la caja original no se modificó."
-                    : "Cheque acreditado correctamente.";
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Validación al acreditar cheque {MovimientoId}", movimientoId);
-                TempData["Error"] = ex.Message;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al acreditar cheque {MovimientoId}", movimientoId);
-                TempData["Error"] = "Error al acreditar el cheque.";
-            }
-
-            return VolverDeCheque(origen, aperturaId);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "caja", Accion = "edit")]
-        public async Task<IActionResult> RechazarCheque(int movimientoId, string? motivo, string? origen = null)
-        {
-            var (aperturaId, rechazo) = await AutorizarOperacionChequeAsync(movimientoId);
-            if (rechazo != null) return rechazo;
-
-            try
-            {
-                if (_chequeService == null) throw new InvalidOperationException(MensajeChequeSinServicio);
-                await _chequeService.RechazarChequeAsync(movimientoId, motivo ?? string.Empty, _currentUser.GetUsername());
-                TempData["Success"] = "Cheque rechazado. La venta no se canceló: queda pendiente de cobro.";
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Validación al rechazar cheque {MovimientoId}", movimientoId);
-                TempData["Error"] = ex.Message;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al rechazar cheque {MovimientoId}", movimientoId);
-                TempData["Error"] = "Error al rechazar el cheque.";
-            }
-
-            return VolverDeCheque(origen, aperturaId);
-        }
-
-        /// <summary>Misma autorización que AcreditarMovimiento (FIN-S-006): se decide sobre la apertura REAL del movimiento.</summary>
-        private async Task<(int AperturaId, IActionResult? Rechazo)> AutorizarOperacionChequeAsync(int movimientoId)
-        {
-            var aperturaRealId = await _context.MovimientosCaja
-                .AsNoTracking()
-                .Where(m => m.Id == movimientoId && !m.IsDeleted)
-                .Select(m => (int?)m.AperturaCajaId)
-                .FirstOrDefaultAsync();
-
-            if (aperturaRealId == null)
-            {
-                TempData["Error"] = EsSupervisorCaja() ? "Movimiento no encontrado." : MensajeSinPermisoOperarCaja;
-                return (0, RedirectToAction(nameof(Index)));
-            }
-
-            if (!await PuedeOperarAperturaAsync(aperturaRealId.Value))
-            {
-                _logger.LogWarning("Operación de cheque denegada: usuario {Usuario} sin permiso sobre la caja del movimiento {MovimientoId}",
-                    _currentUser.GetUsername(), movimientoId);
-                TempData["Error"] = MensajeSinPermisoOperarCaja;
-                return (0, RedirectToAction(nameof(Index)));
-            }
-
-            return (aperturaRealId.Value, null);
-        }
-
-        private IActionResult VolverDeCheque(string? origen, int aperturaId) =>
-            string.Equals(origen, "cheques", StringComparison.OrdinalIgnoreCase)
-                ? RedirectToAction(nameof(Cheques))
-                : string.Equals(origen, "acreditados", StringComparison.OrdinalIgnoreCase)
-                    ? RedirectToAction(nameof(ChequesAcreditados))
-                    : RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
-
         /// <summary>
-        /// Completa en cada fila de movimiento los datos de cheque recibido: marca de rechazo y acciones disponibles. El asiento
-        /// de acreditación de una caja vigente (AcreditacionCheque) también es accionable: sus acciones operan sobre el cheque
-        /// ORIGINAL (<see cref="MovimientoCajaLineaViewModel.ChequeAccionMovimientoId"/>), que vive en una caja ya cerrada.
+        /// Completa en cada fila de movimiento la marca informativa de cheque recibido (y de rechazo histórico). V-02: no hay acciones
+        /// de acreditar ni rechazar; el asiento de acreditación (AcreditacionCheque) de datos históricos sigue marcándose como cheque.
         /// </summary>
         private async Task AdjuntarChequesAsync(CajaConciliacionViewModel modelo)
         {
@@ -734,10 +618,10 @@ namespace TheBuryProject.Controllers
 
             var filas = await _context.MovimientosCaja.AsNoTracking()
                 .Where(m => ids.Contains(m.Id))
-                .Select(m => new { m.Id, m.Tipo, m.Concepto, m.TipoPago, m.VentaId, m.EstadoAcreditacion, m.MovimientoOrigenId })
+                .Select(m => new { m.Id, m.Tipo, m.Concepto, m.TipoPago, m.EstadoAcreditacion, m.MovimientoOrigenId })
                 .ToListAsync();
 
-            // Fila -> id del cheque original sobre el que operan sus acciones (null = la fila no es de un cheque recibido).
+            // Fila -> id del cheque original (null = la fila no es de un cheque recibido).
             var origenPorFila = new Dictionary<int, int>();
             foreach (var m in filas)
             {
@@ -765,25 +649,15 @@ namespace TheBuryProject.Controllers
                              && m.MovimientoOrigenId != null && origenIds.Contains(m.MovimientoOrigenId.Value))
                     .Select(m => m.MovimientoOrigenId!.Value).ToListAsync()).ToHashSet();
 
-            var puedeEditar = _currentUser.HasPermission("caja", "edit");
-            var operable = modelo.PuedeOperar && !modelo.EstaCerrada && puedeEditar;
             foreach (var linea in modelo.Movimientos)
             {
                 if (!origenPorFila.TryGetValue(linea.MovimientoId, out var origenId) || !origenes.TryGetValue(origenId, out var o))
                     continue;
 
-                var esAsientoDeAcreditacion = origenId != linea.MovimientoId;
                 linea.EsChequeRecibido = true;
-                linea.ChequeAccionMovimientoId = origenId;
                 linea.ChequeRechazado = o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Rechazado
                     || conRechazoPostAcreditacion.Contains(origenId)
                     || (o.VentaId.HasValue && ventasRechazadas.Contains(o.VentaId.Value));
-                // El asiento de acreditación solo se rechaza (el cheque ya está acreditado); el original, según su estado.
-                linea.ChequeAcreditable = operable && !esAsientoDeAcreditacion && !linea.ChequeRechazado
-                    && o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente;
-                linea.ChequeRechazable = operable && !linea.ChequeRechazado
-                    && (o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente
-                        || o.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado);
             }
         }
 

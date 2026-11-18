@@ -1,6 +1,6 @@
 ﻿@model List<TheBuryProject.ViewModels.ChequePendienteViewModel>
 @{
-    ViewData["Title"] = "Cheques pendientes";
+    ViewData["Title"] = "Cheques recibidos";
     var total = Model.Sum(c => c.Monto);
     var porVencer = Model.Count(c => c.PorVencer);
     var vencidos = Model.Count(c => c.Vencido);
@@ -14,13 +14,8 @@
 
     <div class="page-head">
         <div class="min-w-0">
-            <h1 class="page-title">Cheques pendientes</h1>
-            <p class="page-sub">Cheques recibidos que todavía no se acreditaron, ordenados por vencimiento. No cuentan como dinero real ni como efectivo de caja hasta acreditarse.</p>
-        </div>
-        <div class="head-actions">
-            <a asp-action="ChequesAcreditados" class="btn btn-ghost no-underline" data-cheques-acreditados-link>
-                <span class="material-symbols-outlined">undo</span>Rechazar un cheque acreditado
-            </a>
+            <h1 class="page-title">Cheques recibidos</h1>
+            <p class="page-sub">Cheques recibidos de clientes como pago pendiente, ordenados por vencimiento. Es un registro informativo: no ingresan al efectivo de la caja y el sistema no registra su depósito, acreditación ni rechazo.</p>
         </div>
     </div>
 
@@ -34,7 +29,7 @@
     }
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="kpi kpi--accent"><div class="kpi-label">Total pendiente</div><div class="kpi-value" data-cheques-total>$@total.ToString("N2")</div></div>
+        <div class="kpi kpi--accent"><div class="kpi-label">Total en cheques</div><div class="kpi-value" data-cheques-total>$@total.ToString("N2")</div></div>
         <div class="kpi"><div class="kpi-label">Cheques</div><div class="kpi-value">@Model.Count</div></div>
         <div class="kpi@(porVencer + vencidos > 0 ? " kpi--bad" : "")"><div class="kpi-label">Por vencer / vencidos</div><div class="kpi-value">@porVencer / @vencidos</div></div>
     </div>
@@ -42,7 +37,7 @@
     <section class="card" style="overflow:hidden">
         @if (Model.Count == 0)
         {
-            <div class="px-4 py-6 text-sm muted-2" data-cheques-vacio>No hay cheques pendientes de acreditar.</div>
+            <div class="px-4 py-6 text-sm muted-2" data-cheques-vacio>No hay cheques recibidos registrados como pago pendiente.</div>
         }
         else
         {
@@ -54,7 +49,6 @@
                             <th data-card="half">Origen</th>
                             <th>Cheque</th>
                             <th data-card="half" style="text-align:right">Monto</th>
-                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,13 +96,6 @@
                                     }
                                 </td>
                                 <td style="text-align:right" class="num">$ @c.Monto.ToString("N2")</td>
-                                <td>
-                                    @await Html.PartialAsync("_ChequeAcciones", new TheBuryProject.ViewModels.ChequeAccionesModel(c.MovimientoId, c.PuedeAccionar, c.PuedeAccionar, "cheques"))
-                                    @if (!c.PuedeAccionar)
-                                    {
-                                        <span class="text-xs muted-2">Sin permiso para operar esta caja</span>
-                                    }
-                                </td>
                             </tr>
                         }
                     </tbody>

@@ -604,3 +604,48 @@ Presupuesto de dos revisiones finales agotado: la última corrección (medio) no
 - **Hardware / entorno real**: sin acceso al servidor; backups por capacidad y arranque sin sesión siguen pendientes (sección 15).
 - **Accesibilidad**: lector de pantalla real (NVDA/JAWS) sin probar.
 - Observación ajena a esta tanda: la consola del navegador muestra «Refused to get unsafe header X-Documentos-Abrir» (script de documentos); preexistente.
+
+## 18. V-02 Cheques recibidos como pago pendiente informativo (2026-11-19)
+
+Decisión aprobada por el propietario (no se vuelve a consultar): los cheques recibidos de clientes se registran como **pagos pendientes**; la venta se confirma con normalidad; se conservan banco, número, titular, importe, fechas y vinculación con la venta; **no ingresan al efectivo físico de Caja**; **no** hay seguimiento de acreditación, depósito, rechazo ni conciliación bancaria dentro del ERP; **no** se requiere probar un cheque bancario real. Sin cambios en IVA, facturación, costos, stock ni crédito.
+
+### 18.1 Qué cambió
+
+| Tema | Antes | Ahora |
+|---|---|---|
+| Interfaz de cheques | Botones Acreditar / Rechazar en Caja (lista, detalle de apertura) y lista «Cheques acreditados» | Retirados: vista y partial eliminados; acciones `AcreditarCheque`, `RechazarCheque` y `ChequesAcreditados` eliminadas del controller (las rutas responden 404). La lista pasa a **«Cheques recibidos»**, solo lectura. `AcreditarMovimiento` (endpoint genérico para otros medios) rechaza un cheque recibido con un mensaje explicativo |
+| Servicios y datos | — | **Sin cambios**: `IChequeRecibidoService`, movimientos, estados históricos (Acreditado/Rechazado/Revertido) y columnas de `DatosCheque` se conservan. Los datos históricos siguen mostrándose (p. ej. «Cheque rechazado») |
+| Venta/Details | Chip «Pendiente de acreditar» | Chip **«Pago pendiente»** con la leyenda de que no ingresa al efectivo y el sistema no registra su depósito, acreditación ni rechazo |
+| Conciliación de caja | El cheque pendiente sumaba a **Cobrado** (dentro del «digital») y a «Cobrado» por medio y por venta; un cheque pendiente de una venta cancelada (ingreso `Anulado`) seguía figurando como cobrado | Se distinguen cuatro conceptos: **Vendido** (venta confirmada), **Cheques recibidos** (pago pendiente, tarjeta propia, por venta y por medio), **Cobrado** (dinero efectivamente recibido, sin cheques pendientes ni ingresos anulados) y **Caja esperada** (efectivo físico). `Cobrado + cheque recibido + pendiente = total` por venta; los importes financieros no cambian, solo su clasificación |
+| Cierre de caja y Caja/Index | «Cheques pendientes de acreditar… se acreditan después desde…» | «Cheques recibidos como pago pendiente… el sistema no registra su acreditación» |
+| Devolución | Mensaje «Acreditalo antes de devolver el dinero» | Mismo bloqueo del reembolso en efectivo (no hay efectivo cobrado que devolver), con mensaje coherente: «Acordá la devolución con el cliente por fuera de la caja» |
+
+### 18.2 Defectos encontrados y corregidos
+
+1. **Cobrado inflado por el cheque pendiente** (`CajaConciliacionBuilder`): `TotalCobrado`/`TotalCobradoDigital`, el «Cobrado» por venta y por medio incluían el cheque pendiente. Reclasificado sin alterar importes.
+2. **Cobrado inflado tras cancelar** (hallazgo del recorrido en navegador): con la venta cancelada, el ingreso `Anulado` del cheque seguía sumando a «Cobrado» ($1.500 de efectivo + $4.000 «digital» = $5.500 con una sola venta de $1.500). Corregido: los ingresos no físicos anulados no cuentan como cobrado.
+3. **Estado de la tarjeta de la venta** («Pendiente de acreditar»): hallazgo del recorrido en navegador (mi primera edición comparaba otro texto); cubierto ahora por una prueba HTTP que renderiza la vista real.
+4. Chip de categoría del cheque sin estilo en la pestaña Movimientos (`chip-violet` solo existe en el CSS de Crédito): se usa `chip-info`. Nota preexistente, fuera de alcance: la categoría «Banco / billetera» usa la misma clase sin estilo.
+
+### 18.3 Cancelaciones y devoluciones (verificadas, sin cambios de lógica)
+
+- Cancelar una venta con cheque pendiente: el ingreso queda `Anulado` (no se borra), se agrega la contrapartida `ReversionVenta`, el stock se revierte, `DatosCheque` se conserva y la auditoría `Ventas/CancelarVenta` queda registrada. Caja abierta (prueba HTTP `CancelarLaVenta_ConservaElHistorial…` y recorrido en navegador) y caja cerrada (B13: `ChequeCancelarCajaCerradaServiceTests`, `VentaCancelarChequeCajaCerradaHttpTests`, `FinResidualSqlServerTests.B13*` en SQL Server).
+- La protección que impide devolver efectivo no cobrado se mantiene (`Devolucion_ConChequePendiente_BloqueaElReembolsoEnEfectivo` y variantes). **No hay tratamiento comercial nuevo que decidir**: el reembolso en efectivo de una venta pagada con cheque queda bloqueado (el cheque no ingresó al efectivo); la devolución del cheque físico o por otro medio se acuerda fuera de la caja.
+
+### 18.4 Criterios de aceptación y evidencia
+
+| AC | Estado | Evidencia |
+|---|---|---|
+| V2-1 La venta con cheque se confirma y el cheque queda como pago pendiente con sus datos y vínculo | VERIFICADO | `ChequeInformativoHttpTests.VentaDetails_…`, `ChequeRecibidoServiceTests` (estado «Pago pendiente»), recorrido en navegador |
+| V2-2 No ingresa al efectivo físico de Caja | VERIFICADO | `CajaConciliacionBuilderTests.ChequeRecibidoPendiente_…` (Caja esperada intacta), navegador |
+| V2-3 Sin acreditar / rechazar / lista de acreditados en la interfaz ni en el controller | VERIFICADO | `ChequesRecibidosInformativosUiContractTests`, `ChequeRecibidoAutorizacionTests` (acciones inexistentes; AcreditarMovimiento rechaza el cheque), HTTP: rutas 404 |
+| V2-4 Conciliación distingue venta confirmada / cheque recibido / dinero acreditado / efectivo físico | VERIFICADO | `CajaConciliacionBuilderTests` (3 pruebas nuevas), `ChequeInformativoHttpTests.DetalleDeCaja_…`, capturas |
+| V2-5 Cancelar conserva el historial; la protección de devolución se mantiene | VERIFICADO | §18.3 |
+| V2-6 SQL Server real, RCSI 0 y 1 | VERIFICADO | 29/29 en cada modo (`ChequeRecibidoSqlServerTests`, `FinResidualSqlServerTests` H1..H4, B13, R06/R07); el circuito del servicio no cambió |
+| V2-7 Navegador (1366, 768, 390) | VERIFICADO | Venta/Details, Detalle de caja (Resumen y Movimientos) y Cheques recibidos sin desborde horizontal; cancelación real de una venta con cheque pendiente |
+
+### 18.5 Qué sigue abierto
+
+- Seguimiento de acreditación, depósito, rechazo o conciliación bancaria de cheques: **fuera del ERP por decisión del propietario** (si se quisiera retomar, el diseño H10 y los servicios siguen en el código).
+- Endosos y cheques propios: no implementados (ver §17.6).
+- Probar con un cheque bancario real: **ya no se requiere**.

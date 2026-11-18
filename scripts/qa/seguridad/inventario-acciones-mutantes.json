@@ -149,32 +149,6 @@
     "excluidaPorDiseno": false
   },
   {
-    "id": "Caja.AcreditarCheque:POST",
-    "controller": "Caja",
-    "accion": "AcreditarCheque",
-    "verbo": "POST",
-    "ruta": "/Caja/AcreditarCheque",
-    "permisos": [
-      "caja.edit",
-      "caja.view"
-    ],
-    "rolesRequeridos": [],
-    "consumes": "",
-    "parametros": [
-      {
-        "nombre": "movimientoId",
-        "tipo": "Int32",
-        "fuente": "Auto"
-      },
-      {
-        "nombre": "origen",
-        "tipo": "String",
-        "fuente": "Auto"
-      }
-    ],
-    "excluidaPorDiseno": false
-  },
-  {
     "id": "Caja.AcreditarMovimiento:POST",
     "controller": "Caja",
     "accion": "AcreditarMovimiento",
@@ -299,37 +273,6 @@
       {
         "nombre": "model",
         "tipo": "CajaViewModel",
-        "fuente": "Auto"
-      }
-    ],
-    "excluidaPorDiseno": false
-  },
-  {
-    "id": "Caja.RechazarCheque:POST",
-    "controller": "Caja",
-    "accion": "RechazarCheque",
-    "verbo": "POST",
-    "ruta": "/Caja/RechazarCheque",
-    "permisos": [
-      "caja.edit",
-      "caja.view"
-    ],
-    "rolesRequeridos": [],
-    "consumes": "",
-    "parametros": [
-      {
-        "nombre": "motivo",
-        "tipo": "String",
-        "fuente": "Auto"
-      },
-      {
-        "nombre": "movimientoId",
-        "tipo": "Int32",
-        "fuente": "Auto"
-      },
-      {
-        "nombre": "origen",
-        "tipo": "String",
         "fuente": "Auto"
       }
     ],

@@ -433,7 +433,7 @@ public class ChequeRecibidoServiceTests : IDisposable
         var est = (await _service.ObtenerEstadoChequeVentaAsync(rechazado.Id))!;
         Assert.True(est.Rechazado);
         Assert.Equal("Rechazado", est.Estado);
-        Assert.Equal("Pendiente de acreditar", (await _service.ObtenerEstadoChequeVentaAsync(pendiente.Id))!.Estado);
+        Assert.Equal("Pago pendiente", (await _service.ObtenerEstadoChequeVentaAsync(pendiente.Id))!.Estado);
     }
 
     // ------------------------------------------------------------------ D4: devolución
@@ -447,7 +447,7 @@ public class ChequeRecibidoServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RegistrarMovimientoDevolucionAsync(1, venta.Id, venta.Numero, "DEV-1", 100m, CajeroA));
 
-        Assert.Contains("todavía no fue acreditado", ex.Message);
+        Assert.Contains("se recibió como pago pendiente", ex.Message);
     }
 
     [Fact]

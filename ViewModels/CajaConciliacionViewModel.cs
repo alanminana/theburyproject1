@@ -44,8 +44,10 @@ public class CajaConciliacionViewModel
     public decimal FondoInicial { get; set; }
     /// <summary>Total facturado/confirmado del turno (incluye crédito personal). No es plata en caja.</summary>
     public decimal TotalVendido { get; set; }
-    /// <summary>Dinero efectivamente recibido en el turno (efectivo + digital).</summary>
+    /// <summary>Dinero efectivamente recibido en el turno (efectivo + digital), sin los cheques recibidos pendientes.</summary>
     public decimal TotalCobrado { get; set; }
+    /// <summary>V-02: cheques recibidos como pago pendiente. Informativo: no es efectivo físico ni dinero acreditado.</summary>
+    public decimal TotalChequesRecibidos { get; set; }
     public decimal TotalCobradoEfectivo { get; set; }
     public decimal TotalCobradoDigital { get; set; }
     /// <summary>Vendido todavía no cobrado (crédito personal, cuenta corriente).</summary>
@@ -110,10 +112,12 @@ public enum CategoriaImpactoCaja
     CajaFisica,
     /// <summary>Transferencia, Mercado Pago, depósito bancario: saldo en cuentas o billeteras.</summary>
     CuentaBancaria,
-    /// <summary>Tarjeta y cheque: valores con acreditación / liquidación posterior.</summary>
+    /// <summary>Tarjeta: valor con acreditación / liquidación posterior.</summary>
     AAcreditar,
     /// <summary>Crédito personal, cuenta corriente: no genera ingreso inmediato en caja.</summary>
-    SinIngresoInmediato
+    SinIngresoInmediato,
+    /// <summary>V-02: cheque recibido de un cliente. Pago pendiente informativo: ni efectivo físico ni dinero acreditado.</summary>
+    ChequeRecibido
 }
 
 /// <summary>Fila del resumen por medio de pago: Vendido / Cobrado / Pendiente / impacta caja física.</summary>
@@ -124,6 +128,8 @@ public class ResumenMedioConciliacionViewModel
     public decimal TotalVendido { get; set; }
     public decimal TotalCobrado { get; set; }
     public decimal TotalPendiente { get; set; }
+    /// <summary>V-02: cheque recibido como pago pendiente dentro de este medio (no incluido en <see cref="TotalCobrado"/>).</summary>
+    public decimal TotalChequeRecibido { get; set; }
     public bool ImpactaCajaFisica { get; set; }
 }
 
@@ -154,6 +160,8 @@ public class VentaTurnoLineaViewModel
     /// <summary>Importe de envío a cobrar (0 si la venta no tiene envío o no tiene costo).</summary>
     public decimal ImporteEnvio { get; set; }
     public decimal CobradoAhora { get; set; }
+    /// <summary>V-02: parte pagada con un cheque recibido pendiente (no incluida en <see cref="CobradoAhora"/>).</summary>
+    public decimal ChequeRecibido { get; set; }
     public decimal Pendiente { get; set; }
     public bool ImpactaCajaFisica { get; set; }
     public string? Referencia { get; set; }
@@ -215,6 +223,7 @@ public class MovimientoCajaLineaViewModel
         CategoriaImpactoCaja.CajaFisica => "Caja física",
         CategoriaImpactoCaja.CuentaBancaria => "Banco / billetera",
         CategoriaImpactoCaja.AAcreditar => "A acreditar",
+        CategoriaImpactoCaja.ChequeRecibido => "Cheque recibido · no es efectivo",
         CategoriaImpactoCaja.SinIngresoInmediato => "Sin ingreso inmediato",
         _ => "Caja física"
     };
@@ -225,6 +234,7 @@ public class MovimientoCajaLineaViewModel
         CategoriaImpactoCaja.CajaFisica => "chip-ok",
         CategoriaImpactoCaja.CuentaBancaria => "chip-violet",
         CategoriaImpactoCaja.AAcreditar => "chip-warn",
+        CategoriaImpactoCaja.ChequeRecibido => "chip-info",
         CategoriaImpactoCaja.SinIngresoInmediato => "chip-neutral",
         _ => "chip-neutral"
     };
@@ -234,10 +244,6 @@ public class MovimientoCajaLineaViewModel
     public bool EsChequeRecibido { get; set; }
     /// <summary>El cheque fue rechazado por el banco: la operación queda pendiente de regularización.</summary>
     public bool ChequeRechazado { get; set; }
-    /// <summary>Movimiento del cheque ORIGINAL sobre el que operan las acciones (en el asiento de acreditación difiere del id de la fila).</summary>
-    public int ChequeAccionMovimientoId { get; set; }
-    public bool ChequeAcreditable { get; set; }
-    public bool ChequeRechazable { get; set; }
     public int AperturaId { get; set; }
 
     /// <summary>Estado de acreditación bancaria del movimiento (lo copia el builder desde la entidad).</summary>
@@ -256,7 +262,7 @@ public class MovimientoCajaLineaViewModel
     /// <summary>Etiqueta clara del estado de acreditación, para el chip de la vista (spec 5.3).</summary>
     public string AcreditacionLabel => EstadoAcreditacion switch
     {
-        EstadoAcreditacionMovimientoCaja.Pendiente => "Pendiente de acreditación",
+        EstadoAcreditacionMovimientoCaja.Pendiente => EsChequeRecibido ? "Cheque recibido · pago pendiente" : "Pendiente de acreditación",
         EstadoAcreditacionMovimientoCaja.Acreditado => "Acreditado",
         EstadoAcreditacionMovimientoCaja.Rechazado => "Acreditación rechazada",
         EstadoAcreditacionMovimientoCaja.Revertido => "Revertido",

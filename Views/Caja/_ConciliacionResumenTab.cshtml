@@ -35,7 +35,12 @@
                                             </div>
                                         </td>
                                         <td style="text-align:right" class="num">$@medio.TotalVendido.ToString("N2")</td>
-                                        <td style="text-align:right" class="num text-emerald-400">$@medio.TotalCobrado.ToString("N2")</td>
+                                        <td style="text-align:right" class="num text-emerald-400">$@medio.TotalCobrado.ToString("N2")
+                                            @if (medio.TotalChequeRecibido > 0)
+                                            {
+                                                <div class="text-xs text-amber-300" data-medio-cheque-recibido>+ cheque recibido $@medio.TotalChequeRecibido.ToString("N2")</div>
+                                            }
+                                        </td>
                                         <td style="text-align:right" class="num @(medio.TotalPendiente > 0 ? "text-amber-300" : "muted-2")">$@medio.TotalPendiente.ToString("N2")</td>
                                         <td style="text-align:center">
                                             <span class="chip @(medio.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(medio.ImpactaCajaFisica ? "Sí" : "No")</span>

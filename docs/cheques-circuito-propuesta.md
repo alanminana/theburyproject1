@@ -1,5 +1,7 @@
 ﻿# Cheques como medio de pago: auditoría del circuito y propuesta de cierre
 
+> **Actualización V-02 (2026-11-19) — alcance reducido por decisión del propietario.** El cheque recibido de un cliente se registra como **pago pendiente informativo**: la venta se confirma, se conservan banco, número, titular, importe, fechas y la vinculación con la venta, no ingresa al efectivo físico de la Caja y el ERP **no** hace seguimiento de depósito, acreditación, rechazo ni conciliación bancaria. Se retiraron de la interfaz y del controller las acciones **Acreditar**, **Rechazar** y la lista de acreditados; los servicios (`IChequeRecibidoService`) y los datos históricos se conservan sin cambios. Lo descripto abajo sobre acreditar/rechazar es el diseño H10 original (referencia histórica). Detalle y evidencia: `docs/hitos-d01-d03-inventario-y-criterios.md` §18.
+
 > **Estado H10 (2026-10-30):** el propietario autorizó D1-A y D2-A y pidió contemplar D3-D6. El circuito está implementado en la rama `hito10/cheques` (ver la sección 6 y `docs/cheques-migracion-autorizacion.md`). **La migración no está aplicada a la base real**: hasta autorizarla y aplicarla, el circuito nuevo no funciona en producción y «Cheque» sigue sin poder usarse como medio de pago.
 
 **Fecha:** 2026-10-30 · **Base:** `main` `216e8166` · **Alcance:** cheque RECIBIDO de un cliente como medio de pago de una venta (Hito 9, M3).

@@ -193,7 +193,12 @@
                                         <td>@v.Cliente</td>
                                         <td><span class="chip chip-info">@v.MedioPago</span></td>
                                         <td style="text-align:right" class="num">$@v.TotalVenta.ToString("N2")</td>
-                                        <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")</td>
+                                        <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")
+                                            @if (v.ChequeRecibido > 0)
+                                            {
+                                                <div class="text-xs text-amber-300">+ cheque recibido $@v.ChequeRecibido.ToString("N2")</div>
+                                            }
+                                        </td>
                                         <td style="text-align:right" class="num text-amber-300">$@v.Pendiente.ToString("N2")</td>
                                         <td><span class="chip chip-warn">@v.MotivoNoImpacta</span></td>
                                     </tr>

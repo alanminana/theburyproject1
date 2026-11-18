@@ -605,7 +605,7 @@ namespace TheBuryProject.Services
             if (cheque.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
             {
                 throw new InvalidOperationException(
-                    $"No se puede reembolsar en efectivo la venta {ventaNumero}: el cheque todavía no fue acreditado. Acreditalo antes de devolver el dinero.");
+                    $"No se puede reembolsar en efectivo la venta {ventaNumero}: el cheque se recibió como pago pendiente y el sistema no registra su cobro, por lo que no hay efectivo cobrado que devolver. Acordá la devolución con el cliente por fuera de la caja.");
             }
 
             // Estado Acreditado + sin rechazo es la evidencia de cobro: la fecha en DatosCheque no la registran todas las vias
@@ -781,7 +781,7 @@ namespace TheBuryProject.Services
                     ? "Sin cobrar"
                     : mov.EstadoAcreditacion switch
                     {
-                        EstadoAcreditacionMovimientoCaja.Pendiente => "Pendiente de acreditar",
+                        EstadoAcreditacionMovimientoCaja.Pendiente => "Pago pendiente",
                         EstadoAcreditacionMovimientoCaja.Acreditado => "Acreditado",
                         EstadoAcreditacionMovimientoCaja.Anulado => "Anulado",
                         EstadoAcreditacionMovimientoCaja.Rechazado => "Rechazado",

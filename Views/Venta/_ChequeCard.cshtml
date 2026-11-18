@@ -33,6 +33,13 @@
         </div>
     }
 
+    @if (!rechazado && Model.Estado == "Pago pendiente")
+    {
+        <p class="mb-4 text-sm text-slate-300" data-cheque-informativo>
+            Cheque recibido como pago pendiente: la venta está confirmada, pero el importe no ingresa al efectivo de la caja y el sistema no registra su depósito, acreditación ni rechazo.
+        </p>
+    }
+
     <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-sm">
         <div><dt class="text-slate-400">Banco</dt><dd class="font-semibold text-white">@Model.Banco</dd></div>
         <div><dt class="text-slate-400">N° de cheque</dt><dd class="font-semibold text-white font-mono">@Model.NumeroCheque</dd></div>

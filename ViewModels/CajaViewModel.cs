@@ -178,7 +178,7 @@ public class CerrarCajaViewModel
     [Display(Name = "Vales/Otros")]
     public decimal ValesContados { get; set; }
 
-    /// <summary>Cheques recibidos todavía no acreditados en el turno: informativo, NO suma al arqueo físico.</summary>
+    /// <summary>Cheques recibidos como pago pendiente en el turno: informativo, NO suma al arqueo físico ni es dinero acreditado.</summary>
     public int ChequesPendientesCantidad => (Movimientos ?? new()).Count(EsChequePendiente);
     public decimal ChequesPendientesTotal => (Movimientos ?? new()).Where(EsChequePendiente).Sum(m => m.Monto);
 
