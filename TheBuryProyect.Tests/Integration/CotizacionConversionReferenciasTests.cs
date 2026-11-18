@@ -95,12 +95,12 @@ public sealed class CotizacionConversionReferenciasTests : IDisposable
         };
     }
 
-    private async Task ConfigurarAsync(int minimo = 1, bool mora = false)
+    private async Task ConfigurarAsync(int minimo = 1, bool mora = false, int diasNoApto = 1)
     {
         _ctx.Set<ConfiguracionCredito>().Add(new ConfiguracionCredito
         {
             ReferenciasVerificadasMinimas = minimo, ValidarDocumentacion = false, ValidarLimiteCredito = false,
-            ValidarMora = mora, DiasParaNoApto = mora ? 1 : null
+            ValidarMora = mora, DiasParaNoApto = mora ? diasNoApto : null
         });
         (await _ctx.PuntajesCreditoLimite.FindAsync(1))!.LimiteMonto = 1_000_000m;
         await _ctx.SaveChangesAsync();
@@ -235,6 +235,50 @@ public sealed class CotizacionConversionReferenciasTests : IDisposable
         var venta = await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.VentaId);
         Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
         Assert.Equal("marta.gerente", venta.UsuarioAutoriza);
+    }
+
+    /// <summary>
+    /// Invariante «Autorizada => ninguna razón vigente sin autorizar» también en la conversión (misma validación y mismo
+    /// AplicarResultadoValidacionAsync que Venta/Create): con mora NO bloqueante y sin referencias hay dos razones y la
+    /// venta solo queda Autorizada cuando cada una tiene su autorización expresa.
+    /// </summary>
+    [Fact]
+    public async Task Convertir_ConMoraNoBloqueanteYSinReferencias_ExigeAutorizarCadaRazonPorSeparado()
+    {
+        await ConfigurarAsync(mora: true, diasNoApto: 365);
+        var credito = new Credito { ClienteId = _cliente.Id, Numero = "MORA-NB-CONV-D02", Estado = EstadoCredito.Activo, SaldoPendiente = 500m };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        _ctx.Cuotas.Add(new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1, FechaVencimiento = DateTime.UtcNow.Date.AddDays(-10),
+            MontoCapital = 500m, MontoTotal = 500m, MontoPagado = 0m, Estado = EstadoCuota.Vencida
+        });
+        await _ctx.SaveChangesAsync();
+        var cotizacion = await CotizacionAsync();
+
+        var resultado = await _servicio.ConvertirAVentaAsync(cotizacion.Id, Request(), "carlos.creador");
+        Assert.True(resultado.Exitoso);
+        var id = resultado.VentaId!.Value;
+
+        var venta = await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        var razones = TheBuryProject.Services.VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson);
+        Assert.Contains(razones, r => r.Tipo == TheBuryProject.ViewModels.TipoRazonAutorizacion.MoraActiva);
+        Assert.Contains(razones, r => r.Tipo == TheBuryProject.ViewModels.TipoRazonAutorizacion.ReferenciasInsuficientes);
+        Assert.All(razones, r => Assert.False(r.Autorizada));
+
+        // Solo las referencias: la venta sigue pendiente por la mora.
+        ComoUsuario("marta.gerente", autoriza: true);
+        await _ventaService.AutorizarVentaAsync(id, "marta.gerente", "Excepción de referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion,
+            (await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == id)).EstadoAutorizacion);
+
+        // Cada razón con su autorización expresa: recién ahí queda Autorizada.
+        await _ventaService.AutorizarVentaAsync(id, "marta.gerente", "Mora no bloqueante",
+            new[] { TheBuryProject.ViewModels.TipoRazonAutorizacion.MoraActiva });
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada,
+            (await _ctx.Ventas.AsNoTracking().SingleAsync(v => v.Id == id)).EstadoAutorizacion);
     }
 
     private sealed class UsuarioConversion : ICurrentUserService

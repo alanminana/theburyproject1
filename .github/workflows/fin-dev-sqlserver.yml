@@ -240,6 +240,24 @@ jobs:
           done
           exit $RC
 
+      - name: D-02 - autorizacion parcial concurrente por razon (D02-CONC-01..03)
+        env:
+          QA_RELEASE_TURNO: '1'
+          QA_FIN_CONC_RCSI: ${{ matrix.rcsi }}
+        run: |
+          set -euo pipefail
+          export QA_FIN_CONC_SQL="Server=127.0.0.1,${MSSQL_HOST_PORT_CI};Database=qa_fin_conc;User Id=sa;Password=${SA_PW};TrustServerCertificate=True;MultipleActiveResultSets=true"
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build             --filter "FullyQualifiedName~AutorizacionParcialSqlServerTests"             --logger "trx;LogFileName=d02-autorizacion-parcial-sql-rcsi${{ matrix.rcsi }}.trx"             --logger "console;verbosity=detailed"             --results-directory ./TestResults
+          TRX=./TestResults/d02-autorizacion-parcial-sql-rcsi${{ matrix.rcsi }}.trx
+          RC=0
+          for R in D02-CONC-01 D02-CONC-02 D02-CONC-03; do
+            LINE=$(grep -o "<UnitTestResult [^>]*testName=\"[^\"]*$R[^\"]*\"[^>]*>" "$TRX" | head -n1 || true)
+            if [ -z "$LINE" ]; then OUT="NO ENCONTRADO"; else OUT=$(echo "$LINE" | grep -o 'outcome="[^"]*"' | head -n1 | cut -d'"' -f2); fi
+            echo "$R -> $OUT"
+            if [ "$OUT" != "Passed" ]; then RC=1; fi
+          done
+          exit $RC
+
       # Un omitido no es un aprobado: cada escenario requerido debe figurar con outcome="Passed".
       - name: Verificar que se ejecutaron (no omitidos)
         if: always()

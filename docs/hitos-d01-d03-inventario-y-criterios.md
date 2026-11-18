@@ -475,3 +475,59 @@ Decisiones del propietario incorporadas: la excepción individual solo exime ref
 - **Decisión del propietario:** rechazar `NoViable`/`PendienteRequisitos` dentro del servicio de confirmación (hoy vive en el controller, como en `main`); en una venta sin editor registrado, quien autorizó una razón no puede autorizar después las referencias en otro acto.
 - **Contador:** valuación fiscal, método oficial de costeo, ajuste por inflación y efecto en márgenes históricos.
 - **D-03 (tanda aparte):** todo lo indicado arriba; el pago con cheques propios queda sin implementar hasta resolverlo expresamente.
+
+## 16. Cierre de D-02 y D-01 (2026-11-18, segunda tanda)
+
+Alcance: cerrar los pendientes de D-02 y D-01 de la sección 15. **D-03 no se tocó.** Sin datos reales, sin migraciones nuevas, sin cambios en reglas de negocio.
+
+### 16.1 Decisiones funcionales pendientes de la sección 15: se resolvieron por coherencia con el comportamiento existente
+
+| # | Tema | Resolución | Por qué no cambia una regla de negocio |
+|---|---|---|---|
+| 1 | Rechazar bloqueos vigentes dentro de `ConfirmarVentaCreditoAsync` | **Aplicado, acotado.** El servicio rechaza `NoViable`/`PendienteRequisitos` cuando el bloqueo NO es solo «documentación faltante» (mora bloqueante, cliente no apto), aun con todas las razones autorizadas. La documentación faltante sigue resolviéndose en el controller (excepción documental al confirmar o ya registrada), como siempre | El controller ya rechazaba esos bloqueos y `ConfirmarVentaAsync` ya rechazaba `PendienteRequisitos`; el servicio quedaba como único camino sin ese chequeo. Se verificó con una prueba que falla sin la corrección (confirmaba un crédito con mora bloqueante aparecida después de configurar) |
+| 2 | Venta sin editor registrado: quien autorizó una razón no puede autorizar después las referencias en otro acto | **Se mantiene estricto (falla cerrado).** Solo afecta ventas anteriores al registro de `UsuarioSolicita` (en toda venta nueva el editor está registrado); en un solo acto con ambas casillas sí puede | Es el comportamiento ya vigente y probado (`H5_*`); relajarlo reabriría la autoautorización que detectó Codex |
+| 3 | Razón nueva en una venta que nunca requirió autorización | **Se mantiene: Confirmar la rechaza y se resuelve guardando de nuevo la venta**, que pasa a pendiente con solo la razón nueva, conservando las ya autorizadas; luego un autorizador la aprueba y Confirmar procede | Es el camino de edición existente (`InvalidarAutorizacionRazonNueva`); queda verificado de punta a punta (`ConfirmarCredito_AutorizadaPorReferencias_SiLuegoApareceMoraNoBloqueante_...`). Cambiar el estado dentro de la transacción de Confirmar mezclaría solicitar y confirmar |
+
+**Revisión independiente de Codex sobre este tramo** (solo lectura, hash del worktree idéntico antes y después): 1.ª pasada `needs-attention`, **1 hallazgo alto, confirmado contra el código**: la primera versión del rechazo (todo `NoViable`/`PendienteRequisitos`) bloqueaba una confirmación legítima con excepción documental, porque el controller resuelve esa excepción en memoria y el servicio revalida por su cuenta y vuelve a ver la documentación faltante. Corrección: el servicio rechaza solo lo que **no** es documentación faltante. Regresiones: `ConfirmarCredito_ConDocumentacionFaltanteYExcepcionDocumentalRegistrada_SigueConfirmando` (falla con la versión sin acotar, comprobado por mutación) y `ConfirmarCredito_ConDocumentacionFaltanteYMoraBloqueante_SeRechazaAunConExcepcionDocumentalRegistrada`. CI de la PR detectó además que dos harnesses de SQL Server (`FinAnt`, `ConfigurarVsConfirmar`) confirmaban créditos de clientes sembrados sin CUIL/CUIT (BCRA no consultable = bloqueo), algo que antes el servicio no revalidaba; se corrigió la **siembra** (`ConcSeed.HacerClienteElegibleParaCredito`), no la lógica, y se verificó el resto de las clases de concurrencia (145 correctas, 0 fallos). 2.ª pasada de Codex (enfocada en el delta, hash idéntico): **approve**, sin hallazgos materiales. Límite que se mantiene como estaba: la documentación faltante sin excepción la sigue exigiendo el controller, no el servicio.
+
+### 16.2 R-15 a R-22: qué queda abierto
+
+Ninguno exige cambiar código para cerrar D-01: todos están **implementados con la alternativa A (el comportamiento existente)**, cada una con su criterio y prueba (secciones 3 y 8). La alternativa B es una mejora futura que requiere decisión del propietario; no bloquea el cierre.
+
+| R | Estado | Alternativa vigente | Evidencia / nota |
+|---|---|---|---|
+| R-14 | RESUELTA 2026-11-15 | Mismo usuario puede simular, aprobar y aplicar con auditoría | sección 11 |
+| R-15 | CERRADA con A | Margen mínimo solo al fijar precio manual; los lotes advierten margen negativo | Bloquear liquidaciones en lotes sería una política nueva (B) |
+| R-16 | RESUELTA 2026-11-15 | Lista general única; designar otra predeterminada es inmediato | sección 11 |
+| R-17 | CERRADA con A | Sin vigencia futura en precios manuales | B cambia la semántica de `EsVigente`/resolvedor |
+| R-18 | CERRADA con A | Redondeo por defecto a la centena, informado en el formulario | B cambiaría precios sugeridos de todas las listas |
+| R-19 | CERRADA con A, atada a R-03 | Costo del precio por lista = `Producto.PrecioCompra` (costo de ficha) | El costeo gerencial es de solo lectura y no lo modifica; el método oficial es del contador |
+| R-20 | CERRADA con A | Exportación por producto, todas sus listas, último año, con `precios.history` | B (masiva) expone costos de todo el catálogo |
+| R-22 | CERRADA con A | `precios.view` ve costo y margen igual que en el historial | Los roles de sistema que reciben `precios.view` (Administrador, Gerente) también reciben `precios.history`; solo un rol personalizado de «solo ver» vería costos: se limita desde Seguridad > Roles |
+| R-21 | **Pasa a D-03** | cheque único por pago | decisión ya tomada para la tanda de Tesorería |
+
+### 16.3 Pendientes de la sección 15 que ahora están verificados
+
+| Criterio | Antes | Ahora | Evidencia |
+|---|---|---|---|
+| `ConfirmarVentaCreditoAsync` completo con razón nueva | NO VERIFICADO de punta a punta | VERIFICADO | `VentaReferenciasCreditoServiceTests.ConfirmarCredito_*` (6 pruebas, servicios reales de validación, solo caja/stock/contrato simulados) |
+| Conversión de cotización y simulador con el invariante | NO VERIFICADO | VERIFICADO | `CotizacionConversionReferenciasTests.Convertir_ConMoraNoBloqueanteYSinReferencias_ExigeAutorizarCadaRazonPorSeparado`; el simulador convierte por `CotizacionConversionService` (mismo `AplicarResultadoValidacionAsync` que Create) |
+| Concurrencia SQL Server de dos autorizaciones parciales | NO VERIFICADO | VERIFICADO (RCSI 0 y 1) | `AutorizacionParcialSqlServerTests` D02-CONC-01..03, 12 rondas cada una; el `RowVersion` de la venta impide la pisada: 11 de 12 rondas del caso «razones distintas» terminan con un OK y una `DbUpdateConcurrencyException` (la UI pide recargar), nunca con una autorización perdida ni la venta Autorizada a medias. Paso de CI: «D-02 - autorización parcial concurrente por razón» |
+| «Exportar a Excel» de Valoración | NO VERIFICADO | VERIFICADO | Descarga real desde el botón en el navegador (`valoracion-stock-gerencial-AAAAMMDD.xlsx`, con la leyenda y los códigos); más `Exportar_EscribeLaLeyenda...` y el HTTP con permiso |
+| Valoración en tablet 768×1024 | NO VALIDADA | VALIDADA | captura con datos sintéticos (54 productos, 2 páginas), sin desborde horizontal, paginación y leyenda visibles |
+| Accesibilidad | sin lector de pantalla | VERIFICADA con axe-core (WCAG 2.0/2.1 A y AA + buenas prácticas) en 6 pantallas × 2 anchos; **lector de pantalla real (NVDA/JAWS): NO PROBADO** | 390 px: 3 defectos reales corregidos (menú de usuario sin nombre accesible en toda la app; encabezado de tabla oculto con rol `row` vacío en las tarjetas móviles), resultado 0 violaciones |
+
+Hallazgo de accesibilidad **no corregido** (tema de la paleta, requiere decisión de diseño): el texto blanco sobre el verde de `btn-erp-success` tiene contraste 2,46:1 (mínimo 4,5:1), incluido el botón «Autorizar» de la venta, y las etiquetas `text-slate-500` de Venta/Details 3,5:1. Afectan a todo el sistema.
+
+Evidencia local sobre el commit final: suite .NET completa **8706 correctas, 0 fallos, 241 omitidas** (las 3 nuevas de SQL Server se omiten sin la base descartable; corren en CI y se ejecutaron localmente 3/3 con RCSI 0 y 1 contra un contenedor descartable); Codex 2 pasadas (1 alto corregido, última `approve`); axe-core 0 violaciones en 6 pantallas a 1366 y 390 px salvo el contraste de la paleta.
+
+### 16.4 Qué puede marcarse Finalizado y qué no
+
+| Módulo | Estado propuesto | Motivo |
+|---|---|---|
+| D-02 referencias y crédito | **Finalizado funcionalmente** | todos los criterios de aceptación con prueba; reservas: lector de pantalla real y el contraste de la paleta |
+| D-01 listas y precios por lotes | **Finalizado funcionalmente** | AC-01-1..11 verificados; R-15..R-22 cerradas con la alternativa A |
+| Costeo gerencial | Finalizado como indicador gerencial de solo lectura | el método contable oficial y la valuación fiscal siguen siendo del contador |
+| Backups por capacidad | No Finalizado | falta probar en el disco real |
+| Instalación limpia | Finalizado | 143 migraciones, un administrador, sin datos de negocio |
+| D-03 | No iniciado | tanda aparte |

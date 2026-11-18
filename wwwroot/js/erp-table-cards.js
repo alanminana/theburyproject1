@@ -72,6 +72,21 @@
             if (on) n.setAttribute('role', TABLE_ROLES[n.tagName]);
             else n.removeAttribute('role');
         });
+        quitarEncabezadoOculto(table, on);
+    }
+
+    // En tarjetas el CSS oculta los <th> sin controles: una fila con rol "row" cuyas celdas no se ven rompe el arbol de
+    // accesibilidad (aria-required-children). Esa franja no aporta nada al lector (cada celda ya lleva su etiqueta), asi que se
+    // presenta sin semantica de tabla mientras ningun <th> sea visible.
+    function quitarEncabezadoOculto(table, on) {
+        var thead = table.tHead;
+        if (!on || !thead) return;
+        var algunoVisible = Array.prototype.some.call(thead.querySelectorAll('th'), function (th) {
+            return window.getComputedStyle(th).display !== 'none';
+        });
+        if (algunoVisible) return;
+        thead.setAttribute('role', 'presentation');
+        Array.prototype.forEach.call(thead.querySelectorAll('tr, th'), function (n) { n.setAttribute('role', 'presentation'); });
     }
 
     function refresh(table) {

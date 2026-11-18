@@ -154,6 +154,7 @@ public class FinAntSqlServerTests : IClassFixture<FinAntSqlHostFixture>
             TipoDocumento = "DNI", NumeroDocumento = sufijo, Nombre = "Ant", Apellido = "QA" + sufijo,
             Telefono = "0000000000", Domicilio = "QA 123", PuntajeCliente = 5, NivelRiesgo = NivelRiesgoCredito.AprobadoTotal
         };
+        ConcSeed.HacerClienteElegibleParaCredito(cliente);
         ctx.AddRange(categoria, marca, cliente);
         await ctx.SaveChangesAsync();
 

@@ -119,6 +119,22 @@ internal sealed class ConcCurrentUser : ICurrentUserService
 
 internal static class ConcSeed
 {
+    /// <summary>
+    /// ConfirmarVentaCreditoAsync revalida la elegibilidad del cliente (mora bloqueante, BCRA no consultable...) igual que el
+    /// controller. Estos harnesses prueban locks y atomicidad, no la elegibilidad: el cliente sembrado tiene CUIT y una
+    /// situación BCRA reciente favorable (sin documentos faltantes no bloquea: solo la falta de documentación se resuelve
+    /// por excepción en el controller).
+    /// </summary>
+    public static void HacerClienteElegibleParaCredito(Cliente cliente)
+    {
+        cliente.CuilCuit = "20123456786";
+        cliente.SituacionCrediticiaBcra = 1;
+        cliente.SituacionCrediticiaConsultaOk = true;
+        cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow.AddDays(-1);
+        cliente.SituacionCrediticiaBcraUltimoExito = 1;
+        cliente.SituacionCrediticiaUltimoExitoUtc = DateTime.UtcNow.AddDays(-1);
+    }
+
     public static async Task<int> SembrarAperturaAsync(AppDbContext ctx, string usuario = ConcCurrentUser.Usuario)
     {
         var caja = new Caja
