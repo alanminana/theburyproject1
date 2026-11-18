@@ -8,6 +8,24 @@ using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Services
 {
+    /// <summary>
+    /// Serializa por origen de fondos: cada pago o anticipo lo toma al validar el origen (dentro de la transacción del proveedor) y la baja
+    /// del origen lo toma antes de contar sus movimientos. Orden de locks: proveedor -> origen (la baja solo toma el origen: sin ciclo).
+    /// SQL Server: UPDLOCK, HOLDLOCK, ROWLOCK sobre la PK; SQLite de tests: no-op (un único escritor).
+    /// </summary>
+    internal static class OrigenConcurrencia
+    {
+        public static async Task BloquearAsync(AppDbContext context, int origenId, CancellationToken cancellationToken = default)
+        {
+            if (!context.Database.IsSqlServer())
+                return;
+
+            await context.Database
+                .SqlQuery<int>($"SELECT [Id] AS [Value] FROM [OrigenesFondos] WITH (UPDLOCK, HOLDLOCK, ROWLOCK) WHERE [Id] = {origenId}")
+                .ToListAsync(cancellationToken);
+        }
+    }
+
     public class TesoreriaService : ITesoreriaService
     {
         private static readonly Regex CodigoValido = new(@"^[A-Z0-9][A-Z0-9_\-]*$", RegexOptions.Compiled);
@@ -126,23 +144,35 @@ namespace TheBuryProject.Services
 
         public async Task<ResultadoCxp> EliminarOrigenAsync(int id, string usuario)
         {
-            var item = await ObtenerOrigenAsync(id);
-            if (item is null)
-                return ResultadoCxp.Falla("El origen de fondos no existe.");
-            if (item.Movimientos > 0)
-                return ResultadoCxp.Falla("El origen tiene pagos o anticipos registrados: no se puede eliminar, desactivalo para que deje de ofrecerse.");
-
+            // La comprobación «sin movimientos» y la baja ocurren bajo el MISMO lock del origen que toma cada pago o anticipo al
+            // validarlo (OrigenConcurrencia): sin él, un egreso registrado entre la lectura y la baja quedaría con un origen eliminado.
+            await using var transaccion = await _context.Database.BeginTransactionAsync();
             try
             {
+                await OrigenConcurrencia.BloquearAsync(_context, id);
+                var item = await ObtenerOrigenAsync(id);
+                if (item is null)
+                {
+                    await transaccion.RollbackAsync();
+                    return ResultadoCxp.Falla("El origen de fondos no existe.");
+                }
+                if (item.Movimientos > 0)
+                {
+                    await transaccion.RollbackAsync();
+                    return ResultadoCxp.Falla("El origen tiene pagos o anticipos registrados: no se puede eliminar, desactivalo para que deje de ofrecerse.");
+                }
+
                 var origen = await _context.OrigenesFondos.FirstAsync(o => o.Id == id);
                 origen.IsDeleted = true;
                 origen.UpdatedBy = usuario;
                 _auditoria?.AgregarEvento("Tesoreria", "EliminarOrigenFondos", $"OrigenFondos:{origen.Codigo}", $"Eliminado por {usuario}");
                 await _context.SaveChangesAsync();
+                await transaccion.CommitAsync();
                 return ResultadoCxp.Exito(id);
             }
             catch (DbUpdateException)
             {
+                await transaccion.RollbackAsync(CancellationToken.None);
                 _context.ChangeTracker.Clear();
                 return ResultadoCxp.Falla("No se pudo eliminar el origen: otro usuario lo modificó o ya tiene movimientos. Recargá e intentá nuevamente.");
             }
@@ -162,8 +192,13 @@ namespace TheBuryProject.Services
             var anticipos = await _context.AnticiposProveedor.AsNoTracking()
                 .Where(a => !a.Anulado && a.Fecha >= d && a.Fecha <= h)
                 .Select(a => new { a.OrigenFondosId, a.Monto }).ToListAsync();
-            var origenes = await _context.OrigenesFondos.AsNoTracking().Where(o => !o.IsDeleted)
-                .Select(o => new { o.Id, o.Nombre, o.Orden }).ToListAsync();
+            // Defensivo: un origen dado de baja que (por datos anteriores o una carrera) tenga egresos sigue apareciendo en el resumen,
+            // para que ningún egreso vigente quede fuera de los totales.
+            var conEgresos = pagos.Where(p => p.OrigenFondosId.HasValue).Select(p => p.OrigenFondosId!.Value)
+                .Concat(anticipos.Select(a => a.OrigenFondosId)).Distinct().ToList();
+            var origenes = (await _context.OrigenesFondos.AsNoTracking().Where(o => !o.IsDeleted || conEgresos.Contains(o.Id))
+                .Select(o => new { o.Id, o.Nombre, o.Orden, o.IsDeleted }).ToListAsync())
+                .Select(o => new { o.Id, Nombre = o.IsDeleted ? o.Nombre + " (eliminado)" : o.Nombre, o.Orden }).ToList();
 
             var filas = new List<EgresosOrigenFondos>();
             foreach (var o in origenes.OrderBy(o => o.Orden).ThenBy(o => o.Nombre))

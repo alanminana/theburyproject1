@@ -128,7 +128,16 @@ public class TesoreriaUiContractTests
         Assert.DoesNotContain("DeleteData", up);
         Assert.DoesNotContain("InsertData", up);
         Assert.DoesNotContain("UpdateData", up);
-        Assert.DoesNotContain("migrationBuilder.Sql", up);
+        // Única sentencia SQL permitida: conciliar cheques repetidos del esquema anterior, solo ChequeId y Observaciones de los pagos que
+        // repiten un cheque (el más antiguo lo conserva). Nunca importes, imputaciones, estados ni borrados.
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(up, @"migrationBuilder\.Sql\(").Count);
+        var sql = up[up.IndexOf("migrationBuilder.Sql(", StringComparison.Ordinal)..];
+        sql = sql[..sql.IndexOf("\");", StringComparison.Ordinal)];
+        Assert.Contains("SET p.ChequeId = NULL", sql);
+        Assert.Contains("p.Id <> k.IdConserva", sql);
+        Assert.DoesNotMatch(@"(?i)DELETE", sql); // (IsDeleted es otra cosa: solo se lee)
+        Assert.DoesNotContain("Monto", sql);
+        Assert.DoesNotContain("Anulado =", sql.Replace("Anulado = 0", ""));
         Assert.DoesNotContain("DropTable", up);
         Assert.DoesNotContain("DropColumn", up);
         Assert.Contains("OrigenFondosId", up);

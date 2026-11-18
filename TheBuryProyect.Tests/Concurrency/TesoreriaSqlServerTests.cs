@@ -105,6 +105,13 @@ public class TesoreriaSqlServerTests : IClassFixture<TesoreriaSqlHostFixture>
         Medio = chequeId.HasValue ? MedioPagoProveedor.Cheque : MedioPagoProveedor.Transferencia, ChequeId = chequeId, ClaveIdempotencia = clave
     };
 
+    private AnticipoProveedorRequest AnticipoEn(int proveedorId, decimal monto, int origenId)
+    {
+        var r = AnticipoReq(proveedorId, monto);
+        r.OrigenFondosId = origenId;
+        return r;
+    }
+
     private PagoProveedorRequest PagoReq(int proveedorId, int facturaId, decimal monto, int? chequeId = null, string? clave = null) => new()
     {
         ProveedorId = proveedorId, Fecha = DateTime.UtcNow.Date, Monto = monto, OrigenFondosId = _origenId,
@@ -361,5 +368,59 @@ public class TesoreriaSqlServerTests : IClassFixture<TesoreriaSqlHostFixture>
         Assert.Equal(300m, (await LeerFacturaAsync(f1)).Saldo);
         Assert.Equal(400m, (await LeerFacturaAsync(f2)).Saldo);
         Assert.True((await svc.AnularAnticipoAsync(anticipo, "reversión completa", "u1")).Ok);
+    }
+
+    // ── baja de un origen vs egresos ────────────────────────────────────
+
+    [SqlServerConcFact(DisplayName = "D03-CONC-09 eliminar un origen vs registrar un pago o anticipo con ese origen a la vez: nunca queda un egreso sobre un origen eliminado")]
+    public async Task Eliminar_Origen_Vs_Registrar_Egreso_Nunca_Deja_Un_Egreso_Sobre_Un_Origen_Eliminado()
+    {
+        for (var ronda = 0; ronda < Rondas; ronda++)
+        {
+            int origenId;
+            using (var scope = _fx.Services.CreateScope())
+            {
+                var tes = scope.ServiceProvider.GetRequiredService<ITesoreriaService>();
+                var r = await tes.GuardarOrigenAsync(new OrigenFondosRequest { Codigo = "R" + Sufijo(), Nombre = "Origen ronda " + ronda }, "conc");
+                Assert.True(r.Ok, r.Error);
+                origenId = r.Id!.Value;
+            }
+            var prov = await SembrarProveedorAsync();
+            var f = await SembrarFacturaAsync(prov, 300m);
+
+            var compuerta = new TaskCompletionSource();
+            async Task<string> Ejecutar(Func<IServiceProvider, Task<ResultadoCxp>> op)
+            {
+                using var scope = _fx.Services.CreateScope();
+                await compuerta.Task;
+                try { var r = await op(scope.ServiceProvider); return r.Ok ? "OK" : "RECHAZADA: " + r.Error; }
+                catch (Exception ex) { return "EXCEPCION: " + ex.GetType().Name + " " + ex.Message; }
+            }
+
+            var esPago = ronda % 2 == 0;
+            var tareas = new[]
+            {
+                Task.Run(() => Ejecutar(sp => esPago
+                    ? sp.GetRequiredService<ICuentaPorPagarService>().RegistrarPagoAsync(new PagoProveedorRequest
+                    {
+                        ProveedorId = prov, Fecha = DateTime.UtcNow.Date, Monto = 300m, OrigenFondosId = origenId, Medio = MedioPagoProveedor.Transferencia,
+                        Imputaciones = new List<ImputacionRequest> { new() { ComprobanteId = f, Monto = 300m } }
+                    }, "u1")
+                    : sp.GetRequiredService<ICuentaPorPagarService>().RegistrarAnticipoAsync(AnticipoEn(prov, 300m, origenId), "u1"))),
+                Task.Run(() => Ejecutar(sp => sp.GetRequiredService<ITesoreriaService>().EliminarOrigenAsync(origenId, "u2")))
+            };
+            await Task.Delay(300);
+            compuerta.SetResult();
+            var res = await Task.WhenAll(tareas);
+
+            AssertSinExcepciones(res, $"ronda {ronda}");
+            using var verificar = _fx.Services.CreateScope();
+            var ctx = verificar.ServiceProvider.GetRequiredService<AppDbContext>();
+            var origen = await ctx.OrigenesFondos.AsNoTracking().SingleAsync(o => o.Id == origenId);
+            var egresos = await ctx.PagosProveedor.AsNoTracking().CountAsync(p => p.OrigenFondosId == origenId)
+                          + await ctx.AnticiposProveedor.AsNoTracking().CountAsync(a => a.OrigenFondosId == origenId);
+            Assert.False(origen.IsDeleted && egresos > 0, $"ronda {ronda}: origen eliminado con {egresos} egreso(s) ({string.Join(" / ", res)})");
+            Assert.False(res[0] == "OK" && res[1] == "OK", $"ronda {ronda}: ambos terminaron OK ({string.Join(" / ", res)})");
+        }
     }
 }

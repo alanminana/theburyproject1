@@ -19,6 +19,8 @@ namespace TheBuryProject.Services
         /// <summary>El origen debe existir y estar activo (un origen inactivo conserva su historia pero no recibe egresos nuevos).</summary>
         private async Task<string?> ValidarOrigenFondosAsync(int origenFondosId)
         {
+            // Lock del origen hasta el fin de la transacción: la baja del origen espera a que este egreso se confirme y entonces lo ve.
+            await OrigenConcurrencia.BloquearAsync(_context, origenFondosId);
             var origen = await _context.OrigenesFondos.AsNoTracking()
                 .Where(o => o.Id == origenFondosId && !o.IsDeleted)
                 .Select(o => new { o.Activo }).FirstOrDefaultAsync();

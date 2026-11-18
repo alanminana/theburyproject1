@@ -132,6 +132,24 @@ namespace TheBuryProyect.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            // El esquema anterior permitía que un mismo cheque respaldara varios pagos vigentes (solo era una referencia). Antes de crear el
+            // índice único se concilia de forma conservadora y trazable: el pago MÁS ANTIGUO conserva el cheque y los demás pierden solo la
+            // referencia, con una nota en sus observaciones. No se tocan importes, imputaciones, saldos ni estados: toda la historia queda.
+            // En una base nueva (sin pagos) no afecta ninguna fila.
+            migrationBuilder.Sql(@"
+UPDATE p
+SET p.ChequeId = NULL,
+    p.Observaciones = LEFT(CONCAT(ISNULL(p.Observaciones + N' ', N''),
+        N'[Migración D-03] Se quitó la referencia al cheque Nº ', c.Numero,
+        N': un cheque físico respalda un único pago y ya lo respalda el pago #', CAST(k.IdConserva AS nvarchar(20)), N'.'), 1000)
+FROM PagosProveedor p
+JOIN Cheques c ON c.Id = p.ChequeId
+JOIN (SELECT ChequeId, MIN(Id) AS IdConserva
+      FROM PagosProveedor
+      WHERE ChequeId IS NOT NULL AND Anulado = 0 AND IsDeleted = 0
+      GROUP BY ChequeId HAVING COUNT(*) > 1) k ON k.ChequeId = p.ChequeId
+WHERE p.ChequeId IS NOT NULL AND p.Anulado = 0 AND p.IsDeleted = 0 AND p.Id <> k.IdConserva;");
+
             migrationBuilder.CreateIndex(
                 name: "IX_PagosProveedor_ChequeId_Vigente",
                 table: "PagosProveedor",
