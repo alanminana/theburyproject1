@@ -10,6 +10,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.Services.Validators;
 using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
@@ -58,7 +59,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
 
         _svc = new VentaService(
             _ctx, mapper, NullLogger<VentaService>.Instance,
-            null!, null!, new FinancialCalculationService(), new VentaValidator(),
+            new StubAlertaStockD02(), new StubMovimientoStockD02(), new FinancialCalculationService(), new VentaValidator(),
             new VentaNumberGenerator(_ctx, NullLogger<VentaNumberGenerator>.Instance),
             new PrecioVigenteResolver(_ctx), _usuario, validacion,
             new StubCajaAperturaActivaFija(apertura), null!,
@@ -1254,5 +1255,184 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         await _svc.AutorizarVentaAsync(id, Autorizador, "Ambas", MoraYRefs);
 
         Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+    }
+
+    // ============================================================================================
+    // Confirmación completa de crédito (ConfirmarVentaCreditoAsync) con los servicios reales de validación: cierra el hueco
+    // "se probó el gate y la revalidación por separado". Solo se simulan caja, stock y contrato.
+    // ============================================================================================
+
+    /// <summary>Crea la venta por el servicio real y deja su crédito Configurado (sin anticipo: el monto aprobado es el total).</summary>
+    private async Task<int> CrearVentaConCreditoConfiguradoAsync()
+    {
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        var total = (await VentaAsync(creada.Id)).Total;
+        var credito = new Credito
+        {
+            ClienteId = _cliente.Id, Numero = $"CRED-{Guid.NewGuid():N}"[..14], Estado = EstadoCredito.Configurado, TasaInteres = 0m,
+            MontoSolicitado = total, MontoAprobado = total, SaldoPendiente = total, CantidadCuotas = 6,
+            FechaPrimeraCuota = DateTime.UtcNow.AddMonths(1)
+        };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        await _ctx.Database.ExecuteSqlRawAsync(
+            "UPDATE Ventas SET CreditoId = {0}, FechaConfiguracionCredito = {1}, Estado = {2} WHERE Id = {3}",
+            credito.Id, DateTime.UtcNow, (int)EstadoVenta.Presupuesto, creada.Id);
+        _ctx.ChangeTracker.Clear();
+        return creada.Id;
+    }
+
+    private async Task AfirmarSinCambiosAsync(int ventaId)
+    {
+        var venta = await VentaAsync(ventaId);
+        Assert.Equal(EstadoVenta.Presupuesto, venta.Estado);
+        var credito = await _ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == venta.CreditoId);
+        Assert.Equal(EstadoCredito.Configurado, credito.Estado);
+        Assert.Empty(await _ctx.Cuotas.AsNoTracking().Where(c => c.CreditoId == credito.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_ConReferenciasSuficientes_ConfirmaLaVentaYGeneraElCredito()
+    {
+        await SembrarAsync();
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+
+        Assert.True(await _svc.ConfirmarVentaCreditoAsync(id));
+
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoVenta.Confirmada, venta.Estado);
+        var credito = await _ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == venta.CreditoId);
+        Assert.Equal(EstadoCredito.Generado, credito.Estado);
+        Assert.Equal(6, await _ctx.Cuotas.AsNoTracking().CountAsync(c => c.CreditoId == credito.Id));
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_SinReferencias_RechazaHastaQueUnSegundoUsuarioLaExceptua_YLuegoConfirma()
+    {
+        await SembrarAsync();
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaCreditoAsync(id));
+        Assert.Contains("requiere autorización", ex.Message);
+        await AfirmarSinCambiosAsync(id);
+
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Excepción por referencias", Refs);
+
+        Assert.True(await _svc.ConfirmarVentaCreditoAsync(id));
+        var venta = await VentaAsync(id);
+        Assert.Equal(EstadoVenta.Confirmada, venta.Estado);
+        Assert.Equal(Autorizador, venta.UsuarioAutoriza);
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_RazonNuevaEnVentaQueNuncaRequirioAutorizacion_SeRechazaYNoCambiaNada()
+    {
+        await SembrarAsync();
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+        Assert.Equal(EstadoAutorizacionVenta.NoRequiere, (await VentaAsync(id)).EstadoAutorizacion);
+
+        // Después de configurar, la única referencia verificada se da de baja: aparece una razón que la venta no tenía.
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE ClienteReferencias SET IsDeleted = 1 WHERE ClienteId = {0}", _cliente.Id);
+        _ctx.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaCreditoAsync(id));
+
+        // El gate de autorización previo ya la frena; el mensaje puede ser el de autorización general o el de referencias.
+        Assert.Contains("autorizaci", ex.Message);
+        await AfirmarSinCambiosAsync(id);
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_AutorizadaPorReferencias_SiLuegoApareceMoraNoBloqueante_SeRechazaYSeResuelveGuardandoYAutorizandoLaMora()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+
+        await SembrarMoraNoBloqueanteAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaCreditoAsync(id));
+        Assert.Contains("Mora activa", ex.Message);
+        await AfirmarSinCambiosAsync(id);
+
+        // Camino de resolución documentado: guardar la venta de nuevo vuelve a pedir SOLO la razón nueva y conserva la anterior.
+        ComoUsuario(Creador, autoriza: true);
+        var vm = await _svc.GetByIdAsync(id);
+        vm!.RowVersion = await FijarRowVersionAsync(id);
+        vm.Observaciones = "Reconfirmar con la mora nueva";
+        await _svc.UpdateAsync(id, vm);
+
+        var pendiente = await VentaAsync(id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, pendiente.EstadoAutorizacion);
+        var razones = await RazonesAsync(id);
+        Assert.True(razones.Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes).Autorizada);
+        Assert.False(razones.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva).Autorizada);
+
+        ComoUsuario("gerente.tres", autoriza: true);
+        await _svc.AutorizarVentaAsync(id, "gerente.tres", "Mora no bloqueante", SoloMora);
+
+        ComoUsuario(Creador, autoriza: true);
+        Assert.True(await _svc.ConfirmarVentaCreditoAsync(id));
+        Assert.Equal(EstadoVenta.Confirmada, (await VentaAsync(id)).Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarCredito_ConMoraBloqueanteAparecidaDespues_SeRechazaEnElServicio_AunConTodasLasRazonesAutorizadas()
+    {
+        await SembrarAsync(mora: true);
+        var id = await CrearVentaConCreditoConfiguradoAsync();
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Referencias", Refs);
+        await SembrarMoraBloqueanteAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.ConfirmarVentaCreditoAsync(id));
+
+        Assert.Contains("No se puede confirmar la venta", ex.Message);
+        await AfirmarSinCambiosAsync(id);
+    }
+
+    private sealed class StubMovimientoStockD02 : IMovimientoStockService
+    {
+        public Task<List<MovimientoStock>> RegistrarSalidasAsync(
+            List<(int productoId, decimal cantidad, string? referencia)> salidas, string motivo, string? usuarioActual = null,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos = null) => Task.FromResult(new List<MovimientoStock>());
+        public Task<List<MovimientoStock>> RegistrarEntradasAsync(
+            List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null,
+            int? ordenCompraId = null, IReadOnlyList<MovimientoStockCostoLinea>? costos = null) => Task.FromResult(new List<MovimientoStock>());
+        public Task<IEnumerable<MovimientoStock>> GetAllAsync() => throw new NotImplementedException();
+        public Task<MovimientoStock?> GetByIdAsync(int id) => throw new NotImplementedException();
+        public Task<IEnumerable<MovimientoStock>> GetByProductoIdAsync(int productoId) => throw new NotImplementedException();
+        public Task<IEnumerable<MovimientoStock>> GetByOrdenCompraIdAsync(int ordenCompraId) => throw new NotImplementedException();
+        public Task<IEnumerable<MovimientoStock>> GetByTipoAsync(TipoMovimiento tipo) => throw new NotImplementedException();
+        public Task<IEnumerable<MovimientoStock>> GetByFechaRangoAsync(DateTime fechaDesde, DateTime fechaHasta) => throw new NotImplementedException();
+        public Task<IEnumerable<MovimientoStock>> SearchAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc") => throw new NotImplementedException();
+        public Task<(IEnumerable<MovimientoStock> Items, int Total, decimal TotalEntradas, decimal TotalSalidas, int TotalAjustes)> SearchPaginadoAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc", int pageNumber = 1, int pageSize = 20) => throw new NotImplementedException();
+        public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
+        public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null, Guid? requestId = null) => throw new NotImplementedException();
+        public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
+        public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
+    }
+
+    private sealed class StubAlertaStockD02 : IAlertaStockService
+    {
+        public Task<int> VerificarYGenerarAlertasAsync(IEnumerable<int> productoIds) => Task.FromResult(0);
+        public Task<int> GenerarAlertasStockBajoAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<List<AlertaStock>> GetAlertasPendientesAsync() => throw new NotImplementedException();
+        public Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro) => throw new NotImplementedException();
+        public Task<(int Pendientes, int Criticas)> ContarPorEstadoAsync(AlertaStockFiltroViewModel filtro) => throw new NotImplementedException();
+        public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
+        public Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+        public Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+        public Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+        public Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync() => throw new NotImplementedException();
+        public Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
+        public Task<AlertaStock?> VerificarYGenerarAlertaAsync(int productoId) => throw new NotImplementedException();
+        public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();
     }
 }

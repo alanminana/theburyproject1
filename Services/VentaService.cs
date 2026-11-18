@@ -1391,6 +1391,15 @@ namespace TheBuryProject.Services
                 // D-02: referencias verificadas y toda razón de autorización vigente HOY (una autorización previa que no las
                 // cubría no sirve).
                 var validacionVigente = await _validacionVentaService.ValidarConfirmacionVentaAsync(id);
+                // Mismo criterio que ConfirmarVentaAsync y que el controller: un bloqueo vigente hoy (mora bloqueante,
+                // documentación) no se levanta con ninguna autorización previa. Se rechaza también en el servicio para que
+                // ningún otro llamador pueda confirmar un crédito que el cliente ya no puede recibir.
+                if (validacionVigente.NoViable || validacionVigente.PendienteRequisitos)
+                {
+                    throw new InvalidOperationException(
+                        $"No se puede confirmar la venta. {validacionVigente.MensajeResumen}");
+                }
+
                 ExigirAutorizacionDeReferencias(venta, validacionVigente);
                 ExigirTodasLasRazonesAutorizadas(venta, validacionVigente);
                 await ValidarContratoCreditoPersonalGeneradoAsync(venta);
