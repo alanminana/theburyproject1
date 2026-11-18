@@ -41,8 +41,9 @@
             }
         </div>
         <div class="card-erp-metric">
-            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Referencia</dt>
-            <dd class="mt-2 text-base font-bold text-white">@(string.IsNullOrWhiteSpace(Model.Referencia) ? "—" : Model.Referencia)</dd>
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Origen de fondos</dt>
+            <dd class="mt-2 text-base font-bold text-white">@(string.IsNullOrWhiteSpace(Model.OrigenFondosNombre) ? "—" : Model.OrigenFondosNombre)</dd>
+            <dd class="mt-1 text-xs text-slate-400">Ref. @(string.IsNullOrWhiteSpace(Model.Referencia) ? "—" : Model.Referencia)</dd>
         </div>
     </dl>
     <p class="mt-3 text-xs text-slate-400">Registrado por @(Model.CreadoPor ?? "—"). Registro administrativo: no generó movimientos de Caja.</p>

@@ -172,6 +172,7 @@ builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IGaranteService, GaranteService>();
 builder.Services.AddScoped<IClienteReferenciaService, ClienteReferenciaService>();
 builder.Services.AddScoped<ICuentaPorPagarService, CuentaPorPagarService>();
+builder.Services.AddScoped<ITesoreriaService, TesoreriaService>();
 builder.Services.AddScoped<IValoracionStockGerencialService, ValoracionStockGerencialService>();
 builder.Services.AddScoped<ICreditoService, CreditoService>();
 builder.Services.AddScoped<IPagoCuotaBackfillService, PagoCuotaBackfillService>();

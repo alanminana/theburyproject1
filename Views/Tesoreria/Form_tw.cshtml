@@ -1,0 +1,72 @@
+@model TheBuryProject.ViewModels.OrigenFondosFormViewModel
+@using TheBuryProject.Models.Enums
+@{
+    var d = Model.Datos;
+    ViewData["Title"] = Model.EsEdicion ? "Editar origen de fondos" : "Nuevo origen de fondos";
+}
+
+<partial name="~/Views/CuentaPorPagar/_CxpAlertas.cshtml" />
+
+<section class="card-erp-panel mb-4 p-4">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Tesorería</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">@ViewData["Title"]</span>
+    </nav>
+    <h1 class="mt-2 text-lg font-bold tracking-tight text-white">@ViewData["Title"]</h1>
+    <p class="mt-1 text-sm text-slate-400">De dónde sale el dinero de los pagos y anticipos a proveedores (efectivo administrativo, una cuenta bancaria…). No es una caja de ventas y no lleva saldo.</p>
+</section>
+
+<form asp-action="Guardar" method="post" class="card-erp-panel space-y-4 p-4" aria-label="Origen de fondos">
+    @if (Model.EsEdicion)
+    {
+        <input type="hidden" name="Id" value="@d.Id" />
+        <input type="hidden" name="RowVersion" value="@(d.RowVersion is null ? "" : Convert.ToBase64String(d.RowVersion))" />
+    }
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <div class="md:col-span-3">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="Codigo">Código</label>
+            <input id="Codigo" name="Codigo" type="text" maxlength="30" required autocomplete="off" aria-describedby="tes-codigo-ayuda"
+                   value="@d.Codigo" class="@CuentaPorPagarUiHelper.InputClass" />
+            <p id="tes-codigo-ayuda" class="mt-1 text-xs text-slate-400">Único. Letras, números, guion y guion bajo.</p>
+        </div>
+        <div class="md:col-span-5">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="Nombre">Nombre</label>
+            <input id="Nombre" name="Nombre" type="text" maxlength="100" required value="@d.Nombre" class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="Tipo">Tipo</label>
+            <select id="Tipo" name="Tipo" class="@CuentaPorPagarUiHelper.InputClass">
+                <option value="@((int)TipoOrigenFondos.Efectivo)" selected="@(d.Tipo == TipoOrigenFondos.Efectivo)">Efectivo</option>
+                <option value="@((int)TipoOrigenFondos.CuentaBancaria)" selected="@(d.Tipo == TipoOrigenFondos.CuentaBancaria)">Cuenta bancaria</option>
+                <option value="@((int)TipoOrigenFondos.Otro)" selected="@(d.Tipo == TipoOrigenFondos.Otro)">Otro</option>
+            </select>
+        </div>
+        <div class="md:col-span-2">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="Orden">Orden</label>
+            <input id="Orden" name="Orden" type="number" min="0" max="9999" value="@d.Orden" class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-12">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="Descripcion">Descripción (opcional)</label>
+            <input id="Descripcion" name="Descripcion" type="text" maxlength="500" value="@d.Descripcion" class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-12">
+            <label class="flex items-center gap-2 text-sm text-slate-200" for="Activo">
+                <input id="Activo" name="Activo" type="checkbox" value="true" checked="@d.Activo" class="size-4 rounded border-slate-600 bg-slate-900" />
+                Activo (se ofrece para nuevos pagos y anticipos)
+            </label>
+            <input type="hidden" name="Activo" value="false" />
+            @if (Model.Movimientos > 0)
+            {
+                <p class="mt-1 text-xs text-slate-400">Tiene @Model.Movimientos movimiento@(Model.Movimientos == 1 ? "" : "s"): no se puede eliminar, solo desactivar.</p>
+            }
+        </div>
+    </div>
+    <div class="flex justify-end gap-2">
+        <a asp-action="Index" class="btn-erp-ghost btn-sm no-underline">Cancelar</a>
+        <button type="submit" class="btn-erp-primary btn-sm">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+            Guardar
+        </button>
+    </div>
+</form>

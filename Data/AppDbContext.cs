@@ -63,6 +63,9 @@ namespace TheBuryProject.Data
         public DbSet<PagoProveedor> PagosProveedor { get; set; }
         public DbSet<PagoProveedorImputacion> PagoProveedorImputaciones { get; set; }
         public DbSet<ImputacionNotaCredito> ImputacionesNotaCredito { get; set; }
+        public DbSet<OrigenFondos> OrigenesFondos { get; set; }
+        public DbSet<AnticipoProveedor> AnticiposProveedor { get; set; }
+        public DbSet<AnticipoAplicacion> AnticipoAplicaciones { get; set; }
 
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<NumeracionVentaContador> NumeracionVentaContadores { get; set; }
@@ -1248,6 +1251,61 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => new { e.ProveedorId, e.ClaveIdempotencia })
                     .IsUnique()
                     .HasFilter("ClaveIdempotencia IS NOT NULL");
+
+                entity.HasOne(e => e.OrigenFondos).WithMany().HasForeignKey(e => e.OrigenFondosId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(e => e.OrigenFondosId);
+
+                // Un cheque físico respalda un ÚNICO pago vigente (anular el pago lo libera). La unicidad frente a los anticipos
+                // se controla en el servicio bajo el lock del proveedor (un cheque pertenece a un solo proveedor).
+                entity.HasIndex(e => e.ChequeId)
+                    .IsUnique()
+                    .HasDatabaseName("IX_PagosProveedor_ChequeId_Vigente")
+                    .HasFilter("[ChequeId] IS NOT NULL AND [Anulado] = 0 AND [IsDeleted] = 0");
+            });
+
+            modelBuilder.Entity<OrigenFondos>(entity =>
+            {
+                entity.HasIndex(e => e.Codigo)
+                    .IsUnique()
+                    .HasDatabaseName("IX_OrigenesFondos_Codigo_Activo")
+                    .HasFilter("[IsDeleted] = 0");
+                entity.HasIndex(e => new { e.Activo, e.Orden });
+            });
+
+            modelBuilder.Entity<AnticipoProveedor>(entity =>
+            {
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Proveedor).WithMany().HasForeignKey(e => e.ProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.OrigenFondos).WithMany().HasForeignKey(e => e.OrigenFondosId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Cheque).WithMany().HasForeignKey(e => e.ChequeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.ProveedorId, e.Fecha });
+                entity.HasIndex(e => e.OrigenFondosId);
+                entity.HasIndex(e => new { e.ProveedorId, e.ClaveIdempotencia })
+                    .IsUnique()
+                    .HasFilter("ClaveIdempotencia IS NOT NULL");
+                entity.HasIndex(e => e.ChequeId)
+                    .IsUnique()
+                    .HasDatabaseName("IX_AnticiposProveedor_ChequeId_Vigente")
+                    .HasFilter("[ChequeId] IS NOT NULL AND [Anulado] = 0 AND [IsDeleted] = 0");
+            });
+
+            modelBuilder.Entity<AnticipoAplicacion>(entity =>
+            {
+                entity.Property(e => e.Monto).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Anticipo).WithMany(a => a.Aplicaciones).HasForeignKey(e => e.AnticipoProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Comprobante).WithMany(c => c.AplicacionesAnticipo).HasForeignKey(e => e.ComprobanteProveedorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.AnticipoProveedorId, e.ClaveIdempotencia });
+                entity.HasIndex(e => e.ComprobanteProveedorId);
             });
 
             modelBuilder.Entity<PagoProveedorImputacion>(entity =>

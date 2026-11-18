@@ -1,0 +1,140 @@
+@model TheBuryProject.Services.Models.AnticipoProveedorItem
+@{
+    ViewData["Title"] = $"Anticipo del {CuentaPorPagarUiHelper.Fecha(Model.Fecha)}";
+    var puedePagar = User.TienePermiso("cuentasporpagar", "pay");
+    var puedeAnular = User.TienePermiso("cuentasporpagar", "cancel");
+}
+
+<partial name="_CxpAlertas" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-ant-titulo">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Anticipo</span>
+    </nav>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <h1 id="cxp-ant-titulo" class="text-lg font-bold tracking-tight text-white">Anticipo a @Model.ProveedorNombre</h1>
+            <span class="@(Model.Anulado ? "badge-erp badge-erp-neutral" : "badge-erp badge-erp-success")">@(Model.Anulado ? "Anulado" : "Vigente")</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            @if (puedePagar && !Model.Anulado && Model.SaldoSinAplicar > 0m)
+            {
+                <a asp-action="AplicarAnticipo" asp-route-id="@Model.Id" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">swap_horiz</span>
+                    Aplicar a facturas
+                </a>
+            }
+            <a asp-action="EstadoCuenta" asp-route-proveedorId="@Model.ProveedorId" class="btn-erp-ghost btn-sm no-underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+                Estado de cuenta
+            </a>
+        </div>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Monto</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@CuentaPorPagarUiHelper.Moneda(Model.Monto)</dd>
+            <dd class="mt-1 text-xs text-slate-400">@CuentaPorPagarUiHelper.Fecha(Model.Fecha)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Saldo a favor sin aplicar</dt>
+            <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@CuentaPorPagarUiHelper.Moneda(Model.SaldoSinAplicar)</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Origen de fondos</dt>
+            <dd class="mt-2 text-base font-bold text-white">@Model.OrigenFondosNombre</dd>
+        </div>
+        <div class="card-erp-metric">
+            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Medio</dt>
+            <dd class="mt-2 text-base font-bold text-white">@CuentaPorPagarUiHelper.NombreMedio(Model.Medio)</dd>
+            @if (!string.IsNullOrWhiteSpace(Model.ChequeNumero))
+            {
+                <dd class="mt-1 text-xs text-slate-400">Cheque Nº @Model.ChequeNumero</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Referencia))
+            {
+                <dd class="mt-1 text-xs text-slate-400">Ref. @Model.Referencia</dd>
+            }
+        </div>
+    </dl>
+    <p class="mt-3 text-xs text-slate-400">Registrado por @(Model.CreadoPor ?? "—"). Registro administrativo: no generó movimientos de Caja.</p>
+    @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+    {
+        <p class="mt-2 text-sm text-slate-300"><span class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones:</span> @Model.Observaciones</p>
+    }
+    @if (Model.Anulado)
+    {
+        <div class="alert-erp alert-erp-warning mt-3" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">block</span>
+            Anulado por @Model.AnuladoPor el @CuentaPorPagarUiHelper.Fecha(Model.FechaAnulacion): @Model.MotivoAnulacion
+        </div>
+    }
+</section>
+
+<section class="card-erp-panel" aria-labelledby="cxp-ant-aplic-titulo">
+    <div class="border-b border-slate-800 px-4 py-3"><h2 id="cxp-ant-aplic-titulo" class="text-base font-bold text-white">Facturas a las que se aplicó</h2></div>
+    @if (Model.Aplicaciones.Any())
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Aplicaciones del anticipo" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                <thead><tr class="border-b border-slate-800">
+                    <th scope="col" data-card="title" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Comprobante</th>
+                    <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Importe</th>
+                    <th scope="col" data-card="half" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                    <th scope="col" data-card="actions" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var a in Model.Aplicaciones)
+                    {
+                        <tr>
+                            <td class="px-3 py-2"><a asp-action="Detalle" asp-route-id="@a.ComprobanteId" class="text-primary">@a.ComprobanteNumero</a></td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(a.Monto)</td>
+                            <td class="px-3 py-2">
+                                @if (a.Anulada)
+                                {
+                                    <span class="badge-erp badge-erp-neutral">Anulada</span>
+                                    <span class="block text-xs text-slate-400">@a.MotivoAnulacion</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-erp badge-erp-success">Vigente</span>
+                                }
+                            </td>
+                            <td class="px-3 py-2">
+                                @if (puedeAnular && !a.Anulada)
+                                {
+                                    <details class="rounded-lg border border-rose-500/30 bg-slate-900">
+                                        <summary class="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-rose-300">
+                                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">block</span>
+                                            Anular aplicación
+                                        </summary>
+                                        <form asp-action="AnularAplicacionAnticipo" asp-route-id="@a.Id" method="post" class="space-y-3 px-3 pb-3 pt-1">
+                                            <input type="hidden" name="anticipoId" value="@Model.Id" />
+                                            <label class="@CuentaPorPagarUiHelper.LabelClass" for="motivo-aplic-@a.Id">Motivo de la anulación</label>
+                                            <textarea id="motivo-aplic-@a.Id" name="motivo" rows="2" maxlength="500" required class="@CuentaPorPagarUiHelper.InputClass"></textarea>
+                                            <button type="submit" class="btn-erp-danger btn-sm">Confirmar anulación</button>
+                                        </form>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="px-4 py-10 text-center text-sm text-slate-400" data-cxp-vacio>Este anticipo todavía no se aplicó a ninguna factura.</p>
+    }
+</section>
+
+@if (puedeAnular && !Model.Anulado)
+{
+    <section class="card-erp-panel mt-4 p-4" aria-label="Anular anticipo">
+        <partial name="_CxpAnular" model="@("AnularAnticipo", Model.Id, "Anular anticipo", "Contra-registro: el anticipo queda como historia y deja de contar como saldo a favor. Solo procede sin aplicaciones vigentes; libera el cheque, si tenía.", (int?)null)" />
+    </section>
+}

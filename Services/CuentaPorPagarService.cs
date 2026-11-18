@@ -29,7 +29,7 @@ namespace TheBuryProject.Services
     }
 
     /// <inheritdoc cref="ICuentaPorPagarService"/>
-    public class CuentaPorPagarService : ICuentaPorPagarService
+    public partial class CuentaPorPagarService : ICuentaPorPagarService
     {
         /// <summary>Tolerancia con la que Neto + IVA debe igualar al Total informado por el proveedor.</summary>
         public const decimal ToleranciaTotal = 0.01m;
@@ -39,13 +39,24 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly IRelojComercial _reloj;
         private readonly ILogger<CuentaPorPagarService> _logger;
+        private readonly ISeguridadAuditoriaService? _auditoria;
 
-        public CuentaPorPagarService(AppDbContext context, IRelojComercial reloj, ILogger<CuentaPorPagarService> logger)
+        public CuentaPorPagarService(
+            AppDbContext context, IRelojComercial reloj, ILogger<CuentaPorPagarService> logger,
+            ISeguridadAuditoriaService? auditoria = null)
         {
             _context = context;
             _reloj = reloj;
             _logger = logger;
+            _auditoria = auditoria;
         }
+
+        /// <summary>
+        /// Auditoría de seguridad de cada operación que cambia el libro. Se agrega al contexto ANTES del SaveChanges de la operación,
+        /// de modo que el evento y el cambio se confirman (o se revierten) juntos en la misma transacción.
+        /// </summary>
+        private void Auditar(string accion, string entidad, string detalle) =>
+            _auditoria?.AgregarEvento("CuentasPorPagar", accion, entidad, detalle);
 
         // =====================================================================================
         // Escrituras
@@ -128,6 +139,8 @@ namespace TheBuryProject.Services
                     CreatedBy = usuario
                 };
                 _context.ComprobantesProveedor.Add(comprobante);
+                Auditar("RegistrarComprobante", $"Proveedor:{comprobante.ProveedorId}",
+                    $"{comprobante.Tipo} {comprobante.NumeroComprobante} por {comprobante.ImporteTotal:0.00} por {usuario}");
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Comprobante {Id} ({Tipo} {Numero}) registrado para proveedor {ProveedorId} por {Usuario}",
@@ -160,6 +173,7 @@ namespace TheBuryProject.Services
                     return ResultadoCxp.Falla(
                         "No se puede anular un comprobante con pagos o notas de crédito aplicados. Anulá primero esas imputaciones.");
 
+                Auditar("AnularComprobante", $"Comprobante:{comprobanteId}", $"{comprobante.Tipo} {comprobante.NumeroComprobante} anulado por {usuario}: {motivoLimpio}");
                 comprobante.Estado = EstadoComprobanteProveedor.Anulado;
                 comprobante.SaldoPendiente = 0m;
                 comprobante.AnuladoPor = usuario;
@@ -184,6 +198,8 @@ namespace TheBuryProject.Services
                 return ResultadoCxp.Falla("El monto del pago debe ser mayor que cero (máximo 2 decimales).");
             if (request.ChequeId.HasValue && request.Medio != MedioPagoProveedor.Cheque)
                 return ResultadoCxp.Falla("Solo un pago con medio Cheque puede referenciar un cheque.");
+            if (request.OrigenFondosId is null or <= 0)
+                return ResultadoCxp.Falla("Elegí el origen de los fondos del pago.");
 
             var (imputaciones, errorImputaciones) = NormalizarImputaciones(request.Imputaciones);
             if (errorImputaciones is not null)
@@ -216,15 +232,15 @@ namespace TheBuryProject.Services
                 if (!await _context.Proveedores.AnyAsync(p => p.Id == request.ProveedorId && !p.IsDeleted))
                     return ResultadoCxp.Falla("El proveedor no existe.");
 
+                var errorOrigen = await ValidarOrigenFondosAsync(request.OrigenFondosId!.Value);
+                if (errorOrigen is not null)
+                    return ResultadoCxp.Falla(errorOrigen);
+
                 if (request.ChequeId.HasValue)
                 {
-                    var cheque = await _context.Cheques.AsNoTracking()
-                        .Where(c => c.Id == request.ChequeId.Value && !c.IsDeleted && c.ProveedorId == request.ProveedorId)
-                        .Select(c => new { c.Estado }).FirstOrDefaultAsync();
-                    if (cheque is null)
-                        return ResultadoCxp.Falla("El cheque no existe o pertenece a otro proveedor.");
-                    if (cheque.Estado is EstadoCheque.Anulado or EstadoCheque.Rechazado)
-                        return ResultadoCxp.Falla("El cheque está anulado o rechazado y no puede usarse para un pago.");
+                    var errorCheque = await ValidarChequeParaEgresoAsync(request.ChequeId.Value, request.ProveedorId, request.Monto, "pago");
+                    if (errorCheque is not null)
+                        return ResultadoCxp.Falla(errorCheque);
                 }
 
                 var ids = imputaciones.Select(i => i.ComprobanteId).ToList();
@@ -258,6 +274,7 @@ namespace TheBuryProject.Services
                     Monto = request.Monto,
                     Referencia = referencia,
                     ChequeId = request.ChequeId,
+                    OrigenFondosId = request.OrigenFondosId,
                     Observaciones = observaciones,
                     ClaveIdempotencia = clave,
                     CreatedBy = usuario
@@ -272,6 +289,8 @@ namespace TheBuryProject.Services
                     });
                 }
                 _context.PagosProveedor.Add(pago);
+                Auditar("RegistrarPago", $"Proveedor:{pago.ProveedorId}",
+                    $"Pago {pago.Medio} por {pago.Monto:0.00}; origen {pago.OrigenFondosId}; cheque {pago.ChequeId?.ToString() ?? "-"}; comprobantes {string.Join(",", ids)}; por {usuario}");
                 await _context.SaveChangesAsync();
 
                 await RecalcularAsync(ids);
@@ -306,6 +325,7 @@ namespace TheBuryProject.Services
                 pago.AnuladoPor = usuario;
                 pago.FechaAnulacion = _reloj.AhoraUtc;
                 pago.MotivoAnulacion = motivoLimpio;
+                Auditar("AnularPago", $"Pago:{pagoId}", $"Pago por {pago.Monto:0.00} anulado por {usuario}: {motivoLimpio}");
                 await _context.SaveChangesAsync();
 
                 var ids = await _context.PagoProveedorImputaciones.AsNoTracking()
@@ -392,6 +412,8 @@ namespace TheBuryProject.Services
                         CreatedBy = usuario
                     });
                 }
+                Auditar("AplicarNotaCredito", $"Comprobante:{notaCreditoId}",
+                    $"Nota de crédito aplicada a {string.Join(",", ids)} por {total:0.00} por {usuario}");
                 await _context.SaveChangesAsync();
 
                 await RecalcularAsync(ids.Append(notaCreditoId).ToList());
@@ -428,6 +450,7 @@ namespace TheBuryProject.Services
                 imp.AnuladaPor = usuario;
                 imp.FechaAnulacion = _reloj.AhoraUtc;
                 imp.MotivoAnulacion = motivoLimpio;
+                Auditar("AnularAplicacionNotaCredito", $"Comprobante:{imp.NotaCreditoId}", $"Aplicación {imputacionId} anulada por {usuario}: {motivoLimpio}");
                 await _context.SaveChangesAsync();
 
                 await RecalcularAsync(new[] { imp.NotaCreditoId, imp.ComprobanteId });
@@ -598,7 +621,7 @@ namespace TheBuryProject.Services
         public async Task<PagoProveedorItem?> ObtenerPagoAsync(int pagoId)
         {
             var p = await _context.PagosProveedor.AsNoTracking()
-                .Include(x => x.Proveedor).Include(x => x.Cheque)
+                .Include(x => x.Proveedor).Include(x => x.Cheque).Include(x => x.OrigenFondos)
                 .FirstOrDefaultAsync(x => x.Id == pagoId);
             return p is null ? null : await ToPagoItemAsync(p);
         }
@@ -606,7 +629,7 @@ namespace TheBuryProject.Services
         public async Task<List<PagoProveedorItem>> ListarPagosAsync(int proveedorId)
         {
             var pagos = await _context.PagosProveedor.AsNoTracking()
-                .Include(x => x.Proveedor).Include(x => x.Cheque)
+                .Include(x => x.Proveedor).Include(x => x.Cheque).Include(x => x.OrigenFondos)
                 .Where(p => p.ProveedorId == proveedorId)
                 .OrderByDescending(p => p.Fecha).ThenByDescending(p => p.Id)
                 .ToListAsync();
@@ -626,6 +649,9 @@ namespace TheBuryProject.Services
                 .Where(c => c.ProveedorId == proveedorId).ToListAsync();
             var pagos = await _context.PagosProveedor.AsNoTracking()
                 .Where(p => p.ProveedorId == proveedorId).ToListAsync();
+
+            var anticipos = await _context.AnticiposProveedor.AsNoTracking()
+                .Where(a => a.ProveedorId == proveedorId).ToListAsync();
 
             var movimientos = new List<MovimientoCuentaPorPagar>();
             foreach (var c in comprobantes)
@@ -681,11 +707,34 @@ namespace TheBuryProject.Services
                 }
             }
 
+            foreach (var a in anticipos)
+            {
+                movimientos.Add(new MovimientoCuentaPorPagar
+                {
+                    Fecha = a.Fecha,
+                    Tipo = TipoMovimientoCuentaPorPagar.Anticipo,
+                    Descripcion = $"Anticipo {NombreMedio(a.Medio)}" + (string.IsNullOrWhiteSpace(a.Referencia) ? "" : $" ({a.Referencia})"),
+                    Haber = a.Monto,
+                    AnticipoId = a.Id
+                });
+                if (a.Anulado)
+                {
+                    movimientos.Add(new MovimientoCuentaPorPagar
+                    {
+                        Fecha = (a.FechaAnulacion ?? a.Fecha).Date,
+                        Tipo = TipoMovimientoCuentaPorPagar.AnulacionAnticipo,
+                        Descripcion = $"Anulación de anticipo {NombreMedio(a.Medio)}",
+                        Debe = a.Monto,
+                        AnticipoId = a.Id
+                    });
+                }
+            }
+
             // Orden cronológico estable; las anulaciones van después de lo que anulan en el mismo día.
             var ordenados = movimientos
                 .OrderBy(m => m.Fecha)
-                .ThenBy(m => m.Tipo is TipoMovimientoCuentaPorPagar.AnulacionPago or TipoMovimientoCuentaPorPagar.AnulacionComprobante ? 1 : 0)
-                .ThenBy(m => m.ComprobanteId ?? int.MaxValue).ThenBy(m => m.PagoId ?? int.MaxValue)
+                .ThenBy(m => m.Tipo is TipoMovimientoCuentaPorPagar.AnulacionPago or TipoMovimientoCuentaPorPagar.AnulacionComprobante or TipoMovimientoCuentaPorPagar.AnulacionAnticipo ? 1 : 0)
+                .ThenBy(m => m.ComprobanteId ?? int.MaxValue).ThenBy(m => m.PagoId ?? int.MaxValue).ThenBy(m => m.AnticipoId ?? int.MaxValue)
                 .ToList();
             var corrido = 0m;
             foreach (var m in ordenados)
@@ -703,7 +752,8 @@ namespace TheBuryProject.Services
                 Movimientos = ordenados,
                 SaldoNeto = corrido,
                 SaldoComprobantes = vigentes.Where(c => c.Tipo != TipoComprobanteProveedor.NotaCredito).Sum(c => c.SaldoPendiente),
-                NotasCreditoSinAplicar = vigentes.Where(c => c.Tipo == TipoComprobanteProveedor.NotaCredito).Sum(c => c.SaldoPendiente)
+                NotasCreditoSinAplicar = vigentes.Where(c => c.Tipo == TipoComprobanteProveedor.NotaCredito).Sum(c => c.SaldoPendiente),
+                AnticiposSinAplicar = await CalcularAnticiposSinAplicarAsync(proveedorId)
             };
         }
 
@@ -772,9 +822,12 @@ namespace TheBuryProject.Services
 
         public async Task<List<ChequeOpcion>> ObtenerChequesAsync(int proveedorId) =>
             await _context.Cheques.AsNoTracking()
-                .Where(c => c.ProveedorId == proveedorId && !c.IsDeleted && c.Estado != EstadoCheque.Anulado && c.Estado != EstadoCheque.Rechazado)
+                .Where(c => c.ProveedorId == proveedorId && !c.IsDeleted && c.Estado != EstadoCheque.Anulado && c.Estado != EstadoCheque.Rechazado
+                    // Un cheque físico respalda un único pago o anticipo vigente: los ya usados no se ofrecen.
+                    && !_context.PagosProveedor.Any(p => p.ChequeId == c.Id && !p.Anulado && !p.IsDeleted)
+                    && !_context.AnticiposProveedor.Any(a => a.ChequeId == c.Id && !a.Anulado && !a.IsDeleted))
                 .OrderByDescending(c => c.FechaEmision).ThenByDescending(c => c.Id)
-                .Select(c => new ChequeOpcion(c.Id, c.Banco + " Nº " + c.Numero)).ToListAsync();
+                .Select(c => new ChequeOpcion(c.Id, c.Banco + " Nº " + c.Numero + " · $ " + c.Monto.ToString("N2"))).ToListAsync();
 
         // =====================================================================================
         // Internos
@@ -827,7 +880,7 @@ namespace TheBuryProject.Services
 
         /// <summary>
         /// Importe aplicado de cada comprobante a partir de las imputaciones vigentes (leídas de la base, no del tracker).
-        /// Factura/nota de débito: pagos no anulados + notas de crédito recibidas no anuladas.
+        /// Factura/nota de débito: pagos no anulados + notas de crédito recibidas no anuladas + anticipos aplicados no anulados.
         /// Nota de crédito: sus aplicaciones no anuladas. Los montos se suman en memoria (SQLite no suma decimales).
         /// </summary>
         private async Task<Dictionary<int, decimal>> CalcularAplicadoAsync(IReadOnlyCollection<int> comprobanteIds)
@@ -852,6 +905,13 @@ namespace TheBuryProject.Services
                 .Select(i => new { Id = i.NotaCreditoId, i.Monto }).ToListAsync();
             foreach (var e in emitidas)
                 resultado[e.Id] += e.Monto;
+
+            // Anticipos aplicados a la factura (solo de anticipos no anulados y aplicaciones no anuladas).
+            var anticipos = await _context.AnticipoAplicaciones.AsNoTracking()
+                .Where(a => ids.Contains(a.ComprobanteProveedorId) && !a.Anulada && !a.Anticipo.Anulado)
+                .Select(a => new { Id = a.ComprobanteProveedorId, a.Monto }).ToListAsync();
+            foreach (var a in anticipos)
+                resultado[a.Id] += a.Monto;
 
             return resultado;
         }
@@ -922,7 +982,8 @@ namespace TheBuryProject.Services
             {
                 Id = p.Id, ProveedorId = p.ProveedorId, ProveedorNombre = p.Proveedor.RazonSocial, Fecha = p.Fecha,
                 Medio = p.Medio, Monto = p.Monto, Referencia = p.Referencia, ChequeId = p.ChequeId,
-                ChequeNumero = p.Cheque?.Numero, Observaciones = p.Observaciones, Anulado = p.Anulado,
+                ChequeNumero = p.Cheque?.Numero, OrigenFondosId = p.OrigenFondosId, OrigenFondosNombre = p.OrigenFondos?.Nombre,
+                Observaciones = p.Observaciones, Anulado = p.Anulado,
                 AnuladoPor = p.AnuladoPor, FechaAnulacion = p.FechaAnulacion, MotivoAnulacion = p.MotivoAnulacion,
                 CreadoPor = p.CreatedBy, Imputaciones = imputaciones
             };

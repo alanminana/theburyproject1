@@ -1,0 +1,155 @@
+@model TheBuryProject.ViewModels.TesoreriaIndexViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Tesorería";
+    var r = Model.Resumen;
+    string NombreTipo(TipoOrigenFondos t) => t switch
+    {
+        TipoOrigenFondos.Efectivo => "Efectivo",
+        TipoOrigenFondos.CuentaBancaria => "Cuenta bancaria",
+        _ => "Otro"
+    };
+}
+
+<partial name="~/Views/CuentaPorPagar/_CxpAlertas.cshtml" />
+
+<section class="card-erp-panel mb-4 p-4" aria-labelledby="tes-titulo">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 id="tes-titulo" class="text-lg font-bold tracking-tight text-white">Tesorería administrativa</h1>
+            <p class="mt-1 text-sm text-slate-400">
+                Origen de los fondos de pagos y anticipos a proveedores. Es independiente de la Caja de ventas: no abre ni cierra cajas ni mueve su saldo.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a asp-controller="CuentaPorPagar" asp-action="Index" class="btn-erp-secondary btn-sm no-underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+                Cuentas por pagar
+            </a>
+            @if (Model.PuedeConfigurar)
+            {
+                <a asp-action="Crear" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
+                    Nuevo origen de fondos
+                </a>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="card-erp-panel mb-4" aria-labelledby="tes-egresos">
+    <div class="border-b border-slate-800 px-4 py-3">
+        <h2 id="tes-egresos" class="text-base font-bold text-white">Egresos por origen de fondos</h2>
+        <p class="text-xs text-slate-400">Pagos y anticipos a proveedores vigentes (no anulados) del período.</p>
+    </div>
+    <form asp-action="Index" method="get" class="grid grid-cols-1 gap-4 border-b border-slate-800 p-4 md:grid-cols-12" aria-label="Período del resumen">
+        <div class="md:col-span-4">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="desde">Desde</label>
+            <input id="desde" name="desde" type="date" value="@r.Desde.ToString("yyyy-MM-dd")" class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="md:col-span-4">
+            <label class="@CuentaPorPagarUiHelper.LabelClass" for="hasta">Hasta</label>
+            <input id="hasta" name="hasta" type="date" value="@r.Hasta.ToString("yyyy-MM-dd")" class="@CuentaPorPagarUiHelper.InputClass" />
+        </div>
+        <div class="flex items-end md:col-span-4">
+            <button type="submit" class="btn-erp-primary btn-sm w-full">Ver resumen</button>
+        </div>
+    </form>
+    @if (r.Origenes.Any())
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Egresos por origen de fondos" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-800">
+                        <th scope="col" data-card="title" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Pagos</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Anticipos</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Movimientos</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var o in r.Origenes)
+                    {
+                        <tr>
+                            <td class="px-3 py-2 font-semibold text-white">@o.Nombre</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(o.Pagos)</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap">@CuentaPorPagarUiHelper.Moneda(o.Anticipos)</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap font-bold">@CuentaPorPagarUiHelper.Moneda(o.Total)</td>
+                            <td class="px-3 py-2 text-right">@o.Cantidad</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="border-t border-slate-700">
+                        <th scope="row" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Total del período</th>
+                        <td colspan="3" class="px-3 py-2 text-right whitespace-nowrap font-black text-white">@CuentaPorPagarUiHelper.Moneda(r.Total)</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="px-4 py-10 text-center text-sm text-slate-400" data-cxp-vacio>No hay orígenes de fondos ni egresos en el período.</p>
+    }
+</section>
+
+<section class="card-erp-panel" aria-labelledby="tes-catalogo">
+    <div class="border-b border-slate-800 px-4 py-3">
+        <h2 id="tes-catalogo" class="text-base font-bold text-white">Orígenes de fondos</h2>
+        <p class="text-xs text-slate-400">Catálogo configurable. Un origen con movimientos no se borra: se desactiva y deja de ofrecerse.</p>
+    </div>
+    @if (Model.Origenes.Any())
+    {
+        <div class="table-erp-wrapper" role="region" aria-label="Catálogo de orígenes de fondos" tabindex="0">
+            <table data-erp-cards class="w-full border-collapse text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-800">
+                        <th scope="col" data-card="title" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                        <th scope="col" data-card="half" class="px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Movimientos</th>
+                        <th scope="col" data-card="actions" class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var o in Model.Origenes)
+                    {
+                        <tr>
+                            <td class="px-3 py-2">
+                                <span class="block font-bold text-primary">@o.Codigo</span>
+                                <span class="block text-sm text-white">@o.Nombre</span>
+                                @if (!string.IsNullOrWhiteSpace(o.Descripcion)) { <span class="block text-xs text-slate-400">@o.Descripcion</span> }
+                            </td>
+                            <td class="px-3 py-2">@NombreTipo(o.Tipo)</td>
+                            <td class="px-3 py-2"><span class="@(o.Activo ? "badge-erp badge-erp-success" : "badge-erp badge-erp-neutral")">@(o.Activo ? "Activo" : "Inactivo")</span></td>
+                            <td class="px-3 py-2 text-right">@o.Movimientos</td>
+                            <td class="px-3 py-2">
+                                @if (Model.PuedeConfigurar)
+                                {
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <a asp-action="Editar" asp-route-id="@o.Id" class="btn-erp-ghost btn-sm no-underline" aria-label="Editar el origen @o.Nombre">Editar</a>
+                                        @if (o.Movimientos == 0)
+                                        {
+                                            <form asp-action="Eliminar" asp-route-id="@o.Id" method="post" class="inline">
+                                                <button type="submit" class="btn-erp-danger btn-sm" aria-label="Eliminar el origen @o.Nombre">Eliminar</button>
+                                            </form>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="px-4 py-10 text-center text-sm text-slate-400" data-cxp-vacio>
+            Todavía no hay orígenes de fondos. @(Model.PuedeConfigurar ? "Creá el primero para poder registrar pagos y anticipos a proveedores." : "Un administrador debe crearlos para poder registrar pagos y anticipos.")
+        </p>
+    }
+</section>

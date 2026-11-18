@@ -26,6 +26,12 @@ namespace TheBuryProject.Models.Entities
         /// <summary>Cheque emitido existente, solo como referencia (no se altera su estado).</summary>
         public int? ChequeId { get; set; }
 
+        /// <summary>
+        /// Origen de los fondos (Tesorería administrativa). Obligatorio en todo pago nuevo; nulo solo en pagos anteriores a
+        /// Tesorería, que no se reescriben.
+        /// </summary>
+        public int? OrigenFondosId { get; set; }
+
         [StringLength(1000)]
         public string? Observaciones { get; set; }
 
@@ -45,6 +51,7 @@ namespace TheBuryProject.Models.Entities
 
         public virtual Proveedor Proveedor { get; set; } = null!;
         public virtual Cheque? Cheque { get; set; }
+        public virtual OrigenFondos? OrigenFondos { get; set; }
         public virtual ICollection<PagoProveedorImputacion> Imputaciones { get; set; } = new List<PagoProveedorImputacion>();
     }
 }

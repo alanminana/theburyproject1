@@ -38,6 +38,8 @@ namespace TheBuryProject.Services.Models
         public decimal Monto { get; set; }
         public string? Referencia { get; set; }
         public int? ChequeId { get; set; }
+        /// <summary>Origen de los fondos (Tesorería administrativa). Obligatorio.</summary>
+        public int? OrigenFondosId { get; set; }
         public string? Observaciones { get; set; }
         /// <summary>Token por formulario: reenviar el mismo formulario no registra un segundo pago.</summary>
         public string? ClaveIdempotencia { get; set; }
@@ -139,6 +141,8 @@ namespace TheBuryProject.Services.Models
         public string? Referencia { get; set; }
         public int? ChequeId { get; set; }
         public string? ChequeNumero { get; set; }
+        public int? OrigenFondosId { get; set; }
+        public string? OrigenFondosNombre { get; set; }
         public string? Observaciones { get; set; }
         public bool Anulado { get; set; }
         public string? AnuladoPor { get; set; }
@@ -155,7 +159,9 @@ namespace TheBuryProject.Services.Models
         NotaCredito = 3,
         Pago = 4,
         AnulacionPago = 5,
-        AnulacionComprobante = 6
+        AnulacionComprobante = 6,
+        Anticipo = 7,
+        AnulacionAnticipo = 8
     }
 
     public class MovimientoCuentaPorPagar
@@ -170,6 +176,7 @@ namespace TheBuryProject.Services.Models
         public decimal SaldoCorrido { get; set; }
         public int? ComprobanteId { get; set; }
         public int? PagoId { get; set; }
+        public int? AnticipoId { get; set; }
     }
 
     public class EstadoCuentaProveedor
@@ -184,6 +191,8 @@ namespace TheBuryProject.Services.Models
         public decimal SaldoComprobantes { get; set; }
         /// <summary>Notas de crédito vigentes aún sin aplicar a facturas.</summary>
         public decimal NotasCreditoSinAplicar { get; set; }
+        /// <summary>Anticipos vigentes con saldo a favor aún sin aplicar a facturas (ya forman parte del saldo neto).</summary>
+        public decimal AnticiposSinAplicar { get; set; }
     }
 
     public class AntiguedadDeudaProveedor
@@ -214,4 +223,101 @@ namespace TheBuryProject.Services.Models
     public record OrdenCompraOpcion(int Id, string Numero);
 
     public record ChequeOpcion(int Id, string Descripcion);
+
+    // ---------------- D-03 Tesorería administrativa: orígenes de fondos y anticipos ----------------
+
+    public class OrigenFondosRequest
+    {
+        public int? Id { get; set; }
+        public string? Codigo { get; set; }
+        public string? Nombre { get; set; }
+        public TipoOrigenFondos Tipo { get; set; } = TipoOrigenFondos.Otro;
+        public string? Descripcion { get; set; }
+        public bool Activo { get; set; } = true;
+        public int Orden { get; set; }
+        /// <summary>Control de concurrencia optimista (solo en edición).</summary>
+        public byte[]? RowVersion { get; set; }
+    }
+
+    public class OrigenFondosItem
+    {
+        public int Id { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public TipoOrigenFondos Tipo { get; set; }
+        public string? Descripcion { get; set; }
+        public bool Activo { get; set; }
+        public int Orden { get; set; }
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+        /// <summary>Cantidad de pagos y anticipos vigentes o anulados que lo usan (si &gt; 0 no se borra: se desactiva).</summary>
+        public int Movimientos { get; set; }
+    }
+
+    /// <summary>Egresos vigentes (pagos y anticipos no anulados) de un origen de fondos en un período.</summary>
+    public class EgresosOrigenFondos
+    {
+        public int? OrigenFondosId { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal Pagos { get; set; }
+        public decimal Anticipos { get; set; }
+        public decimal Total => Pagos + Anticipos;
+        public int Cantidad { get; set; }
+    }
+
+    public class ResumenTesoreria
+    {
+        public DateTime Desde { get; set; }
+        public DateTime Hasta { get; set; }
+        public List<EgresosOrigenFondos> Origenes { get; set; } = new();
+        public decimal Total => Origenes.Sum(o => o.Total);
+    }
+
+    public class AnticipoProveedorRequest
+    {
+        public int ProveedorId { get; set; }
+        public DateTime? Fecha { get; set; }
+        public decimal Monto { get; set; }
+        public int? OrigenFondosId { get; set; }
+        public MedioPagoProveedor Medio { get; set; } = MedioPagoProveedor.Transferencia;
+        public string? Referencia { get; set; }
+        public int? ChequeId { get; set; }
+        public string? Observaciones { get; set; }
+        public string? ClaveIdempotencia { get; set; }
+    }
+
+    public class AnticipoAplicacionItem
+    {
+        public int Id { get; set; }
+        public int AnticipoId { get; set; }
+        public int ComprobanteId { get; set; }
+        public string ComprobanteNumero { get; set; } = string.Empty;
+        public decimal Monto { get; set; }
+        public DateTime Fecha { get; set; }
+        public bool Anulada { get; set; }
+        public string? MotivoAnulacion { get; set; }
+    }
+
+    public class AnticipoProveedorItem
+    {
+        public int Id { get; set; }
+        public int ProveedorId { get; set; }
+        public string ProveedorNombre { get; set; } = string.Empty;
+        public DateTime Fecha { get; set; }
+        public decimal Monto { get; set; }
+        /// <summary>Saldo a favor aún sin aplicar (0 si está anulado).</summary>
+        public decimal SaldoSinAplicar { get; set; }
+        public int OrigenFondosId { get; set; }
+        public string OrigenFondosNombre { get; set; } = string.Empty;
+        public MedioPagoProveedor Medio { get; set; }
+        public string? Referencia { get; set; }
+        public int? ChequeId { get; set; }
+        public string? ChequeNumero { get; set; }
+        public string? Observaciones { get; set; }
+        public bool Anulado { get; set; }
+        public string? AnuladoPor { get; set; }
+        public DateTime? FechaAnulacion { get; set; }
+        public string? MotivoAnulacion { get; set; }
+        public string? CreadoPor { get; set; }
+        public List<AnticipoAplicacionItem> Aplicaciones { get; set; } = new();
+    }
 }

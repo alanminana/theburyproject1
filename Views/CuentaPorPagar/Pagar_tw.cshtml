@@ -85,14 +85,29 @@ else
                            value="@d.Referencia" class="@CuentaPorPagarUiHelper.InputClass" placeholder="Nº de transferencia, recibo…" />
                 </div>
                 <div class="md:col-span-6">
+                    <label class="@CuentaPorPagarUiHelper.LabelClass" for="OrigenFondosId">Origen de los fondos</label>
+                    <select id="OrigenFondosId" name="OrigenFondosId" required class="@CuentaPorPagarUiHelper.InputClass">
+                        <option value="">Elegí un origen…</option>
+                        @foreach (var o in Model.Origenes)
+                        {
+                            <option value="@o.Id" selected="@(d.OrigenFondosId == o.Id)">@o.Nombre</option>
+                        }
+                    </select>
+                    @if (!Model.Origenes.Any())
+                    {
+                        <p class="mt-1 text-xs text-amber-300">No hay orígenes de fondos activos: un administrador debe crearlos en <a asp-controller="Tesoreria" asp-action="Index" class="underline">Tesorería</a>.</p>
+                    }
+                </div>
+                <div class="md:col-span-6">
                     <label class="@CuentaPorPagarUiHelper.LabelClass" for="ChequeId">Cheque emitido (solo con medio Cheque)</label>
-                    <select id="ChequeId" name="ChequeId" class="@CuentaPorPagarUiHelper.InputClass">
+                    <select id="ChequeId" name="ChequeId" aria-describedby="cxp-pago-cheque-ayuda" class="@CuentaPorPagarUiHelper.InputClass">
                         <option value="">Sin cheque</option>
                         @foreach (var c in Model.Cheques)
                         {
                             <option value="@c.Id" selected="@(d.ChequeId == c.Id)">@c.Descripcion</option>
                         }
                     </select>
+                    <p id="cxp-pago-cheque-ayuda" class="mt-1 text-xs text-slate-400">Un cheque físico respalda un único pago (que puede imputarse a varias facturas) y su importe debe coincidir con el monto.</p>
                 </div>
                 <div class="md:col-span-6">
                     <label class="@CuentaPorPagarUiHelper.LabelClass" for="Observaciones">Observaciones (opcional)</label>

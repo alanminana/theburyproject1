@@ -21,6 +21,14 @@ namespace TheBuryProject.Models.Enums
         Anulado = 4
     }
 
+    /// <summary>Tipo de origen de fondos de la Tesorería administrativa (solo clasifica; el catálogo es configurable).</summary>
+    public enum TipoOrigenFondos
+    {
+        Efectivo = 1,
+        CuentaBancaria = 2,
+        Otro = 3
+    }
+
     public enum MedioPagoProveedor
     {
         Efectivo = 1,
