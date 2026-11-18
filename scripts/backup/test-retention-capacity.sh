@@ -140,6 +140,25 @@ R=$(newbk m9); mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 1; m
 out=$(plan_of "$R" 2 $(( $(total_of "$R") - 100 )) 0 999999999999); rc=$?
 check "tar protegido: si una cadena MAS NUEVA tambien tiene tar, la mas antigua si se puede borrar (rc 0)" bash -c '[[ $(grep -c "^CHAIN .* DEL" <<<"$1") == 1 && "$2" == 0 ]]' _ "$out" "$rc"
 
+# Segunda revision de Codex: un tar INTERRUMPIDO (sin checksum, sin manifiesto) en una cadena posterior no debe desplazar la proteccion del ultimo
+# conjunto acreditado (tar + checksum + manifiesto).
+R=$(newbk m10); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 0; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+mkf "$R" "files/files_$(stamp $((3*D - 30))).tar.gz" 500   # tar posterior SIN .sha256 ni manifiesto (backup interrumpido)
+out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+check "tar incompleto (sin checksum ni manifiesto) en cadena posterior: el conjunto acreditado mas antiguo NO se borra y el FAIL sigue siendo ruidoso" bash -c '[[ "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'" && ! grep "^DELETE" <<<"$1" | grep -q "files_'"$(stamp $((4*D - 30)))"'" && tail -n1 <<<"$1" | grep -q "^FAIL"' _ "$out" "$rc"
+R=$(newbk m11); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 0; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+mkf "$R" "files/files_$(stamp $((3*D - 30))).tar.gz" 500; shaf "$R" "files/files_$(stamp $((3*D - 30))).tar.gz"   # con checksum pero SIN manifiesto
+out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+check "tar con checksum pero sin manifiesto: tampoco acredita; el conjunto completo mas antiguo se conserva" bash -c '[[ "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'"' _ "$out" "$rc"
+R=$(newbk m12); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+out=$(plan_of "$R" 2 1 0 999999999999); rc=$?
+check "dos conjuntos acreditados: se conserva el MAS NUEVO (cadena 2) y la mas antigua si se puede borrar" bash -c '[[ "$2" == 3 ]] && grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'" && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((3*D)))"'"' _ "$out" "$rc"
+# BACKUP_CA_KEY=seal: sin .caseal el tar no acredita
+R=$(newbk m13); mkchain "$R" $((4*D)) 1 1000 1; mkchain "$R" $((3*D)) 1 1000 1; mkchain "$R" $((2*D)) 1 1000 0; mkchain "$R" $((1*D)) 1 1000 0
+mkf "$R" "files/files_$(stamp $((4*D - 30))).tar.gz.caseal" 100   # solo el conjunto antiguo tiene .caseal
+out=$(BACKUP_CA_KEY=seal plan_of "$R" 2 1 0 999999999999); rc=$?
+check "seal: solo el conjunto con .caseal acredita; el posterior sin .caseal no desplaza la proteccion del anterior" bash -c '[[ "$2" == 3 ]] && ! grep "^DELETE" <<<"$1" | grep -q "_full_'"$(stamp $((4*D)))"'"' _ "$out" "$rc"
+
 # ================================================================================================================ 2. scripts (hostfs)
 cfgrun() { # cfgrun <raiz> [VAR=valor...] -- <script> [args]: ejecuta un script con entorno aislado del .env real
   local r=$1; shift; local -a ev=()

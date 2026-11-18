@@ -117,6 +117,19 @@ bk_chains() {
     if [[ "$idx" =~ ^[0-9]+$ && "$idx" != 0 ]]; then ts=${fl[$((idx - 1))]}; else ts=-; fi
     echo "R|$idx|$ts|${size[$r]}|$r"
   done
+  # Conjuntos de archivos ACREDITADOS (uploads, claves): tar con bytes, su .sha256 completo y su manifiesto set_<tar>_<full>.txt; con
+  # BACKUP_CA_KEY=seal ademas su .caseal (sin el, Caddy podria no arrancar tras restaurar). Un tar interrumpido (sin checksum, manifiesto o
+  # .caseal) NO acredita nada. capacity_plan nunca borra la ultima cadena con un conjunto acreditado.
+  local seal; seal=$(cfg BACKUP_CA_KEY include 2>/dev/null || echo include)
+  for r in "${names[@]}"; do
+    [[ "${typ[$r]}" == tar && -z "${suf[$r]}" ]] || continue
+    (( ${size[$r]} > 0 )) || continue
+    [[ -n "${size[$r.sha256]+x}" ]] && (( ${size[$r.sha256]} >= 64 )) || continue
+    [[ -n "${settar[${t1[$r]}]:-}" ]] || continue
+    if [[ "$seal" == seal ]]; then [[ -n "${size[$r.caseal]+x}" ]] && (( ${size[$r.caseal]} > 0 )) || continue; fi
+    idx=$(tar_idx "${t1[$r]}")
+    [[ "$idx" =~ ^[1-9][0-9]*$ ]] && echo "P|$idx"
+  done
 }
 
 # capacity_plan <min_cadenas> <tope_total_bytes|0> <libre_minimo_bytes|0> <libre_actual_bytes>      < salida de bk_chains
@@ -136,10 +149,11 @@ capacity_plan() {
       R\|*) IFS='|' read -r tag idx ts bytes rel <<<"$line"
             [[ "$bytes" =~ ^[0-9]+$ ]] || continue
             cb[$idx]=$(( ${cb[$idx]:-0} + bytes )); cf[$idx]+="$rel"$'\n'; cts[$idx]=$ts; total=$((total + bytes))
-            if [[ "$idx" =~ ^[1-9][0-9]*$ ]] && (( idx > maxi )); then maxi=$idx; fi
-            # La ultima cadena que contiene el tar de archivos (uploads, claves) es el ULTIMO par recuperable full+tar+manifiesto: nunca se
-            # borra, aunque despues haya fulls SQL sueltos (p. ej. los previos a un deploy) que la desplacen del minimo de cadenas.
-            if [[ "$idx" =~ ^[1-9][0-9]*$ && "$rel" =~ ^files/files_[^/]+\.tar\.gz$ ]] && (( bytes > 0 && idx > keeptar )); then keeptar=$idx; fi ;;
+            if [[ "$idx" =~ ^[1-9][0-9]*$ ]] && (( idx > maxi )); then maxi=$idx; fi ;;
+      P\|*) IFS='|' read -r tag idx <<<"$line"
+            # La ultima cadena con un conjunto de archivos ACREDITADO (tar + checksum + manifiesto [+ .caseal]) es el ULTIMO par recuperable
+            # full+archivos: nunca se borra, aunque despues haya fulls SQL sueltos (p. ej. los previos a un deploy) o un tar interrumpido.
+            if [[ "$idx" =~ ^[1-9][0-9]*$ ]] && (( idx > keeptar )); then keeptar=$idx; fi ;;
       GUARD\ *) guard=1; echo "$line" ;;
       WARN\ *) echo "$line" ;;
     esac
