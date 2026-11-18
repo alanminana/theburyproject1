@@ -34,6 +34,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
     private readonly HttpContextAccessor _accessor = new();
     private readonly AuditoriaGrabadora _auditoria = new();
     private readonly VentaService _svc;
+    private readonly ValidacionVentaService _validacionSvc;
     private Cliente _cliente = null!;
     private Producto _producto = null!;
 
@@ -51,6 +52,7 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var validacion = new ValidacionVentaService(
             _ctx, aptitud, new FakeSituacionCrediticiaBcraService(), NullLogger<ValidacionVentaService>.Instance);
 
+        _validacionSvc = validacion;
         var apertura = SeedCaja();
         var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
 
@@ -96,12 +98,12 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
     }
 
     /// <summary>Config + cliente apto salvo por lo que cada prueba pida (BCRA ok, sin docs ni cupo exigidos).</summary>
-    private async Task SembrarAsync(int minimo = 1, bool mora = false, int bcra = 1, bool cupo = false, decimal limite = 1_000_000m, int? diasNoApto = null)
+    private async Task SembrarAsync(int minimo = 1, bool mora = false, int bcra = 1, bool cupo = false, decimal limite = 1_000_000m, int? diasNoApto = null, bool docs = false)
     {
         _ctx.Set<ConfiguracionCredito>().Add(new ConfiguracionCredito
         {
             ReferenciasVerificadasMinimas = minimo,
-            ValidarDocumentacion = false,
+            ValidarDocumentacion = docs,
             ValidarLimiteCredito = cupo,
             ValidarMora = mora,
             DiasParaNoApto = mora ? (diasNoApto ?? 1) : null
@@ -796,19 +798,15 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
         ComoUsuario(Autorizador, autoriza: true);
 
-        // En dos actos. Autorizar una razón modifica el registro de la venta: quien ya la autorizó parcialmente no puede,
-        // después, ser el segundo usuario de las referencias (la excepción exige alguien que no haya tocado la venta).
+        // En dos actos. Autorizar una razón actualiza UpdatedBy, pero quien solo autorizó (no editó las condiciones) sigue
+        // pudiendo ser el segundo usuario de las referencias.
         await _svc.AutorizarVentaAsync(id, Autorizador, "Primero la mora", SoloMora);
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, (await VentaAsync(id)).EstadoAutorizacion);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Autorizador, "Ahora las referencias", Refs));
-
-        const string OtroAutorizador = "gerente.tres";
-        ComoUsuario(OtroAutorizador, autoriza: true);
-        await _svc.AutorizarVentaAsync(id, OtroAutorizador, "Ahora las referencias", Refs);
+        await _svc.AutorizarVentaAsync(id, Autorizador, "Ahora las referencias", Refs);
 
         var venta = await VentaAsync(id);
         Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
-        Assert.Equal(OtroAutorizador, venta.UsuarioAutoriza);
+        Assert.Equal(Autorizador, venta.UsuarioAutoriza);
         Assert.Equal("Ahora las referencias", venta.MotivoAutorizacion);
         Assert.All(await RazonesAsync(id), r => Assert.True(r.Autorizada));
         await _svc.AsegurarReferenciasAutorizadasAsync(id);
@@ -1023,5 +1021,166 @@ public class VentaReferenciasCreditoServiceTests : IDisposable
         var venta = await VentaAsync(id);
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
         Assert.All(VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson), r => Assert.False(r.Autorizada));
+    }
+
+    // ============================================================================================
+    // Revisión de Codex (H1-H3)
+    // ============================================================================================
+
+    [Fact]
+    public async Task H2_AEditaCondiciones_BAutorizaLaMora_AUnaVezMas_NoPuedeAutorizarLasReferencias_PeroUnTerceroSi()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync(); // la crea Creador (A)
+
+        // B edita las condiciones de la venta.
+        const string B = "gerente.b", C = "gerente.c", D = "gerente.d";
+        ComoUsuario(B, autoriza: true);
+        var vm = await _svc.GetByIdAsync(id);
+        vm!.RowVersion = await FijarRowVersionAsync(id);
+        vm.Observaciones = "B cambió las condiciones";
+        await _svc.UpdateAsync(id, vm);
+        Assert.Equal(B, (await VentaAsync(id)).UsuarioSolicita);
+
+        // C autoriza solo la mora: el guardado deja UpdatedBy = C.
+        ComoUsuario(C, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, C, "Mora", SoloMora);
+        Assert.Equal(C, (await VentaAsync(id)).UpdatedBy);
+
+        // B (último editor de condiciones) no puede autorizar las referencias.
+        ComoUsuario(B, autoriza: true);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, B, "Referencias", Refs));
+        Assert.Contains("segundo usuario", ex.Message);
+        Assert.False((await RazonesAsync(id)).Single(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes).Autorizada);
+
+        // El creador tampoco, y un tercero sí.
+        ComoUsuario(Creador, autoriza: true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, Creador, "Referencias", Refs));
+        ComoUsuario(D, autoriza: true);
+        await _svc.AutorizarVentaAsync(id, D, "Referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task H2_ElEditorQueTambienAutorizoLaMora_NoPuedeLuegoAutorizarLasReferencias()
+    {
+        var id = await CrearVentaConMoraNoBloqueanteYSinReferenciasAsync();
+        const string B = "gerente.b";
+        ComoUsuario(B, autoriza: true);
+        var vm = await _svc.GetByIdAsync(id);
+        vm!.RowVersion = await FijarRowVersionAsync(id);
+        vm.Observaciones = "B edita";
+        await _svc.UpdateAsync(id, vm);
+        await _svc.AutorizarVentaAsync(id, B, "Mora", SoloMora);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AutorizarVentaAsync(id, B, "Referencias", Refs));
+    }
+
+    [Fact]
+    public async Task H1_AutorizadaSoloPorReferencias_SiLuegoAparecePorMoraNoBloqueante_ElGateDeConfirmarNoProcede()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        var creada = await _svc.CreateAsync(NuevaVenta()); // solo faltan referencias
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Referencias", Refs);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+
+        // Se configura el crédito de la venta y, después, otra cuota del cliente entra en mora no bloqueante.
+        var credito = new Credito { ClienteId = _cliente.Id, Numero = "CRED-H1", Estado = EstadoCredito.Configurado, SaldoPendiente = 0m };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET CreditoId = {0} WHERE Id = {1}", credito.Id, creada.Id);
+        _ctx.ChangeTracker.Clear();
+        await SembrarMoraNoBloqueanteAsync();
+
+        var vigente = await _validacionSvc.ValidarConfirmacionVentaAsync(creada.Id);
+        Assert.False(vigente.NoViable);
+        Assert.Contains(vigente.RazonesAutorizacion, r => r.Tipo == TipoRazonAutorizacion.MoraActiva);
+
+        var venta = await VentaAsync(creada.Id);
+        VentaService.ExigirAutorizacionDeReferencias(venta, vigente); // las referencias sí están cubiertas
+        var ex = Assert.Throws<InvalidOperationException>(() => VentaService.ExigirTodasLasRazonesAutorizadas(venta, vigente));
+        Assert.Contains("Falta autorizar", ex.Message);
+        Assert.Contains("Mora activa", ex.Message);
+        // Y por el camino de Configurar.
+        var ex2 = await Assert.ThrowsAsync<InvalidOperationException>(() => _svc.AsegurarReferenciasAutorizadasAsync(creada.Id));
+        Assert.Contains("Mora activa", ex2.Message);
+
+    }
+
+    [Fact]
+    public async Task H1_MoraBloqueanteSigueSiendoNoViableEnLaRevalidacion()
+    {
+        await SembrarAsync(mora: true);
+        var creada = await _svc.CreateAsync(NuevaVenta());
+        var credito = new Credito { ClienteId = _cliente.Id, Numero = "CRED-H1B", Estado = EstadoCredito.Configurado, SaldoPendiente = 0m };
+        _ctx.Creditos.Add(credito);
+        await _ctx.SaveChangesAsync();
+        await _ctx.Database.ExecuteSqlRawAsync("UPDATE Ventas SET CreditoId = {0} WHERE Id = {1}", credito.Id, creada.Id);
+        _ctx.ChangeTracker.Clear();
+        await SembrarMoraBloqueanteAsync();
+
+        var vigente = await _validacionSvc.ValidarConfirmacionVentaAsync(creada.Id);
+
+        Assert.True(vigente.NoViable);
+    }
+
+    [Fact]
+    public async Task H3_ExcepcionDocumentalConMoraNoBloqueantePendiente_NoDejaLaVentaAutorizada()
+    {
+        await SembrarAsync(minimo: 0, mora: true, diasNoApto: 365, docs: true);
+        await SembrarMoraNoBloqueanteAsync();
+
+        var creada = await _svc.CreateAsync(NuevaVenta(excepcion: true, motivo: "Documentación en trámite"));
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.True(venta.RequiereAutorizacion);
+        Assert.Null(venta.UsuarioAutoriza);
+        var razones = VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson);
+        Assert.True(razones.Single(r => r.Tipo == TipoRazonAutorizacion.DocumentacionVencida).Autorizada);
+        Assert.False(razones.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva).Autorizada);
+
+        // Autorizar la mora (única razón pendiente) completa la venta.
+        ComoUsuario(Autorizador, autoriza: true);
+        await _svc.AutorizarVentaAsync(creada.Id, Autorizador, "Mora", SoloMora);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, (await VentaAsync(creada.Id)).EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task H3_ExcepcionDocumentalSinOtrasRazones_SigueAutorizandoComoAntes()
+    {
+        await SembrarAsync(minimo: 0, docs: true);
+
+        var creada = await _svc.CreateAsync(NuevaVenta(excepcion: true, motivo: "Documentación en trámite"));
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+        Assert.All(VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson), r => Assert.True(r.Autorizada));
+    }
+
+    [Fact]
+    public async Task Invariante_Edit_UnaVentaAutorizadaConUnaRazonNuevaSinAutorizarVuelveAPendiente()
+    {
+        await SembrarAsync(mora: true, diasNoApto: 365);
+        await AgregarReferenciaAsync(EstadoVerificacionReferencia.Verificada);
+        var creada = await _svc.CreateAsync(NuevaVenta()); // sin razones: NoRequiere
+        var entidad = await _ctx.Ventas.FirstAsync(v => v.Id == creada.Id);
+        entidad.RequiereAutorizacion = true;
+        entidad.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+        entidad.UsuarioAutoriza = Autorizador;
+        entidad.RazonesAutorizacionJson = "[{\"Tipo\":3,\"Descripcion\":\"Doc\",\"Autorizada\":true,\"AutorizadaPor\":\"gerente.dos\"}]";
+        await _ctx.SaveChangesAsync();
+        _ctx.ChangeTracker.Clear();
+        await SembrarMoraNoBloqueanteAsync(); // aparece una mora no bloqueante
+
+        var vm = await _svc.GetByIdAsync(creada.Id);
+        vm!.RowVersion = await FijarRowVersionAsync(creada.Id);
+        vm.Observaciones = "Edición posterior a la mora";
+        await _svc.UpdateAsync(creada.Id, vm);
+
+        var venta = await VentaAsync(creada.Id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.Null(venta.UsuarioAutoriza);
+        Assert.Contains(_auditoria.Eventos, e => e.Accion == "InvalidarAutorizacionRazonNueva");
     }
 }

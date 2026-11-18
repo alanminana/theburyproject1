@@ -2506,6 +2506,12 @@ namespace TheBuryProject.Services
                     if (!venta.FechaConfiguracionCredito.HasValue)
                         venta.FechaConfiguracionCredito = DateTime.UtcNow;
 
+                    // Configurar el crédito fija condiciones de la venta: quien lo hace no puede ser el segundo usuario de las
+                    // referencias (ver VentaService.ValidarSegundoUsuarioParaReferencias).
+                    var configurador = _currentUserService?.GetUsername();
+                    if (!string.IsNullOrWhiteSpace(configurador))
+                        venta.UsuarioSolicita = configurador;
+
                     if (venta.Estado == EstadoVenta.PendienteFinanciacion)
                     {
                         venta.Estado = EstadoVenta.Presupuesto;

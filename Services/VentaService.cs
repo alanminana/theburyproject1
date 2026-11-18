@@ -260,6 +260,8 @@ namespace TheBuryProject.Services
             try
             {
                 var venta = _mapper.Map<Venta>(viewModel);
+                // Quién fijó las condiciones de la venta (independiente de quién la autoriza después).
+                venta.UsuarioSolicita = currentUserName;
                 VentaContactoLibre.ValidarVenta(venta);
 
                 // FIN-S-002: el estado inicial siempre lo fija el servidor; el cliente no puede
@@ -615,6 +617,12 @@ namespace TheBuryProject.Services
             // venta queda pendiente de la autorización de un segundo usuario (RequiereAutorizacion sigue en true).
             if (validacion.ExcepcionDocumentalAutorizada && !validacion.RequiereAutorizacion)
             {
+                // Un solo lugar para el invariante «Autorizada => ninguna razón vigente sin autorizar».
+                if (validacion.RazonesAutorizacion.Any(r => !r.Autorizada))
+                {
+                    throw new InvalidOperationException("Error interno: la venta no puede quedar Autorizada con razones sin autorizar.");
+                }
+
                 var fechaAutorizacion = DateTime.UtcNow;
                 venta.RequiereAutorizacion = true;
                 venta.Estado = EstadoVenta.PendienteFinanciacion;
@@ -743,14 +751,11 @@ namespace TheBuryProject.Services
                 .Where(EsRequisitoExcepcionableEnCreate)
                 .ToList();
 
-            // D-02: la excepción documental/de cupo sólo levanta lo que cubre. Las referencias insuficientes conservan su
-            // propia autorización (segundo usuario); nunca se dan por autorizadas acá.
-            var requiereAutorizacionPorReferencias = validacion.RazonesAutorizacion
-                .Any(r => r.Tipo == TipoRazonAutorizacion.ReferenciasInsuficientes);
-
+            // D-02: la excepción documental/de cupo sólo levanta lo que cubre. Las referencias insuficientes y cualquier otra
+            // razón vigente (punitorio, mora no bloqueante...) conservan su propia autorización; nunca se dan por autorizadas
+            // acá. Más abajo, RequiereAutorizacion se calcula sobre TODAS las razones que sigan sin autorizar.
             validacion.NoViable = false;
             validacion.PendienteRequisitos = false;
-            validacion.RequiereAutorizacion = requiereAutorizacionPorReferencias;
             validacion.ExcepcionDocumentalAutorizada = true;
             validacion.MotivoExcepcionDocumentalAutorizada = motivoExcepcion;
             validacion.RequisitosPendientes = validacion.RequisitosPendientes
@@ -768,6 +773,9 @@ namespace TheBuryProject.Services
                     MotivoAutorizacion = motivoExcepcion
                 });
             }
+
+            // Invariante: la venta solo queda Autorizada si ninguna razón vigente está sin autorizar.
+            validacion.RequiereAutorizacion = validacion.RazonesAutorizacion.Any(r => !r.Autorizada);
         }
 
         private static TipoRazonAutorizacion MapearTipoRazonExcepcionDocumentalCreate(RequisitoPendiente requisito)
@@ -911,6 +919,10 @@ namespace TheBuryProject.Services
             }
 
             ValidarTipoPagoTarjetaNoPermitidoEnEdicion(venta.TipoPago, viewModel.TipoPago);
+
+            // El último editor de condiciones (Create/Edit/Configurar) no puede ser el segundo usuario de las referencias,
+            // aunque después otro usuario autorice otra razón (eso actualiza UpdatedBy pero no este dato).
+            venta.UsuarioSolicita = _currentUserService.GetUsername();
 
             _logger.LogDebug(
                 "UpdateAsync venta {Id} loaded. Estado:{Estado} Autorizacion:{EstadoAutorizacion} Detalles:{Detalles}",
@@ -1376,8 +1388,11 @@ namespace TheBuryProject.Services
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);
                 _validator.ValidarAutorizacion(venta);
-                // D-02: referencias verificadas (revalidadas HOY; una autorización previa que no las cubría no sirve).
-                ExigirAutorizacionDeReferencias(venta, await _validacionVentaService.ValidarConfirmacionVentaAsync(id));
+                // D-02: referencias verificadas y toda razón de autorización vigente HOY (una autorización previa que no las
+                // cubría no sirve).
+                var validacionVigente = await _validacionVentaService.ValidarConfirmacionVentaAsync(id);
+                ExigirAutorizacionDeReferencias(venta, validacionVigente);
+                ExigirTodasLasRazonesAutorizadas(venta, validacionVigente);
                 await ValidarContratoCreditoPersonalGeneradoAsync(venta);
 
                 await ValidarUnidadesYDescontarStockAsync(venta);
@@ -5125,10 +5140,21 @@ namespace TheBuryProject.Services
             const string mensaje =
                 "La excepción por referencias insuficientes debe autorizarla un segundo usuario con permiso de autorizar ventas, distinto de quien creó o modificó la venta.";
 
+            // Quien modificó la venta: el último editor de condiciones (UsuarioSolicita) y, además, UpdatedBy salvo que ese
+            // último guardado haya sido una autorización parcial de una razón (un autorizador no es editor de condiciones).
+            var autorizadores = VentaRazonesAutorizacionJson.Leer(venta.RazonesAutorizacionJson)
+                .Where(r => r.Autorizada && !string.IsNullOrWhiteSpace(r.AutorizadaPor))
+                .Select(r => r.AutorizadaPor!)
+                .ToList();
+            var updatedByEsAutorizacion = !string.IsNullOrWhiteSpace(venta.UpdatedBy)
+                && autorizadores.Contains(venta.UpdatedBy, StringComparer.OrdinalIgnoreCase)
+                && !string.Equals(venta.UpdatedBy, venta.UsuarioSolicita, StringComparison.OrdinalIgnoreCase);
+
             if (string.IsNullOrWhiteSpace(usuarioAutoriza)
                 || string.IsNullOrWhiteSpace(venta.CreatedBy)
                 || string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(venta.UpdatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(venta.UsuarioSolicita, usuarioAutoriza, StringComparison.OrdinalIgnoreCase)
+                || (!updatedByEsAutorizacion && string.Equals(venta.UpdatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
                 || !_currentUserService.HasPermission("ventas", "authorize"))
             {
                 throw new InvalidOperationException(mensaje);
@@ -5145,7 +5171,9 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            ExigirAutorizacionDeReferencias(venta, await _validacionVentaService.ValidarConfirmacionVentaAsync(ventaId));
+            var validacion = await _validacionVentaService.ValidarConfirmacionVentaAsync(ventaId);
+            ExigirAutorizacionDeReferencias(venta, validacion);
+            ExigirTodasLasRazonesAutorizadas(venta, validacion);
         }
 
         /// <summary>
@@ -5178,14 +5206,54 @@ namespace TheBuryProject.Services
         /// </summary>
         internal static void ExigirTodasLasRazonesAutorizadas(Venta venta, ValidacionVentaResult validacion)
         {
-            if (validacion.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
+            // Cada razón VIGENTE hoy necesita su autorización expresa en el JSON (no alcanza el estado global: pudo aparecer una
+            // razón nueva, p. ej. una mora no bloqueante, después de autorizar otra).
+            var sinAutorizar = VentaRazonesAutorizacionJson.VigentesSinAutorizar(venta.RazonesAutorizacionJson, validacion.RazonesAutorizacion);
+            if (!validacion.RequiereAutorizacion && sinAutorizar.Count == 0)
             {
-                var faltan = VentaRazonesAutorizacionJson.DescribirPendientes(venta.RazonesAutorizacionJson);
+                return;
+            }
+
+            if (venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada || sinAutorizar.Count > 0)
+            {
+                var faltan = sinAutorizar.Count > 0
+                    ? string.Join("; ", sinAutorizar.Select(r => r.TipoDisplay))
+                    : VentaRazonesAutorizacionJson.DescribirPendientes(venta.RazonesAutorizacionJson);
                 throw new InvalidOperationException(
                     string.IsNullOrWhiteSpace(faltan)
                         ? $"La venta requiere autorización. {validacion.MensajeResumen}"
-                        : $"La venta requiere autorización. Falta autorizar: {faltan}. {validacion.MensajeResumen}");
+                        : $"La venta requiere autorización. Falta autorizar: {faltan}. Guardá la venta de nuevo para pedir la autorización. {validacion.MensajeResumen}");
             }
+        }
+
+        /// <summary>
+        /// Invariante «Autorizada => ninguna razón vigente sin autorizar» en la edición: si la venta sigue Autorizada pero hoy
+        /// hay una razón vigente (p. ej. mora no bloqueante) sin su autorización, vuelve a pendiente y conserva solo las
+        /// autorizaciones de las razones que siguen vigentes.
+        /// </summary>
+        private void ReconciliarRazonesVigentesEnEdicion(Venta venta, ValidacionVentaResult validacion)
+        {
+            if (venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
+            {
+                return;
+            }
+
+            var sinAutorizar = VentaRazonesAutorizacionJson.VigentesSinAutorizar(venta.RazonesAutorizacionJson, validacion.RazonesAutorizacion);
+            if (sinAutorizar.Count == 0)
+            {
+                return;
+            }
+
+            _auditoria?.AgregarEvento("Ventas", "InvalidarAutorizacionRazonNueva", $"Venta:{venta.Id}",
+                $"La venta estaba autorizada pero hoy hay razones sin autorizar ({string.Join(", ", sinAutorizar.Select(r => r.Tipo))}): vuelve a pendiente");
+            venta.RazonesAutorizacionJson = VentaRazonesAutorizacionJson.Serializar(
+                VentaRazonesAutorizacionJson.ConAutorizacionPrevia(venta.RazonesAutorizacionJson, validacion.RazonesAutorizacion));
+            venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
+            venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
+            venta.UsuarioAutoriza = null;
+            venta.FechaAutorizacion = null;
+            venta.MotivoAutorizacion = null;
+            venta.RequiereAutorizacion = true;
         }
 
         private async Task VerificarAutorizacionSiCorrespondeAsync(Venta venta, VentaViewModel viewModel, decimal totalAnterior)
@@ -5212,6 +5280,7 @@ namespace TheBuryProject.Services
                 }
 
                 AplicarAutorizacionDeReferenciasEnEdicion(venta, validacion, totalAnterior);
+                ReconciliarRazonesVigentesEnEdicion(venta, validacion);
             }
         }
 

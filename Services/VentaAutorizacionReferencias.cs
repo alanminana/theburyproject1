@@ -130,6 +130,38 @@ namespace TheBuryProject.Services
                 r.MotivoAutorizacion
             }));
 
+        /// <summary>
+        /// Invariante «Autorizada => ninguna razón vigente sin autorizar»: devuelve las razones VIGENTES (revalidadas hoy) que no
+        /// tienen autorización expresa en el JSON guardado (se compara por tipo de razón).
+        /// </summary>
+        public static List<RazonAutorizacion> VigentesSinAutorizar(string? json, IEnumerable<RazonAutorizacion> vigentes)
+        {
+            var guardadas = Leer(json);
+            return vigentes.Where(v => !guardadas.Any(g => g.Tipo == v.Tipo && g.Autorizada)).ToList();
+        }
+
+        /// <summary>Las razones vigentes con la autorización ya registrada (por tipo) trasladada desde el JSON guardado.</summary>
+        public static List<RazonAutorizacion> ConAutorizacionPrevia(string? json, IEnumerable<RazonAutorizacion> vigentes)
+        {
+            var guardadas = Leer(json);
+            var resultado = new List<RazonAutorizacion>();
+            foreach (var v in vigentes)
+            {
+                var previa = guardadas.FirstOrDefault(g => g.Tipo == v.Tipo && g.Autorizada);
+                if (previa != null)
+                {
+                    v.Autorizada = true;
+                    v.AutorizadaPor = previa.AutorizadaPor;
+                    v.FechaAutorizacion = previa.FechaAutorizacion;
+                    v.MotivoAutorizacion = previa.MotivoAutorizacion;
+                }
+
+                resultado.Add(v);
+            }
+
+            return resultado;
+        }
+
         /// <summary>Descripción legible de las razones que todavía no tienen su autorización.</summary>
         public static string DescribirPendientes(string? json) =>
             string.Join("; ", Leer(json).Where(r => !r.Autorizada).Select(r => r.TipoDisplay));
