@@ -96,12 +96,25 @@ async function registrarComprobante(page, proveedorId, { tipo, numero, emision, 
     return Number(page.url().match(/Detalle\/(\d+)/)[1]);
 }
 
+/** D-03 Tesoreria: todo pago o anticipo nuevo exige un origen de fondos activo; se crea uno propio de la corrida. */
+async function crearOrigen(page, sufijo) {
+    await page.goto('/Tesoreria/Crear', { waitUntil: 'domcontentloaded' });
+    await page.locator('#Codigo').fill(`E2E-${sufijo}`);
+    await page.locator('#Nombre').fill(`Origen E2E ${sufijo}`);
+    await page.locator('#Tipo').selectOption('2');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page).toHaveURL(/\/Tesoreria$/);
+    await expect(page.getByText('Origen de fondos creado.')).toBeVisible();
+    return `Origen E2E ${sufijo}`;
+}
+
 test.describe('Cuentas por pagar - recorrido completo (AC-03-9)', () => {
     test('factura -> pago parcial -> nota de credito -> saldo final, con anulacion de pago y antiguedad', async ({ page }) => {
         test.setTimeout(120_000);
         const failures = trackFailures(page);
         const sufijo = Date.now().toString().slice(-7);
         const proveedorId = await crearProveedor(page, `E2E CxP ${sufijo}`);
+        const origen = await crearOrigen(page, sufijo);
 
         // 1) Factura de $ 1.210,00 vencida hace mas de 60 dias (emision y vencimiento fijos en el pasado).
         const facturaId = await registrarComprobante(page, proveedorId, {
@@ -130,6 +143,7 @@ test.describe('Cuentas por pagar - recorrido completo (AC-03-9)', () => {
 
         // 2) Pago parcial de $ 400,00: el helper visual muestra lo imputado y el servidor recalcula saldo y estado.
         await page.goto(`/CuentaPorPagar/Pagar?proveedorId=${proveedorId}&comprobanteId=${facturaId}`, { waitUntil: 'domcontentloaded' });
+        await page.locator('#OrigenFondosId').selectOption({ label: origen });
         await page.locator('#Monto').fill('400');
         await page.getByLabel(/Importe a imputar al comprobante/).fill('400');
         await expect(page.locator('[data-cxp-diferencia]')).toContainText('Coincide con el monto del pago');
@@ -223,6 +237,62 @@ test.describe('Cuentas por pagar - recorrido completo (AC-03-9)', () => {
 
         await page.goto('/CuentaPorPagar/Antiguedad', { waitUntil: 'domcontentloaded' });
         await expectSinDesbordeHorizontal(page);
+        expectNoFailures(failures);
+    });
+    test('anticipo -> aplicacion a dos facturas -> reversion, sin tocar la Caja (D-03 Tesoreria)', async ({ page }) => {
+        test.setTimeout(120_000);
+        const failures = trackFailures(page);
+        const sufijo = Date.now().toString().slice(-7);
+        const proveedorId = await crearProveedor(page, `E2E Anticipo ${sufijo}`);
+        const origen = await crearOrigen(page, sufijo);
+        const f1 = await registrarComprobante(page, proveedorId, { tipo: 'Factura', numero: `A-ANT1-${sufijo}`, emision: '2020-01-10', vencimiento: '2020-02-10', neto: '300.00', iva: '0.00', total: '300.00' });
+        const f2 = await registrarComprobante(page, proveedorId, { tipo: 'Factura', numero: `A-ANT2-${sufijo}`, emision: '2020-01-11', vencimiento: '2020-02-11', neto: '500.00', iva: '0.00', total: '500.00' });
+
+        // Anticipo de 600 desde el origen de Tesoreria (no desde la Caja de ventas).
+        await page.goto(`/CuentaPorPagar/Anticipar?proveedorId=${proveedorId}`, { waitUntil: 'domcontentloaded' });
+        await page.locator('#OrigenFondosId').selectOption({ label: origen });
+        await page.locator('#Monto').fill('600');
+        await page.getByRole('button', { name: 'Registrar anticipo' }).click();
+        await expect(page).toHaveURL(/\/CuentaPorPagar\/Anticipo\/\d+/);
+        await expect(page.getByText('Anticipo registrado.')).toBeVisible();
+        const anticipoUrl = page.url();
+
+        // Se reparte entre las dos facturas; aplicar mas que el saldo a favor se rechaza.
+        await page.getByRole('link', { name: /Aplicar a facturas/ }).click();
+        const importes = page.locator('input[name$=".Monto"]');
+        await importes.nth(0).fill('300');
+        await importes.nth(1).fill('400');
+        await page.getByRole('button', { name: /Aplicar anticipo/ }).click();
+        await expect(page.locator('#cxp-error, [role="alert"]').first()).toContainText('supera el saldo a favor');
+        await importes.nth(1).fill('300');
+        await page.getByRole('button', { name: /Aplicar anticipo/ }).click();
+        await expect(page.getByText('Anticipo aplicado a las facturas.')).toBeVisible();
+
+        await page.goto(`/CuentaPorPagar/Detalle/${f1}`, { waitUntil: 'domcontentloaded' });
+        await expect(page.getByText('Pagado', { exact: true }).first()).toBeVisible();
+        await page.goto(`/CuentaPorPagar/EstadoCuenta?proveedorId=${proveedorId}`, { waitUntil: 'domcontentloaded' });
+        await expect(page.getByText(/Anticipos sin aplicar/i).first()).toBeVisible();
+
+        // Reversion: se anulan las aplicaciones (los saldos vuelven) y luego el anticipo.
+        await page.goto(anticipoUrl, { waitUntil: 'domcontentloaded' });
+        for (let n = 0; n < 2; n++) {
+            const detalle = page.locator('details', { hasText: 'Anular aplicación' }).first();
+            await detalle.locator('summary').click();
+            await detalle.locator('textarea').fill('mal aplicado');
+            await detalle.getByRole('button', { name: 'Confirmar anulación' }).click();
+            await expect(page.getByText('Aplicación anulada')).toBeVisible();
+        }
+        const anular = page.locator('details', { hasText: 'Anular anticipo' }).last();
+        await anular.locator('summary').click();
+        await anular.locator('textarea').fill('carga duplicada');
+        await anular.getByRole('button', { name: 'Confirmar anulación' }).click();
+        await expect(page.getByText('Anticipo anulado.')).toBeVisible();
+        await page.goto(`/CuentaPorPagar/Detalle/${f2}`, { waitUntil: 'domcontentloaded' });
+        await expect(page.getByText(/500,00/).first()).toBeVisible();
+
+        // Tesoreria: el egreso anulado no cuenta.
+        await page.goto('/Tesoreria', { waitUntil: 'domcontentloaded' });
+        await expect(page.getByText(origen).first()).toBeVisible();
         expectNoFailures(failures);
     });
 });
