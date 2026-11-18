@@ -201,6 +201,15 @@ public static class RolesPermisosSeeder
                 ("Anular", "cancel", 4)
             }),
 
+            // D-03 Tesorería administrativa (separada de la Caja de ventas): ver el resumen de egresos por origen de fondos y configurar el
+            // catálogo de orígenes. Registrar pagos y anticipos sigue siendo cuentasporpagar.pay. Admin lo recibe por el grant "todo salvo la
+            // lista"; Contador solo ve; Gerente no lo recibe implícitamente.
+            ("Tesorería", "tesoreria", "Compras", "bi-bank", 34, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Configurar orígenes de fondos", "configure", 2)
+            }),
+
             // R-03: valoración gerencial del stock (solo lectura). Permiso propio: Administrador lo recibe por el grant "todo salvo
             // la lista", Contador solo ve y Gerente/Repositor/resto no lo reciben implícitamente (no está en el módulo "stock").
             ("Valoración de stock", "valoracionstock", "Stock", "bi-currency-dollar", 42, new List<(string, string, int)>
@@ -613,6 +622,7 @@ public static class RolesPermisosSeeder
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },
                 { "cuentasporpagar", new[] { "view" } },
+                { "tesoreria", new[] { "view" } },
                 { "valoracionstock", new[] { "view" } },
                 { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export", "viewallcommissions" } },
                 { "dashboard", new[] { "view" } },

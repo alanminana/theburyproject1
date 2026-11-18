@@ -26,7 +26,20 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         await _factory.SeedUserWithCxpSoloLecturaAsync();
         await _factory.SeedUserWithCxpOperadorAsync();
         await _factory.SeedUserWithCxpAnuladorAsync();
+        await _factory.SeedUserWithTesoreriaSoloVerAsync();
+        await _factory.SeedUserWithTesoreriaConfiguradorAsync();
+        await using var ctx = await NuevoContextoAsync();
+        var origen = await ctx.OrigenesFondos.FirstOrDefaultAsync(o => o.Codigo == "HTTP");
+        if (origen is null)
+        {
+            origen = new OrigenFondos { Codigo = "HTTP", Nombre = "Origen HTTP", Tipo = TipoOrigenFondos.Efectivo };
+            ctx.OrigenesFondos.Add(origen);
+            await ctx.SaveChangesAsync();
+        }
+        _origenId = origen.Id;
     }
+
+    private int _origenId;
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -98,6 +111,198 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         return resp.Headers.Location!.OriginalString;
     }
 
+
+    // ── D-03 Tesorería administrativa: permisos, catálogo de orígenes y anticipos ──
+
+    [Fact]
+    public async Task Tesoreria_SoloVer_VeElResumenPeroNoConfiguraNada_YSinPermisoNoEntra()
+    {
+        using var soloVer = _factory.CreateClientWithUserId(CustomWebApplicationFactory.TesoreriaSoloVerUserId);
+        Assert.Equal(HttpStatusCode.OK, (await soloVer.GetAsync("/Tesoreria")).StatusCode);
+        var html = await (await soloVer.GetAsync("/Tesoreria")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Nuevo origen de fondos", html);
+        Assert.Contains("independiente de la Caja de ventas", html);
+
+        AssertDenegado(await soloVer.GetAsync("/Tesoreria/Crear"));
+        AssertDenegado(await soloVer.GetAsync("/Tesoreria/Editar/1"));
+        AssertDenegado(await PostFormAsync(soloVer, "/Tesoreria/Guardar", ("Codigo", "SV"), ("Nombre", "No debe crearse"), ("Tipo", "1"), ("Activo", "true")));
+        AssertDenegado(await PostFormAsync(soloVer, "/Tesoreria/Eliminar/1"));
+
+        using var sinPermiso = _factory.CreateClientWithUserId("usuario-sin-permisos-cxp");
+        AssertDenegado(await sinPermiso.GetAsync("/Tesoreria"));
+        // Registrar pagos NO da acceso a la configuración de Tesorería: son permisos distintos.
+        using var operador = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
+        AssertDenegado(await operador.GetAsync("/Tesoreria"));
+
+        await using var ctx = await NuevoContextoAsync();
+        Assert.False(await ctx.OrigenesFondos.AnyAsync(o => o.Codigo == "SV"));
+    }
+
+    [Fact]
+    public async Task Tesoreria_Configurador_CreaEditaYEliminaUnOrigen_ConAntiforgery()
+    {
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.TesoreriaConfiguradorUserId);
+        Assert.Contains("Nuevo origen de fondos", await (await client.GetAsync("/Tesoreria")).Content.ReadAsStringAsync());
+
+        var sinToken = await client.PostAsync("/Tesoreria/Guardar", new FormUrlEncodedContent(new Dictionary<string, string>
+        { ["Codigo"] = "SINTOKEN", ["Nombre"] = "x", ["Tipo"] = "1", ["Activo"] = "true" }));
+        Assert.True(sinToken.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden);
+
+        var crear = await PostFormAsync(client, "/Tesoreria/Guardar", ("Codigo", "tes-http"), ("Nombre", "Banco HTTP"), ("Tipo", "2"), ("Orden", "1"), ("Activo", "true"));
+        Assert.Equal(HttpStatusCode.Redirect, crear.StatusCode);
+        var duplicado = await PostFormAsync(client, "/Tesoreria/Guardar", ("Codigo", "TES-HTTP"), ("Nombre", "Repetido"), ("Tipo", "1"), ("Activo", "true"));
+        Assert.Equal(HttpStatusCode.OK, duplicado.StatusCode);
+        Assert.Contains("Ya existe un origen de fondos con el código TES-HTTP", WebUtility.HtmlDecode(await duplicado.Content.ReadAsStringAsync()));
+
+        int id;
+        byte[] rowVersion;
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var origen = await ctx.OrigenesFondos.AsNoTracking().SingleAsync(o => o.Codigo == "TES-HTTP");
+            (id, rowVersion) = (origen.Id, origen.RowVersion);
+            Assert.Equal((TipoOrigenFondos.CuentaBancaria, true), (origen.Tipo, origen.Activo));
+            Assert.Equal(1, await ctx.OrigenesFondos.CountAsync(o => o.Codigo == "TES-HTTP"));
+        }
+
+        var editar = await PostFormAsync(client, "/Tesoreria/Guardar", ("Id", id.ToString()), ("RowVersion", Convert.ToBase64String(rowVersion)),
+            ("Codigo", "TES-HTTP"), ("Nombre", "Banco HTTP editado"), ("Tipo", "2"), ("Orden", "1"), ("Activo", "false"));
+        Assert.Equal(HttpStatusCode.Redirect, editar.StatusCode);
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.Equal(("Banco HTTP editado", false), ((await ctx.OrigenesFondos.AsNoTracking().SingleAsync(o => o.Id == id)) is var o ? (o.Nombre, o.Activo) : default));
+
+        var eliminar = await PostFormAsync(client, $"/Tesoreria/Eliminar/{id}");
+        Assert.Equal(HttpStatusCode.Redirect, eliminar.StatusCode);
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.True((await ctx.OrigenesFondos.AsNoTracking().SingleAsync(o => o.Id == id)).IsDeleted); // baja lógica: no se borra la fila
+    }
+
+    [Fact]
+    public async Task Anticipo_OperadorRegistraYAplicaAVariasFacturas_YSoloElAnuladorAnula()
+    {
+        var (prov, _) = await SembrarProveedorConOrdenAsync();
+        var f1 = await SembrarComprobanteAsync(prov, "ANT-1", 300m);
+        var f2 = await SembrarComprobanteAsync(prov, "ANT-2", 400m);
+        using var operador = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
+
+        var form = await (await operador.GetAsync($"/CuentaPorPagar/Anticipar?proveedorId={prov}")).Content.ReadAsStringAsync();
+        Assert.Contains("Origen de los fondos", form);
+        Assert.Contains("Origen HTTP", form);
+        Assert.Contains("no de la Caja de ventas", form);
+
+        var clave = "ant-http-" + prov;
+        var campos = new[]
+        {
+            ("ProveedorId", prov.ToString()), ("ClaveIdempotencia", clave), ("Fecha", "2026-11-01"), ("Monto", "500"),
+            ("OrigenFondosId", _origenId.ToString()), ("Medio", "Transferencia"), ("Referencia", "TRF-ANT")
+        };
+        var primero = await PostFormAsync(operador, "/CuentaPorPagar/Anticipar", campos);
+        var repetido = await PostFormAsync(operador, "/CuentaPorPagar/Anticipar", campos);
+        Assert.Equal(HttpStatusCode.Redirect, primero.StatusCode);
+        Assert.Equal(DestinoRedireccion(primero), DestinoRedireccion(repetido)); // el reenvío no duplica
+        var anticipoId = int.Parse(DestinoRedireccion(primero).Split('/').Last().Split('?').Last().Replace("id=", ""));
+
+        var aplicar = await PostFormAsync(operador, $"/CuentaPorPagar/AplicarAnticipo/{anticipoId}", ("claveIdempotencia", "aplic-" + prov),
+            ("imputaciones[0].ComprobanteId", f1.ToString()), ("imputaciones[0].Monto", "300"),
+            ("imputaciones[1].ComprobanteId", f2.ToString()), ("imputaciones[1].Monto", "150"));
+        Assert.Equal(HttpStatusCode.Redirect, aplicar.StatusCode);
+        var sobreAplicar = await PostFormAsync(operador, $"/CuentaPorPagar/AplicarAnticipo/{anticipoId}", ("claveIdempotencia", "aplic2-" + prov),
+            ("imputaciones[0].ComprobanteId", f2.ToString()), ("imputaciones[0].Monto", "100"));
+        Assert.Equal(HttpStatusCode.OK, sobreAplicar.StatusCode);
+        Assert.Contains("supera el saldo a favor del anticipo", WebUtility.HtmlDecode(await sobreAplicar.Content.ReadAsStringAsync()));
+
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            Assert.Equal(1, await ctx.AnticiposProveedor.CountAsync(a => a.ProveedorId == prov));
+            Assert.Equal(2, await ctx.AnticipoAplicaciones.CountAsync(a => a.AnticipoProveedorId == anticipoId));
+        }
+        Assert.Equal(0m, (await LeerComprobanteAsync(f1)).SaldoPendiente);
+        Assert.Equal(250m, (await LeerComprobanteAsync(f2)).SaldoPendiente);
+        var detalle = await (await operador.GetAsync($"/CuentaPorPagar/Anticipo/{anticipoId}")).Content.ReadAsStringAsync();
+        Assert.Contains("Facturas a las que se aplicó", detalle);
+        Assert.DoesNotContain("Anular anticipo", detalle); // el operador no tiene cuentasporpagar.cancel
+
+        AssertDenegado(await PostFormAsync(operador, $"/CuentaPorPagar/AnularAnticipo/{anticipoId}", ("motivo", "x")));
+        int aplicacionId;
+        await using (var ctx = await NuevoContextoAsync())
+            aplicacionId = (await ctx.AnticipoAplicaciones.AsNoTracking().FirstAsync(a => a.AnticipoProveedorId == anticipoId)).Id;
+        AssertDenegado(await PostFormAsync(operador, $"/CuentaPorPagar/AnularAplicacionAnticipo/{aplicacionId}", ("anticipoId", anticipoId.ToString()), ("motivo", "x")));
+
+        using var anulador = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpAnuladorUserId);
+        AssertDenegado(await anulador.GetAsync($"/CuentaPorPagar/Anticipar?proveedorId={prov}"));
+        AssertDenegado(await anulador.GetAsync($"/CuentaPorPagar/AplicarAnticipo/{anticipoId}"));
+        var anularConAplicaciones = await PostFormAsync(anulador, $"/CuentaPorPagar/AnularAnticipo/{anticipoId}", ("motivo", "carga duplicada"));
+        Assert.Equal(HttpStatusCode.Redirect, anularConAplicaciones.StatusCode);
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.False((await ctx.AnticiposProveedor.AsNoTracking().SingleAsync(a => a.Id == anticipoId)).Anulado); // tiene aplicaciones vigentes
+
+        foreach (var a in new[] { aplicacionId })
+            Assert.Equal(HttpStatusCode.Redirect, (await PostFormAsync(anulador, $"/CuentaPorPagar/AnularAplicacionAnticipo/{a}", ("anticipoId", anticipoId.ToString()), ("motivo", "mal aplicado"))).StatusCode);
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var otra = await ctx.AnticipoAplicaciones.AsNoTracking().Where(a => a.AnticipoProveedorId == anticipoId && !a.Anulada).Select(a => a.Id).SingleAsync();
+            Assert.Equal(HttpStatusCode.Redirect, (await PostFormAsync(anulador, $"/CuentaPorPagar/AnularAplicacionAnticipo/{otra}", ("anticipoId", anticipoId.ToString()), ("motivo", "mal aplicado"))).StatusCode);
+        }
+        Assert.Equal(300m, (await LeerComprobanteAsync(f1)).SaldoPendiente);
+        Assert.Equal(400m, (await LeerComprobanteAsync(f2)).SaldoPendiente);
+        Assert.Equal(HttpStatusCode.Redirect, (await PostFormAsync(anulador, $"/CuentaPorPagar/AnularAnticipo/{anticipoId}", ("motivo", "carga duplicada"))).StatusCode);
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.True((await ctx.AnticiposProveedor.AsNoTracking().SingleAsync(a => a.Id == anticipoId)).Anulado);
+    }
+
+    [Fact]
+    public async Task Anticipo_SoloLecturaNoRegistraNiAplicaNiAnula_YElPagoExigeOrigen()
+    {
+        var (prov, _) = await SembrarProveedorConOrdenAsync();
+        var f = await SembrarComprobanteAsync(prov, "ANT-SL", 300m);
+        using var soloLectura = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpSoloLecturaUserId);
+        AssertDenegado(await soloLectura.GetAsync($"/CuentaPorPagar/Anticipar?proveedorId={prov}"));
+        AssertDenegado(await PostFormAsync(soloLectura, "/CuentaPorPagar/Anticipar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-01"),
+            ("Monto", "100"), ("OrigenFondosId", _origenId.ToString()), ("Medio", "Transferencia")));
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.Equal(0, await ctx.AnticiposProveedor.CountAsync(a => a.ProveedorId == prov));
+
+        // Un pago sin origen de fondos se rechaza con un mensaje claro y no guarda nada.
+        using var operador = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
+        var sinOrigen = await PostFormAsync(operador, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-01"),
+            ("Medio", "Efectivo"), ("Monto", "100"), ("Imputaciones[0].ComprobanteId", f.ToString()), ("Imputaciones[0].Monto", "100"));
+        Assert.Equal(HttpStatusCode.OK, sinOrigen.StatusCode);
+        Assert.Contains("origen de los fondos", WebUtility.HtmlDecode(await sinOrigen.Content.ReadAsStringAsync()));
+        await using (var ctx = await NuevoContextoAsync())
+            Assert.Equal(0, await ctx.PagosProveedor.CountAsync(p => p.ProveedorId == prov));
+    }
+
+    [Fact]
+    public async Task Cheque_UnMismoChequeNoRespaldaDosPagos_PorFormulario()
+    {
+        var (prov, _) = await SembrarProveedorConOrdenAsync();
+        var f1 = await SembrarComprobanteAsync(prov, "CHQ-1", 500m);
+        var f2 = await SembrarComprobanteAsync(prov, "CHQ-2", 500m);
+        int chequeId;
+        await using (var ctx = await NuevoContextoAsync())
+        {
+            var cheque = new Cheque { Numero = "H" + prov, Banco = "Banco", Monto = 500m, ProveedorId = prov, Estado = EstadoCheque.Emitido };
+            ctx.Cheques.Add(cheque);
+            await ctx.SaveChangesAsync();
+            chequeId = cheque.Id;
+        }
+        using var operador = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
+
+        (string, string)[] Campos(int factura, string clave) => new[]
+        {
+            ("ProveedorId", prov.ToString()), ("ClaveIdempotencia", clave), ("Fecha", "2026-11-01"), ("OrigenFondosId", _origenId.ToString()),
+            ("Medio", "Cheque"), ("ChequeId", chequeId.ToString()), ("Monto", "500"),
+            ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "500")
+        };
+
+        Assert.Equal(HttpStatusCode.Redirect, (await PostFormAsync(operador, "/CuentaPorPagar/Pagar", Campos(f1, "chq-a-" + prov))).StatusCode);
+        var segundo = await PostFormAsync(operador, "/CuentaPorPagar/Pagar", Campos(f2, "chq-b-" + prov));
+        Assert.Equal(HttpStatusCode.OK, segundo.StatusCode);
+        Assert.Contains("ya respalda otro pago o anticipo vigente", WebUtility.HtmlDecode(await segundo.Content.ReadAsStringAsync()));
+        await using var ctx2 = await NuevoContextoAsync();
+        Assert.Equal(1, await ctx2.PagosProveedor.CountAsync(p => p.ChequeId == chequeId && !p.Anulado));
+        Assert.Equal(500m, (await LeerComprobanteAsync(f2)).SaldoPendiente);
+    }
+
     // ── AC-03-7: permisos separados ─────────────────────────────────────
 
     [Fact]
@@ -124,7 +329,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         AssertDenegado(await PostFormAsync(client, "/CuentaPorPagar/Crear", ("ProveedorId", prov.ToString()), ("NumeroComprobante", "SL-X"),
             ("FechaEmision", "2026-11-01"), ("ImporteNeto", "100"), ("ImporteIva", "0"), ("ImporteTotal", "100")));
         AssertDenegado(await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-01"),
-            ("Medio", "Efectivo"), ("Monto", "100"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "100")));
+            ("OrigenFondosId", _origenId.ToString()), ("Medio", "Efectivo"), ("Monto", "100"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "100")));
         AssertDenegado(await PostFormAsync(client, $"/CuentaPorPagar/Anular/{factura}", ("motivo", "x")));
         AssertDenegado(await PostFormAsync(client, $"/CuentaPorPagar/ImputarNotaCredito/{nc}",
             ("imputaciones[0].ComprobanteId", factura.ToString()), ("imputaciones[0].Monto", "50")));
@@ -167,7 +372,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         Assert.DoesNotContain("Anular comprobante", detalle);
 
         var pago = await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-05"),
-            ("Medio", "Transferencia"), ("Monto", "400"), ("Imputaciones[0].ComprobanteId", id.ToString()), ("Imputaciones[0].Monto", "400"));
+            ("OrigenFondosId", _origenId.ToString()), ("Medio", "Transferencia"), ("Monto", "400"), ("Imputaciones[0].ComprobanteId", id.ToString()), ("Imputaciones[0].Monto", "400"));
         Assert.Equal(HttpStatusCode.Redirect, pago.StatusCode);
         Assert.Equal(810m, (await LeerComprobanteAsync(id)).SaldoPendiente);
 
@@ -187,7 +392,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
 
         AssertDenegado(await client.GetAsync($"/CuentaPorPagar/Crear?proveedorId={prov}"));
         AssertDenegado(await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-01"),
-            ("Medio", "Efectivo"), ("Monto", "100"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "100")));
+            ("OrigenFondosId", _origenId.ToString()), ("Medio", "Efectivo"), ("Monto", "100"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "100")));
 
         var detalle = await (await client.GetAsync($"/CuentaPorPagar/Detalle/{factura}")).Content.ReadAsStringAsync();
         Assert.Contains("Anular comprobante", detalle);
@@ -209,7 +414,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
 
         var resp = await client.PostAsync("/CuentaPorPagar/Pagar", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["ProveedorId"] = prov.ToString(), ["Fecha"] = "2026-11-01", ["Medio"] = "Efectivo", ["Monto"] = "100",
+            ["ProveedorId"] = prov.ToString(), ["Fecha"] = "2026-11-01", ["OrigenFondosId"] = _origenId.ToString(), ["Medio"] = "Efectivo", ["Monto"] = "100",
             ["Imputaciones[0].ComprobanteId"] = factura.ToString(), ["Imputaciones[0].Monto"] = "100"
         }));
 
@@ -225,7 +430,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
 
         var resp = await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-11-01"),
-            ("Medio", "Efectivo"), ("Monto", "600"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "600"));
+            ("OrigenFondosId", _origenId.ToString()), ("Medio", "Efectivo"), ("Monto", "600"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "600"));
         var html = await resp.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
@@ -244,7 +449,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.CxpOperadorUserId);
         var campos = new[]
         {
-            ("ProveedorId", prov.ToString()), ("ClaveIdempotencia", "clave-doble-clic-" + prov), ("Fecha", "2026-11-01"), ("Medio", "Efectivo"),
+            ("ProveedorId", prov.ToString()), ("ClaveIdempotencia", "clave-doble-clic-" + prov), ("Fecha", "2026-11-01"), ("OrigenFondosId", _origenId.ToString()), ("Medio", "Efectivo"),
             ("Monto", "200"), ("Imputaciones[0].ComprobanteId", factura.ToString()), ("Imputaciones[0].Monto", "200")
         };
 
@@ -282,7 +487,7 @@ public class CuentaPorPagarHttpTests : IClassFixture<CustomWebApplicationFactory
         Assert.Equal(oc, (await LeerComprobanteAsync(facturaId)).OrdenCompraId);
 
         // Pago parcial de 400.
-        var pagoResp = await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-10-05"), ("Medio", "Transferencia"),
+        var pagoResp = await PostFormAsync(client, "/CuentaPorPagar/Pagar", ("ProveedorId", prov.ToString()), ("Fecha", "2026-10-05"), ("OrigenFondosId", _origenId.ToString()), ("Medio", "Transferencia"),
             ("Monto", "400.00"), ("Referencia", "TRF-77"), ("Imputaciones[0].ComprobanteId", facturaId.ToString()), ("Imputaciones[0].Monto", "400.00"));
         Assert.Equal(HttpStatusCode.Redirect, pagoResp.StatusCode);
         var parcial = await LeerComprobanteAsync(facturaId);

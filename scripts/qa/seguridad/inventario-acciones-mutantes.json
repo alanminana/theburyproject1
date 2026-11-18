@@ -2447,6 +2447,27 @@
     "excluidaPorDiseno": false
   },
   {
+    "id": "CuentaPorPagar.Anticipar:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "Anticipar",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/Anticipar",
+    "permisos": [
+      "cuentasporpagar.pay",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "datos",
+        "tipo": "AnticipoProveedorRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
     "id": "CuentaPorPagar.Anular:POST",
     "controller": "CuentaPorPagar",
     "accion": "Anular",
@@ -2459,6 +2480,63 @@
     "rolesRequeridos": [],
     "consumes": "",
     "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.AnularAnticipo:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "AnularAnticipo",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/AnularAnticipo",
+    "permisos": [
+      "cuentasporpagar.cancel",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "motivo",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.AnularAplicacionAnticipo:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "AnularAplicacionAnticipo",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/AnularAplicacionAnticipo",
+    "permisos": [
+      "cuentasporpagar.cancel",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "anticipoId",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
       {
         "nombre": "id",
         "tipo": "Int32",
@@ -2524,6 +2602,37 @@
       {
         "nombre": "motivo",
         "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "CuentaPorPagar.AplicarAnticipo:POST",
+    "controller": "CuentaPorPagar",
+    "accion": "AplicarAnticipo",
+    "verbo": "POST",
+    "ruta": "/CuentaPorPagar/AplicarAnticipo",
+    "permisos": [
+      "cuentasporpagar.pay",
+      "cuentasporpagar.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "claveIdempotencia",
+        "tipo": "String",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "imputaciones",
+        "tipo": "List\u003C\u003E",
         "fuente": "Auto"
       }
     ],
@@ -6515,6 +6624,48 @@
       {
         "nombre": "modelo",
         "tipo": "ServiciosVentaAdminViewModel",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Tesoreria.Eliminar:POST",
+    "controller": "Tesoreria",
+    "accion": "Eliminar",
+    "verbo": "POST",
+    "ruta": "/Tesoreria/Eliminar",
+    "permisos": [
+      "tesoreria.configure",
+      "tesoreria.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
+    "id": "Tesoreria.Guardar:POST",
+    "controller": "Tesoreria",
+    "accion": "Guardar",
+    "verbo": "POST",
+    "ruta": "/Tesoreria/Guardar",
+    "permisos": [
+      "tesoreria.configure",
+      "tesoreria.view"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "datos",
+        "tipo": "OrigenFondosRequest",
         "fuente": "Auto"
       }
     ],

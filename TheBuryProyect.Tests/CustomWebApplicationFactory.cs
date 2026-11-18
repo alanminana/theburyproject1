@@ -1132,6 +1132,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             CxpAnuladorUserId, "test-cxp-anulador-role-id", "TestCxpAnuladorRole", 9450,
             "cuentasporpagar.view", "cuentasporpagar.cancel");
 
+    public const string TesoreriaSoloVerUserId = "test-tesoreria-solo-ver-id";
+    public const string TesoreriaConfiguradorUserId = "test-tesoreria-configurador-id";
+
+    /// <summary>D-03 Tesorería: solo ve el resumen de egresos y el catálogo (tesoreria.view).</summary>
+    public Task SeedUserWithTesoreriaSoloVerAsync() =>
+        SeedPermissionUserAsync(
+            TesoreriaSoloVerUserId, "test-tesoreria-solo-ver-role-id", "TestTesoreriaSoloVerRole", 9515,
+            "tesoreria.view");
+
+    /// <summary>D-03 Tesorería: además configura el catálogo de orígenes de fondos (view + configure).</summary>
+    public Task SeedUserWithTesoreriaConfiguradorAsync() =>
+        SeedPermissionUserAsync(
+            TesoreriaConfiguradorUserId, "test-tesoreria-configurador-role-id", "TestTesoreriaConfiguradorRole", 9525,
+            "tesoreria.view", "tesoreria.configure");
+
     public const string ListaPrecioAdminUserId = "test-lista-precio-admin-id";
     public const string ListaPrecioSoloVerUserId = "test-lista-precio-solo-ver-id";
     public const string ListaPrecioGerenteUserId = "test-lista-precio-gerente-id";

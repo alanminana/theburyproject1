@@ -60,5 +60,7 @@ namespace TheBuryProject.Models.Entities
         public virtual ICollection<ImputacionNotaCredito> ImputacionesRecibidas { get; set; } = new List<ImputacionNotaCredito>();
         /// <summary>Imputaciones que ESTE comprobante hace (cuando es nota de crédito).</summary>
         public virtual ICollection<ImputacionNotaCredito> ImputacionesEmitidas { get; set; } = new List<ImputacionNotaCredito>();
+        /// <summary>Anticipos aplicados a este comprobante.</summary>
+        public virtual ICollection<AnticipoAplicacion> AplicacionesAnticipo { get; set; } = new List<AnticipoAplicacion>();
     }
 }

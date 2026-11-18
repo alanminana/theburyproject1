@@ -21,11 +21,13 @@ namespace TheBuryProject.Controllers
     {
         private readonly ICuentaPorPagarService _service;
         private readonly ICurrentUserService _currentUser;
+        private readonly ITesoreriaService _tesoreria;
 
-        public CuentaPorPagarController(ICuentaPorPagarService service, ICurrentUserService currentUser)
+        public CuentaPorPagarController(ICuentaPorPagarService service, ICurrentUserService currentUser, ITesoreriaService tesoreria)
         {
             _service = service;
             _currentUser = currentUser;
+            _tesoreria = tesoreria;
         }
 
         // ---------- listados y consultas ----------
@@ -71,6 +73,7 @@ namespace TheBuryProject.Controllers
                 Cuenta = cuenta,
                 Pendientes = await _service.ObtenerPendientesAsync(proveedorId),
                 Pagos = await _service.ListarPagosAsync(proveedorId),
+                Anticipos = await _service.ListarAnticiposAsync(proveedorId),
                 PuedeRegistrarComprobantes = User.TienePermiso("cuentasporpagar", "createinvoice"),
                 PuedeRegistrarPagos = User.TienePermiso("cuentasporpagar", "pay")
             });
@@ -198,6 +201,109 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Pago), new { id });
         }
 
+        // ---------- anticipos (Tesorería administrativa) ----------
+
+        [HttpGet]
+        public async Task<IActionResult> Anticipo(int id)
+        {
+            var anticipo = await _service.ObtenerAnticipoAsync(id);
+            return anticipo is null ? NotFound() : View("Anticipo_tw", anticipo);
+        }
+
+        [HttpGet]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "pay")]
+        public async Task<IActionResult> Anticipar(int? proveedorId)
+        {
+            var datos = new AnticipoProveedorRequest { ProveedorId = proveedorId ?? 0, ClaveIdempotencia = Guid.NewGuid().ToString("N") };
+            return View("Anticipar_tw", await ArmarFormularioAnticipoAsync(datos));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "pay")]
+        public async Task<IActionResult> Anticipar(AnticipoProveedorRequest datos)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Error = PrimerError();
+                return View("Anticipar_tw", await ArmarFormularioAnticipoAsync(datos));
+            }
+
+            var resultado = await _service.RegistrarAnticipoAsync(datos, _currentUser.GetUsername());
+            if (!resultado.Ok)
+            {
+                ViewBag.Error = resultado.Error;
+                return View("Anticipar_tw", await ArmarFormularioAnticipoAsync(datos));
+            }
+
+            TempData["Success"] = resultado.YaRegistrado
+                ? "Ese anticipo ya estaba registrado; no se duplicó."
+                : "Anticipo registrado.";
+            return RedirectToAction(nameof(Anticipo), new { id = resultado.Id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "cancel")]
+        public async Task<IActionResult> AnularAnticipo(int id, string? motivo)
+        {
+            var resultado = await _service.AnularAnticipoAsync(id, motivo, _currentUser.GetUsername());
+            Avisar(resultado, "Anticipo anulado.");
+            return RedirectToAction(nameof(Anticipo), new { id });
+        }
+
+        [HttpGet]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "pay")]
+        public async Task<IActionResult> AplicarAnticipo(int id)
+        {
+            var vm = await ArmarAplicacionAnticipoAsync(id, null, Guid.NewGuid().ToString("N"));
+            return vm is null ? NotFound() : View("AplicarAnticipo_tw", vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "pay")]
+        public async Task<IActionResult> AplicarAnticipo(int id, List<ImputacionRequest> imputaciones, string? claveIdempotencia)
+        {
+            if (!ModelState.IsValid)
+            {
+                var invalido = await ArmarAplicacionAnticipoAsync(id, imputaciones, claveIdempotencia);
+                if (invalido is null)
+                    return NotFound();
+                ViewBag.Error = PrimerError();
+                return View("AplicarAnticipo_tw", invalido);
+            }
+
+            var resultado = await _service.AplicarAnticipoAsync(id, imputaciones ?? new(), claveIdempotencia, _currentUser.GetUsername());
+            if (!resultado.Ok)
+            {
+                var vm = await ArmarAplicacionAnticipoAsync(id, imputaciones, claveIdempotencia);
+                if (vm is null)
+                    return NotFound();
+                ViewBag.Error = resultado.Error;
+                return View("AplicarAnticipo_tw", vm);
+            }
+
+            TempData["Success"] = resultado.YaRegistrado
+                ? "Esa aplicación ya estaba registrada; no se duplicó."
+                : "Anticipo aplicado a las facturas.";
+            return RedirectToAction(nameof(Anticipo), new { id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cuentasporpagar", Accion = "cancel")]
+        public async Task<IActionResult> AnularAplicacionAnticipo(int id, int anticipoId, string? motivo)
+        {
+            var resultado = await _service.AnularAplicacionAnticipoAsync(id, motivo, _currentUser.GetUsername());
+            Avisar(resultado, "Aplicación anulada: los saldos fueron restituidos.");
+            // El destino es siempre el anticipo al que realmente pertenece la aplicación, nunca un id arbitrario del POST.
+            var anticipo = await _service.ObtenerAnticipoAsync(anticipoId);
+            return anticipo is not null && anticipo.Aplicaciones.Any(a => a.Id == id)
+                ? RedirectToAction(nameof(Anticipo), new { id = anticipoId })
+                : RedirectToAction(nameof(Index));
+        }
+
         // ---------- notas de crédito ----------
 
         [HttpGet]
@@ -284,6 +390,7 @@ namespace TheBuryProject.Controllers
                 {
                     vm.Pendientes = await _service.ObtenerPendientesAsync(datos.ProveedorId);
                     vm.Cheques = await _service.ObtenerChequesAsync(datos.ProveedorId);
+                    vm.Origenes = await _tesoreria.ListarOrigenesAsync(soloActivos: true);
                 }
             }
             if (vm.Proveedor is null)
@@ -291,6 +398,41 @@ namespace TheBuryProject.Controllers
             if (string.IsNullOrWhiteSpace(datos.ClaveIdempotencia))
                 datos.ClaveIdempotencia = Guid.NewGuid().ToString("N");
             return vm;
+        }
+
+        private async Task<AnticipoFormViewModel> ArmarFormularioAnticipoAsync(AnticipoProveedorRequest datos)
+        {
+            var vm = new AnticipoFormViewModel { Datos = datos };
+            if (datos.ProveedorId > 0)
+            {
+                vm.Proveedor = await _service.ObtenerProveedorAsync(datos.ProveedorId);
+                if (vm.Proveedor is not null)
+                {
+                    vm.Cheques = await _service.ObtenerChequesAsync(datos.ProveedorId);
+                    vm.Origenes = await _tesoreria.ListarOrigenesAsync(soloActivos: true);
+                }
+            }
+            if (vm.Proveedor is null)
+                vm.Proveedores = await _service.ObtenerProveedoresAsync();
+            if (string.IsNullOrWhiteSpace(datos.ClaveIdempotencia))
+                datos.ClaveIdempotencia = Guid.NewGuid().ToString("N");
+            return vm;
+        }
+
+        private async Task<AplicarAnticipoViewModel?> ArmarAplicacionAnticipoAsync(
+            int anticipoId, List<ImputacionRequest>? previas, string? clave)
+        {
+            var anticipo = await _service.ObtenerAnticipoAsync(anticipoId);
+            if (anticipo is null)
+                return null;
+
+            return new AplicarAnticipoViewModel
+            {
+                Anticipo = anticipo,
+                Pendientes = await _service.ObtenerPendientesAsync(anticipo.ProveedorId),
+                Imputaciones = previas ?? new List<ImputacionRequest>(),
+                ClaveIdempotencia = string.IsNullOrWhiteSpace(clave) ? Guid.NewGuid().ToString("N") : clave
+            };
         }
 
         private async Task<ImputarNotaCreditoViewModel?> ArmarImputacionNotaCreditoAsync(

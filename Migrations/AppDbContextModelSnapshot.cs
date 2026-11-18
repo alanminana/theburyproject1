@@ -895,6 +895,164 @@ namespace TheBuryProject.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AnticipoAplicacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AnticipoProveedorId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AnuladaPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ClaveIdempotencia")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("ComprobanteProveedorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FechaAnulacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComprobanteProveedorId");
+
+                    b.HasIndex("AnticipoProveedorId", "ClaveIdempotencia");
+
+                    b.ToTable("AnticipoAplicaciones");
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AnticipoProveedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Anulado")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AnuladoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ChequeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ClaveIdempotencia")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaAnulacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Medio")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("OrigenFondosId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProveedorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChequeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AnticiposProveedor_ChequeId_Vigente")
+                        .HasFilter("[ChequeId] IS NOT NULL AND [Anulado] = 0 AND [IsDeleted] = 0");
+
+                    b.HasIndex("OrigenFondosId");
+
+                    b.HasIndex("ProveedorId", "ClaveIdempotencia")
+                        .IsUnique()
+                        .HasFilter("ClaveIdempotencia IS NOT NULL");
+
+                    b.HasIndex("ProveedorId", "Fecha");
+
+                    b.ToTable("AnticiposProveedor");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.AperturaCaja", b =>
                 {
                     b.Property<int>("Id")
@@ -7862,6 +8020,70 @@ namespace TheBuryProject.Migrations
                     b.ToTable("OrdenCompraDetalle", (string)null);
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.OrigenFondos", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("IX_OrigenesFondos_Codigo_Activo")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("Activo", "Orden");
+
+                    b.ToTable("OrigenesFondos");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.PagoCuota", b =>
                 {
                     b.Property<int>("Id")
@@ -8012,6 +8234,9 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int?>("OrigenFondosId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ProveedorId")
                         .HasColumnType("int");
 
@@ -8033,7 +8258,12 @@ namespace TheBuryProject.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChequeId");
+                    b.HasIndex("ChequeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PagosProveedor_ChequeId_Vigente")
+                        .HasFilter("[ChequeId] IS NOT NULL AND [Anulado] = 0 AND [IsDeleted] = 0");
+
+                    b.HasIndex("OrigenFondosId");
 
                     b.HasIndex("ProveedorId", "ClaveIdempotencia")
                         .IsUnique()
@@ -11789,6 +12019,51 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Producto");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AnticipoAplicacion", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.AnticipoProveedor", "Anticipo")
+                        .WithMany("Aplicaciones")
+                        .HasForeignKey("AnticipoProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TheBuryProject.Models.Entities.ComprobanteProveedor", "Comprobante")
+                        .WithMany("AplicacionesAnticipo")
+                        .HasForeignKey("ComprobanteProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Anticipo");
+
+                    b.Navigation("Comprobante");
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AnticipoProveedor", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.Cheque", "Cheque")
+                        .WithMany()
+                        .HasForeignKey("ChequeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TheBuryProject.Models.Entities.OrigenFondos", "OrigenFondos")
+                        .WithMany()
+                        .HasForeignKey("OrigenFondosId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TheBuryProject.Models.Entities.Proveedor", "Proveedor")
+                        .WithMany()
+                        .HasForeignKey("ProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cheque");
+
+                    b.Navigation("OrigenFondos");
+
+                    b.Navigation("Proveedor");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.AperturaCaja", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.Caja", "Caja")
@@ -12782,6 +13057,11 @@ namespace TheBuryProject.Migrations
                         .HasForeignKey("ChequeId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("TheBuryProject.Models.Entities.OrigenFondos", "OrigenFondos")
+                        .WithMany()
+                        .HasForeignKey("OrigenFondosId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("TheBuryProject.Models.Entities.Proveedor", "Proveedor")
                         .WithMany()
                         .HasForeignKey("ProveedorId")
@@ -12789,6 +13069,8 @@ namespace TheBuryProject.Migrations
                         .IsRequired();
 
                     b.Navigation("Cheque");
+
+                    b.Navigation("OrigenFondos");
 
                     b.Navigation("Proveedor");
                 });
@@ -13376,6 +13658,11 @@ namespace TheBuryProject.Migrations
                     b.Navigation("HistorialContactos");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.AnticipoProveedor", b =>
+                {
+                    b.Navigation("Aplicaciones");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.AperturaCaja", b =>
                 {
                     b.Navigation("Cierre");
@@ -13417,6 +13704,8 @@ namespace TheBuryProject.Migrations
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ComprobanteProveedor", b =>
                 {
+                    b.Navigation("AplicacionesAnticipo");
+
                     b.Navigation("ImputacionesEmitidas");
 
                     b.Navigation("ImputacionesPago");

@@ -539,3 +539,68 @@ El CI posterior al merge mostró `D01-CONC-07` con 1 fallo (ronda 5, RCSI 0): `D
 - Corrección: `PrecioService.EsViolacionIndicePrecioVigente` (solo SQL 2601/2627 de ese índice; cualquier otro error se propaga) y, en Aplicar y Revertir lote, rollback completo + `InvalidOperationException` «Otro usuario cambió el precio de un producto del lote al mismo tiempo. Recargá e intentá de nuevo.». El índice y los demás controles no se tocaron.
 - Reproducción determinista (la natural no se repite: 360 rondas locales sin fallo): `D01-CONC-09`, con el interceptor de compuertas detiene al lote justo antes de su alta mientras un precio manual se completa. Sin la corrección falla con `DbUpdateException`; con ella el lote se rechaza de forma controlada, queda un único vigente, el lote sigue `Aprobado` sin filas aplicadas y el historial es coherente (RCSI 0 y 1).
 - El cambio directo devuelve un `ResultadoAplicacionPrecios` fallido con el mismo mensaje de conflicto (el controller lo traduce a 400). `D01-CONC-10` lo reproduce de forma determinista (falla sin la corrección). Los escritores de `ProductosPrecios` son cuatro (cambio directo, precio manual, aplicar lote, revertir lote) y los cuatro quedan controlados. CI: el paso de D-01 verifica ahora `D01-CONC-01..10`. Codex: 1 pasada, 1 hallazgo medio corregido (no corresponde 2.ª pasada por presupuesto: solo tras un alto).
+
+## 17. D-03 Tesorería administrativa, anticipos, cheque único por pago y accesibilidad (2026-11-19)
+
+Una sola rama y una sola PR. Registro administrativo: **no** mueve la Caja de ventas, stock ni costos, **no** calcula IVA ni cambia reglas fiscales, **no** emite cheques propios y **no** endosa cheques de clientes. Sin datos reales: todo se probó en SQL Server descartable y SQLite en memoria.
+
+### 17.1 Qué se implementó
+
+| Tema | Implementación |
+|---|---|
+| Tesorería separada de la Caja | Módulo propio `tesoreria` (`view`, `configure`), controller y vistas propias (menú «Tesorería»); sin dependencia de `ICajaService`, aperturas ni movimientos de Caja (contrato `LaTesoreria_EstaSeparadaDeLaCajaDeVentas`). Contador solo ve; Administrador configura; Gerente no lo recibe implícitamente (igual criterio que `cuentasporpagar`) |
+| Orígenes de fondos (catálogo) | `OrigenFondos`: código único (recortado y en mayúsculas, la baja lo libera), nombre, tipo, activo, orden, `RowVersion`. Alta/edición/baja desde Tesorería. Un origen con pagos o anticipos no se borra: se desactiva y deja de ofrecerse. **Sin datos iniciales**: una instalación limpia no trae orígenes; el administrador crea el primero (sin origen no se puede registrar un pago ni un anticipo y la pantalla lo explica). Resumen de egresos por origen y período (pagos y anticipos vigentes) |
+| Anticipos | `AnticipoProveedor` + `AnticipoAplicacion`: egreso de un origen que queda como saldo a favor y se aplica a **una o varias facturas del mismo proveedor**, sin superar su saldo ni el de cada factura; no se aplica a notas de crédito, anuladas ni de otro proveedor. Anular una aplicación restituye el saldo; anular el anticipo exige no tener aplicaciones vigentes. El estado de cuenta suma el anticipo al saldo neto (aplicarlo solo reclasifica) |
+| Un cheque físico por pago | Índices únicos filtrados por cheque vigente en pagos y en anticipos + control cruzado en el servicio bajo el lock del proveedor: un cheque respalda **un único** pago o anticipo (que puede imputarse a varias facturas); anular lo libera; el listado no ofrece los ya usados. **El importe del egreso debe coincidir con el del cheque.** El pago no cambia el ciclo de vida del cheque |
+| Idempotencia, reversión, auditoría, concurrencia | Clave por formulario en pagos, anticipos y aplicaciones; anulaciones como contra-registros con motivo, usuario y fecha; **auditoría de seguridad en la misma transacción** para toda operación que cambia saldos (comprobantes, pagos, notas de crédito, anticipos, orígenes); lock por proveedor (ya existente) y lock por origen para la baja |
+| Cheques de clientes | Siguen informativos: el libro no referencia `ChequeRecibido` ni implementa endosos ni emisión de cheques propios (contrato `LosPagosYAnticiposAProveedor_NoImplementanEndososNiEmitenChequesPropios`) |
+| Migración `D03_TesoreriaOrigenesAnticipos` | Tablas `OrigenesFondos`, `AnticiposProveedor`, `AnticipoAplicaciones`; `PagosProveedor.OrigenFondosId` (nulo en pagos anteriores, que figuran «Sin origen»). Antes de crear el índice único concilia pagos que repetían un cheque (el más antiguo lo conserva; los demás pierden solo la referencia, con un evento de auditoría duradero por cada uno): sin esto la actualización fallaría en una base con esos datos |
+
+### 17.2 Decisiones técnicas tomadas (no cambian reglas fiscales; confirmables por el propietario)
+
+1. **Origen de fondos obligatorio** en todo pago y anticipo nuevo (si no, la Tesorería no puede identificar de dónde salió el dinero).
+2. **El importe del pago o anticipo debe ser igual al del cheque** (R-21 dejaba abierto si debía coincidir). Se eligió la igualdad porque un cheque físico no se reparte entre egresos; relajarla a «no mayor» es un cambio de una línea si el propietario lo prefiere.
+3. Los orígenes **no llevan saldo ni arqueo**: solo identifican y suman egresos. Saldos por origen o conciliación bancaria serían otra decisión.
+4. Registrar anticipos y aplicarlos exige `cuentasporpagar.pay`; anularlos, `cuentasporpagar.cancel` (mismos permisos que pagos y notas de crédito).
+
+### 17.3 Criterios de aceptación y evidencia
+
+| AC | Estado | Evidencia |
+|---|---|---|
+| T-1 Tesorería separada de la Caja | VERIFICADO | contrato de código; HTTP `Tesoreria_SoloVer…` (permisos propios; Operador sin `tesoreria.*` no entra); navegador |
+| T-2 Orígenes por catálogo configurable | VERIFICADO | `TesoreriaServiceTests` (alta/edición/baja/código único/`RowVersion`/desactivar/resumen); HTTP `Tesoreria_Configurador_…`; E2E |
+| T-3 Anticipo aplicable a una o varias facturas del mismo proveedor | VERIFICADO | `Anticipo_*` (servicio), HTTP `Anticipo_OperadorRegistraYAplicaAVariasFacturas…`, E2E «anticipo → aplicación a dos facturas → reversión»; navegador (700 + 300 sobre dos facturas) |
+| T-4 Un cheque físico por pago, imputable a varias facturas | VERIFICADO | `Cheque_*` (servicio), HTTP `Cheque_UnMismoChequeNoRespaldaDosPagos…`, SQL `D03-CONC-01/02/03` (incluye el índice único frente a un INSERT directo) |
+| T-5 Idempotencia y reversión | VERIFICADO | doble envío de pago/anticipo/aplicación (servicio, HTTP, SQL `D03-CONC-07`); reversión completa `D03-CONC-08` |
+| T-6 Auditoría | VERIFICADO | `Auditoria_CadaOperacionDelLibroDejaSuEventoEnLaMismaTransaccion` (secuencia exacta; las rechazadas no auditan) |
+| T-7 Concurrencia en SQL Server real | VERIFICADO (RCSI 0 y 1) | `TesoreriaSqlServerTests` D03-CONC-01..09; con el lock por proveedor anulado fallan 5 de 8; con el lock por origen anulado falla `D03-CONC-09` |
+| T-8 Migración segura con datos previos | VERIFICADO | `D03-MIG-01`: parte del esquema anterior con tres pagos repitiendo un cheque (más uno anulado y un cheque sin repetir), migra, el más antiguo conserva el cheque, importes e imputaciones intactos, observación de 1000 caracteres intacta y auditoría de cada caso; sin la conciliación la prueba falla |
+| T-9 Cheques de clientes informativos; sin endosos ni cheques propios | VERIFICADO (contrato) | `TesoreriaUiContractTests` |
+| T-10 Sin cambios fiscales ni de Caja/stock/costo | VERIFICADO | `NoRegresion_TodasLasOperacionesDejanCajaStockCostoEIvaIntactos` y `Contrato_ElServicioNoReferencia…` ampliado a los archivos nuevos |
+| T-11 Navegador | VERIFICADO | recorrido completo (Tesorería vacía → origen → anticipo con cheque → aplicación → cheque ya no se ofrece → estado de cuenta → resumen) en 1366; 768 y 390 revisados con capturas; Playwright `cuentas-por-pagar-flujo.spec.js` 6/6 en 1366×768 y 768×1024 (incluye el nuevo recorrido) |
+
+### 17.4 Accesibilidad (contraste)
+
+- Defectos de la sección 16.3 corregidos manteniendo el diseño: `.btn-erp-success` pasa a texto oscuro (`--pal-on-accent`, 7,9:1 en reposo y 5,6:1 en hover; antes blanco 2,46:1) y `--pal-neutral-500` (`text-slate-500`) pasa de `#70648b` a `#8f84ac` (≥ 4,5:1 sobre los fondos neutral-800 a 950; antes 3,5:1).
+- Regresión: `ContrasteAccesibilidadTests` calcula el contraste desde los tokens reales de `palette.css` y las reglas de `shared-components.css` (botón de éxito, slate-500 sobre 6 fondos, textos secundarios y todo botón o badge con fondo opaco resoluble); con el CSS anterior fallan 8 de 13.
+- axe-core (WCAG 2.0/2.1 A y AA + buenas prácticas) en 13 pantallas a 1366 y 390 px, incluidas Venta/Details (el botón «Autorizar» y las etiquetas que fallaban), Tesorería, anticipos y cuentas por pagar: **0 violaciones**. Se corrigieron además nombres de región duplicados (`landmark-unique`) en 3 pantallas.
+- **No se afirma compatibilidad con NVDA/JAWS**: no se probó con lector de pantalla real; axe y las pruebas de contraste no la sustituyen.
+
+Evidencia local sobre el último código: suite .NET completa **8757 correctas, 0 fallos, 253 omitidas** (las SQL Server se omiten sin base descartable); D-03 en SQL Server real (D03-CONC-01..09, D03-MIG-01 y las 6 de cuentas por pagar) **16/16 en RCSI 0 y 16/16 en RCSI 1**; instalación limpia sobre SQL Server descartable: **144 migraciones, 1 administrador, ninguna tabla fuera de la lista esperada con filas** (las tablas nuevas quedan vacías); `inventario-acciones-mutantes.json` regenerado (acciones nuevas con permiso y antiforgery).
+
+### 17.5 Revisión independiente de Codex
+
+| Pasada | Veredicto | Hallazgos |
+|---|---|---|
+| 1 | needs-attention | **alto** la migración fallaría si la base tenía pagos que repetían un cheque (el esquema anterior lo permitía) → conciliación en la migración con prueba contra SQL Server desde el esquema anterior; **medio** la baja de un origen podía competir con un egreso y ocultarlo del resumen → lock por origen compartido con pagos y anticipos + resumen defensivo con prueba concurrente |
+| 2 (enfocada en las correcciones) | needs-attention | **medio** la nota en `Observaciones` podía recortarse a nada y perder la trazabilidad → la trazabilidad vive en un evento de auditoría duradero y la nota solo se agrega si cabe; prueba con observación de 1000 caracteres. Sin hallazgos sobre los locks |
+
+Presupuesto de dos revisiones finales agotado: la última corrección (medio) no tuvo una tercera pasada. Worktree con hash idéntico antes y después de cada pasada.
+
+### 17.6 Bloqueos reales y decisiones que siguen abiertas
+
+- **Propietario**: (a) igualdad estricta cheque = egreso (17.2.2); (b) emisión de **cheques propios** y **endosos** de cheques de clientes: no implementados por decisión, siguen sin implementar hasta resolverlo expresamente; (c) saldos por origen / arqueo / conciliación bancaria; (d) exportación del estado de cuenta; (e) R-08 (rol Gerente) y R-11 (RMA) sin cambios.
+- **Contador**: criterio fiscal (IVA crédito, retenciones) sigue fuera de alcance, sin cambios.
+- **Hardware / entorno real**: sin acceso al servidor; backups por capacidad y arranque sin sesión siguen pendientes (sección 15).
+- **Accesibilidad**: lector de pantalla real (NVDA/JAWS) sin probar.
+- Observación ajena a esta tanda: la consola del navegador muestra «Refused to get unsafe header X-Documentos-Abrir» (script de documentos); preexistente.

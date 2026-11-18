@@ -34,6 +34,26 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>Ids de la nota de crédito y del comprobante de una aplicación (null si no existe). Para redirigir a un comprobante real.</summary>
         Task<(int NotaCreditoId, int ComprobanteId)?> ObtenerComprobantesDeImputacionAsync(int imputacionId);
 
+        // ---------- anticipos (D-03 Tesorería, R-09) ----------
+        /// <summary>Registra un anticipo a proveedor: egreso de un origen de fondos que queda como saldo a favor.</summary>
+        Task<ResultadoCxp> RegistrarAnticipoAsync(AnticipoProveedorRequest request, string usuario);
+
+        /// <summary>Anula un anticipo sin aplicaciones vigentes (contra-registro con motivo). Libera su cheque, si tenía.</summary>
+        Task<ResultadoCxp> AnularAnticipoAsync(int anticipoId, string? motivo, string usuario);
+
+        /// <summary>Aplica un anticipo a una o varias facturas del mismo proveedor, sin superar su saldo a favor ni el saldo de cada factura.</summary>
+        Task<ResultadoCxp> AplicarAnticipoAsync(
+            int anticipoId, IReadOnlyList<ImputacionRequest> imputaciones, string? claveIdempotencia, string usuario);
+
+        Task<ResultadoCxp> AnularAplicacionAnticipoAsync(int aplicacionId, string? motivo, string usuario);
+
+        Task<AnticipoProveedorItem?> ObtenerAnticipoAsync(int anticipoId);
+
+        Task<List<AnticipoProveedorItem>> ListarAnticiposAsync(int proveedorId);
+
+        /// <summary>Anticipos vigentes con saldo a favor aún sin aplicar.</summary>
+        Task<List<AnticipoProveedorItem>> ObtenerAnticiposConSaldoAsync(int proveedorId);
+
         // ---------- consultas ----------
         Task<ListadoComprobantesProveedor> ListarComprobantesAsync(FiltroComprobantesProveedor filtro);
 

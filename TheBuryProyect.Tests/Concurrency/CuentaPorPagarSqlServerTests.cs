@@ -28,10 +28,28 @@ public class CuentaPorPagarSqlServerTests : IClassFixture<CuentaPorPagarSqlHostF
 
     public CuentaPorPagarSqlServerTests(CuentaPorPagarSqlHostFixture fx) => _fx = fx;
 
+    private int _origenId;
+
+    /// <summary>D-03 Tesorería: todo pago nuevo exige un origen de fondos activo (se crea uno la primera vez).</summary>
+    private async Task AsegurarOrigenAsync(AppDbContext ctx)
+    {
+        if (_origenId != 0)
+            return;
+        var origen = await ctx.OrigenesFondos.FirstOrDefaultAsync(o => o.Codigo == "CXPCONC");
+        if (origen is null)
+        {
+            origen = new OrigenFondos { Codigo = "CXPCONC", Nombre = "Origen concurrencia", Tipo = TipoOrigenFondos.CuentaBancaria };
+            ctx.OrigenesFondos.Add(origen);
+            await ctx.SaveChangesAsync();
+        }
+        _origenId = origen.Id;
+    }
+
     private async Task<(int ProveedorId, int FacturaId)> SembrarFacturaAsync(decimal total)
     {
         using var scope = _fx.Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await AsegurarOrigenAsync(ctx);
         var svc = scope.ServiceProvider.GetRequiredService<ICuentaPorPagarService>();
         var sufijo = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
         var proveedor = new Proveedor { Cuit = sufijo + "0", RazonSocial = "Prov-" + sufijo, Activo = true };
@@ -86,10 +104,10 @@ public class CuentaPorPagarSqlServerTests : IClassFixture<CuentaPorPagarSqlHostF
         return await Task.WhenAll(tareas);
     }
 
-    private static PagoProveedorRequest Pago(int proveedorId, int facturaId, decimal monto, string? clave = null) => new()
+    private PagoProveedorRequest Pago(int proveedorId, int facturaId, decimal monto, string? clave = null) => new()
     {
         ProveedorId = proveedorId, Fecha = DateTime.UtcNow.Date, Medio = MedioPagoProveedor.Transferencia, Monto = monto,
-        ClaveIdempotencia = clave,
+        OrigenFondosId = _origenId, ClaveIdempotencia = clave,
         Imputaciones = new List<ImputacionRequest> { new() { ComprobanteId = facturaId, Monto = monto } }
     };
 
