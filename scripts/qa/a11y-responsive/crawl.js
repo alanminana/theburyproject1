@@ -64,7 +64,7 @@ async function enlaces(page, soloDetalle) {
   for (const rol of roles) {
     const ctx = await browser.newContext({ viewport: viewports[0], locale: 'es-AR' });
     const page = await ctx.newPage();
-    const r = { rol, paginas: 0, http4xx: [], http5xx: [], errores: [], desborde: [], axe: {}, csp: [] };
+    const r = { rol, paginas: 0, http4xx: [], http5xx: [], errores: [], desborde: [], axe: {}, csp: [], axeCompletadas: 0, axeFallidas: [] };
     await ctx.addInitScript(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} | ${(e.blockedURI || '').slice(0, 80)}`)); });
     page.on('pageerror', (e) => r.errores.push(String(e.message).slice(0, 160)));
     try {
@@ -102,21 +102,28 @@ async function enlaces(page, soloDetalle) {
           for (const c of await page.evaluate(() => window.__csp || []).catch(() => [])) r.csp.push(`${tam} ${ruta} :: ${c}`);
           const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
           if (sobra > 1) r.desborde.push(`${tam} ${ruta} (+${sobra}px)`);
-          await page.addScriptTag({ path: AXE }).catch(() => {});
-          const v = await page.evaluate(async () => {
-            if (typeof axe === 'undefined') return null;
-            const x = await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } });
-            return x.violations.map((y) => ({ id: y.id, impacto: y.impact, nodos: y.nodes.length, ejemplo: y.nodes[0] ? y.nodes[0].html.slice(0, 140) : '' }));
-          }).catch(() => null);
-          if (v) for (const y of v) { (r.axe[y.id] ||= { impacto: y.impacto, paginas: [], ejemplo: y.ejemplo }).paginas.push(`${tam} ${ruta}`); }
+          let v = null;
+          try {
+            await page.addScriptTag({ path: AXE });
+            v = await page.evaluate(async () => {
+              if (typeof axe === 'undefined') throw new Error('axe no esta definido tras inyectar el script');
+              const x = await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } });
+              return x.violations.map((y) => ({ id: y.id, impacto: y.impact, nodos: y.nodes.length, ejemplo: y.nodes[0] ? y.nodes[0].html.slice(0, 140) : '' }));
+            });
+          } catch (e) { r.axeFallidas.push(`${tam} ${ruta}: ${String(e.message).slice(0, 100)}`); continue; }
+          r.axeCompletadas++;
+          for (const y of v) { (r.axe[y.id] ||= { impacto: y.impacto, paginas: [], ejemplo: y.ejemplo }).paginas.push(`${tam} ${ruta}`); }
         }
       }
     } catch (e) { r.errores.push(`login/recorrido: ${String(e.message).slice(0, 160)}`); }
     await ctx.close();
     resultado.push(r);
-    console.log(`${rol}: ${r.paginas} paginas x ${viewports.length} tamanos; 4xx=${r.http4xx.length} 5xx=${r.http5xx.length} errores=${r.errores.length} desborde=${r.desborde.length} reglas axe=${Object.keys(r.axe).length} violaciones CSP=${r.csp.length}`);
+    console.log(`${rol}: ${r.paginas} paginas x ${viewports.length} tamanos; 4xx=${r.http4xx.length} 5xx=${r.http5xx.length} errores=${r.errores.length} desborde=${r.desborde.length} reglas axe=${Object.keys(r.axe).length} auditorias axe=${r.axeCompletadas} (fallidas ${r.axeFallidas.length}) violaciones CSP=${r.csp.length}`);
   }
   await browser.close();
   if (SALIDA) fs.writeFileSync(path.resolve(SALIDA), JSON.stringify({ base: BASE, viewports, roles: resultado }, null, 2));
-  process.exit(0);
+  // Codigo de salida: una auditoria axe que no se pudo ejecutar, un 5xx, un desborde o una violacion CSP invalidan el recorrido.
+  const falla = resultado.some((r) => r.axeFallidas.length || r.http5xx.length || r.desborde.length || r.csp.length || r.errores.length || r.axeCompletadas === 0);
+  if (falla) console.error('Recorrido con fallos: revisar auditorias axe fallidas, 5xx, desbordes, violaciones CSP o errores de pagina.');
+  process.exit(falla ? 1 : 0);
 })();
