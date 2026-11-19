@@ -383,6 +383,14 @@ def main():
     chk("R8.4", "simulacion: 6 cuotas con recargo 20 %% = 217.800 (6 x 36.300)", cp["disponible"] and p6 and dec(p6[0]["total"]) == 217800 and dec(p6[0]["valorCuota"]) == 36300, p6[:1])
     r = adm.post_json("/api/cotizacion/guardar", {"Simulacion": sim, "OpcionSeleccionada": {"MedioPago": 5, "Plan": "6 cuotas", "CantidadCuotas": 6}, "Observaciones": "P07 credito"})
     cot2 = r.json["id"]
+    # D-02: el credito personal exige referencias verificadas (minimo configurable); sin ellas la venta queda pendiente de autorizacion.
+    r = adm.post_json("/ClienteReferencia/Crear?clienteId=%d" % cid, {"Tipo": 1, "Nombre": "", "Telefono": ""})
+    chk("R8.7a", "referencia sin nombre ni telefono rechazada (no se crea)", q1("select count(*) from ClienteReferencias where ClienteId=%d" % cid) == "0", r.text[:120])
+    r = adm.post_json("/ClienteReferencia/Crear?clienteId=%d" % cid, {"Tipo": 1, "Nombre": "Maria Gomez", "Relacion": "Vecina", "Telefono": "1133330000"})
+    ref_id = q1("select top 1 Id from ClienteReferencias where ClienteId=%d order by Id desc" % cid)
+    chk("R8.7b", "referencia valida creada en estado Pendiente (1)", ref_id is not None and q1("select EstadoVerificacion from ClienteReferencias where Id=%s" % ref_id) == "1", r.text[:120])
+    r = adm.post_json("/ClienteReferencia/Verificar?clienteId=%d&id=%s" % (cid, ref_id), {"Estado": 2, "Observaciones": "verificada p08", "RowVersion": __import__("base64").b64encode(bytes.fromhex(q1("select RowVersion from ClienteReferencias where Id=%s" % ref_id)[2:])).decode()})
+    chk("R8.7c", "verificar la referencia: estado Verificada (2) con usuario y fecha", q1("select EstadoVerificacion from ClienteReferencias where Id=%s" % ref_id) == "2" and q1("select count(*) from ClienteReferencias where Id=%s and VerificadaPor is not null and FechaVerificacion is not null" % ref_id) == "1", r.text[:160])
     r = adm.post_json("/api/cotizacion/%d/conversion/convertir" % cot2, {"UsarPrecioCotizado": True})
     chk("R8.5", "cliente sin documentacion/CUIL verificada: la conversion a credito personal se rechaza (regla vigente)",
         r.status == 400 and "Faltan documentos" in r.text, r.text[:200])

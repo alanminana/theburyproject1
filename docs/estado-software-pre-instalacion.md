@@ -17,21 +17,21 @@ Base: `main` bacc9744 + la tanda `task/software-cierre-20261119`. Alcance: todo 
 | Día comercial argentino (zona horaria del servidor) | Corregido | Reglas por fecha que usaban `DateTime.Today`/`UtcNow.Date` pasan al día comercial (UTC−3): alertas de mora, vencimiento y marcado de documentos del cliente, aptitud documental, reprogramación de envíos, promesas de pago, vigencia de plantillas, fechas por defecto de formularios y fechas impresas en documentos. En un servidor en UTC (Docker/VM Linux) el día cambiaba a las 21:00 de Argentina y adelantaba esas reglas. Evidencia viva: durante la tanda, a las 21:55 ART, dos pruebas que usaban UTC fallaron y se corrigieron; `DiaComercialServidorUtcTests` fija el instante 21:55 ART |
 | Instalación limpia | Verificada | 144 migraciones sobre SQL Server descartable, 1 administrador, sin datos de negocio (repetida en esta tanda) |
 | Autorización por URL forzada | Sin anomalías | `scripts/qa/seguridad/sondeo-url-forzada.js`: 7 roles + anónimo; el POST con inventario completo lo cubre `AutorizacionMutantesSinEfectosHttpTests` en CI |
-| Suite automática | 8772 correctas, 0 fallos (253 omitidas por entorno: requieren SQL Server o navegador y corren en CI) | CI de la PR |
+| Suite automática | 8791 correctas, 0 fallos (253 omitidas por entorno: requieren SQL Server o navegador y corren en CI) | CI de la PR |
 
 ## 2. Decisiones fiscales o funcionales todavía bloqueadas (nada de esto se implementó)
 
-**Contador / fiscal (P-02).** Ya está decidido que la facturación fiscal se emite **fuera** del ERP (P1/P2 de `docs/iva-decisiones-contador.md` quedan resueltas: el IVA del ERP es informativo). No se modificó IVA, intereses, notas de crédito fiscales, redondeos ni costos contables. Siguen abiertas: C1–C15 (redondeo del total, base imponible del descuento en efectivo, envío/armado al 21 %, recargos, IVA de punitorios e interés, crédito fiscal de compra, neteo de devoluciones, plazo de 7 días, período fiscal UTC−3) y las autorizaciones del propietario P3 (netear devoluciones en el reporte de IVA), P4 (leyenda «documento no válido como factura» en el impreso: con la facturación externa decidida, es la consecuencia directa y requiere el texto legal del contador), P5 (versionar el criterio por operación) y P6 (qué fila implementar y desde qué fecha).
+**Contador / fiscal (P-02).** Ya está decidido que la facturación fiscal se emite **fuera** del ERP (P1/P2 de `docs/iva-decisiones-contador.md` quedan resueltas: el IVA del ERP es informativo). No se modificó IVA, intereses, notas de crédito fiscales, redondeos ni costos contables. Siguen abiertas: C1–C15 (redondeo del total, base imponible del descuento en efectivo, envío/armado al 21 %, recargos, IVA de punitorios e interés, crédito fiscal de compra, neteo de devoluciones, plazo de 7 días, período fiscal UTC−3) y las autorizaciones del propietario P3 (netear devoluciones en el reporte de IVA: **no autorizado todavía**). P4 (leyenda) y P5 (versionado fiscal por operación y snapshot) **ya están implementados** (`Helpers/ComprobanteInternoLeyenda.cs`: «COMPROBANTE INTERNO — DOCUMENTO NO VÁLIDO COMO FACTURA»; el contador puede validar la redacción legal). P6 (qué fila implementar y desde qué fecha) sigue abierta. No se cambió IVA ni se neteó nada.
 
 **Propietario (funcional).**
 
-1. Cheque = egreso (D-03): hoy el importe del pago/anticipo debe **igualar** el del cheque; alternativa «no mayor» (un cambio de una línea).
+1. Cheque = egreso (D-03): **decidido: igualdad estricta** entre el importe del cheque y el total del pago o anticipo (no volver a consultar).
 2. Cheques propios y endosos de cheques de clientes: no implementados.
 3. Saldos por origen de fondos, arqueo y conciliación bancaria; exportación del estado de cuenta (PDF/Excel).
 4. R-08 (rol Gerente en cuentas por pagar): hoy se asigna a mano desde Seguridad → Roles; **clasificado: diferido, sin brecha de software**.
 5. R-11 (vínculo RMA → nota de crédito de proveedor): **diferido**, exige definir qué RMA respalda qué nota de crédito.
-6. Rol `vendedor2` (A retirar permiso / B eliminar / C mantener): `docs/seguridad-cierre-f3.md` §2 y `docs/vendedor2-eliminacion.md`.
-7. Nombres y apellidos de personas: el validador `SoloLetras` admite **10 letras por palabra y 3 palabras** (una prueba lo fija a propósito: «Maximiliano» se rechaza). Rechaza apellidos legítimos como «Constantino» o «Wojciechowski». Propuesta: 20 letras y 6 palabras (como ya usan Proveedor y otros campos); es una regla de negocio de alta de personas, por eso no se cambió sin autorización.
+6. Rol `vendedor2`: **decidido: es un rol histórico de la base anterior; la instalación nueva (base vacía, usuarios nuevos) NO lo migra.** No se ejecutan scripts destructivos ni se elimina de la base antigua (`docs/vendedor2-eliminacion.md` queda como histórico).
+7. ~~Nombres y apellidos~~ **Resuelto (2026-11-19, autorizado por el propietario):** `SoloLetras` admite ahora **20 letras por palabra y 6 palabras** en los nombres y apellidos de personas (clientes, cónyuge, usuarios); «Constantino» se acepta, 21 letras o 7 palabras se rechazan. No cambian las reglas de nombres de usuario ni de identificadores.
 
 ## 3. Validaciones que obligatoriamente requieren el servidor real
 
