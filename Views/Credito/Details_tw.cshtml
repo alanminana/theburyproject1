@@ -121,7 +121,7 @@
                 </div>
                 <p class="page-sub" style="margin-top:.3rem">
                     Cliente
-                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cliente.Id" class="text-slate-300 hover:text-white" style="text-decoration:none">@cliente.NombreCompleto</a>
+                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cliente.Id" class="text-slate-300 hover:text-white underline decoration-slate-500 underline-offset-2">@cliente.NombreCompleto</a>
                     · DNI <span class="mono">@cliente.NumeroDocumento</span>
                     · Solicitado @cr.FechaSolicitud.ToString("dd/MM/yyyy")
                 </p>

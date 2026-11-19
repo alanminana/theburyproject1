@@ -1649,7 +1649,7 @@ public class DevolucionService : IDevolucionService
         string? garantiaEstado,
         string? garantiaVentana)
     {
-        var hoy = DateTime.UtcNow.Date;
+        var hoy = RelojComercial.Sistema.InicioDiaComercial;
         var query = garantias.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(search))

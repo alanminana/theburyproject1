@@ -77,4 +77,58 @@ public class AccesibilidadEstructuraContractTests
     {
         Assert.Contains(".chip-violet", Leer("wwwroot", "css", "caja-module.css"));
     }
+
+    [Fact]
+    public void ElBuscadorDeProductosDeCompras_DeclaraRolCombobox_ParaAdmitirAriaExpanded()
+    {
+        var vista = Leer("Views", "OrdenCompra", "Create_tw.cshtml");
+
+        Assert.Contains("id=\"inp-buscar-producto\" role=\"combobox\"", vista);
+        Assert.Contains("aria-expanded=\"false\"", vista);
+    }
+
+    [Theory]
+    [InlineData("Caja", "Historial_tw.cshtml")]
+    [InlineData("Reporte", "ComisionesVendedores_tw.cshtml")]
+    [InlineData("OrdenCompra", "Create_tw.cshtml")]
+    public void LasColumnasDeAccionesSinTitulo_TienenTextoParaLectoresDePantalla(string carpeta, string archivo)
+    {
+        var vista = Leer("Views", carpeta, archivo);
+
+        Assert.DoesNotContain("<th></th>", vista);
+        Assert.DoesNotContain("w-8\"></th>", vista);
+        Assert.Contains("<span class=\"sr-only\">", vista);
+    }
+
+    [Theory]
+    [InlineData("Reporte", "Margenes_tw.cshtml")]
+    [InlineData("Reporte", "Iva_tw.cshtml")]
+    [InlineData("Reporte", "ComisionesVendedores_tw.cshtml")]
+    [InlineData("Venta", "Details_tw.cshtml")]
+    public void LasTablasConDesplazamientoHorizontal_SonAlcanzablesConElTeclado(string carpeta, string archivo)
+    {
+        var vista = Leer("Views", carpeta, archivo);
+
+        Assert.DoesNotContain("<div class=\"overflow-x-auto\">", vista);
+        Assert.Contains("overflow-x-auto", vista);
+        Assert.Matches("overflow-x-auto[^\"]*\" tabindex=\"0\"", vista);
+    }
+
+    [Fact]
+    public void LaBarraDeMediosDePago_NoEsUnLandmarkComplementarioDentroDeMain()
+    {
+        var vista = Leer("Views", "ConfiguracionPago", "MediosPago_tw.cshtml");
+
+        Assert.DoesNotContain("<aside class=\"methods-sidebar\"", vista);
+        Assert.Contains("class=\"methods-sidebar\" role=\"group\"", vista);
+    }
+
+    [Fact]
+    public void ElEnlaceAlClienteEnElCredito_SeDistingueDelTextoPorSuSubrayado()
+    {
+        var vista = Leer("Views", "Credito", "Details_tw.cshtml");
+
+        Assert.DoesNotContain("hover:text-white\" style=\"text-decoration:none\">@cliente.NombreCompleto", vista);
+        Assert.Contains("underline decoration-slate-500", vista);
+    }
 }

@@ -431,7 +431,7 @@
                         <div data-oc-scroll-shell class="px-0 pb-0">
                             <div data-oc-scroll-fade="left" hidden></div>
                             <div data-oc-scroll-fade="right" hidden></div>
-                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Detalle de productos de la venta">
+                            <div data-oc-scroll-region tabindex="0">
                                 <table data-erp-cards data-oc-scroll-table class="w-full text-sm">
                                     <thead>
                                         <tr class="bg-slate-800/50 text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -877,7 +877,7 @@
                         </div>
                         @if (tieneFactura && Model.ResumenAlicuotasFactura.Any())
                         {
-                            <div class="mt-5 overflow-x-auto rounded-lg border border-slate-800">
+                            <div class="mt-5 overflow-x-auto rounded-lg border border-slate-800" tabindex="0">
                                 <p class="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400">
                                     El resumen por al&iacute;cuotas corresponde a productos, armados y env&iacute;o (sin recargos del medio de pago).
                                 </p>
