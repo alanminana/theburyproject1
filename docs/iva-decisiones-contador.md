@@ -107,6 +107,8 @@ Base: resumen preliminar del contador transmitido por el propietario el 2026-11-
 
 ### 5-b. Decisiones del propietario
 
+> **Actualización 2026-11-19:** P1 y P2 están **resueltas por el propietario**: la facturación fiscal se emite fuera del ERP y el ERP no emitirá facturación electrónica. El IVA del ERP es informativo; las filas que dependían de P2 (nota de crédito fiscal, factura de cuotas) quedan fuera de alcance. Siguen abiertas P3–P6 y C1–C15. Ver `docs/estado-software-pre-instalacion.md`.
+
 | # | Decisión | Por qué bloquea |
 |---|---|---|
 | P1 | ¿Las facturas fiscales (con CAE) se emiten fuera del ERP (sí/no)? | Hoy el ERP no tiene CAE ni integración ARCA/AFIP (`docs/iva-preservacion-historica.md` §4). Si se emiten fuera, el IVA del ERP es informativo y varias filas se reducen a leyendas y reportes. |
