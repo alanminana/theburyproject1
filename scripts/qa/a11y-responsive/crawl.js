@@ -22,6 +22,7 @@ const USERS = {
 };
 const roles = arg('--roles', 'administrador').split(',');
 const viewports = arg('--viewports', '1366x768,768x1024,390x844').split(',').map((v) => { const [w, h] = v.split('x').map(Number); return { width: w, height: h }; });
+const AXE_SRC = fs.readFileSync(AXE, 'utf8');
 const SALIDA = arg('--salida', '');
 const VISTAS = arg('--vistas', ''); // carpeta Views/: agrega /Controlador/Accion por cada vista no parcial (las que exigen id responden 4xx y se informan aparte)
 const NO_VISITAR = /logout|logoff|signout|\/delete|\/eliminar|\/anular|\/cancelar|\/borrar|descargar|exportar|\.(pdf|xlsx|csv)(\?|$)|\/api\/|\/hubs?\/|health|swagger/i;
@@ -104,7 +105,8 @@ async function enlaces(page, soloDetalle) {
           if (sobra > 1) r.desborde.push(`${tam} ${ruta} (+${sobra}px)`);
           let v = null;
           try {
-            await page.addScriptTag({ path: AXE });
+            // page.evaluate (CDP) y no addScriptTag: con CSP en Enforce la politica bloquea el <script> inyectado y axe no se cargaria.
+            await page.evaluate(AXE_SRC);
             v = await page.evaluate(async () => {
               if (typeof axe === 'undefined') throw new Error('axe no esta definido tras inyectar el script');
               const x = await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } });

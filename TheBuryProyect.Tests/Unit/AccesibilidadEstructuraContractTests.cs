@@ -69,6 +69,7 @@ public class AccesibilidadEstructuraContractTests
         Assert.Contains("<h1 class=\"text-5xl", vista);
         Assert.DoesNotContain("<h2 class=\"text-5xl", vista);
         Assert.DoesNotContain("var(--pal-neutral-350) 45%", vista); // 2,9:1 sobre el fondo: insuficiente
+        Assert.DoesNotContain("Restricted Area", vista); // texto decorativo con opacidad 0,18: no cumple contraste
     }
 
     [Fact]
