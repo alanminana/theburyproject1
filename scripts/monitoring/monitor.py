@@ -306,12 +306,26 @@ class Collector:
         if volumes:
             mounts = command(["docker", "volume", "inspect", "--format", "{{.Mountpoint}}", *volumes]).splitlines()
         paths = list(dict.fromkeys([*self.cfg["disk_paths"], root, self.cfg["backup_dir"], *mounts]))
+        # Un solo filesystem = una sola senal: `/`, DockerRootDir, BACKUP_DIR y los volumenes suelen compartir dispositivo y generaban ~9 alertas
+        # identicas por el mismo disco lleno. Se conserva la PRIMERA ruta de cada dispositivo (el orden de configuracion manda); una ruta que no
+        # se puede inspeccionar se conserva (que falle su colector es informacion).
+        first, covered = {}, {}
+        for path in list(paths):
+            try:
+                dev = os.stat(path).st_dev
+            except OSError:
+                continue
+            if dev in first:
+                covered.setdefault(first[dev], []).append(path); paths.remove(path)
+            else:
+                first[dev] = path
         for path in paths:
             def check(path=path):
                 usage = shutil.disk_usage(path)
                 pct, free = usage.used / usage.total * 100, usage.free / GIB
                 severity = "CRITICAL" if pct >= 90 or free < self.cfg["disk_free_critical_gib"] else "WARNING" if pct >= 70 or free < self.cfg["disk_free_warning_gib"] else "INFO"
-                self.emit("disk." + path, severity, f"used={pct:.1f}%; free={free:.1f} GiB; action={pct >= 85}")
+                shared = len(covered.get(path, []))
+                self.emit("disk." + path, severity, f"used={pct:.1f}%; free={free:.1f} GiB; action={pct >= 85}" + (f"; same filesystem as {shared} other monitored path(s)" if shared else ""))
                 self.emit("disk.action." + path, "WARNING" if pct >= 85 else "INFO",
                           f"action threshold 85%; used={pct:.1f}%; do not wait for 90%")
             self.safe("disk." + path, check)

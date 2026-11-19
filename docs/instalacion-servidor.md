@@ -179,6 +179,7 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 | Advertencia de certificado | Falta instalar `caddy-root-ca.crt` en esa PC y reiniciar el navegador |
 | `http://tbp` no responde | Es lo esperado: solo se publica 443. Usar `https://tbp` |
 | El ERP no vuelve tras reiniciar | Falta el inicio de sesión automático o Docker Desktop no arranca al iniciar sesión (§3.3) |
+| La VM/servidor no responde tras un corte o reinicio (queda sin IP) | DHCP falló (visto con VMware en red puenteada por Wi-Fi: `NetworkManager … ip-config-unavailable`). Usar **IP fija** en netplan o **reserva DHCP en el router**, y cable. Ver `p04-p08-matriz-criterios-vm-simulada.md` §2.1 |
 | Backup termina en error 6 | `BACKUP_REQUIRE_OFFSITE=true` sin `BACKUP_REMOTE`. Para solo local: `false` |
 | `preflight` rechaza el `.env` | Quedó un valor `CHANGE_ME` o falta `AUTOMAPPER_LICENSE_MODE=community` / `AUTOMAPPER_LICENSE_KEY` |
 
