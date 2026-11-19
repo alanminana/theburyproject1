@@ -333,6 +333,18 @@ public class DbInitializerRecuperacionSuperAdminTests : IClassFixture<CustomWebA
             Task.FromResult(IdentityResult.Failed(new IdentityError { Code = "Simulado", Description = "Fallo simulado de rol." }));
     }
 
+    [Theory]
+    [InlineData("Development", true)]
+    [InlineData("Production", false)]
+    [InlineData("Staging", false)]
+    [InlineData("Test", false)]
+    public void LasCuentasDePruebaConClaveConocida_SoloSePermitenEnDevelopment(string entorno, bool esperado)
+    {
+        var env = new EntornoProduccion { EnvironmentName = entorno };
+
+        Assert.Equal(esperado, DbInitializer.PermiteUsuariosDePrueba(env));
+    }
+
     private static IServiceProvider ProveedorConAdmin(
         IServiceScope scope, string userName, string email, string? password = PasswordAprovisionamiento, bool produccion = false)
     {

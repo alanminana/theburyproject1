@@ -496,6 +496,9 @@ Lugar de pago: {{VENDEDOR_DOMICILIO}}"
         /// <summary>
         /// Crea usuarios de prueba para cada rol (solo en desarrollo)
         /// </summary>
+        /// <summary>Las cuentas de prueba (contraseñas conocidas) solo se permiten en Development; sin información de entorno (host mínimo de pruebas) se permite.</summary>
+        internal static bool PermiteUsuariosDePrueba(IWebHostEnvironment? entorno) => entorno == null || entorno.IsDevelopment();
+
         public static async Task CreateTestUsersAsync(IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
@@ -503,6 +506,15 @@ Lugar de pago: {{VENDEDOR_DOMICILIO}}"
             var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
             var context = services.GetRequiredService<AppDbContext>();
             var logger = services.GetRequiredService<ILogger<Program>>();
+            // Defensa en profundidad: estas cuentas tienen contraseñas conocidas. Los llamadores ya filtran por Development, pero la propia
+            // rutina se niega a ejecutarse en cualquier otro entorno (Production, Staging) para que un llamador futuro no las cree por error.
+            var entorno = services.GetService<IWebHostEnvironment>();
+            if (!PermiteUsuariosDePrueba(entorno))
+            {
+                logger.LogWarning("Se ignoró la creación de usuarios de prueba: solo se permite en Development (entorno actual: {Entorno}).", entorno.EnvironmentName);
+                return;
+            }
+
             var sucursalDefault = await context.Sucursales
                 .AsNoTracking()
                 .Where(s => s.Activa)
