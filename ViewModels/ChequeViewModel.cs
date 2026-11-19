@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using TheBuryProject.Services;
+using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Validation;
 
@@ -29,7 +30,7 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "La fecha de emisión es obligatoria")]
         [Display(Name = "Fecha de Emisión")]
         [DataType(DataType.Date)]
-        public DateTime FechaEmision { get; set; } = DateTime.Today;
+        public DateTime FechaEmision { get; set; } = RelojComercial.Sistema.InicioDiaComercial;
 
         [Display(Name = "Fecha de Vencimiento")]
         [DataType(DataType.Date)]
@@ -64,11 +65,11 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Días para Vencer")]
         public int DiasPorVencer { get; set; }
 
-        public bool EstaVencido => FechaVencimiento.HasValue && FechaVencimiento.Value < DateTime.Today;
+        public bool EstaVencido => FechaVencimiento.HasValue && FechaVencimiento.Value < RelojComercial.Sistema.InicioDiaComercial;
 
         public bool EstaPorVencer => FechaVencimiento.HasValue &&
-            FechaVencimiento.Value >= DateTime.Today &&
-            FechaVencimiento.Value <= DateTime.Today.AddDays(7);
+            FechaVencimiento.Value >= RelojComercial.Sistema.InicioDiaComercial &&
+            FechaVencimiento.Value <= RelojComercial.Sistema.InicioDiaComercial.AddDays(7);
 
         // Información de auditoría
         [Display(Name = "Fecha de Creación")]

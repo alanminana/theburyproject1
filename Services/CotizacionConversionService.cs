@@ -830,7 +830,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             var facturaViewModel = new FacturaViewModel
             {
                 VentaId = venta.Id,
-                FechaEmision = DateTime.Today,
+                FechaEmision = RelojComercial.Sistema.InicioDiaComercial,
                 Tipo = request.TipoFactura
             };
             var facturada = await _ventaService.FacturarVentaAsync(venta.Id, facturaViewModel);

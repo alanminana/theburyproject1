@@ -1256,7 +1256,7 @@ public class ClienteAptitudServiceTests
                     TipoDocumento = TipoDocumentoCliente.DNI,
                     Estado = EstadoDocumento.Verificado,
                     FechaVerificacion = DateTime.UtcNow.AddDays(-30),
-                    FechaVencimiento = DateTime.UtcNow.Date.AddDays(-1) // vencido ayer
+                    FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1) // vencido ayer (día comercial, no UTC)
                 },
                 new DocumentoCliente
                 {

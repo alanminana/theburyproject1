@@ -5,6 +5,7 @@ using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
@@ -19,17 +20,20 @@ namespace TheBuryProject.Controllers
         private readonly IMapper _mapper;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<MoraController> _logger;
+        private readonly IRelojComercial _reloj;
 
         public MoraController(
             IMoraService moraService,
             IMapper mapper,
             ICurrentUserService currentUser,
-            ILogger<MoraController> logger)
+            ILogger<MoraController> logger,
+            IRelojComercial? reloj = null)
         {
             _moraService = moraService;
             _mapper = mapper;
             _currentUser = currentUser;
             _logger = logger;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #region Dashboard
@@ -248,7 +252,7 @@ namespace TheBuryProject.Controllers
                     ClienteId = clienteId,
                     NombreCliente = alerta.ClienteNombre,
                     MontoVencidoTotal = alerta.MontoVencido,
-                    FechaPromesa = DateTime.Today.AddDays(7),
+                    FechaPromesa = RelojComercial.Sistema.InicioDiaComercial.AddDays(7),
                     MontoPromesa = alerta.MontoVencido
                 };
 
@@ -276,7 +280,7 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
                 }
 
-                if (model.FechaPromesa.Date < DateTime.Today)
+                if (model.FechaPromesa.Date < _reloj.InicioDiaComercial)
                 {
                     TempData["Error"] = "La fecha de la promesa no puede ser anterior a hoy.";
                     return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId });
@@ -367,7 +371,7 @@ namespace TheBuryProject.Controllers
                     PorcentajeMinEntrega = config.PorcentajeMinimoEntrega ?? 10,
                     PermiteCondonacion = config.PermitirCondonacionMora,
                     MaximoCondonacionPermitido = config.PermitirCondonacionMora ? config.PorcentajeMaximoCondonacion ?? 50 : 0,
-                    FechaPrimeraCuota = DateTime.Today.AddDays(30),
+                    FechaPrimeraCuota = RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
                     CantidadCuotas = 6
                 };
 

@@ -163,7 +163,7 @@ public class VentaControllerIndexPaginacionTests
             {
                 Id = i,
                 Numero = $"V-{i:D5}",
-                FechaVenta = DateTime.Today.AddDays(-i),
+                FechaVenta = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-i),
             });
         }
         return lista;
@@ -206,7 +206,7 @@ public class VentaControllerIndexPaginacionTests
 
         await controller.Index(new VentaFilterViewModel());
 
-        var hoy = DateTime.Today;
+        var hoy = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         Assert.Equal(new DateTime(hoy.Year, hoy.Month, 1), (DateTime)controller.ViewBag.EnviosMes);
         Assert.NotNull(controller.ViewBag.EnviosHistorial);
     }
@@ -230,7 +230,7 @@ public class VentaControllerIndexPaginacionTests
 
         await controller.Index(new VentaFilterViewModel(), "no-es-un-mes");
 
-        var hoy = DateTime.Today;
+        var hoy = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         Assert.Equal(new DateTime(hoy.Year, hoy.Month, 1), (DateTime)controller.ViewBag.EnviosMes);
     }
 

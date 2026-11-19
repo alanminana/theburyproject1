@@ -57,7 +57,7 @@ public class ConfiguracionMoraServiceAplicarAlertasTests : IDisposable
 
     private CuotaViewModel CuotaVencidaHace(int diasAtras) => new()
     {
-        FechaVencimiento = DateTime.Today.AddDays(-diasAtras),
+        FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-diasAtras),
         Estado = EstadoCuota.Vencida,
         MontoTotal = 1000m
     };

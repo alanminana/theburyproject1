@@ -819,7 +819,7 @@ else
             @* ============================================================
            TARJETAS MÓVILES
            ============================================================ *@
-            <div id="clientes-cards" class="m-card cliente-mobile-list" role="list" aria-labelledby="cliente-list-title"
+            <div id="clientes-cards" class="m-card cliente-mobile-list" role="group" aria-labelledby="cliente-list-title"
                  aria-describedby="result-count">
 
                 @foreach (var c in clientes)
@@ -851,7 +851,7 @@ else
                             ? $"{tipoDocumento} sin número"
                             : $"{tipoDocumento} {c.NumeroDocumento}";
 
-                    <article class="card card-pad cliente-mobile-card" role="listitem" data-cliente-row-id="@c.Id"
+                    <article class="card card-pad cliente-mobile-card" data-cliente-row-id="@c.Id"
                              data-estado="@(c.Activo ? "activo" : "inactivo")" data-tipodoc="@c.TipoDocumento">
 
                         @* ENCABEZADO *@

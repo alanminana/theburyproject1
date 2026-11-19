@@ -19,18 +19,21 @@ namespace TheBuryProject.Services
         private readonly IMapper _mapper;
         private readonly ILogger<DocumentoClienteService> _logger;
         private readonly IWebHostEnvironment _environment;
+        private readonly IRelojComercial _reloj;
         private const string UPLOAD_FOLDER = "uploads/documentos-clientes";
 
         public DocumentoClienteService(
             AppDbContext context,
             IMapper mapper,
             ILogger<DocumentoClienteService> logger,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _environment = environment;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #endregion
@@ -362,9 +365,12 @@ namespace TheBuryProject.Services
                     query = query.Where(d => d.Estado == EstadoDocumento.Pendiente);
 
                 if (filtro.SoloVencidos)
+                {
+                    var hoyComercial = _reloj.InicioDiaComercial;
                     query = query.Where(d =>
                         d.Estado == EstadoDocumento.Vencido ||
-                        (d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < DateTime.UtcNow.Date));
+                        (d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < hoyComercial));
+                }
 
                 var total = await query.CountAsync();
 
@@ -407,9 +413,12 @@ namespace TheBuryProject.Services
                     query = query.Where(d => d.Estado == EstadoDocumento.Pendiente);
 
                 if (filtro.SoloVencidos)
+                {
+                    var hoyComercial = _reloj.InicioDiaComercial;
                     query = query.Where(d =>
                         d.Estado == EstadoDocumento.Vencido ||
-                        (d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < DateTime.UtcNow.Date));
+                        (d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < hoyComercial));
+                }
 
                 var entidades = await query
                     .OrderByDescending(d => d.FechaSubida)
@@ -481,7 +490,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var today = DateTime.UtcNow.Date;
+                var today = _reloj.InicioDiaComercial;
                 var now = DateTime.UtcNow;
 
                 var updated = await _context.Set<DocumentoCliente>()

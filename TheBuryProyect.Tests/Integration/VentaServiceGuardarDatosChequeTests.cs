@@ -107,8 +107,8 @@ public class VentaServiceGuardarDatosChequeTests : IDisposable
             NumeroCheque = numero,
             Banco = "Banco Nación",
             Titular = "Juan Pérez",
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Monto = 1_500m
         };
 

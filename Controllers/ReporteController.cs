@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -57,8 +58,8 @@ namespace TheBuryProject.Controllers
             // Por defecto mostrar último mes
             var filtro = new ReporteVentasFiltroViewModel
             {
-                FechaDesde = DateTime.Today.AddMonths(-1),
-                FechaHasta = DateTime.Today
+                FechaDesde = RelojComercial.Sistema.InicioDiaComercial.AddMonths(-1),
+                FechaHasta = RelojComercial.Sistema.InicioDiaComercial
             };
 
             ViewBag.Filtro = filtro;
@@ -96,8 +97,8 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                filtro.FechaDesde ??= DateTime.Today.AddMonths(-1);
-                filtro.FechaHasta ??= DateTime.Today;
+                filtro.FechaDesde ??= RelojComercial.Sistema.InicioDiaComercial.AddMonths(-1);
+                filtro.FechaHasta ??= RelojComercial.Sistema.InicioDiaComercial;
 
                 var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Index));
                 if (rechazo != null)
@@ -158,8 +159,8 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                filtro.FechaDesde ??= new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-                filtro.FechaHasta ??= DateTime.Today;
+                filtro.FechaDesde ??= new DateTime(RelojComercial.Sistema.InicioDiaComercial.Year, RelojComercial.Sistema.InicioDiaComercial.Month, 1);
+                filtro.FechaHasta ??= RelojComercial.Sistema.InicioDiaComercial;
 
                 var rechazo = RechazarRango(filtro.FechaDesde, filtro.FechaHasta, nameof(Index));
                 if (rechazo != null)
@@ -193,8 +194,8 @@ namespace TheBuryProject.Controllers
 
             var filtro = new ReporteMovimientosValorizadosFiltroViewModel
             {
-                FechaDesde = DateTime.Today.AddMonths(-1),
-                FechaHasta = DateTime.Today
+                FechaDesde = RelojComercial.Sistema.InicioDiaComercial.AddMonths(-1),
+                FechaHasta = RelojComercial.Sistema.InicioDiaComercial
             };
 
             var resultado = new ReporteMovimientosValorizadosViewModel
@@ -236,8 +237,8 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var desde = fechaDesde ?? DateTime.Today.AddMonths(-1);
-                var hasta = fechaHasta ?? DateTime.Today;
+                var desde = fechaDesde ?? RelojComercial.Sistema.InicioDiaComercial.AddMonths(-1);
+                var hasta = fechaHasta ?? RelojComercial.Sistema.InicioDiaComercial;
 
                 var errorRango = ErrorRango(desde, hasta);
                 if (errorRango != null)

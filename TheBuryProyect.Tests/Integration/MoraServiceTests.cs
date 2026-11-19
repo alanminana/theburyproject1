@@ -35,7 +35,7 @@ public class MoraServiceTests : IDisposable
 
     /// <summary>
     /// Fecha comercial (Argentina) real usada tanto por <see cref="_service"/> como por los helpers
-    /// de seed de este archivo. Antes los helpers sembraban con <c>DateTime.Today</c> (calendario
+    /// de seed de este archivo. Antes los helpers sembraban con <c>TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial</c> (calendario
     /// local del proceso) mientras <see cref="_service"/> comparaba contra
     /// <c>RelojComercial.Sistema</c> (día comercial de Argentina, UTC-3 real): en un runner Linux en
     /// UTC, entre las 00:00 y las 03:00 UTC ambas fechas difieren en un día, produciendo fallos
@@ -70,7 +70,7 @@ public class MoraServiceTests : IDisposable
     /// <summary>
     /// PUN-ML7 (corrección): instancia alternativa con un <see cref="IRelojComercial"/> inyectado
     /// explícitamente, para probar que la frontera de vencimiento de <c>ProcesarMoraAsync</c> depende
-    /// de él y no de <see cref="DateTime.UtcNow"/>/<see cref="DateTime.Today"/>.
+    /// de él y no de <see cref="DateTime.UtcNow"/>/<see cref="TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial"/>.
     /// </summary>
     private MoraService CrearServicioConReloj(IRelojComercial reloj) =>
         new(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, reloj);
@@ -260,7 +260,7 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        var fechaPromesa = DateTime.Today.AddDays(7);
+        var fechaPromesa = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(7);
 
         var contacto = new RegistrarContactoViewModel
         {
@@ -290,7 +290,7 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        var fechaPromesa = DateTime.Today.AddDays(10);
+        var fechaPromesa = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(10);
 
         var promesa = new RegistrarPromesaViewModel
         {
@@ -325,7 +325,7 @@ public class MoraServiceTests : IDisposable
         var otro = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(dueno.Id);
         var alerta = await SeedAlertaAsync(dueno.Id, credito.Id);
-        alerta.FechaPromesaPago = DateTime.Today.AddDays(3);
+        alerta.FechaPromesaPago = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(3);
         alerta.MontoPromesaPago = 100m;
         await _context.SaveChangesAsync();
         var prioridadOriginal = alerta.Prioridad;
@@ -343,7 +343,7 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id, PrioridadAlerta.Baja);
-        alerta.FechaPromesaPago = DateTime.Today.AddDays(3);
+        alerta.FechaPromesaPago = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(3);
         await _context.SaveChangesAsync();
 
         Assert.True(await _service.MarcarPromesaIncumplidaDelClienteAsync(alerta.Id, cliente.Id, "no pagó"));
@@ -404,7 +404,7 @@ public class MoraServiceTests : IDisposable
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-R",
             Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 100m, MontoEntregaInicial = 0m,
-            CantidadCuotas = 3, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            CantidadCuotas = 3, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
@@ -424,7 +424,7 @@ public class MoraServiceTests : IDisposable
         _context.AcuerdosPago.Add(new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U1",
-            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         });
         await _context.SaveChangesAsync();
 
@@ -432,7 +432,7 @@ public class MoraServiceTests : IDisposable
             new CrearAcuerdoViewModel
             {
                 AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
-                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
             }, "g"));
 
         Assert.Contains("vigente", ex.Message);
@@ -449,7 +449,7 @@ public class MoraServiceTests : IDisposable
         _context.AcuerdosPago.Add(new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-U2",
-            Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         });
         await _context.SaveChangesAsync();
 
@@ -457,7 +457,7 @@ public class MoraServiceTests : IDisposable
             new CrearAcuerdoViewModel
             {
                 AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
-                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
             }, "g");
 
         Assert.True(id > 0);
@@ -474,7 +474,7 @@ public class MoraServiceTests : IDisposable
             new CrearAcuerdoViewModel
             {
                 AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id,
-                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30),
+                MontoDeudaOriginal = 1_000m, MontoEntregaInicial = 1_000m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
                 Observaciones = "  Acordado por telefono con el titular  "
             }, "g");
 
@@ -499,7 +499,7 @@ public class MoraServiceTests : IDisposable
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-P",
             Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 3_000m, MontoEntregaInicial = entrega,
-            CantidadCuotas = cuotasAcuerdo, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            CantidadCuotas = cuotasAcuerdo, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
@@ -634,7 +634,7 @@ public class MoraServiceTests : IDisposable
         var borrador = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = (await _context.Creditos.FirstAsync()).Id + 1000, NumeroAcuerdo = "ACU-B",
-            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today
+            Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial
         };
         Assert.Empty(_creditoServiceFake.Cobros);
         Assert.NotNull(borrador);
@@ -669,7 +669,7 @@ public class MoraServiceTests : IDisposable
     private static CrearAcuerdoViewModel Solicitud(Cliente cl, Credito cr, AlertaCobranza al, decimal entrega = 300m, decimal condonar = 0m) => new()
     {
         AlertaId = al.Id, ClienteId = cl.Id, CreditoId = cr.Id, MontoEntregaInicial = entrega, MontoCondonar = condonar,
-        CantidadCuotas = 3, FechaPrimeraCuota = DateTime.Today.AddDays(30),
+        CantidadCuotas = 3, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
         // Lo que un cliente HTTP podría mandar para abaratar el acuerdo: el servidor lo ignora.
         MontoDeudaOriginal = 1m, MontoMoraOriginal = 0m
     };
@@ -712,7 +712,7 @@ public class MoraServiceTests : IDisposable
     {
         var (cl, cr, al) = await SeedCreditoConDeudaAsync();
         var solicitud = Solicitud(cl, cr, al);
-        // Fecha comercial (Argentina), no DateTime.Today: en un runner en UTC difieren entre las 00:00 y las 03:00.
+        // Fecha comercial (Argentina), no TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial: en un runner en UTC difieren entre las 00:00 y las 03:00.
         solicitud.FechaPrimeraCuota = _reloj.InicioDiaComercial.AddDays(-1);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAcuerdoPagoParaCreditoAsync(solicitud, "g"));
@@ -799,7 +799,7 @@ public class MoraServiceTests : IDisposable
         cuota.Estado = EstadoCuota.Vencida;
         _context.PunitoriosAplicados.Add(new PunitorioAplicado
         {
-            CuotaId = cuota.Id, FechaCalculo = DateOnly.FromDateTime(DateTime.Today), SaldoBase = 1_000m, DiasComputados = 40, Importe = 100m,
+            CuotaId = cuota.Id, FechaCalculo = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), SaldoBase = 1_000m, DiasComputados = 40, Importe = 100m,
             Estado = EstadoPunitorioAplicado.Aplicado, DesgloseSnapshotJson = "{}", MotivoAplicacion = "test",
             FechaAplicacion = DateTime.UtcNow, UsuarioAplicacion = "test"
         });
@@ -835,7 +835,7 @@ public class MoraServiceTests : IDisposable
         var id = await _service.CrearAcuerdoPagoParaCreditoAsync(new CrearAcuerdoViewModel
         {
             AlertaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, MontoEntregaInicial = 100m,
-            CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         }, "g");
         Assert.Equal(100m, (await _context.AcuerdosPago.AsNoTracking().SingleAsync(a => a.Id == id)).MontoTotalAcuerdo);
         await _service.CambiarEstadoAcuerdoAsync(id, cliente.Id, EstadoAcuerdo.Activo);
@@ -1062,7 +1062,7 @@ public class MoraServiceTests : IDisposable
         var operacion = Guid.NewGuid();
         _context.PagosCuota.Add(new PagoCuota
         {
-            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
             Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = operacion
         });
         _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
@@ -1389,7 +1389,7 @@ public class MoraServiceTests : IDisposable
         var operacion = Guid.NewGuid();
         _context.PagosCuota.Add(new PagoCuota
         {
-            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
             Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = operacion
         });
         _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
@@ -1418,7 +1418,7 @@ public class MoraServiceTests : IDisposable
         cuotaCredito.MontoPagado = 500m;
         _context.PagosCuota.Add(new PagoCuota
         {
-            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
+            CuotaId = cuotaCredito.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = 500m, ImporteAplicadoCuota = 500m,
             Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado // sin OperacionExternaId: pago manual
         });
         _context.AcuerdoPagoImputaciones.Add(new AcuerdoPagoImputacion
@@ -1523,7 +1523,7 @@ public class MoraServiceTests : IDisposable
         var alerta = await SeedAlertaAsync(dueno.Id, credito.Id);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarPromesaPagoAsync(
-            new RegistrarPromesaViewModel { AlertaId = alerta.Id, ClienteId = otro.Id, FechaPromesa = DateTime.Today.AddDays(3), MontoPromesa = 100m }, "g"));
+            new RegistrarPromesaViewModel { AlertaId = alerta.Id, ClienteId = otro.Id, FechaPromesa = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(3), MontoPromesa = 100m }, "g"));
 
         var recargada = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.Id == alerta.Id);
         Assert.Null(recargada.FechaPromesaPago);
@@ -1548,7 +1548,7 @@ public class MoraServiceTests : IDisposable
         var acuerdo = new AcuerdoPago
         {
             AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-T",
-            Estado = desde, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 2, FechaPrimeraCuota = DateTime.Today.AddDays(30)
+            Estado = desde, MontoTotalAcuerdo = 1_000m, CantidadCuotas = 2, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30)
         };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
@@ -1573,7 +1573,7 @@ public class MoraServiceTests : IDisposable
         var otro = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-X", Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today };
+        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-X", Estado = EstadoAcuerdo.Borrador, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
 
@@ -1586,7 +1586,7 @@ public class MoraServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-V", Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = DateTime.Today };
+        var acuerdo = new AcuerdoPago { AlertaCobranzaId = alerta.Id, ClienteId = cliente.Id, CreditoId = credito.Id, NumeroAcuerdo = "ACU-V", Estado = EstadoAcuerdo.Cancelado, MontoTotalAcuerdo = 10m, CantidadCuotas = 1, FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial };
         _context.AcuerdosPago.Add(acuerdo);
         await _context.SaveChangesAsync();
         Assert.False(await _service.ExisteAcuerdoVigenteAsync(credito.Id));
@@ -1603,7 +1603,7 @@ public class MoraServiceTests : IDisposable
         {
             AlertaId = 99999,
             ClienteId = 1,
-            FechaPromesa = DateTime.Today.AddDays(5),
+            FechaPromesa = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5),
             MontoPromesa = 100m
         };
 
@@ -1707,7 +1707,7 @@ public class MoraServiceTests : IDisposable
             MontoCondonar = 0m,
             MontoEntregaInicial = 1_000m,
             CantidadCuotas = 3,
-            FechaPrimeraCuota = DateTime.Today.AddMonths(1)
+            FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1)
         };
 
         var acuerdoId = await _service.CrearAcuerdoPagoAsync(acuerdo, "gestor1");
@@ -1750,7 +1750,7 @@ public class MoraServiceTests : IDisposable
             MontoCondonar = 0m,
             MontoEntregaInicial = 500m,
             CantidadCuotas = 12, // excede el máximo de 6
-            FechaPrimeraCuota = DateTime.Today.AddMonths(1)
+            FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1)
         };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -1785,7 +1785,7 @@ public class MoraServiceTests : IDisposable
             MontoCondonar = 200m, // intentar condonar cuando no está permitido
             MontoEntregaInicial = 500m,
             CantidadCuotas = 3,
-            FechaPrimeraCuota = DateTime.Today.AddMonths(1)
+            FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1)
         };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -1999,7 +1999,7 @@ public class MoraServiceTests : IDisposable
         // Capital impago vencido hace 10 días: queda dentro de los 30 días de gracia ampliados.
         await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
         var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
-        alerta.FechaPromesaPago = DateTime.Today.AddDays(2);
+        alerta.FechaPromesaPago = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(2);
         alerta.EstadoGestion = EstadoGestionCobranza.PromesaPago;
         await _context.SaveChangesAsync();
 
@@ -2577,7 +2577,7 @@ public class MoraServiceTests : IDisposable
     public async Task ProcesarMora_FronteraUsaRelojComercial_NoUtcNiToday()
     {
         // 2026-06-16 01:00 UTC = 2026-06-15 22:00 ART (UTC-3): HoyComercial es 15/06, un día antes
-        // que DateTime.UtcNow.Date/DateTime.Today (16/06). La cuota vence exactamente hoy en
+        // que DateTime.UtcNow.Date/TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial (16/06). La cuota vence exactamente hoy en
         // Argentina (15/06) — con la fecha comercial correcta NO está vencida (frontera estricta);
         // si el servicio usara UTC/Today en su lugar, la trataría como vencida desde ayer.
         var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
@@ -3332,7 +3332,7 @@ public class MoraServiceTests : IDisposable
 
     // -------------------------------------------------------------------------
     // GetAcuerdosPagoAsync — cierre PUN-ML7: la próxima cuota vigente ("ProximaFechaVencimiento")
-    // usaba DateTime.Today. Corregido a IRelojComercial.InicioDiaComercial — no cambia la regla de
+    // usaba TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial. Corregido a IRelojComercial.InicioDiaComercial — no cambia la regla de
     // negocio (misma comparación FechaVencimiento >= hoy), solo la fuente de "hoy".
     // -------------------------------------------------------------------------
 
@@ -3372,7 +3372,7 @@ public class MoraServiceTests : IDisposable
     public async Task GetAcuerdosPago_CuotaVenceHoy_SeConsideraProximaFecha_FronteraUsaRelojComercial()
     {
         // 01:00 UTC del 16/06 = 22:00 ART del 15/06 (UTC-3): "hoy" en Argentina es 15/06, un día antes
-        // que DateTime.UtcNow.Date/DateTime.Today (16/06). La cuota vence exactamente "hoy" en
+        // que DateTime.UtcNow.Date/TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial (16/06). La cuota vence exactamente "hoy" en
         // Argentina; con la fecha comercial correcta sigue siendo la próxima cuota vigente. Si el
         // servicio usara UTC/Today, la trataría como vencida desde ayer y la excluiría (quedaría null).
         var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
@@ -3614,7 +3614,7 @@ public class MoraServiceTests : IDisposable
     // =========================================================================
     // GetDashboardKPIsAsync — cierre PUN-ML7
     //
-    // Antes usaba DateTime.Today para "hoy" (inconsistente con el resto de MoraService, ya corregido)
+    // Antes usaba TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial para "hoy" (inconsistente con el resto de MoraService, ya corregido)
     // y la agregación de cobrosMes usaba SumAsync sobre decimal, que el proveedor Sqlite (usado en
     // estos tests) no traduce a SQL (NotSupportedException) — mismo límite documentado para otros
     // SumAsync de la base. Se corrigió a traer las filas y sumar en cliente (sin cambiar la regla de
@@ -3715,7 +3715,7 @@ public class MoraServiceTests : IDisposable
     public async Task GetDashboardKPIs_PromesaVenceHoy_ClasificaConFechaComercial_NoUtcNiToday()
     {
         // 01:00 UTC del 16/06 = 22:00 ART del 15/06 (UTC-3): "hoy" en Argentina es 15/06. Si el
-        // servicio usara DateTime.Today/UtcNow.Date (16/06) en vez de IRelojComercial, la promesa
+        // servicio usara TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial/UtcNow.Date (16/06) en vez de IRelojComercial, la promesa
         // de "hoy" en Argentina aparecería vencida un día antes de tiempo.
         var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
         var servicio = CrearServicioConReloj(reloj);
@@ -3834,7 +3834,7 @@ public class MoraServiceTests : IDisposable
             var c = await Db!.Cuotas.AsNoTracking().FirstAsync(x => x.Id == cuotaId, cancellationToken);
             var capital = c.MontoTotal - c.MontoPagado;
             return new PagoCuotaContextoResultado(
-                c.Id, c.CreditoId, c.NumeroCuota, "CRE", "Cliente", DateOnly.FromDateTime(c.FechaVencimiento), DateOnly.FromDateTime(DateTime.Today),
+                c.Id, c.CreditoId, c.NumeroCuota, "CRE", "Cliente", DateOnly.FromDateTime(c.FechaVencimiento), DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial),
                 c.Estado, 0, capital, null, EstadoCalculoPunitorioDetalle.Calculado, null, PunitorioPorCuota,
                 TotalCobrableIndeterminado ? null : capital + PunitorioPorCuota, true, null,
                 Convert.ToBase64String(new byte[] { 1 }));
@@ -3852,7 +3852,7 @@ public class MoraServiceTests : IDisposable
                 c.Estado = EstadoCuota.Pagada;
             var libro = new PagoCuota
             {
-                CuotaId = c.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = comando.MontoIngresado,
+                CuotaId = c.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = comando.MontoIngresado,
                 ImporteAplicadoCuota = comando.MontoIngresado, MedioPago = comando.MedioPago, Origen = OrigenPagoCuota.RegistradoPorSistema,
                 Estado = EstadoPagoCuota.Aplicado, OperacionExternaId = comando.OperacionExternaId
             };
@@ -3861,7 +3861,7 @@ public class MoraServiceTests : IDisposable
             if (FallarDespuesDelCobroNumero == Cobros.Count)
                 throw new InvalidOperationException("Corte simulado después de confirmar el cobro.");
             return new PagoCuotaResultado(c.Id, c.CreditoId, c.NumeroCuota, comando.MontoIngresado, 0m, comando.MontoIngresado, 0m,
-                comando.MontoIngresado, 0m, c.MontoTotal - c.MontoPagado, c.Estado, DateOnly.FromDateTime(DateTime.Today), 1, libro.Id, comando.MedioPago,
+                comando.MontoIngresado, 0m, c.MontoTotal - c.MontoPagado, c.Estado, DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), 1, libro.Id, comando.MedioPago,
                 Convert.ToBase64String(new byte[] { 1 }));
         }
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();

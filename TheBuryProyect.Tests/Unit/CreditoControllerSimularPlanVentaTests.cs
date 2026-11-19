@@ -155,7 +155,7 @@ public class CreditoControllerSimularPlanVentaTests
     public async Task SimularPlanVenta_FechaInvalida_UsaFallbackAlMesSiguiente()
     {
         var financial = new RecordingFinancialCalculationService();
-        var antes = DateTime.Today.AddMonths(1).Date;
+        var antes = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1).Date;
         var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
@@ -181,7 +181,7 @@ public class CreditoControllerSimularPlanVentaTests
             fechaPrimeraCuota: "fecha-invalida",
             tasaMensual: null,
             ventaId: venta.Id);
-        var despues = DateTime.Today.AddMonths(1).Date;
+        var despues = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1).Date;
 
         Assert.IsType<JsonResult>(result);
         Assert.NotNull(financial.ReceivedFechaPrimeraCuota);

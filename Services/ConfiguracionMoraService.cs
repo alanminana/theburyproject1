@@ -15,15 +15,18 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<ConfiguracionMoraService> _logger;
+        private readonly IRelojComercial _reloj;
 
         public ConfiguracionMoraService(
             AppDbContext context,
             IMapper mapper,
-            ILogger<ConfiguracionMoraService> logger)
+            ILogger<ConfiguracionMoraService> logger,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         public async Task<ConfiguracionMoraCompletaViewModel?> GetConfiguracionAsync()
@@ -90,7 +93,8 @@ namespace TheBuryProject.Services
 
             foreach (var cuota in cuotas)
             {
-                var diasRelativo = (DateTime.Today - cuota.FechaVencimiento).Days;
+                // Día comercial argentino (no DateTime.Today: en un servidor en UTC cruza de día a las 21:00 y adelantaría la alerta).
+                var diasRelativo = (_reloj.InicioDiaComercial - cuota.FechaVencimiento).Days;
                 var alertaAplicable = alertas
                     .Where(a => diasRelativo >= a.DiasRelativoVencimiento)
                     .OrderByDescending(a => a.DiasRelativoVencimiento)

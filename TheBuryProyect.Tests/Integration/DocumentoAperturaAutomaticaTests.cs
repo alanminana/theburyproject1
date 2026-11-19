@@ -56,7 +56,7 @@ public class DocumentoAperturaAutomaticaTests : DocumentoTestBase
         var c2 = await Context.Cuotas.FirstAsync(c => c.CreditoId == venta.CreditoId && c.NumeroCuota == 2);
         PagoCuota Nuevo(Cuota c) => new()
         {
-            CuotaId = c.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = 300m, ImporteAplicadoCuota = 300m,
+            CuotaId = c.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = 300m, ImporteAplicadoCuota = 300m,
             ImporteAplicadoPunitorio = 0m, MedioPago = "Efectivo", Origen = OrigenPagoCuota.RegistradoPorSistema,
             Estado = EstadoPagoCuota.Aplicado, HistorialCompleto = true
         };

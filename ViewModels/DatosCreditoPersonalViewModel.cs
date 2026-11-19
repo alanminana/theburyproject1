@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using System.ComponentModel.DataAnnotations;
 
 namespace TheBuryProject.ViewModels
@@ -33,7 +34,7 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Fecha Primera Cuota")]
         [Required(ErrorMessage = "La fecha de primera cuota es requerida")]
         [DataType(DataType.Date)]
-        public DateTime FechaPrimeraCuota { get; set; } = DateTime.Today.AddMonths(1);
+        public DateTime FechaPrimeraCuota { get; set; } = RelojComercial.Sistema.InicioDiaComercial.AddMonths(1);
 
         [Display(Name = "Tasa de Interés Mensual (%)")]
         [DisplayFormat(DataFormatString = "{0:N2}")]

@@ -250,6 +250,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 .chip-info { background: color-mix(in srgb, var(--pal-accent) 10%, transparent); color: var(--pal-accent); border-color: color-mix(in srgb, var(--pal-accent) 25%, transparent); }
 .chip-warn { background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); color: var(--pal-warning-400); border-color: color-mix(in srgb, var(--pal-warning-500) 25%, transparent); }
 .chip-bad { background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent); color: var(--pal-danger-400); border-color: transparent; }
+.chip-violet { background: color-mix(in srgb, var(--pal-violet-500) 10%, transparent); color: color-mix(in srgb, var(--pal-violet) 60%, white); border-color: color-mix(in srgb, var(--pal-violet-500) 25%, transparent); }
 .chip-neutral { background: color-mix(in srgb, var(--pal-neutral-450) 10%, transparent); color: var(--erp-fg-2, var(--pal-neutral-350)); border-color: color-mix(in srgb, var(--pal-neutral-450) 25%, transparent); }
 .chip-live { background: color-mix(in srgb, var(--pal-success-500) 12%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 30%, transparent); }
 .chip-live .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--pal-success-400); animation: chip-pulse 1.8s infinite; }

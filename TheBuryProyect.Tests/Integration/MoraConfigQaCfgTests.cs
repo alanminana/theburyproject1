@@ -447,7 +447,7 @@ public class MoraConfigQaCfgServiceTests : IDisposable
     {
         AlertaId = al.Id, ClienteId = cl.Id, CreditoId = cr.Id, MontoDeudaOriginal = deuda, MontoMoraOriginal = mora,
         MontoCondonar = condonar, MontoEntregaInicial = entrega, CantidadCuotas = cuotas,
-        FechaPrimeraCuota = DateTime.Today.AddMonths(1)
+        FechaPrimeraCuota = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1)
     };
 
     // CFG-08 — límites de acuerdos de pago (cuotas, entrega mínima, condonación permitida)

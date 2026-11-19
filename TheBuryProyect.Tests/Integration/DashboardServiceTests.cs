@@ -23,7 +23,7 @@ public class DashboardServiceTests : IDisposable
 
     /// <summary>
     /// Fecha comercial (Argentina) real, compartida por <see cref="_service"/> y los helpers de seed
-    /// de este archivo. Antes los helpers sembraban con <c>DateTime.Today</c> (calendario local del
+    /// de este archivo. Antes los helpers sembraban con <c>TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial</c> (calendario local del
     /// proceso) mientras DashboardService compara contra <c>IRelojComercial.InicioDiaComercial</c>
     /// (día comercial de Argentina, UTC-3 real, resuelto por defecto vía RelojComercial.Sistema): en
     /// un runner Linux en UTC, entre las 00:00 y las 03:00 UTC ambas fechas difieren en un día,

@@ -97,7 +97,7 @@
             <div class="card card-pad" id="impact-card">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="material-symbols-outlined" id="impact-icon" style="color:@(esEgreso ? "var(--pal-danger-400)" : "var(--pal-success-400)");font-size:20px">@(esEgreso ? "trending_down" : "trending_up")</span>
-                    <h3 class="font-semibold text-white">Impacto en la caja</h3>
+                    <h3 class="font-semibold text-white" aria-level="2">Impacto en la caja</h3>
                 </div>
                 <dl>
                     <div class="defrow"><dt>Efectivo esperado actual</dt><dd class="num" id="impact-base" data-value="@saldoActualValue.ToString(System.Globalization.CultureInfo.InvariantCulture)">@saldoActual</dd></div>
@@ -109,7 +109,7 @@
             <div class="card card-pad">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">tips_and_updates</span>
-                    <h3 class="font-semibold text-white">Buenas prácticas</h3>
+                    <h3 class="font-semibold text-white" aria-level="2">Buenas prácticas</h3>
                 </div>
                 <ul class="help-list">
                     <li><span class="material-symbols-outlined">receipt_long</span>Cargá siempre la referencia del comprobante: facilita el arqueo.</li>

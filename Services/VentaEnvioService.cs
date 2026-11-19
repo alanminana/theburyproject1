@@ -38,15 +38,18 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<VentaEnvioService> _logger;
         private readonly IDocumentoService? _documentoService;
+        private readonly IRelojComercial _reloj;
 
         public VentaEnvioService(
             AppDbContext context,
             ILogger<VentaEnvioService> logger,
-            IDocumentoService? documentoService = null)
+            IDocumentoService? documentoService = null,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _logger = logger;
             _documentoService = documentoService;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         public bool EsTransicionValida(EstadoEnvio estadoActual, EstadoEnvio nuevoEstado)
@@ -133,7 +136,7 @@ namespace TheBuryProject.Services
                 }
 
                 // Mismo criterio que la fecha programada al crear/editar la venta: no admite días pasados.
-                if (nuevaFechaProgramada.Value.Date < DateTime.Today)
+                if (nuevaFechaProgramada.Value.Date < _reloj.InicioDiaComercial)
                 {
                     return CambiarEstadoEnvioResultado.Fallido(
                         "La nueva fecha de entrega no puede ser anterior a hoy.");

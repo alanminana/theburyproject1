@@ -3306,7 +3306,7 @@ namespace TheBuryProject.Services
                 SaldoRestante = credito.SaldoPendiente,
                 FechaPrimeraCuota = cuotasGeneradas
                     ? cuotas[0].FechaVencimiento
-                    : credito.FechaPrimeraCuota ?? DateTime.Today.AddMonths(1),
+                    : credito.FechaPrimeraCuota ?? RelojComercial.Sistema.InicioDiaComercial.AddMonths(1),
                 Cuotas = cuotasViewModel
             };
 

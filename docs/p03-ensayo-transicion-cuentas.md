@@ -37,7 +37,7 @@ Sin credenciales en este documento: el script genera las contraseñas en memoria
 
 ## 3. Defectos y observaciones
 
-1. **Bajo, real:** el alta de usuario valida Nombre/Apellido con `SoloLetras` (máx. **10 letras por palabra**, 3 palabras). Un nombre o apellido legítimo de 11+ letras (p. ej. «Constantino») se rechaza con un mensaje que no aclara el límite. Afecta el alta de los usuarios reales; no se corrigió (decisión de producto: subir `MaxWordLength` en `CrearUsuarioViewModel` y la edición). Hasta entonces, cargar un nombre abreviado.
+1. **Bajo, real (decisión de producto pendiente, ver `docs/estado-software-pre-instalacion.md` §2.7):** el alta de usuario valida Nombre/Apellido con `SoloLetras` (máx. **10 letras por palabra**, 3 palabras). Un nombre o apellido legítimo de 11+ letras (p. ej. «Constantino») se rechaza con un mensaje que no aclara el límite. Afecta el alta de los usuarios reales; no se corrigió (decisión de producto: subir `MaxWordLength` en `CrearUsuarioViewModel` y la edición). Hasta entonces, cargar un nombre abreviado.
 2. **Observación:** la guardia del último SuperAdmin no comprueba que alguien conozca la contraseña ni que haya aceptado Términos (ya documentado). Por eso el runbook obliga a **probar el ingreso** de cada cuenta antes de desactivar `admin`.
 3. Con Términos pendientes el login responde 200 (mismo formulario, paso 2) y no 302: quien automatice debe verificar la cookie, no el redirect (el script lo hace).
 4. Sin otros defectos de la aplicación: las fallas intermedias de la primera corrida eran del script (cookie/redirect, columna SQL, límite de nombre) y se corrigieron.

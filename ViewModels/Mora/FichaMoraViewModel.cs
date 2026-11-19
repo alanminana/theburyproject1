@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels.Mora
@@ -167,8 +168,8 @@ namespace TheBuryProject.ViewModels.Mora
         public DateTime FechaPromesa { get; set; }
         public decimal MontoPrometido { get; set; }
         public DateTime FechaRegistro { get; set; }
-        public bool Vencida => FechaPromesa.Date < DateTime.Today;
-        public int DiasRestantes => (FechaPromesa.Date - DateTime.Today).Days;
+        public bool Vencida => FechaPromesa.Date < RelojComercial.Sistema.InicioDiaComercial;
+        public int DiasRestantes => (FechaPromesa.Date - RelojComercial.Sistema.InicioDiaComercial).Days;
         public string EstadoPromesa => Vencida ? "Vencida" : $"{DiasRestantes} días restantes";
     }
 

@@ -279,7 +279,7 @@ public class MoraClientesFichaHttpTests : IClassFixture<CustomWebApplicationFact
             MontoCapital = 800m,
             MontoInteres = 200m,
             MontoTotal = 1_000m,
-            FechaVencimiento = DateTime.Today.AddDays(-20),
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-20),
             Estado = EstadoCuota.Pendiente
         });
 
@@ -294,7 +294,7 @@ public class MoraClientesFichaHttpTests : IClassFixture<CustomWebApplicationFact
             CuotasVencidas = 1,
             DiasAtraso = 20,
             FechaAlerta = DateTime.UtcNow,
-            FechaPromesaPago = conPromesa ? DateTime.Today.AddDays(5) : null,
+            FechaPromesaPago = conPromesa ? TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5) : null,
             MontoPromesaPago = conPromesa ? 1_000m : null,
             EstadoGestion = conPromesa ? EstadoGestionCobranza.PromesaPago : EstadoGestionCobranza.Pendiente
         };

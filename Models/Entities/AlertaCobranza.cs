@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Base;
 using TheBuryProject.Models.Enums;
@@ -184,7 +185,7 @@ namespace TheBuryProject.Models.Entities
         /// <summary>
         /// Si la promesa de pago está vencida
         /// </summary>
-        public bool PromesaVencida => FechaPromesaPago.HasValue && FechaPromesaPago.Value < DateTime.Today && EstadoGestion == EstadoGestionCobranza.PromesaPago;
+        public bool PromesaVencida => FechaPromesaPago.HasValue && FechaPromesaPago.Value < RelojComercial.Sistema.InicioDiaComercial && EstadoGestion == EstadoGestionCobranza.PromesaPago;
 
         #endregion
     }

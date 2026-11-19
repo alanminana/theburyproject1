@@ -161,7 +161,7 @@ public sealed class CotizacionNumeracionTests : IDisposable
             Task.FromResult(new CotizacionSimulacionResultado
             {
                 Exitoso = true,
-                FechaCalculo = DateTime.Today,
+                FechaCalculo = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
                 Subtotal = 100m,
                 DescuentoTotal = 0m,
                 TotalBase = 100m,

@@ -278,8 +278,8 @@ public class ProveedorServiceTests : IDisposable
             Numero = "CHQ-0001",
             Banco = "Banco Test",
             Monto = 1000m,
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Estado = EstadoCheque.Emitido // vigente (no Cobrado/Rechazado/Anulado)
         });
         await _context.SaveChangesAsync();
@@ -299,8 +299,8 @@ public class ProveedorServiceTests : IDisposable
             Numero = "CHQ-0002",
             Banco = "Banco Test",
             Monto = 500m,
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Estado = EstadoCheque.Cobrado // no vigente
         });
         await _context.SaveChangesAsync();

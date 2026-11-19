@@ -460,7 +460,7 @@ public sealed class ConfiguracionPagoControllerTests
         var financial = new FinancialCalculationService();
 
         var resultado = Assert.IsType<JsonResult>(controller.PreviewRecargoCreditoPersonal(6, 10m));
-        var esperado = financial.SimularPlanCredito(100_000m, 0m, 6, 10m, 0m, DateTime.Today.AddMonths(1));
+        var esperado = financial.SimularPlanCredito(100_000m, 0m, 6, 10m, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1));
 
         Assert.Equal(esperado.MontoFinanciado, GetJsonProp<decimal>(resultado.Value!, "saldoAFinanciar"));
         Assert.Equal(esperado.InteresTotal, GetJsonProp<decimal>(resultado.Value!, "recargoTotal"));

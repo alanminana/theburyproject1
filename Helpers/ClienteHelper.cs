@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using System;
 using System.Collections.Generic;
 using TheBuryProject.Models.Enums;
@@ -17,7 +18,7 @@ namespace TheBuryProject.Helpers
             if (!fechaNacimiento.HasValue)
                 return null;
 
-            var hoy = DateTime.Today;
+            var hoy = RelojComercial.Sistema.InicioDiaComercial;
             var edad = hoy.Year - fechaNacimiento.Value.Year;
 
             // Restar 1 si el cumplea�os a�n no ha ocurrido este a�o

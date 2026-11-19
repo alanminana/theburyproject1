@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using TheBuryProject.Services;
+using AutoMapper;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
@@ -135,7 +136,7 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.EstadoNombre, o => o.MapFrom(s => s.Estado.ToString()))
                 .ForMember(d => d.DiasPorVencer, o => o.MapFrom(s =>
                     s.FechaVencimiento.HasValue
-                        ? (int)(s.FechaVencimiento.Value - DateTime.Today).TotalDays
+                        ? (int)(s.FechaVencimiento.Value - RelojComercial.Sistema.InicioDiaComercial).TotalDays
                         : 0));
 
             CreateMap<ChequeViewModel, Cheque>()

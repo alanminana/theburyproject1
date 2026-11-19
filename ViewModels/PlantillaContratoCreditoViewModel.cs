@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Validation;
 
@@ -59,7 +60,7 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Vigente desde")]
         [Required(ErrorMessage = "La fecha de inicio de vigencia es requerida")]
         [DataType(DataType.Date)]
-        public DateTime VigenteDesde { get; set; } = DateTime.Today;
+        public DateTime VigenteDesde { get; set; } = RelojComercial.Sistema.InicioDiaComercial;
 
         [Display(Name = "Vigente hasta")]
         [DataType(DataType.Date)]

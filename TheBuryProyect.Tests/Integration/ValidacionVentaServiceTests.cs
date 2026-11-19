@@ -105,7 +105,7 @@ public class ValidacionVentaServiceTests : IDisposable
             Estado = EstadoVenta.Confirmada,
             TipoPago = tipoPago,
             CreditoId = creditoId,
-            FechaVenta = DateTime.Today,
+            FechaVenta = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Subtotal = total,
             Total = total
         };

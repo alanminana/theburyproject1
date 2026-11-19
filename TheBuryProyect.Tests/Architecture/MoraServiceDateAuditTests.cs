@@ -5,7 +5,7 @@ namespace TheBuryProject.Tests.Architecture;
 /// <summary>
 /// PUN-ML7 (cierre): auditoría estructural final de fuentes de fecha en MoraService. Ninguna
 /// decisión comercial (vencimiento, vigencia de promesas/acuerdos, clasificación de KPIs) puede
-/// depender de DateTime.Today/DateTime.Now — varían con la zona del proceso, no con Argentina — toda
+/// depender de TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial/DateTime.Now — varían con la zona del proceso, no con Argentina — toda
 /// fecha "hoy" debe pasar por IRelojComercial (HoyComercial/InicioDiaComercial).
 /// DateTime.UtcNow sigue permitido: en este archivo se usa exclusivamente para timestamps técnicos
 /// de auditoría (CreatedAt/UpdatedAt/FechaAlerta/FechaContacto/FechaResolucion, duración de
@@ -19,7 +19,7 @@ public sealed partial class MoraServiceDateAuditTests
     {
         var source = LeerFuenteMoraServiceSinComentariosNiStrings();
 
-        Assert.DoesNotContain("DateTime.Today", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial", source, StringComparison.Ordinal);
         // No matchea "DateTime.UtcNow": tras "DateTime." el siguiente caracter ahí es 'U', no 'N'.
         Assert.DoesNotContain("DateTime.Now", source, StringComparison.Ordinal);
     }

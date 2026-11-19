@@ -198,13 +198,13 @@
     <div id="credito-tabs" class="credito-tabs">
         <div class="credito-tabs__bar">
             <div class="tabs" role="tablist" aria-label="Secciones de créditos">
-                <button class="tab" type="button" role="tab" aria-selected="true" aria-pressed="true"
+                <button class="tab" type="button" role="tab" aria-selected="true"
                         data-credito-tab="creditos">
                     <span class="material-symbols-outlined">folder_open</span>
                     Cartera
                     <span class="tab-count">@totalClientes</span>
                 </button>
-                <button class="tab" type="button" role="tab" aria-selected="false" aria-pressed="false"
+                <button class="tab" type="button" role="tab" aria-selected="false"
                         data-credito-tab="moras">
                     <span class="material-symbols-outlined">running_with_errors</span>
                     Moras
@@ -304,7 +304,7 @@
                         <div class="card">
                             <div class="empty">
                                 <div class="empty-ic"><span class="material-symbols-outlined">search_off</span></div>
-                                <h3>Sin resultados</h3>
+                                <h3 aria-level="2">Sin resultados</h3>
                                 <p>No encontramos créditos con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
                                 @if (filtroCreditoActivo)
                                 {

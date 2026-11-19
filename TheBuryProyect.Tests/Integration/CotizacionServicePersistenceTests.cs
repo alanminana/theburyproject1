@@ -551,7 +551,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
             return Task.FromResult(new CotizacionSimulacionResultado
             {
                 Exitoso = true,
-                FechaCalculo = DateTime.Today,
+                FechaCalculo = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
                 Subtotal = 100m,
                 DescuentoTotal = _descuentoTotal,
                 TotalBase = _totalBase,
@@ -618,7 +618,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
             return Task.FromResult(new CotizacionSimulacionResultado
             {
                 Exitoso = true,
-                FechaCalculo = DateTime.Today,
+                FechaCalculo = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
                 Subtotal = 100m,
                 DescuentoTotal = 0m,
                 TotalBase = totalBase,
@@ -685,7 +685,7 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
             return Task.FromResult(new CotizacionSimulacionResultado
             {
                 Exitoso = true,
-                FechaCalculo = DateTime.Today,
+                FechaCalculo = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
                 Subtotal = 100m,
                 DescuentoTotal = 0m,
                 TotalBase = 100m,

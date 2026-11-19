@@ -24,7 +24,7 @@ public class VistasFechaComercialContractTests
         ["Views/Usuarios/_BloquearUsuarioModal_tw.cshtml"] =
             "min del bloqueo: UsuariosController.Bloquear interpreta el datetime-local como hora local del servidor.",
         ["Views/Venta/Index_tw.cshtml"] =
-            "Mes en curso de la pestaña Logística: debe coincidir con VentaController.Index (DateTime.Today del servidor).",
+            "Mes en curso de la pestaña Logística: debe coincidir con VentaController.Index (TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial del servidor).",
         // Comparan un instante (DateTimeOffset.UtcNow) contra LockoutEnd, que es un instante UTC: correcto.
         ["Views/Shared/_SeguridadUsuariosTab.cshtml"] = "Compara instantes UTC (LockoutEnd vs UtcNow).",
         ["Views/Usuarios/Details_tw.cshtml"] = "Compara instantes UTC (LockoutEnd vs UtcNow).",
@@ -57,7 +57,7 @@ public class VistasFechaComercialContractTests
         }
 
         Assert.True(infractores.Count == 0,
-            "Las vistas deben usar el día comercial (Reloj de IRelojComercial), no DateTime.Today/Now/UtcNow:\n" +
+            "Las vistas deben usar el día comercial (Reloj de IRelojComercial), no TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial/Now/UtcNow:\n" +
             string.Join("\n", infractores));
     }
 

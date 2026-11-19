@@ -386,7 +386,7 @@ public class DocumentoClienteServiceTests : IDisposable
             cliente.Id,
             TipoDocumentoCliente.ReciboSueldo,
             EstadoDocumento.Verificado,
-            fechaVencimiento: DateTime.UtcNow.AddDays(-1));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1));
 
         await _service.MarcarVencidosAsync();
 

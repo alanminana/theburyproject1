@@ -175,7 +175,7 @@ namespace TheBuryProject.Controllers
                         System.Globalization.CultureInfo.InvariantCulture,
                         System.Globalization.DateTimeStyles.None, out var mesElegido)
                     ? new DateTime(mesElegido.Year, mesElegido.Month, 1)
-                    : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                    : new DateTime(RelojComercial.Sistema.InicioDiaComercial.Year, RelojComercial.Sistema.InicioDiaComercial.Month, 1);
                 ViewBag.EnviosMes = mesHistorial;
                 ViewBag.EnviosHistorial = await _ventaEnvioService.GetCerradosPorMesAsync(mesHistorial.Year, mesHistorial.Month);
 
@@ -1783,7 +1783,7 @@ namespace TheBuryProject.Controllers
                 var facturaViewModel = new FacturaViewModel
                 {
                     VentaId = id,
-                    FechaEmision = DateTime.Today,
+                    FechaEmision = RelojComercial.Sistema.InicioDiaComercial,
                     Tipo = tipo
                 };
 
@@ -1927,7 +1927,7 @@ namespace TheBuryProject.Controllers
             return new FacturaViewModel
             {
                 VentaId = venta.Id,
-                FechaEmision = DateTime.Today,
+                FechaEmision = RelojComercial.Sistema.InicioDiaComercial,
                 Tipo = TipoFactura.B,
                 Subtotal = venta.Subtotal,
                 IVA = venta.IVA,
@@ -1943,7 +1943,7 @@ namespace TheBuryProject.Controllers
         {
             return new VentaViewModel
             {
-                FechaVenta = DateTime.Today,
+                FechaVenta = RelojComercial.Sistema.InicioDiaComercial,
                 Estado = EstadoVenta.Presupuesto,
                 TipoPago = TipoPago.Efectivo,
                 // FIN-S-018: una clave nueva por cada apertura del formulario de alta.

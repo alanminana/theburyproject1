@@ -86,7 +86,7 @@ public class VentaControllerEditEnvioModelStateTests
             null!, // VentaViewBagBuilder — no usado
             null!, // IContratoVentaCreditoService — no usado
             null!, // AppDbContext — no usado
-            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)),
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial)),
             null!); // IVentaEnvioService — no usado
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };

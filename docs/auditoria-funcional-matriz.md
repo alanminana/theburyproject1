@@ -1,5 +1,7 @@
 # Auditoría funcional integral — matriz de aceptación con evidencia (fases 1-8, cierre funcional 2026-11-07)
 
+> **Documento histórico (foto del 2026-11-07).** Desde entonces D-01 entregó las listas de precios (las filas «Incompleta: sin listas de precios» de Cambios de precios ya no describen el sistema), V-02 retiró la acreditación de cheques (la fila «Cheques / No verificada: acreditar» dejó de existir) y D-03 agregó Tesorería. El estado vigente y la separación entre terminado, bloqueado, servidor real y diferido están en `docs/estado-software-pre-instalacion.md`.
+
 Base: `main` con los PR #236 a #254 fusionados (fases 1 a 8; las menciones «fase N» dentro de cada fila indican en qué fase se obtuvo esa evidencia, no que la matriz esté en esa fase). **H-01 está aplicada a la base real e integrada (PR #239)**; los permisos del Gerente también (ver `docs/h01-aplicacion-segura.md`).
 **Estado: la auditoría funcional está CERRADA en su fase 8 (2026-11-07, PR #253); el desarrollo funcional NO se declara finalizado** (lotes de precios diferidos, decisiones del propietario y verificaciones externas pendientes, ver §5 y §6). Hay **dos métricas distintas** que no deben confundirse:
 

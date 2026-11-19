@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using TheBuryProject.Services;
+using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Validation;
@@ -363,8 +364,8 @@ public class HistorialCierresViewModel
 /// </summary>
 public class ReporteCajaViewModel
 {
-    public DateTime FechaDesde { get; set; } = DateTime.Today.AddDays(-30);
-    public DateTime FechaHasta { get; set; } = DateTime.Today;
+    public DateTime FechaDesde { get; set; } = RelojComercial.Sistema.InicioDiaComercial.AddDays(-30);
+    public DateTime FechaHasta { get; set; } = RelojComercial.Sistema.InicioDiaComercial;
     public int? CajaId { get; set; }
 
     public List<AperturaCaja> Aperturas { get; set; } = new();

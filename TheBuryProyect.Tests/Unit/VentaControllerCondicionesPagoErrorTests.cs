@@ -123,7 +123,7 @@ public class VentaControllerCondicionesPagoErrorTests
     {
         IdempotencyKey = Guid.NewGuid(),   // FIN-S-018
         ClienteId = 1,
-        FechaVenta = DateTime.Today,
+        FechaVenta = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
         Estado = EstadoVenta.Presupuesto,
         TipoPago = TipoPago.Efectivo,
         Detalles =
