@@ -41,8 +41,8 @@ public class NormalizacionCamposViewModelsTests
     }
 
     [Theory]
-    [InlineData("Maximiliano")]            // 11 letras
-    [InlineData("Juan Carlos Maria Jose")] // 4 palabras
+    [InlineData("Abcdefghijklmnopqrstu")]  // 21 letras (tope: 20 por palabra)
+    [InlineData("Ana Maria de los Angeles Gomez Paz")] // 7 palabras (tope: 6)
     [InlineData("Juan3")]                  // número
     [InlineData("Juan@")]                  // símbolo
     public void Cliente_NombreInvalido(string valor)
