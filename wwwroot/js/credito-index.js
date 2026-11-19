@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function setTabButtonState(button, isActive) {
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         button.setAttribute('aria-selected', isActive ? 'true' : 'false');
         button.classList.toggle('border-primary', isActive);
         button.classList.toggle('text-primary', isActive);

@@ -42,10 +42,10 @@
         </div>
 
         <!-- Heading -->
-        <h2 class="text-5xl font-extrabold tracking-tight mb-6"
+        <h1 class="text-5xl font-extrabold tracking-tight mb-6"
             style="color: var(--c-on-surface); letter-spacing: -0.03em;">
             403 — Acceso Denegado
-        </h2>
+        </h1>
 
         <p class="text-lg leading-relaxed mb-10 max-w-lg mx-auto"
            style="color: var(--c-on-surface-var);">
@@ -76,19 +76,19 @@
              style="border-top: 1px solid color-mix(in srgb, var(--pal-neutral-650) 15%, transparent);">
             <div class="text-left">
                 <span class="block text-[10px] uppercase tracking-widest font-bold mb-1"
-                      style="color: color-mix(in srgb, var(--pal-neutral-350) 45%, transparent);">ID de Sesión</span>
+                      style="color: var(--c-on-surface-var);">ID de Sesión</span>
                 <code class="text-xs font-mono" style="color: color-mix(in srgb, var(--pal-info-200) 60%, transparent);">@sessionId</code>
             </div>
             <div class="text-right">
                 <span class="block text-[10px] uppercase tracking-widest font-bold mb-1"
-                      style="color: color-mix(in srgb, var(--pal-neutral-350) 45%, transparent);">Timestamp</span>
+                      style="color: var(--c-on-surface-var);">Timestamp</span>
                 <code class="text-xs font-mono" style="color: color-mix(in srgb, var(--pal-info-200) 60%, transparent);">@timestamp</code>
             </div>
         </div>
     </div>
 
     <!-- Decorative tape -->
-    <div class="absolute bottom-10 left-10 flex items-center gap-4 select-none pointer-events-none"
+    <div aria-hidden="true" class="absolute bottom-10 left-10 flex items-center gap-4 select-none pointer-events-none"
          style="opacity: 0.18;">
         <span class="h-px w-20" style="background-color: var(--c-outline-var); display: block;"></span>
         <span class="text-[10px] tracking-[0.4em] uppercase font-bold"
