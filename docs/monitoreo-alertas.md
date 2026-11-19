@@ -284,3 +284,7 @@ Ver `docs/monitoreo-validacion.md` para resultados, consumo, límites y archivos
 ## Nota de configuración: copia externa no configurada
 
 `backup_windows` de `config.example.json` incluye `offsite-sql` y `offsite-files`. Cada clave **exige** un estado verificado reciente: en un host sin copia externa (`BACKUP_REMOTE` vacío) generan `backup.offsite-*` CRITICAL permanente. Quitarlas de `/etc/bury-monitor/config.json` mientras no haya offsite, y volver a agregarlas al activarlo (así la ausencia de offsite es una decisión explícita, no un falso incidente). Validado en la VM de ensayo: [p04-p08-preproduccion-ubuntu-vm.md](p04-p08-preproduccion-ubuntu-vm.md).
+
+## Nota de operación: disco y claves retiradas
+
+Una señal de disco se emite **por filesystem** (no por ruta): `/`, `DockerRootDir`, `BACKUP_DIR` y los volúmenes en el mismo dispositivo se agrupan en la primera ruta, con el detalle «same filesystem as N other monitored path(s)». Una clave retirada de `config.json` no resuelve sus alertas abiertas (una muestra ausente nunca resuelve): ciérrelas en el receptor. Evidencia: [p04-p08-matriz-criterios-vm-simulada.md](p04-p08-matriz-criterios-vm-simulada.md).

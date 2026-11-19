@@ -2,7 +2,7 @@
 
 Entorno **descartable de ensayo**: VM Ubuntu 26.04 (VMware, 4 CPU, 7,8 GiB, disco 100 GB) con Docker Engine 29.10 y Compose 5.8
 (repositorio oficial de Docker), ERP instalado con `scripts/install/install.sh` sobre `main` (02c01635), SQL Server Express **nuevo** y datos
-**sintéticos** (un cliente creado por la propia app). No se tocó ninguna base histórica. Este documento **no cierra** P-04..P-08: separa lo
+**sintéticos** (un cliente creado por la propia app). No se tocó ninguna base histórica. Matriz por criterio y pruebas posteriores (corte de energía, disco lleno, drill en segunda máquina, Tailscale de ensayo, observador externo, D-05): [p04-p08-matriz-criterios-vm-simulada.md](p04-p08-matriz-criterios-vm-simulada.md). Este documento **no cierra** P-04..P-08: separa lo
 comprobado aquí de lo que sigue dependiendo del servidor definitivo y del propietario. Sin secretos ni credenciales.
 
 ## 1. Validado en esta VM (con evidencia)

@@ -200,6 +200,53 @@ class MonitoringTests(unittest.TestCase):
             self.collector.disks()
         self.assertEqual(self.collector.signals["disk./"]["severity"], "CRITICAL")
 
+    def test_disk_paths_on_same_filesystem_emit_one_signal(self):
+        """Rutas del mismo dispositivo (/, DockerRootDir, BACKUP_DIR, volumenes) = una sola alerta de disco, no una por ruta."""
+        usage = monitor.shutil._ntuple_diskusage(100*monitor.GIB, 95*monitor.GIB, 5*monitor.GIB)
+        a, b, c = (Path(self.tmp.name) / n for n in ("a", "b", "c"))
+        for d in (a, b, c): d.mkdir()
+        self.collector.cfg.update(disk_paths=[str(a)], backup_dir=str(b))
+        self.collector.slow = False
+        with patch.object(monitor, "command", side_effect=[str(c), "vol1" + chr(10) + "vol2", f"{a}/x" + chr(10) + f"{b}/y"]), \
+             patch.object(monitor.shutil, "disk_usage", return_value=usage), patch.object(monitor.os, "stat") as stat:
+            stat.return_value.st_dev = 7
+            self.collector.disks()
+        disk = [k for k in self.collector.signals if k.startswith("disk.") and not k.startswith("disk.action.")]
+        self.assertEqual(disk, ["disk." + str(a)])
+        self.assertIn("same filesystem as", self.collector.signals["disk." + str(a)]["detail"])
+        self.assertEqual(self.collector.signals["disk." + str(a)]["severity"], "CRITICAL")
+
+    def test_disk_paths_on_different_filesystems_are_all_monitored(self):
+        usage = monitor.shutil._ntuple_diskusage(100*monitor.GIB, 10*monitor.GIB, 90*monitor.GIB)
+        a, b = (Path(self.tmp.name) / n for n in ("a", "b"))
+        for d in (a, b): d.mkdir()
+        self.collector.cfg.update(disk_paths=[str(a)], backup_dir=str(b))
+        self.collector.slow = False
+        devs = {str(a): 1, str(b): 2, str(a / "docker"): 1}
+        with patch.object(monitor, "command", side_effect=[str(a / "docker"), ""]), patch.object(monitor.shutil, "disk_usage", return_value=usage),              patch.object(monitor.os, "stat", side_effect=lambda p: type("S", (), {"st_dev": devs.get(str(p), 9)})()):
+            self.collector.disks()
+        disk = sorted(k for k in self.collector.signals if k.startswith("disk.") and not k.startswith("disk.action."))
+        self.assertEqual(disk, sorted(["disk." + str(a), "disk." + str(b)]))
+
+    def test_disk_unstatable_path_is_kept_and_action_signal_follows_filesystem(self):
+        """Una ruta cuyo stat falla se conserva (su fallo es informacion); disk.action.* se emite solo para la ruta representante."""
+        usage = monitor.shutil._ntuple_diskusage(100*monitor.GIB, 90*monitor.GIB, 10*monitor.GIB)
+        a, b = (Path(self.tmp.name) / n for n in ("a", "b"))
+        for d in (a, b): d.mkdir()
+        self.collector.cfg.update(disk_paths=[str(a)], backup_dir=str(b))
+        self.collector.slow = False
+        def stat(path):
+            if str(path).endswith("roto"): raise OSError("sin acceso")
+            return type("S", (), {"st_dev": 3})()
+        with patch.object(monitor, "command", side_effect=[str(a / "roto"), ""]), patch.object(monitor.shutil, "disk_usage", return_value=usage), \
+             patch.object(monitor.os, "stat", side_effect=stat):
+            self.collector.disks()
+        keys = sorted(k for k in self.collector.signals if k.startswith("disk."))
+        self.assertIn("disk." + str(a / "roto"), keys)          # conservada pese al stat fallido
+        self.assertIn("disk.action." + str(a), keys)
+        self.assertNotIn("disk." + str(b), keys)                # mismo dispositivo que `a`: agrupada
+        self.assertNotIn("disk.action." + str(b), keys)
+
     def test_restart_oom_and_migration(self):
         rows = [dict(id=svc, service=svc, state="running", health="healthy", oom=False,
                      exit=0, restart=0, cpus=1000000000, memory=1000000) for svc in monitor.SERVICES]

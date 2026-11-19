@@ -1,0 +1,9 @@
+{
+  // Politica de ENSAYO equivalente a deploy/tailscale/policy.hujson (grants -> acls de Headscale):
+  // solo group:erp-usuarios alcanza tag:erp, y solo por 443. Nada de 22/1433/8080. Sin acceso entre personas.
+  "groups": { "group:erp-usuarios": ["persona1@", "persona2@"] },
+  "tagOwners": { "tag:erp": ["servidor@"] },
+  "acls": [
+    { "action": "accept", "src": ["group:erp-usuarios"], "dst": ["tag:erp:443"] }
+  ]
+}
