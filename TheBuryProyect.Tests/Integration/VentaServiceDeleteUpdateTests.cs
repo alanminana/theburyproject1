@@ -904,8 +904,8 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             NumeroCheque = "00012345",
             Banco = "Banco Nación",
             Titular = "Juan Pérez",
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Monto = 1_500m
         };
 
@@ -926,8 +926,8 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             NumeroCheque = "00000001",
             Banco = "Test",
             Titular = "Test",
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Monto = 100m
         };
 
@@ -1107,7 +1107,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             MontoCapital = 1_000m,
             MontoInteres = 0m,
             MontoTotal = 1_000m,
-            FechaVencimiento = DateTime.Today.AddMonths(1),
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1),
             Estado = EstadoCuota.Pendiente
         });
         await _context.SaveChangesAsync();

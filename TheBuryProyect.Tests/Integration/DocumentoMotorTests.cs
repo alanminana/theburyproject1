@@ -206,7 +206,7 @@ public abstract class DocumentoTestBase : IDisposable
         var cuota = await Context.Cuotas.OrderBy(c => c.NumeroCuota).FirstAsync(c => c.CreditoId == venta.CreditoId);
         var pago = new PagoCuota
         {
-            CuotaId = cuota.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.Today), ImporteTotal = importe,
+            CuotaId = cuota.Id, FechaPagoComercial = DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial), ImporteTotal = importe,
             ImporteAplicadoCuota = importe, ImporteAplicadoPunitorio = 0m, MedioPago = "Efectivo",
             Origen = OrigenPagoCuota.RegistradoPorSistema, Estado = EstadoPagoCuota.Aplicado, HistorialCompleto = true
         };

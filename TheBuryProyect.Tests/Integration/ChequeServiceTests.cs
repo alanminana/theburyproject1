@@ -80,7 +80,7 @@ public class ChequeServiceTests : IDisposable
             Numero = numero ?? "CHQ-" + Guid.NewGuid().ToString("N")[..6],
             Banco = "Banco Test",
             Monto = 1000m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             FechaVencimiento = fechaVencimiento,
             Estado = estado,
             ProveedorId = proveedorId
@@ -105,8 +105,8 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-001",
             Banco = "Banco Test",
             Monto = 5000m,
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(30),
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(30),
             Estado = EstadoCheque.Emitido,
             ProveedorId = proveedor.Id
         };
@@ -130,7 +130,7 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-DUP",
             Banco = "Banco Test",
             Monto = 100m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Estado = EstadoCheque.Emitido,
             ProveedorId = proveedor.Id
         };
@@ -147,7 +147,7 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-002",
             Banco = "Banco Test",
             Monto = 100m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Estado = EstadoCheque.Emitido,
             ProveedorId = 99999
         };
@@ -166,8 +166,8 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-003",
             Banco = "Banco Test",
             Monto = 100m,
-            FechaEmision = DateTime.Today,
-            FechaVencimiento = DateTime.Today.AddDays(-1), // anterior
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1), // anterior
             Estado = EstadoCheque.Emitido,
             ProveedorId = proveedor.Id
         };
@@ -188,7 +188,7 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-004",
             Banco = "Banco Test",
             Monto = 100m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Estado = EstadoCheque.Emitido,
             ProveedorId = proveedor2.Id, // proveedor diferente a la orden
             OrdenCompraId = orden.Id
@@ -209,7 +209,7 @@ public class ChequeServiceTests : IDisposable
             Numero = "CHQ-005",
             Banco = "Banco Test",
             Monto = 100m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Estado = EstadoCheque.Emitido,
             ProveedorId = proveedor.Id,
             OrdenCompraId = orden.Id
@@ -347,7 +347,7 @@ public class ChequeServiceTests : IDisposable
         var proveedor = await SeedProveedorAsync();
         // Vencido (fecha pasada) y en estado Emitido (no finalizado)
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Emitido,
-            fechaVencimiento: DateTime.Today.AddDays(-1));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1));
 
         var resultado = await _service.GetVencidosAsync();
 
@@ -359,7 +359,7 @@ public class ChequeServiceTests : IDisposable
     {
         var proveedor = await SeedProveedorAsync();
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Cobrado,
-            fechaVencimiento: DateTime.Today.AddDays(-1));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1));
 
         var resultado = await _service.GetVencidosAsync();
 
@@ -372,7 +372,7 @@ public class ChequeServiceTests : IDisposable
         var proveedor = await SeedProveedorAsync();
         // Vence en el futuro — no debe aparecer como vencido
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Emitido,
-            fechaVencimiento: DateTime.Today.AddDays(10));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(10));
 
         var resultado = await _service.GetVencidosAsync();
 
@@ -389,7 +389,7 @@ public class ChequeServiceTests : IDisposable
         var proveedor = await SeedProveedorAsync();
         // Vence en 5 días — dentro de la ventana de 7
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Emitido,
-            fechaVencimiento: DateTime.Today.AddDays(5));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5));
 
         var resultado = await _service.GetPorVencerAsync(dias: 7);
 
@@ -401,7 +401,7 @@ public class ChequeServiceTests : IDisposable
     {
         var proveedor = await SeedProveedorAsync();
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Emitido,
-            fechaVencimiento: DateTime.Today.AddDays(-1));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1));
 
         var resultado = await _service.GetPorVencerAsync(dias: 7);
 
@@ -413,7 +413,7 @@ public class ChequeServiceTests : IDisposable
     {
         var proveedor = await SeedProveedorAsync();
         await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Cobrado,
-            fechaVencimiento: DateTime.Today.AddDays(3));
+            fechaVencimiento: TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(3));
 
         var resultado = await _service.GetPorVencerAsync(dias: 7);
 
@@ -591,7 +591,7 @@ public class ChequeServiceTests : IDisposable
             OrdenCompraId = orden1.Id,
             Banco = "Banco Test",
             Monto = 500m,
-            FechaEmision = DateTime.Today,
+            FechaEmision = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Estado = EstadoCheque.Emitido
         };
         _context.Cheques.Add(cheque);

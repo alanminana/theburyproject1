@@ -287,7 +287,7 @@ public class VentaEnvioServiceTests : IDisposable
     public async Task CambiarEstadoAsync_Reprogramar_DesdeCualquierEstadoNoTerminal_FijaLaNuevaFecha(EstadoEnvio origen)
     {
         var venta = await SeedVentaConEnvioAsync(origen);
-        var nuevaFecha = DateTime.Today.AddDays(5);
+        var nuevaFecha = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5);
 
         var resultado = await _service.CambiarEstadoAsync(
             venta.Id, EstadoEnvio.Reprogramado, "El cliente no estaba", "tester", nuevaFecha);
@@ -318,7 +318,7 @@ public class VentaEnvioServiceTests : IDisposable
         var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
 
         var resultado = await _service.CambiarEstadoAsync(
-            venta.Id, EstadoEnvio.Reprogramado, null, "tester", DateTime.Today.AddDays(-1));
+            venta.Id, EstadoEnvio.Reprogramado, null, "tester", TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1));
 
         Assert.False(resultado.Exitoso);
         var envio = await _service.GetByVentaIdAsync(venta.Id);
@@ -334,7 +334,7 @@ public class VentaEnvioServiceTests : IDisposable
         var venta = await SeedVentaConEnvioAsync(terminal);
 
         var resultado = await _service.CambiarEstadoAsync(
-            venta.Id, EstadoEnvio.Reprogramado, null, "tester", DateTime.Today.AddDays(2));
+            venta.Id, EstadoEnvio.Reprogramado, null, "tester", TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(2));
 
         Assert.False(resultado.Exitoso);
     }
@@ -384,7 +384,7 @@ public class VentaEnvioServiceTests : IDisposable
     [Fact]
     public async Task GetCerradosPorMesAsync_DevuelveElMesCompletoYNoElAnterior()
     {
-        var hoy = DateTime.Today;
+        var hoy = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
         var principioDeMes = await SeedEnvioCerradoAsync(EstadoEnvio.Entregado, primeroDelMes.AddHours(9), primeroDelMes.AddDays(-20));
         var finMesAnterior = await SeedEnvioCerradoAsync(EstadoEnvio.Entregado, primeroDelMes.AddMinutes(-30), primeroDelMes.AddDays(-25));
@@ -402,7 +402,7 @@ public class VentaEnvioServiceTests : IDisposable
     [Fact]
     public async Task GetCerradosPorMesAsync_IncluyeVentaCanceladaConEnvioSinCerrar()
     {
-        var hoy = DateTime.Today;
+        var hoy = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
         var venta = await SeedEnvioCerradoAsync(EstadoEnvio.Pendiente, null, primeroDelMes.AddDays(1));
         var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
@@ -419,7 +419,7 @@ public class VentaEnvioServiceTests : IDisposable
     [Fact]
     public async Task GetCerradosPorMesAsync_EnvioCanceladoUsaLaFechaDeLaUltimaActualizacion()
     {
-        var hoy = DateTime.Today;
+        var hoy = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
         // Venta vieja (otro mes) cuyo envío se canceló este mes: figura en el mes de la cancelación.
         var venta = await SeedEnvioCerradoAsync(EstadoEnvio.Cancelado, null, primeroDelMes.AddMonths(-3), updatedAt: primeroDelMes.AddDays(2));

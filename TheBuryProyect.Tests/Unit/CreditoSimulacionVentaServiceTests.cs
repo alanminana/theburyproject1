@@ -17,12 +17,12 @@ public sealed class CreditoSimulacionVentaServiceTests
     {
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial);
-        var antes = DateTime.Today.AddMonths(1).Date;
+        var antes = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1).Date;
 
         // ML8: sin ventaId, se necesita contexto de productos (ProductoIds) para que el service no
         // devuelva "contexto insuficiente" antes de llegar al fallback de fecha que este test prueba.
         var result = await service.SimularAsync(Request(fechaPrimeraCuota: "fecha-invalida", productoIds: new[] { 7 }));
-        var despues = DateTime.Today.AddMonths(1).Date;
+        var despues = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddMonths(1).Date;
 
         Assert.True(result.EsValido);
         Assert.NotNull(financial.ReceivedFechaPrimeraCuota);

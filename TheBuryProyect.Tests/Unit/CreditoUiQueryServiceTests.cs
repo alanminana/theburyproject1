@@ -21,14 +21,14 @@ public class CreditoUiQueryServiceTests
         var service = new CreditoUiQueryService();
         var clienteA = Cliente(1, "Ana Lopez", "301");
         var clienteB = Cliente(2, "Bruno Diaz", "302");
-        var proximoA = DateTime.Today.AddDays(5);
-        var proximoB = DateTime.Today.AddDays(10);
+        var proximoA = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5);
+        var proximoB = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(10);
 
         var creditos = new[]
         {
-            Credito(10, clienteB, EstadoCredito.Activo, 100m, DateTime.Today.AddDays(-5), Cuota(100, 1, EstadoCuota.Pendiente, proximoB, 100m)),
-            Credito(11, clienteA, EstadoCredito.Activo, 200m, DateTime.Today.AddDays(-10), Cuota(101, 1, EstadoCuota.Pendiente, proximoA, 100m)),
-            Credito(12, clienteA, EstadoCredito.Generado, 300m, DateTime.Today.AddDays(-1), Cuota(102, 2, EstadoCuota.Pagada, proximoA.AddDays(30), 100m))
+            Credito(10, clienteB, EstadoCredito.Activo, 100m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-5), Cuota(100, 1, EstadoCuota.Pendiente, proximoB, 100m)),
+            Credito(11, clienteA, EstadoCredito.Activo, 200m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-10), Cuota(101, 1, EstadoCuota.Pendiente, proximoA, 100m)),
+            Credito(12, clienteA, EstadoCredito.Generado, 300m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-1), Cuota(102, 2, EstadoCuota.Pagada, proximoA.AddDays(30), 100m))
         };
 
         var grupos = service.AgruparCreditosPorCliente(creditos);
@@ -50,8 +50,8 @@ public class CreditoUiQueryServiceTests
         // ClienteScoringCalculator/ClienteAptitudService/MoraService, ahora también acá.
         var service = new CreditoUiQueryService();
         var cliente = Cliente(1, "Ana Lopez", "301");
-        var cuotaCapitalSaldado = Cuota(200, 1, EstadoCuota.Parcial, DateTime.Today.AddDays(-10), montoTotal: 1000m, montoPagado: 1000m);
-        var credito = Credito(20, cliente, EstadoCredito.Activo, 0m, DateTime.Today.AddDays(-30), cuotaCapitalSaldado);
+        var cuotaCapitalSaldado = Cuota(200, 1, EstadoCuota.Parcial, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-10), montoTotal: 1000m, montoPagado: 1000m);
+        var credito = Credito(20, cliente, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-30), cuotaCapitalSaldado);
 
         var grupos = service.AgruparCreditosPorCliente(new[] { credito });
 
@@ -63,9 +63,9 @@ public class CreditoUiQueryServiceTests
     {
         var service = new CreditoUiQueryService();
         var cliente = Cliente(1, "Ana Lopez", "301");
-        var cuotaVencida = Cuota(201, 1, EstadoCuota.Vencida, DateTime.Today.AddDays(-10), montoTotal: 1000m, montoPagado: 300m);
-        var cuotaAlDia = Cuota(202, 2, EstadoCuota.Pendiente, DateTime.Today.AddDays(10), montoTotal: 500m);
-        var credito = Credito(21, cliente, EstadoCredito.Activo, 0m, DateTime.Today.AddDays(-30), cuotaVencida, cuotaAlDia);
+        var cuotaVencida = Cuota(201, 1, EstadoCuota.Vencida, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-10), montoTotal: 1000m, montoPagado: 300m);
+        var cuotaAlDia = Cuota(202, 2, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(10), montoTotal: 500m);
+        var credito = Credito(21, cliente, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-30), cuotaVencida, cuotaAlDia);
 
         var grupos = service.AgruparCreditosPorCliente(new[] { credito });
 
@@ -79,7 +79,7 @@ public class CreditoUiQueryServiceTests
         // (PoblarPunitorioAplicadoPendienteAsync); el servicio de agrupación puro nunca tiene acceso a DB.
         var service = new CreditoUiQueryService();
         var cliente = Cliente(1, "Ana Lopez", "301");
-        var credito = Credito(22, cliente, EstadoCredito.Activo, 0m, DateTime.Today, Cuota(203, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 100m));
+        var credito = Credito(22, cliente, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, Cuota(203, 1, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5), 100m));
 
         var grupo = Assert.Single(service.AgruparCreditosPorCliente(new[] { credito }));
 
@@ -107,8 +107,8 @@ public class CreditoUiQueryServiceTests
         var cliente = Cliente(1, "Ana Lopez", "301");
         var creditos = new[]
         {
-            Credito(1, cliente, estado1, 0m, DateTime.Today),
-            Credito(2, cliente, estado2, 0m, DateTime.Today)
+            Credito(1, cliente, estado1, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial),
+            Credito(2, cliente, estado2, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial)
         };
 
         var estado = service.ResolverEstadoConsolidado(creditos, cuotasVencidas);
@@ -122,7 +122,7 @@ public class CreditoUiQueryServiceTests
         var cliente = Cliente(1, "Ana Lopez", "301");
         var creditos = new List<CreditoViewModel>
         {
-            Credito(1, cliente, EstadoCredito.Activo, 100m, DateTime.Today)
+            Credito(1, cliente, EstadoCredito.Activo, 100m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial)
         };
         var creditoService = new RecordingCreditoService(creditos);
         var uiService = new RecordingCreditoUiQueryService();
@@ -155,7 +155,7 @@ public class CreditoUiQueryServiceTests
     {
         var cliente = Cliente(1, "Ana Lopez", "301");
         var cuota = Cuota(9, 4, EstadoCuota.Pendiente, new DateTime(2026, 7, 20), 2500m);
-        var credito = Credito(1, cliente, EstadoCredito.Activo, 2500m, DateTime.Today, cuota);
+        var credito = Credito(1, cliente, EstadoCredito.Activo, 2500m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, cuota);
         credito.Numero = "CR-1";
         var contexto = new PagoCuotaContextoResultado(
             cuota.Id, credito.Id, cuota.NumeroCuota, credito.Numero, cliente.NombreCompleto,
@@ -200,10 +200,10 @@ public class CreditoUiQueryServiceTests
         // invocada por el navegador real) dejaba el panel real siempre en $0,00/sin bloque.
         var clienteA = Cliente(1, "Ana Lopez", "301");
         var clienteB = Cliente(2, "Bruno Diaz", "302");
-        var cuotaA = Cuota(400, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
-        var cuotaB = Cuota(401, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
-        var creditoA = Credito(40, clienteA, EstadoCredito.Activo, 0m, DateTime.Today, cuotaA);
-        var creditoB = Credito(41, clienteB, EstadoCredito.Activo, 0m, DateTime.Today, cuotaB);
+        var cuotaA = Cuota(400, 1, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5), 1000m);
+        var cuotaB = Cuota(401, 1, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5), 1000m);
+        var creditoA = Credito(40, clienteA, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, cuotaA);
+        var creditoB = Credito(41, clienteB, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, cuotaB);
         var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { creditoA, creditoB });
         var punitorioService = new RecordingPunitorioServicePendientePorCuotas(
             new Dictionary<int, decimal> { [400] = 150m, [401] = 0m });
@@ -238,9 +238,9 @@ public class CreditoUiQueryServiceTests
     {
         // PUN-ML10-G
         var cliente = Cliente(1, "Ana Lopez", "301");
-        var cuotaConPunitorio = Cuota(300, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
-        var cuotaSinPunitorio = Cuota(301, 2, EstadoCuota.Pendiente, DateTime.Today.AddDays(35), 1000m);
-        var credito = Credito(30, cliente, EstadoCredito.Activo, 0m, DateTime.Today, cuotaConPunitorio, cuotaSinPunitorio);
+        var cuotaConPunitorio = Cuota(300, 1, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(5), 1000m);
+        var cuotaSinPunitorio = Cuota(301, 2, EstadoCuota.Pendiente, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(35), 1000m);
+        var credito = Credito(30, cliente, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, cuotaConPunitorio, cuotaSinPunitorio);
         var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { credito });
         var punitorioService = new RecordingPunitorioServicePendientePorCuotas(
             new Dictionary<int, decimal> { [300] = 250m, [301] = 0m });
@@ -274,8 +274,8 @@ public class CreditoUiQueryServiceTests
         // Degradacion segura: el panel no debe romper si IPunitorioService no esta disponible —
         // la mora de capital (lo esencial) igual se renderiza correcta.
         var cliente = Cliente(1, "Ana Lopez", "301");
-        var cuota = Cuota(310, 1, EstadoCuota.Vencida, DateTime.Today.AddDays(-5), montoTotal: 1000m, montoPagado: 200m);
-        var credito = Credito(31, cliente, EstadoCredito.Activo, 0m, DateTime.Today, cuota);
+        var cuota = Cuota(310, 1, EstadoCuota.Vencida, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-5), montoTotal: 1000m, montoPagado: 200m);
+        var credito = Credito(31, cliente, EstadoCredito.Activo, 0m, TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, cuota);
         var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { credito });
         var controller = new CreditoController(
             creditoService: creditoService,

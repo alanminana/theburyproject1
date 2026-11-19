@@ -13,7 +13,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
-/// En un servidor con la zona del proceso en UTC (Docker/Linux), entre las 21:00 y las 24:00 de Argentina <c>DateTime.Today</c> y
+/// En un servidor con la zona del proceso en UTC (Docker/Linux), entre las 21:00 y las 24:00 de Argentina <c>TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial</c> y
 /// <c>DateTime.UtcNow.Date</c> ya son el día siguiente. Las reglas de negocio por día (alertas de mora, vencimiento de documentos)
 /// deben usar el día comercial argentino. Aquí el instante fijo es 2026-11-19 00:55 UTC = 2026-11-18 21:55 en Argentina.
 /// </summary>
@@ -84,7 +84,7 @@ public class DiaComercialServidorUtcTests : IDisposable
 
         await servicio.AplicarAlertasMoraAsync(new List<CuotaViewModel> { cuota });
 
-        // Con DateTime.Today en un servidor UTC serían 1 día y se aplicaría la alerta roja de "1 día" un día antes.
+        // Con TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial en un servidor UTC serían 1 día y se aplicaría la alerta roja de "1 día" un día antes.
         Assert.Equal("#00AA00", cuota.ColorAlerta);
     }
 }

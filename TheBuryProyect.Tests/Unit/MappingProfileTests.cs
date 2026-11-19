@@ -302,7 +302,7 @@ public class MappingProfileTests
     {
         var entity = new Cheque
         {
-            FechaVencimiento = DateTime.Today.AddDays(10)
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(10)
         };
 
         var vm = _mapper.Map<ChequeViewModel>(entity);

@@ -67,7 +67,7 @@ public class VentaNumberGeneratorTests : IDisposable
             ClienteId = cliente.Id,
             Estado = EstadoVenta.Confirmada,
             TipoPago = TipoPago.Efectivo,
-            FechaVenta = DateTime.Today,
+            FechaVenta = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
             Subtotal = 100m,
             Total = 100m
         };

@@ -55,7 +55,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         var venta = CreateVentaCreditoPersonalBase();
         venta.RequiereAutorizacion = false;
         venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
-        venta.MotivoAutorizacion = $"EXCEPCION_DOC|{DateTime.Today:yyyy-MM-dd}|otro_usuario|xq quiero";
+        venta.MotivoAutorizacion = $"EXCEPCION_DOC|{TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial:yyyy-MM-dd}|otro_usuario|xq quiero";
 
         var ventaService = new StubVentaService { VentaById = venta, ConfirmarCreditoResult = true };
         var validacionService = new StubValidacionVentaService
@@ -188,7 +188,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         // Base ya setea FechaConfiguracionCredito=Today → FinanciamientoConfigurado → PuedeConfirmar.
 
         var ventaService = new StubVentaService { VentaById = venta };
-        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = DateTime.Today };
+        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial };
         var controller = CreateController(ventaService, new StubValidacionVentaService(), creditoService);
 
         var result = await controller.Details(venta.Id);
@@ -205,7 +205,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
 
         var ventaService = new StubVentaService { VentaById = venta };
-        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = DateTime.Today.AddDays(1) };
+        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(1) };
         var controller = CreateController(ventaService, new StubValidacionVentaService(), creditoService);
 
         var result = await controller.Details(venta.Id);
@@ -220,7 +220,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         Estado = EstadoVenta.PendienteRequisitos,
         TipoPago = TipoPago.CreditoPersonal,
         CreditoId = 55,
-        FechaConfiguracionCredito = DateTime.Today,
+        FechaConfiguracionCredito = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial,
     };
 
     private static ValidacionVentaResult CrearValidacionSoloDocumentacionFaltante() => new()
@@ -262,8 +262,8 @@ public class VentaControllerConfirmarCreditoPersonalTests
             new StubContratoVentaCreditoService(),
             null!,
             // Fecha comercial anclada al "hoy" del proceso: los stubs siembran FechaPrimeraCuota
-            // con DateTime.Today, de modo que el banner "vence hoy" queda determinista.
-            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)),
+            // con TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial, de modo que el banner "vence hoy" queda determinista.
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial)),
             null!); // IVentaEnvioService — no usado en este test
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };

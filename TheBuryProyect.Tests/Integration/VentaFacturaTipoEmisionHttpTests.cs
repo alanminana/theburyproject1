@@ -283,7 +283,7 @@ public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicati
         Assert.Equal(antes.Movimientos, despues.Movimientos);
     }
 
-    // La venta del seed es del 19/10/2026 (UTC). El formulario propone DateTime.Today (hora local): entre las 21:00 y
+    // La venta del seed es del 19/10/2026 (UTC). El formulario propone TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial (hora local): entre las 21:00 y
     // las 24:00 de Argentina el día UTC ya es el siguiente, así que una emisión un día anterior a la venta debe aceptarse.
     [Fact]
     public async Task FacturarPost_EmisionUnDiaAntesDeLaVenta_SeAcepta_PorElHusoHorario()
@@ -409,7 +409,7 @@ public class VentaFacturaTipoEmisionHttpTests : IClassFixture<CustomWebApplicati
             ["__RequestVerificationToken"] = token,
             ["VentaId"] = ventaId.ToString(),
             ["Tipo"] = tipo,
-            ["FechaEmision"] = DateTime.Today.ToString("yyyy-MM-dd"),
+            ["FechaEmision"] = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.ToString("yyyy-MM-dd"),
         };
         if (puntoVenta != null) form["PuntoVenta"] = puntoVenta;
         return client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/Venta/Facturar")
