@@ -43,6 +43,8 @@ Leyenda: **VALIDADO** (evidencia suficiente) · **VALIDADO HOY** (ejecutado en e
 | Caddy/TLS interno; solo 443 publicado; 1433/8080 inalcanzables | VALIDADO HOY | desde Windows (LAN): 443 → 200 con la CA; 8080 y 1433 sin respuesta |
 | Firewall del host sin saltarse el de Docker (`bury-firewall.sh`/`DOCKER-USER`) | VALIDADO HOY | LAN → 200; origen ajeno (contenedor en `docker0`) → bloqueado; persiste tras reinicio |
 | **Comportamiento de la política Tailscale** (2 personas autorizadas, 1 sin acceso, sin acceso entre personas, solo `tcp/443`, revocación individual) | **VALIDADO HOY (ensayo con Headscale)** | §1.1. Es un ensayo de red; **no sustituye** la tailnet real |
+| **Perfil administrador remoto** (443 + 22) y usuario común limitado a 443; intruso sin acceso; revocación del administrador | **VALIDADO HOY (ensayo con Headscale)** | §1.2 y `p05-tailscale-acceso-remoto.md` §9b: administrador 443+22 (banner SSH), usuario solo 443, intruso nada; ACL ampliada por error o revocada: el resultado es el esperado |
+| **Capa de host (`ufw`/`DOCKER-USER`) efectiva sobre la tailnet** | **VALIDADO HOY, con corrección** | solo con `tailscale up … --netfilter-mode=nodivert`; con el modo por defecto la capa de host no ve la tailnet (§2.7). Documentación y mensaje del bootstrap corregidos |
 | CA confiada por clientes | VALIDADO HOY (parcial) | curl desde Windows con la CA; navegadores reales: ver abajo |
 | Aplicar `policy.hujson` en la consola real y pasar sus `tests`; `tag:erp`; expiración deshabilitada; *Device approval*; *Node sharing* off | PROPIETARIO | cuenta/tailnet real. **La tailnet existente (Raspberry Pi) no se tocó**; ver §3 pregunta 1 |
 | Acceso real desde dos clientes reales y tercer dispositivo denegado; Tailscale apagado/datos móviles | PROPIETARIO + FÍSICO | personas, equipos y un teléfono reales |
@@ -63,6 +65,19 @@ equivalente a la real. **Ninguna cuenta ni tailnet de Tailscale fue usada o modi
 
 Trampa: la imagen de Tailscale usa modo *userspace* por defecto; sin `TS_USERSPACE=false` no hay interfaz TUN y los "bloqueados" son falsos. Reproducción:
 `scripts/qa/tailscale-ensayo/README.md`.
+
+#### 1.2 Perfil administrador remoto y capa de host (ensayo con Headscale)
+Roles del perfil `linux-vm`: **usuario** (`tcp/443`), **administrador** (`443` + `22`), **intruso** (sin grupo). Misma infraestructura descartable de §1.1. Las mediciones se hicieron con la política de ensayo **sin campo `proto`** (TCP/UDP/ICMP); la versión versionada ahora es explícita por protocolo (TCP/UDP 443 y solo TCP 22 para el administrador): validada de sintaxis con `headscale policy check`, **no re-medida**. Solo se midió TCP.
+
+| Prueba (por la tailnet) | usuario | administrador | intruso |
+|---|---|---|---|
+| `https://tbp` con la CA | 200 | 200 | sin respuesta |
+| `tcp/22` | bloqueado | **abierto** (banner `SSH-2.0-OpenSSH`) | bloqueado |
+| `1433`, `8080`, `80`, `3389` / ping a otras personas | bloqueados / no | bloqueados / no | bloqueados / no |
+
+Independencia de las dos capas (con `--netfilter-mode=nodivert` y `ufw allow in on tailscale0 from <IP /32 del admin> to any port 22`): ACL ampliada por error (el filtro
+del servidor listaba el 22 para el usuario) → el host lo bloquea; ACL revocada al administrador con la regla de host aún presente → pierde 443 y 22; grupos vacíos → nadie
+llega. Detalle en `p05-tailscale-acceso-remoto.md` §9b.
 
 ### P-06 — Backups y recuperación
 | Criterio | Estado | Evidencia |
@@ -90,7 +105,7 @@ Trampa: la imagen de Tailscale usa modo *userspace* por defecto; sin `TS_USERSPA
 | Caída controlada de Caddy / app / SQL → alerta → `resolved` | VALIDADO HOY | Caddy: `http.erp/live/ready` y `docker.caddy`; app/SQL: `kill -9` + `isolated_smoke.py` (CI) |
 | Disco lleno (70/85/90 %, GiB libres) | **VALIDADO HOY** | §2.2: corregida la tormenta de alertas |
 | **Observador EXTERNO** (otro host) detecta la caída | **VALIDADO HOY** | Uptime Kuma 2.5.5 en esta PC con monitores HTTP a `https://tbp/health/{live,ready}` por la LAN: **DOWN** a los ~76 s de detener Caddy (`ECONNREFUSED`), **UP** al volver. `scripts/qa/p08-observador/kuma_observador.py` |
-| Heartbeat *push* del agente a Kuma | EJECUTABLE con otra topología | el firewall de Windows impide que la VM alcance Kuma (no se tocó el firewall de la PC); en producción Kuma va en otro sitio por Tailscale |
+| Heartbeat *push* del agente a Kuma (detección de agente muerto) | **VALIDADO HOY (mecanismo, Kuma en la propia VM)** | `monitor.py` envía `UP "collection completed"` cada ciclo; con el agente detenido ~4 min Kuma marca **DOWN** ("No heartbeat in the time window"); al reiniciarlo vuelve a **UP**. `scripts/qa/p08-observador/kuma_observador.py push`. Falta repetirlo con Kuma **en otro sitio** (el firewall de Windows impide que la VM alcance a Kuma en esta PC; no se tocó) |
 | Aviso humano (correo/Telegram/WhatsApp) y receptor real | PROPIETARIO | canal y destinatario (§3 pregunta 3) |
 | Caída total del host/energía/router avisando desde otro sitio | FÍSICO/PROPIETARIO | requiere observador en otro sitio y un corte real |
 | Umbrales de CPU/RAM/disco con semanas de carga real | PRODUCCIÓN | histórico real |
@@ -117,6 +132,11 @@ Script: `scripts/qa/d05/csp-vm-ensayo.sh`. Pasar a Docker/Caddy reales **reinici
 4. **2.4 — Alertas de claves retiradas quedan abiertas.** Al quitar `offsite-*` de `backup_windows`, sus alertas previas siguen `firing` en el receptor (una muestra ausente nunca resuelve, por diseño). Operativa: resolverlas a mano en el receptor o recrear el estado. Documentado.
 5. **2.5 — `IDENTITY` salta ~1000 tras una caída de SQL** (cliente id 2 → 1002 tras el `kill -9`): comportamiento conocido del *identity cache* de SQL Server 2017+. Sin pérdida de datos; los números visibles de venta/factura/comprobante no usan esa columna. Si el propietario quiere evitar los saltos: `ALTER DATABASE SCOPED CONFIGURATION SET IDENTITY_CACHE = OFF` (costo menor de rendimiento). **No se aplicó** (§3 pregunta 5).
 6. **2.6 — Trampas de herramientas** (para quien repita): `UPTIME_KUMA_DB_TYPE=sqlite` evita el asistente de Kuma 2.x; `uptime-kuma-api` 1.2.1 no envía `conditions` (Kuma 2.x lo exige); el cliente de Tailscale en contenedor necesita `TS_USERSPACE=false`; el cliente Windows de `curl` con CA interna necesita `--ssl-no-revoke`; `echo pw | sudo -S` consume el *stdin* (usar `bash -c`); el arnés de independencia se niega a correr en el checkout real; **dos `systemctl restart docker` seguidos** dejan los contenedores caídos.
+
+7. **2.7 — Sin `--netfilter-mode=nodivert`, la capa de host no ve la tailnet** (corregido en doc y mensaje del bootstrap). `tailscaled` pone `ts-input`/`ts-forward` antes que `ufw`
+   y `DOCKER-USER`: el SSH del administrador quedó abierto **sin ninguna regla `ufw`** y el contador de `BURY-ERP` para `tailscale0` no se movió tras 5 solicitudes HTTPS; con `nodivert`
+   el contador sube (167 → 243) y `ufw` decide. La documentación afirmaba "las dos capas deben coincidir" y dejaba "a verificar en la VM real" si `ts-forward` iba antes que `DOCKER-USER`:
+   está verificado. Comando correcto: `tailscale up … --netfilter-mode=nodivert` (o `tailscale set --netfilter-mode=nodivert`). **Pendiente en producción:** repetirlo con la tailnet real.
 
 ## 3. Decisiones del propietario (agrupadas)
 

@@ -18,7 +18,7 @@
 #                      usuarios de la LAN solo tienen acceso a la web HTTPS, nunca a la administracion (ver docs/p05-permisos-acceso-remoto.md).
 #   --allow-lan-admin  excepcion consciente: permite una red completa (no Tailscale, no /32) en --admin-from. No recomendado.
 #   --backup-dir DIR   crea el directorio de backups (700, dueño --user) si no existe; nunca cambia uno existente
-#   --tailscale        instala el paquete y habilita tailscaled (NO lo autentica: 'sudo tailscale up' lo hace el propietario)
+#   --tailscale        instala el paquete y habilita tailscaled (NO lo autentica: 'sudo tailscale up ... --netfilter-mode=nodivert' lo hace el propietario)
 #   --skip-docker      no instala Docker (ya esta instalado)       --no-ufw   no configura ufw       --dry-run   solo informa
 set -Eeuo pipefail
 
@@ -212,7 +212,7 @@ fi
 
 # ---------------------------------------------------------------- 6. Tailscale (opcional, sin autenticar)
 if (( WANT_TS )); then
-  log "6/6 Tailscale: paquete + servicio (autenticacion manual: sudo tailscale up)"
+  log "6/6 Tailscale: paquete + servicio (autenticacion manual: sudo tailscale up ... --netfilter-mode=nodivert; sin nodivert ufw/DOCKER-USER no ven la tailnet, ver docs/p05-tailscale-acceso-remoto.md 9b)"
   (( DRY )) || [[ -n "${VERSION_CODENAME:-}" ]] || die "no se pudo determinar VERSION_CODENAME (/etc/os-release) para el repositorio de Tailscale"
   if (( ! DRY )) && ! command -v tailscale >/dev/null 2>&1; then
     curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${VERSION_CODENAME}.noarmor.gpg" -o /usr/share/keyrings/tailscale-archive-keyring.gpg

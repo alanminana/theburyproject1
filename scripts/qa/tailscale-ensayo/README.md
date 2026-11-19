@@ -1,32 +1,68 @@
 # Tailscale de ensayo con Headscale (no toca ninguna tailnet real)
 
-Valida **el comportamiento de red** de la política de mínimo privilegio (solo `tcp/443` hacia `tag:erp`) con un servidor de control **propio y
-descartable** ([Headscale](https://github.com/juanfont/headscale) v0.26.1) y clientes oficiales de Tailscale (v1.84.3). No usa ni modifica
-ninguna cuenta/tailnet de Tailscale: los nodos de ensayo se registran **solo** en el Headscale local (`--login-server`).
+Valida **el comportamiento de red** de la política de mínimo privilegio con un servidor de control **propio y descartable**
+([Headscale](https://github.com/juanfont/headscale) v0.26.1) y clientes oficiales de Tailscale (v1.84.3). No usa ni modifica ninguna cuenta/tailnet
+de Tailscale: los nodos de ensayo se registran **solo** en el Headscale local (`--login-server`).
 
-**Qué NO prueba** (sigue exigiendo la tailnet real): la consola de Tailscale (aplicar `deploy/tailscale/policy.hujson`, sus `tests`), expiración de
-clave deshabilitada, *Device approval*, *Node sharing*, SSO/identidades reales, MagicDNS, CGNAT/datos móviles.
-Headscale usa `acls` (no `grants`); `policy-ensayo.hujson` es el equivalente semántico del grant real.
+Roles (perfil `linux-vm` de `deploy/tailscale/policy.hujson`): **usuario remoto** = `443`; **administrador remoto** = `443` + `22` (SSH, un único
+puerto de administración); **intruso** = sin grupo, nada. Headscale usa `acls` (no `grants`); `policy-ensayo.hujson` es su equivalente, explícito por protocolo.
+En el ensayo solo se midió TCP (HTTPS y banner SSH); UDP/443 e ICMP figuran en la política pero no se midieron.
 
-Pasos (servidor ERP con Docker + `tailscaled` instalado y SIN autenticar; clientes en otro host con Docker):
+**Qué NO prueba** (sigue exigiendo la tailnet real): la consola de Tailscale (aplicar `policy.hujson`, sus `tests`), expiración de clave deshabilitada,
+*Device approval*, *Node sharing*, SSO/identidades reales, MagicDNS, CGNAT/datos móviles.
+
+## Requisitos
+
+- **Servidor** (Linux con Docker, ERP instalado, `tailscaled` instalado y SIN autenticar) con `ALLOW_FROM` de `bury-firewall.sh` incluyendo `100.64.0.0/10@tailscale0`
+  (lo hace `server-linux-bootstrap.sh --allow-from …,100.64.0.0/10`). Checkout de este repositorio en `$REPO`; `$CA` = ruta del archivo `caddy-root-ca.crt` (CA pública de Caddy).
+- **Clientes**: otro host con Docker (en Windows, Docker Desktop). Ningún cliente puede ser el servidor.
+- Usar **nombres de contenedor literales** y no borrar directorios por script: el retiro (paso 8) es manual.
+
+## Pasos
 
 ```bash
-# 1. Headscale en el servidor (puertos 8085/tcp y 3478/udp; solo ensayo, retirarlo al terminar)
-sed 's/__SERVER_IP__/<IP-LAN-del-servidor>/g' headscale-config.yaml.tmpl > etc/config.yaml ; cp policy-ensayo.hujson etc/policy.hujson
-docker run -d --name bury-hs -p 8085:8080 -p 3478:3478/udp -v $PWD/etc:/etc/headscale -v $PWD/data:/var/lib/headscale headscale/headscale:v0.26.1 serve
-for u in servidor persona1 persona2 persona3; do docker exec bury-hs headscale users create $u; done
-# 2. Nodo servidor con la etiqueta (la clave de pre-autenticacion lleva tag:erp; el dueño de la etiqueta es el usuario `servidor`)
+# --- en el SERVIDOR ---
+export REPO=~/theburyproject1 SERVER_IP=<IP-LAN-del-servidor> LAN=<LAN-CIDR>
+T=$REPO/scripts/qa/tailscale-ensayo
+# 1. Headscale (puertos 8085/tcp y 3478/udp; solo ensayo). ~/hs-ensayo NO debe existir.
+mkdir ~/hs-ensayo && mkdir ~/hs-ensayo/etc ~/hs-ensayo/data
+sed "s/__SERVER_IP__/$SERVER_IP/g" $T/headscale-config.yaml.tmpl > ~/hs-ensayo/etc/config.yaml ; cp $T/policy-ensayo.hujson ~/hs-ensayo/etc/policy.hujson
+docker run -d --name bury-hs -p 8085:8080 -p 3478:3478/udp -v ~/hs-ensayo/etc:/etc/headscale -v ~/hs-ensayo/data:/var/lib/headscale headscale/headscale:v0.26.1 serve
+for u in servidor usuario1 admin1 intruso1; do docker exec bury-hs headscale users create $u; done      # ids 1..4
+# 2. Nodo servidor con la etiqueta (clave de pre-autenticación con tag:erp; dueño de la etiqueta: el usuario `servidor`)
 KS=$(docker exec bury-hs headscale preauthkeys create --user 1 --expiration 2h --tags tag:erp | tail -1)
-sudo tailscale up --login-server=http://<IP>:8085 --authkey=$KS --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false
-sudo ufw allow from <LAN> to any port 41641 proto udp      # WireGuard directo (opcional: sin esto usa el DERP embebido)
-# 3. Clientes (usuarios 2..4). IMPORTANTE: TS_USERSPACE=false; en modo userspace (por defecto de la imagen) no hay interfaz TUN y
-#    los otros procesos del contenedor NO salen por la tailnet (las pruebas "bloqueado" serian falsos positivos)
-docker run -d --name bury-ts-p1 --cap-add NET_ADMIN --cap-add NET_RAW --device /dev/net/tun -e TS_USERSPACE=false -e TS_AUTHKEY=<clave-usuario-2> \
-   -e TS_HOSTNAME=persona1 -e TS_EXTRA_ARGS="--login-server=http://<IP>:8085 --accept-dns=false" -e TS_STATE_DIR=/var/lib/tailscale tailscale/tailscale:v1.84.3
-# 4. Matriz (control positivo + negativos) desde el netns de cada cliente
-docker run --rm --network container:bury-ts-p1 -e SELF=<ip-tailnet-del-cliente> -v caddy-root-ca.crt:/ca.crt:ro -v $PWD/matriz-acceso.sh:/m.sh:ro alpine:3 sh /m.sh
-# 5. Revocacion individual: quitar "persona2@" del grupo en policy.hujson y `docker kill -s HUP bury-hs`; repetir el paso 4
-# 6. Retiro: docker rm -f bury-hs bury-ts-*; sudo tailscale logout; sudo ufw delete allow ... 41641/udp; rm -rf etc data
+sudo tailscale up --login-server=http://$SERVER_IP:8085 --authkey=$KS --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false --netfilter-mode=nodivert
+sudo ufw allow from $LAN to any port 41641 proto udp      # WireGuard directo: con nodivert ya no lo acepta tailscaled solo
+# 3. Claves de los clientes (usuarios 2, 3, 4 = usuario1, admin1, intruso1): guardarlas para el paso 4
+for n in 2 3 4; do echo "usuario-id $n: $(docker exec bury-hs headscale preauthkeys create --user $n --expiration 2h | tail -1)"; done
+
+# --- en el host de los CLIENTES (una orden por cliente; sustituir <clave-...>) ---
+# TS_USERSPACE=false es imprescindible: en modo userspace (por defecto de la imagen) no hay interfaz TUN y los demás procesos del contenedor
+# NO salen por la tailnet (los "bloqueado" serían falsos positivos).
+docker run -d --name bury-ts-usuario1 --cap-add NET_ADMIN --cap-add NET_RAW --device /dev/net/tun -e TS_USERSPACE=false -e TS_AUTHKEY=<clave-usuario-2> \
+   -e TS_HOSTNAME=usuario1 -e TS_EXTRA_ARGS="--login-server=http://<SERVER_IP>:8085 --accept-dns=false" -e TS_STATE_DIR=/var/lib/tailscale tailscale/tailscale:v1.84.3
+#   idem bury-ts-admin1 (<clave-usuario-3>, TS_HOSTNAME=admin1) y bury-ts-intruso1 (<clave-usuario-4>, TS_HOSTNAME=intruso1)
+
+# --- de nuevo en el SERVIDOR ---
+# 4. IP de tailnet del administrador y su regla de host (SOLO su /32, atada a tailscale0). Sin --netfilter-mode=nodivert esta regla NO tiene efecto.
+ADMIN_IP=$(docker exec bury-hs headscale nodes list -o json | jq -r '.[]|select(.name=="admin1")|.ip_addresses[0]')
+sudo ufw allow in on tailscale0 from $ADMIN_IP to any port 22 proto tcp
+
+# --- matriz, desde el host de los clientes (un cliente por vez; SELF = su IP de tailnet, PEERS = las de los demás) ---
+# 5. docker run --rm --network container:bury-ts-usuario1 -e SELF=<ip> -e PEERS="<ip-usuario1> <ip-admin1> <ip-intruso1>" \
+#        -v "<ruta-al-checkout>/scripts/qa/tailscale-ensayo/matriz-acceso.sh:/m.sh:ro" -v "<ruta-a-la-CA>/caddy-root-ca.crt:/ca.crt:ro" alpine:3 sh /m.sh
+# 6. Revocación: editar los grupos de ~/hs-ensayo/etc/policy.hujson en el servidor y `docker kill -s HUP bury-hs`; repetir el paso 5.
 ```
 
-Requisito del filtro del servidor (`bury-firewall.sh`): `ALLOW_FROM` debe incluir `100.64.0.0/10@tailscale0`. Resultado de la corrida: `docs/p04-p08-matriz-criterios-vm-simulada.md`.
+## 8. Retiro (a mano, uno por uno; no se automatiza el borrado)
+
+```bash
+# clientes:  docker stop bury-ts-usuario1 bury-ts-admin1 bury-ts-intruso1 ; docker rm bury-ts-usuario1 bury-ts-admin1 bury-ts-intruso1
+# servidor:  docker stop bury-hs ; docker rm bury-hs ; sudo tailscale logout ; sudo tailscale set --netfilter-mode=on
+#            sudo ufw delete allow in on tailscale0 from <ADMIN_IP> to any port 22 proto tcp
+#            sudo ufw delete allow from <LAN> to any port 41641 proto udp
+#            y borrar a mano el directorio ~/hs-ensayo (config, política y base de Headscale de ensayo)
+```
+
+Hallazgo que este ensayo destapó: **sin `--netfilter-mode=nodivert`** `tailscaled` pone `ts-input`/`ts-forward` antes que `ufw` y `DOCKER-USER`, así que el
+firewall del host no ve el tráfico de la tailnet. Resultados y contadores: `docs/p05-tailscale-acceso-remoto.md` §9b.

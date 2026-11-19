@@ -68,7 +68,7 @@ de la consola. El ejemplo usa `example.com`: **reemplazar por las identidades re
 3. *Settings → Device management*: activar **Device approval** (un dispositivo nuevo no entra hasta que un administrador lo aprueba) y **deshabilitar Node sharing** (nadie puede compartir el servidor con terceros).
 4. *Settings → Keys*: dejar la expiración de clave de usuarios activa (re-autenticación periódica) y **deshabilitar la expiración de clave solo en el nodo del servidor** (si no, sale de la tailnet sin aviso).
 5. *DNS*: activar MagicDNS. **No** activar *HTTPS certificates* de Tailscale (decisión de certificado: §5). **No** habilitar Funnel.
-6. En el servidor: `sudo tailscale up --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false` (en Windows: la app de Tailscale + `tailscale up` equivalente).
+6. En el servidor Linux: `sudo tailscale up --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false --netfilter-mode=nodivert` (en Windows: la app de Tailscale + `tailscale up` equivalente). **`--netfilter-mode=nodivert` es obligatorio en Linux** (verificado en la VM, §9b): con el modo por defecto `tailscaled` pone `ts-input`/`ts-forward` al principio de `INPUT`/`FORWARD` y el firewall del host (`ufw`, `DOCKER-USER`/`bury-firewall.sh`) **no ve** el tráfico de la tailnet: el 22 queda abierto para quien la ACL permita aunque no exista regla `ufw`. Con `nodivert` decide también el host. Si el nodo ya estaba unido: `sudo tailscale set --netfilter-mode=nodivert`. **Con `nodivert` el firewall del host pasa a ser responsable de lo que `tailscaled` aceptaba solo:** (a) el puerto UDP de WireGuard (41641 por defecto) ya no se acepta automáticamente en `INPUT`; sin una regla propia la conexión **directa** entre nodos depende del NAT y de las conexiones salientes (puede usar un relevo DERP o no conectar, según la red); (b) el filtro anti-suplantación del rango CGNAT (`100.64.0.0/10` que no entra por `tailscale0`) deja de aplicarlo `tailscaled`: en este diseño lo cubren `ufw` con denegación por defecto en `INPUT` y la regla `@tailscale0` de `bury-firewall.sh` en `FORWARD` (443). No se midió que `nodivert` afecte a DERP ni a ICMP.
    Con MagicDNS y `ERP_DOMAIN=tbp`, `https://tbp` resuelve en los clientes de la tailnet **sin editar `hosts`**. No usar `--advertise-routes` ni `--advertise-exit-node`.
 7. Verificar en *Machines*: el servidor aparece con `tag:erp`, sin rutas anunciadas, con expiración deshabilitada.
 
@@ -105,7 +105,7 @@ No hace falta rotar ninguna clave ni la CA: la otra persona no se entera ni pier
 | H-5 | Windows 11: una regla Allow de `100.64.0.0/10` valía por cualquier adaptador. | `install-windows.ps1` crea `TheBury ERP 443 Tailscale` atada al adaptador `Tailscale` (sin probar en Windows real); aborta si el adaptador no existe. |
 | H-6 | Compose/Caddy: confirmado que `db` y `app` no publican puertos y Caddy solo 443 tcp/udp. | Sin cambios; ahora verificado por test (`test-caddy-tls.sh`). |
 
-**Límite de la prueba del firewall (a verificar en la VM real):** `test-firewall-isolation.sh` simula la tailnet con un bridge de Docker llamado `tailscale0`; la interfaz real es un TUN y `tailscaled` mantiene sus propias reglas en `FORWARD` (cadenas `ts-*`) que podrían evaluarse antes que `DOCKER-USER`. Si fuera así, el tráfico real de la tailnet no pasa por `BURY-ERP` y el filtro efectivo para Tailscale es la política (§3); la regla `@tailscale0` sigue siendo correcta para el spoof desde la LAN (que sí está probado). En el servidor real: `iptables -S FORWARD` y `iptables -S DOCKER-USER`, y probar desde un dispositivo sin permiso en la política.
+**Límite de la prueba del firewall — VERIFICADO en la VM (2026-11-19):** `test-firewall-isolation.sh` simula la tailnet con un bridge llamado `tailscale0`; la interfaz real es un TUN y `tailscaled` **sí** coloca `ts-forward` (en `FORWARD`) y `ts-input` (en `INPUT`) antes que `DOCKER-USER` y `ufw`. Con el modo por defecto el tráfico real de la tailnet no pasa por `BURY-ERP` (contador de su regla `tailscale0` sin variar tras 5 solicitudes) y `ts-input` acepta todo lo que entra por `tailscale0`: el filtro efectivo es solo la política (§3). Con `--netfilter-mode=nodivert` el contador sube (167 → 243) y `ufw` decide. Ver §9b.
 
 Riesgo residual conocido (sin cambio): una regla Allow de `com.docker.backend.exe` en Windows 11 puede anular el filtro por puerto; el preflight la detecta. La regla Block a Internet
 documentada en `red-privada-lan-vpn.md` §6 **no se añadió** porque la palabra clave `Internet` de Windows Firewall podría incluir el rango CGNAT de Tailscale y cortar el acceso legítimo: probar en el servidor real antes de usarla.
@@ -169,6 +169,31 @@ Lista de aceptación desde cada cliente autorizado: `p07-preparacion-windows-doc
 
 **Avance estimado: ~65 %** (todo lo verificable sin infraestructura real está hecho y probado; el ~35 % restante exige servidor, Tailscale y cuentas reales).
 **P-05 no se declara finalizado** hasta completar las pruebas reales desde los dos clientes autorizados.
+
+## 9b. Perfil administrador remoto y capa de host (ensayo con Headscale, 2026-11-19)
+
+Ensayo en la VM Ubuntu con un Headscale descartable (la tailnet real no se tocó) y tres clientes oficiales de Tailscale en otro host: **usuario** (`group:erp-usuarios`),
+**administrador** (`group:erp-admins`, 443 + 22) e **intruso** (sin grupo). Reproducción: `scripts/qa/tailscale-ensayo/README.md`.
+
+| Prueba (por la tailnet, con la CA y SNI `tbp`) | usuario | administrador | intruso |
+|---|---|---|---|
+| `https://tbp` | 200 | 200 | sin respuesta |
+| `tcp/22` | bloqueado | **abierto** (banner `SSH-2.0-OpenSSH`) | bloqueado |
+| `1433`, `8080`, `80`, `3389` | bloqueados | bloqueados | bloqueados |
+| ping a otras personas | no | no | no |
+
+(Mediciones hechas con la política de ensayo sin campo `proto`; la versión versionada es explícita por protocolo y no se re-midió. Solo se midió TCP.) Las dos capas son independientes **solo con `--netfilter-mode=nodivert`**:
+
+| Escenario | Resultado |
+|---|---|
+| `nodivert`, sin regla `ufw` para el 22 | el administrador **no** entra por el 22 aunque la ACL lo permita (el host decide) |
+| `nodivert` + `ufw allow in on tailscale0 from <IP /32 del admin> to any port 22 proto tcp` | entra solo el administrador; el usuario sigue bloqueado |
+| ACL **ampliada por error** (usuario también en `erp-admins`; el filtro del servidor lista `22` para su IP) | el usuario sigue bloqueado por el host |
+| ACL **revocada** al administrador con la regla de host aún presente | pierde 443 y 22; el usuario conserva 443 |
+| grupos vacíos | nadie llega a nada |
+| **modo por defecto** (sin `nodivert`) y sin regla `ufw` | el 22 queda **abierto** para el administrador: la capa de host no lo impide |
+
+Siguen exigiendo la tailnet real: aplicar `policy.hujson` en la consola y sus `tests`, expiración de clave deshabilitada, *Device approval*, *Node sharing*, dos personas con sus propias cuentas y un teléfono.
 
 ## 10. Decisiones y datos del propietario
 
