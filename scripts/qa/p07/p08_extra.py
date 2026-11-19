@@ -1,5 +1,6 @@
 """Casos adicionales de la segunda pasada (S1..S5): limites, negativos, reversiones, idempotencia, concurrencia y auditoria.
 Se ejecuta despues de los recorridos P-07 (R0..R11), con sus datos sinteticos ya cargados."""
+import re
 import threading
 import time
 
@@ -117,12 +118,23 @@ def correr(m):
     abiertas = q1("select count(*) from AperturasCaja where CajaId in (%d,%d) and Cerrada=0" % tuple(ids))
     chk("S3.1", "4 aperturas simultaneas del mismo usuario sobre 2 cajas: un solo turno abierto (regla: una caja abierta por usuario)", abiertas == "1", "abiertas=%s" % abiertas)
     apert_p07 = int(q1("select top 1 Id from AperturasCaja where CajaId=%d and Cerrada=0" % caja))
+    apert_p07 = int(q1("select top 1 Id from AperturasCaja where CajaId=%d and Cerrada=0" % caja))
+    url_mov = "/Caja/RegistrarMovimiento?aperturaId=%d" % apert_p07
+
+    def movimiento(monto):
+        # Tipo y Concepto explicitos (el select de Concepto lo completa JavaScript en el navegador; el cliente HTTP no lo ejecuta)
+        return adm.submit(url_mov, {"Tipo": "1", "Concepto": "10", "Monto": str(monto), "Descripcion": "movimiento QA S3"}, action_contains="/Caja/RegistrarMovimiento", follow=False)[0]
+
     n_mov = int(q1("select count(*) from MovimientosCaja"))
-    pgm = adm.get("/Caja/RegistrarMovimiento?aperturaId=%d" % apert_p07)
-    adm.submit("/Caja/RegistrarMovimiento?aperturaId=%d" % apert_p07, {"Monto": "-5", "Descripcion": "negativo QA"}, action_contains="/Caja/RegistrarMovimiento", follow=False)
-    chk("S3.2", "movimiento manual con monto negativo rechazado", int(q1("select count(*) from MovimientosCaja")) == n_mov, pgm.status)
-    adm.submit("/Caja/RegistrarMovimiento?aperturaId=%d" % apert_p07, {"Monto": "0", "Descripcion": "cero QA"}, action_contains="/Caja/RegistrarMovimiento", follow=False)
-    chk("S3.3", "movimiento manual con monto 0 rechazado", int(q1("select count(*) from MovimientosCaja")) == n_mov)
+    r = movimiento(250)
+    chk("S3.2", "control positivo: el formulario con Tipo/Concepto validos y monto 250 registra el egreso (302 y una fila nueva por 250)",
+        r.status == 302 and int(q1("select count(*) from MovimientosCaja")) == n_mov + 1 and dec(q1("select top 1 Monto from MovimientosCaja order by Id desc")) == 250, "%s" % r.status)
+    n_mov = int(q1("select count(*) from MovimientosCaja"))
+    for cid_, monto, desc in (("S3.3", -5, "negativo"), ("S3.4", 0, "cero")):
+        r = movimiento(monto)
+        txt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>", "", r.text, flags=re.S)))
+        chk(cid_, "movimiento manual con monto %s rechazado: vuelve al formulario (200, no 400/500), sin fila nueva y con el mensaje de validacion del monto (entre 0,01 y 20.000.000)" % desc,
+            r.status == 200 and int(q1("select count(*) from MovimientosCaja")) == n_mov and "entre 0,01 y 20.000.000" in txt, "%s %s" % (r.status, (re.findall(r"El campo Monto[^.]*\.", txt) or [""])[0]))
 
     # ------------------------------------------------------------------ S4
     sec("S4 Compras / cuentas por pagar: comprobantes, pagos, anticipos, anulaciones e idempotencia")
@@ -180,9 +192,13 @@ def correr(m):
         int(q1("select count(*) from PagosProveedor")) == n_pg + 1 and saldo() == 90000, "pagos=%s saldo=%s" % (q1("select count(*) from PagosProveedor"), saldo()))
 
     ses2 = [m.new_session("administrador", "Admin123!") for _ in range(3)]
-    paralelo(3, lambda i: pagar(50000, clave="k-conc-%d-%s" % (i, time.time()), sess=ses2[i]))
+    n_pg = int(q1("select count(*) from PagosProveedor"))
+    res = paralelo(3, lambda i: pagar(50000, clave="k-conc-%d-%s" % (i, time.time()), sess=ses2[i]))
+    respondieron = all(r_ is not None and not isinstance(r_, Exception) and r_.status in (200, 302) for r_ in res)
     pagado = dec(q1("select isnull(sum(i.Monto),0) from PagoProveedorImputaciones i join PagosProveedor p on p.Id=i.PagoProveedorId where i.ComprobanteProveedorId=%d and p.Anulado=0" % cp1))
-    chk("S4.11", "3 pagos simultaneos de 50.000 con saldo 90.000: saldo nunca negativo y = total - pagos vigentes", saldo() >= 0 and abs(saldo() - (121000 - pagado)) < 0.01, "saldo=%s pagado=%s" % (saldo(), pagado))
+    chk("S4.11", "3 pagos simultaneos de 50.000 con saldo 90.000: los 3 reciben respuesta de negocio (200/302, sin error), se registra exactamente UNO, saldo 40.000 = total - pagos vigentes",
+        respondieron and int(q1("select count(*) from PagosProveedor")) == n_pg + 1 and saldo() == 40000 and abs(saldo() - (121000 - pagado)) < 0.01,
+        "respuestas=%s pagos nuevos=%d saldo=%s pagado=%s" % ([getattr(r_, "status", r_) for r_ in res], int(q1("select count(*) from PagosProveedor")) - n_pg, saldo(), pagado))
 
     ult = int(q1("select max(Id) from PagosProveedor where Anulado=0"))
     s_ant = saldo()

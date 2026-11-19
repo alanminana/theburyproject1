@@ -31,6 +31,16 @@ def guardia():
     n = sql("select (select count(*) from Clientes)+(select count(*) from Ventas)+(select count(*) from Productos)+(select count(*) from Proveedores)+(select count(*) from Cajas)")
     if n[0][0] != "0":
         sys.exit("RECHAZADO: la base no esta vacia.")
+    # Vinculo app <-> base descartable ANTES de cualquier login o escritura: la app que atiende P08_BASE_URL debe estar conectada a ESTA base.
+    # /health/ready toca la base; en el SQL descartable debe aparecer una sesion de la app (EF Core, no sqlcmd) sobre sNqa con actividad de los ultimos segundos.
+    # Si la URL apunta a otra instalacion (otra base u otro servidor SQL) no habra esa actividad y se rechaza.
+    from erp_http import Erp as _E
+    r = _E(b).get("/health/ready")
+    if r.status != 200:
+        sys.exit("RECHAZADO: %s/health/ready no responde 200 (%s)." % (b, r.status))
+    act = sql("select count(*) from sys.dm_exec_sessions where is_user_process=1 and program_name not like 'SQLCMD%%' and database_id=db_id('%s') and last_request_end_time>dateadd(second,-10,getdate())" % d)
+    if act[0][0] == "0":
+        sys.exit("RECHAZADO: la aplicacion en %s no muestra actividad sobre la base descartable %s: no se opera (destino desacoplado)." % (b, d))
 
 
 m.guardia_descartable = guardia
