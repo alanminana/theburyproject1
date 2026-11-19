@@ -63,7 +63,7 @@ una señal de acción independiente, sin esperar el cooldown de la advertencia d
 | Crecimiento | comparación con base de hasta 24 h; mínimo 1 h | ≥2 GiB/día | ≥4 GiB/día |
 | SQL Express 2022 | suma archivos ROWS asignados / 10 GiB | ≥70% (7 GiB) | ≥85% (8,5 GiB) |
 | SQL log | archivos LOG asignados, separado de datos | ≥2 GiB | ≥5 GiB |
-| Certificado | cadena/hostname válidos y días restantes, 15 min | ≤21 días | ≤7 días; inválido/error de TLS también crítico |
+| Certificado | cadena/hostname válidos y días restantes, 15 min. Hoja de vida corta (≤7 días, p. ej. los ~12 h de la CA interna de Caddy): fracción de vida restante | ≤21 días; hoja corta: <25 % de su vida (Caddy renueva con ~33 %: señal de renovación fallando) | ≤7 días; hoja corta: <10 %; inválido/error de TLS también crítico |
 | Backups | resultado verificado, no mera presencia | Ver ventanas siguientes | Falta, inválido, fallo o supera máximo |
 | Canal / agente | webhook, errores de recolección y heartbeat | Canal no configurado | Push externo vencido o colector fallando |
 
@@ -280,3 +280,7 @@ Ver `docs/monitoreo-validacion.md` para resultados, consumo, límites y archivos
 - [Docker stats y caché](https://docs.docker.com/reference/cli/docker/container/stats/),
   [eventos y replay de 256 entradas](https://docs.docker.com/reference/cli/docker/system/events/).
 - [Límites Express 2022](https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2022?view=sql-server-ver17).
+
+## Nota de configuración: copia externa no configurada
+
+`backup_windows` de `config.example.json` incluye `offsite-sql` y `offsite-files`. Cada clave **exige** un estado verificado reciente: en un host sin copia externa (`BACKUP_REMOTE` vacío) generan `backup.offsite-*` CRITICAL permanente. Quitarlas de `/etc/bury-monitor/config.json` mientras no haya offsite, y volver a agregarlas al activarlo (así la ausencia de offsite es una decisión explícita, no un falso incidente). Validado en la VM de ensayo: [p04-p08-preproduccion-ubuntu-vm.md](p04-p08-preproduccion-ubuntu-vm.md).

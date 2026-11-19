@@ -46,14 +46,27 @@ def http_ok(url, expected_body=None):
         return False
 
 
-def tls_days(url):
+# Certificados de vida corta con renovacion automatica (la CA interna de Caddy emite hojas de ~12 h): medir "dias restantes" contra
+# 21/7 dias daria CRITICAL permanente. Hasta este limite de vida total se mide la FRACCION de vida restante.
+SHORT_LIVED_DAYS = 7
+SHORT_LIVED_FRACTION = (0.25, 0.10)  # warning / critical; Caddy renueva con ~33 % restante, por debajo de 25 % la renovacion esta fallando
+
+
+def tls_info(url):
+    """(dias restantes, dias de vida total) del certificado hoja que presenta `url`. Valida cadena y hostname con el almacen del sistema."""
     target = urllib.parse.urlsplit(url)
     if target.scheme != "https":
         raise ValueError("HTTPS required")
     with socket.create_connection((target.hostname, target.port or 443), timeout=8) as sock:
         with ssl.create_default_context().wrap_socket(sock, server_hostname=target.hostname) as conn:
-            expires = ssl.cert_time_to_seconds(conn.getpeercert()["notAfter"])
-    return (expires - time.time()) / 86400
+            cert = conn.getpeercert()
+    expires = ssl.cert_time_to_seconds(cert["notAfter"])
+    lifetime = (expires - ssl.cert_time_to_seconds(cert["notBefore"])) / 86400
+    return (expires - time.time()) / 86400, lifetime
+
+
+def tls_days(url):
+    return tls_info(url)[0]
 
 
 class Store:
@@ -192,6 +205,19 @@ class Collector:
     def threshold(self, key, value, warning, critical, hold=0):
         self.emit(key, "CRITICAL" if value >= critical else "WARNING" if value >= warning else "INFO",
                   f"value={value:.2f}; warning={warning}; critical={critical}", hold)
+
+    def tls_expiry(self, base, info=tls_info):
+        remaining, lifetime = info(base)
+        if lifetime <= 0:
+            raise ValueError("certificate lifetime must be positive")  # safe() lo convierte en collector.tls CRITICAL
+        if lifetime <= SHORT_LIVED_DAYS:
+            fraction = remaining / lifetime
+            warning, critical = SHORT_LIVED_FRACTION
+            self.emit("tls.expiry", "CRITICAL" if fraction < critical else "WARNING" if fraction < warning else "INFO",
+                      f"short-lived certificate: remaining={remaining:.2f}d of {lifetime:.2f}d ({fraction:.0%}); "
+                      f"warning<{warning:.0%}; critical<{critical:.0%}")
+        else:
+            self.threshold("tls.expiry", -remaining, -21, -7)
 
     def safe(self, key, fn):
         try:
@@ -460,7 +486,7 @@ class Collector:
         self.safe("removable-copy", self.removable_copy)
         if self.slow:
             self.safe("sql", self.sql)
-            self.safe("tls", lambda: self.threshold("tls.expiry", -tls_days(base), -21, -7))
+            self.safe("tls", lambda: self.tls_expiry(base))
             self.store.put("slow", now)
         ooms = self.store.ooms()
         for svc in SERVICES:
