@@ -21,7 +21,7 @@ Las dos identidades Tailscale son **independientes** (cuentas SSO y dispositivos
 |---|---|---|---|
 | Tailscale (`policy*.hujson`) | no aplica (no usa Tailscale) | `tag:erp` tcp/udp 443 | `tag:erp` 443 + **22** (perfil `linux-vm`) o **3389** (perfil `windows`) |
 | Firewall de puertos publicados (`bury-firewall.sh`, `DOCKER-USER`; Windows: regla 443) | 443 desde la LAN | 443 desde `100.64.0.0/10` **solo por `tailscale0`** | ídem |
-| Firewall de administración del host | **ninguna regla** | ninguna regla | Linux: `ufw allow in on tailscale0 from <IP /32 de Tailscale del administrador> to any port 22 proto tcp`; Windows: `Enable-ErpRemoteAdmin.ps1` (RDP, solo desde su IP, solo adaptador `Tailscale`, una regla por administrador) |
+| Firewall de administración del host | **ninguna regla** | ninguna regla | Linux (**requiere `tailscale up … --netfilter-mode=nodivert`**, si no `ts-input` lo salta; ver `p05-tailscale-acceso-remoto.md` §9b): `ufw allow in on tailscale0 from <IP /32 de Tailscale del administrador> to any port 22 proto tcp`; Windows: `Enable-ErpRemoteAdmin.ps1` (RDP, solo desde su IP, solo adaptador `Tailscale`, una regla por administrador) |
 | Aplicación | login/roles del ERP (independiente) | ídem | ídem |
 
 La política **concede**; el firewall del host **abre**. Mientras no se habilite explícitamente la administración en el host, el puerto sigue cerrado aunque la política

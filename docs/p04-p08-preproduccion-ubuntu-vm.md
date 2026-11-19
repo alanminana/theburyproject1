@@ -41,7 +41,7 @@ comprobado aquí de lo que sigue dependiendo del servidor definitivo y del propi
 
 | Ítem | Qué falta |
 |---|---|
-| Tailscale (P-05) | Autenticar el nodo (`sudo tailscale up --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false`) con la cuenta del propietario, aplicar `deploy/tailscale/policy.hujson`, comprobar `tag:erp`, expiración deshabilitada y acceso desde dos identidades reales |
+| Tailscale (P-05) | Autenticar el nodo (`sudo tailscale up --hostname=tbp --advertise-tags=tag:erp --accept-dns=false --accept-routes=false --ssh=false --netfilter-mode=nodivert`) con la cuenta del propietario, aplicar `deploy/tailscale/policy.hujson`, comprobar `tag:erp`, expiración deshabilitada y acceso desde dos identidades reales |
 | Offsite real (P-06) | Destino SFTP/S3/B2 en **otro sitio**, credenciales, `known_hosts` por canal independiente, custodia de la contraseña crypt y de `BACKUP_CA_KEY`, y un restore **desde esa copia** |
 | Receptor/observador externo (P-08) | Canal de aviso humano (correo/Telegram/…), Uptime Kuma u otro en **otro sitio** con heartbeat; sin él, la caída total del host/energía/router no avisa a nadie |
 | Servidor definitivo (P-04) | Hardware, UPS, *restore on AC power loss*, Windows Server/Hyper-V (o Ubuntu físico) con la decisión de plataforma, y repetir el reinicio/corte de energía real |

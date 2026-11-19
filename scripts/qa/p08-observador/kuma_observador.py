@@ -5,7 +5,9 @@
       -e NODE_EXTRA_CA_CERTS=/ca.crt -v caddy-root-ca.crt:/ca.crt:ro -v bury-kuma-data:/app/data louislam/uptime-kuma:2.5.5
   python3 kuma_observador.py setup  secreto.json     # crea el admin (clave aleatoria, guardada en secreto.json, 0600 a cargo de quien lo use)
   python3 kuma_observador.py monitores secreto.json  # /health/live y /health/ready por HTTPS con la CA, cada 20 s, palabra clave Healthy
+  python3 kuma_observador.py push secreto.json       # monitor PUSH (heartbeat del agente monitor.py); imprime el token en stdout
   python3 kuma_observador.py estado secreto.json     # ultimo latido de cada monitor
+  (KUMA_URL=http://host:3001 para apuntar a otra instancia; por defecto 127.0.0.1)
 
 Trampas de Kuma 2.x verificadas: (1) sin UPTIME_KUMA_DB_TYPE el primer arranque espera un asistente web de base de datos y el socket no responde;
 (2) uptime-kuma-api 1.2.1 no envia `conditions` y Kuma 2.x lo exige (NOT NULL): se agrega a mano; (3) la libreria no conoce `pushToken`.
@@ -15,7 +17,7 @@ HTTP (el observador consulta al ERP). En produccion Kuma va en OTRO sitio (p. ej
 import json, os, secrets, sys, time
 from uptime_kuma_api import UptimeKumaApi, MonitorType
 
-URL = "http://127.0.0.1:3001"
+URL = os.environ.get("KUMA_URL", "http://127.0.0.1:3001")
 STATE = {1: "UP", 0: "DOWN", 2: "PENDING", 3: "MAINTENANCE"}
 
 
@@ -40,6 +42,13 @@ def main():
         for name, p in (("ERP tbp /health/live", "/health/live"), ("ERP tbp /health/ready", "/health/ready")):
             d = api._build_monitor_data(type=MonitorType.KEYWORD, name=name, url="https://tbp" + p, keyword="Healthy", interval=20, retryInterval=20, maxretries=1, method="GET")
             d["conditions"] = "[]"; print("monitor", api._call("add", d)["monitorID"], name)
+    elif cmd == "push":
+        for m in api.get_monitors():
+            if m["name"].startswith("bury-monitor-heartbeat"): api.delete_monitor(m["id"])
+        tok = secrets.token_hex(16)
+        d = api._build_monitor_data(type=MonitorType.PUSH, name="bury-monitor-heartbeat (agente)", interval=180, retryInterval=60, maxretries=1)
+        d["conditions"] = "[]"; d["pushToken"] = tok
+        api._call("add", d); print(tok)    # BURY_MONITOR_HEARTBEAT=http://<kuma>/api/push/<token>
     elif cmd == "estado":
         for m in api.get_monitors():
             b = api.get_monitor_beats(m["id"], 1); last = b[-1] if b else None

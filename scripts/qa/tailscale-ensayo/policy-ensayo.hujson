@@ -1,9 +1,17 @@
 {
-  // Politica de ENSAYO equivalente a deploy/tailscale/policy.hujson (grants -> acls de Headscale):
-  // solo group:erp-usuarios alcanza tag:erp, y solo por 443. Nada de 22/1433/8080. Sin acceso entre personas.
-  "groups": { "group:erp-usuarios": ["persona1@", "persona2@"] },
+  // Politica de ENSAYO para el perfil "linux-vm" de deploy/tailscale/policy.hujson (grants -> acls de Headscale), explicita por protocolo:
+  //  - group:erp-usuarios  usuario remoto: SOLO la web: tcp/443 y udp/443 (HTTP/3 de Caddy). Nunca administracion.
+  //  - group:erp-admins    administrador remoto: la web (tcp/443, udp/443) + SSH: SOLO tcp/22 (un unico puerto de administracion).
+  // Grupos disjuntos, nada de 1433/8080/80/3389, sin regla persona->persona, sin ICMP ni UDP/22. Denegar por defecto.
+  // Solo se midio TCP en el ensayo (HTTPS, banner SSH); UDP/443 e ICMP estan en la politica pero no se midieron.
+  "groups": {
+    "group:erp-usuarios": ["usuario1@"],
+    "group:erp-admins": ["admin1@"]
+  },
   "tagOwners": { "tag:erp": ["servidor@"] },
   "acls": [
-    { "action": "accept", "src": ["group:erp-usuarios"], "dst": ["tag:erp:443"] }
+    { "action": "accept", "proto": "tcp", "src": ["group:erp-usuarios", "group:erp-admins"], "dst": ["tag:erp:443"] },
+    { "action": "accept", "proto": "udp", "src": ["group:erp-usuarios", "group:erp-admins"], "dst": ["tag:erp:443"] },
+    { "action": "accept", "proto": "tcp", "src": ["group:erp-admins"], "dst": ["tag:erp:22"] }
   ]
 }
