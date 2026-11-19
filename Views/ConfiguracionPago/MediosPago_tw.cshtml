@@ -989,7 +989,7 @@
         else
         {
             <div class="payments-layout">
-                <aside class="methods-sidebar" aria-label="Metodos de pago">
+                <div class="methods-sidebar" role="group" aria-label="Metodos de pago">
                     <div class="payments-eyebrow">Metodos</div>
                     <nav>
                         @for (var i = 0; i < Model.Medios.Count; i++)
@@ -1072,7 +1072,7 @@
                             </div>
                         </details>
                     }
-                </aside>
+                </div>
 
                 <div class="payments-main">
                     @if (medioSeleccionado != null)

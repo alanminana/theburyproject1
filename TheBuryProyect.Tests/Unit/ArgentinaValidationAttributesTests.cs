@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Validation;
 
 namespace TheBuryProject.Tests.Unit;
@@ -78,9 +78,13 @@ public class ArgentinaValidationAttributesTests
     }
 
     [Theory]
-    [InlineData("Maximilian")]        // 10 letras: tope por palabra
+    [InlineData("Maximilian")]        // 10 letras
+    [InlineData("Constantino")]       // 11 letras: antes rechazado
+    [InlineData("Wolfeschlegelstein")] // 18 letras
+    [InlineData("Abcdefghijklmnopqrst")] // 20 letras: tope por palabra
     [InlineData("Juan Carlos")]       // nombre compuesto
     [InlineData("Juan Carlos Maria")] // 3 palabras
+    [InlineData("Ana María de los Ángeles Gómez")] // 6 palabras: tope
     [InlineData("Pérez-Gómez")]       // guion: cada tramo cuenta aparte
     public void SoloLetras_LimitesPorPalabra_Validos(string value)
     {
@@ -88,8 +92,9 @@ public class ArgentinaValidationAttributesTests
     }
 
     [Theory]
-    [InlineData("Maximiliano")]          // 11 letras en una palabra
-    [InlineData("Juan Carlos Maria Jose")] // 4 palabras
+    [InlineData("Abcdefghijklmnopqrstu")] // 21 letras en una palabra
+    [InlineData("Ana Maria de los Angeles Gomez Paz")] // 7 palabras
+    [InlineData("Juan1")]                  // dígitos no permitidos
     public void SoloLetras_ExcedeLimites_Invalido(string value)
     {
         Assert.NotNull(Run(new SoloLetrasAttribute(), value));

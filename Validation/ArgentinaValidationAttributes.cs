@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -12,7 +12,7 @@ namespace TheBuryProject.Validation
     ///  - CUIL/CUIT: 11 dígitos con dígito verificador válido (módulo 11). Formato XX-DNI-X,
     ///    donde los 8 del medio son el mismo DNI de la persona.
     ///  - Nombre/Apellido: solo letras (acentos, ñ, espacios, apóstrofo, guion), mínimo configurable,
-    ///    hasta 10 letras por palabra y hasta 3 palabras (nombres compuestos).
+    ///    hasta 20 letras por palabra y hasta 6 palabras (nombres compuestos).
     ///  - Montos/precios: solo números, entre 0 y 20.000.000, hasta 2 decimales.
     /// Todos consideran null/vacío como válido para no pisar a [Required]; usar [Required]
     /// cuando el campo sea obligatorio. El backend es la autoridad: validación server-side.
@@ -47,10 +47,10 @@ namespace TheBuryProject.Validation
         public int MinLength { get; set; } = 2;
 
         /// <summary>Máximo de letras por palabra (separadas por espacio, guion, apóstrofo o punto).</summary>
-        public int MaxWordLength { get; set; } = 10;
+        public int MaxWordLength { get; set; } = 20;
 
         /// <summary>Máximo de palabras separadas por espacio (nombres compuestos).</summary>
-        public int MaxWords { get; set; } = 3;
+        public int MaxWords { get; set; } = 6;
 
         /// <summary>Permite dígitos (ej. localidad "9 de Julio"); por defecto solo letras.</summary>
         public bool PermitirDigitos { get; set; }

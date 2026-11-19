@@ -1808,11 +1808,11 @@ body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
 /* Antes de la primera simulación (o tras invalidarse) los valores quedan en "—" y la
    franja se neutraliza. Alterna vía renderResultado()/invalidarSimulacion(). */
 .cotz-app .totales-bar.is-pendiente .seg {
-   opacity: .55;
+   opacity: .8;
 }
 
 .cotz-app .totales-bar.is-pendiente .seg.seg-accent .seg-label {
-   color: var(--cz-text-4);
+   color: var(--cz-text-3);
 }
 
 /* Hint contextual del CTA: sólo aparece para pending/error (setQuoteState). */

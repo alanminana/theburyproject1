@@ -93,7 +93,7 @@ async function enlaces(page, soloDetalle) {
       for (const ruta of rutas) {
         for (const vp of viewports) {
           await page.setViewportSize(vp);
-          const resp = await page.goto(BASE + ruta, { waitUntil: 'networkidle', timeout: 30000 }).catch((e) => { r.errores.push(`${ruta}: ${String(e.message).slice(0, 80)}`); return null; });
+          const resp = await page.goto(BASE + ruta, { waitUntil: 'networkidle', timeout: 30000 }).catch((e) => { if (/Download is starting/.test(String(e.message))) { (r.descargas = r.descargas || []).push(ruta); return null; } r.errores.push(`${ruta}: ${String(e.message).slice(0, 80)}`); return null; }); // una ruta que responde con un archivo (PDF/Excel) es una descarga, no un error de pagina
           const st = resp ? resp.status() : 0;
           if (vp === viewports[0]) r.paginas++;
           if (st >= 500) { r.http5xx.push(`${st} ${ruta}`); continue; }
