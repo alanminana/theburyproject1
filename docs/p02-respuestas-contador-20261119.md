@@ -85,8 +85,13 @@ Requisitos previos (todos ausentes hoy): (a) un vínculo del ERP con el comproba
 ## 7. Qué impide cerrar P-02
 
 - Respuestas del contador pendientes o contradictorias (§5): C3, C4/C7/C8 (legalidad), C9–C11, C12, C13.
+- Inconsistencia de orden de redondeo/ajuste entre caminos (§7-bis), a resolver con C5 antes de activar V2.
 - Decisiones del propietario (§6): activación de V2 y fecha de corte, P3, C5, C14, C15.
 - Pendiente heredado: política de backfill de `AlicuotaServiciosSnapshot` (`docs/p02-versionado-fiscal-diseno.md` §8.2); no aplica a la base nueva (sin históricos).
+
+## 7-bis. Hallazgo de la revisión independiente de Codex (condición para activar V2)
+
+Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de operaciones difiere entre caminos: la venta directa redondea la base **antes** de aplicar el ajuste (`VentaService.CalcularTotales` → `AplicarAjusteMedioUnPagoAsync`), mientras que el cotizador y la conversión de cotización calculan el ajuste sobre la base con centavos, y el comprobante/Reporte de IVA reconstruyen el desglose desde los brutos originales. Ejemplo con V2 (cálculo de Codex, **no reproducido por mí con una prueba**): producto 1.000,51 al 21 %, transferencia +3 %: venta directa 1.031,03 (neto 851,69 + IVA 179,34); comprobante y Reporte de IVA, mismo total pero neto 852,09 + IVA 178,94; cotización→venta cobra 1.030,53. Cada capa cierra `Neto + IVA = Total`, pero el IVA difiere entre capas y el importe entre caminos. **Es una inconsistencia previa** (con V1 el orden «truncar y luego ajustar» ya existe); V2 la hereda. Corregirla cambia importes de ventas con ajuste, por lo que no se tocó: debe resolverse junto con C5 (misma zona de código) y **antes** de activar V2.
 
 ## 8. Qué se implementó y probó en esta tanda
 
