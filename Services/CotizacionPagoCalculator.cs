@@ -44,7 +44,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var fechaCalculo = request.FechaCotizacion ?? DateTime.Today;
+        var fechaCalculo = request.FechaCotizacion ?? RelojComercial.Sistema.InicioDiaComercial;
 
         if (request.Productos.Count == 0)
         {

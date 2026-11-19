@@ -205,7 +205,7 @@ namespace TheBuryProject.Services
 
             if (soloVencidos)
             {
-                var hoy = DateTime.Today;
+                var hoy = RelojComercial.Sistema.InicioDiaComercial;
                 query = query.Where(c => c.FechaVencimiento.HasValue &&
                                          c.FechaVencimiento.Value < hoy &&
                                          c.Estado != EstadoCheque.Cobrado &&
@@ -215,7 +215,7 @@ namespace TheBuryProject.Services
 
             if (soloPorVencer)
             {
-                var hoy = DateTime.Today;
+                var hoy = RelojComercial.Sistema.InicioDiaComercial;
                 var limite = hoy.AddDays(7);
                 query = query.Where(c => c.FechaVencimiento.HasValue &&
                                          c.FechaVencimiento.Value >= hoy &&
@@ -283,7 +283,7 @@ namespace TheBuryProject.Services
 
         public async Task<IEnumerable<Cheque>> GetVencidosAsync()
         {
-            var hoy = DateTime.Today;
+            var hoy = RelojComercial.Sistema.InicioDiaComercial;
             return await _context.Cheques
                 .AsNoTracking()
                 .Include(c => c.Proveedor)
@@ -300,7 +300,7 @@ namespace TheBuryProject.Services
 
         public async Task<IEnumerable<Cheque>> GetPorVencerAsync(int dias = 7)
         {
-            var hoy = DateTime.Today;
+            var hoy = RelojComercial.Sistema.InicioDiaComercial;
             var limite = hoy.AddDays(dias);
 
             return await _context.Cheques

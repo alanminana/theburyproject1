@@ -649,8 +649,8 @@ namespace TheBuryProject.Services.Documentos
 
             ctx.Set("documento.numero", "(sin asignar)");
             ctx.Set("recibo.numero", "(sin asignar)");
-            ctx.Set("documento.fecha", DateTime.Today);
-            ctx.Set("documento.fechaHora", DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+            ctx.Set("documento.fecha", RelojComercial.Sistema.InicioDiaComercial);
+            ctx.Set("documento.fechaHora", RelojComercial.Sistema.AhoraComercial.ToString("dd/MM/yyyy HH:mm"));
             ctx.Set("documento.tipo", "(vista previa)");
 
             var render = PlantillaRenderer.Renderizar(contenido ?? string.Empty, ctx);

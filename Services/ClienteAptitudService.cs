@@ -439,7 +439,7 @@ namespace TheBuryProject.Services
 
             var faltantes = new List<string>();
             var vencidos = new List<string>();
-            var hoy = DateTime.UtcNow.Date;
+            var hoy = _reloj.InicioDiaComercial;
             var diasGracia = config.DiasGraciaVencimientoDocumento ?? 0;
 
             foreach (var tipo in tiposRequeridos)

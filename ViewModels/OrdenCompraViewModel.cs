@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using TheBuryProject.Services;
+using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels
@@ -15,7 +16,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "La fecha de emisión es obligatoria")]
         [Display(Name = "Fecha de Emisión")]
-        public DateTime FechaEmision { get; set; } = DateTime.Today;
+        public DateTime FechaEmision { get; set; } = RelojComercial.Sistema.InicioDiaComercial;
 
         [Display(Name = "Fecha de Entrega Estimada")]
         public DateTime? FechaEntregaEstimada { get; set; }

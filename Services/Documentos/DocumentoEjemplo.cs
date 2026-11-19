@@ -14,7 +14,7 @@ namespace TheBuryProject.Services.Documentos
                     TipoCampoDocumento.Numero => campo.Ruta.Contains("cantidad", StringComparison.OrdinalIgnoreCase) || campo.Ruta.EndsWith("numero", StringComparison.OrdinalIgnoreCase)
                         ? 6
                         : (object)12345.67m,
-                    TipoCampoDocumento.Fecha => DateTime.Today,
+                    TipoCampoDocumento.Fecha => RelojComercial.Sistema.InicioDiaComercial,
                     TipoCampoDocumento.Booleano => true,
                     _ => campo.Valores?.FirstOrDefault() ?? $"[{campo.Etiqueta}]"
                 });
@@ -28,7 +28,7 @@ namespace TheBuryProject.Services.Documentos
             DocumentoContextoBuilder.AplicarProductos(ctx, productos);
 
             var cuotas = Enumerable.Range(1, 6).Select(i => DocumentoContextoBuilder.ItemCuota(
-                i, 5000m, 4000m, 1000m, DateTime.Today.AddMonths(i), "Pendiente")).ToList();
+                i, 5000m, 4000m, 1000m, RelojComercial.Sistema.InicioDiaComercial.AddMonths(i), "Pendiente")).ToList();
             DocumentoContextoBuilder.AplicarCuotas(ctx, cuotas);
 
             if (ancla == AnclaDocumento.Pago)
@@ -45,7 +45,7 @@ namespace TheBuryProject.Services.Documentos
                 {
                     new(StringComparer.OrdinalIgnoreCase)
                     {
-                        ["fecha"] = DateTime.Today, ["cuotaNumero"] = 5, ["cuotasTotal"] = 6,
+                        ["fecha"] = RelojComercial.Sistema.InicioDiaComercial, ["cuotaNumero"] = 5, ["cuotasTotal"] = 6,
                         ["operacionNumero"] = "VTA-000000", ["importeFormato"] = FormatoArgentino.Importe(12345.67m)
                     }
                 };

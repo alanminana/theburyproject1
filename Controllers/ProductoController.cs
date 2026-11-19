@@ -545,7 +545,7 @@ namespace TheBuryProject.Controllers
                 return BadRequest(new { error = "El porcentaje de recargo no puede ser negativo." });
 
             var resultado = _financialService.SimularPlanCredito(
-                montoReferencia, 0m, cuotas, porcentajeRecargoTotal, 0m, DateTime.Today.AddMonths(1));
+                montoReferencia, 0m, cuotas, porcentajeRecargoTotal, 0m, RelojComercial.Sistema.InicioDiaComercial.AddMonths(1));
 
             return Json(new
             {

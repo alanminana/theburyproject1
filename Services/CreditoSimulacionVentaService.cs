@@ -180,7 +180,7 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
 
         var fecha = DateTime.TryParse(request.FechaPrimeraCuota, out var parsed)
             ? parsed
-            : DateTime.Today.AddMonths(1);
+            : RelojComercial.Sistema.InicioDiaComercial.AddMonths(1);
 
         cancellationToken.ThrowIfCancellationRequested();
 

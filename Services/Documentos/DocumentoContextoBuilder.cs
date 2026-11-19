@@ -19,11 +19,13 @@ namespace TheBuryProject.Services.Documentos
         private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-AR");
         private readonly AppDbContext _context;
         private readonly IPlanCuotasProyector? _proyector;
+        private readonly IRelojComercial _reloj;
 
-        public DocumentoContextoBuilder(AppDbContext context, IPlanCuotasProyector? proyector = null)
+        public DocumentoContextoBuilder(AppDbContext context, IPlanCuotasProyector? proyector = null, IRelojComercial? reloj = null)
         {
             _context = context;
             _proyector = proyector;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         public async Task<DocumentoContexto> ConstruirAsync(string evento, DocumentoOrigen origen)
@@ -71,7 +73,7 @@ namespace TheBuryProject.Services.Documentos
                 return empresa;
             }
 
-            var hoy = DateTime.UtcNow.Date;
+            var hoy = _reloj.InicioDiaComercial;
             var plantilla = await _context.PlantillasContratoCredito
                 .AsNoTracking()
                 .Where(p => p.Activa && p.VigenteDesde.Date <= hoy && (!p.VigenteHasta.HasValue || p.VigenteHasta.Value.Date >= hoy))

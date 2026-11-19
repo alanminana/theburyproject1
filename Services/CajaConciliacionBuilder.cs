@@ -381,7 +381,7 @@ public static class CajaConciliacionBuilder
             Orden = orden++,
             FechaHora = movimientos.Count > 0
                 ? movimientos.Min(m => m.FechaMovimiento).ToLocalTime()
-                : DateTime.Now,
+                : RelojComercial.Sistema.AhoraComercial,
             TipoLabel = "Apertura",
             Concepto = "Fondo inicial",
             MedioPago = "Efectivo",

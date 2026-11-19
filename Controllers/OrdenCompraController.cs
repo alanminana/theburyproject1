@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -126,7 +127,7 @@ namespace TheBuryProject.Controllers
                 var viewModel = new OrdenCompraViewModel
                 {
                     Numero = numeroOrden,
-                    FechaEmision = DateTime.Today,
+                    FechaEmision = RelojComercial.Sistema.InicioDiaComercial,
                     Estado = EstadoOrdenCompra.Borrador
                 };
 

@@ -1,3 +1,4 @@
+using TheBuryProject.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +63,7 @@ namespace TheBuryProject.Controllers
             return View("CreateEdit", new PlantillaContratoCreditoViewModel
             {
                 Activa       = true,
-                VigenteDesde = DateTime.Today
+                VigenteDesde = RelojComercial.Sistema.InicioDiaComercial
             });
         }
 
