@@ -4111,6 +4111,13 @@ namespace TheBuryProject.Services
         /// </summary>
         private static (decimal Subtotal, decimal IVA) AbsorberTruncadoEnNetoEIva(decimal subtotal, decimal iva, decimal truncado)
         {
+            // Residuo negativo (solo criterio fiscal V2: total redondeado hacia arriba): ver RecargoMedioPagoIva.AbsorberRedondeo.
+            if (truncado < 0m)
+            {
+                var (neto, ivaAjustado) = RecargoMedioPagoIva.AbsorberRedondeo(subtotal, iva, truncado);
+                return (neto, ivaAjustado);
+            }
+
             var deIva = Math.Min(truncado, iva);
             return (subtotal - (truncado - deIva), iva - deIva);
         }

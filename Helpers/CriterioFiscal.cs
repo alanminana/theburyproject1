@@ -59,6 +59,43 @@ namespace TheBuryProject.Helpers
         public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => RecargoMedioPagoIva.AbsorberTruncado(neto, iva, truncado);
     }
 
+    /// <summary>
+    /// Versión 2 (P-02, 2026-11-19). <b>Registrada pero NO vigente</b>: <see cref="CriterioFiscalRegistry.VersionVigente"/> sigue en 1
+    /// hasta que el propietario autorice la activación y su fecha de corte (P6). Una operación nace con V2 solo si la vigente es 2.
+    /// Contiene exclusivamente reglas con respuesta inequívoca del contador (2026-11-19), todo lo demás delega en V1:
+    /// <list type="bullet">
+    /// <item><b>C1/C2 redondeo del total a pesos</b>: hasta $0,50 inclusive se redondea hacia abajo y desde $0,51 hacia arriba
+    /// (1.000,50 → 1.000; 1.000,51 y 1.000,99 → 1.001). V1 trunca siempre.</item>
+    /// </list>
+    /// <b>C3</b>: el contador indicó que la diferencia de redondeo no se registra. Para que Neto + IVA == Total se siga cumpliendo
+    /// (invariante técnica de comprobantes y reportes) el residuo, que puede ser negativo, se absorbe en el IVA igual que en V1; no
+    /// se crea ningún concepto ni línea nueva. Si el contador exige otro tratamiento, es un cambio local en
+    /// <see cref="RecargoMedioPagoIva.AbsorberRedondeo"/>.
+    /// NO incluye (sin criterio firme, ver docs/p02-respuestas-contador-20261119.md): C5 descuento solo sobre productos, C7/C8
+    /// recargos, C9–C11 cuotas/punitorios/intereses, C12 crédito fiscal, C13/C14 devoluciones.
+    /// </summary>
+    public sealed class CriterioFiscalV2 : ICriterioFiscal
+    {
+        public int Version => CriterioFiscalRegistry.VersionDosRedondeoComercial;
+        public decimal AlicuotaServicios => ServiciosVentaIva.Porcentaje;
+        public string NombreAlicuotaServicios => ServiciosVentaIva.NombreAlicuota;
+        public (decimal Neto, decimal Iva) SepararServicios(decimal bruto) => ServiciosVentaIva.Separar(bruto);
+
+        /// <summary>C1/C2: ≤ $0,50 hacia abajo; &gt; $0,50 hacia arriba (no es el «redondeo bancario» ni el de mitad hacia arriba).</summary>
+        public decimal TruncarAPesos(decimal valor)
+        {
+            var piso = Math.Floor(valor);
+            return valor - piso > 0.50m ? piso + 1m : piso;
+        }
+
+        public decimal CalcularRecargo(decimal totalCobrado, decimal brutoItems) => RecargoMedioPagoIva.CalcularRecargo(totalCobrado, brutoItems, TruncarAPesos);
+        public decimal[] Prorratear(IReadOnlyList<decimal> pesos, decimal importe) => RecargoMedioPagoIva.Prorratear(pesos, importe);
+        public List<RecargoMedioPagoIva.ParteAlicuota> Repartir(IEnumerable<(decimal Porcentaje, decimal Bruto)> bases, decimal recargo) => RecargoMedioPagoIva.Repartir(bases, recargo);
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => RecargoMedioPagoIva.Discriminar(total, lineas, TruncarAPesos);
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas, TruncarAPesos);
+        public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => RecargoMedioPagoIva.AbsorberRedondeo(neto, iva, truncado);
+    }
+
     /// <summary>La versión de criterio fiscal pedida no está registrada (dato corrupto o código desactualizado).</summary>
     public sealed class CriterioFiscalDesconocidoException(int version)
         : InvalidOperationException($"Versión de criterio fiscal {version} no registrada.")
@@ -91,7 +128,11 @@ namespace TheBuryProject.Helpers
         /// <summary>Versión que se asigna a toda operación histórica (backfill) y a las nuevas mientras no exista otra.</summary>
         public const int VersionInicial = 1;
 
+        /// <summary>Versión 2: redondeo comercial a pesos (C1/C2). Registrada, NO vigente hasta autorización del propietario (P6).</summary>
+        public const int VersionDosRedondeoComercial = 2;
+
         private static readonly ICriterioFiscal V1 = new CriterioFiscalV1();
+        private static readonly ICriterioFiscal V2 = new CriterioFiscalV2();
         private static readonly AsyncLocal<Escenario?> EscenarioPrueba = new();
 
         private sealed record Escenario(IReadOnlyDictionary<int, ICriterioFiscal> Versiones, int Vigente);
@@ -112,6 +153,8 @@ namespace TheBuryProject.Helpers
                 return enPrueba;
             if (version == VersionInicial)
                 return V1;
+            if (version == VersionDosRedondeoComercial)
+                return V2;
             throw new CriterioFiscalDesconocidoException(version);
         }
 

@@ -345,7 +345,7 @@ namespace TheBuryProject.Helpers
             decimal Iva)
         {
             // Hay ajuste del medio de pago o, al menos, centavos truncados a pesos que el total ya no incluye.
-            public bool HayAjuste => Partes.Count > 0 || Truncado > 0m;
+            public bool HayAjuste => Partes.Count > 0 || Truncado != 0m;
             public decimal RecargoNeto => Partes.Sum(p => p.Neto);
             public decimal RecargoIva => Partes.Sum(p => p.Iva);
         }
@@ -364,7 +364,7 @@ namespace TheBuryProject.Helpers
                 total,
                 lineas.Select(l => (l.PorcentajeIVA, l.Total, l.SubtotalNeto, l.IVA)).ToList());
             // Sin ajuste del medio de pago ni centavos truncados el comprobante es la suma de sus líneas.
-            if (discriminacion.Partes.Count == 0 && discriminacion.Truncado <= 0m) return vacio;
+            if (discriminacion.Partes.Count == 0 && discriminacion.Truncado == 0m) return vacio;
 
             return new RecargoDiscriminado(discriminacion.Partes, discriminacion.Truncado, discriminacion.Neto, discriminacion.Iva);
         }
@@ -395,7 +395,7 @@ namespace TheBuryProject.Helpers
                 item.Total += parte.Bruto;
             }
 
-            if (recargo.Truncado > 0m && resumen.Count > 0)
+            if (recargo.Truncado != 0m && resumen.Count > 0)
             {
                 // El truncado a pesos se absorbe en la alícuota de mayor IVA, igual que en los totales.
                 var destino = resumen.OrderByDescending(r => r.IVA).First();
