@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch, MagicMock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -249,6 +250,55 @@ class MonitoringTests(unittest.TestCase):
         for days, expected in [(30, "INFO"), (20, "WARNING"), (6, "CRITICAL")]:
             self.collector.threshold("tls.expiry", -days, -21, -7)
             self.assertEqual(self.collector.signals["tls.expiry"]["severity"], expected)
+
+    def test_tls_short_lived_certificate_measures_fraction_of_lifetime(self):
+        """CA interna de Caddy: hoja de 12 h. 10,8 h restantes (90 %) es normal; renovacion fallando (20 %, 5 %) si debe alertar."""
+        for remaining, expected in [(0.45, "INFO"), (0.20, "INFO"), (0.12, "WARNING"), (0.04, "CRITICAL")]:
+            self.collector.tls_expiry("https://x", info=lambda _u, r=remaining: (r, 0.5))
+            self.assertEqual(self.collector.signals["tls.expiry"]["severity"], expected, remaining)
+
+    def test_tls_short_lived_boundaries_and_expired(self):
+        """Bordes: exactamente 25 % / 10 % NO alertan (el umbral es estricto, como dice la doc); expirado o nulo es CRITICAL."""
+        for remaining, expected in [(0.125, "INFO"), (0.0625 + 0.0000001, "WARNING"), (0.05, "WARNING"), (0.0499, "CRITICAL"),
+                                    (0.0, "CRITICAL"), (-0.1, "CRITICAL")]:
+            self.collector.tls_expiry("https://x", info=lambda _u, r=remaining: (r, 0.5))
+            self.assertEqual(self.collector.signals["tls.expiry"]["severity"], expected, remaining)
+
+    def test_tls_lifetime_limit_between_short_and_long(self):
+        """7 dias exactos de vida total = hoja corta (fraccion); mas de 7 = umbrales de 21/7 dias, tambien en sus bordes."""
+        self.collector.tls_expiry("https://x", info=lambda _u: (6.5, 7.0))
+        self.assertEqual(self.collector.signals["tls.expiry"]["severity"], "INFO")
+        self.collector.tls_expiry("https://x", info=lambda _u: (6.5, 7.01))
+        self.assertEqual(self.collector.signals["tls.expiry"]["severity"], "CRITICAL")  # 6,5 dias <= 7: regla larga
+        for remaining, expected in [(21.01, "INFO"), (21, "WARNING"), (7.01, "WARNING"), (7, "CRITICAL")]:
+            self.collector.tls_expiry("https://x", info=lambda _u, r=remaining: (r, 90))
+            self.assertEqual(self.collector.signals["tls.expiry"]["severity"], expected, remaining)
+
+    def test_tls_nonpositive_lifetime_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.collector.tls_expiry("https://x", info=lambda _u: (60, 0))
+
+    def test_tls_info_extracts_dates_and_requires_https(self):
+        now = time.time()
+        fmt = lambda t: time.strftime("%b %d %H:%M:%S %Y GMT", time.gmtime(t))
+        cert = {"notBefore": fmt(now - 3600), "notAfter": fmt(now + 3 * 3600)}
+        conn = MagicMock(); conn.getpeercert.return_value = cert
+        ctx = MagicMock(); ctx.wrap_socket.return_value.__enter__.return_value = conn
+        with patch.object(monitor.socket, "create_connection"), patch.object(monitor.ssl, "create_default_context", return_value=ctx):
+            remaining, lifetime = monitor.tls_info("https://tbp")
+        self.assertAlmostEqual(lifetime, 4 / 24, places=3)
+        self.assertAlmostEqual(remaining, 3 / 24, places=3)
+        with self.assertRaises(ValueError):
+            monitor.tls_info("http://tbp")
+        ctx.wrap_socket.side_effect = monitor.ssl.SSLCertVerificationError("expired")  # el error TLS se propaga (-> collector.tls CRITICAL)
+        with patch.object(monitor.socket, "create_connection"), patch.object(monitor.ssl, "create_default_context", return_value=ctx):
+            with self.assertRaises(monitor.ssl.SSLCertVerificationError):
+                monitor.tls_info("https://tbp")
+
+    def test_tls_long_lived_certificate_keeps_day_thresholds(self):
+        for remaining, expected in [(60, "INFO"), (20, "WARNING"), (5, "CRITICAL")]:
+            self.collector.tls_expiry("https://x", info=lambda _u, r=remaining: (r, 90))
+            self.assertEqual(self.collector.signals["tls.expiry"]["severity"], expected, remaining)
 
     def test_unhealthy_with_running_process_is_not_healthy(self):
         row = dict(id="app", service="app", state="running", health="unhealthy", oom=False,
