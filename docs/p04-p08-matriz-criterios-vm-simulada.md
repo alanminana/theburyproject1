@@ -80,6 +80,8 @@ del servidor listaba el 22 para el usuario) → el host lo bloquea; ACL revocada
 llega. Detalle en `p05-tailscale-acceso-remoto.md` §9b.
 
 ### P-06 — Backups y recuperación
+
+> **Actualización 2026-11-20:** auditoría real del anfitrión y de los respaldos, matriz P-04/P-06 y recursos físicos que faltan en `docs/p04-p06-estado-fisico-20261120.md` (no hay ningún medio externo; el respaldo diario completo no corría por una colisión de lock, corregida en #338; la VM no vuelve sola tras reiniciar Windows).
 | Criterio | Estado | Evidencia |
 |---|---|---|
 | `backup.sh` full/log/files, `restore-test` (DBCC OK), cron de backups, log cada 15 min | VALIDADO HOY | cron ejecutó solo; `Check-ErpHealth` lo lee desde Windows |
