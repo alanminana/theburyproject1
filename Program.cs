@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
@@ -60,6 +60,17 @@ if (ensayoCriterioFiscal.HasValue)
 {
     CriterioFiscalRegistry.ActivarEnsayo(ensayoCriterioFiscal.Value);
     Console.WriteLine($"[ENSAYO] CriterioFiscal vigente = {ensayoCriterioFiscal.Value} (instancia de ensayo; NO usar con datos reales).");
+}
+
+// P-02 / P6: activación PRODUCTIVA de CriterioFiscalV2 desde la fecha real de puesta en marcha (Fiscal:CriterioV2Desde). Sin la clave rige V1;
+// un valor inválido impide arrancar. No aplica a operaciones ya emitidas: cada venta conserva la versión con la que se creó.
+var criterioV2Desde = ActivacionCriterioFiscal.Resolver(builder.Configuration[ActivacionCriterioFiscal.Clave]);
+var versionFiscalAlArrancar = CriterioFiscalRegistry.ConfigurarV2Desde(criterioV2Desde);
+if (criterioV2Desde.HasValue)
+{
+    Console.WriteLine($"[FISCAL] Fiscal:CriterioV2Desde={criterioV2Desde.Value:O}; CriterioFiscal vigente en este proceso = V{versionFiscalAlArrancar}.");
+    if (versionFiscalAlArrancar == CriterioFiscalRegistry.VersionInicial)
+        Console.WriteLine("[FISCAL] AVISO: el instante configurado todavía no llegó; este proceso seguirá en V1 hasta el próximo reinicio posterior a ese instante (la versión no cambia en caliente).");
 }
 
 // 2. EF Core (evitar mezclar AddDbContext + AddDbContextFactory)

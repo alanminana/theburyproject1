@@ -153,6 +153,9 @@ services:
       # D-05: modo de la CSP (Off | ReportOnly | Enforce). Por defecto Off (o con CSP_MODE vacio en .env). Un valor invalido IMPIDE el arranque
       # de la app (ValidateOnStart): ver docs/csp-enforce-activacion.md antes de cambiarlo. Cambiarlo = editar .env + `docker compose up -d app`.
       Csp__Mode: ${CSP_MODE:-Off}
+      # P-02 / P6: instante ISO-8601 con zona desde el cual rige CriterioFiscal V2 (fecha real de puesta en marcha). Vacio = V1 (sin cambio).
+      # Un valor invalido IMPIDE el arranque de la app. Ver docs/p02-procedimiento-activacion.md antes de definirlo; una vez que hay ventas V2 no se quita.
+      Fiscal__CriterioV2Desde: ${FISCAL_CRITERIO_V2_DESDE:-}
     volumes:
       - bury-keys:/keys
       - bury-uploads:/app/wwwroot/uploads
