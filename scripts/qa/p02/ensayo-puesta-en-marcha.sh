@@ -108,7 +108,9 @@ cleanup() {
   if [ "$KEEP" = 1 ]; then say "Pila conservada: proyecto $P (destruir: docker compose -p $P down -v). Evidencia: $OUT"; return; fi
   dcp down -v >/dev/null 2>&1 || true
   rm -f "$REPO/.env"
-  rm -rf "$T/backups" "$T/verif.sql"
+  # Los backups de SQL Server pertenecen al usuario del contenedor (uid 10001): se borran con un contenedor descartable.
+  rm -rf "$T/backups" "$T/verif.sql" 2>/dev/null || docker run --rm -v "$T:/t" alpine sh -c 'rm -rf /t/backups /t/verif.sql' >/dev/null 2>&1 || true
+  rmdir "$T" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -144,7 +146,7 @@ chk "venta S1 creada y facturada bajo A" "[ -n \"$S1\" ]" "ver $LOG"
 V1_S1="$(sql1 "select CriterioFiscalVersion from Ventas where Id=$S1")"
 chk "S1 tiene versión fiscal 1" "[ \"$V1_S1\" = 1 ]" "versión=$V1_S1"
 TOT_S1="$(sql1 "select cast(Total as varchar(20)) from Ventas where Id=$S1")"
-say "  S1 total=$TOT_S1 (V1: 1.000,51 truncado a 1.000,00 por el criterio vigente)"
+say "  S1 total=$TOT_S1 (V1: efectivo conserva los centavos; V2 redondea a pesos)"
 
 # ---------------------------------------------------------------------------------------------------------------------------
 sec "3. Preflight rechaza una fecha de V2 inválida"
@@ -191,7 +193,9 @@ say "  S3 total=$TOT_S3 (V2: 1.000,51 redondeado a 1.001,00)"
 chk "V2 redondea comercialmente: S3 total = 1001.00" "[ \"$TOT_S3\" = 1001.00 ]" "total=$TOT_S3"
 chk "operaciones previas conservan V1 (S1,S2) sin cambios de importe" "[ \"\$(sql1 \"select cast(sum(case when CriterioFiscalVersion=1 then 1 else 0 end) as varchar(5)) from Ventas where Id in ($S1,$S2)\")\" = 2 ]" "S1/S2 alteradas"
 V="$(verif "$(date -u -d "$ACTIVACION" '+%Y-%m-%dT%H:%M:%S')")"; echo "$V" >>"$LOG"
-chk "verificación posterior: sin FALLA (consistencia Neto+IVA=Total, facturas, V2 no retroactiva)" "! echo \"\$V\" | grep -q '|FALLA'" "$(echo "$V" | grep FALLA)"
+# En el ensayo S1/S2 son ventas V1 ANTERIORES a la puesta en marcha a propósito (para probar que V1 se conserva): el control las debe
+# detectar. En producción ese control debe dar 0. Cualquier OTRO control en FALLA sí es un error.
+chk "verificación posterior: el único FALLA es el esperado (2 ventas sintéticas V1 previas); consistencia Neto+IVA=Total y facturas OK" "[ \"\$(echo \"\$V\" | grep -c '|FALLA')\" = 1 ] && echo \"\$V\" | grep '|FALLA' | grep -q 'Ventas anteriores a la puesta en marcha|2|'" "$(echo "$V" | grep FALLA)"
 say "$(echo "$V" | grep -E 'Fecha efectiva de V2|versión fiscal')"
 
 # ---------------------------------------------------------------------------------------------------------------------------
