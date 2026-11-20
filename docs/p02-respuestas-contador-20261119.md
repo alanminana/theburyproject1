@@ -121,3 +121,32 @@ Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de ope
 - **Reintegro con C5**: con `CriterioFiscalV2` el descuento de efectivo se calculó solo sobre productos, así que devolver todo reintegra exactamente lo cobrado por los productos (antes del ajuste se prorrateaba el descuento también a servicios y se reintegraba de más). V1 intacta.
 - **Vínculo con la NC fiscal externa** (`NotaCredito.FiscalExterna*`, `INotaCreditoFiscalExternaService`, migración aditiva `P02NotaCreditoFiscalExterna`: 8 columnas nullables + índice único filtrado `IX_NotasCredito_FiscalExterna`; **NO aplicada a ninguna base**): punto de venta (1–5 díg.), tipo (NCA/NCB/NCC/NCM/NCE), número (1–8 díg.), fecha (no futura ni anterior a la venta), importe (> 0, ≤ NC interna, ≤ venta y suma de NC fiscales ≤ venta), CAE opcional (14 díg.). Rechaza duplicados (validación + índice único), un segundo vínculo sobre la misma NC (inmutable) y ventas sin factura vigente. Exige el permiso `devoluciones.approve` (existente; un permiso propio `linkfiscal` requiere sembrar permisos y queda como decisión) y audita en el mismo guardado (`devoluciones / vincular_nc_fiscal_externa`).
 - **Sin neteo de IVA**: ni el Reporte de IVA ni ventas netas leen estos campos. Activarlo exige tu autorización P3 y la respuesta del contador sobre el período (§5, pregunta 3). Sin pantalla nueva (no se rediseña la interfaz): hoy el vínculo se carga por servicio.
+
+## 11. Tanda D (2026-11-20): validación en ambiente de ensayo, pantalla de NC fiscal externa y cierre técnico
+
+**Activación de ensayo de V2 (no productiva).** `Ensayo:CriterioFiscalVersion` (clave de configuración, `Helpers/EnsayoCriterioFiscal`) solo se admite en el entorno `Development`; en `Production`, `Staging` o `Testing` **aborta el arranque** (falla cerrada, nunca se ignora). Sin la clave la versión vigente sigue siendo 1. Se usó únicamente en un stack descartable (`tbp-p02-ensayo`, SQL Server y red propios, datos sintéticos) en la VM; se destruye con `docker compose -p tbp-p02-ensayo down -v`.
+
+**Permiso `notascredito.linkfiscal`** (propio; ya no se reutiliza `devoluciones.approve`). Asignación inicial mínima: **SuperAdmin y Administrador** (grant «todo salvo la lista»). Gerente (excluido explícitamente del grant en bloque del módulo), Contador, Técnico, Vendedor, Cajero y Repositor **no** lo reciben; se asigna a mano desde Seguridad > Roles. Se verificó por rol (prueba del seeder) y en navegador: el Gerente ve el vínculo en solo lectura, sin formulario, y un POST directo es rechazado (`AccessDenied`).
+
+**Pantalla.** Detalle de la devolución (`Devolucion/Detalles`), dentro de la tarjeta «Nota de crédito»: tipo, punto de venta, número, fecha, importe y CAE opcional; muestra la venta y la NC interna vinculadas; el vínculo ya cargado es de solo lectura. Acción `POST Devolucion/VincularNcFiscal` (antiforgery + permiso). Auditoría (`notascredito`): alta (`vincular_nc_fiscal_externa`, con tipo, punto de venta, número y venta; **sin CAE ni importe**), intento rechazado por validación (`..._rechazado`, solo la cantidad de errores) e intento sin permiso. **No netea IVA ni cambia ningún importe.**
+
+**Migración `P02NotaCreditoFiscalExterna`** probada en un SQL Server descartable (contenedor `bury-p02-throwaway-sql`, ya eliminado): aplica (8 columnas nullable + índice único filtrado `IX_NotasCredito_FiscalExterna`), una fila previa queda intacta, el índice rechaza un comprobante repetido y admite varias NC sin vínculo, **revierte** (columnas e índice desaparecen, las filas se conservan, `__EFMigrationsHistory` vuelve a D03) y se reaplica. No se aplicó a ninguna base real; la base de preprod de la VM conserva 144 migraciones.
+
+**Validación en navegador real (Chrome, instancia de ensayo con V2; evidencia en `D:\git\QA-AUDITORIA\p02-ensayo-20261120`).** Importes mostrados contra lo persistido en SQL Server:
+
+| Recorrido | Pantalla | SQL | Resultado |
+|---|---|---|---|
+| Cotizador: 3 alícuotas (21 %, 10,5 %, exento) + armado 450 | base 2.501,00; Efectivo −5 % = 2.398,45; Transferencia +3 % = 2.576,03 | `TotalBase` 2.501,00; `TotalSeleccionado` 2.398,45 / 2.576,03 | coincide (el descuento excluye el armado) |
+| Conversión cotización → venta (Efectivo) | Total 2.398,45; descuento −102,55 | `Ventas`: neto 2.083,52 + IVA 314,93 = 2.398,45; ajuste −102,55; versión 2 | coincide |
+| Confirmar y facturar | factura FA-B-…0001 | `Facturas` 2.398,45 = `MovimientosCaja` 2.398,45 | coincide |
+| Transferencia con recargo | 2.576,03 | venta, factura y Caja 2.576,03; ajuste +75,03 | coincide |
+| Comprobante interno | neto 2.083,52, IVA 314,93, total 2.398,45, descuento repartido solo entre productos | = venta | coincide |
+| Reporte de IVA (2 ventas) | neto 4.322,31, IVA 652,17, total 4.974,48 (y por alícuota) | suma de `Ventas` | coincide |
+| Reporte de ventas / ganancias | bruto 2.398,45; ganancia 1.283,52 (neto 2.083,52 − costo 800) | = | coincide |
+| Devolución parcial (producto 21 %) | 950,32 | = lo cobrado por ese producto (descuento prorrateado solo entre productos) | exacto |
+| NC fiscal externa: importe inválido / válido | 3 errores de validación / «vinculada» | `NotasCredito.FiscalExterna*` y 2 eventos de auditoría | correcto |
+| C15: venta a 01/11 01:30 UTC | «31/10/2026 22:30 hs»; Reporte de IVA y de ventas de **octubre** la incluyen, el de noviembre no | `FechaVenta` 2026-11-01 01:30 UTC | correcto |
+
+**No validado en navegador (sin evidencia visual):** venta directa por el asistente de Create (comparte el cotizador y se cubre por pruebas automatizadas: matriz de alícuotas mixtas, FiscalVersionado), envío a domicilio (mi guion no logró completar el modal de envío; cubierto por pruebas), créditos/cuotas/recibos y devolución total.
+
+**Hallazgos de esta tanda.** (1) V1 con ajuste del medio de pago y alícuotas mixtas deja una diferencia histórica de hasta ~$0,7 entre el neto guardado en la venta y el reconstruido en comprobante/reporte (el total y neto + IVA = total sí cierran): V1 es inmutable y no se corrige; V2 no la tiene (matriz `FiscalAlicuotasMixtasP02Tests`: 40 casos). (2) Corregido: la hora de emisión de la factura en el detalle de la venta y la de registro del vínculo fiscal se mostraban en UTC (03:45 en vez de 00:45); ahora usan la hora comercial. (3) Pendiente (fuera de esta tanda): `Cotizacion.Fecha` y otras marcas de tiempo informativas se muestran en UTC (la cotización guardada a las 00:43 argentinas muestra 03:43).

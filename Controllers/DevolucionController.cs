@@ -24,6 +24,7 @@ public class DevolucionController : Controller
     private readonly IProveedorService _proveedorService;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<DevolucionController> _logger;
+    private readonly INotaCreditoFiscalExternaService? _ncFiscalExterna;
 
     public DevolucionController(
         IDevolucionService devolucionService,
@@ -31,8 +32,10 @@ public class DevolucionController : Controller
         IVentaService ventaService,
         IProveedorService proveedorService,
         ICurrentUserService currentUser,
-        ILogger<DevolucionController> logger)
+        ILogger<DevolucionController> logger,
+        INotaCreditoFiscalExternaService? ncFiscalExterna = null)
     {
+        _ncFiscalExterna = ncFiscalExterna;
         _devolucionService = devolucionService;
         _clienteService = clienteService;
         _ventaService = ventaService;
@@ -613,6 +616,37 @@ public class DevolucionController : Controller
         };
 
         return View(viewModel);
+    }
+
+    /// <summary>
+    /// P-02 / P3: vincula la nota de crédito interna de la devolución con la NC FISCAL emitida por el sistema externo.
+    /// No netea IVA ni cambia ningún importe. Permiso propio <c>notascredito.linkfiscal</c> (distinto de devoluciones.approve).
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "notascredito", Accion = "linkfiscal")]
+    public async Task<IActionResult> VincularNcFiscal(int id, NotaCreditoFiscalExternaRequest request)
+    {
+        if (_ncFiscalExterna == null)
+        {
+            TempData["Error"] = "El vínculo con la nota de crédito fiscal no está disponible.";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
+        var devolucion = await _devolucionService.ObtenerDevolucionAsync(id);
+        if (devolucion?.NotaCredito == null)
+        {
+            TempData["Error"] = "La devolución no tiene una nota de crédito interna para vincular.";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
+        var resultado = await _ncFiscalExterna.RegistrarAsync(devolucion.NotaCredito.Id, request);
+        if (resultado.Exitoso)
+            TempData["Success"] = "Nota de crédito fiscal externa vinculada.";
+        else
+            TempData["Error"] = string.Join(" ", resultado.Errores);
+
+        return RedirectToAction(nameof(Detalles), new { id });
     }
 
     #endregion

@@ -116,7 +116,7 @@
         : "Sin factura emitida";
     var facturacionDetalle = tieneFactura
         ? (Model.FechaFacturacion.HasValue
-            ? $"Emitida el {Model.FechaFacturacion.Value:dd/MM/yyyy HH:mm}"
+            ? $"Emitida el {Reloj.UtcAComercial(Model.FechaFacturacion.Value):dd/MM/yyyy HH:mm}"
             : "Documento activo asociado")
         : Model.Estado switch
         {

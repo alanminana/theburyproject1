@@ -13,6 +13,10 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
     private static readonly string[] TiposValidos = { "NCA", "NCB", "NCC", "NCM", "NCE" };
     private const decimal Tolerancia = 0.01m;
 
+    /// <summary>Permiso propio (no reutiliza devoluciones.approve).</summary>
+    public const string Modulo = "notascredito";
+    public const string Accion = "linkfiscal";
+
     private readonly AppDbContext _context;
     private readonly ICurrentUserService _currentUser;
     private readonly ISeguridadAuditoriaService _auditoria;
@@ -44,9 +48,39 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
     public async Task<NotaCreditoFiscalExternaResultado> RegistrarAsync(int notaCreditoId, NotaCreditoFiscalExternaRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var resultado = await RegistrarInternoAsync(notaCreditoId, request);
+        // Intento rechazado por validación (no por permiso, que ya se audita arriba): queda constancia SIN datos sensibles
+        // (solo cuántos errores y la NC; ni CAE ni importes ni números de comprobante).
+        if (!resultado.Exitoso && !_rechazoAuditado)
+            await AuditarRechazoAsync(notaCreditoId, $"validación ({resultado.Errores.Count} error/es)");
+        return resultado;
+    }
 
-        if (!_currentUser.HasPermission("devoluciones", "approve"))
+    private bool _rechazoAuditado;
+
+    private async Task AuditarRechazoAsync(int notaCreditoId, string motivo)
+    {
+        _rechazoAuditado = true;
+        try
+        {
+            await _auditoria.RegistrarEventoAsync("notascredito", "vincular_nc_fiscal_externa_rechazado", $"NotaCredito:{notaCreditoId}", motivo);
+        }
+        catch (Exception ex)
+        {
+            // Una falla de auditoría del rechazo no debe tapar el resultado al operador.
+            _logger.LogWarning(ex, "No se pudo auditar el rechazo del vínculo fiscal de la NC {NcId}", notaCreditoId);
+        }
+    }
+
+    private async Task<NotaCreditoFiscalExternaResultado> RegistrarInternoAsync(int notaCreditoId, NotaCreditoFiscalExternaRequest request)
+    {
+        _rechazoAuditado = false;
+
+        if (!_currentUser.HasPermission(Modulo, Accion))
+        {
+            await AuditarRechazoAsync(notaCreditoId, "sin permiso");
             return NotaCreditoFiscalExternaResultado.Fallo("No tenés permiso para vincular una nota de crédito fiscal externa.");
+        }
 
         var errores = new List<string>();
         var pv = (request.PuntoVenta ?? string.Empty).Trim();
@@ -125,8 +159,8 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         var pendientesAntes = _context.ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToHashSet();
         _auditoria.AgregarEvento(
-            "devoluciones", "vincular_nc_fiscal_externa", $"NotaCredito:{nc.Id}",
-            $"{tipo} {pv}-{numero} fecha {fecha:yyyy-MM-dd} importe {request.Importe:0.00} venta {venta.Numero} (sin efecto fiscal: P3 no activo)");
+            "notascredito", "vincular_nc_fiscal_externa", $"NotaCredito:{nc.Id}",
+            $"{tipo} {pv}-{numero} venta {venta.Numero} (sin efecto fiscal: P3 no activo)");
 
         try
         {

@@ -2826,6 +2826,32 @@
     "excluidaPorDiseno": false
   },
   {
+    "id": "Devolucion.VincularNcFiscal:POST",
+    "controller": "Devolucion",
+    "accion": "VincularNcFiscal",
+    "verbo": "POST",
+    "ruta": "/Devolucion/VincularNcFiscal",
+    "permisos": [
+      "devoluciones.view",
+      "notascredito.linkfiscal"
+    ],
+    "rolesRequeridos": [],
+    "consumes": "",
+    "parametros": [
+      {
+        "nombre": "id",
+        "tipo": "Int32",
+        "fuente": "Auto"
+      },
+      {
+        "nombre": "request",
+        "tipo": "NotaCreditoFiscalExternaRequest",
+        "fuente": "Auto"
+      }
+    ],
+    "excluidaPorDiseno": false
+  },
+  {
     "id": "Diagnostico.CrearUsuarioPrueba:POST",
     "controller": "Diagnostico",
     "accion": "CrearUsuarioPrueba",
