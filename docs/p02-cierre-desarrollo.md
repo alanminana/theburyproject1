@@ -23,6 +23,10 @@
 2. **Desglose del ajuste en Caja.** **No era un defecto de persistencia.** El modelo separa los conceptos: un **recargo** va en `MovimientoCaja.RecargoMedioPago` y un **descuento** en `MovimientoCaja.DescuentoMedioPago` (`RecargoMedioPago` queda vacío por diseño); `Cuota.RecargoMedioPago` lleva el signo. Se verificó que el total cobrado es correcto ($350,35 − $17,52 = $332,83), que no se duplican movimientos y que la conciliación muestra «Base $350,35 − desc. $17,52». Se fijó el contrato con pruebas exactas (`RegistrarMovimientoCuota_ConDescuentoConCentavos_…`, `Movimiento_ConDescuentoEnEfectivo_…`): `Monto = ImporteBase + recargo − descuento`.
 3. **Integridad fiscal V1/V2.** Prueba `IntegridadFiscal_AjusteConAlicuotasMixtas_…` (10 casos): lo cobrado coincide con el oráculo y `Neto + IVA = Total` en V1 y V2; V2 reconstruye el neto con divergencia **0**; V1 puede diferir en centavos entre neto guardado y reconstruido, **medido hasta $0,71 con los ajustes reales (−5 % / +3 %); no hay cota universal (un caso extremo con recargo del 999 % da $1,88)**, sin afectar lo cobrado; un comprobante V1 se interpreta idéntico con V2 vigente. Documentado en `p02-procedimiento-activacion.md` §5. V1 no se modifica ni se crea una versión por esta diferencia informativa.
 
+### 1.2 Contraste de las decisiones del propietario del 2026-11-20
+
+Verificadas contra el código y pruebas ejecutadas en `docs/p02-contraste-decisiones-propietario-20261120.md`: C3, C4/C7/C8, C6, C9/C11 y C12 **coinciden**; C13 tenía una **discrepancia** (las devoluciones se imputaban a la fecha de alta y no a la de emisión de la NC) que se corrigió (`VentasNetas`: fecha de efecto = `FechaAprobacion` con V2 y `FechaDevolucion` con V1/sin aprobación; aprobación y emisión de la NC con el mismo instante); C10 coincide en el mecanismo y deja tres casos no definidos aislados (IVA del punitorio con alícuotas mixtas, qué cuenta como «día 13», cobro sin confirmación). El neteo de IVA por NC fiscal sigue desactivado.
+
 ## 2. Pendiente Fiscal (decisión/respuesta externa; no es trabajo de programación)
 
 | Tema | Qué falta |

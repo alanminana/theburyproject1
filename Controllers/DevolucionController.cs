@@ -114,7 +114,7 @@ public class DevolucionController : Controller
             TotalRechazadas = todasDevoluciones.Count(d => d.Estado == EstadoDevolucion.Rechazada),
             TotalCompletadas = todasDevoluciones.Count(d => d.Estado == EstadoDevolucion.Completada),
             MontoTotalMes = todasDevoluciones
-                .Where(d => d.FechaDevolucion >= DateTime.UtcNow.AddMonths(-1) && d.Estado == EstadoDevolucion.Completada)
+                .Where(d => TheBuryProject.Services.VentasNetas.FechaDeEfecto(d) >= DateTime.UtcNow.AddMonths(-1) && d.Estado == EstadoDevolucion.Completada)
                 .Sum(d => d.TotalDevolucion),
             TodasGarantias = todasGarantias,
             Vigentes = todasGarantias.Where(g => g.Estado == EstadoGarantia.Vigente && g.FechaVencimiento >= DateTime.UtcNow).ToList(),
