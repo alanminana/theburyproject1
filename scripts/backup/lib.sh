@@ -230,6 +230,9 @@ prepare_dirs() {
 
 # acquire_lock: rc 0 = tomado | 1 = otra ejecucion en curso | 2 = error (no se pudo abrir/crear el lock: permisos).
 # Exclusion entre backups y restores destructivos.
+# BK_LOCK_WAIT=<segundos> (default 0 = no espera): con `flock` espera hasta ese plazo a que el dueño actual lo suelte antes de rendirse
+# (rc 1). P-06 (2026-11-20): el cron del full diario (02:30) y el del log (*/15, que incluye :30) arrancan en el MISMO segundo; el log
+# ganaba el lock y el `all` diario se "omitia" en silencio, asi que el full/archivos diario NO se hacia. Los modos que no son `log` esperan.
 # Con `flock` (util-linux: Linux/WSL, el camino de produccion) el kernel libera el lock aunque el proceso muera con SIGKILL y no hay
 # "lock huerfano" ni carreras de recuperacion. `dc()` cierra el descriptor 9 en los hijos para que docker no lo herede.
 # Sin `flock` (p. ej. Git Bash) las operaciones DESTRUCTIVAS no tienen exclusion fiable (la recuperacion de un lock huerfano por directorio
@@ -238,7 +241,14 @@ prepare_dirs() {
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
     exec 9>>"$BACKUP_DIR/.lock.flock" || { log ERROR "no se pudo abrir $BACKUP_DIR/.lock.flock (permisos de BACKUP_DIR): no es 'otra ejecucion en curso'"; return 2; }
-    if ! flock -n 9; then log WARN "otra ejecucion en curso (lock $BACKUP_DIR/.lock.flock)"; exec 9>&-; return 1; fi
+    if ! flock -n 9; then
+      local espera="${BK_LOCK_WAIT:-0}"
+      if [[ "$espera" =~ ^[0-9]+$ ]] && (( espera > 0 )); then
+        log INFO "otra ejecucion en curso (lock $BACKUP_DIR/.lock.flock): espero hasta ${espera}s"
+        if flock -w "$espera" 9; then BK_LOCK_FD=1; return 0; fi
+      fi
+      log WARN "otra ejecucion en curso (lock $BACKUP_DIR/.lock.flock)"; exec 9>&-; return 1
+    fi
     BK_LOCK_FD=1; return 0
   fi
   if [[ "${BURY_ALLOW_DIR_LOCK:-0}" != 1 ]]; then

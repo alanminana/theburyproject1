@@ -296,6 +296,32 @@ else
   acquire_lock; rc=$?; release_lock
   check "lock (mkdir): lock huerfano tras SIGKILL se recupera (rc 0)" test "$rc" = 0
 fi
+# P-06 (2026-11-20): espera acotada del lock (BK_LOCK_WAIT). Solo con flock (Linux/WSL): el lock por directorio no espera.
+if command -v flock >/dev/null 2>&1; then
+  cat >"$T/lockhold.sh" <<EOS
+source "$HERE/lib.sh" >/dev/null 2>&1; set +e
+BACKUP_DIR="$LK"; log() { :; }
+acquire_lock && { sleep "\$1"; release_lock; }
+EOS
+  cat >"$T/lockwait.sh" <<EOS
+source "$HERE/lib.sh" >/dev/null 2>&1; set +e
+BACKUP_DIR="$LK"; log() { :; }
+BK_LOCK_WAIT="\$1"; t0=\$(date +%s); acquire_lock; rc=\$?; echo "rc=\$rc dt=\$(( \$(date +%s) - t0 ))"; release_lock
+EOS
+  bash "$T/lockhold.sh" 2 & hp=$!; sleep 0.4
+  out=$(bash "$T/lockwait.sh" 20); wait "$hp" 2>/dev/null
+  check "lock (flock): con BK_LOCK_WAIT espera al dueño y lo toma (rc 0, ~2 s, no 20)" bash -c '[[ "$1" == rc=0\ dt=* ]] && d=${1##*dt=} && (( d >= 1 && d <= 6 ))' _ "$out"
+  bash "$T/lockhold.sh" 4 & hp=$!; sleep 0.4
+  out=$(bash "$T/lockwait.sh" 1); wait "$hp" 2>/dev/null
+  check "lock (flock): si el dueño no suelta dentro del plazo -> rc 1 (no queda colgado)" bash -c '[[ "$1" == rc=1\ dt=* ]] && d=${1##*dt=} && (( d >= 1 && d <= 3 ))' _ "$out"
+  bash "$T/lockhold.sh" 2 & hp=$!; sleep 0.4
+  out=$(bash "$T/lockwait.sh" 0); wait "$hp" 2>/dev/null
+  check "lock (flock): sin BK_LOCK_WAIT no espera (rc 1 inmediato, modo log)" bash -c '[[ "$1" == "rc=1 dt=0" || "$1" == "rc=1 dt=1" ]]' _ "$out"
+else
+  echo "SKIP lock con espera: requiere flock (Linux/WSL)"
+fi
+check "backup.sh: los modos que no son log esperan el lock (BACKUP_LOCK_WAIT_SEC, default 180)" grep -qF 'BK_LOCK_WAIT="${BACKUP_LOCK_WAIT_SEC:-180}"' "$HERE/backup.sh"
+check "backup.sh: full/archivos que no corrio por lock ocupado es ERROR (stderr); el log solo WARN" grep -qF "NO se realizo: el lock siguio ocupado" "$HERE/backup.sh"
 unset -f log; source "$HERE/lib.sh" >/dev/null 2>&1; set +e
 
 # ------------------------------------------------------------------------------------------------------ 5. recuperacion de app (marca persistente)

@@ -56,9 +56,17 @@ trap cleanup EXIT
 
 log INFO "=== backup '$MODE' inicio (db=$DB_NAME dir=$BACKUP_DIR) ==="
 # El lock se toma ANTES de los prerequisitos: asi la recuperacion de `app` (abajo) corre en cualquier modo aunque SQL no responda.
+# P-06: el full/archivos diario no puede perderse por coincidir con el log de 15 min (mismo segundo de cron): espera el lock hasta
+# BACKUP_LOCK_WAIT_SEC (default 180 s). El modo `log` no espera: el siguiente corre en 15 min y el full ya lo cubre.
+if [[ "$MODE" != log ]]; then BK_LOCK_WAIT="${BACKUP_LOCK_WAIT_SEC:-180}"; fi
 lrc=0; acquire_lock || lrc=$?
 if (( lrc == 1 )); then
-  log WARN "backup '$MODE' omitido: hay otra ejecucion en curso"
+  if [[ "$MODE" == log ]]; then
+    log WARN "backup '$MODE' omitido: hay otra ejecucion en curso"
+  else
+    # Un full/archivos que NO corrio es un fallo (no un aviso): ERROR va a stderr -> /var/log/bury-backup-errors.log del cron.
+    log ERROR "backup '$MODE' NO se realizo: el lock siguio ocupado ${BK_LOCK_WAIT}s (otra ejecucion larga o colgada); revisar y relanzar"
+  fi
   trap - EXIT; exit $EX_BUSY
 elif (( lrc != 0 )); then
   die $EX_PREREQ "no se pudo tomar el lock de backup (ver el mensaje anterior)"

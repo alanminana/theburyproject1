@@ -68,7 +68,7 @@ sudo scripts/backup/install-schedule.sh --uninstall
 
 Instala: `backup.sh all` diario, `backup.sh log` cada 15 min y `restore-test.sh` semanal. Los horarios de cron usan la **hora local
 del servidor**; los nombres de archivo usan **UTC** siempre. stdout se descarta (va a `backup.log`); stderr va a
-`/var/log/bury-backup-errors.log`. `--install` deja ese log con owner = usuario del cron (0600) e instala `/etc/logrotate.d/bury-backup`; la prueba de restore semanal publica `monitor-status/restore-test.json` para el monitor. Detalle y checklist: `docs/offsite-monitoring-activacion.md`. Un `log` que coincide con un `all` en curso sale con código 4 (omitido, sin ruido).
+`/var/log/bury-backup-errors.log`. `--install` deja ese log con owner = usuario del cron (0600) e instala `/etc/logrotate.d/bury-backup`; la prueba de restore semanal publica `monitor-status/restore-test.json` para el monitor. Detalle y checklist: `docs/offsite-monitoring-activacion.md`. Un `log` que coincide con un `all` en curso sale con código 4 (omitido, sin ruido). Al revés (el `all`/`full`/`files` diario encuentra el lock tomado por un `log`: el cron de las 02:30 y el de */15 arrancan en el mismo segundo), el `all` **espera** el lock hasta `BACKUP_LOCK_WAIT_SEC` (default 180 s); si sigue ocupado sale con código 4 y deja un `[ERROR]` en `/var/log/bury-backup-errors.log`, porque un respaldo diario que no corrió es un fallo, no un aviso (2026-11-20: en la VM de preproducción el diario de las 02:30 se omitió en silencio por esta carrera).
 Alternativa a cron: un `systemd` timer que ejecute los mismos tres comandos.
 
 ## 5. Ubicación
