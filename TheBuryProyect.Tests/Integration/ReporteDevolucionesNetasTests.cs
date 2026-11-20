@@ -118,7 +118,7 @@ public class ReporteDevolucionesNetasTests : IDisposable
 
     private async Task<Devolucion> SeedDevolucionAsync(
         Venta venta, Producto producto, int cantidad, decimal subtotal, EstadoDevolucion estado = EstadoDevolucion.Completada,
-        DateTime? fecha = null)
+        DateTime? fecha = null, DateTime? fechaAprobacion = null)
     {
         var dev = new Devolucion
         {
@@ -126,6 +126,7 @@ public class ReporteDevolucionesNetasTests : IDisposable
             ClienteId = venta.ClienteId!.Value,
             NumeroDevolucion = "D-" + Guid.NewGuid().ToString("N")[..8],
             FechaDevolucion = fecha ?? Hoy.AddHours(12),
+            FechaAprobacion = fechaAprobacion,
             Motivo = MotivoDevolucion.DefectoFabrica,
             Descripcion = "test",
             Estado = estado,
@@ -407,6 +408,57 @@ public class ReporteDevolucionesNetasTests : IDisposable
         Assert.Equal(-121m, d.VentasUltimos7Dias.Single(x => x.Fecha == Hoy).Total);
         var mes = d.VentasUltimos12Meses.Single(x => x.Anio == 2026 && x.Mes == 10);
         Assert.Equal(121m, mes.Total);
+    }
+
+
+    // ---------------------------------------------------------------- C13 (2026-11-20)
+
+    [Fact]
+    public async Task C13_DevolucionCreadaEnSeptiembreYAprobadaEnOctubre_SeImputaAlMesDeEmisionDeLaNc_NoRetroactivo()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: new DateTime(2026, 9, 20, 10, 0, 0));
+        // Alta el 30/09, aprobada (y NC emitida) el 02/10: el período de octubre no puede quedar sin ella ni cambiar septiembre a posteriori.
+        await SeedDevolucionAsync(venta, producto, 1, 121m, estado: EstadoDevolucion.Aprobada,
+            fecha: new DateTime(2026, 9, 30, 10, 0, 0), fechaAprobacion: new DateTime(2026, 10, 2, 10, 0, 0));
+
+        var octubre = await _reporte.GenerarReporteVentasAsync(Mes());
+        var septiembre = await _reporte.GenerarReporteVentasAsync(
+            new ReporteVentasFiltroViewModel { FechaDesde = new DateTime(2026, 9, 1), FechaHasta = new DateTime(2026, 9, 30) });
+
+        Assert.Equal(121m, octubre.TotalDevoluciones);
+        Assert.Equal(0m, septiembre.TotalDevoluciones);
+        Assert.Equal(242m, septiembre.TotalVentasNetas);
+    }
+
+    [Fact]
+    public async Task C13_DevolucionSinFechaDeAprobacionLegacy_ConservaSuFechaDeDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: new DateTime(2026, 9, 20, 10, 0, 0));
+        await SeedDevolucionAsync(venta, producto, 1, 121m, estado: EstadoDevolucion.Completada, fecha: new DateTime(2026, 10, 5, 10, 0, 0));
+
+        var octubre = await _reporte.GenerarReporteVentasAsync(Mes());
+
+        Assert.Equal(121m, octubre.TotalDevoluciones);
+    }
+
+    [Fact]
+    public async Task C13_Dashboard_DevolucionAprobadaEnOtroMes_RestaEnElMesDeEmision()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto, fecha: Hoy.AddDays(-2).AddHours(10));
+        // Alta el 30/09 (mes anterior), aprobada hoy (15/10): resta en octubre.
+        await SeedDevolucionAsync(venta, producto, 1, 121m, estado: EstadoDevolucion.Aprobada,
+            fecha: new DateTime(2026, 9, 30, 10, 0, 0), fechaAprobacion: Hoy.AddHours(9));
+
+        var d = await _dashboard.GetDashboardDataAsync();
+
+        Assert.Equal(-121m, d.VentasUltimos7Dias.Single(x => x.Fecha == Hoy).Total);
+        Assert.Equal(121m, d.VentasUltimos12Meses.Single(x => x.Anio == 2026 && x.Mes == 10).Total);
     }
 
     // ------------------------------------------------------------ Márgenes

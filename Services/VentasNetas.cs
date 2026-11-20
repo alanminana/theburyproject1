@@ -62,8 +62,12 @@ namespace TheBuryProject.Services
         public sealed record DevolucionNeta(int DevolucionId, int VentaId, DateTime Fecha, decimal Bruto, decimal Neto, decimal Costo);
 
         /// <summary>
-        /// Devoluciones que restan cuya FECHA DE DEVOLUCIÓN cae en [<paramref name="desde"/>, <paramref name="hastaExclusivo"/>),
+        /// Devoluciones que restan cuya FECHA DE EFECTO cae en [<paramref name="desde"/>, <paramref name="hastaExclusivo"/>),
         /// de ventas comerciales vigentes (una venta cancelada no suma, así que su devolución tampoco resta).
+        /// P-02 / C13: la fecha de efecto es la de la APROBACIÓN (<c>FechaAprobacion</c>), que es el instante en que se emite la nota
+        /// de crédito (misma transacción) o se decide el reintegro; así una devolución dada de alta el 30/09 y aprobada el 02/10
+        /// resta en octubre y nunca modifica a posteriori un período ya informado. Las devoluciones sin fecha de aprobación
+        /// (anteriores a este criterio) conservan <c>FechaDevolucion</c>. Nunca se imputa al mes de la venta original.
         /// <paramref name="ventaIds"/> restringe a las ventas que pasaron los filtros del reporte (cliente, vendedor, medio de pago…).
         /// </summary>
         public static async Task<List<DevolucionNeta>> ObtenerDevolucionesAsync(
@@ -73,11 +77,11 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Where(d => !d.IsDeleted &&
                             EstadosDevolucionQueRestan.Contains(d.Estado) &&
-                            d.FechaDevolucion >= desde &&
+                            (d.FechaAprobacion ?? d.FechaDevolucion) >= desde &&
                             context.Ventas.Comerciales().Any(v => v.Id == d.VentaId));
 
             if (hastaExclusivo.HasValue)
-                query = query.Where(d => d.FechaDevolucion < hastaExclusivo.Value);
+                query = query.Where(d => (d.FechaAprobacion ?? d.FechaDevolucion) < hastaExclusivo.Value);
 
             if (ventaIds != null)
                 query = query.Where(d => ventaIds.Contains(d.VentaId));
@@ -87,7 +91,7 @@ namespace TheBuryProject.Services
                 {
                     d.Id,
                     d.VentaId,
-                    d.FechaDevolucion,
+                    Fecha = d.FechaAprobacion ?? d.FechaDevolucion,
                     d.TotalDevolucion,
                     Detalles = d.Detalles
                         .Where(x => !x.IsDeleted)
@@ -160,7 +164,7 @@ namespace TheBuryProject.Services
                     neto -= Math.Round(netoRecargo * fraccion, 2, MidpointRounding.AwayFromZero);
                 }
 
-                resultado.Add(new DevolucionNeta(d.Id, d.VentaId, d.FechaDevolucion, d.TotalDevolucion, neto, costo));
+                resultado.Add(new DevolucionNeta(d.Id, d.VentaId, d.Fecha, d.TotalDevolucion, neto, costo));
             }
 
             return resultado;
