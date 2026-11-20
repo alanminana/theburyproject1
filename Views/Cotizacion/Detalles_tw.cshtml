@@ -46,7 +46,7 @@
                 <p class="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-slate-400">
                     <span>@cliente</span>
                     <span aria-hidden="true">·</span>
-                    <span>@Model.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                    <span>@Model.Fecha.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</span>
                     <span aria-hidden="true">·</span>
                     <span class="@QuoteBadgeClass(Model.Estado)">
                         <span class="material-symbols-outlined">@QuoteBadgeIcon(Model.Estado)</span>

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
@@ -89,15 +90,15 @@ public static class CajaConciliacionBuilder
             Sucursal = apertura.Caja?.Sucursal,
             EstaCerrada = estaCerrada,
             PuedeOperar = puedeOperar && !estaCerrada,
-            FechaApertura = apertura.FechaApertura.ToLocalTime(),
-            FechaCierre = cierre?.FechaCierre.ToLocalTime(),
+            FechaApertura = apertura.FechaApertura.AHoraComercial(),
+            FechaCierre = cierre?.FechaCierre.AHoraComercial(),
             Responsable = apertura.UsuarioApertura,
             UsuarioCierre = cierre?.UsuarioCierre,
             ObservacionesApertura = apertura.ObservacionesApertura,
             ObservacionesCierre = cierre?.ObservacionesCierre,
             UltimaActividad = movimientos.Count == 0
                 ? null
-                : movimientos.Max(m => m.FechaMovimiento).ToLocalTime(),
+                : movimientos.Max(m => m.FechaMovimiento).AHoraComercial(),
 
             FondoInicial = apertura.MontoInicial,
             TotalVendido = totalVendido,
@@ -271,7 +272,7 @@ public static class CajaConciliacionBuilder
         return new MovimientoCajaLineaViewModel
         {
             MovimientoId = m.Id,
-            FechaHora = m.FechaMovimiento.ToLocalTime(),
+            FechaHora = m.FechaMovimiento.AHoraComercial(),
             EsIngreso = esIngreso,
             TipoLabel = esIngreso ? "Ingreso" : "Egreso",
             Concepto = ConceptoLabel(m.Concepto),
@@ -380,7 +381,7 @@ public static class CajaConciliacionBuilder
         {
             Orden = orden++,
             FechaHora = movimientos.Count > 0
-                ? movimientos.Min(m => m.FechaMovimiento).ToLocalTime()
+                ? movimientos.Min(m => m.FechaMovimiento).AHoraComercial()
                 : RelojComercial.Sistema.AhoraComercial,
             TipoLabel = "Apertura",
             Concepto = "Fondo inicial",
@@ -408,7 +409,7 @@ public static class CajaConciliacionBuilder
             filas.Add(new ConciliacionLineaViewModel
             {
                 Orden = orden++,
-                FechaHora = m.FechaMovimiento.ToLocalTime(),
+                FechaHora = m.FechaMovimiento.AHoraComercial(),
                 TipoLabel = esIngreso ? "Ingreso" : "Egreso",
                 Concepto = ConceptoLabel(m.Concepto),
                 MedioPago = MedioLabelMovimiento(m),
@@ -498,7 +499,7 @@ public static class CajaConciliacionBuilder
         {
             new()
             {
-                FechaHora = apertura.FechaApertura.ToLocalTime(),
+                FechaHora = apertura.FechaApertura.AHoraComercial(),
                 Usuario = apertura.UsuarioApertura,
                 Accion = "Apertura de caja",
                 Entidad = "Caja",
@@ -512,7 +513,7 @@ public static class CajaConciliacionBuilder
 
         eventos.AddRange(movimientos.Select(m => new AuditoriaCajaLineaViewModel
         {
-            FechaHora = m.FechaMovimiento.ToLocalTime(),
+            FechaHora = m.FechaMovimiento.AHoraComercial(),
             Usuario = m.Usuario,
             Accion = m.Concepto == ConceptoMovimientoCaja.ReversionVenta
                 ? "Reversión de venta"
@@ -540,7 +541,7 @@ public static class CajaConciliacionBuilder
         {
             eventos.Add(new AuditoriaCajaLineaViewModel
             {
-                FechaHora = cierre.FechaCierre.ToLocalTime(),
+                FechaHora = cierre.FechaCierre.AHoraComercial(),
                 Usuario = cierre.UsuarioCierre,
                 Accion = "Cierre de caja",
                 Entidad = "Caja",

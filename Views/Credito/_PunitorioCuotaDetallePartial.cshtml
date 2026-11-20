@@ -200,7 +200,7 @@
                 </div>
                 <div>
                     <span>Fecha</span>
-                    <strong>@anulacion.FechaAplicacion.ToString("dd/MM/yyyy HH:mm")</strong>
+                    <strong>@anulacion.FechaAplicacion.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</strong>
                 </div>
                 <div>
                     <span>Motivo original</span>
@@ -297,7 +297,7 @@
                             {
                                 <tr>
                                     <td>
-                                        <time datetime="@aplicacion.FechaAplicacion.ToString("O")">@aplicacion.FechaAplicacion.ToString("dd/MM/yyyy HH:mm")</time>
+                                        <time datetime="@aplicacion.FechaAplicacion.ToString("O")">@aplicacion.FechaAplicacion.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</time>
                                         <span class="punitorio-cell-note">Cálculo @aplicacion.FechaCalculo.ToString("dd/MM/yyyy")</span>
                                     </td>
                                     <td>
@@ -324,7 +324,7 @@
                                     <td>
                                         @if (aplicacion.FechaAnulacion.HasValue || !string.IsNullOrWhiteSpace(aplicacion.MotivoAnulacion))
                                         {
-                                            <span>@(aplicacion.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm") ?? "Fecha no disponible")</span>
+                                            <span>@(aplicacion.FechaAnulacion?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Fecha no disponible")</span>
                                             <span class="punitorio-cell-note">@(aplicacion.MotivoAnulacion ?? "Motivo no disponible")</span>
                                             @if (!string.IsNullOrWhiteSpace(aplicacion.UsuarioAnulacion))
                                             {

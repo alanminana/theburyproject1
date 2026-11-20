@@ -133,7 +133,7 @@
                     <h3 class="font-semibold text-white mb-2">Datos de apertura</h3>
                     <dl>
                         <div class="defrow"><dt>Caja</dt><dd>@Model.CajaNombre</dd></div>
-                        <div class="defrow"><dt>Apertura</dt><dd class="num">@(Model.FechaApertura?.ToString("dd/MM · HH:mm") ?? "—")</dd></div>
+                        <div class="defrow"><dt>Apertura</dt><dd class="num">@(Model.FechaApertura?.AHoraComercial().ToString("dd/MM · HH:mm") ?? "—")</dd></div>
                         <div class="defrow"><dt>Responsable</dt><dd>@Model.UsuarioApertura</dd></div>
                         <div class="defrow"><dt>Movimientos</dt><dd class="num">
                             @if (movimientosCount > 0)

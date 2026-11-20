@@ -342,7 +342,7 @@ namespace TheBuryProject.Controllers
             {
                 id = ultimo.Id,
                 aperturaId = ultimo.AperturaCajaId,
-                fecha = ultimo.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
+                fecha = ultimo.FechaCierre.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                 usuario = ultimo.UsuarioCierre,
                 esperado = ultimo.MontoEsperadoSistema,
                 contado = ultimo.EfectivoContado,

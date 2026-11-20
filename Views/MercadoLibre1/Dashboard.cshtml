@@ -7,7 +7,7 @@
         ViewData["MlUserId"] = $"{Model.Conexion.MeliUserId} · {Model.Conexion.SiteId}";
     }
     ViewData["MlUltimoSync"] = Model.Conexion.UltimoSyncUtc.HasValue
-        ? "último sync " + Model.Conexion.UltimoSyncUtc.Value.ToLocalTime().ToString("HH:mm")
+        ? "último sync " + Model.Conexion.UltimoSyncUtc.Value.AHoraComercial().ToString("HH:mm")
         : "—";
 
     // clases de énfasis numérico del standalone
@@ -25,7 +25,7 @@
 <div class="phead">
     <div>
         <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M3 9h18"></path></svg></span>Panel operativo</h1>
-        <div class="sub">Centro de operación del canal · Datos locales del ERP · generado @Model.GeneradoUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+        <div class="sub">Centro de operación del canal · Datos locales del ERP · generado @Model.GeneradoUtc.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</div>
     </div>
 </div>
 
@@ -64,13 +64,13 @@
             <span class="chip ok"><span class="dot"></span>Activas</span>
         }
     </div>
-    <div class="cell"><span class="lbl">Última importación</span><span class="val muted">@(Model.Conexion.UltimaImportacionUtc?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</span></div>
-    <div class="cell"><span class="lbl">Último sync</span><span class="val muted">@(Model.Conexion.UltimoSyncUtc?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</span></div>
+    <div class="cell"><span class="lbl">Última importación</span><span class="val muted">@(Model.Conexion.UltimaImportacionUtc?.AHoraComercial().ToString("dd/MM HH:mm") ?? "—")</span></div>
+    <div class="cell"><span class="lbl">Último sync</span><span class="val muted">@(Model.Conexion.UltimoSyncUtc?.AHoraComercial().ToString("dd/MM HH:mm") ?? "—")</span></div>
     <div class="cell">
         <span class="lbl">Último error API/sync</span>
         @if (Model.Conexion.UltimoErrorUtc.HasValue)
         {
-            <span class="val" style="color:var(--red)" title="@Model.Conexion.UltimoErrorDetalle">@Model.Conexion.UltimoErrorUtc.Value.ToLocalTime().ToString("dd/MM HH:mm")</span>
+            <span class="val" style="color:var(--red)" title="@Model.Conexion.UltimoErrorDetalle">@Model.Conexion.UltimoErrorUtc.Value.AHoraComercial().ToString("dd/MM HH:mm")</span>
         }
         else
         {
@@ -212,7 +212,7 @@ else
                         <tr>
                             <td title="@l.Detalle">@l.Operacion</td>
                             <td>@if (l.Exito){<span class="chip ok"><span class="dot"></span>ok</span>}else{<span class="chip bad"><span class="dot"></span>error</span>}</td>
-                            <td style="color:var(--muted)">@l.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                            <td style="color:var(--muted)">@l.Fecha.AHoraComercial().ToString("dd/MM HH:mm")</td>
                         </tr>
                     }
                 </tbody>

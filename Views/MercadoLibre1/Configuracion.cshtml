@@ -178,7 +178,7 @@
     @if (catalogo is { Importado: true })
     {
         <div class="tiles" style="margin-bottom:14px">
-            <div class="tile"><div class="tl">Última importación</div><div class="tv" style="font-size:14px">@(catalogo.UltimoExitoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</div></div>
+            <div class="tile"><div class="tl">Última importación</div><div class="tv" style="font-size:14px">@(catalogo.UltimoExitoUtc?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "—")</div></div>
             <div class="tile"><div class="tl">Categorías</div><div class="tv">@catalogo.Categorias.ToString("N0")</div></div>
             <div class="tile"><div class="tl">Hojas / Publicables</div><div class="tv">@catalogo.Hojas.ToString("N0") / @catalogo.Publicables.ToString("N0")</div></div>
             <div class="tile"><div class="tl">Atributos</div><div class="tv">@catalogo.Atributos.ToString("N0")</div></div>

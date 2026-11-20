@@ -125,7 +125,7 @@
                         <p class="text-sm text-slate-300">@Model.UsuarioSolicita
                             @if (Model.FechaSolicitudAutorizacion.HasValue)
                             {
-                                <span class="text-slate-400 ml-1">— @Model.FechaSolicitudAutorizacion.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                <span class="text-slate-400 ml-1">— @Model.FechaSolicitudAutorizacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</span>
                             }
                         </p>
                     </div>

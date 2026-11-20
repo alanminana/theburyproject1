@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TheBuryProject.Helpers;
 using System.Globalization;
 using TheBuryProject.Data;
 using TheBuryProject.Models.DTOs;
@@ -813,7 +814,7 @@ namespace TheBuryProject.Services
             if (delta.TotalMinutes < 60) return $"Hace {(int)delta.TotalMinutes} min";
             if (delta.TotalHours < 24) return $"Hace {(int)delta.TotalHours} h";
             if (delta.TotalDays < 30) return $"Hace {(int)delta.TotalDays} d";
-            return fechaUtc.ToLocalTime().ToString("dd MMM", CultureInfo.GetCultureInfo("es-AR"));
+            return fechaUtc.AHoraComercial().ToString("dd MMM", CultureInfo.GetCultureInfo("es-AR"));
         }
 
         #endregion

@@ -110,7 +110,7 @@
                             </div>
                             <div class="doc-op-meta">
                                 N.º <span class="doc-mono">@d.Numero</span>
-                                · @d.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                · @d.FechaGeneracionUtc.AHoraComercial().ToString("dd/MM/yyyy HH:mm")
                                 · @d.PlantillaDocumento.Nombre
                                 @if (firmas.Any(f => !string.IsNullOrEmpty(f.ImagenPng)))
                                 {

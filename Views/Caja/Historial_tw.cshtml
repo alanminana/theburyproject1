@@ -183,7 +183,7 @@
                                             <div class="muted-2" style="font-size:.75rem">Apertura: @userApertura</div>
                                         }
                                     </td>
-                                    <td class="num muted">@cierre.FechaCierre.ToLocalTime().ToString("dd/MM · HH:mm")</td>
+                                    <td class="num muted">@cierre.FechaCierre.AHoraComercial().ToString("dd/MM · HH:mm")</td>
                                     <td class="num" style="text-align:right">$ @cierre.MontoEsperadoSistema.ToString("N2")</td>
                                     <td class="num" style="text-align:right">$ @cierre.MontoTotalReal.ToString("N2")</td>
                                     <td style="text-align:right">
@@ -236,7 +236,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <div style="color:var(--pal-neutral-200);font-weight:500">@cajaNombreM</div>
-                            <div class="mono muted-2" style="font-size:.75rem">@cierre.FechaCierre.ToLocalTime().ToString("dd/MM · HH:mm")</div>
+                            <div class="mono muted-2" style="font-size:.75rem">@cierre.FechaCierre.AHoraComercial().ToString("dd/MM · HH:mm")</div>
                         </div>
                         <span class="chip @chipClassM num">@difSignM$ @Math.Abs(difM).ToString("N2")</span>
                     </div>
@@ -271,7 +271,7 @@
                         @foreach (var s in topSobrantes)
                         {
                             <li class="flex items-center justify-between text-sm">
-                                <span class="muted">@(s.AperturaCaja?.Caja?.Nombre ?? "—") · @s.UsuarioCierre · @s.FechaCierre.ToLocalTime().ToString("dd/MM")</span>
+                                <span class="muted">@(s.AperturaCaja?.Caja?.Nombre ?? "—") · @s.UsuarioCierre · @s.FechaCierre.AHoraComercial().ToString("dd/MM")</span>
                                 <span class="chip chip-warn num">+ $ @s.Diferencia.ToString("N2")</span>
                             </li>
                         }
@@ -288,7 +288,7 @@
                         @foreach (var f in topFaltantes)
                         {
                             <li class="flex items-center justify-between text-sm">
-                                <span class="muted">@(f.AperturaCaja?.Caja?.Nombre ?? "—") · @f.UsuarioCierre · @f.FechaCierre.ToLocalTime().ToString("dd/MM")</span>
+                                <span class="muted">@(f.AperturaCaja?.Caja?.Nombre ?? "—") · @f.UsuarioCierre · @f.FechaCierre.AHoraComercial().ToString("dd/MM")</span>
                                 <span class="chip chip-bad num">− $ @Math.Abs(f.Diferencia).ToString("N2")</span>
                             </li>
                         }

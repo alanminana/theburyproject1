@@ -62,7 +62,7 @@
 
 @if (Model.Estado == MercadoLibrePriceBatchEstado.Revertido)
 {
-    <div class="tray" style="margin-bottom:0"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9"></path><path d="M3 4v5h5"></path></svg></span><b>Revertido</b><span>@(Model.FechaReversion?.ToLocalTime().ToString("dd/MM HH:mm")) por @Model.RevertidoPor@(string.IsNullOrEmpty(Model.MotivoReversion) ? "" : " · " + Model.MotivoReversion)</span></div>
+    <div class="tray" style="margin-bottom:0"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9"></path><path d="M3 4v5h5"></path></svg></span><b>Revertido</b><span>@(Model.FechaReversion?.AHoraComercial().ToString("dd/MM HH:mm")) por @Model.RevertidoPor@(string.IsNullOrEmpty(Model.MotivoReversion) ? "" : " · " + Model.MotivoReversion)</span></div>
 }
 
 @if (Model.Items.Count == 0)

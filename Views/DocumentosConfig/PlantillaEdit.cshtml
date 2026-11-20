@@ -230,7 +230,7 @@
                     {
                         <tr>
                             <td>v@(v.Numero) @if (v.Numero == versionActual) { <span class="doc-chip doc-chip-ok">Vigente</span> }</td>
-                            <td>@v.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@v.CreatedAt.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</td>
                             <td>@v.CreatedBy</td>
                             <td>@v.Comentario</td>
                             <td>

@@ -491,7 +491,7 @@
                             bool esEnt = EsEntrada(m.Tipo, m.StockAnterior, m.StockNuevo);
                             bool esSal = EsSalida(m.Tipo, m.StockAnterior, m.StockNuevo);
                             decimal saldoVal = m.StockNuevo * m.CostoUnitarioAlMomento;
-                            string fechaIso = m.Fecha.ToLocalTime().ToString("yyyy-MM-dd");
+                            string fechaIso = m.Fecha.AHoraComercial().ToString("yyyy-MM-dd");
                             string fuenteTag = FuenteLbl(m.FuenteCosto);
 
                             <tr data-fecha="@fechaIso"
@@ -501,8 +501,8 @@
                                 data-ent="@(esEnt ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")"
                                 data-sal="@(esSal ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")">
                                 <td class="font-mono text-slate-300 whitespace-nowrap">
-                                    @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")
-                                    <span class="block text-xs text-slate-500">@m.Fecha.ToLocalTime().ToString("HH:mm")</span>
+                                    @m.Fecha.AHoraComercial().ToString("dd/MM/yyyy")
+                                    <span class="block text-xs text-slate-500">@m.Fecha.AHoraComercial().ToString("HH:mm")</span>
                                 </td>
                                 <td><span class="@ChipCls(m.Tipo)">@ChipLbl(m.Tipo)</span></td>
                                 <td class="font-mono text-slate-400">@(m.Referencia ?? "—")</td>

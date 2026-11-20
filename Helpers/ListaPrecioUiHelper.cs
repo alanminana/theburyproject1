@@ -20,7 +20,7 @@ namespace TheBuryProject.Helpers
         /// <summary>Valor para un input type=number (punto decimal, sin separador de miles).</summary>
         public static string Numero(decimal? valor) => valor.HasValue ? valor.Value.ToString("0.##", CultureInfo.InvariantCulture) : string.Empty;
 
-        public static string Fecha(DateTime? fecha) => fecha.HasValue ? fecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm", Ar) : "—";
+        public static string Fecha(DateTime? fecha) => fecha.HasValue ? fecha.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm", Ar) : "—";
 
         public static string NombreTipo(TipoListaPrecio tipo) => tipo switch
         {

@@ -147,6 +147,77 @@ Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de ope
 | NC fiscal externa: importe inválido / válido | 3 errores de validación / «vinculada» | `NotasCredito.FiscalExterna*` y 2 eventos de auditoría | correcto |
 | C15: venta a 01/11 01:30 UTC | «31/10/2026 22:30 hs»; Reporte de IVA y de ventas de **octubre** la incluyen, el de noviembre no | `FechaVenta` 2026-11-01 01:30 UTC | correcto |
 
-**No validado en navegador (sin evidencia visual):** venta directa por el asistente de Create (comparte el cotizador y se cubre por pruebas automatizadas: matriz de alícuotas mixtas, FiscalVersionado), envío a domicilio (mi guion no logró completar el modal de envío; cubierto por pruebas), créditos/cuotas/recibos y devolución total.
+**No validado en navegador en esa tanda (RESUELTO en §12, tanda E):** venta directa por el asistente de Create (comparte el cotizador y se cubre por pruebas automatizadas: matriz de alícuotas mixtas, FiscalVersionado), envío a domicilio (mi guion no logró completar el modal de envío; cubierto por pruebas), créditos/cuotas/recibos y devolución total.
 
-**Hallazgos de esta tanda.** (1) V1 con ajuste del medio de pago y alícuotas mixtas deja una diferencia histórica de hasta ~$0,7 entre el neto guardado en la venta y el reconstruido en comprobante/reporte (el total y neto + IVA = total sí cierran): V1 es inmutable y no se corrige; V2 no la tiene (matriz `FiscalAlicuotasMixtasP02Tests`: 40 casos). (2) Corregido: la hora de emisión de la factura en el detalle de la venta y la de registro del vínculo fiscal se mostraban en UTC (03:45 en vez de 00:45); ahora usan la hora comercial. (3) Pendiente (fuera de esta tanda): `Cotizacion.Fecha` y otras marcas de tiempo informativas se muestran en UTC (la cotización guardada a las 00:43 argentinas muestra 03:43).
+**Hallazgos de esta tanda.** (1) V1 con ajuste del medio de pago y alícuotas mixtas deja una diferencia histórica de hasta ~$0,7 entre el neto guardado en la venta y el reconstruido en comprobante/reporte (el total y neto + IVA = total sí cierran): V1 es inmutable y no se corrige; V2 no la tiene (matriz `FiscalAlicuotasMixtasP02Tests`: 40 casos). (2) Corregido: la hora de emisión de la factura en el detalle de la venta y la de registro del vínculo fiscal se mostraban en UTC (03:45 en vez de 00:45); ahora usan la hora comercial. (3) Resuelto en §12 (antes pendiente): `Cotizacion.Fecha` y otras marcas de tiempo informativas se muestran en UTC (la cotización guardada a las 00:43 argentinas muestra 03:43).
+
+## 12. Tanda E (2026-11-20): validación completa en navegador, fechas, P3/P6 preparados y clasificación final
+
+**Estado de P-02: EN REVISIÓN (no finalizada).** Todo lo técnicamente ejecutable está hecho y probado; lo que queda depende de autorizaciones del propietario (P3, P6) y de respuestas fiscales del contador. Procedimientos exactos de activación: `docs/p02-procedimiento-activacion.md`.
+
+**Validación en navegador real (Chrome, instancia de ensayo con V2 contra un SQL Server descartable con datos sintéticos; capturas en `D:\git\QA-AUDITORIA\p02-ensayo-20261120\tanda-e-20261120`).** Complementa §11 (que no se repite). Lo que §11 declaraba «no validado» se validó así:
+
+| Recorrido | Esperado (cálculo independiente) | Pantalla | SQL | Resultado |
+|---|---|---|---|---|
+| Venta directa (asistente `Venta/Create`): exento 1.000,99 + 10,5 % 1.000,51 + 21 % 1.000,51; Efectivo −5 % | base 3.002,01 → V2 3.002 → ×0,95 = **2.851,90** | Revisión 2.851,90; Detalle: neto 2.596,63 + IVA 255,27 | `Ventas` y `Facturas` 2.851,90 (versión fiscal 2); Caja 2.851,90 | PASS |
+| Venta con armado 450 + envío 200 + Transferencia +3 % (modal de envío) | base 2.651,50 → 2.651 → ×1,03 = **2.730,53**; Efectivo −5 % solo sobre productos (C5) = 2.550,95 | 2.730,53; IVA por alícuota: 21 % 537,19 + 112,81; 10,5 % 905,44 + 95,07; exento 1.000,99 | venta y factura 2.516,92 + 213,61 = 2.730,53; Caja 2.730,53 | PASS |
+| Envío a domicilio: causa de la falla anterior | — | El modal exige elegir el tipo y **Guardar datos de envío**; con los precios globales de envío/armado en $0 (base nueva) el costo es $0 | `ServiciosVentaPrecios` vacía | **Era el guion y los datos, no un defecto funcional** |
+| Costo real y ganancia | venta 2: neto 2.516,92 − costo (productos 2.000 + envío 120 + armado 300) = **96,92** | Reporte de ventas: 96,92 (venta 1: −403,37; venta 3: −173,13) | — | PASS |
+| Crédito: venta a 3 cuotas (plan +5 %) | 1.001 × 1,05 = 1.051,05; cuota 350,35 | 3 cuotas de 350,35; contrato generado | `Creditos` 1.051,05; `Cuotas` capital 1.001,00 + interés 50,05; sin movimiento de Caja al confirmar | PASS |
+| Cobro de la cuota 1 por Transferencia | 350,35 × 1,03 = **360,86** (recargo 10,51) | resultado y previsualización idénticos | Caja 360,86 (base 350,35 + recargo 10,51); saldo 667,33 (capital restante, sin duplicar) | PASS |
+| Pago parcial cuota 2 (100 por Transferencia) y adelanto cuota 3 (Efectivo −5 %) | 103,00 y 332,83 (descuento 17,52) | Recibos REC-…01 (100,00 + 3,00 = 103,00) y REC-…02 (350,35 − 17,52 = 332,83) | Caja 103,00 y 332,83; saldo 238,43 | PASS |
+| Punitorio calculado | informativo 50,00; **no** integra el total cobrable hasta que lo aplica un usuario con permiso | así se muestra | — | PASS (comportamiento existente; no se tocó el tratamiento fiscal) |
+| Devolución total con Nota de Crédito (venta con armado, envío y recargo) | reintegro ≤ lo cobrado por los productos devueltos | 2.061,16 (parte proporcional de lo cobrado; los servicios no se reintegran) | `Devoluciones` y `NotasCredito` 2.061,16; stock repuesto; sin egreso de Caja | PASS |
+| Devolución total con Reembolso (venta con descuento de efectivo) | exactamente lo cobrado: **2.851,90** | 950,94 + 950,48 + 950,48 = 2.851,90 | egreso de Caja 2.851,90 | PASS |
+| Reporte de IVA (ventas facturadas) | suma de las facturas | neto 5.113,55 + IVA 468,88 = 5.582,43; la venta 3 (confirmada, sin facturar) no discrimina IVA | = suma de `Ventas` 1 y 2 | PASS |
+
+**Defectos encontrados en esta tanda y corregidos:**
+
+1. *La hora visible dependía de la zona del servidor.* 63 usos en vistas y 15 en C# usaban `ToLocalTime()` (el contenedor corre en UTC: una cotización de las 00:43 se veía 03:43; también Caja, Kardex, documentos, Mercado Libre). Ahora toda hora de presentación pasa por `AHoraComercial()` (zona `America/Argentina/Buenos_Aires` explícita, sin conversión doble). Se distinguió entre instantes UTC (se convierten) y fechas comerciales sin hora, como el vencimiento de la cotización (se muestran tal cual). Se convirtieron además horas que se mostraban sin convertir (detalle y turno de Caja, línea de tiempo de la venta, autorización, punitorios). Prueba guardián: ninguna vista ni servicio puede volver a usar `ToLocalTime()`; pruebas de medianoche, cambio de día, mes, año y bisiesto. **Sin conversión masiva de datos históricos** (lo guardado ya era UTC).
+2. *El desglose de la Revisión no cerraba.* Con V2 la base se redondea a pesos antes del ajuste: «productos + armados + envío − descuento» podía diferir del Total hasta 0,50 (2.001,50 + 450 + 200 − 100,05 = 2.551,45 ≠ 2.550,95). Se agregó la línea explícita «Redondeo a pesos». Verificado a 1366 px y 390 px.
+3. *Concurrencia del vínculo fiscal:* prueba de doble envío sobre la misma NC (el segundo no pisa al primero).
+
+**Observaciones (no son defectos de importe):** (a) la vista previa del modal «Crear devolución» muestra el total de lista (3.002,01) mientras lo persistido es lo cobrado (2.851,90); (b) el descuento de Efectivo en el cobro de cuotas se guarda en la cuota (−17,52) pero la columna `RecargoMedioPago` del movimiento de Caja queda vacía (el `Monto` es correcto); (c) el reintegro de una devolución con recargo incluye la parte proporcional del recargo, sin superar lo cobrado por los conceptos devueltos.
+
+### Clasificación final de criterios
+
+FINALIZADO = implementado y validado · PREPARADO = implementado, falta activación o aceptación · BLOQUEADO = requiere decisión externa · DIFERIDO = fuera del alcance aprobado.
+
+| # | Criterio | Categoría | Evidencia |
+|---|---|---|---|
+| C1/C2 | Redondeo comercial (≤ 0,50 abajo; > 0,50 arriba) | **PREPARADO** | `CriterioFiscalV2` implementada y validada en ensayo (3.002,01 → 3.002); la activación es P6 (`docs/p02-procedimiento-activacion.md` §3) |
+| C3 | Residuo de redondeo | **BLOQUEADO** | pregunta 1; hoy se absorbe en el IVA (`Neto + IVA = Total`) |
+| C4 | Descuento en efectivo reduce base e IVA | **PREPARADO** (técnico) / **BLOQUEADO** (licitud) | implementado; licitud frente al art. 37 inc. c) Ley 25.065 y Res. 51/2017 sin confirmar |
+| C5 | Descuento solo sobre productos | **PREPARADO** | V2; validado en navegador (2.550,95) y por la matriz de 40 casos; activación = P6 |
+| C6 | Envío y armado con IVA | **FINALIZADO** (21 %) / **BLOQUEADO** (excepciones) | 21 % por snapshot validado; excepción por operación sin respuesta (pregunta 6) |
+| C7/C8 | Recargos por medio de pago | **BLOQUEADO** | V1 sin cambios; licitud sin respuesta (pregunta 2) |
+| C9 | Documentar capital, interés y recargo de la cuota | **BLOQUEADO** | hoy Caja = cuota + recargo y recibo exacto (validado); comprobante fiscal sin definir (pregunta 4) |
+| C10 | IVA de punitorios | **BLOQUEADO** | respuesta contradictoria; ver evidencia; no se implementa |
+| C11 | IVA y documentación del interés de financiación propia | **BLOQUEADO** | evidencia a favor de «gravado» (unicidad, art. 10); alícuota, devengo y comprobante sin definir |
+| C12 | Crédito fiscal de compras / margen | **BLOQUEADO** | sin respuesta; ganancia sobre costo con IVA, sin cambio |
+| C13 | Devolución, NC y período del débito fiscal | **PREPARADO** (P3) / **BLOQUEADO** (período) | vínculo con NC fiscal externa implementado y probado (permiso, CSRF, auditoría, duplicados, importes, fechas, concurrencia, navegador); migración **no aplicada**; neteo de IVA diseñado y **no activo** |
+| C14 | 72 h presencial / 30 días ML / 24 h para dinero | **FINALIZADO** (política informativa) | nunca bloquea; garantías y derechos del consumidor intactos |
+| C15 | Fecha argentina | **FINALIZADO** | día comercial en períodos y reportes; hora de presentación corregida en esta tanda; sin cambio de datos históricos |
+| P3 | Neteo de IVA por NC fiscal | **PREPARADO** / **BLOQUEADO** | falta autorización (aplicar migración) y período (pregunta 3) |
+| P4 | Leyenda «no válido como factura» | **FINALIZADO** | implementada |
+| P5 | Versionado por operación | **FINALIZADO** | cada venta guarda su versión |
+| P6 | Activación de V2 | **PREPARADO** | procedimiento, scripts y verificación listos; falta autorización y fecha de puesta en marcha |
+
+### Evidencia de fuentes para el contador (no concluyente; no reemplaza su criterio)
+
+- **Intereses de financiación (C11):** según la doctrina consultada, el art. 10 de la Ley 23.349 integra al precio neto los intereses por pago diferido o fuera de término y rige un criterio de **unicidad**: la financiación del vendedor sigue el tratamiento de la operación principal, incluso si esta fuera exenta o no gravada (fallo CNACAF Sala V, 2007). Esto contradice la respuesta preliminar «no alcanzado» y coincide con C11 (con IVA). Hay crítica doctrinaria a la reglamentación ([El Cronista](https://www.cronista.com/fiscal/el-principio-de-unicidad-de-los-intereses-en-el-iva/)).
+- **Punitorios (C10):** el decreto reglamentario trata aparte los intereses resarcitorios y punitorios por incumplimiento de una operación gravada y ubica el perfeccionamiento del hecho imponible en el devengo o cobro, lo que sugiere que **sí** estarían alcanzados («al facturarlos llevarían 21 %»). No se halló una fuente que lo confirme sin ambigüedad ni se leyeron en texto completo los dictámenes DAT 23/2002 y 65/2002. **No se verificó** contra el texto ordenado vigente (con la Ley 27.743).
+- Se consultó solo por búsqueda web, sin acceso a la base oficial de ARCA: verificar siempre contra el texto vigente.
+
+### Consulta única al contador (mínimo indispensable, con el ejemplo del ensayo)
+
+1. **Redondeo (C3).** Neto 2.516,92 + IVA 213,61 = 2.730,53: el centavo o peso de redondeo se absorbe en el IVA. ¿Es aceptable?
+2. **Descuento y recargos por medio de pago (C4/C7/C8).** ¿Son lícitos el descuento por efectivo (−5 %) y el recargo de transferencia, débito o tarjeta en un pago (+3 %) frente al art. 37 inc. c) de la Ley 25.065 y la Res. 51/2017? ¿Cuáles se mantienen y con qué documentación?
+3. **Nota de crédito (C13).** ¿El débito fiscal de una devolución se resta en el período de la **NC fiscal** o en el de la operación original? ¿Confirma que la NC fiscal la emite siempre el sistema externo y el ERP solo registra número, fecha e importe?
+4. **Cuota con interés y recargo (C9/C10/C11).** Cuota 350,35 = capital 333,67 + interés 16,68 (venta de 1.001 a 3 cuotas, +5 %), cobrada por transferencia con recargo del 3 % (10,51 → 360,86). ¿Qué comprobante externo corresponde a cada componente, con qué alícuota y en qué momento (en la venta o en cada cuota)? Si hay mora, ¿el punitorio lleva IVA (sí o no, sin «sí y no»)?
+5. **Crédito fiscal (C12).** ¿El IVA de compras es crédito fiscal recuperable para el negocio (margen sobre costo sin IVA)?
+6. **Servicios (C6).** ¿Envío y armado van siempre al 21 % o hay casos con otra alícuota?
+
+### Decisiones del propietario que siguen pendientes
+
+P3 (aplicar la migración a la base real), P6 (activar V2, con fecha = puesta en marcha real), neteo de IVA (tras la respuesta 3) y la política de C4/C7/C8 (tras la respuesta 2). Nada de esto se aplicó.

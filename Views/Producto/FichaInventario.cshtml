@@ -412,7 +412,7 @@
                                         <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
                                     </div>
                                     <span class="text-xs text-slate-400 font-mono">S/N: @(u.NumeroSerie ?? "—")</span>
-                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</span>
                                 </div>
                                 <a asp-controller="Producto" asp-action="UnidadHistorial"
                                    asp-route-unidadId="@u.Id"
@@ -444,7 +444,7 @@
                                         <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
                                         <td class="font-mono text-xs text-slate-400">@(u.NumeroSerie ?? "—")</td>
                                         <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
-                                        <td class="text-xs text-slate-400">@u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                        <td class="text-xs text-slate-400">@u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
                                         <td class="text-right">
                                             <a asp-controller="Producto" asp-action="UnidadHistorial"
                                                asp-route-unidadId="@u.Id"
@@ -599,7 +599,7 @@
                                         <span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span>
                                         <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
                                     </div>
-                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</span>
                                 </div>
                                 <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
                                    class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -628,7 +628,7 @@
                                         <td><span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span></td>
                                         <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
                                         <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
-                                        <td class="text-xs text-slate-400">@u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                        <td class="text-xs text-slate-400">@u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
                                         <td class="text-right">
                                             <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
                                                class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -702,7 +702,7 @@
                         <li class="px-4 py-3 flex flex-col gap-1.5">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
-                                <span class="text-[11px] text-slate-500 tabular-nums">@m.Fecha.ToLocalTime().ToString("dd/MM/yy HH:mm")</span>
+                                <span class="text-[11px] text-slate-500 tabular-nums">@m.Fecha.AHoraComercial().ToString("dd/MM/yy HH:mm")</span>
                             </div>
                             @if (m.Referencia != null || m.Motivo != null)
                             {
@@ -747,7 +747,7 @@
                                 var cantPrefix = esEntrada ? "+" : esSalida ? "−" : "±";
                                 <tr>
                                     <td class="text-xs text-slate-400 whitespace-nowrap">
-                                        @m.Fecha.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                                        @m.Fecha.AHoraComercial().ToString("dd/MM/yy HH:mm")
                                     </td>
                                     <td>
                                         <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>

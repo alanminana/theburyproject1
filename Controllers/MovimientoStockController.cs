@@ -1,3 +1,4 @@
+using TheBuryProject.Helpers;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -124,8 +125,8 @@ namespace TheBuryProject.Controllers
                     {
                         id = m.Id,
                         productoId = m.ProductoId,
-                        fecha = m.Fecha.ToLocalTime().ToString("dd MMM yyyy"),
-                        hora = m.Fecha.ToLocalTime().ToString("HH:mm:ss"),
+                        fecha = m.Fecha.AHoraComercial().ToString("dd MMM yyyy"),
+                        hora = m.Fecha.AHoraComercial().ToString("HH:mm:ss"),
                         tipo = m.Tipo.ToString(),
                         tipoNombre = m.TipoNombre ?? m.Tipo.ToString(),
                         productoNombre = m.ProductoNombre,

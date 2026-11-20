@@ -45,7 +45,7 @@
                         @foreach (var movimiento in Model.Movimientos)
                         {
                             <tr class="hover:bg-white/5">
-                                <td class="px-4 py-3 text-sm text-slate-300">@movimiento.FechaCambio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-sm text-slate-300">@movimiento.FechaCambio.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</td>
                                 <td class="px-4 py-3">
                                     <partial name="_EstadoUnidadBadge" model="movimiento.EstadoAnterior" />
                                 </td>
