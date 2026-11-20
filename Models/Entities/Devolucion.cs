@@ -241,6 +241,37 @@ public class NotaCredito  : AuditableEntity
     [StringLength(500)]
     public string? Observaciones { get; set; }
 
+    // ── P-02 / P3 (PREPARADO, SIN EFECTO FISCAL): vínculo con la nota de crédito FISCAL emitida por el sistema externo ──────────────
+    // Ningún cálculo (Reporte de IVA, ventas netas) lee estos campos mientras el propietario no autorice la activación del neteo (P3) y
+    // el contador no defina el período. Nullable: toda NC anterior queda sin vínculo; no se rellena ni recalcula nada.
+
+    /// <summary>Punto de venta del comprobante fiscal externo (1 a 5 dígitos, se guarda con ceros a la izquierda).</summary>
+    [StringLength(5)]
+    public string? FiscalExternaPuntoVenta { get; set; }
+
+    /// <summary>Tipo del comprobante fiscal externo: NCA, NCB, NCC, NCM o NCE.</summary>
+    [StringLength(3)]
+    public string? FiscalExternaTipo { get; set; }
+
+    /// <summary>Número del comprobante fiscal externo (1 a 8 dígitos, se guarda con ceros a la izquierda).</summary>
+    [StringLength(8)]
+    public string? FiscalExternaNumero { get; set; }
+
+    /// <summary>Fecha de emisión de la NC fiscal (día comercial).</summary>
+    public DateTime? FiscalExternaFecha { get; set; }
+
+    /// <summary>Importe total de la NC fiscal externa.</summary>
+    public decimal? FiscalExternaImporte { get; set; }
+
+    /// <summary>CAE de 14 dígitos, si el sistema externo lo informa.</summary>
+    [StringLength(14)]
+    public string? FiscalExternaCae { get; set; }
+
+    [StringLength(256)]
+    public string? FiscalExternaRegistradaPor { get; set; }
+
+    public DateTime? FiscalExternaRegistradaEn { get; set; }
+
     // Navegaci�n
     public virtual Devolucion Devolucion { get; set; } = null!;
     public virtual Cliente Cliente { get; set; } = null!;

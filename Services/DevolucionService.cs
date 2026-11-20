@@ -319,6 +319,34 @@ public class DevolucionService : IDevolucionService
 
             devolucion.TotalDevolucion = total;
 
+            // P-02 / C13-C14: política comercial (72 h presencial, 30 días Mercado Libre, dinero solo en 24 h). Es INFORMATIVA: nunca
+            // bloquea una devolución; si queda fuera de política se deja constancia auditable en las observaciones internas y en el log.
+            var esMercadoLibre = await _context.MercadoLibreOrders.AnyAsync(o => o.VentaId == venta.Id);
+            var politica = DevolucionPolitica.Evaluar(
+                esMercadoLibre, venta.FechaVenta, DateTime.UtcNow, devolucion.Motivo,
+                devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero);
+            if (politica.FueraDePolitica)
+            {
+                var nota = $"[Política comercial] {politica.Aviso} Registrada igualmente ({politica.HorasDesdeVenta:0.#} h desde la venta).";
+                var observaciones = string.IsNullOrWhiteSpace(devolucion.ObservacionesInternas)
+                    ? nota
+                    : devolucion.ObservacionesInternas + Environment.NewLine + nota;
+                // ObservacionesInternas admite 500 caracteres: la constancia va al final y el texto del operador se recorta primero.
+                if (observaciones.Length > 500)
+                {
+                    var texto = (devolucion.ObservacionesInternas ?? string.Empty).Trim();
+                    var maximo = Math.Max(0, 500 - nota.Length - Environment.NewLine.Length);
+                    observaciones = (texto.Length > maximo ? texto[..maximo] : texto) + Environment.NewLine + nota;
+                    if (observaciones.Length > 500)
+                        observaciones = nota[..500];
+                }
+
+                devolucion.ObservacionesInternas = observaciones;
+                _logger.LogWarning(
+                    "Devolución fuera de la política comercial - Venta {VentaId} - {Aviso} - {Horas:0.#} h",
+                    venta.Id, politica.Aviso, politica.HorasDesdeVenta);
+            }
+
             _context.Devoluciones.Add(devolucion);
             await _context.SaveChangesAsync();
 
@@ -373,7 +401,10 @@ public class DevolucionService : IDevolucionService
         if (neto == 0m)
             return new decimal[cobradoPorLinea.Count];
 
-        var parteProductos = serviciosBruto <= 0m
+        // P-02 / C5 (V2): el descuento del medio de pago se calculó solo sobre los productos, así que se les reintegra completo
+        // (armados y envío no recibieron descuento ni se devuelven); con V1 se prorratea entre productos y servicios como siempre.
+        var soloProductos = neto < 0m && (criterio ?? CriterioFiscalRegistry.Vigente).DescuentoDeMedioSoloSobreProductos;
+        var parteProductos = serviciosBruto <= 0m || soloProductos
             ? Math.Abs(neto)
             : Math.Round(Math.Abs(neto) * productos / bruto, 2, MidpointRounding.AwayFromZero);
         // Un descuento nunca devuelve menos que cero por producto.
