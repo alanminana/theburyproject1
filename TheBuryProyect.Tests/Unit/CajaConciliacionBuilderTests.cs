@@ -256,6 +256,39 @@ public class CajaConciliacionBuilderTests
     }
 
     [Fact]
+    public void Movimiento_ConDescuentoEnEfectivo_MapeaDescuentoYMantieneBaseMasAjusteIgualCobrado()
+    {
+        // P-02: cuota $350,35 con descuento en efectivo −$17,52 → cobrado $332,83. El descuento vive en DescuentoMedioPago
+        // (RecargoMedioPago queda vacío por diseño: son conceptos separados) y Base + recargo − descuento = cobrado.
+        var detalle = BuildDetalleStandard();
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 98,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = 332.83m,
+            ImporteBase = 350.35m,
+            DescuentoMedioPago = 17.52m,
+            TipoPago = TipoPago.Efectivo,
+            MedioPagoDetalle = "Efectivo",
+            FechaMovimiento = Base.AddMinutes(7),
+            Referencia = "CRE-C8",
+            Usuario = "admin"
+        });
+        detalle.Apertura.Movimientos = detalle.Movimientos;
+
+        var linea = CajaConciliacionBuilder.Build(detalle, cierre: null, puedeOperar: true)
+            .Movimientos.Single(m => m.MovimientoId == 98);
+
+        Assert.Equal(332.83m, linea.Entra);
+        Assert.Equal(350.35m, linea.ImporteBase);
+        Assert.Null(linea.RecargoMedioPago);
+        Assert.Equal(17.52m, linea.DescuentoMedioPago);
+        Assert.True(linea.TieneAjusteMedioPago);
+        Assert.Equal(linea.Entra, linea.ImporteBase!.Value + (linea.RecargoMedioPago ?? 0m) - (linea.DescuentoMedioPago ?? 0m));
+    }
+
+    [Fact]
     public void Movimientos_ClasificanImpactoFinancieroPorMedio()
     {
         var detalle = BuildDetalleStandard();

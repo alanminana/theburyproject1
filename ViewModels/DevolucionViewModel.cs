@@ -40,6 +40,8 @@ public class CrearDevolucionRapidaItemViewModel
     public string? ProductoCodigo { get; set; }
     public int CantidadDisponible { get; set; }
     public decimal PrecioUnitario { get; set; }
+    /// <summary>Importe a reintegrar (en CENTAVOS enteros: evita ambigüedad de separadores con la cultura es-AR) que mostró la vista previa; el servidor lo verifica.</summary>
+    public long? ImporteEsperadoCentavos { get; set; }
 
     public bool Seleccionado { get; set; }
 

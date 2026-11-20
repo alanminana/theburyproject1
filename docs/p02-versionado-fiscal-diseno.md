@@ -37,7 +37,7 @@ Un **criterio fiscal** = el conjunto de reglas de cálculo que hoy están en tre
 - `Helpers/CriterioFiscal.cs`:
   - `ICriterioFiscal`: `Version`, `AlicuotaServicios`, `NombreAlicuotaServicios`, `SepararServicios`, `TruncarAPesos`, `CalcularRecargo`, `Prorratear`, `Repartir`, `Discriminar`, `ResumenPorAlicuota`, `AbsorberTruncado`.
   - `CriterioFiscalV1`: **solo delega** en las clases estáticas actuales y en `Math.Floor`. Cero reglas propias: la versión 1 es, por construcción, el comportamiento actual byte a byte (los helpers estáticos no se tocaron).
-  - `CriterioFiscalRegistry`: `VersionInicial = 1`, `VersionVigente` (hoy 1), `Vigente`, `Resolver(int)`. Una versión no registrada **lanza** `InvalidOperationException` (nunca se recalcula con otra regla «por las dudas»). Para tests existe `UsarParaPruebas(...)` (internal, `AsyncLocal`, sin ningún camino de producción) que permite registrar una versión de prueba.
+  - `CriterioFiscalRegistry`: `VersionInicial = 1`, `VersionVigente` (1 si `FISCAL_CRITERIO_V2_DESDE` está vacía o es futura al arrancar; 2 desde ese instante; se resuelve una vez por proceso), `Vigente`, `Resolver(int)`. Una versión no registrada **lanza** `InvalidOperationException` (nunca se recalcula con otra regla «por las dudas»). Para tests existe `UsarParaPruebas(...)` (internal, `AsyncLocal`, sin ningún camino de producción) que permite registrar una versión de prueba.
 - `Venta.CriterioFiscalVersion` (int, NOT NULL, default 1). `VentaViewModel.CriterioFiscalVersion` es `[BindNever]` y el mapeo `VentaViewModel → Venta` lo ignora: **solo el servidor** fija la versión (no se acepta del formulario ni se pisa en una edición).
 - Migración `20261112160856_P02CriterioFiscalVersion`: un único `AddColumn` `Ventas.CriterioFiscalVersion int NOT NULL DEFAULT 1`.
 
@@ -106,7 +106,7 @@ Nuevas, derivadas de este diseño (a validar, no decididas):
 ## 7. Cómo agregar una versión 2 (cuando exista decisión del contador y autorización)
 
 1. Implementar `CriterioFiscalV2 : ICriterioFiscal` (nuevo archivo; v1 no se edita jamás).
-2. Registrarla en `CriterioFiscalRegistry` y subir `VersionVigente` con fecha de corte autorizada.
+2. Registrarla en `CriterioFiscalRegistry` y activarla con la fecha de corte autorizada mediante `Fiscal:CriterioV2Desde` (`FISCAL_CRITERIO_V2_DESDE`, ver `docs/p02-procedimiento-activacion.md` §3); no se edita `VersionVigente` a mano.
 3. Tests: histórico v1 intacto, nuevo v2 correcto (modelo: `FiscalVersionadoP02Tests`).
 4. Sin migración de datos: las operaciones v1 se conservan.
 

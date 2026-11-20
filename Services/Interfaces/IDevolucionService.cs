@@ -33,6 +33,12 @@ public interface IDevolucionService
     /// </summary>
     Task<Dictionary<int, int>> ObtenerCantidadesDevueltasPorProductoAsync(int ventaId);
 
+    /// <summary>
+    /// P-02: vista previa de lo reintegrable por producto (valor de lista, descuentos, ajuste del medio de pago e importe exacto por
+    /// cantidad). Usa la misma valuación que <see cref="CrearDevolucionAsync"/>: lo que se muestra es lo que se persiste.
+    /// </summary>
+    Task<IReadOnlyList<TheBuryProject.Services.Models.DevolucionPreviewProducto>> ObtenerPreviewDevolucionAsync(int ventaId);
+
     // ============================================
     // DETALLES DE DEVOLUCI�N
     // ============================================

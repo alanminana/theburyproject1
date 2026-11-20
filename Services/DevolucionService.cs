@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using TheBuryProject.Services.Models;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
@@ -181,31 +182,10 @@ public class DevolucionService : IDevolucionService
                 throw new InvalidOperationException("No se permiten productos duplicados en la devolución");
 
             // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
-            var ventaDetallesRaw = await _context.VentaDetalles
-                .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-                .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ArmadoSubtotal, vd.ProductoUnidadId })
-                .ToListAsync();
-
-            // H5-I: lo cobrado por línea incluye su parte proporcional del recargo del medio de pago (con su IVA), de modo
-            // que devolver todas las líneas reintegre exactamente lo cobrado por los productos. Armados y envío no se
-            // devuelven (regla vigente): su parte del recargo tampoco.
-            var envioIncluido = await _context.VentaEnvios
-                .Where(e => e.VentaId == devolucion.VentaId && !e.IsDeleted && e.IncluidoEnTotal)
-                .Select(e => (decimal?)e.CostoEnvio)
-                .FirstOrDefaultAsync();
-            var cobradoPorLinea = ventaDetallesRaw
-                .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
-                .ToList();
-            var serviciosBruto = ventaDetallesRaw.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
-            var recargoPorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total, CriterioFiscalRegistry.Resolver(venta));
-
-            var vendidoPorProducto = ventaDetallesRaw
-                .Select((vd, i) => (Detalle: vd, Cobrado: cobradoPorLinea[i] + recargoPorLinea[i]))
-                .GroupBy(x => x.Detalle.ProductoId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => (CantidadVendida: g.Sum(x => x.Detalle.Cantidad),
-                          TotalVendido: g.Sum(x => x.Cobrado)));
+            // P-02: misma valuación que la vista previa del modal (ObtenerPreviewDevolucionAsync): lo que se muestra es lo que se persiste.
+            var ventaDetallesRaw = await ObtenerLineasValuacionAsync(devolucion.VentaId);
+            var vendidoPorProducto = ValuarProductos(ventaDetallesRaw, await ObtenerServiciosBrutoAsync(devolucion.VentaId, ventaDetallesRaw), venta)
+                .ToDictionary(v => v.ProductoId, v => (v.CantidadVendida, TotalVendido: v.TotalReintegrable));
 
             if (vendidoPorProducto.Count == 0)
                 throw new InvalidOperationException("La venta no tiene detalles para devolver");
@@ -291,20 +271,15 @@ public class DevolucionService : IDevolucionService
                         $"La cantidad a devolver excede lo disponible. Vendido: {vendido.CantidadVendida}, Ya devuelto: {yaDevuelto}, Disponible: {disponible}");
                 }
 
-                var precioUnitario = vendido.CantidadVendida > 0
-                    ? Math.Round(vendido.TotalVendido / vendido.CantidadVendida, 2)
-                    : 0m;
-
-                detalle.PrecioUnitario = precioUnitario;
-                detalle.Subtotal = detalle.Cantidad * detalle.PrecioUnitario;
-
-                // H5-I: la suma de todas las devoluciones de un producto nunca excede lo cobrado por él. El precio
-                // unitario redondeado a 2 decimales podría pasarse (o quedarse corto) por centavos: la última
-                // devolución (la que agota las unidades) reintegra exactamente el remanente.
-                var remanente = Math.Max(0m, vendido.TotalVendido - importeYaDevuelto);
-                detalle.Subtotal = detalle.Cantidad == disponible
-                    ? remanente
-                    : Math.Min(detalle.Subtotal, remanente);
+                // H5-I: la suma de todas las devoluciones de un producto nunca excede lo cobrado por él (ver SubtotalDevolucion).
+                var valuacion = new DevolucionValuacionProducto(detalle.ProductoId, vendido.CantidadVendida, 0m, 0m, 0m, vendido.TotalVendido);
+                detalle.PrecioUnitario = valuacion.PrecioUnitarioReintegrable;
+                detalle.Subtotal = SubtotalDevolucion(detalle.Cantidad, disponible, valuacion, importeYaDevuelto);
+                // Lo que el operador confirmó es lo que se persiste: si otra devolución cambió el remanente entre la vista previa y esta
+                // confirmación, se rechaza y debe volver a abrir el modal (nunca se cobra/reintegra un importe distinto al visto).
+                if (detalle.ImporteEsperado.HasValue && detalle.ImporteEsperado.Value != detalle.Subtotal)
+                    throw new InvalidOperationException(
+                        $"El importe a reintegrar cambió (se mostraba {detalle.ImporteEsperado.Value:N2} y ahora corresponde {detalle.Subtotal:N2}) porque se registró otra devolución de esta venta. Volvé a abrir la devolución para confirmar el nuevo importe.");
                 total += detalle.Subtotal;
 
                 // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
@@ -879,6 +854,87 @@ public class DevolucionService : IDevolucionService
         if (venta == null || !EstadoPermiteDevolucion(venta.Estado)) return false;
 
         return (DateTime.UtcNow - venta.FechaVenta).Days <= DiasLimiteDevolucion;
+    }
+
+    private sealed record LineaValuacion(int ProductoId, int Cantidad, decimal PrecioUnitario, decimal Descuento, decimal Subtotal, decimal SubtotalFinal, decimal ArmadoSubtotal, int? ProductoUnidadId);
+
+    private async Task<List<LineaValuacion>> ObtenerLineasValuacionAsync(int ventaId)
+        => await _context.VentaDetalles
+            .Where(vd => vd.VentaId == ventaId && !vd.IsDeleted)
+            .Select(vd => new LineaValuacion(vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.Descuento, vd.Subtotal, vd.SubtotalFinal, vd.ArmadoSubtotal, vd.ProductoUnidadId))
+            .ToListAsync();
+
+    /// <summary>
+    /// H5-I: lo cobrado por línea incluye su parte proporcional del recargo del medio de pago (con su IVA), de modo que devolver
+    /// todas las líneas reintegre exactamente lo cobrado por los productos. Armados y envío no se devuelven (regla vigente): su
+    /// parte del recargo tampoco. Devuelve el bruto de esos servicios.
+    /// </summary>
+    private async Task<decimal> ObtenerServiciosBrutoAsync(int ventaId, IReadOnlyList<LineaValuacion> lineas)
+    {
+        var envioIncluido = await _context.VentaEnvios
+            .Where(e => e.VentaId == ventaId && !e.IsDeleted && e.IncluidoEnTotal)
+            .Select(e => (decimal?)e.CostoEnvio)
+            .FirstOrDefaultAsync();
+        return lineas.Sum(x => x.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido);
+    }
+
+    private static List<DevolucionValuacionProducto> ValuarProductos(IReadOnlyList<LineaValuacion> lineas, decimal serviciosBruto, Venta venta)
+    {
+        var cobradoPorLinea = lineas
+            .Select(x => ImporteCobradoDeLinea(x.Cantidad, x.PrecioUnitario, x.Descuento, x.Subtotal, x.SubtotalFinal))
+            .ToList();
+        var ajustePorLinea = RecargoPorLinea(cobradoPorLinea, serviciosBruto, venta.Total, CriterioFiscalRegistry.Resolver(venta));
+
+        return lineas
+            .Select((vd, i) => (Linea: vd, Cobrado: cobradoPorLinea[i], Ajuste: ajustePorLinea[i]))
+            .GroupBy(x => x.Linea.ProductoId)
+            .Select(g =>
+            {
+                var lista = g.Sum(x => x.Linea.Cantidad * x.Linea.PrecioUnitario);
+                var cobrado = g.Sum(x => x.Cobrado);
+                var ajuste = g.Sum(x => x.Ajuste);
+                return new DevolucionValuacionProducto(g.Key, g.Sum(x => x.Linea.Cantidad), lista, lista - cobrado, ajuste, cobrado + ajuste);
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Importe que se reintegra por <paramref name="cantidad"/> unidades de un producto: precio unitario reintegrable x cantidad con
+    /// tope en el remanente; la devolución que agota las unidades reintegra exactamente el remanente (sin centavos de redondeo).
+    /// </summary>
+    internal static decimal SubtotalDevolucion(int cantidad, int disponible, DevolucionValuacionProducto valuacion, decimal importeYaDevuelto)
+    {
+        var remanente = Math.Max(0m, valuacion.TotalReintegrable - importeYaDevuelto);
+        return cantidad == disponible
+            ? remanente
+            : Math.Min(cantidad * valuacion.PrecioUnitarioReintegrable, remanente);
+    }
+
+    public async Task<IReadOnlyList<DevolucionPreviewProducto>> ObtenerPreviewDevolucionAsync(int ventaId)
+    {
+        var venta = await _context.Ventas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
+        if (venta == null) return Array.Empty<DevolucionPreviewProducto>();
+
+        var lineas = await ObtenerLineasValuacionAsync(ventaId);
+        var valuaciones = ValuarProductos(lineas, await ObtenerServiciosBrutoAsync(ventaId, lineas), venta);
+        var devuelto = await _context.DevolucionDetalles
+            .AsNoTracking()
+            .Where(dd => !dd.IsDeleted)
+            .Join(
+                _context.Devoluciones.Where(d => !d.IsDeleted && d.VentaId == ventaId
+                    && d.Estado != EstadoDevolucion.Rechazada && d.Estado != EstadoDevolucion.Cancelada),
+                dd => dd.DevolucionId, d => d.Id,
+                (dd, d) => new { dd.ProductoId, dd.Cantidad, dd.Subtotal })
+            .GroupBy(x => x.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad), Importe = g.Sum(x => x.Subtotal) })
+            .ToDictionaryAsync(x => x.ProductoId, x => (Cantidad: (int)x.Cantidad, x.Importe));
+
+        return valuaciones.Select(v =>
+        {
+            var (yaDevuelto, importe) = devuelto.TryGetValue(v.ProductoId, out var d) ? d : (0, 0m);
+            var disponible = Math.Max(0, v.CantidadVendida - yaDevuelto);
+            return new DevolucionPreviewProducto(v, disponible, Math.Max(0m, v.TotalReintegrable - importe));
+        }).ToList();
     }
 
     public async Task<Dictionary<int, int>> ObtenerCantidadesDevueltasPorProductoAsync(int ventaId)

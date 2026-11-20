@@ -62,7 +62,7 @@ Opción recomendada: restar el IVA informativo de una devolución **solo cuando 
 Requisitos previos (todos ausentes hoy): (a) un vínculo del ERP con el comprobante fiscal externo (campos para número/fecha/importe de la NC externa, permiso y auditoría — opción 1 de `docs/facturacion-fiscal-externa.md`), que implica una migración aditiva; (b) la respuesta del contador sobre el período (§5, pregunta 3). Mientras tanto el Reporte de IVA seguirá sin netear y su nota lo advierte.
 
 ### P6 — activación de `CriterioFiscalV2`
-`CriterioFiscalV2` está **registrada pero no vigente** (`CriterioFiscalRegistry.VersionVigente` = 1): ninguna operación nueva la usa y ninguna regla cambia en producción. Contiene solo C1/C2. Activarla = cambiar `VersionVigente` a 2 con fecha de corte autorizada, sin migración de datos (las operaciones V1 se conservan). Recomendación: activarla desde la puesta en marcha de la base nueva, **después** de que el contador responda las preguntas 1 y 2 de §5 y de decidir qué hacer con C5 (para que el cambio de importes ocurra una sola vez).
+`CriterioFiscalV2` está **autorizada y activable por configuración** (actualizado 2026-11-20): sin la clave `FISCAL_CRITERIO_V2_DESDE` rige V1 y ninguna regla cambia; con ella rige desde la puesta en marcha (ver `docs/p02-procedimiento-activacion.md` §3). Texto original de la tanda 2026-11-19: «registrada pero no vigente». Contiene C1/C2 (redondeo comercial) **y C5** (el descuento del medio de pago solo alcanza a los productos; implementado como `DescuentoDeMedioSoloSobreProductos`): ambos cambian importes cobrados al activarse. Se activa con la clave `FISCAL_CRITERIO_V2_DESDE` (fecha real de puesta en marcha; ya NO se edita `VersionVigente` a mano), sin migración de datos (las operaciones V1 se conservan). Recomendación: activarla desde la puesta en marcha de la base nueva, **después** de que el contador responda las preguntas 1 y 2 de §5 y de decidir qué hacer con C5 (para que el cambio de importes ocurra una sola vez).
 
 ## 5. Consulta consolidada al contador (solo lo que no se puede resolver investigando)
 
@@ -95,7 +95,7 @@ Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de ope
 
 ## 8. Qué se implementó y probó en esta tanda
 
-- `Helpers/CriterioFiscal.cs`: `CriterioFiscalV2` (redondeo comercial C1/C2), registrada; `VersionVigente` sigue en 1.
+- `Helpers/CriterioFiscal.cs`: `CriterioFiscalV2` (redondeo comercial C1/C2), registrada; `VersionVigente` seguía en 1 en esa tanda (hoy lo determina `FISCAL_CRITERIO_V2_DESDE`).
 - `Helpers/RecargoMedioPagoIva.cs`: variantes parametrizables por la regla de redondeo (`Discriminar`, `ResumenPorAlicuota`, `CalcularRecargo`) y `AbsorberRedondeo` con residuo con signo; con `Math.Floor` son idénticas a V1.
 - `Helpers/FacturaComprobanteBuilder.cs`, `Services/VentaService.cs`: manejan residuos negativos (total redondeado hacia arriba); en V1 nunca ocurre.
 - `Services/CotizacionPagoCalculator.cs`: el truncado del cotizador pasa por el criterio vigente (idéntico en V1), para que cotización y venta redondeen igual.
@@ -111,7 +111,7 @@ Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de ope
 
 **Pruebas nuevas/actualizadas:** `Convertir_V2_TransferenciaConCentavos_CobraLoMismoQueLaVentaDirecta`, `CriterioV2_AjusteMedioPago_VentaComprobanteYReporteIvaCoinciden` (Transferencia +3 % y Efectivo −5 %), `DescuentoDeEfectivo_C5_*` (venta y conversión), `Simular_V2_*` y `Simular_DescuentoDeEfectivo_SoloSobreProductosEnV2`, `C15_VentaDeLas2230…`, bordes de mes por día comercial, agrupación por día/mes y `ResolverFechaVenta_C15_*`. Se actualizaron las pruebas que sembraban fechas con la semántica anterior (día UTC).
 
-**No se cambió `VersionVigente` (sigue en 1) ni se desplegó ninguna regla monetaria en producción.**
+**En esa tanda no se cambió `VersionVigente` ni se desplegó ninguna regla monetaria en producción (la activación posterior es por `FISCAL_CRITERIO_V2_DESDE`, no editando código).**
 
 **Revisión independiente de Codex (adversarial, N2) sobre este lote.** (1) *Alto, confirmado y corregido*: con C5 el descuento seguía repartiéndose entre servicios en el desglose de IVA y la venta directa inferia los servicios de la base redondeada; ahora el reparto excluye armados/envío (`AjusteMedioContexto`) y todos los circuitos usan los servicios exactos (regresión con alícuota 10,5 % + 21 % y centavos: 1.150 = neto 1.025,46 + IVA 124,54 en venta directa, conversión, comprobante y reporte). (2) *Alto, escalado a decisión del propietario*: las ventas de formulario guardadas antes de este cambio están como «medianoche argentina» sin conversión; con este código se leerían como UTC y cambiarían de día. **Precondición de despliegue: este código es solo para la instalación nueva con base limpia; no apuntarlo a la base histórica** sin una transición verificada por procedencia (no se aplica ninguna).
 
