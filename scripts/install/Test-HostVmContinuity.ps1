@@ -81,16 +81,24 @@ if ($bad.Count -eq 0) { Ok 'H02' 'la carpeta de la VM no esta bajo OneDrive ni r
 elseif ($odRunning) { Fail 'H02' ('OneDrive EN EJECUCION y la VM esta bajo su arbol (' + ($bad -join '; ') + '): sincronizaria .vmdk/.vmem en uso') }
 else { Warn 'H02' ('la VM esta bajo una ruta con OneDrive/reanalisis (' + ($bad -join '; ') + '); hoy OneDrive no corre, pero reinstalarlo/iniciar sesion la sincronizaria: mover la VM a una ruta fuera del perfil') }
 
-# --- H03 autostart tras reinicio de Windows
+# --- H03 autostart tras reinicio de Windows (vinculado a ESTA VM; nunca OK sin un reinicio comprobado)
+$vmxNorm = $VmxPath.ToLowerInvariant().Replace('/', '\')
 $svc = Get-Service -Name VmwareAutostartService -ErrorAction SilentlyContinue
-$auto = $svc -and $svc.StartType -eq 'Automatic'
-$tareas = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
-  $_.State -ne 'Disabled' -and ($_.Actions | Where-Object { $_.Execute -match 'vmrun|vmware' -or $_.Arguments -match 'vmrun|\.vmx' })
+$xmlPath = 'C:\ProgramData\VMware\hostd\vmAutoStart.xml'
+$xmlOk = $false
+if (Test-Path -LiteralPath $xmlPath) { $xmlOk = ((Get-Content -LiteralPath $xmlPath -Raw -ErrorAction SilentlyContinue).ToLowerInvariant().Replace('/', '\') -like "*$vmxNorm*") }
+$viaServicio = ($svc -and $svc.StartType -eq 'Automatic' -and $xmlOk)
+$tareasVm = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+  $_.State -ne 'Disabled' -and
+  @($_.Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskBootTrigger' }).Count -gt 0 -and
+  @($_.Actions | Where-Object { (("$($_.Execute) $($_.Arguments)").ToLowerInvariant().Replace('/', '\')) -like "*vmrun*" -and (("$($_.Execute) $($_.Arguments)").ToLowerInvariant().Replace('/', '\')) -like "*$vmxNorm*" }).Count -gt 0
 })
-$vmAutoStartXml = Test-Path 'C:\ProgramData\VMware\hostd\vmAutoStart.xml'
-if ($auto -and $vmAutoStartXml) { Ok 'H03' 'servicio de autostart de VMware automatico y vmAutoStart.xml presente' }
-elseif ($tareas.Count -gt 0) { Ok 'H03' ("tarea programada que inicia la VM: " + (($tareas | Select-Object -ExpandProperty TaskName) -join ', ') + ' (verificar con un reinicio autorizado)') }
-else { Fail 'H03' 'ninguna via de autostart: tras un reinicio de Windows (actualizacion, corte de luz) la VM NO arranca hasta que alguien inicie sesion y la encienda' }
+if ($viaServicio -or $tareasVm.Count -gt 0) {
+  $via = @(); if ($viaServicio) { $via += 'servicio de autostart de VMware (automatico) con ESTA VM en vmAutoStart.xml' }; if ($tareasVm.Count -gt 0) { $via += ('tarea de arranque: ' + (($tareasVm | Select-Object -ExpandProperty TaskName) -join ', ')) }
+  Warn 'H03' ('configurado para ESTA VM (' + ($via -join '; ') + ') pero NO probado: solo un reinicio autorizado de Windows lo confirma (la VM debe volver sin iniciar sesion)')
+} else {
+  Fail 'H03' 'ninguna via de autostart vinculada a esta VM (servicio de VMware con la VM en vmAutoStart.xml, o tarea de arranque con vmrun y su .vmx): tras un reinicio de Windows (actualizacion, corte de luz) la VM NO arranca hasta que alguien inicie sesion y la encienda'
+}
 
 # --- H04 reinicios de Windows Update y suspension
 $au = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -ErrorAction SilentlyContinue
