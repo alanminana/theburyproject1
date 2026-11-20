@@ -435,7 +435,7 @@
                             <div class="doc-ic"><span class="material-symbols-outlined">contract</span></div>
                             <div class="flex-1 min-w-0">
                                 <div class="text-sm text-white">Contrato @contratoVentaCredito.NumeroContrato</div>
-                                <div class="text-xs muted-2">Pagaré @contratoVentaCredito.NumeroPagare · @contratoVentaCredito.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                <div class="text-xs muted-2">Pagaré @contratoVentaCredito.NumeroPagare · @contratoVentaCredito.FechaGeneracionUtc.AHoraComercial().ToString("dd/MM/yyyy")</div>
                             </div>
                             @if (!await DescuentoVisibilidad.DebeDenegarVentaAsync(contratoVentaCredito.VentaId))
                             {

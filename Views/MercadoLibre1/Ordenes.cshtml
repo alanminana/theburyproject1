@@ -83,7 +83,7 @@ else
                                 <span class="stag active" style="margin-left:6px">Sim local</span>
                             }
                         </td>
-                        <td style="color:var(--muted)">@orden.FechaCreacionUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td style="color:var(--muted)">@orden.FechaCreacionUtc.AHoraComercial().ToString("dd/MM HH:mm")</td>
                         <td>@(orden.BuyerNickname ?? "—")</td>
                         <td class="num">@orden.TotalAmount.ToString("N2") <small style="color:var(--faint)">ARS</small></td>
                         <td class="num" style="color:var(--green)">@(orden.NetoEstimado?.ToString("N2") ?? "—")</td>

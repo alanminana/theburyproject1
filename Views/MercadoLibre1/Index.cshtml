@@ -75,12 +75,12 @@
                     <div class="cell"><span class="lbl">User ID</span><span class="val mono">@cuenta.MeliUserId</span></div>
                     <div class="cell"><span class="lbl">Site</span><span class="val mono">@cuenta.SiteId</span></div>
                     <div class="cell"><span class="lbl">Token expira</span><span
-                        class="val">@cuenta.AccessTokenExpiresAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</span></div>
+                        class="val">@cuenta.AccessTokenExpiresAtUtc.AHoraComercial().ToString("dd/MM HH:mm")</span></div>
                         <div class="cell"><span class="lbl">Última prueba</span><span
-                            class="val muted">@(cuenta.UltimaPruebaConexionUtc?.ToLocalTime().ToString("dd/MM HH:mm") ??
+                            class="val muted">@(cuenta.UltimaPruebaConexionUtc?.AHoraComercial().ToString("dd/MM HH:mm") ??
                                                                                                    "—")</span></div>
                             <div class="cell"><span class="lbl">Última importación</span><span
-                                class="val muted">@(cuenta.UltimaImportacionListingsUtc?.ToLocalTime().ToString("dd/MM HH:mm") ??
+                                class="val muted">@(cuenta.UltimaImportacionListingsUtc?.AHoraComercial().ToString("dd/MM HH:mm") ??
                                                                                                             "—")</span></div>
                                 <div class="cell"><span class="lbl">Refresh automático</span><span class="val"
                                                                                                        style="color:var(--green)">Activo</span></div>

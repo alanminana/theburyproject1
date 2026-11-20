@@ -123,7 +123,14 @@
         const armados = Number(r?.totalArmados) || 0;
         const envio = Number(r?.importeEnvio) || 0;
         const recargo = (Number(r?.ajustePagoGlobalAplicado) || 0) + (Number(r?.recargoDebitoAplicado) || 0);
-        const hayDesglose = armados > 0 || envio > 0 || recargo !== 0;
+        // P-02: el total cobrado se redondea a pesos (criterio fiscal vigente) ANTES del ajuste del medio de pago, así que
+        // productos + armados + envío + ajuste puede diferir del total en centavos (o hasta 50 centavos). Se muestra explícito
+        // para que el desglose cierre con el Total en pantalla.
+        // Ruta de débito sin plan global: `total` no incluye el recargo (lo trae `totalConRecargoDebito`); se parte del total que ve el operador.
+        const totalFinal = Number(r?.recargoDebitoAplicado) ? Number(r?.totalConRecargoDebito) : Number(r?.total);
+        const redondeoCrudo = Number.isFinite(totalFinal) ? totalFinal - (productos + armados + envio + recargo) : 0;
+        const redondeo = Math.abs(redondeoCrudo) >= 0.005 ? Math.round(redondeoCrudo * 100) / 100 : 0;
+        const hayDesglose = armados > 0 || envio > 0 || recargo !== 0 || redondeo !== 0;
 
         root.querySelectorAll('[data-rev-desglose]').forEach((nodo) => nodo.classList.toggle('hidden', !hayDesglose));
         // Con desglose, el detalle de IVA se pliega; sin servicios queda abierto (comportamiento de siempre).
@@ -154,6 +161,9 @@
         root.querySelectorAll('[data-rev-recargo-row]').forEach((nodo) => nodo.classList.toggle('hidden', recargo === 0));
         setText('[data-rev-recargo-label]', recargo < 0 ? 'Descuento por forma de pago' : 'Recargo por forma de pago');
         setText('[data-rev-recargo]', formatearMoneda(recargo));
+
+        root.querySelectorAll('[data-rev-redondeo-row]').forEach((nodo) => nodo.classList.toggle('hidden', redondeo === 0));
+        setText('[data-rev-redondeo]', formatearMoneda(redondeo));
     }
 
     function formatearMoneda(valor) {

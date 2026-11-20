@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
@@ -302,6 +302,36 @@ public class DevolucionesNcExternaP02Tests : IDisposable
         Assert.Equal(new[] { "vincular_nc_fiscal_externa", "vincular_nc_fiscal_externa_rechazado" }, eventos.Select(e => e.Accion).OrderBy(a => a));
         Assert.Equal("00012345", (await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
         await contexto.DisposeAsync();
+    }
+
+    // P-02 / C13: doble envío concurrente sobre la MISMA nota de crédito con comprobantes distintos. El segundo contexto tiene la
+    // NC en memoria sin vínculo (lectura vieja); el token de concurrencia (RowVersion) impide que pise el vínculo ya guardado.
+    [Fact]
+    public async Task Registrar_DobleEnvioConcurrenteSobreLaMismaNc_ElSegundoNoPisaElPrimero()
+    {
+        var nc = await SeedNotaCreditoAsync();
+
+        AppDbContext NuevoContexto() => new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection).AddInterceptors(new TheBuryProject.Tests.Infrastructure.SqliteRowVersionRotationInterceptor()).Options);
+
+        await using var ctxA = NuevoContexto();
+        await using var ctxB = NuevoContexto();
+        var usuario = new UsuarioNcExterna(true);
+        var servA = new NotaCreditoFiscalExternaService(ctxA, usuario, new SeguridadAuditoriaService(ctxA, usuario, NullLogger<SeguridadAuditoriaService>.Instance), NullLogger<NotaCreditoFiscalExternaService>.Instance);
+        var servB = new NotaCreditoFiscalExternaService(ctxB, usuario, new SeguridadAuditoriaService(ctxB, usuario, NullLogger<SeguridadAuditoriaService>.Instance), NullLogger<NotaCreditoFiscalExternaService>.Instance);
+
+        // B ya leyó la NC (sin vínculo) antes de que A guarde: es la ventana de la carrera.
+        var vieja = await ctxB.NotasCredito.Include(n => n.Devolucion).SingleAsync(n => n.Id == nc.Id);
+        Assert.Null(vieja.FiscalExternaNumero);
+
+        var a = await servA.RegistrarAsync(nc.Id, Req(numero: "111"));
+        Assert.True(a.Exitoso, string.Join("; ", a.Errores));
+
+        var b = await servB.RegistrarAsync(nc.Id, Req(numero: "222"));
+        Assert.False(b.Exitoso);
+
+        var final = await _context.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id);
+        Assert.Equal("00000111", final.FiscalExternaNumero);   // el primero queda; el segundo no lo sobrescribió
     }
 
     [Fact]

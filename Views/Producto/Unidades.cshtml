@@ -395,7 +395,7 @@
                                 }
                                 <div>
                                     <dt class="text-slate-500">Ingreso</dt>
-                                    <dd class="mt-0.5 text-slate-200">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yy")</dd>
+                                    <dd class="mt-0.5 text-slate-200">@unidad.FechaIngreso.AHoraComercial().ToString("dd/MM/yy")</dd>
                                 </div>
                                 @if (unidad.ClienteAsociado != null)
                                 {
@@ -502,7 +502,7 @@
                                         <span class="@BChipClass(unidad.Estado)">@BChipLabel(unidad.Estado)</span>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-slate-300">@(unidad.UbicacionActual ?? "—")</td>
-                                    <td class="px-4 py-3 text-sm text-slate-400">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-400">@unidad.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
                                     <td class="px-4 py-3 text-sm text-slate-300">
                                         @if (unidad.ClienteAsociado != null || unidad.VentaDetalleId.HasValue)
                                         {
@@ -513,7 +513,7 @@
                                             }
                                             @if (unidad.FechaVenta.HasValue)
                                             {
-                                                <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                                <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.AHoraComercial().ToString("dd/MM/yyyy")</span>
                                             }
                                         }
                                         else
@@ -877,8 +877,8 @@
         }
 
         <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
-            <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
-            <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
+            <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
+            <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
         </div>
 
         @* Opciones de Resolucion — estructura visual del standalone *@

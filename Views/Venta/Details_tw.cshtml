@@ -819,7 +819,7 @@
                                 </div>
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Generación</p>
-                                    <p class="text-sm font-bold text-white">@contratoVentaCredito.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-sm font-bold text-white">@contratoVentaCredito.FechaGeneracionUtc.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Usuario</p>
@@ -983,7 +983,7 @@
                             {
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Entregado el</p>
-                                    <p class="text-sm font-bold text-emerald-300">@envio.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-sm font-bold text-emerald-300">@envio.FechaEntregaReal.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                             }
                             @if (productosEnvio.Count > 0 && (productosRetira.Count > 0 || productosEnvio.Count > 1))
@@ -1276,7 +1276,7 @@
                                 <div class="venta-timeline__dot rounded-full bg-primary border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Venta confirmada</p>
-                                    <p class="text-[11px] text-slate-400">@Model.FechaConfirmacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaConfirmacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                             </div>
                         }
@@ -1288,7 +1288,7 @@
                                 <div class="venta-timeline__dot rounded-full bg-blue-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Crédito configurado</p>
-                                    <p class="text-[11px] text-slate-400">@Model.FechaConfiguracionCredito.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaConfiguracionCredito.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                             </div>
                         }
@@ -1300,7 +1300,7 @@
                                 <div class="venta-timeline__dot rounded-full bg-green-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Facturada</p>
-                                    <p class="text-[11px] text-slate-400">@Model.FechaFacturacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaFacturacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                     @if (facturaActiva != null)
                                     {
                                         <p class="text-[11px] text-primary font-bold">@facturaActiva.Numero</p>
@@ -1316,7 +1316,7 @@
                                 <div class="venta-timeline__dot rounded-full bg-emerald-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Entregada</p>
-                                    <p class="text-[11px] text-slate-400">@Model.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaEntrega.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                 </div>
                             </div>
                         }
@@ -1328,7 +1328,7 @@
                                 <div class="venta-timeline__dot rounded-full bg-red-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-red-500">Cancelada</p>
-                                    <p class="text-[11px] text-slate-400">@Model.FechaCancelacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaCancelacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                     @if (!string.IsNullOrEmpty(Model.MotivoCancelacion))
                                     {
                                         <p class="text-[11px] text-slate-500 mt-0.5">@Model.MotivoCancelacion</p>
@@ -1360,7 +1360,7 @@
                                 <div class="venta-timeline__dot rounded-full @tEnvioDot border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold @(tEnvio.Estado is EstadoEnvio.Cancelado or EstadoEnvio.Fallido || tEnvioCanceladoPorVenta ? "text-red-500" : "text-white")">Envío: @tEnvioTexto</p>
-                                    <p class="text-[11px] text-slate-400">@tEnvioFecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p class="text-[11px] text-slate-400">@tEnvioFecha.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                                     @if (tEnvio.Estado == EstadoEnvio.Reprogramado && tEnvio.FechaProgramada.HasValue)
                                     {
                                         <p class="text-[11px] text-amber-300">Nueva fecha: @tEnvio.FechaProgramada.Value.ToString("dd/MM/yyyy")</p>

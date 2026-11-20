@@ -306,10 +306,10 @@
                 <div class="quote-type">Cotizacion</div>
                 <div class="quote-meta">
                     <strong>Nro.</strong> @Model.Numero<br />
-                    <strong>Fecha</strong> @Model.Fecha.ToLocalTime().ToString("dd/MM/yyyy")<br />
+                    <strong>Fecha</strong> @Model.Fecha.AHoraComercial().ToString("dd/MM/yyyy")<br />
                     @if (Model.FechaVencimiento.HasValue)
                     {
-                        <strong>Vence</strong><span> @Model.FechaVencimiento.Value.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                        <strong>Vence</strong><span> @Model.FechaVencimiento.Value.ToString("dd/MM/yyyy")</span>
                     }
                 </div>
             </div>

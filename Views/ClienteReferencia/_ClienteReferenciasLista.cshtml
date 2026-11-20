@@ -60,7 +60,7 @@ else
                     </div>
                     @if (r.FechaVerificacion.HasValue)
                     {
-                        <div class="text-xs muted-2">@EstadoLabel(r.EstadoVerificacion) el @r.FechaVerificacion.Value.ToLocalTime().ToString("dd/MM/yyyy")@(string.IsNullOrWhiteSpace(r.VerificadaPor) ? "" : " por " + r.VerificadaPor)</div>
+                        <div class="text-xs muted-2">@EstadoLabel(r.EstadoVerificacion) el @r.FechaVerificacion.Value.AHoraComercial().ToString("dd/MM/yyyy")@(string.IsNullOrWhiteSpace(r.VerificadaPor) ? "" : " por " + r.VerificadaPor)</div>
                     }
                     @if (!string.IsNullOrWhiteSpace(r.Observaciones))
                     {

@@ -27,7 +27,7 @@
             <p class="font-bold">Cheque rechazado &ndash; pendiente de cobro</p>
             <p class="mt-1">La venta no se canceló ni se devolvió stock. Cobrá la operación por otro medio o cancelala manualmente.</p>
             <p class="mt-1 text-xs text-red-200/80">
-                Rechazado el @Model.RechazadoAt!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") por @Model.RechazadoPor.
+                Rechazado el @Model.RechazadoAt!.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") por @Model.RechazadoPor.
                 Motivo: @Model.MotivoRechazo
             </p>
         </div>
@@ -50,7 +50,7 @@
         @if (Model.AcreditadoAt.HasValue)
         {
             <div class="sm:col-span-2"><dt class="text-slate-400">Acreditación</dt>
-                <dd class="font-semibold text-white">@Model.AcreditadoAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") &middot; @Model.AcreditadoPor</dd></div>
+                <dd class="font-semibold text-white">@Model.AcreditadoAt.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") &middot; @Model.AcreditadoPor</dd></div>
         }
     </dl>
 

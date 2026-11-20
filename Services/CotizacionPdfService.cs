@@ -1,3 +1,4 @@
+using TheBuryProject.Helpers;
 using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -83,14 +84,14 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                     inner.Item().Row(r =>
                     {
                         r.ConstantItem(55).Text("Fecha").Bold().FontSize(9).FontColor(ColorGrisOscuro);
-                        r.RelativeItem().Text(cotizacion.Fecha.ToLocalTime().ToString("dd/MM/yyyy")).FontSize(9);
+                        r.RelativeItem().Text(cotizacion.Fecha.AHoraComercial().ToString("dd/MM/yyyy")).FontSize(9);
                     });
                     if (cotizacion.FechaVencimiento.HasValue)
                     {
                         inner.Item().Row(r =>
                         {
                             r.ConstantItem(55).Text("Vence").Bold().FontSize(9).FontColor(ColorGrisOscuro);
-                            r.RelativeItem().Text(cotizacion.FechaVencimiento.Value.ToLocalTime().ToString("dd/MM/yyyy")).FontSize(9);
+                            r.RelativeItem().Text(cotizacion.FechaVencimiento.Value.ToString("dd/MM/yyyy")).FontSize(9);
                         });
                     }
                 });

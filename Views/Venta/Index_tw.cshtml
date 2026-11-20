@@ -912,7 +912,7 @@
                                                                                 @(vc.Cliente != null ? TheBuryProject.Helpers.ClienteFormatting.ToDisplayName(vc.Cliente) : envioCerrado.Destinatario)
                                                                                 @if (envioCerrado.FechaEntregaReal.HasValue)
                                                                                 {
-                                                                                    <text> · Entregado @envioCerrado.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy")</text>
+                                                                                    <text> · Entregado @envioCerrado.FechaEntregaReal.Value.AHoraComercial().ToString("dd/MM/yyyy")</text>
                                                                                 }
                                                                                 else if (vc.Estado == EstadoVenta.Cancelada)
                                                                                 {

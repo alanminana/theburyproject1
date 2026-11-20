@@ -665,7 +665,7 @@ else
                     <div class="kv-row"><dt>Período informado</dt><dd>@Dash(bcraPeriodo)</dd></div>
                     <div class="kv-row">
                         <dt>Última consulta</dt>
-                        <dd id="bcra-meta">@(bcraFecha.HasValue ? bcraFecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Pendiente de consulta")</dd>
+                        <dd id="bcra-meta">@(bcraFecha.HasValue ? bcraFecha.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") : "Pendiente de consulta")</dd>
                     </div>
                 </dl>
                 @if (tieneCuil && puedeConsultarBcra)
@@ -902,7 +902,7 @@ else
                                         @foreach (var h in Model.HistorialPuntaje)
                                         {
                                             <tr>
-                                                <td>@h.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>@h.Fecha.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</td>
                                                 <td>@(h.PuntajeAnterior.HasValue ? h.PuntajeAnterior.Value.ToString() : "-")</td>
                                                 <td>@h.PuntajeNuevo</td>
                                                 <td>@h.Origen</td>

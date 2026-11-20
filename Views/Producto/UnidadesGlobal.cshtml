@@ -306,11 +306,11 @@
                                 </td>
                                 <td class="px-4 py-3 text-xs text-slate-400">
                                     @(item.FechaVenta.HasValue
-                                        ? item.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy")
+                                        ? item.FechaVenta.Value.AHoraComercial().ToString("dd/MM/yyyy")
                                         : "—")
                                 </td>
                                 <td class="px-4 py-3 text-xs text-slate-400">
-                                    @item.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")
+                                    @item.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-2">
