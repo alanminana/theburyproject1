@@ -2070,6 +2070,42 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
     }
 
+    // Hallazgo de Codex sobre C5 (misma operación que FiscalVersionadoP02Tests.DescuentoDeEfectivo_C5_AlicuotasMixtasYCentavos_*):
+    // producto 1.000,49 al 10,5 %, envío 200 al 21 %, efectivo -5 % => total 1.150, neto 1.025,46 + IVA 124,54 también en la conversión.
+    [Fact]
+    public async Task Convertir_V2_DescuentoDeEfectivo_AlicuotasMixtas_DiscriminaIgualQueLaVentaDirecta()
+    {
+        using var _ = TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(
+            vigente: TheBuryProject.Helpers.CriterioFiscalRegistry.VersionDosRedondeoComercial);
+        _producto.PorcentajeIVA = 10.5m;
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.Efectivo, Nombre = "Efectivo", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.Efectivo, CantidadCuotas = 1, AjustePorcentaje = -5m, Activo = true
+        });
+
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 1000.49m);
+        cotizacion.Detalles.Single().Cantidad = 1;
+        cotizacion.Detalles.Single().Subtotal = 1000.49m;
+        cotizacion.Subtotal = cotizacion.TotalBase = 1000.49m;
+        cotizacion.TieneEnvio = true;
+        cotizacion.CostoEnvio = 200m;
+        cotizacion.EnvioIncluidoEnTotal = true;
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.VentaId);
+        Assert.Equal(1150m, venta.Total);
+        Assert.Equal(-50m, venta.AjusteMedioPagoMonto);
+        Assert.Equal((1025.46m, 124.54m), (venta.Subtotal, venta.IVA));
+    }
+
     [Fact]
     public async Task Convertir_Efectivo_SinPlanConfigurado_NoAjustaElTotal()
     {

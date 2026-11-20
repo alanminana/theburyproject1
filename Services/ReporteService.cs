@@ -349,7 +349,12 @@ namespace TheBuryProject.Services
                         if (items.Count == 0)
                             continue;
 
-                        foreach (var parte in criterio.ResumenPorAlicuota(venta.Total, items, venta.AjusteMedioPagoMonto))
+                        foreach (var parte in criterio.ResumenPorAlicuota(
+                                   venta.Total, items,
+                                   new RecargoMedioPagoIva.AjusteMedioContexto(
+                                       venta.AjusteMedioPagoMonto,
+                                       criterio.DescuentoDeMedioSoloSobreProductos ? servicios : 0m,
+                                       criterio.AlicuotaServicios)))
                         {
                             if (filtro.Alicuota.HasValue && parte.Porcentaje != filtro.Alicuota.Value)
                                 continue;

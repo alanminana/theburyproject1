@@ -304,7 +304,7 @@ namespace TheBuryProject.Services
                 CalcularTotales(venta, envioServicio);
                 // H10 (D4): Efectivo/Transferencia cobran el plan de 1 pago configurado, igual que la venta del cotizador.
                 await AplicarAjusteMedioUnPagoAsync(venta, envioServicio);
-                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles, ServiciosExactos(venta, envioServicio));
                 await ValidarChequeContraVentaAsync(venta, viewModel);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
@@ -984,7 +984,7 @@ namespace TheBuryProject.Services
             // CalcularTotales volvió a la base de lista, así que se reaplica (una sola vez) el descuento/recargo de
             // Efectivo/Transferencia: la misma regla que Create y que la conversión de la cotización (H10, D4).
             await AplicarAjusteMedioUnPagoAsync(venta, envioServicio);
-            DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+            DiscriminarRecargoEnNetoEIva(venta, venta.Detalles, ServiciosExactos(venta, envioServicio));
             await SincronizarEnvioEdicionAsync(venta, viewModel);
             await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
@@ -3373,7 +3373,7 @@ namespace TheBuryProject.Services
                         SubtotalFinal = d.SubtotalFinal,
                         SubtotalFinalNeto = d.SubtotalFinalNeto,
                         SubtotalFinalIVA = d.SubtotalFinalIVA
-                    }));
+                    }), RedondearMoneda(response.TotalArmados + response.ImporteEnvio));
                     response.Subtotal = ventaPreview.Subtotal;
                     response.IVA = ventaPreview.IVA;
                 }
@@ -4167,7 +4167,11 @@ namespace TheBuryProject.Services
         /// Idempotente: tras aplicarlo la diferencia es 0. No toca ventas de cotización con Subtotal bruto (convención
         /// distinta, Subtotal + IVA &gt; Total): esas se normalizan con <see cref="NormalizarNetoEIvaDesdeTotal"/>.
         /// </summary>
-        internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles)
+        /// <summary>Bruto exacto de armados + envío de la venta (con IVA incluido), tal como lo suman <c>CalcularTotales</c> y la conversión.</summary>
+        private static decimal ServiciosExactos(Venta venta, decimal importeEnvio) =>
+            RedondearMoneda(venta.Detalles.Where(d => !d.IsDeleted).Sum(d => d.ArmadoSubtotal) + importeEnvio);
+
+        internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles, decimal? serviciosExactos = null)
         {
             var lineas = detalles.Where(d => !d.IsDeleted).ToList();
             var baseNetoIva = venta.Subtotal + venta.IVA;
@@ -4179,14 +4183,21 @@ namespace TheBuryProject.Services
             // no se reinterpreta el dato.
             var brutoLineas = lineas.Sum(d => d.SubtotalFinal);
             var servicios = Math.Max(0m, baseNetoIva - brutoLineas);
+            // P-02 (V2): los servicios son los exactos (armados + envío), no lo que queda de la base ya redondeada a pesos; así venta
+            // directa, conversión, comprobante y reporte discriminan lo mismo. V1 conserva la inferencia histórica.
+            var serviciosParaReparto = CriterioDe(venta).DescuentoDeMedioSoloSobreProductos && serviciosExactos.HasValue
+                ? serviciosExactos.Value
+                : servicios;
             var (serviciosNeto, serviciosIva) = CriterioDe(venta).SepararServicios(servicios);
             var subtotalEsperado = lineas.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
             if (Math.Abs(venta.Subtotal - subtotalEsperado) > 1m)
                 return;
 
             var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
-            if (servicios > 0m)
-                bases.Add((CriterioDe(venta).AlicuotaServicios, servicios));
+            // C5 (V2): un descuento del medio de pago no alcanza a los servicios; solo un recargo los incluye en el reparto.
+            var excluirServicios = ajuste < 0m && CriterioDe(venta).DescuentoDeMedioSoloSobreProductos;
+            if (serviciosParaReparto > 0m && !excluirServicios)
+                bases.Add((CriterioDe(venta).AlicuotaServicios, serviciosParaReparto));
 
             var signo = ajuste > 0m ? 1m : -1m;
             var partes = CriterioDe(venta).Repartir(bases, Math.Abs(ajuste));
@@ -4223,7 +4234,12 @@ namespace TheBuryProject.Services
                 items.Add((CriterioDe(venta).AlicuotaServicios, serviciosEnTotal, neto, iva));
             }
 
-            var resultado = CriterioDe(venta).Discriminar(venta.Total, items, venta.AjusteMedioPagoMonto);
+            var resultado = CriterioDe(venta).Discriminar(
+                venta.Total, items,
+                new RecargoMedioPagoIva.AjusteMedioContexto(
+                    venta.AjusteMedioPagoMonto,
+                    CriterioDe(venta).DescuentoDeMedioSoloSobreProductos ? serviciosEnTotal : 0m,
+                    CriterioDe(venta).AlicuotaServicios));
             venta.Subtotal = resultado.Neto;
             venta.IVA = resultado.Iva;
             return true;

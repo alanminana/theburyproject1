@@ -491,6 +491,68 @@ public class FiscalVersionadoP02Tests : IDisposable
         Assert.Equal(venta.Subtotal, reporte.VentasNeto);
     }
 
+    /// <summary>
+    /// Hallazgo de Codex sobre C5: con alícuotas mixtas (producto 10,5 % con centavos, servicios 21 %) y descuento de efectivo, el
+    /// descuento se reparte SOLO entre los productos y la venta directa, el comprobante y el Reporte de IVA discriminan lo mismo
+    /// (los servicios son los exactos, no lo que queda de la base redondeada).
+    /// </summary>
+    [Fact]
+    public async Task DescuentoDeEfectivo_C5_AlicuotasMixtasYCentavos_VentaComprobanteYReporteDiscriminanLoMismo()
+    {
+        var (cliente, producto) = await SeedBaseAsync(1000.49m);
+        producto.PorcentajeIVA = 10.5m;
+        await _context.SaveChangesAsync();
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow);
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.Efectivo, Nombre = "Efectivo", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.Efectivo, CantidadCuotas = 1, AjustePorcentaje = -5m, Activo = true
+        });
+        await new ServicioVentaPrecioService(_context).GuardarAsync(new[]
+        {
+            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioCiudad, 200m, true, 80m)
+        });
+
+        using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: CriterioFiscalRegistry.VersionDosRedondeoComercial);
+        var creada = await _ventas.CreateAsync(new VentaViewModel
+        {
+            ClienteId = cliente.Id, FechaVenta = DateTime.UtcNow, Estado = EstadoVenta.Cotizacion, TipoPago = TipoPago.Efectivo,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1000.49m } },
+            TieneEnvio = true,
+            Envio = new VentaEnvioViewModel { Destinatario = "Juan", Domicilio = "Calle 1", TipoEnvio = TipoServicioVenta.EnvioCiudad }
+        });
+        var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
+        Assert.Equal(1150m, venta.Total);                       // base 1.000,49 + 200 = 1.200,49 -> 1.200; -5 % de 1.000 = -50
+        Assert.Equal(-50m, venta.AjusteMedioPagoMonto);
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
+        Assert.Equal((1025.46m, 124.54m), (venta.Subtotal, venta.IVA));   // mismo neto/IVA en la conversión (CotizacionConversionServiceTests)
+
+        venta.Estado = EstadoVenta.Facturada;
+        venta.FechaFacturacion = dia;
+        var factura = new Factura
+        {
+            VentaId = venta.Id, Numero = $"FMX-{Interlocked.Increment(ref _n)}", Tipo = TipoFactura.B, FechaEmision = dia,
+            Subtotal = venta.Subtotal, IVA = venta.IVA, Total = venta.Total
+        };
+        _context.Facturas.Add(factura);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var comprobante = await ComprobanteAsync(factura.Id);
+        var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
+        Assert.Equal(venta.Subtotal, comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible));
+        Assert.Equal(venta.IVA, comprobante.ResumenAlicuotas.Sum(r => r.IVA));
+        Assert.Equal(venta.Subtotal, reporte.VentasNeto);
+        Assert.Equal(venta.IVA, reporte.VentasIva);
+        // Por alícuota: comprobante == reporte (el servicio al 21 % conserva su bruto exacto de 200: no recibe descuento).
+        var c21 = comprobante.ResumenAlicuotas.Single(r => r.PorcentajeIVA == 21m);
+        var r21 = reporte.VentasPorAlicuota.Single(r => r.Porcentaje == 21m);
+        Assert.Equal((c21.BaseImponible, c21.IVA, c21.Total), (r21.Neto, r21.Iva, r21.Total));
+        Assert.Equal(200m, c21.Total);
+    }
+
     [Fact]
     public async Task OperacionConVersionNoRegistrada_FallaEnVezDeCalcularConOtrasReglas()
     {

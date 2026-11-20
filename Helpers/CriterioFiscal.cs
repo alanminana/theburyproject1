@@ -58,10 +58,10 @@ namespace TheBuryProject.Helpers
         /// conserva el monto del ajuste del medio de pago (Efectivo/Transferencia). Con ese dato la base cobrada es exacta
         /// (<c>total - ajuste</c>) y no se infiere por la presencia de centavos. V1 lo ignora (conserva su heurística histórica).
         /// </summary>
-        RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) =>
+        RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
             Discriminar(total, lineas);
 
-        List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) =>
+        List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
             ResumenPorAlicuota(total, lineas);
     }
 
@@ -125,11 +125,11 @@ namespace TheBuryProject.Helpers
 
         public bool DescuentoDeMedioSoloSobreProductos => true;
 
-        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) =>
-            RecargoMedioPagoIva.Discriminar(total, lineas, TruncarAPesos, ajusteMedioPersistido);
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            RecargoMedioPagoIva.Discriminar(total, lineas, TruncarAPesos, contexto);
 
-        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) =>
-            RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas, TruncarAPesos, ajusteMedioPersistido);
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas, TruncarAPesos, contexto);
     }
 
     /// <summary>La versión de criterio fiscal pedida no está registrada (dato corrupto o código desactualizado).</summary>
@@ -155,8 +155,8 @@ namespace TheBuryProject.Helpers
         public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => inner.AbsorberTruncado(neto, iva, truncado);
         public decimal RedondearBaseAntesDeAjuste(decimal baseConCentavos) => inner.RedondearBaseAntesDeAjuste(baseConCentavos);
         public bool DescuentoDeMedioSoloSobreProductos => inner.DescuentoDeMedioSoloSobreProductos;
-        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) => inner.Discriminar(total, lineas, ajusteMedioPersistido);
-        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, decimal? ajusteMedioPersistido) => inner.ResumenPorAlicuota(total, lineas, ajusteMedioPersistido);
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) => inner.Discriminar(total, lineas, contexto);
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) => inner.ResumenPorAlicuota(total, lineas, contexto);
     }
 
     /// <summary>
