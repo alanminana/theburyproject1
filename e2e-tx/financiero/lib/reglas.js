@@ -10,8 +10,9 @@
  *      Capital_i = Total_i - Interes_i.
  *  - Punitorio: Services/PunitorioCalculator
  *      por tramo: saldoBase * porcentaje/100 * díasTramo / periodoDías, sin redondear por tramo,
- *      suma de tramos redondeada UNA vez; devenga solo si los días globales desde el vencimiento
- *      superan la gracia de la configuración vigente en ese tramo.
+ *      suma de tramos redondeada UNA vez. C10 (gracia real, 2026-11-20): solo devengan los días posteriores
+ *      a vencimiento + gracia de la configuración vigente en cada tramo (DiasPunitorio = max(0, atraso - gracia);
+ *      el día del vencimiento es el día 0; sin retroactividad).
  *  - Mora de alertas: MoraService.CalcularMora = monto * (TasaMoraBase/100/30) * días, round2.
  */
 
@@ -52,8 +53,8 @@ function fechaMensual(base, k) {
  * @param {{saldo:number,dias:number,pct:number,periodo:number,gracia:number}} p
  */
 function punitorioTramo({ saldo, dias, pct, periodo, gracia }) {
-    if (dias <= gracia) return 0;
-    return r2(saldo * pct / 100 * dias / periodo);
+    const diasPunitorio = Math.max(0, dias - gracia);
+    return r2(saldo * pct / 100 * diasPunitorio / periodo);
 }
 
 /**
@@ -64,7 +65,13 @@ function punitorioTramo({ saldo, dias, pct, periodo, gracia }) {
  */
 function punitorioTramos(saldo, diasTotales, tramos) {
     let exacto = 0;
-    for (const t of tramos) if (diasTotales > t.gracia) exacto += saldo * t.pct / 100 * t.dias / t.periodo;
+    let desde = 0;
+    for (const t of tramos) {
+        const hasta = desde + t.dias;
+        const diasPunitorio = Math.max(0, hasta - Math.max(desde, t.gracia));
+        exacto += saldo * t.pct / 100 * diasPunitorio / t.periodo;
+        desde = hasta;
+    }
     return r2(exacto);
 }
 

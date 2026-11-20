@@ -10,6 +10,9 @@ namespace TheBuryProject.Services.Models
         public DateOnly Desde { get; init; }
         public DateOnly Hasta { get; init; }
         public int Dias { get; init; }
+
+        /// <summary>C10: días del tramo que devengan punitorio. Ausente (null) en snapshots anteriores a la gracia real.</summary>
+        public int? DiasPunitorio { get; init; }
         public decimal SaldoBase { get; init; }
         public int? ConfiguracionPunitorioId { get; init; }
         public decimal? Porcentaje { get; init; }
@@ -69,5 +72,12 @@ namespace TheBuryProject.Services.Models
         /// esta fila. Evita doble devengamiento de los días ya cubiertos por aplicaciones anteriores.
         /// </summary>
         public decimal ImporteNuevoAplicado { get; init; }
+
+        /// <summary>
+        /// C10: regla de gracia con la que se calculó esta aplicación. <c>GraciaReal</c> = los días de gracia no devengan; <c>Retroactiva</c> =
+        /// regla anterior (PUN-ML4) conservada para una cuota que ya tenía punitorio aplicado bajo ella. Ausente (null) = snapshot anterior a
+        /// C10, es decir regla retroactiva. Nunca se reescribe en un snapshot persistido.
+        /// </summary>
+        public string? ReglaGracia { get; init; }
     }
 }

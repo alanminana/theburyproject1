@@ -25,7 +25,7 @@
 
 ### 1.2 Contraste de las decisiones del propietario del 2026-11-20
 
-Verificadas contra el código y pruebas ejecutadas en `docs/p02-contraste-decisiones-propietario-20261120.md`: C3, C4/C7/C8, C6, C9/C11 y C12 **coinciden**; C13 tenía una **discrepancia** (las devoluciones se imputaban a la fecha de alta y no a la de emisión de la NC) que se corrigió (`VentasNetas`: fecha de efecto = `FechaAprobacion` con V2 y `FechaDevolucion` con V1/sin aprobación; aprobación y emisión de la NC con el mismo instante); C10 coincide en el mecanismo y deja tres casos no definidos aislados (IVA del punitorio con alícuotas mixtas, qué cuenta como «día 13», cobro sin confirmación). El neteo de IVA por NC fiscal sigue desactivado.
+Verificadas contra el código y pruebas ejecutadas en `docs/p02-contraste-decisiones-propietario-20261120.md`: C3, C4/C7/C8, C6, C9/C11 y C12 **coinciden**; C13 tenía una **discrepancia** (las devoluciones se imputaban a la fecha de alta y no a la de emisión de la NC) que se corrigió (`VentasNetas`: fecha de efecto = `FechaAprobacion` con V2 y `FechaDevolucion` con V1/sin aprobación; aprobación y emisión de la NC con el mismo instante); C10: el mecanismo coincidía y el propietario aprobó la **gracia real de 12 días** (opción B), implementada y documentada en `docs/punitorios-gracia-real-c10.md` (PUN-ML5 y los importes históricos se conservan); sigue pendiente el IVA del punitorio con alícuotas mixtas. El neteo de IVA por NC fiscal sigue desactivado.
 
 ## 2. Pendiente Fiscal (decisión/respuesta externa; no es trabajo de programación)
 

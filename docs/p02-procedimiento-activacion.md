@@ -60,6 +60,10 @@ V2 cambia importes cobrados (redondeo comercial C1/C2; descuento de efectivo sol
 
 **Qué no hacer:** no usar `Ensayo:CriterioFiscalVersion` en producción; no reescribir `CriterioFiscalVersion` de ventas existentes; no definir la clave en una instalación con base histórica de la versión anterior del formulario de venta (fecha guardada como «medianoche argentina», ver `docs/p02-respuestas-contador-20261119.md` §9).
 
+### 3.1 Configuración de punitorios en la puesta en marcha (C10)
+
+Con la gracia real (`docs/punitorios-gracia-real-c10.md`) la instalación nueva debe cargar, por la pantalla de Configuración de punitorios (permiso `configuracion.managepunitorio`, nunca sembrada por código ni por script), una versión vigente con `DiasGracia = 12` y la tasa/período que defina el propietario, y `ConfiguracionMora.DiasGracia` para la bandeja de mora. Sin esa versión el punitorio queda «sin configuración» y no se calcula nada: no hay valor por defecto.
+
 ## 4. Neteo del IVA por NC fiscal externa — diseño preparado, **sin activar** (P3 + período)
 
 Hoy el Reporte de IVA no netea devoluciones y su nota lo advierte. Diseño para cuando el contador defina el período (pregunta 3 de la consulta) y el propietario autorice:

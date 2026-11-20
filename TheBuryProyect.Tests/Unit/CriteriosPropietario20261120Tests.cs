@@ -135,7 +135,7 @@ public class CriteriosPropietario20261120Tests
     };
 
     [Fact]
-    public void C10_ConGracia12_ElDia12NoDevengaYElDia13SiLoHace_ContadoDesdeElVencimiento()
+    public void C10_ConGracia12_ElDia12NoDevengaYElDia13DevengaUnSoloDia()
     {
         var venc = new DateOnly(2026, 11, 1);
         var calc = new PunitorioCalculator();
@@ -146,7 +146,7 @@ public class CriteriosPropietario20261120Tests
         Assert.Equal(EstadoResultadoPunitorio.DentroDeGracia, dia12.EstadoResultado);
         Assert.Equal(0m, dia12.PunitorioRedondeado);
         Assert.Equal(EstadoResultadoPunitorio.Calculado, dia13.EstadoResultado);
-        Assert.Equal(65m, dia13.PunitorioRedondeado);   // 1.000 × 10 % × 13 / 20: regla vigente (PUN-ML4), devengo desde el vencimiento
+        Assert.Equal(5m, dia13.PunitorioRedondeado);   // 1.000 × 10 % × 1 / 20: gracia real aprobada el 2026-11-20 (antes, PUN-ML4: 65 retroactivo)
     }
 
     [Fact]

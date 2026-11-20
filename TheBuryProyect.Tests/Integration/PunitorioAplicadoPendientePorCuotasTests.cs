@@ -177,7 +177,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task UnId_CoincideConLaOperacionIndividual()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         await AplicarAsync(cuota.Id);
         _context.ChangeTracker.Clear();
@@ -192,7 +192,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task VariosIds_CoincideConLaOperacionIndividualParaCadaUno()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue);
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var cuotaA = await SeedCuotaAsync(10_000m, vencimiento);
         var cuotaB = await SeedCuotaAsync(5_000m, vencimiento);
@@ -216,7 +216,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task IdsDuplicados_SeDeduplicanYDevuelvenUnaSolaEntrada()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         await AplicarAsync(cuota.Id);
         _context.ChangeTracker.Clear();
@@ -249,7 +249,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task PunitorioAplicadoSinPagos_DevuelveElImporteCompleto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await AplicarAsync(cuota.Id);
         _context.ChangeTracker.Clear();
@@ -263,7 +263,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task PagoParcial_RestaSoloElImporteAplicadoPunitorio()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await AplicarAsync(cuota.Id);
         await SeedPagoAsync(
@@ -278,7 +278,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task PagoTotal_DevuelveCero()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await AplicarAsync(cuota.Id);
         await SeedPagoAsync(
@@ -293,7 +293,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task PagosMayoresAlAplicado_DatoHistoricoInconsistente_NuncaDevuelveNegativo()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await AplicarAsync(cuota.Id); // Importe = 300
         await SeedPagoAsync(
@@ -310,7 +310,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task PunitorioAnulado_NoAportaPendiente()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await AplicarAsync(cuota.Id);
         await _service.AnularAsync(aplicada.Id, new PunitorioAnularComando { Motivo = "Error verificado" });
@@ -358,7 +358,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task VariasCuotasMezcladas_CadaUnaResuelveSuPropioEstado()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue);
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var sinPunitorio = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
@@ -400,7 +400,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task NingunAccesoAMontoPunitorioLegacy_NoAlteraElResultado()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         await AplicarAsync(cuota.Id);
         _context.ChangeTracker.Clear();
@@ -420,7 +420,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task CeroEscrituras_NoModificaNiTrackeaNadaEnLaBase()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue);
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var cuotaA = await SeedCuotaAsync(10_000m, vencimiento);
         var cuotaB = await SeedCuotaAsync(5_000m, vencimiento);
@@ -441,7 +441,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task CancellationTokenCancelado_SePropaga()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         await AplicarAsync(cuota.Id);
         _context.ChangeTracker.Clear();
@@ -456,7 +456,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task SinNMasUno_CantidadDeQueriesNoCreceConLaCantidadDeCuotas()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue);
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var cuotaUnica = await SeedCuotaAsync(10_000m, vencimiento);
@@ -499,7 +499,7 @@ public sealed class PunitorioAplicadoPendientePorCuotasTests : IDisposable
     [Fact]
     public async Task Equivalencia_BatchIgualaOperacionIndividualParaCadaCuota()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue);
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var ids = new List<int>();
