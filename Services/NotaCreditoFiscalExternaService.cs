@@ -108,7 +108,9 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         if (nc.FiscalExternaNumero != null)
             return NotaCreditoFiscalExternaResultado.Fallo("La nota de crédito ya tiene un comprobante fiscal externo vinculado; no se modifica.");
 
-        var venta = await _context.Ventas.AsNoTracking()
+        // Con seguimiento (no AsNoTracking): la venta se «toca» en el mismo guardado que el vínculo (ver abajo) para que dos vínculos
+        // concurrentes sobre NC distintas de la MISMA venta choquen por el token de concurrencia de Ventas.
+        var venta = await _context.Ventas
             .FirstOrDefaultAsync(v => v.Id == nc.Devolucion.VentaId && !v.IsDeleted);
         if (venta == null)
             return NotaCreditoFiscalExternaResultado.Fallo("La venta de la devolución no existe.");
@@ -155,6 +157,12 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         nc.FiscalExternaRegistradaPor = _currentUser.GetUsername();
         nc.FiscalExternaRegistradaEn = DateTime.UtcNow;
 
+        // Serializa los vínculos de una misma venta: el límite «suma de NC fiscales ≤ total de la venta» se validó leyendo antes de guardar
+        // (verificar-y-actuar). Modificar la venta fuerza `UPDATE Ventas … WHERE RowVersion = <leída>`: si otro vínculo de la misma venta
+        // guardó entre medio, esta escritura falla (DbUpdateConcurrencyException) y el reintento revalida contra lo ya acreditado.
+        venta.UpdatedAt = DateTime.UtcNow;
+        venta.UpdatedBy = _currentUser.GetUsername();
+
         // La auditoría viaja en el MISMO guardado que el vínculo: no queda vínculo sin evento ni evento sin vínculo.
         var pendientesAntes = _context.ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToHashSet();
@@ -174,6 +182,7 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
                          .Where(e => e.State == EntityState.Added && !pendientesAntes.Contains(e.Entity)).ToList())
                 entrada.State = EntityState.Detached;
             await _context.Entry(nc).ReloadAsync();
+            await _context.Entry(venta).ReloadAsync();
 
             if (EsViolacionDelIndiceUnico(ex))
             {

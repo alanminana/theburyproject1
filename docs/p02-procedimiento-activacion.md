@@ -1,6 +1,6 @@
 # P-02: procedimiento de puesta en marcha — activar CriterioFiscal V2 y aplicar P3 (NC fiscal externa)
 
-Fecha: 2026-11-20. **Estado: PREPARADO, no ejecutado.** Nada de este documento se aplicó a la VM, a la base de preproducción ni a ninguna base real. Cada paso marcado **[AUTORIZACIÓN]** requiere decisión del propietario. Complementa `docs/deploy-rollback.md`, `docs/despliegue-produccion.md`, `docs/backup-restore.md` y `docs/p02-respuestas-contador-20261119.md`.
+Fecha: 2026-11-20. **P3 y P6 AUTORIZADAS por el propietario (2026-11-20).** Estado: **mecanismos implementados y ensayados en un stack aislado (§6); aplicación real PENDIENTE de la puesta en marcha sobre la base nueva de producción** (ver §7: la base de la VM es de preproducción con datos sintéticos y no se usa como productiva). Complementa `docs/deploy-rollback.md`, `docs/despliegue-produccion.md`, `docs/backup-restore.md` y `docs/p02-respuestas-contador-20261119.md`.
 
 Scripts de apoyo (todos validados contra un SQL Server descartable el 2026-11-20):
 
@@ -20,7 +20,7 @@ Ejecución de los scripts (en el contenedor SQL, con la contraseña del `.env`, 
 3. **Respaldo verificado** — `scripts/backup/backup.sh` (`RESTORE VERIFYONLY` + sha256) y `scripts/backup/restore-test.sh` sobre ese respaldo. Anotar la ruta y el hash. Sin respaldo verificado no se continúa.
 4. **Ventana** — sin operaciones de Caja abiertas en curso (cerrar turnos o acordar ventana).
 
-## 2. P3 — aplicar la migración `P02NotaCreditoFiscalExterna` **[AUTORIZACIÓN]**
+## 2. P3 — aplicar la migración `P02NotaCreditoFiscalExterna` **[AUTORIZADA por el propietario, 2026-11-20]**
 
 Migración aditiva: 8 columnas `NULL` en `NotasCredito` e índice único filtrado `IX_NotasCredito_FiscalExterna`. No cambia ni lee filas existentes. Probada: aplicar → revertir (las filas se conservan, `__EFMigrationsHistory` vuelve a `20261118172846_D03_TesoreriaOrigenesAnticipos`) → reaplicar.
 
@@ -35,28 +35,30 @@ Migración aditiva: 8 columnas `NULL` en `NotasCredito` e índice único filtrad
 
 **Qué NO cambia P3 al aplicarla:** el Reporte de IVA no netea, ningún importe se altera. Ver §4.
 
-## 3. P6 — activar `CriterioFiscalV2` en producción **[AUTORIZACIÓN]**
+## 3. P6 — activar `CriterioFiscalV2` en producción **[AUTORIZADA por el propietario, 2026-11-20]**
 
-Recomendación: **desde el inicio operativo de la instalación nueva, nunca retroactivamente.** V2 cambia importes cobrados (redondeo comercial C1/C2; descuento de efectivo sólo sobre productos, C5), por eso la fecha de corte es la de puesta en marcha real, no una fecha inventada.
+V2 cambia importes cobrados (redondeo comercial C1/C2; descuento de efectivo solo sobre productos, C5), por eso rige **desde la puesta en marcha real de la instalación nueva, nunca retroactivamente**. La fecha de corte es la de puesta en marcha, no una fecha inventada.
 
-**Mecanismo.** `CriterioFiscalRegistry.VersionVigente` (`Helpers/CriterioFiscal.cs`) devuelve hoy `VersionInicial` (= 1) salvo un escenario de pruebas o el override de ensayo, que **sólo** admite `Development` (en `Production`/`Staging`/`Testing` aborta el arranque). Producción **no** usa ese override. Activación real = un cambio de código revisado y desplegado:
+**Mecanismo (implementado):** clave de configuración `Fiscal:CriterioV2Desde` = instante ISO-8601 **con zona** (`2026-12-01T03:00:00Z` = 00:00 de Argentina). En Docker se define en el `.env` como `FISCAL_CRITERIO_V2_DESDE` (pasa a `Fiscal__CriterioV2Desde` de `app`). Reglas:
 
-- en `VersionVigente`, cambiar el respaldo `?? VersionInicial` por `?? VersionDosRedondeoComercial`;
-- **no** tocar la constante `VersionInicial`: también es el valor por defecto de `Venta.CriterioFiscalVersion`, lo que usa `VentasNetas` para operaciones sin versión y el criterio con el que se leen las ventas históricas V1;
-- actualizar la prueba «producción sin V2 vigente» (`FiscalVersionadoP02Tests`) para que afirme la nueva versión vigente;
-- cada venta nueva se estampa con la versión vigente al crearse (`venta.CriterioFiscalVersion = VersionVigente`) y esa versión no se reescribe: las operaciones V1 se conservan tal cual.
+- **Vacía o ausente = V1, sin ningún cambio** (una instalación con base histórica no se ve afectada; es el estado de todas las instalaciones hoy).
+- **La versión se resuelve una sola vez, al arrancar el proceso:** V2 si el instante ya llegó, V1 si no (y entonces hasta el próximo reinicio). **No cambia en caliente**, así que ningún cálculo ni operación en curso puede mezclar versiones (hallazgo de la revisión independiente: el cotizador lee la versión más de una vez). El despliegue de puesta en marcha reinicia `app`, por lo que **rige desde ese despliegue**. Si el instante es futuro, el arranque lo avisa (`[FISCAL] AVISO …`).
+- **Un valor inválido impide arrancar** y `scripts/deploy/preflight.sh` lo detecta antes del despliegue (formato, calendario real, año ≥ 2026, zona ≤ ±14 h; `Z` en mayúscula). Nunca se ignora ni se adivina.
+- **Cada venta se estampa con la versión vigente al crearse y no se reescribe:** las operaciones V1 se conservan tal cual. La versión **no** se reconfigura con `Ensayo:CriterioFiscalVersion` (solo `Development`).
+- **No se quita ni se adelanta una vez que existen ventas V2** (volvería a estamparse V1). Se conserva en el `.env` y en el registro de puesta en marcha.
+- `VersionInicial` (=1) sigue siendo el valor por defecto de `Venta.CriterioFiscalVersion` y el criterio de lectura de lo histórico: no se toca.
 
-**Pasos (en este orden):**
+**Pasos (en este orden; todos ensayados en `scripts/qa/p02/ensayo-puesta-en-marcha.sh`, ver §6):**
 
-1. Todas las comprobaciones de §1. Instalación limpia verificada (0 operaciones o todas posteriores a la puesta en marcha).
-2. **Verificar P3** si se la va a usar (§2) — son independientes, pero conviene un solo corte de importes.
-3. Respaldo verificado.
-4. PR con el cambio de una línea + prueba, revisión de Codex, CI en verde, fusión normal.
-5. Despliegue por `scripts/deploy/deploy.sh` (sin migración nueva: `migrate` es no-op).
-6. **Verificación posterior inmediata**, con una venta real de prueba acordada (o la primera venta real): `p02-verificar-instalacion.sql` debe mostrar `Ventas con versión fiscal 2 ≥ 1`, `Ventas V2 con Subtotal + IVA <> Total = 0`, facturas consistentes y la **fecha efectiva de V2** (primera venta con versión 2, en UTC). Anotar esa fecha y la versión en el registro de puesta en marcha (es el «registro de fecha efectiva y versión utilizada»: la versión queda en cada venta, la fecha efectiva es `MIN(FechaVenta)` de las ventas V2).
-7. **Recuperación si falla el despliegue:** `scripts/deploy/rollback.sh` (imagen anterior, sin tocar la base). Las ventas ya creadas con versión 2 siguen siendo legibles por la imagen anterior? **No**: una imagen sin V2 registrada lanza `CriterioFiscalDesconocidoException` al calcular sobre una venta V2 (falla cerrada, nunca recalcula con otras reglas). Por eso: si ya existen ventas V2, el rollback de imagen debe ser a una imagen que **conozca** V2 (cualquier build posterior a #329); si no existen, cualquier imagen sirve. Verificarlo con el script antes de decidir.
+1. Comprobaciones de §1 sobre la **base nueva de producción** (no sobre una base de preproducción con datos sintéticos: `p02-verificar-instalacion.sql` debe mostrar 0 ventas/créditos/facturas/movimientos antes de la puesta en marcha y ningún dato de ensayo; la base de preproducción de la VM tiene clientes y usuarios sintéticos y **no** sirve como base productiva).
+2. **P3 primero o junto con V2** (§2): un solo corte de importes y de esquema.
+3. Respaldo verificado (`deploy.sh --backup auto` lo hace antes de migrar) y `restore-test.sh` en verde.
+4. Definir en el `.env` **la fecha real**: `FISCAL_CRITERIO_V2_DESDE=<instante de la puesta en marcha, con zona>`; el valor puede ser el del propio despliegue o anterior a él (nunca posterior a la primera venta real que deba ser V2).
+5. `scripts/deploy/deploy.sh --image <release> --backup auto` (preflight → backup → migrate (P3) → app → health → smoke).
+6. **Verificación posterior inmediata**, con la primera venta real (o una venta de prueba acordada que luego se anula): `p02-verificar-instalacion.sql` con `@PuestaEnMarcha` completado debe dar sin `FALLA`; la venta debe estar en versión 2 (`select CriterioFiscalVersion from Ventas`), `Subtotal + IVA = Total`, factura igual a la venta. **Fecha efectiva de V2 = `MIN(FechaVenta)` de las ventas con versión 2** (queda en el informe del script) y, además, el valor de `FISCAL_CRITERIO_V2_DESDE` del `.env`: ese es el registro de fecha efectiva y versión utilizada.
+7. **Recuperación si falla el despliegue:** `scripts/deploy/rollback.sh --to-image <anterior> --confirm-compatible` (solo imagen; no toca la base). **Con ventas V2 ya creadas, la imagen a la que se vuelve debe conocer V2** (cualquier build posterior a #329): una imagen que no la registre falla cerrada al leer esas ventas (nunca recalcula con otras reglas). Si todavía no hay ventas V2, cualquier imagen anterior sirve y se puede dejar `FISCAL_CRITERIO_V2_DESDE` vacío.
 
-**Qué no hacer:** no usar `Ensayo:CriterioFiscalVersion` en producción; no reescribir `CriterioFiscalVersion` de ventas existentes; no activar V2 sobre una base con ventas históricas de la versión anterior del formulario de venta (fecha guardada como «medianoche argentina», ver `docs/p02-respuestas-contador-20261119.md` §9).
+**Qué no hacer:** no usar `Ensayo:CriterioFiscalVersion` en producción; no reescribir `CriterioFiscalVersion` de ventas existentes; no definir la clave en una instalación con base histórica de la versión anterior del formulario de venta (fecha guardada como «medianoche argentina», ver `docs/p02-respuestas-contador-20261119.md` §9).
 
 ## 4. Neteo del IVA por NC fiscal externa — diseño preparado, **sin activar** (P3 + período)
 
@@ -70,5 +72,52 @@ Hoy el Reporte de IVA no netea devoluciones y su nota lo advierte. Diseño para 
 
 ## 5. Residuos conocidos (documentados, sin cambio)
 
-- **Carrera entre NC distintas de la misma venta:** el límite «suma de NC fiscales ≤ total de la venta» se valida leyendo antes de guardar; dos vínculos simultáneos sobre NC distintas de la misma venta podrían superarlo. Mitigación existente: acción manual del Administrador, baja frecuencia, auditada. La carrera sobre la **misma** NC sí está cerrada (token de concurrencia; prueba `Registrar_DobleEnvioConcurrenteSobreLaMismaNc_ElSegundoNoPisaElPrimero`).
+- **Carrera entre NC distintas de la misma venta: CERRADA (2026-11-20).** El vínculo modifica la venta en el mismo guardado, de modo que dos vínculos simultáneos sobre la misma venta chocan por el token de concurrencia de `Ventas`; el perdedor falla y su reintento revalida contra lo ya acreditado. Prueba `Registrar_DosNcDistintasDeLaMismaVentaEnCarrera_NoSuperanElTotalDeLaVenta` (falla sin el fix) y `…DobleEnvioConcurrenteSobreLaMismaNc…`; revisión independiente de Codex sin hallazgos sobre este punto. Efecto colateral aceptado: una edición de esa venta en curso en el mismo instante recibiría un conflicto de concurrencia y debe reintentarse.
 - **Hallazgo histórico V1:** diferencia de hasta ~$0,70 entre el neto guardado y el reconstruido (ajuste de medio de pago con alícuotas mixtas). V1 es inmutable: no altera el total cobrado ni `Neto + IVA = Total`, y V2 no la tiene.
+
+## 6. Ensayo general (2026-11-20, VM `tbp`, stack aislado) — evidencia de ejecución
+
+`scripts/qa/p02/ensayo-puesta-en-marcha.sh` (con `ensayo_venta.py`) recorre en un stack descartable `tbp-p02ens-<hex>` (proyecto Compose, red, volúmenes, subred y puerto propios; datos y secretos sintéticos; se niega a correr si existe un `.env` en el checkout) la secuencia exacta de la puesta en marcha, con las herramientas reales (`deploy.sh`, `preflight.sh`, `backup.sh`, `restore-test.sh`, `rollback.sh`). Release A = imagen de preproducción existente (`20261119-02c01635-dirty`, 144 migraciones, sin P3); release B = imagen construida de este árbol. Resultado de la corrida: **27 controles OK; 1 «FALLA» esperado** (el control «ventas anteriores a la puesta en marcha» detectó las 2 ventas V1 que el ensayo crea a propósito para probar que V1 se conserva; en producción debe dar 0 — el control se ajustó para exigir exactamente ese resultado). Log completo: `D:\git\QA-AUDITORIA\p02-ensayo-20261120\tanda-f-20261120\ensayo.log` (y en la VM `~/ens-p02h/evidencia/`).
+
+| Paso | Resultado |
+|---|---|
+| Instalación nueva con A (base vacía) | `deploy.sh` exit 0; 144 migraciones; 0 ventas/créditos/facturas; P3 no aplicada; ningún control en `FALLA` |
+| Venta bajo A | S1 facturada, versión fiscal 1 (total 1.000,51: V1 no redondea comercialmente) |
+| Preflight con `FISCAL_CRITERIO_V2_DESDE` inválida (`2026-02-31T03:00:00Z`, `2026-12-01T03:00` sin zona) | falla (exit ≠ 0) antes del despliegue |
+| Despliegue de B: backup previo → migración P3 → app → health → smoke, con fecha de V2 futura | exit 0; backup creado; **145 migraciones, P3 aplicada (8 columnas + índice, esquema coherente)**; S1 conserva versión 1 y total; el arranque informa V1 (`[FISCAL] … V1`); S2 se estampa V1 |
+| Backup recuperable | `restore-test.sh` restaura el último backup en una base temporal y valida (exit 0) |
+| Puesta en marcha: `FISCAL_CRITERIO_V2_DESDE` = ahora, redeploy | el arranque informa `= V2`; S3 facturada con **versión 2 y total 1.001,00** (1.000,51 → redondeo comercial); S1/S2 siguen en V1 sin cambio de importe; `Subtotal + IVA = Total` y facturas consistentes; fecha efectiva de V2 informada por el script |
+| Rollback de imagen a A (sin tocar la base) | `rollback.sh` exit 0, app sana; base intacta (P3 sigue aplicada, 3 ventas); detalle de la venta V1 abre; **el detalle de la venta V2 con A no abre (302)**: A no conoce V2 y falla cerrada |
+| Roll-forward a B | exit 0; el detalle de la venta V2 abre |
+| Limpieza | el stack se destruyó sin restos (0 contenedores/volúmenes/redes del proyecto); el stack de preproducción de la VM no se tocó |
+
+**Conclusión operativa:** con ventas V2 creadas, el rollback de imagen **solo** es seguro hacia una imagen que conozca V2 (cualquier build posterior a #329); hacia una anterior, las ventas V2 quedan ilegibles hasta volver a B. Antes de la primera venta V2 cualquier imagen anterior sirve.
+
+## 7. Puesta en marcha real — estado, bloqueos externos y runbook exacto
+
+**Estado:** mecanismos de P3 y P6 implementados y ensayados (§6). **No se aplicaron a ninguna base real**: la base que hoy corre en la VM (`theburyproject-db-1`) es de **preproducción con datos sintéticos** (5 clientes «PreprodSintetico», usuarios `p03.*` y `admin@tbp.local`; 144 migraciones, 0 ventas). No cumple «instalación limpia» ni puede mezclarse con datos productivos, y no se usará como base de producción.
+
+**Bloqueos externos reales (dependen del propietario, no de la ingeniería):**
+1. Una **base de producción nueva** con credenciales reales (`.env` de producción: contraseñas SQL, administrador inicial real, dominio/certificado, licencia de AutoMapper), en un proyecto Compose y volúmenes propios (no los de preproducción).
+2. La **fecha real de puesta en marcha** (instante con zona). No se inventa ni se supone.
+3. Copia externa de respaldos (`BACKUP_REMOTE`, `BACKUP_REQUIRE_OFFSITE=true`): el offsite real sigue sin verificar (ver `docs/backup-restore.md`).
+
+**Runbook (cuando existan 1–3):** en el host de producción, en un directorio y proyecto nuevos (p. ej. `theburyproject-prod`; nunca los volúmenes de preproducción):
+
+```
+# 0) .env de producción creado y revisado (secretos reales, BACKUP_REQUIRE_OFFSITE=true).
+#    FISCAL_CRITERIO_V2_DESDE=<instante real de puesta en marcha con zona>   # misma fecha que el registro de puesta en marcha
+# 1) preflight (valida formato de la fecha, secretos, red, imagen)
+scripts/deploy/preflight.sh --image <release> --env-file .env --project theburyproject-prod
+# 2) instalación: db → db-init → migrate (aplica TODAS las migraciones, incluida P3) → app
+scripts/deploy/deploy.sh --image <release> --env-file .env --project theburyproject-prod --backup skip   # base nueva: sin backup previo
+# 3) verificación de instalación limpia y esquema (solo lectura): esperado 145+ migraciones, P3 aplicada, 0 ventas/créditos/facturas
+docker exec -i theburyproject-prod-db-1 /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d <db> -W -s'|' -I -b -i /tmp/verif.sql   # p02-verificar-instalacion.sql
+# 4) respaldo recuperable: backup + restore-test
+COMPOSE_PROJECT_NAME=theburyproject-prod scripts/backup/backup.sh all && COMPOSE_PROJECT_NAME=theburyproject-prod scripts/backup/restore-test.sh
+# 5) rollback ensayado: la imagen anterior (si existe) y rollback.sh --confirm-compatible, como en §6
+# 6) primera venta real/acordada: versión 2, Subtotal + IVA = Total, factura igual; registrar la fecha efectiva de V2
+```
+
+Como la base es **nueva**, P3 se aplica con todas las migraciones del `migrate` (no hace falta ejecutar `p02-nc-fiscal-externa-up.sql`; ese script y el `down` son para una base existente de 144 migraciones, como en el ensayo). Con `FISCAL_CRITERIO_V2_DESDE` definido en el primer arranque, **V2 rige desde la primera venta**. El neteo de IVA por NC fiscal **no se activa** (pendiente del contador, §4).
+

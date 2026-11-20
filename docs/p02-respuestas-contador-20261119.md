@@ -221,3 +221,17 @@ FINALIZADO = implementado y validado · PREPARADO = implementado, falta activaci
 ### Decisiones del propietario que siguen pendientes
 
 P3 (aplicar la migración a la base real), P6 (activar V2, con fecha = puesta en marcha real), neteo de IVA (tras la respuesta 3) y la política de C4/C7/C8 (tras la respuesta 2). Nada de esto se aplicó.
+
+## 13. Tanda F (2026-11-20): P3 y P6 autorizadas por el propietario — actualización de estados
+
+El propietario **aprobó expresamente P3 y P6**. No se vuelve a consultar. Cambios respecto de §12:
+
+| # | Estado anterior | Estado actual | Evidencia |
+|---|---|---|---|
+| P6 / C1 / C2 / C5 | PREPARADO (falta autorización) | **PREPARADO: autorizado, implementado y ensayado; se aplica en la puesta en marcha real** | clave `FISCAL_CRITERIO_V2_DESDE` (versión resuelta al arrancar el proceso, sin cambio en caliente; inválida = no arranca; preflight); ensayo general en la VM: V1 antes, V2 desde el redeploy de puesta en marcha, S3 = 1.001,00 (`docs/p02-procedimiento-activacion.md` §3 y §6) |
+| P3 / C13 (vínculo) | PREPARADO (falta autorización) | **PREPARADO: autorizado, migración ensayada con el despliegue real (144 → 145), scripts aplicar/revertir validados; se aplica en la puesta en marcha real** | ensayo §6; `p02-nc-fiscal-externa-up/down.sql` |
+| Concurrencia entre NC de una misma venta | residuo documentado | **FINALIZADO** | el vínculo toca la venta en el mismo guardado (token de concurrencia); prueba que falla sin el fix; revisión de Codex |
+| Neteo de IVA por NC fiscal | BLOQUEADO (período) | **BLOQUEADO (período)** — **no se activa** | pendiente de la respuesta 3 del contador |
+| Aplicación real a la base de producción | — | **BLOQUEADO (externo)**: base nueva con credenciales reales, fecha real de puesta en marcha y offsite de respaldos | `docs/p02-procedimiento-activacion.md` §7; la base de la VM es de preproducción con datos sintéticos y no se usa |
+
+Los demás criterios (C3, C4/C7/C8, C9–C12 y el período de C13) siguen BLOQUEADOS por el contador (consulta única de §12).

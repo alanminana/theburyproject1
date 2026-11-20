@@ -1,4 +1,4 @@
-using TheBuryProject.Models.Entities;
+﻿using TheBuryProject.Models.Entities;
 using TheBuryProject.Services;
 
 namespace TheBuryProject.Helpers
@@ -180,7 +180,34 @@ namespace TheBuryProject.Helpers
         /// <summary>Versión con la que se estampan las operaciones nuevas.</summary>
         private static int? _vigenteDeEnsayo;
 
-        public static int VersionVigente => EscenarioPrueba.Value?.Vigente ?? _vigenteDeEnsayo ?? VersionInicial;
+        /// <summary>Instante UTC configurado de puesta en marcha de V2 (ver <see cref="ActivacionCriterioFiscal"/>); null = nunca.</summary>
+        private static DateTimeOffset? _v2Desde;
+
+        /// <summary>Versión productiva resuelta UNA vez al arrancar el proceso (nunca cambia mientras el proceso vive).</summary>
+        private static int _vigenteConfigurada = VersionInicial;
+
+        /// <summary>Instante configurado de puesta en marcha de V2 (solo lectura; para diagnóstico y registro).</summary>
+        public static DateTimeOffset? V2Desde => _v2Desde;
+
+        public static int VersionVigente => EscenarioPrueba.Value?.Vigente ?? _vigenteDeEnsayo ?? _vigenteConfigurada;
+
+        /// <summary>V2 desde el instante configurado (inclusive); antes, y sin configuración, V1. Nunca retroactivo.</summary>
+        internal static int VersionPorFecha(DateTimeOffset? v2Desde, DateTime ahoraUtc) =>
+            v2Desde.HasValue && ahoraUtc >= v2Desde.Value.UtcDateTime ? VersionDosRedondeoComercial : VersionInicial;
+
+        /// <summary>
+        /// Fija el instante de puesta en marcha de V2 (configuración <see cref="ActivacionCriterioFiscal.Clave"/>, validada al arrancar) y
+        /// resuelve la versión vigente UNA sola vez, con el reloj de este momento. Así la versión no puede cambiar a mitad de un cálculo
+        /// o de una operación en curso: la activación rige desde el primer arranque posterior al instante (el despliegue de puesta en marcha).
+        /// Solo la invoca el arranque.
+        /// </summary>
+        /// <returns>La versión vigente resultante.</returns>
+        internal static int ConfigurarV2Desde(DateTimeOffset? desde, DateTime? ahoraUtc = null)
+        {
+            _v2Desde = desde;
+            _vigenteConfigurada = VersionPorFecha(desde, ahoraUtc ?? DateTime.UtcNow);
+            return _vigenteConfigurada;
+        }
 
         /// <summary>
         /// Fija la versión vigente de una instancia de ENSAYO (ver <see cref="EnsayoCriterioFiscal"/>, que decide si se permite). Solo la

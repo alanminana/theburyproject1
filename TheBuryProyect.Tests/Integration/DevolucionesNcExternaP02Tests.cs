@@ -58,6 +58,21 @@ internal sealed class FallaUnaVezInterceptor : Microsoft.EntityFrameworkCore.Dia
     }
 }
 
+/// <summary>Ejecuta una acción asíncrona justo antes de que el contexto guarde: simula otra solicitud que guarda entre la validación y el guardado.</summary>
+internal sealed class AntesDeGuardarInterceptor : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+{
+    public Func<Task>? Accion { get; set; }
+    public override async ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+        Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+    {
+        var accion = Accion; Accion = null;
+        if (accion != null) await accion();
+        return await base.SavingChangesAsync(eventData, result, cancellationToken);
+    }
+}
+
 /// <summary>
 /// P-02 / P3 (preparado): vínculo auditable con la nota de crédito fiscal externa. Valida formato, fecha, importe, duplicados,
 /// permiso y auditoría, y que NO cambia ningún importe ni el Reporte de IVA. Además: política comercial de devoluciones (C13/C14)
@@ -302,6 +317,63 @@ public class DevolucionesNcExternaP02Tests : IDisposable
         Assert.Equal(new[] { "vincular_nc_fiscal_externa", "vincular_nc_fiscal_externa_rechazado" }, eventos.Select(e => e.Accion).OrderBy(a => a));
         Assert.Equal("00012345", (await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
         await contexto.DisposeAsync();
+    }
+
+    private async Task<NotaCredito> SeedOtraNotaCreditoMismaVentaAsync(NotaCredito existente, decimal montoNc)
+    {
+        var n = Interlocked.Increment(ref _n);
+        var d0 = await _context.Devoluciones.AsNoTracking().SingleAsync(d => d.Id == existente.DevolucionId);
+        var devolucion = new Devolucion
+        {
+            VentaId = d0.VentaId, ClienteId = d0.ClienteId, NumeroDevolucion = $"DEV2-{n}", Motivo = MotivoDevolucion.Garantia,
+            Descripcion = "x", Estado = EstadoDevolucion.Aprobada, TipoResolucion = TipoResolucionDevolucion.NotaCredito, TotalDevolucion = montoNc
+        };
+        _context.Devoluciones.Add(devolucion);
+        await _context.SaveChangesAsync();
+        var nc = new NotaCredito { DevolucionId = devolucion.Id, ClienteId = d0.ClienteId, NumeroNotaCredito = $"NC2-{n}", MontoTotal = montoNc };
+        _context.NotasCredito.Add(nc);
+        await _context.SaveChangesAsync();
+        return nc;
+    }
+
+    // P-02 / C13: carrera entre NC DISTINTAS de la misma venta. Total de la venta 1.000; cada vínculo de 600 es válido por sí solo,
+    // pero juntos superan el total. B valida (nada acreditado todavía), A guarda justo antes de que B guarde: B debe fallar por el
+    // token de concurrencia de la venta y el total acreditado fiscalmente nunca puede superar el de la venta.
+    [Fact]
+    public async Task Registrar_DosNcDistintasDeLaMismaVentaEnCarrera_NoSuperanElTotalDeLaVenta()
+    {
+        var nc1 = await SeedNotaCreditoAsync(totalVenta: 1000m, montoNc: 600m);
+        var nc2 = await SeedOtraNotaCreditoMismaVentaAsync(nc1, 600m);
+
+        AppDbContext Nuevo(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] extra) => new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection).AddInterceptors(new TheBuryProject.Tests.Infrastructure.SqliteRowVersionRotationInterceptor()).AddInterceptors(extra).Options);
+
+        var usuario = new UsuarioNcExterna(true);
+        NotaCreditoFiscalExternaService Serv(AppDbContext c) =>
+            new(c, usuario, new SeguridadAuditoriaService(c, usuario, NullLogger<SeguridadAuditoriaService>.Instance), NullLogger<NotaCreditoFiscalExternaService>.Instance);
+
+        var antes = new AntesDeGuardarInterceptor();
+        await using var ctxA = Nuevo();
+        await using var ctxB = Nuevo(antes);
+        antes.Accion = async () =>
+        {
+            var a = await Serv(ctxA).RegistrarAsync(nc1.Id, Req(importe: 600m, numero: "111"));
+            Assert.True(a.Exitoso, string.Join("; ", a.Errores));
+        };
+
+        var b = await Serv(ctxB).RegistrarAsync(nc2.Id, Req(importe: 600m, numero: "222"));
+
+        Assert.False(b.Exitoso);   // chocó con el guardado de A (token de concurrencia de la venta)
+        var acreditado = await _context.NotasCredito.AsNoTracking().Where(n => n.FiscalExternaImporte != null).SumAsync(n => n.FiscalExternaImporte!.Value);
+        Assert.Equal(600m, acreditado);   // nunca 1.200 sobre una venta de 1.000
+
+        // El reintento (lectura fresca) revalida contra lo ya acreditado y lo rechaza por superar el total de la venta.
+        var reintento = await Serv(ctxB).RegistrarAsync(nc2.Id, Req(importe: 600m, numero: "222"));
+        Assert.False(reintento.Exitoso);
+        Assert.Contains(reintento.Errores, e => e.Contains("superarían su total"));
+        // Y un vínculo que sí cabe (400) se registra.
+        var cabe = await Serv(ctxB).RegistrarAsync(nc2.Id, Req(importe: 400m, numero: "222"));
+        Assert.True(cabe.Exitoso, string.Join("; ", cabe.Errores));
     }
 
     // P-02 / C13: doble envío concurrente sobre la MISMA nota de crédito con comprobantes distintos. El segundo contexto tiene la
