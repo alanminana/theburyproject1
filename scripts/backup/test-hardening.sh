@@ -178,7 +178,7 @@ check "test-retention-remote.sh ($(grep -c "^PASS" <<<"$out") casos)" test "$rc"
 
 # --- P-06/P-07: custodia de claves y restore desde la copia externa (archivos propios) ---------------------------------------
 # --- retencion por capacidad y copia al disco extraible (cadenas sinteticas, sin docker; con --db usa SQL Server real: ver el archivo) ---
-for t in test-check-custody.sh test-offsite-restore-test.sh test-retention-capacity.sh; do
+for t in test-check-custody.sh test-check-external-destination.sh test-recovery-package.sh test-offsite-restore-test.sh test-retention-capacity.sh; do
   out=$(bash "$HERE/$t" 2>&1); rc=$?
   grep -v "^PASS" <<<"$out" | grep -E "^(FAIL|SKIP)" || true
   check "$t ($(grep -c "^PASS" <<<"$out") casos)" test "$rc" = 0
