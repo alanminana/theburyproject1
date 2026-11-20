@@ -46,7 +46,7 @@ Leyenda: **IMPL** implementado · **PROB** probado · **FÍS** pendiente físico
 | Copia externa SFTP + crypt + retención remota | Sí | Sí (sintético: 86 + 53 PASS) | **FÍS: destino real en otro sitio** + `known_hosts` por canal independiente + custodia de passphrase |
 | Disco extraíble (`copy-removable.sh`) | Sí | Sí (sintético) | **FÍS: el disco** + rotación/ubicación fuera del equipo; cifrar el disco |
 | **Verificador de destino externo** (`check-external-destination.sh`, nuevo) | Sí | Sí (47 casos; discos virtuales, carpetas compartidas y rutas comunes se rechazan) | Confirmación humana de independencia física |
-| **Paquete de recuperación cifrado** (`recovery-package.sh`, nuevo) | Sí | Sí (28 casos, secretos sintéticos) | **FÍS/propietario:** custodia A (passphrase) y B (paquete) distintas y fuera del servidor; crear el paquete real |
+| **Paquete de recuperación cifrado** (`recovery-package.sh`, nuevo) | Sí | Sí (34 casos, secretos sintéticos) | **FÍS/propietario:** custodia A (passphrase) y B (paquete) distintas y fuera del servidor; crear el paquete real |
 | Custodia de `root.key` de la CA (`seal`) | Sí | Sí (108 PASS) | Decisión del propietario |
 | Restauración **comprobada desde un medio físicamente independiente** | Mecanismo sí | **No** | **FÍS: criterio de cierre de P-06; hoy sin medio** |
 | Auditoría del anfitrión (`Test-HostVmContinuity.ps1`, nuevo) | Sí | Sí (ejecutada en el anfitrión real: 3 FAIL, 3 WARN) | Resolver los FAIL (abajo) |
@@ -93,7 +93,7 @@ y habilitar *Autostart* en el servidor de Workstation (servicio `VmwareAutostart
 | Herramienta | Uso | Prueba |
 |---|---|---|
 | `scripts/backup/check-external-destination.sh` | Descarta lo que no es un medio externo por hechos comprobables (solo lectura) | `test-check-external-destination.sh` (47), en `test-hardening.sh`/CI |
-| `scripts/backup/recovery-package.sh` | `create`/`verify`/`extract` del paquete cifrado con `.env`/`backup-offsite.env` (GnuPG simétrico AES-256 con MDC: cifrado **autenticado**; S2K SHA-512 iterado; temporales solo en tmpfs; extracción solo de archivos regulares) | `test-recovery-package.sh` (28: autenticidad, paquete con enlace simbólico/rutas, colisión de nombres, sin temporales en disco), en `test-hardening.sh`/CI |
+| `scripts/backup/recovery-package.sh` | `create`/`verify`/`extract` del paquete cifrado con `.env`/`backup-offsite.env` (GnuPG simétrico AES-256 con MDC: cifrado **autenticado**; S2K SHA-512 iterado; temporales solo en tmpfs; extracción solo de archivos regulares) | `test-recovery-package.sh` (34: autenticidad, enlaces simbólicos/hardlinks/rutas con espacio, colisión de nombres, passphrase por caracteres, 4 `create` concurrentes, sin temporales en disco), en `test-hardening.sh`/CI |
 | `scripts/install/Test-HostVmContinuity.ps1` | Auditoría de solo lectura del anfitrión Windows (espacio, OneDrive, autostart vinculado a **esta** VM —nunca «OK» sin un reinicio comprobado—, reinicios, medio externo) | Ejecutado en el anfitrión real (3 FAIL, 3 WARN) |
 
 ## 7. Resumen para sincronizar Notion

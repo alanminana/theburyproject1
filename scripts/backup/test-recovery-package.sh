@@ -65,6 +65,32 @@ gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$
 unset GNUPGHOME
 rc=$(run extract "$T/evil2/malo.gpg" --to "$T/rest4" --passphrase-file "$P1"); check "paquete con subdirectorios/rutas -> exit 3" bash -c '[[ "$1" = 3 && ! -e "$2" ]]' _ "$rc" "$T/rest4"
 
+# entradas que un parser por columnas dejaria pasar: ruta con espacio antes del basename ("sub/ foo") y hardlink
+mk_evil() { # mk_evil NOMBRE <comando que arma stage/>
+  local d="$T/$1"; mkdir -p "$d/stage"; echo m >"$d/stage/MANIFEST.txt"; ( cd "$d/stage" && eval "$2" )
+  ( cd "$d/stage" && tar -czf "$d/p.tgz" MANIFEST.txt "${@:3}" )
+  GNUPGHOME="$d/gh"; mkdir -m 700 "$GNUPGHOME"; export GNUPGHOME
+  gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$P1" --symmetric --cipher-algo AES256 -o "$d/malo.gpg" "$d/p.tgz" 2>/dev/null
+  unset GNUPGHOME
+}
+mk_evil evil3 'mkdir sub; echo x >"sub/ foo"' "sub/ foo"
+rc=$(run extract "$T/evil3/malo.gpg" --to "$T/rest5" --passphrase-file "$P1"); check "entrada 'sub/ foo' (ruta con espacio) -> exit 3 y no se crea nada" bash -c '[[ "$1" = 3 && ! -e "$2" ]]' _ "$rc" "$T/rest5"
+mk_evil evil4 'ln MANIFEST.txt duro' duro
+rc=$(run extract "$T/evil4/malo.gpg" --to "$T/rest6" --passphrase-file "$P1"); check "hardlink dentro del paquete -> exit 3 y no se crea nada" bash -c '[[ "$1" = 3 && ! -e "$2" ]]' _ "$rc" "$T/rest6"
+
+# passphrase: el minimo son 12 CARACTERES, no 12 bytes
+printf '%s' '🔑🔑🔑' >"$T/keys/emojis"; chmod 600 "$T/keys/emojis"
+rc=$(run create --out "$T/out6" --passphrase-file "$T/keys/emojis"); check "tres emojis (12 bytes, 3 caracteres) se rechazan (exit 1)" test "$rc" = 1
+printf '%s' 'ñandú-ñandú-áéíóú' >"$T/keys/acentos"; chmod 600 "$T/keys/acentos"
+rc=$(run create --out "$T/out7" --passphrase-file "$T/keys/acentos"); check "passphrase de 17 caracteres con acentos se acepta (exit 0)" test "$rc" = 0
+
+# concurrencia: 4 create simultaneos en el mismo --out generan 4 paquetes distintos, ninguno pisa a otro y todos verifican
+mkdir -p "$T/outp"
+for i in 1 2 3 4; do ( TMPDIR="$T/tmpdisk" COMPOSE_ENV_FILES="$T/repo/.env" BURY_OFFSITE_ENV_FILE="$T/repo/backup-offsite.env" BACKUP_DIR="$T/bk" bash "$SUT" create --out "$T/outp" --passphrase-file "$P1" >/dev/null 2>&1 ) & done; wait
+check "4 create concurrentes -> 4 paquetes distintos con su sha256 y sin temporales" bash -c '[[ "$(ls "$1"/*.gpg | wc -l)" = 4 && "$(ls "$1"/*.gpg.sha256 | wc -l)" = 4 && -z "$(ls -A "$1" | grep "^\.bury-rp")" ]]' _ "$T/outp"
+okall=1; for f in "$T/outp"/*.gpg; do [[ "$(run verify "$f" --passphrase-file "$P1")" = 0 ]] || okall=0; done
+check "  ...y los 4 verifican" test "$okall" = 1
+
 # colision de nombres: dos .env con el mismo basename se rechazan (no se pierde uno en silencio)
 mkdir -p "$T/otro"; printf 'OTRA=1\n' >"$T/otro/.env"
 rc=$(ENVS="$T/repo/.env,$T/otro/.env" run create --out "$T/outc" --passphrase-file "$P1"); check "dos .env con el mismo nombre -> exit 1 (sin paquete)" bash -c '[[ "$1" = 1 && -z "$(ls "$2"/*.gpg 2>/dev/null)" ]]' _ "$rc" "$T/outc"

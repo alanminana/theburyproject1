@@ -78,20 +78,25 @@ read_pass() { # deja la passphrase en $WORK/pass (0600, tmpfs); nunca en argv/en
     if [[ "$MODE" == create ]]; then read -rsp "Repetir passphrase: " p2; echo >&2; [[ "$p1" == "$p2" ]] || { echo "no coinciden" >&2; exit $EX_USAGE; }; fi
     printf '%s' "$p1" >"$PASS"; p1="" p2=""
   fi
-  (( $(wc -c <"$PASS") >= 12 )) || { echo "passphrase demasiado corta (minimo 12 caracteres)" >&2; exit $EX_USAGE; }
+  # El minimo se mide en CARACTERES (UTF-8), no en bytes: tres emojis o seis letras acentuadas no pasan por ocupar 12 bytes.
+  (( $(LC_ALL=C.UTF-8 wc -m <"$PASS") >= 12 )) || { echo "passphrase demasiado corta (minimo 12 caracteres)" >&2; exit $EX_USAGE; }
   mkdir -p "$WORK/gnupg" && chmod 700 "$WORK/gnupg"
 }
 gpgx() { GNUPGHOME="$WORK/gnupg" gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$PASS" "$@"; }
 
 # Nombres aceptados dentro del paquete: archivos regulares simples (sin '/', sin '..').
-entries_ok() { # entries_ok <listado tar tvf> -> 0 si todas son archivos regulares con nombre simple
-  local line type name
-  while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    type=${line:0:1}
-    name=${line##* }
-    [[ "$type" == "-" && "$name" =~ ^[A-Za-z0-9._-]+$ && "$name" != "." && "$name" != ".." ]] || return 1
-  done <<<"$1"
+entries_ok() { # entries_ok ARCHIVO.tgz -> 0 si TODAS las entradas son archivos regulares con nombre simple (nombre COMPLETO, no el ultimo fragmento)
+  # --quoting-style=escape: espacios, saltos de linea y barras salen escapados, asi cada entrada es una linea y un nombre con ruta nunca encaja en el patron.
+  local names types n t
+  names=$(tar -tzf "$1" --quoting-style=escape 2>/dev/null) || return 1
+  types=$(tar -tvzf "$1" --quoting-style=escape 2>/dev/null | cut -c1) || return 1
+  [[ -n "$names" && $(wc -l <<<"$names") -eq $(wc -l <<<"$types") ]] || return 1
+  while IFS= read -r n; do
+    [[ "$n" =~ ^[A-Za-z0-9._-]+$ && "$n" != "." && "$n" != ".." ]] || return 1
+  done <<<"$names"
+  while IFS= read -r t; do
+    [[ "$t" == "-" ]] || return 1    # enlaces (l), hardlinks (h), directorios (d), dispositivos, etc. se rechazan
+  done <<<"$types"
 }
 
 case "$MODE" in
@@ -116,13 +121,19 @@ case "$MODE" in
     [[ -f "$OFF" ]] && add_file "$OFF"
     (( ${#files[@]} > 0 )) || { echo "no hay .env que empaquetar" >&2; exit $EX_USAGE; }
     { echo "bury-recovery-package v2"; echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "commit=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo desconocido)"; printf 'file=%s\n' "${files[@]}"; } >"$STAGE/MANIFEST.txt"
-    NAME="bury-recovery_$(date -u +%Y%m%d-%H%M%SZ).gpg"
+    # Publicacion atomica y exclusiva: se cifra en un temporal UNICO dentro de OUT y se publica con `ln` (falla si el destino existe: nunca pisa ni
+    # borra el paquete de otra ejecucion concurrente). El nombre lleva un sufijo aleatorio ademas de la hora; la limpieza solo borra archivos propios.
+    TMPPKG=$(mktemp "$OUT/.bury-rp-tmp.XXXXXX") || { echo "no se pudo crear el temporal en --out" >&2; exit $EX_PKG; }
+    trap 'rm -f "$TMPPKG"; cleanup' EXIT
     tar -C "$STAGE" -czf - MANIFEST.txt "${files[@]}" \
-      | gpgx --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$OUT/$NAME" \
-      || { rm -f "$OUT/$NAME"; echo "fallo el cifrado" >&2; exit $EX_PKG; }
-    [[ -s "$OUT/$NAME" ]] || { rm -f "$OUT/$NAME"; echo "el paquete quedo vacio" >&2; exit $EX_PKG; }
-    chmod 600 "$OUT/$NAME"
-    ( cd "$OUT" && sha256sum "$NAME" >"$NAME.sha256" && chmod 600 "$NAME.sha256" )
+      | gpgx --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$TMPPKG" \
+      || { echo "fallo el cifrado" >&2; exit $EX_PKG; }
+    [[ -s "$TMPPKG" ]] || { echo "el paquete quedo vacio" >&2; exit $EX_PKG; }
+    chmod 600 "$TMPPKG"
+    NAME="bury-recovery_$(date -u +%Y%m%d-%H%M%SZ)_$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n').gpg"
+    ln "$TMPPKG" "$OUT/$NAME" 2>/dev/null || { echo "ya existe $NAME (ejecucion concurrente): reintentar" >&2; exit $EX_PKG; }
+    rm -f "$TMPPKG"
+    SUMTMP=$(mktemp "$OUT/.bury-rp-sum.XXXXXX") && ( cd "$OUT" && sha256sum "$NAME" >"$SUMTMP" ) && chmod 600 "$SUMTMP" && ln "$SUMTMP" "$OUT/$NAME.sha256" 2>/dev/null; rm -f "$SUMTMP"
     echo "paquete creado: $OUT/$NAME ($(wc -c <"$OUT/$NAME") bytes; $((${#files[@]})) archivo(s) de configuracion + MANIFEST)"
     echo "SIGUIENTE: guardar el paquete (custodia B) y la passphrase (custodia A) en lugares DISTINTOS y fuera del servidor."
     ;;
@@ -135,8 +146,7 @@ case "$MODE" in
     make_work; read_pass
     # El descifrado autenticado (MDC) falla ante cualquier alteracion; el contenido se valida ANTES de extraer.
     gpgx -d -o "$WORK/payload.tgz" "$PKG" 2>/dev/null && [[ -s "$WORK/payload.tgz" ]] || { echo "no se pudo descifrar/autenticar (passphrase incorrecta o paquete alterado)" >&2; exit $EX_PKG; }
-    listing=$(tar tvzf "$WORK/payload.tgz" 2>/dev/null) || { echo "el contenido del paquete no es un tar valido" >&2; exit $EX_PKG; }
-    entries_ok "$listing" || { echo "el paquete contiene entradas no permitidas (enlaces, rutas o tipos especiales): se rechaza" >&2; exit $EX_PKG; }
+    entries_ok "$WORK/payload.tgz" || { echo "el paquete contiene entradas no permitidas (enlaces, rutas o tipos especiales): se rechaza" >&2; exit $EX_PKG; }
     names=$(tar tzf "$WORK/payload.tgz" 2>/dev/null)
     grep -qx MANIFEST.txt <<<"$names" || { echo "el paquete no tiene MANIFEST.txt" >&2; exit $EX_PKG; }
     if [[ "$MODE" == verify ]]; then
