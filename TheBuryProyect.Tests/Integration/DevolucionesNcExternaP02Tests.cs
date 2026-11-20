@@ -33,6 +33,20 @@ internal sealed class AuditoriaNcExterna(AppDbContext context) : ISeguridadAudit
         => Task.FromResult(new AuditoriaQueryResult());
 }
 
+internal sealed class FallaUnaVezInterceptor : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+{
+    public bool Armada { get; set; }
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+        Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Armada) return base.SavingChangesAsync(eventData, result, cancellationToken);
+        Armada = false;
+        throw new DbUpdateException("falla simulada", new InvalidOperationException("error transitorio"));
+    }
+}
+
 /// <summary>
 /// P-02 / P3 (preparado): vínculo auditable con la nota de crédito fiscal externa. Valida formato, fecha, importe, duplicados,
 /// permiso y auditoría, y que NO cambia ningún importe ni el Reporte de IVA. Además: política comercial de devoluciones (C13/C14)
@@ -221,6 +235,38 @@ public class DevolucionesNcExternaP02Tests : IDisposable
         b.FiscalExternaPuntoVenta = "00001"; b.FiscalExternaTipo = "NCA"; b.FiscalExternaNumero = "00000001";
 
         await Assert.ThrowsAsync<DbUpdateException>(() => _context.SaveChangesAsync());
+    }
+
+    // Hallazgo de Codex: un guardado fallido no deja el vínculo ni la auditoría pendientes en el contexto compartido.
+    [Fact]
+    public async Task Registrar_GuardadoFallido_NoDejaVinculoNiAuditoriaPendientes_YElReintentoFunciona()
+    {
+        var nc = await SeedNotaCreditoAsync();
+        var falla = new FallaUnaVezInterceptor();
+        var contexto = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection).AddInterceptors(new TheBuryProject.Tests.Infrastructure.SqliteRowVersionRotationInterceptor(), falla).Options);
+        var usuario = new UsuarioNcExterna(true);
+        var auditoriaReal = new SeguridadAuditoriaService(contexto, usuario, NullLogger<SeguridadAuditoriaService>.Instance);
+        var servicio = new NotaCreditoFiscalExternaService(contexto, usuario, auditoriaReal, NullLogger<NotaCreditoFiscalExternaService>.Instance);
+
+        falla.Armada = true;
+        var fallido = await servicio.RegistrarAsync(nc.Id, Req());
+
+        Assert.False(fallido.Exitoso);
+        Assert.Empty(contexto.ChangeTracker.Entries<SeguridadEventoAuditoria>().Where(e => e.State == EntityState.Added));
+        Assert.Null((await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
+        Assert.Null(contexto.NotasCredito.Local.Single(n => n.Id == nc.Id).FiscalExternaNumero);   // la NC rastreada quedó restaurada
+
+        // Un guardado posterior del mismo contexto no persiste la operación rechazada.
+        await contexto.SaveChangesAsync();
+        Assert.Empty(await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync());
+
+        // El reintento (ya sin la falla) funciona y deja exactamente un vínculo y un evento.
+        var reintento = await servicio.RegistrarAsync(nc.Id, Req());
+        Assert.True(reintento.Exitoso, string.Join("; ", reintento.Errores));
+        Assert.Single(await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync());
+        Assert.Equal("00012345", (await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
+        await contexto.DisposeAsync();
     }
 
     [Fact]

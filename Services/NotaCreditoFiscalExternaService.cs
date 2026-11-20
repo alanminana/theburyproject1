@@ -30,6 +30,13 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         _logger = logger;
     }
 
+    private static bool EsViolacionDelIndiceUnico(DbUpdateException ex)
+    {
+        var mensaje = ex.InnerException?.Message ?? ex.Message;
+        return mensaje.Contains("IX_NotasCredito_FiscalExterna", StringComparison.OrdinalIgnoreCase)
+            || mensaje.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
+    }
+
     [GeneratedRegex("^[0-9]{1,5}$")] private static partial Regex PuntoVentaRegex();
     [GeneratedRegex("^[0-9]{1,8}$")] private static partial Regex NumeroRegex();
     [GeneratedRegex("^[0-9]{14}$")] private static partial Regex CaeRegex();
@@ -115,6 +122,8 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         nc.FiscalExternaRegistradaEn = DateTime.UtcNow;
 
         // La auditoría viaja en el MISMO guardado que el vínculo: no queda vínculo sin evento ni evento sin vínculo.
+        var pendientesAntes = _context.ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToHashSet();
         _auditoria.AgregarEvento(
             "devoluciones", "vincular_nc_fiscal_externa", $"NotaCredito:{nc.Id}",
             $"{tipo} {pv}-{numero} fecha {fecha:yyyy-MM-dd} importe {request.Importe:0.00} venta {venta.Numero} (sin efecto fiscal: P3 no activo)");
@@ -125,9 +134,22 @@ public sealed partial class NotaCreditoFiscalExternaService : INotaCreditoFiscal
         }
         catch (DbUpdateException ex)
         {
-            // Carrera con otro registro del mismo comprobante: el índice único es la garantía de última línea.
-            _logger.LogWarning(ex, "No se pudo vincular la NC fiscal externa {Tipo} {Pv}-{Numero} a la NC {NcId}", tipo, pv, numero, nc.Id);
-            return NotaCreditoFiscalExternaResultado.Fallo("Ese comprobante fiscal ya está vinculado a otra nota de crédito.");
+            // El guardado falló: se descarta SOLO lo de esta operación (el evento agregado y los campos de la NC) para que un reintento o un
+            // guardado posterior del mismo contexto no persista una operación que se informó como rechazada.
+            foreach (var entrada in _context.ChangeTracker.Entries()
+                         .Where(e => e.State == EntityState.Added && !pendientesAntes.Contains(e.Entity)).ToList())
+                entrada.State = EntityState.Detached;
+            await _context.Entry(nc).ReloadAsync();
+
+            if (EsViolacionDelIndiceUnico(ex))
+            {
+                // Carrera con otro registro del mismo comprobante: el índice único es la garantía de última línea.
+                _logger.LogWarning(ex, "NC fiscal externa duplicada {Tipo} {Pv}-{Numero} para la NC {NcId}", tipo, pv, numero, nc.Id);
+                return NotaCreditoFiscalExternaResultado.Fallo("Ese comprobante fiscal ya está vinculado a otra nota de crédito.");
+            }
+
+            _logger.LogError(ex, "No se pudo vincular la NC fiscal externa {Tipo} {Pv}-{Numero} a la NC {NcId}", tipo, pv, numero, nc.Id);
+            return NotaCreditoFiscalExternaResultado.Fallo("No se pudo guardar el vínculo. Reintentá; si persiste, avisá al administrador.");
         }
 
         return NotaCreditoFiscalExternaResultado.Ok();
