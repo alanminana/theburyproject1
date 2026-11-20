@@ -183,6 +183,27 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal(10_000m, producto.ArmadoSubtotal);
     }
 
+    // P-02 / C5: el descuento de efectivo (-5 % en la config por defecto) alcanza a toda la base en V1 y solo a los productos en V2.
+    [Theory]
+    [InlineData(1, 203_300.0)]   // V1: 214.000 - 5 % de 214.000 (histórico, sin cambios)
+    [InlineData(2, 204_000.0)]   // V2: 214.000 - 5 % de 200.000 (productos); armado y envío intactos
+    public async Task Simular_DescuentoDeEfectivo_SoloSobreProductosEnV2(int version, double totalEfectivo)
+    {
+        using var _ = TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(vigente: version);
+        var resultado = await CreateCalculator(preciosServicios: PreciosServicios()).SimularAsync(new CotizacionSimulacionRequest
+        {
+            TipoEnvio = TipoServicioVenta.EnvioCiudad,
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 2, TipoArmado = TipoServicioVenta.Armado3 } }
+        });
+
+        Assert.Equal(214_000m, resultado.TotalBase);
+        var efectivo = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Efectivo);
+        Assert.Equal((decimal)totalEfectivo, Assert.Single(efectivo.Planes).Total);
+        // El recargo/ajuste positivo (transferencia) y las tarjetas no cambian con C5.
+        var transferencia = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Transferencia);
+        Assert.Equal(214_000m, Assert.Single(transferencia.Planes).Total);
+    }
+
     [Fact]
     public async Task Simular_ArmadoConCajaCerrada_Rechaza()
     {
@@ -345,6 +366,31 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal(206_624.99m, Assert.Single(efectivo.Planes).Total);  // -5%: conserva centavos
         var transferencia = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Transferencia);
         Assert.Equal(217_499.99m, Assert.Single(transferencia.Planes).Total);
+    }
+
+    // P-02 (hallazgo de Codex): con CriterioFiscalV2 vigente el cotizador redondea la base a pesos ANTES del ajuste, igual que la venta
+    // directa y la conversión: 217.499,99 -> base 217.500; Efectivo -5 % = 206.625,00 (V1: 206.624,99, ajuste sobre la base con centavos).
+    [Fact]
+    public async Task Simular_V2_RedondeaLaBaseAntesDelAjusteDelMedio()
+    {
+        var precios = new Dictionary<int, ProductoPrecioVentaResultado?>
+        {
+            [1] = new ProductoPrecioVentaResultado
+            {
+                ProductoId = 1, Codigo = "P-1", Nombre = "Producto 1", PrecioVenta = 217_499.99m,
+                FuentePrecio = FuentePrecioVigente.ProductoPrecioBase, StockActual = 10
+            }
+        };
+
+        using var _ = TheBuryProject.Helpers.CriterioFiscalRegistry.UsarParaPruebas(
+            vigente: TheBuryProject.Helpers.CriterioFiscalRegistry.VersionDosRedondeoComercial);
+        var resultado = await CreateCalculator(precios: precios).SimularAsync(DefaultRequest(cantidad: 1));
+
+        Assert.Equal(217_500m, resultado.TotalBase);
+        var efectivo = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Efectivo);
+        Assert.Equal(206_625m, Assert.Single(efectivo.Planes).Total);
+        var transferencia = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.Transferencia);
+        Assert.Equal(217_500m, Assert.Single(transferencia.Planes).Total);
     }
 
     [Fact]

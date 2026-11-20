@@ -562,6 +562,43 @@ public class VentaServiceOverpostingSecurityTests : IDisposable
         Assert.Equal(acepta ? entrante : fallback, r);
     }
 
+    // P-02 / C15: FechaVenta se guarda SIEMPRE como instante UTC. La fecha del formulario (medianoche, sin hora) es el DÍA COMERCIAL
+    // argentino elegido y se combina con la hora comercial actual. «Ahora» = 31/10 22:30 ART (= 01/11 01:30 UTC).
+    [Fact]
+    public void ResolverFechaVenta_C15_FechaDeFormularioDeHoyComercial_GuardaElInstanteActualUtc()
+    {
+        var ahora = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Utc);
+
+        var r = VentaService.ResolverFechaVenta(new DateTime(2026, 10, 31), new DateTime(2000, 1, 1), null, ahora);
+
+        Assert.Equal(ahora, r);                                    // no «medianoche local» ni día UTC siguiente
+        Assert.Equal(new DateTime(2026, 10, 31), TheBuryProject.Services.FechaComercial.DiaComercial(r));
+    }
+
+    [Theory]
+    [InlineData("2026-10-30", "2026-10-31T01:30:00")]   // ayer comercial + 22:30 ART = 31/10 01:30 UTC
+    [InlineData("2026-11-01", "2026-11-02T01:30:00")]   // mañana comercial (tolerado) + 22:30 ART
+    public void ResolverFechaVenta_C15_OtroDiaComercial_ConservaLaHoraComercialActual(string fechaFormulario, string esperadoUtc)
+    {
+        var ahora = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Utc);
+
+        var r = VentaService.ResolverFechaVenta(DateTime.Parse(fechaFormulario), new DateTime(2000, 1, 1), null, ahora);
+
+        Assert.Equal(DateTime.Parse(esperadoUtc), r);
+    }
+
+    [Fact]
+    public void ResolverFechaVenta_C15_EditarElMismoDiaComercialConservaElInstantePersistido()
+    {
+        var ahora = new DateTime(2026, 11, 2, 15, 0, 0, DateTimeKind.Utc);
+        var persistida = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Utc);   // 31/10 22:30 ART
+
+        // El formulario de edición muestra el día COMERCIAL (31/10); guardar sin tocarlo no reescribe el instante ni lo corre al 01/11.
+        var r = VentaService.ResolverFechaVenta(new DateTime(2026, 10, 31), new DateTime(2000, 1, 1), persistida, ahora);
+
+        Assert.Equal(persistida, r);
+    }
+
     [Fact]
     public async Task CreateAsync_FechaConfiguracionCreditoYCreatedAtForjados_SeIgnoran()
     {

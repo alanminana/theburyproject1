@@ -52,7 +52,7 @@ public class DocumentoCreditoArgentinaTests : DocumentoTestBase
         var venta = new Venta
         {
             Numero = numero ?? $"{Random.Shared.Next(100000, 999999):D12}", Cliente = cliente, TipoPago = TipoPago.CreditoPersonal,
-            Estado = EstadoVenta.Presupuesto, FechaVenta = new DateTime(2026, 9, 2), Subtotal = total, Total = total
+            Estado = EstadoVenta.Presupuesto, FechaVenta = new DateTime(2026, 9, 2, 12, 0, 0, DateTimeKind.Utc), Subtotal = total, Total = total
         };
         venta.Detalles.Add(new VentaDetalle { Producto = producto, Cantidad = 1, PrecioUnitario = total, Subtotal = total, SubtotalFinal = total });
 

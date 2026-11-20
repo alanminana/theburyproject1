@@ -115,7 +115,19 @@ namespace TheBuryProject.Helpers
         public static Discriminacion Discriminar(
             decimal total,
             IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
-            Func<decimal, decimal> aPesos)
+            Func<decimal, decimal> aPesos) =>
+            Discriminar(total, lineas, aPesos, ajusteMedioPersistido: null);
+
+        /// <summary>
+        /// P-02: con <paramref name="ajusteMedioPersistido"/> (Efectivo/Transferencia: la venta guarda el monto exacto del ajuste) la
+        /// base cobrada es <c>total - ajuste</c> y el residuo de redondeo a pesos es <c>bruto - base</c>, aunque el total tenga centavos
+        /// (el ajuste del medio deja centavos sobre una base ya redondeada). Sin ese dato se conserva la heurística de V1.
+        /// </summary>
+        public static Discriminacion Discriminar(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos,
+            decimal? ajusteMedioPersistido)
         {
             var bruto = lineas.Sum(l => l.Bruto);
             var netoLineas = lineas.Sum(l => l.Neto);
@@ -125,9 +137,19 @@ namespace TheBuryProject.Helpers
             if (total <= 0m)
                 return new Discriminacion(Array.Empty<ParteAlicuota>(), 0m, netoLineas, ivaLineas);
 
-            // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
-            var truncado = total == Math.Floor(total) ? bruto - aPesos(bruto) : 0m;
-            var ajuste = total - (bruto - truncado);
+            decimal truncado;
+            decimal ajuste;
+            if (ajusteMedioPersistido is { } ajustePersistido && ajustePersistido != 0m)
+            {
+                truncado = bruto - (total - ajustePersistido);
+                ajuste = ajustePersistido;
+            }
+            else
+            {
+                // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
+                truncado = total == Math.Floor(total) ? bruto - aPesos(bruto) : 0m;
+                ajuste = total - (bruto - truncado);
+            }
             if (Math.Abs(ajuste) < 0.005m)
             {
                 var (n0, i0) = AbsorberRedondeo(netoLineas, ivaLineas, truncado);
@@ -162,9 +184,16 @@ namespace TheBuryProject.Helpers
         public static List<ParteAlicuota> ResumenPorAlicuota(
             decimal total,
             IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
-            Func<decimal, decimal> aPesos)
+            Func<decimal, decimal> aPesos) =>
+            ResumenPorAlicuota(total, lineas, aPesos, ajusteMedioPersistido: null);
+
+        public static List<ParteAlicuota> ResumenPorAlicuota(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos,
+            decimal? ajusteMedioPersistido)
         {
-            var d = Discriminar(total, lineas, aPesos);
+            var d = Discriminar(total, lineas, aPesos, ajusteMedioPersistido);
             var buckets = lineas
                 .GroupBy(l => l.Porcentaje)
                 .ToDictionary(g => g.Key, g => new ParteAlicuota(g.Key, g.Sum(l => l.Bruto), g.Sum(l => l.Neto), g.Sum(l => l.Iva)));

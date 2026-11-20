@@ -109,7 +109,7 @@ public class DashboardServiceTests : IDisposable
             ClienteId = clienteId,
             Estado = EstadoVenta.Confirmada,
             TipoPago = TipoPago.Efectivo,
-            FechaVenta = fecha ?? _reloj.InicioDiaComercial,
+            FechaVenta = TheBuryProject.Services.FechaComercial.AUtc(fecha ?? _reloj.InicioDiaComercial),
             Subtotal = total, Total = total
         };
         _context.Ventas.Add(venta);
@@ -147,7 +147,7 @@ public class DashboardServiceTests : IDisposable
             ClienteId = clienteId,
             Estado = EstadoVenta.Confirmada,
             TipoPago = TipoPago.Efectivo,
-            FechaVenta = fecha,
+            FechaVenta = TheBuryProject.Services.FechaComercial.AUtc(fecha),
             Subtotal = subtotal,
             Total = subtotalFinal > 0m ? subtotalFinal : subtotal,
             Detalles = new List<VentaDetalle>

@@ -910,7 +910,7 @@ namespace TheBuryProject.Controllers
                     {
                         VentaId = v.Id,
                         Numero = v.Numero,
-                        Fecha = v.FechaVenta,
+                        Fecha = TheBuryProject.Services.FechaComercial.AComercial(v.FechaVenta),
                         Total = v.Total,
                         Resumen = v.RazonesAutorizacion.Any()
                             ? string.Join("; ", v.RazonesAutorizacion.Select(r => r.Descripcion))

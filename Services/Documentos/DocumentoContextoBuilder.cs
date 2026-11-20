@@ -355,10 +355,10 @@ namespace TheBuryProject.Services.Documentos
         private async Task AplicarVentaAsync(DocumentoContexto ctx, Venta venta)
         {
             AplicarCliente(ctx, venta.Cliente);
-            AplicarOperacion(ctx, venta.Numero, venta.FechaVenta);
+            AplicarOperacion(ctx, venta.Numero, FechaComercial.AComercial(venta.FechaVenta));
 
             ctx.Set("venta.numero", venta.Numero);
-            ctx.Set("venta.fecha", venta.FechaVenta.Date);
+            ctx.Set("venta.fecha", FechaComercial.DiaComercial(venta.FechaVenta));
             ctx.Set("venta.total", venta.Total);
             ctx.Set("venta.subtotal", venta.Subtotal);
             ctx.Set("venta.tipoPago", venta.TipoPago.ToString());
@@ -394,7 +394,7 @@ namespace TheBuryProject.Services.Documentos
                     .Select(c => new PlanCuotaProyectada(c.NumeroCuota, c.MontoCapital, c.MontoInteres, c.MontoTotal, c.FechaVencimiento, c.Estado.ToString())).ToList();
 
             AplicarDatosCredito(ctx, credito, plan);
-            AplicarFinanciacion(ctx, credito == null ? 0m : venta.Total - credito.MontoAprobado, venta.FechaVenta);
+            AplicarFinanciacion(ctx, credito == null ? 0m : venta.Total - credito.MontoAprobado, FechaComercial.AComercial(venta.FechaVenta));
         }
 
         public static void AplicarDatosCredito(DocumentoContexto ctx, Credito? credito, IEnumerable<PlanCuotaProyectada> plan)

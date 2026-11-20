@@ -167,7 +167,7 @@ public class ReporteServiceTests : IDisposable
             ClienteId = clienteId,
             Estado = estado,
             TipoPago = tipoPago,
-            FechaVenta = fecha ?? DateTime.UtcNow,
+            FechaVenta = fecha.HasValue ? TheBuryProject.Services.FechaComercial.AUtc(fecha.Value) : DateTime.UtcNow,
             VendedorUserId = vendedorUserId,
             VendedorNombre = vendedorNombre,
             Subtotal = total,
@@ -1749,7 +1749,7 @@ public class ReporteServiceTests : IDisposable
             ClienteId = clienteId,
             Estado = estado,
             TipoPago = TipoPago.Efectivo,
-            FechaVenta = fecha ?? DateTime.UtcNow,
+            FechaVenta = fecha.HasValue ? TheBuryProject.Services.FechaComercial.AUtc(fecha.Value) : DateTime.UtcNow,
             Subtotal = subtotalFinal,
             Total = subtotalFinal,
             Detalles = new List<VentaDetalle>

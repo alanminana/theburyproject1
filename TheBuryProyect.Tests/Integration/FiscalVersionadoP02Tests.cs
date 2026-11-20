@@ -152,7 +152,7 @@ public class FiscalVersionadoP02Tests : IDisposable
         var venta = new Venta
         {
             Numero = $"VP02-{Interlocked.Increment(ref _n)}", ClienteId = cliente.Id, Estado = EstadoVenta.Facturada,
-            TipoPago = TipoPago.Efectivo, FechaVenta = fecha, FechaFacturacion = fecha,
+            TipoPago = TipoPago.Efectivo, FechaVenta = TheBuryProject.Services.FechaComercial.AUtc(fecha.Date.AddHours(12)), FechaFacturacion = fecha,
             Subtotal = 926.45m, IVA = 194.55m, Total = 1121m,
             AperturaCajaId = (await _context.AperturasCaja.FirstAsync()).Id,
             Detalles = new List<VentaDetalle>
@@ -203,7 +203,7 @@ public class FiscalVersionadoP02Tests : IDisposable
     public async Task OperacionHistoricaV1_ConservaReporteYComprobante_AunqueCambieElCriterioVigente()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (ventaId, facturaId) = await SeedVentaFacturadaAsync(cliente, producto, version: null, dia); // default = v1
 
         // Valores esperados calculados a mano (criterio v1: servicios 21 %).
@@ -248,8 +248,8 @@ public class FiscalVersionadoP02Tests : IDisposable
     public async Task OperacionNuevaConVersionVigente_UsaElCriterioVigente_YLaHistoricaNo()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var diaHistorico = DateTime.UtcNow.Date.AddDays(-2);
-        var diaNuevo = DateTime.UtcNow.Date.AddDays(-1);
+        var diaHistorico = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-2);
+        var diaNuevo = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (_, facturaHistorica) = await SeedVentaFacturadaAsync(cliente, producto, version: 1, diaHistorico);
         int facturaNueva;
 
@@ -331,7 +331,7 @@ public class FiscalVersionadoP02Tests : IDisposable
     public async Task CriterioV2_RedondeoComercial_VentaComprobanteYReporteIvaCierranContraElTotal(double precio, int totalEsperado)
     {
         var (cliente, producto) = await SeedBaseAsync((decimal)precio);
-        var dia = DateTime.UtcNow.Date;
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow);
 
         using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: CriterioFiscalRegistry.VersionDosRedondeoComercial);
         var creada = await _ventas.CreateAsync(new VentaViewModel
@@ -368,11 +368,134 @@ public class FiscalVersionadoP02Tests : IDisposable
         Assert.Equal(venta.IVA, reporte.VentasIva);
     }
 
+    /// <summary>
+    /// P-02 (hallazgo de Codex): con ajuste porcentual del medio de pago (Transferencia +3 %) y V2, la venta directa, el comprobante y el
+    /// Reporte de IVA deben coincidir con la conversión de cotización (misma prueba en CotizacionConversionServiceTests). 1.000,51 al
+    /// 21 %: base 1.001 + 30,03 = 1.031,03 → neto 851,69 + IVA 179,34 en las TRES capas (antes el comprobante y el reporte
+    /// reconstruían 852,09 + 178,94).
+    /// </summary>
+    [Theory]
+    [InlineData(TipoPago.Transferencia, 3.0, 1000.51, 1001, 30.03, 1031.03, 851.69, 179.34)]
+    [InlineData(TipoPago.Efectivo, -5.0, 1000.51, 1001, -50.05, 950.95, 785.51, 165.44)]
+    public async Task CriterioV2_AjusteMedioPago_VentaComprobanteYReporteIvaCoinciden(
+        TipoPago tipoPago, double pct, double precio, int baseRedondeada, double ajusteEsperado, double totalEsperado, double netoEsperado, double ivaEsperado)
+    {
+        var (cliente, producto) = await SeedBaseAsync((decimal)precio);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow);
+        var medio = new ConfiguracionPago { TipoPago = tipoPago, Nombre = tipoPago.ToString(), Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = tipoPago, CantidadCuotas = 1, AjustePorcentaje = (decimal)pct, Activo = true
+        });
+        await _context.SaveChangesAsync();
+
+        using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: CriterioFiscalRegistry.VersionDosRedondeoComercial);
+        var creada = await _ventas.CreateAsync(new VentaViewModel
+        {
+            ClienteId = cliente.Id, FechaVenta = DateTime.UtcNow, Estado = EstadoVenta.Cotizacion, TipoPago = tipoPago,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = (decimal)precio } }
+        });
+
+        var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
+        Assert.Equal((decimal)ajusteEsperado, venta.AjusteMedioPagoMonto);
+        Assert.Equal((decimal)totalEsperado, venta.Total);
+        Assert.Equal(((decimal)netoEsperado, (decimal)ivaEsperado), (venta.Subtotal, venta.IVA));
+
+        venta.Estado = EstadoVenta.Facturada;
+        venta.FechaFacturacion = dia;
+        var factura = new Factura
+        {
+            VentaId = venta.Id, Numero = $"FAJ-{Interlocked.Increment(ref _n)}", Tipo = TipoFactura.B, FechaEmision = dia,
+            Subtotal = venta.Subtotal, IVA = venta.IVA, Total = venta.Total
+        };
+        _context.Facturas.Add(factura);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var comprobante = await ComprobanteAsync(factura.Id);
+        Assert.Equal((decimal)totalEsperado, comprobante.Totales.Total);
+        Assert.Equal((decimal)netoEsperado, comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible));
+        Assert.Equal((decimal)ivaEsperado, comprobante.ResumenAlicuotas.Sum(r => r.IVA));
+
+        var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
+        Assert.Equal((decimal)totalEsperado, reporte.VentasTotal);
+        Assert.Equal((decimal)netoEsperado, reporte.VentasNeto);
+        Assert.Equal((decimal)ivaEsperado, reporte.VentasIva);
+        Assert.Equal((decimal)baseRedondeada + (decimal)ajusteEsperado, venta.Total);
+    }
+
+    /// <summary>
+    /// P-02 / C5: el descuento de efectivo (-5 %) se aplica solo sobre los productos en V2 (envío y armado quedan al precio de
+    /// lista) y sigue alcanzando a toda la base en V1. Producto 1.000 + armado 450 + envío 200 = 1.650 de base.
+    /// V1: 1.650 - 82,50 = 1.567,50. V2: 1.650 - 50 = 1.600. El comprobante y el Reporte de IVA cierran contra el mismo total.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1567.50)]
+    [InlineData(2, 1600.00)]
+    public async Task DescuentoDeEfectivo_C5_SoloSobreProductosEnV2_VentaComprobanteYReporteCoinciden(int version, double totalEsperado)
+    {
+        var (cliente, producto) = await SeedBaseAsync(1000m);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow);
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.Efectivo, Nombre = "Efectivo", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.Efectivo, CantidadCuotas = 1, AjustePorcentaje = -5m, Activo = true
+        });
+        await new ServicioVentaPrecioService(_context).GuardarAsync(new[]
+        {
+            new ServicioVentaPrecioComando(TipoServicioVenta.EnvioCiudad, 200m, true, 80m),
+            new ServicioVentaPrecioComando(TipoServicioVenta.Armado5, 450m, true, 120m)
+        });
+
+        using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: version);
+        var vm = new VentaViewModel
+        {
+            ClienteId = cliente.Id, FechaVenta = DateTime.UtcNow, Estado = EstadoVenta.Cotizacion, TipoPago = TipoPago.Efectivo,
+            Detalles = new List<VentaDetalleViewModel>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1000m, TipoArmado = TipoServicioVenta.Armado5 }
+            },
+            TieneEnvio = true,
+            Envio = new VentaEnvioViewModel { Destinatario = "Juan", Domicilio = "Calle 1", TipoEnvio = TipoServicioVenta.EnvioCiudad }
+        };
+        var creada = await _ventas.CreateAsync(vm);
+
+        var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
+        Assert.Equal(version, venta.CriterioFiscalVersion);
+        Assert.Equal((decimal)totalEsperado, venta.Total);
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
+        Assert.Equal((decimal)totalEsperado - 1650m, venta.AjusteMedioPagoMonto);
+
+        venta.Estado = EstadoVenta.Facturada;
+        venta.FechaFacturacion = dia;
+        var factura = new Factura
+        {
+            VentaId = venta.Id, Numero = $"FC5-{Interlocked.Increment(ref _n)}", Tipo = TipoFactura.B, FechaEmision = dia,
+            Subtotal = venta.Subtotal, IVA = venta.IVA, Total = venta.Total
+        };
+        _context.Facturas.Add(factura);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var comprobante = await ComprobanteAsync(factura.Id);
+        Assert.Equal((decimal)totalEsperado, comprobante.Totales.Total);
+        Assert.Equal(venta.Subtotal, comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible));
+        Assert.Equal(venta.IVA, comprobante.ResumenAlicuotas.Sum(r => r.IVA));
+        var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
+        Assert.Equal((decimal)totalEsperado, reporte.VentasTotal);
+        Assert.Equal(venta.IVA, reporte.VentasIva);
+        Assert.Equal(venta.Subtotal, reporte.VentasNeto);
+    }
+
     [Fact]
     public async Task OperacionConVersionNoRegistrada_FallaEnVezDeCalcularConOtrasReglas()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         await SeedVentaFacturadaAsync(cliente, producto, version: 7, dia);
 
         // Con una versión desconocida se prefiere NO calcular a recalcular un importe histórico con otro criterio.
@@ -388,7 +511,7 @@ public class FiscalVersionadoP02Tests : IDisposable
     public async Task Backfill_VentaExistenteSinVersion_QuedaEnV1_YNoCambiaNingunImporte()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (ventaId, facturaId) = await SeedVentaFacturadaAsync(cliente, producto, version: null, dia);
         var reporteAntes = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
         var comprobanteAntes = await ComprobanteAsync(facturaId);

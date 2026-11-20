@@ -420,7 +420,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         var (serviciosNeto, serviciosIva) = serviciosEnTotal > 0m ? CriterioFiscalRegistry.Vigente.SepararServicios(serviciosEnTotal) : (0m, 0m);
         var subtotal = detalles.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
         var iva = detalles.Sum(d => d.SubtotalFinalIVA) + serviciosIva;
-        var total = detalles.Sum(d => d.SubtotalFinal) + serviciosEnTotal;
+        var totalConCentavos = detalles.Sum(d => d.SubtotalFinal) + serviciosEnTotal;
+        // P-02: misma base redondeada que la conversión real; el residuo se absorbe en el IVA (Neto + IVA == Total). En V1 es 0.
+        var total = CriterioFiscalRegistry.Vigente.RedondearBaseAntesDeAjuste(totalConCentavos);
+        (subtotal, iva) = CriterioFiscalRegistry.Vigente.AbsorberTruncado(subtotal, iva, totalConCentavos - total);
 
         return new CotizacionFacturaPreviewResultado
         {
@@ -577,14 +580,17 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 venta.Subtotal += serviciosEnTotal;
                 venta.IVA += CriterioFiscalRegistry.Resolver(venta).SepararServicios(serviciosEnTotal).Iva;
             }
-            venta.Total = venta.Subtotal - venta.Descuento;
+            // P-02: mismo orden que la venta directa (CalcularTotales): la base se redondea a pesos con el criterio fiscal de la
+            // venta ANTES de aplicar el ajuste del medio de pago. En V1 no cambia nada (conserva el orden histórico).
+            venta.Total = CriterioFiscalRegistry.Resolver(venta).RedondearBaseAntesDeAjuste(venta.Subtotal - venta.Descuento);
 
             // Efectivo / Transferencia: el cotizador muestra el descuento o recargo del plan general del medio
             // ("Total a cobrar"); la venta debe quedar por ese mismo importe. Tarjeta/débito/digital lo aplican
             // en GuardarDatosTarjetaAsync, y el crédito personal no lleva ajuste de medio.
             if (AjusteMedioUnPago.Aplica(tipoPago))
             {
-                var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, venta.Total, cancellationToken);
+                var ajuste = await AjusteMedioUnPago.ResolverAsync(
+                    _context, tipoPago, venta.Total, CriterioFiscalRegistry.Resolver(venta), serviciosEnTotal, cancellationToken);
                 if (ajuste != null)
                 {
                     venta.AjusteMedioPagoPorcentaje = ajuste.PorcentajeAjuste;

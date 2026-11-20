@@ -779,11 +779,10 @@ public class FiscalConciliacionF4Tests : IDisposable
     }
 
     [Fact]
-    public async Task Caracteriza_VentaDeLas2230ArgentinaDel31DeOctubre_LosReportesLaImputanANoviembreUtc()
+    public async Task C15_VentaDeLas2230ArgentinaDel31DeOctubre_LosReportesLaImputanAOctubre()
     {
-        // CRITERIO PENDIENTE (día de imputación): FechaVenta se guarda en UTC y los reportes de Ventas / IVA comparan y agrupan por
-        // el día UTC. 31/10 22:30 hora Argentina (UTC−3) = 01/11 01:30 UTC → hoy cae en NOVIEMBRE aunque comercialmente es octubre.
-        // El resto del sistema (mora, punitorios, cuotas) usa IRelojComercial (día comercial Argentina): dos relojes distintos.
+        // P-02 / C15 (contador, 2026-11-19): los informes usan el día comercial argentino. 31/10 22:30 ART (UTC−3) = 01/11 01:30 UTC:
+        // se guarda como instante UTC y los reportes de Ventas / IVA la imputan a OCTUBRE (antes la imputaban a noviembre UTC).
         var instante = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Utc);
         await SeedVentaEnInstanteAsync(instante, total: 1210m);
 
@@ -799,20 +798,22 @@ public class FiscalConciliacionF4Tests : IDisposable
         var ivaNoviembre = await _reportes.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel
         { Tipo = "ventas", FechaDesde = new DateTime(2026, 11, 1), FechaHasta = new DateTime(2026, 11, 30) });
 
-        Assert.Equal(0, octubre.CantidadVentas);
-        Assert.Equal(1, noviembre.CantidadVentas);
-        Assert.Equal(1210m, noviembre.TotalVentas);
-        Assert.Equal(0m, ivaOctubre.VentasIva);
-        Assert.Equal(210.00m, ivaNoviembre.VentasIva);   // 1210 − 1000,00 (neto)
+        Assert.Equal(1, octubre.CantidadVentas);
+        Assert.Equal(1210m, octubre.TotalVentas);
+        Assert.Equal(0, noviembre.CantidadVentas);
+        Assert.Equal(210.00m, ivaOctubre.VentasIva);   // 1210 − 1000,00 (neto)
+        Assert.Equal(0m, ivaNoviembre.VentasIva);
+        // La pantalla de reportes muestra la hora comercial (31/10 22:30), no la UTC.
+        Assert.Equal(comercial, Assert.Single(octubre.Ventas).FechaVenta);
     }
 
     [Theory]
-    // instante UTC de la venta → ¿entra en el rango que termina el 31/10 (día completo)?
-    [InlineData("2026-10-31T23:59:59", true)]    // último segundo de octubre UTC
-    [InlineData("2026-11-01T00:00:00", false)]   // primer instante de noviembre UTC
-    [InlineData("2026-10-01T00:00:00", true)]    // primer instante de octubre UTC (borde inferior inclusivo)
-    [InlineData("2026-09-30T23:59:59", false)]
-    public async Task ReporteVentas_BordesDeMes_SeComparanPorInstanteUtcConHastaInclusivoDelDia(string instanteUtc, bool entraEnOctubre)
+    // instante UTC de la venta → ¿entra en el rango de octubre (día completo comercial, 00:00 ART 01/10 a 23:59:59 ART 31/10)?
+    [InlineData("2026-11-01T02:59:59", true)]    // 23:59:59 ART del 31/10: último segundo de octubre
+    [InlineData("2026-11-01T03:00:00", false)]   // 00:00 ART del 01/11: primer instante de noviembre
+    [InlineData("2026-10-01T03:00:00", true)]    // 00:00 ART del 01/10: primer instante de octubre (borde inferior inclusivo)
+    [InlineData("2026-10-01T02:59:59", false)]   // 23:59:59 ART del 30/09
+    public async Task ReporteVentas_BordesDeMes_SeComparanPorDiaComercialArgentino(string instanteUtc, bool entraEnOctubre)
     {
         await SeedVentaEnInstanteAsync(DateTime.SpecifyKind(DateTime.Parse(instanteUtc), DateTimeKind.Utc));
 
@@ -823,14 +824,16 @@ public class FiscalConciliacionF4Tests : IDisposable
     }
 
     [Fact]
-    public async Task ReporteVentas_AgrupadasPorDia_UsaElDiaUtcDeLaVenta()
+    public async Task ReporteVentas_AgrupadasPorDia_UsaElDiaComercialArgentinoDeLaVenta()
     {
-        // Misma venta 31/10 22:30 ART: el reporte «por día» la agrupa en el 01/11 (día UTC).
+        // Misma venta 31/10 22:30 ART: el reporte «por día» la agrupa en el 31/10, no en el 01/11 (día UTC).
         await SeedVentaEnInstanteAsync(new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Utc));
 
         var grupos = await _reportes.ObtenerVentasAgrupadasAsync(new DateTime(2026, 10, 1), new DateTime(2026, 11, 30), "dia");
 
         var grupo = Assert.Single(grupos);
-        Assert.Equal("01/11/2026", grupo.Etiqueta);
+        Assert.Equal("31/10/2026", grupo.Etiqueta);
+        var meses = await _reportes.ObtenerVentasAgrupadasAsync(new DateTime(2026, 10, 1), new DateTime(2026, 11, 30), "mes");
+        Assert.Equal("10/2026", Assert.Single(meses).Etiqueta);
     }
 }

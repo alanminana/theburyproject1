@@ -97,11 +97,15 @@ namespace TheBuryProject.Services
                 query = AplicarFiltrosVenta(query, filtro);
 
                 // Aplicar filtros de fecha. "Hasta" es un día completo (inclusivo), no medianoche.
+                // P-02 / C15: el período son DÍAS comerciales argentinos; FechaVenta (y FechaDevolucion) son instantes UTC.
                 var queryPeriodo = query;
-                if (filtro.FechaDesde.HasValue)
-                    queryPeriodo = queryPeriodo.Where(v => v.FechaVenta >= filtro.FechaDesde.Value);
+                DateTime? desdeUtcFiltro = filtro.FechaDesde.HasValue ? FechaComercial.InicioDiaUtc(filtro.FechaDesde.Value) : null;
+                if (desdeUtcFiltro.HasValue)
+                    queryPeriodo = queryPeriodo.Where(v => v.FechaVenta >= desdeUtcFiltro.Value);
 
-                DateTime? hastaExclusivoFiltro = filtro.FechaHasta.HasValue ? filtro.FechaHasta.Value.Date.AddDays(1) : null;
+                DateTime? hastaExclusivoFiltro = filtro.FechaHasta.HasValue
+                    ? FechaComercial.InicioDiaUtc(filtro.FechaHasta.Value.Date.AddDays(1))
+                    : null;
                 if (hastaExclusivoFiltro.HasValue)
                     queryPeriodo = queryPeriodo.Where(v => v.FechaVenta < hastaExclusivoFiltro.Value);
 
@@ -125,7 +129,7 @@ namespace TheBuryProject.Services
                     {
                         Id = v.Id,
                         NumeroVenta = v.Numero,
-                        FechaVenta = v.FechaVenta,
+                        FechaVenta = FechaComercial.AComercial(v.FechaVenta),
                         // Cliente.NombreCompleto es un campo propio (nunca lo completa el alta estándar de
                         // Cliente/CreateAjax); usarlo acá dejaba el reporte con "Anónimo" para clientes reales.
                         // Se arma Apellido, Nombre directo (sin ToDisplayName(), que agrega "- DNI: ..." y
@@ -159,7 +163,7 @@ namespace TheBuryProject.Services
                 // período), de las mismas ventas que pasan los filtros; sin alterar ningún registro histórico.
                 var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(
                     _context,
-                    filtro.FechaDesde ?? DateTime.MinValue,
+                    desdeUtcFiltro ?? DateTime.MinValue,
                     hastaExclusivoFiltro,
                     query.Select(v => v.Id));
                 var totalDevoluciones = devoluciones.Sum(d => d.Bruto);
@@ -262,6 +266,9 @@ namespace TheBuryProject.Services
 
                 DateTime? desde = filtro.FechaDesde?.Date;
                 DateTime? hastaExclusivo = filtro.FechaHasta?.Date.AddDays(1);
+                // P-02 / C15: las ventas se filtran por día comercial argentino (FechaVenta es UTC); las compras conservan su fecha.
+                DateTime? desdeVentasUtc = desde.HasValue ? FechaComercial.InicioDiaUtc(desde.Value) : null;
+                DateTime? hastaVentasExclusivoUtc = hastaExclusivo.HasValue ? FechaComercial.InicioDiaUtc(hastaExclusivo.Value) : null;
 
                 if (filtro.IncluyeVentas)
                 {
@@ -281,10 +288,10 @@ namespace TheBuryProject.Services
                             (v.Estado == EstadoVenta.Facturada ||
                              v.Estado == EstadoVenta.Entregada));
 
-                    if (desde.HasValue)
-                        ventasQuery = ventasQuery.Where(v => v.FechaVenta >= desde.Value);
-                    if (hastaExclusivo.HasValue)
-                        ventasQuery = ventasQuery.Where(v => v.FechaVenta < hastaExclusivo.Value);
+                    if (desdeVentasUtc.HasValue)
+                        ventasQuery = ventasQuery.Where(v => v.FechaVenta >= desdeVentasUtc.Value);
+                    if (hastaVentasExclusivoUtc.HasValue)
+                        ventasQuery = ventasQuery.Where(v => v.FechaVenta < hastaVentasExclusivoUtc.Value);
 
                     // Agregación en memoria: SQLite (tests) no traduce Sum de decimal en el servidor.
                     var ventasIva = await ventasQuery.ToListAsync();
@@ -342,7 +349,7 @@ namespace TheBuryProject.Services
                         if (items.Count == 0)
                             continue;
 
-                        foreach (var parte in criterio.ResumenPorAlicuota(venta.Total, items))
+                        foreach (var parte in criterio.ResumenPorAlicuota(venta.Total, items, venta.AjusteMedioPagoMonto))
                         {
                             if (filtro.Alicuota.HasValue && parte.Porcentaje != filtro.Alicuota.Value)
                                 continue;
@@ -701,7 +708,9 @@ namespace TheBuryProject.Services
             try
             {
                 // "Hasta" es un día completo (inclusivo).
-                var hastaExclusivo = fechaHasta.Date.AddDays(1);
+                // P-02 / C15: período y agrupación por día/mes COMERCIAL argentino (FechaVenta es un instante UTC).
+                var desdeUtc = FechaComercial.InicioDiaUtc(fechaDesde);
+                var hastaExclusivo = FechaComercial.InicioDiaUtc(fechaHasta.Date.AddDays(1));
 
                 // H-25: mismo universo de ventas que el Reporte de ventas y el Dashboard (VentasNetas.Comerciales).
                 var ventas = await _context.Ventas
@@ -715,7 +724,7 @@ namespace TheBuryProject.Services
                             .ThenInclude(p => p.Categoria)
                     .Comerciales()
                     .Where(v =>
-                        v.FechaVenta >= fechaDesde &&
+                        v.FechaVenta >= desdeUtc &&
                         v.FechaVenta < hastaExclusivo)
                     .Include(v => v.DatosTarjeta)
                     .ToListAsync();
@@ -723,7 +732,7 @@ namespace TheBuryProject.Services
                 return agruparPor?.ToLower() switch
                 {
                     "dia" => ventas
-                        .GroupBy(v => v.FechaVenta.Date)
+                        .GroupBy(v => FechaComercial.DiaComercial(v.FechaVenta))
                         .OrderBy(g => g.Key)
                         .Select(g => new VentasAgrupadasViewModel
                         {
@@ -735,7 +744,7 @@ namespace TheBuryProject.Services
                         .ToList(),
 
                     "mes" => ventas
-                        .GroupBy(v => new { v.FechaVenta.Year, v.FechaVenta.Month })
+                        .GroupBy(v => new { FechaComercial.AComercial(v.FechaVenta).Year, FechaComercial.AComercial(v.FechaVenta).Month })
                         .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                         .Select(g => new VentasAgrupadasViewModel
                         {
@@ -829,13 +838,13 @@ namespace TheBuryProject.Services
 
                 if (filtro.FechaDesde.HasValue)
                 {
-                    var desde = filtro.FechaDesde.Value.Date;
+                    var desde = FechaComercial.InicioDiaUtc(filtro.FechaDesde.Value);
                     query = query.Where(d => d.Venta.FechaVenta >= desde);
                 }
 
                 if (filtro.FechaHasta.HasValue)
                 {
-                    var hastaExclusivo = filtro.FechaHasta.Value.Date.AddDays(1);
+                    var hastaExclusivo = FechaComercial.InicioDiaUtc(filtro.FechaHasta.Value.Date.AddDays(1));
                     query = query.Where(d => d.Venta.FechaVenta < hastaExclusivo);
                 }
 
@@ -909,6 +918,9 @@ namespace TheBuryProject.Services
                         ComisionMonto = d.ComisionMonto
                     })
                     .ToListAsync();
+                // P-02 / C15: FechaVenta es un instante UTC; el reporte la muestra en hora comercial argentina.
+                foreach (var item in items)
+                    item.FechaVenta = FechaComercial.AComercial(item.FechaVenta);
 
                 var resumenPorVendedor = items
                     .GroupBy(i => i.VendedorUserId)

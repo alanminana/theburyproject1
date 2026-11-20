@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-19. Base: `origin/main` 1e210e34. Fuente de las respuestas: transmitidas por el propietario (registradas en Notion). **Son respuestas del contador, no una validación legal definitiva ni una autorización de implementación.** Complementa `docs/iva-decisiones-contador.md` §5, `docs/p02-escenarios-y-alternativas.md` y `docs/p02-versionado-fiscal-diseno.md`.
 
-**Estado de P-02: EN REVISIÓN (no finalizada).** Qué impide cerrarla está en §6.
+**Estado de P-02: EN REVISIÓN (no finalizada).** Qué impide cerrarla está en §7; lo implementado desde esta tabla, en §9.
 
 ## 1. Decisiones ya tomadas (no se vuelven a consultar)
 
@@ -18,7 +18,7 @@ Niveles: **A** = respuesta clara y técnicamente implementable; **B** = decisió
 | C2 | > $0,50 → hacia arriba (1.000,51 y 1.000,99 → 1.001) | **A** | **`CriterioFiscalV2`** (registrada, no vigente) | V1 trunca siempre. Cambia el importe cobrado: exige fecha de corte (P6). |
 | C3 | La diferencia de redondeo «no se registra, calcula ni modifica nada» | **C** | V2 mantiene `Neto + IVA = Total` absorbiendo el residuo en el IVA (igual que V1); no crea ningún concepto | Una factura no puede dejar una diferencia sin explicar. Se pregunta al contador si absorber en IVA es aceptable (§5, pregunta 1). |
 | C4 | Descuento en efectivo reduce el importe final y el IVA se ajusta | **B** | Ya así en V1 (reduce base e IVA); sin cambios | Riesgo legal: ver §3.1. |
-| C5 | Descuento en efectivo solo sobre productos, no sobre envío/armado | **A (comercial)** | **No implementado** | Toca 7 puntos de cálculo (plan de tarjeta, plan global, ajuste 1 pago, conversión de cotización, cotizador, vista previa). Cambia el importe cobrado y debe cotizador/venta/caja/factura de forma idéntica: requiere su propia tanda con autorización (P6). |
+| C5 | Descuento en efectivo solo sobre productos, no sobre envío/armado | **A (comercial)** | **Implementado en `CriterioFiscalV2`** (§9): venta directa, conversión de cotización, cotizador y vista previa | V1 conserva el descuento sobre toda la base. Efectivo/Transferencia con descuento (porcentaje negativo); el recargo sigue sobre toda la base. |
 | C6 | Envío y armado llevan IVA | **B** | Ya así: 21 % por snapshot (`AlicuotaServiciosSnapshot`) | La alícuota «aplicable según la operación» no se respondió; se mantiene 21 %. |
 | C7 | Recargo de tarjeta con IVA del producto y parte del precio gravado | **B/C** | Ya así en V1; **no se toca** | El propio contador dudó. Ver §3.1: el recargo en un solo pago puede estar prohibido. |
 | C8 | Recargos de tarjeta/transferencia se documentan por factura | **C** | Sin cambios | No dijo qué recargos son legalmente permitidos por tarjeta, cuotas o transferencia. |
@@ -28,7 +28,7 @@ Niveles: **A** = respuesta clara y técnicamente implementable; **B** = decisió
 | C12 | Sin respuesta (no sabe si el IVA de compras es crédito fiscal) | **D** | Sin cambios: ganancia sobre costo con IVA | No se asume el régimen fiscal del negocio. |
 | C13 | Devolución en 72 h: se cancela la deuda y se emite NC, normalmente el mismo día | **B** | Sin cambios | No define período de cómputo ni la relación NC interna / NC fiscal externa. Ver §3.2 y §4 (P3). |
 | C14 | 72 h presencial, 30 días Mercado Libre; dinero solo dentro de 24 h con producto perfecto; después NC | **B** | Sin cambios (`DiasLimiteDevolucion` = 30, reembolso o NC a elección) | Describe la práctica comercial, no los derechos legales. Ver §3.2. |
-| C15 | Los informes usan la fecha argentina (31/10 22:30 ART es octubre) | **A** | **No implementado**: hallazgo en §3.4 | Hace falta normalizar primero cómo se guarda `FechaVenta`. |
+| C15 | Los informes usan la fecha argentina (31/10 22:30 ART es octubre) | **A** | **Implementado** (§9): `FechaVenta` se guarda siempre como instante UTC y todo informe/pantalla usa el día comercial argentino | Sin migración ni cambio de datos históricos. |
 
 ## 3. Contraste con fuentes oficiales
 
@@ -100,3 +100,15 @@ Con ajuste porcentual del medio de pago (Efectivo/Transferencia) el orden de ope
 - `Helpers/FacturaComprobanteBuilder.cs`, `Services/VentaService.cs`: manejan residuos negativos (total redondeado hacia arriba); en V1 nunca ocurre.
 - `Services/CotizacionPagoCalculator.cs`: el truncado del cotizador pasa por el criterio vigente (idéntico en V1), para que cotización y venta redondeen igual.
 - Pruebas (`FiscalCriterioV2P02Tests`, `FiscalVersionadoP02Tests`): bordes C1/C2 (0,49 / 0,50 / 0,51 / 0,99); los 100 valores de centavos cierran `Neto + IVA = Total`; venta exenta redondeada hacia arriba sin IVA; recargo no inventado; devolver todo reintegra exactamente lo cobrado; cadena venta nueva V2 → comprobante → Reporte de IVA; V1 sin cambios; producción sin V2 vigente. La prueba de «versión inexistente» pasó de 2 a 3 porque la 2 ya existe.
+
+## 9. Tandas A y B (2026-11-19): importes únicos, C5 y día comercial (C15)
+
+**Defecto de Codex (§7-bis) — reproducido y corregido.** Con V2, producto 1.000,51 al 21 % y transferencia +3 %: venta directa 1.031,03 (neto 851,69 + IVA 179,34); la conversión de cotización cobraba 1.030,53 (ajuste 30,02 sobre la base con centavos) y el comprobante/Reporte de IVA reconstruían neto 852,09 + IVA 178,94. Orden único (solo `CriterioFiscalV2`; V1 intacta, byte a byte): **la base (productos con descuentos + servicios) se redondea a pesos con el criterio fiscal y recién después se aplica el ajuste del medio de pago** (`ICriterioFiscal.RedondearBaseAntesDeAjuste`). Lo usan venta directa (ya lo hacía), cotizador, vista previa de la conversión y conversión real. El comprobante, el Reporte de IVA y la conversión reconstruyen el desglose con el monto exacto del ajuste persistido (`Venta.AjusteMedioPagoMonto`, `Discriminar(…, ajusteMedioPersistido)`), no por heurística de centavos.
+
+**C5.** `ICriterioFiscal.DescuentoDeMedioSoloSobreProductos` (V2 = true): el descuento de Efectivo/Transferencia (porcentaje negativo) se calcula sobre `base − (armados + envío)`; el total es siempre `base + ajuste`. Ejemplo (1.000 + armado 450 + envío 200, −5 %): V1 1.567,50; V2 1.600,00. Limitación conocida: con alícuotas mixtas el descuento se prorratea entre todas las alícuotas (también servicios) en el desglose informativo de IVA; el total cobrado es exacto.
+
+**C15.** `Services/FechaComercial.cs`: `Venta.FechaVenta` se guarda como instante UTC (fecha de formulario = día comercial elegido + hora comercial actual; edición del mismo día conserva el instante). Los períodos de Reporte de ventas/IVA/por producto/comisiones/agrupados, el Dashboard (hoy/mes/año/7 días/12 meses y devoluciones netas), el filtro de la lista de ventas, la validación de fecha de facturación, el comprobante, los contratos/documentos y la conciliación de Caja convierten día comercial ⇄ UTC. 31/10 22:30 ART (01/11 01:30 UTC) se contabiliza en octubre. Sin cambios en datos históricos (la base nueva no los tiene; una base con ventas de formulario de la versión anterior las tiene como «medianoche argentina» guardada como si fuera UTC: antes de usar este código sobre una base histórica hay que decidir su tratamiento).
+
+**Pruebas nuevas/actualizadas:** `Convertir_V2_TransferenciaConCentavos_CobraLoMismoQueLaVentaDirecta`, `CriterioV2_AjusteMedioPago_VentaComprobanteYReporteIvaCoinciden` (Transferencia +3 % y Efectivo −5 %), `DescuentoDeEfectivo_C5_*` (venta y conversión), `Simular_V2_*` y `Simular_DescuentoDeEfectivo_SoloSobreProductosEnV2`, `C15_VentaDeLas2230…`, bordes de mes por día comercial, agrupación por día/mes y `ResolverFechaVenta_C15_*`. Se actualizaron las pruebas que sembraban fechas con la semántica anterior (día UTC).
+
+**No se cambió `VersionVigente` (sigue en 1) ni se desplegó ninguna regla monetaria en producción.**

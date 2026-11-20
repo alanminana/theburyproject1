@@ -35,7 +35,7 @@ public static class ConfiguracionPagoGlobalRules
             return Invalido(request, EstadoValidacionPagoGlobal.CuotasInvalidas, "La cantidad de cuotas debe ser al menos 1.");
         }
 
-        var montoAjuste = RedondearMoneda(request.BaseVenta * request.PorcentajeAjuste / 100m);
+        var montoAjuste = RedondearMoneda((request.BaseSujetaAAjuste ?? request.BaseVenta) * request.PorcentajeAjuste / 100m);
         var totalFinal = request.BaseVenta + montoAjuste;
 
         if (totalFinal < 0m)

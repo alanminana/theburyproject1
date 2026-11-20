@@ -232,6 +232,8 @@ namespace TheBuryProject.Helpers
             // Mappings para Ventas
             // =======================
             CreateMap<Venta, VentaViewModel>()
+                // P-02 / C15: FechaVenta se guarda como instante UTC; las pantallas (y el formulario de edición) usan la hora comercial argentina.
+                .ForMember(dest => dest.FechaVenta, opt => opt.MapFrom(src => FechaComercial.AComercial(src.FechaVenta)))
                 // VENTA-DETAILS-DUPLICACION-01 (H11): ToDisplayName() incrusta "- DNI: ..."
                 // en el nombre para desambiguar en listas sin columna de documento propia.
                 // VentaViewModel ya expone ClienteDocumento como campo separado en todas las

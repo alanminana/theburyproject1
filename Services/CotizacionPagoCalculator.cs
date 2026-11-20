@@ -195,7 +195,10 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         }
 
         // Armados y envío entran en la base: el recargo del plan de pago los alcanza (igual que Venta).
-        var totalBase = RedondearMoneda(totalProductos + totalArmados + importeEnvio);
+        // P-02: la base se redondea a pesos con el criterio fiscal vigente ANTES del ajuste del medio de pago, igual que la venta
+        // directa y la conversión (en V1 no cambia nada: conserva el orden histórico, ajuste sobre la base con centavos).
+        var totalBase = CriterioFiscalRegistry.Vigente.RedondearBaseAntesDeAjuste(
+            RedondearMoneda(totalProductos + totalArmados + importeEnvio));
 
         var opciones = new List<CotizacionMedioPagoResultado>();
         ConfiguracionPagoGlobalResultado? configuracion = null;
@@ -203,7 +206,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         if (errores.Count == 0)
         {
             configuracion = await _configuracionPagoGlobalQueryService.ObtenerActivaParaVentaAsync(cancellationToken);
-            AgregarOpcionesBasicas(request, configuracion, totalBase, opciones);
+            AgregarOpcionesBasicas(request, configuracion, totalBase, totalArmados + importeEnvio, opciones);
             AgregarOpcionesTarjeta(request, configuracion, totalBase, opciones);
             AgregarMercadoPago(request, configuracion, totalBase, opciones, advertencias);
             await AgregarCreditoPersonalAsync(
@@ -315,6 +318,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         CotizacionSimulacionRequest request,
         ConfiguracionPagoGlobalResultado configuracion,
         decimal totalBase,
+        decimal serviciosEnBase,
         List<CotizacionMedioPagoResultado> opciones)
     {
         if (request.IncluirEfectivo)
@@ -324,7 +328,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                 "Efectivo",
                 BuscarMedio(configuracion, TipoPago.Efectivo),
                 totalBase,
-                mostrarDisponibleSinConfiguracion: true));
+                mostrarDisponibleSinConfiguracion: true,
+                serviciosEnBase: serviciosEnBase));
         }
 
         if (request.IncluirTransferencia)
@@ -334,7 +339,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                 "Transferencia",
                 BuscarMedio(configuracion, TipoPago.Transferencia),
                 totalBase,
-                mostrarDisponibleSinConfiguracion: true));
+                mostrarDisponibleSinConfiguracion: true,
+                serviciosEnBase: serviciosEnBase));
         }
     }
 
@@ -600,7 +606,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         MedioPagoGlobalDto? medio,
         decimal totalBase,
         bool mostrarDisponibleSinConfiguracion,
-        bool truncarAPesos = false)
+        bool truncarAPesos = false,
+        decimal serviciosEnBase = 0m)
     {
         if (medio == null && !mostrarDisponibleSinConfiguracion)
         {
@@ -613,6 +620,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         var calculo = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
         {
             BaseVenta = totalBase,
+            // P-02 / C5: con V2 el descuento de Efectivo/Transferencia no alcanza a envío ni armado (V1: toda la base).
+            BaseSujetaAAjuste = AjusteMedioUnPago.BaseSujetaAAjuste(CriterioFiscalRegistry.Vigente, ajuste, totalBase, serviciosEnBase),
             PorcentajeAjuste = ajuste,
             CantidadCuotas = 1,
             MedioActivo = medio?.Activo ?? true,
