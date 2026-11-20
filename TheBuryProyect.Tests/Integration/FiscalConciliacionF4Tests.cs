@@ -823,6 +823,46 @@ public class FiscalConciliacionF4Tests : IDisposable
         Assert.Equal(entraEnOctubre ? 1 : 0, r.CantidadVentas);
     }
 
+    // P-02 / C15: cambio de día, de mes y de AÑO. Instante UTC de la venta -> (período mensual al que pertenece, etiqueta del día comercial).
+    [Theory]
+    [InlineData("2026-01-01T02:59:59", 2025, 12, "31/12/2025")]   // 23:59:59 ART del 31/12: diciembre del año ANTERIOR
+    [InlineData("2026-01-01T03:00:00", 2026, 1, "01/01/2026")]    // 00:00 ART del 01/01: enero
+    [InlineData("2026-03-01T02:59:59", 2026, 2, "28/02/2026")]    // fin de febrero (no bisiesto)
+    [InlineData("2028-03-01T02:59:59", 2028, 2, "29/02/2028")]    // fin de febrero bisiesto
+    [InlineData("2026-11-01T01:30:00", 2026, 10, "31/10/2026")]   // el caso del contador: 22:30 ART
+    public async Task C15_CambioDeDiaMesYAnio_ElPeriodoMensualYElDiaSonLosComercialesArgentinos(string instanteUtc, int anio, int mes, string diaEsperado)
+    {
+        await SeedVentaEnInstanteAsync(DateTime.SpecifyKind(DateTime.Parse(instanteUtc), DateTimeKind.Utc), total: 1210m);
+
+        var delMes = await _reportes.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel
+        { FechaDesde = new DateTime(anio, mes, 1), FechaHasta = new DateTime(anio, mes, DateTime.DaysInMonth(anio, mes)) });
+        var iva = await _reportes.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel
+        { Tipo = "ventas", FechaDesde = new DateTime(anio, mes, 1), FechaHasta = new DateTime(anio, mes, DateTime.DaysInMonth(anio, mes)) });
+        var delAnio = await _reportes.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel
+        { FechaDesde = new DateTime(anio, 1, 1), FechaHasta = new DateTime(anio, 12, 31) });
+        var porDia = await _reportes.ObtenerVentasAgrupadasAsync(new DateTime(anio, mes, 1), new DateTime(anio, mes, DateTime.DaysInMonth(anio, mes)), "dia");
+
+        Assert.Equal(1, delMes.CantidadVentas);
+        Assert.Equal(210.00m, iva.VentasIva);
+        Assert.Equal(1, delAnio.CantidadVentas);   // el año comercial también coincide (31/12 22:30 es del año que termina)
+        Assert.Equal(diaEsperado, Assert.Single(porDia).Etiqueta);
+    }
+
+    // Conciliación de Caja: la hora de cada venta del turno es la comercial (antes ToLocalTime() dependía de la zona del servidor).
+    [Fact]
+    public async Task C15_ConciliacionDeCaja_MuestraLaHoraComercialDeLaVenta()
+    {
+        var e = await SeedEscenarioAsync();
+        var venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == e.V1);
+        var apertura = await _context.AperturasCaja.AsNoTracking().FirstAsync();
+        var detalle = await _caja.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        var conciliacion = CajaConciliacionBuilder.Build(detalle, null, true);
+
+        var linea = conciliacion.Ventas.Single(v => v.VentaId == e.V1);
+        Assert.Equal(FechaComercial.AComercial(venta.FechaVenta), linea.Fecha);
+    }
+
     [Fact]
     public async Task ReporteVentas_AgrupadasPorDia_UsaElDiaComercialArgentinoDeLaVenta()
     {

@@ -54,6 +54,14 @@ if (!builder.Environment.IsEnvironment("Testing"))
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 }
 
+// P-02: activación de ENSAYO de CriterioFiscalV2 en una instancia aislada (solo Development; en cualquier otro entorno la clave aborta el arranque).
+var ensayoCriterioFiscal = EnsayoCriterioFiscal.Resolver(builder.Environment, builder.Configuration[EnsayoCriterioFiscal.Clave]);
+if (ensayoCriterioFiscal.HasValue)
+{
+    CriterioFiscalRegistry.ActivarEnsayo(ensayoCriterioFiscal.Value);
+    Console.WriteLine($"[ENSAYO] CriterioFiscal vigente = {ensayoCriterioFiscal.Value} (instancia de ensayo; NO usar con datos reales).");
+}
+
 // 2. EF Core (evitar mezclar AddDbContext + AddDbContextFactory)
 // Docker/produccion: la cadena base va sin credenciales y el login SQL dedicado llega por ErpDb:User / ErpDb:Password
 // (SqlConnectionStringBuilder escapa cualquier caracter). Sin ErpDb:* se usa la cadena tal cual (LocalDB/Windows Auth en desarrollo).

@@ -257,7 +257,11 @@ public static class RolesPermisosSeeder
             {
                 ("Ver", "view", 1),
                 ("Aplicar", "apply", 2),
-                ("Cancelar", "cancel", 3)
+                ("Cancelar", "cancel", 3),
+                // P-02 / P3: vincular la nota de crédito interna con la NC FISCAL emitida por el sistema externo. Permiso propio, distinto de
+                // devoluciones.approve. Asignación inicial mínima: SuperAdmin y Administrador (grant «todo salvo la lista»); Gerente, Contador,
+                // Técnico y el resto NO lo reciben implícitamente (se asigna a mano desde Seguridad > Roles).
+                ("Vincular NC fiscal externa", "linkfiscal", 4)
             }),
 
             // CAJA
@@ -533,7 +537,9 @@ public static class RolesPermisosSeeder
                     // La configuración de mora y el alta/edición/baja de listas de precios siguen siendo administrativas.
                     "mora.config", "precios.create", "precios.update", "precios.delete",
                     // Regla aprobada: la baja de clientes se reserva a Administrador/SuperAdmin (Gerente cancela ventas, no da de baja clientes).
-                    "clientes.delete"
+                    "clientes.delete",
+                    // P-02 / P3: el vínculo con la NC fiscal externa no entra en el grant en bloque del módulo «notascredito».
+                    "notascredito.linkfiscal"
                 });
 
             // Documentos: gestiona plantillas y reglas, pero no los tipos documentales (alta/baja de clases de documento).

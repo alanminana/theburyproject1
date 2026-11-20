@@ -490,6 +490,107 @@
                             Ver notas de crédito del cliente
                         </a>
                     }
+
+                    @* P-02 / P3: vínculo con la NC FISCAL emitida por el sistema externo (no netea IVA ni cambia importes). *@
+                    @{
+                        var ncf = Model.NotaCredito;
+                        var ncfVinculada = !string.IsNullOrEmpty(ncf.FiscalExternaNumero);
+                        var ncfInput = "w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white";
+                        var ncfLabel = "mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400";
+                    }
+                    <div id="nc-fiscal-externa" class="mt-4 border-t border-amber-500/20 pt-3">
+                        <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">Nota de crédito fiscal externa</p>
+                        @if (ncfVinculada)
+                        {
+                            <dl class="space-y-2" data-testid="nc-fiscal-vinculada">
+                                <div class="flex justify-between gap-2">
+                                    <dt class="text-[11px] font-semibold text-slate-500">Comprobante</dt>
+                                    <dd class="text-[11px] font-black tabular-nums text-white">@ncf.FiscalExternaTipo @ncf.FiscalExternaPuntoVenta-@ncf.FiscalExternaNumero</dd>
+                                </div>
+                                <div class="flex justify-between gap-2">
+                                    <dt class="text-[11px] font-semibold text-slate-500">Fecha</dt>
+                                    <dd class="text-[11px] font-black tabular-nums text-white">@ncf.FiscalExternaFecha?.ToString("dd/MM/yyyy")</dd>
+                                </div>
+                                <div class="flex justify-between gap-2">
+                                    <dt class="text-[11px] font-semibold text-slate-500">Importe</dt>
+                                    <dd class="text-[11px] font-black tabular-nums text-white">@ncf.FiscalExternaImporte?.ToString("C2")</dd>
+                                </div>
+                                @if (!string.IsNullOrEmpty(ncf.FiscalExternaCae))
+                                {
+                                    <div class="flex justify-between gap-2">
+                                        <dt class="text-[11px] font-semibold text-slate-500">CAE</dt>
+                                        <dd class="text-[11px] font-black tabular-nums text-white">@ncf.FiscalExternaCae</dd>
+                                    </div>
+                                }
+                                <div class="flex justify-between gap-2">
+                                    <dt class="text-[11px] font-semibold text-slate-500">Venta</dt>
+                                    <dd class="text-[11px] font-black text-white">
+                                        @if (User.TienePermiso("ventas", "view"))
+                                        {
+                                            <a href="@Url.Action("Details", "Venta", new { id = dev.VentaId })" class="text-amber-300 no-underline hover:text-amber-200">@dev.Venta?.Numero</a>
+                                        }
+                                        else
+                                        {
+                                            @dev.Venta?.Numero
+                                        }
+                                    </dd>
+                                </div>
+                                <div class="flex justify-between gap-2">
+                                    <dt class="text-[11px] font-semibold text-slate-500">Registrada</dt>
+                                    <dd class="text-[11px] text-slate-300">@ncf.FiscalExternaRegistradaPor · @(ncf.FiscalExternaRegistradaEn.HasValue ? Reloj.UtcAComercial(ncf.FiscalExternaRegistradaEn.Value).ToString("dd/MM/yyyy HH:mm") : "")</dd>
+                                </div>
+                            </dl>
+                            <p class="mt-2 text-[10px] leading-relaxed text-slate-500">Solo vínculo informativo: no modifica importes ni el Reporte de IVA.</p>
+                        }
+                        else if (User.TienePermiso("notascredito", "linkfiscal"))
+                        {
+                            <p class="mb-2 text-[11px] leading-relaxed text-slate-400">Cargá los datos de la nota de crédito que emitiste en el sistema fiscal externo. El vínculo no se puede editar y no modifica importes ni el Reporte de IVA.</p>
+                            <form asp-action="VincularNcFiscal" method="post" class="grid grid-cols-2 gap-2" data-testid="nc-fiscal-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@dev.Id" />
+                                <div>
+                                    <label for="ncf-tipo" class="@ncfLabel">Tipo</label>
+                                    <select id="ncf-tipo" name="Tipo" required class="@ncfInput">
+                                        <option value="NCA">NC A</option>
+                                        <option value="NCB" selected>NC B</option>
+                                        <option value="NCC">NC C</option>
+                                        <option value="NCM">NC M</option>
+                                        <option value="NCE">NC E</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="ncf-pv" class="@ncfLabel">Punto de venta</label>
+                                    <input id="ncf-pv" name="PuntoVenta" required inputmode="numeric" maxlength="5" pattern="[0-9]{1,5}" placeholder="00003" class="@ncfInput" />
+                                </div>
+                                <div>
+                                    <label for="ncf-numero" class="@ncfLabel">Número</label>
+                                    <input id="ncf-numero" name="Numero" required inputmode="numeric" maxlength="8" pattern="[0-9]{1,8}" placeholder="00012345" class="@ncfInput" />
+                                </div>
+                                <div>
+                                    <label for="ncf-fecha" class="@ncfLabel">Fecha de emisión</label>
+                                    <input id="ncf-fecha" name="Fecha" type="date" required max="@Reloj.HoyIso()" value="@Reloj.HoyIso()" class="@ncfInput" />
+                                </div>
+                                <div>
+                                    <label for="ncf-importe" class="@ncfLabel">Importe</label>
+                                    <input id="ncf-importe" name="Importe" type="number" step="0.01" min="0.01" max="@ncf.MontoTotal.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" required class="@ncfInput" />
+                                </div>
+                                <div>
+                                    <label for="ncf-cae" class="@ncfLabel">CAE (opcional)</label>
+                                    <input id="ncf-cae" name="Cae" inputmode="numeric" maxlength="14" pattern="[0-9]{14}" placeholder="14 dígitos" class="@ncfInput" />
+                                </div>
+                                <div class="col-span-2">
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-amber-500">
+                                        Vincular comprobante fiscal
+                                    </button>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                            <p class="text-[11px] text-slate-500">Sin comprobante fiscal vinculado.</p>
+                        }
+                    </div>
                 </section>
             }
 

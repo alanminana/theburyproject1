@@ -21,6 +21,17 @@ internal sealed class UsuarioNcExterna(bool permiso) : ICurrentUserService
     public string? GetIpAddress() => "127.0.0.1";
 }
 
+internal sealed class UsuarioSoloApprove : ICurrentUserService
+{
+    public string GetUsername() => "gestor";
+    public string GetUserId() => "u-2";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => null;
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => modulo == "devoluciones" && accion == "approve";
+    public string? GetIpAddress() => "127.0.0.1";
+}
+
 internal sealed class AuditoriaNcExterna(AppDbContext context) : ISeguridadAuditoriaService
 {
     public List<(string Modulo, string Accion, string Entidad, string? Detalle)> Eventos { get; } = new();
@@ -135,7 +146,9 @@ public class DevolucionesNcExternaP02Tests : IDisposable
         Assert.Equal("contable", guardada.FiscalExternaRegistradaPor);
         Assert.NotNull(guardada.FiscalExternaRegistradaEn);
         var evento = Assert.Single(_auditoria.Eventos);
-        Assert.Equal(("devoluciones", "vincular_nc_fiscal_externa"), (evento.Modulo, evento.Accion));
+        Assert.Equal(("notascredito", "vincular_nc_fiscal_externa"), (evento.Modulo, evento.Accion));
+        Assert.DoesNotContain("12345678901234", evento.Detalle);   // el CAE no se audita
+        Assert.DoesNotContain("500", evento.Detalle ?? string.Empty);   // ni el importe
         // Sin efecto fiscal: ningún importe cambia.
         Assert.Equal(500m, guardada.MontoTotal);
         var ventaDespues = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == nc.Devolucion.VentaId);
@@ -143,15 +156,35 @@ public class DevolucionesNcExternaP02Tests : IDisposable
     }
 
     [Fact]
-    public async Task Registrar_SinPermiso_NoHaceNada()
+    public async Task Registrar_SinPermiso_NoVinculaYAudita_YApproveNoAlcanza()
     {
         var nc = await SeedNotaCreditoAsync();
 
-        var r = await Servicio(permiso: false).RegistrarAsync(nc.Id, Req());
+        var sinNada = await Servicio(permiso: false).RegistrarAsync(nc.Id, Req());
+        var soloApprove = await new NotaCreditoFiscalExternaService(
+            _context, new UsuarioSoloApprove(), _auditoria, NullLogger<NotaCreditoFiscalExternaService>.Instance).RegistrarAsync(nc.Id, Req());
+
+        Assert.False(sinNada.Exitoso);
+        Assert.False(soloApprove.Exitoso);   // devoluciones.approve ya no habilita el vínculo: el permiso es notascredito.linkfiscal
+        Assert.Null((await _context.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
+        Assert.All(_auditoria.Eventos, e => Assert.Equal("vincular_nc_fiscal_externa_rechazado", e.Accion));
+        Assert.Equal(2, _auditoria.Eventos.Count);
+    }
+
+    [Fact]
+    public async Task Registrar_Rechazado_AuditaElIntentoSinDatosSensibles()
+    {
+        var nc = await SeedNotaCreditoAsync();
+
+        var r = await Servicio().RegistrarAsync(nc.Id, new NotaCreditoFiscalExternaRequest
+        { PuntoVenta = "1", Tipo = "NCB", Numero = "98765432", Fecha = FechaComercial.DiaComercial(DateTime.UtcNow), Importe = 9999m, Cae = "11122233344455" });
 
         Assert.False(r.Exitoso);
-        Assert.Null((await _context.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
-        Assert.Empty(_auditoria.Eventos);
+        var evento = Assert.Single(_auditoria.Eventos);
+        Assert.Equal("vincular_nc_fiscal_externa_rechazado", evento.Accion);
+        Assert.DoesNotContain("11122233344455", evento.Detalle);
+        Assert.DoesNotContain("9999", evento.Detalle);
+        Assert.DoesNotContain("98765432", evento.Detalle);
     }
 
     [Theory]
@@ -257,14 +290,16 @@ public class DevolucionesNcExternaP02Tests : IDisposable
         Assert.Null((await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
         Assert.Null(contexto.NotasCredito.Local.Single(n => n.Id == nc.Id).FiscalExternaNumero);   // la NC rastreada quedó restaurada
 
-        // Un guardado posterior del mismo contexto no persiste la operación rechazada.
+        // Un guardado posterior del mismo contexto no persiste el vínculo rechazado; solo queda la constancia del intento fallido.
         await contexto.SaveChangesAsync();
-        Assert.Empty(await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync());
+        var tras = await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync();
+        Assert.Equal("vincular_nc_fiscal_externa_rechazado", Assert.Single(tras).Accion);
 
         // El reintento (ya sin la falla) funciona y deja exactamente un vínculo y un evento.
         var reintento = await servicio.RegistrarAsync(nc.Id, Req());
         Assert.True(reintento.Exitoso, string.Join("; ", reintento.Errores));
-        Assert.Single(await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync());
+        var eventos = await contexto.SeguridadEventosAuditoria.AsNoTracking().ToListAsync();
+        Assert.Equal(new[] { "vincular_nc_fiscal_externa", "vincular_nc_fiscal_externa_rechazado" }, eventos.Select(e => e.Accion).OrderBy(a => a));
         Assert.Equal("00012345", (await contexto.NotasCredito.AsNoTracking().SingleAsync(n => n.Id == nc.Id)).FiscalExternaNumero);
         await contexto.DisposeAsync();
     }

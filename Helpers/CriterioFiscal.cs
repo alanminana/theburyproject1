@@ -178,7 +178,20 @@ namespace TheBuryProject.Helpers
         private sealed record Escenario(IReadOnlyDictionary<int, ICriterioFiscal> Versiones, int Vigente);
 
         /// <summary>Versión con la que se estampan las operaciones nuevas.</summary>
-        public static int VersionVigente => EscenarioPrueba.Value?.Vigente ?? VersionInicial;
+        private static int? _vigenteDeEnsayo;
+
+        public static int VersionVigente => EscenarioPrueba.Value?.Vigente ?? _vigenteDeEnsayo ?? VersionInicial;
+
+        /// <summary>
+        /// Fija la versión vigente de una instancia de ENSAYO (ver <see cref="EnsayoCriterioFiscal"/>, que decide si se permite). Solo la
+        /// invoca el arranque; no existe ningún camino de producción que la llame.
+        /// </summary>
+        internal static void ActivarEnsayo(int version)
+        {
+            if (version != VersionInicial && version != VersionDosRedondeoComercial)
+                throw new CriterioFiscalDesconocidoException(version);
+            _vigenteDeEnsayo = version;
+        }
 
         public static ICriterioFiscal Vigente => Resolver(VersionVigente);
 
