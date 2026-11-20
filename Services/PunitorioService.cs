@@ -77,7 +77,7 @@ namespace TheBuryProject.Services
                 .Where(c => !c.IsDeleted)
                 .ToListAsync(cancellationToken);
 
-            var graciaRetroactiva = await TieneAplicacionConReglaAnteriorAsync(cuotaId, cancellationToken);
+            var graciaRetroactiva = await ResolverReglaDeLaCuotaAsync(cuotaId, cancellationToken) == ReglaGraciaAplicada.Retroactiva;
             var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fecha, graciaRetroactiva));
 
             var pendiente = await ObtenerPunitorioAplicadoPendienteAsync(cuotaId, cancellationToken);
@@ -125,7 +125,8 @@ namespace TheBuryProject.Services
                 .ToListAsync(cancellationToken);
 
             var fechaCalculo = _reloj.HoyComercial;
-            var graciaRetroactiva = aplicaciones.Any(a => a.Estado != EstadoPunitorioAplicado.Anulado && EsSnapshotConReglaAnterior(a.DesgloseSnapshotJson));
+            var graciaRetroactiva = ResolverReglaDeLaCuota(
+                aplicaciones.Where(a => a.Estado != EstadoPunitorioAplicado.Anulado).Select(a => a.DesgloseSnapshotJson)) == ReglaGraciaAplicada.Retroactiva;
             var resultadoCalculo = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo, graciaRetroactiva));
 
             var pagosOrdenados = cuota.Pagos
@@ -400,7 +401,14 @@ namespace TheBuryProject.Services
                     .ToListAsync(cancellationToken);
 
                 var fechaCalculo = _reloj.HoyComercial;
-                var graciaRetroactiva = await TieneAplicacionConReglaAnteriorAsync(cuotaId, cancellationToken);
+                var reglaDeLaCuota = await ResolverReglaDeLaCuotaAsync(cuotaId, cancellationToken);
+                if (reglaDeLaCuota == ReglaGraciaAplicada.Desconocida)
+                    throw new PunitorioAplicadoRechazadoException(
+                        MotivoRechazoPunitorioAplicado.Conflicto,
+                        "No se puede determinar con qué regla de gracia se calculó un punitorio ya aplicado a esta cuota (registro ilegible). " +
+                        "Para no cobrar de más no se aplican nuevos punitorios hasta que se revise y, de corresponder, se anule esa aplicación. " +
+                        "Los importes ya confirmados y su cobro no se modifican.");
+                var graciaRetroactiva = reglaDeLaCuota == ReglaGraciaAplicada.Retroactiva;
                 var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo, graciaRetroactiva));
 
                 ValidarEstadoCalculable(resultado);
@@ -832,13 +840,63 @@ namespace TheBuryProject.Services
         internal const string ReglaGraciaReal = "GraciaReal";
         internal const string ReglaGraciaRetroactiva = "Retroactiva";
 
+        /// <summary>Regla de gracia con la que se calculó una aplicación (C10), según su snapshot persistido.</summary>
+        internal enum ReglaGraciaAplicada { Real, Retroactiva, Desconocida }
+
         /// <summary>
-        /// C10: <c>true</c> si la cuota ya tiene un punitorio aplicado (activo o pagado; las anuladas no cuentan) calculado con la regla
-        /// anterior (retroactiva, PUN-ML4): snapshot sin marca de regla, marcado <c>Retroactiva</c> o ilegible. En ese caso la cuota sigue
-        /// calculándose con esa regla para que el diferencial de nuevas aplicaciones sea coherente con lo ya confirmado y cobrado: nunca se
-        /// reinterpreta un importe histórico ni se bloquea la cuota por un "cálculo menor a lo aplicado". Cuotas sin historia usan gracia real.
+        /// C10: regla con la que se debe calcular la cuota según sus aplicaciones no anuladas (activas o pagadas; las anuladas nunca se
+        /// cobraron). <c>Retroactiva</c> si alguna fue calculada con la regla anterior (PUN-ML4): snapshot válido sin marca de regla (anterior a
+        /// C10) o marcado <c>Retroactiva</c>; la cuota sigue con esa regla hasta saldarse para que el diferencial sea coherente con lo ya
+        /// confirmado y cobrado. <c>Desconocida</c> si algún snapshot es ilegible, vacío o trae una marca no reconocida: no se puede demostrar
+        /// con qué regla se calculó, así que NO se asume ninguna (una suposición podría habilitar cobrar de más) y se bloquean nuevas
+        /// aplicaciones hasta resolverlo; los importes ya confirmados y su cobro no se tocan. <c>Real</c> en el resto (incluye cuotas sin historia).
         /// </summary>
-        private async Task<bool> TieneAplicacionConReglaAnteriorAsync(int cuotaId, CancellationToken cancellationToken)
+        internal static ReglaGraciaAplicada ResolverReglaDeLaCuota(IEnumerable<string?> snapshotsNoAnulados)
+        {
+            var regla = ReglaGraciaAplicada.Real;
+            foreach (var snapshot in snapshotsNoAnulados)
+            {
+                var r = ClasificarSnapshot(snapshot);
+                if (r == ReglaGraciaAplicada.Desconocida)
+                    return ReglaGraciaAplicada.Desconocida;
+                if (r == ReglaGraciaAplicada.Retroactiva)
+                    regla = ReglaGraciaAplicada.Retroactiva;
+            }
+            return regla;
+        }
+
+        private static ReglaGraciaAplicada ClasificarSnapshot(string? snapshotJson)
+        {
+            if (string.IsNullOrWhiteSpace(snapshotJson))
+                return ReglaGraciaAplicada.Desconocida;
+            try
+            {
+                using var document = JsonDocument.Parse(snapshotJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    return ReglaGraciaAplicada.Desconocida;
+                foreach (var propiedad in document.RootElement.EnumerateObject())
+                {
+                    if (!string.Equals(propiedad.Name, nameof(PunitorioAplicadoSnapshot.ReglaGracia), StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (propiedad.Value.ValueKind != JsonValueKind.String)
+                        return ReglaGraciaAplicada.Desconocida;
+                    return propiedad.Value.GetString() switch
+                    {
+                        ReglaGraciaReal => ReglaGraciaAplicada.Real,
+                        ReglaGraciaRetroactiva => ReglaGraciaAplicada.Retroactiva,
+                        _ => ReglaGraciaAplicada.Desconocida
+                    };
+                }
+                // Objeto válido sin marca de regla: snapshot de PUN-ML5/ML6, anterior a C10 (regla retroactiva).
+                return ReglaGraciaAplicada.Retroactiva;
+            }
+            catch (JsonException)
+            {
+                return ReglaGraciaAplicada.Desconocida;
+            }
+        }
+
+        private async Task<ReglaGraciaAplicada> ResolverReglaDeLaCuotaAsync(int cuotaId, CancellationToken cancellationToken)
         {
             var snapshots = await _context.PunitoriosAplicados
                 .AsNoTracking()
@@ -846,29 +904,7 @@ namespace TheBuryProject.Services
                 .Select(p => p.DesgloseSnapshotJson)
                 .ToListAsync(cancellationToken);
 
-            return snapshots.Any(EsSnapshotConReglaAnterior);
-        }
-
-        private static bool EsSnapshotConReglaAnterior(string? snapshotJson)
-        {
-            if (string.IsNullOrWhiteSpace(snapshotJson))
-                return true;
-            try
-            {
-                using var document = JsonDocument.Parse(snapshotJson);
-                if (document.RootElement.ValueKind != JsonValueKind.Object)
-                    return true;
-                foreach (var propiedad in document.RootElement.EnumerateObject())
-                {
-                    if (string.Equals(propiedad.Name, nameof(PunitorioAplicadoSnapshot.ReglaGracia), StringComparison.OrdinalIgnoreCase))
-                        return !string.Equals(propiedad.Value.GetString(), ReglaGraciaReal, StringComparison.Ordinal);
-                }
-                return true;
-            }
-            catch (JsonException)
-            {
-                return true;
-            }
+            return ResolverReglaDeLaCuota(snapshots);
         }
 
         private static PunitorioCalculoEntrada ConstruirEntrada(

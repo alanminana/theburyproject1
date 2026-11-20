@@ -1932,4 +1932,30 @@ public sealed class PunitorioServiceTests : IDisposable
         Assert.Equal(new DateOnly(2026, 10, 31), calculo.FechaCalculo);
         Assert.Equal(50.00m, calculo.PunitorioCalculado);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("no es json {")]
+    [InlineData("[1,2]")]
+    [InlineData("{\"ReglaGracia\":\"Otra\"}")]
+    [InlineData("{\"ReglaGracia\":7}")]
+    public async Task C10_SnapshotIlegibleODeReglaDesconocida_NoSeAsumeReglaAnterior_BloqueaNuevasAplicacionesYConservaElImporte(string snapshot)
+    {
+        // Aplicación GraciaReal de $400 pagada cuyo snapshot quedó dañado: con la regla anterior supuesta el teórico sería 1.000 y se podrían cobrar
+        // otros $600 sin que pase un solo día. No se asume ninguna regla: la cuota no admite nuevas aplicaciones y los $400 quedan intactos.
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-20).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 12, vigenteDesde: new DateOnly(2025, 1, 1));
+        var danada = await SeedAplicacionAnteriorAsync(cuota.Id, 400m, EstadoPunitorioAplicado.Pagado, snapshot);
+
+        var ex = await Assert.ThrowsAsync<PunitorioAplicadoRechazadoException>(() => _service.AplicarAsync(cuota.Id, Comando()));
+
+        Assert.Equal(MotivoRechazoPunitorioAplicado.Conflicto, ex.Motivo);
+        Assert.Equal(1, await _context.PunitoriosAplicados.CountAsync(p => p.CuotaId == cuota.Id));
+        var enBd = await _context.PunitoriosAplicados.AsNoTracking().SingleAsync(p => p.Id == danada.Id);
+        Assert.Equal(400m, enBd.Importe);
+        Assert.Equal(EstadoPunitorioAplicado.Pagado, enBd.Estado);
+        // La consulta (sin aplicar) sigue disponible y usa la regla vigente: no falla ni cobra nada.
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+        Assert.Equal(400.00m, calculo.PunitorioCalculado);
+    }
 }

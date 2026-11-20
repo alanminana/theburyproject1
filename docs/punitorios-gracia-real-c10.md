@@ -27,14 +27,14 @@ El importe se calcula a la fecha de cobro, pero **solo se cobra lo aplicado y co
 
 Los importes ya aplicados o cobrados **no se modifican nunca**: el cobro lee `PunitorioAplicado.Importe`, no recalcula. El riesgo real era otro: `AplicarAsync` calcula el teórico acumulado y le resta lo ya aplicado; con la regla nueva el teórico de una cuota con punitorio aplicado bajo la regla anterior sería menor que lo aplicado y la cuota quedaría bloqueada ("el cálculo actual es menor a lo ya aplicado").
 
-Solución sin migración ni reinterpretación: cada aplicación nueva guarda en su snapshot (`DesgloseSnapshotJson.ReglaGracia`) `GraciaReal` o `Retroactiva`. Una cuota con alguna aplicación **no anulada** sin marca (snapshot anterior a C10, vacío o ilegible) o marcada `Retroactiva` sigue calculándose con la regla anterior hasta saldarse, de modo que el diferencial es coherente con lo confirmado y cobrado. Las cuotas sin historia (y las que solo tienen aplicaciones anuladas) usan la gracia real. `PunitorioAplicado.DiasComputados` pasa a ser los días que devengaron (en cuotas con la regla anterior sigue siendo el atraso total).
+Solución sin migración ni reinterpretación: cada aplicación nueva guarda en su snapshot (`DesgloseSnapshotJson.ReglaGracia`) `GraciaReal` o `Retroactiva`. Una cuota con alguna aplicación **no anulada** sin marca (snapshot anterior a C10, vacío o ilegible) o marcada `Retroactiva` sigue calculándose con la regla anterior hasta saldarse, de modo que el diferencial es coherente con lo confirmado y cobrado. Las cuotas sin historia (y las que solo tienen aplicaciones anuladas) usan la gracia real. Un snapshot **ilegible, vacío o con marca desconocida** no se interpreta como ninguna regla (suponer la anterior podría permitir cobrar de más): la cuota no admite nuevas aplicaciones (conflicto recuperable: revisar y, si corresponde, anular esa aplicación), la consulta sigue disponible con la regla vigente y los importes ya confirmados y su cobro no se tocan (hallazgo de la revisión de Codex, corregido). `PunitorioAplicado.DiasComputados` pasa a ser los días que devengaron (en cuotas con la regla anterior sigue siendo el atraso total).
 
 Caso concreto a conocer: una cuota con punitorio aplicado antes de C10 conservará la regla retroactiva para sus aplicaciones sucesivas. No se inventó otra solución; si el propietario prefiere reexpresar esas cuotas (anular y reaplicar) es una decisión operativa por cuota. La base nueva de la puesta en marcha no tiene históricos, así que no le aplica.
 
 ## Evidencia
 
 - `PunitorioGraciaRealTests` (26): tabla del propietario, gracias 0/3/30, mes/año/bisiesto, pagos parciales (dentro y después de la gracia), cuota no vencida o adelantada, cambio de configuración con otra gracia, inactiva.
-- `PunitorioServiceTests.C10_*` (6): aplicación y snapshot, historia conservada, anuladas, recálculo tras confirmar (sin redevengar), día comercial argentino.
+- `PunitorioServiceTests.C10_*` (11, incluye 5 casos de snapshot dañado): aplicación y snapshot, historia conservada, anuladas, recálculo tras confirmar (sin redevengar), día comercial argentino.
 - Pruebas previas actualizadas con importes recalculados a mano (atraso 11 con gracia 5 = 6 días = $300 sobre $10.000 al 10 %/20 días); el oráculo E2E `e2e-tx/financiero/lib/reglas.js` quedó alineado.
 
 ## No cubre
