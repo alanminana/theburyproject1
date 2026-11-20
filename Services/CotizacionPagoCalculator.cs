@@ -1,3 +1,4 @@
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.Models.Enums;
@@ -726,7 +727,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             // Tarjeta/débito/digital: la venta registra Venta.Total truncado a pesos enteros
             // (VentaService.TruncarAPesos). El cotizador muestra y persiste ese mismo total para que
             // cotización -> venta -> caja -> factura den un único importe. Efectivo/Transferencia conservan centavos.
-            Total = truncarAPesos ? Math.Floor(calculo.TotalFinal) : calculo.TotalFinal,
+            Total = truncarAPesos ? CriterioFiscalRegistry.Vigente.TruncarAPesos(calculo.TotalFinal) : calculo.TotalFinal,
             ValorCuota = calculo.ValorCuota,
             Recomendado = calculo.CantidadCuotas == 1 && calculo.PorcentajeAjuste <= 0m
         };

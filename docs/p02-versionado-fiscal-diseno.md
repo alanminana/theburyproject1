@@ -155,3 +155,7 @@ Reglas C1–C15 y P1–P4/P6 de §6; el tratamiento de ventas pre-snapshot (§8.
 - Sin cambios accidentales de resultados; sin camino para inyectar/pisar el snapshot (BindNever + mapeo ignorado; solo se estampa en Create, conversión de cotización y Mercado Libre).
 - `VentasNetas` ahora también relee con el snapshot. Con una versión desconocida, `VentasNetas`/`DevolucionService` siguen **fallando explícitamente** (no degradan como el reporte de IVA): decisión conservadora, abierta a revisar.
 - **Bloqueante para cerrar P-02**: política de backfill de las ventas pre-snapshot (§8.2). Cualquier backfill debe fijar el valor sin leer la configuración.
+
+## 9. Versión 2 (2026-11-19)
+
+`CriterioFiscalV2` (redondeo comercial a pesos, respuestas C1/C2) está registrada pero **no es la vigente**; ver `docs/p02-respuestas-contador-20261119.md`. V1 no se modificó: sus resultados son idénticos (las variantes parametrizables de `RecargoMedioPagoIva` reciben `Math.Floor`).

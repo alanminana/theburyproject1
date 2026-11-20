@@ -307,7 +307,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     [Theory]
     // 0 no se prueba por inserción: EF lo toma como «sin valor» (HasDefaultValue(1)) y guarda 1.
     [InlineData(-1)]
-    [InlineData(2)]
+    [InlineData(3)] // la 2 ya existe (CriterioFiscalV2, registrada y no vigente)
     [InlineData(99)]
     public async Task ReporteIva_VersionInexistenteOInvalida_NoFalla_ExcluyeLaVenta_YLaInformaAparte(int version)
     {

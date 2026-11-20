@@ -117,3 +117,5 @@ Base: resumen preliminar del contador transmitido por el propietario el 2026-11-
 | P4 | ¿Se autoriza agregar al impreso de factura interna la leyenda «documento no válido como factura» (sí/no)? Texto legal a definir por el contador. | Hallazgo F4.4: el impreso muestra la letra A/B/C sin leyenda (`docs/iva-preservacion-historica.md` §4). |
 | P5 | ¿Se autoriza versionar el criterio de cálculo por operación (sí/no)? | Sin versión, un cambio fiscal futuro reescribe en lectura el Reporte de IVA y el comprobante de ventas históricas (`docs/iva-preservacion-historica.md` §2–3). Debe decidirse **antes** de implementar cualquier fila. |
 | P6 | Autorización por fila: cuál de 2.1–2.8 se implementa y desde qué fecha de corte. | Ninguna se implementa sin autorización expresa. |
+
+> **Actualización 2026-11-19 (respuestas C1–C15):** clasificación, contraste legal, `CriterioFiscalV2` (registrada, no vigente), consulta consolidada y decisiones pendientes en `docs/p02-respuestas-contador-20261119.md`. P-02 sigue EN REVISIÓN.

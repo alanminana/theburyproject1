@@ -24,7 +24,11 @@ namespace TheBuryProject.Helpers
         /// 0 si no hay recargo (o si hay un descuento: eso no se discrimina aquí).
         /// </summary>
         public static decimal CalcularRecargo(decimal totalCobrado, decimal brutoItems) =>
-            Math.Max(0m, totalCobrado - Math.Floor(brutoItems));
+            CalcularRecargo(totalCobrado, brutoItems, Math.Floor);
+
+        /// <summary>Igual que <see cref="CalcularRecargo(decimal, decimal)"/> con la regla de redondeo a pesos de la versión fiscal (V2: comercial).</summary>
+        public static decimal CalcularRecargo(decimal totalCobrado, decimal brutoItems, Func<decimal, decimal> aPesos) =>
+            Math.Max(0m, totalCobrado - aPesos(brutoItems));
 
         /// <summary>Reparte <paramref name="importe"/> en centavos proporcionalmente a <paramref name="pesos"/> (mayor resto).</summary>
         public static decimal[] Prorratear(IReadOnlyList<decimal> pesos, decimal importe)
@@ -100,7 +104,18 @@ namespace TheBuryProject.Helpers
         /// absorbe primero del IVA y luego del neto. Garantía: <c>Neto + Iva == total</c> cuando los ítems son coherentes.
         /// Las partes devueltas llevan el signo del ajuste (negativas si es un descuento).
         /// </summary>
-        public static Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas)
+        public static Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) =>
+            Discriminar(total, lineas, Math.Floor);
+
+        /// <summary>
+        /// <see cref="Discriminar(decimal, IReadOnlyList{ValueTuple{decimal, decimal, decimal, decimal}})"/> con la regla de redondeo a pesos
+        /// de la versión fiscal. <c>Discriminacion.Truncado</c> es el residuo de redondeo CON SIGNO: positivo si el total se redondeó hacia
+        /// abajo (V1 siempre; V2 hasta $0,50), negativo si se redondeó hacia arriba (solo V2). Con <c>Math.Floor</c> es idéntico a V1.
+        /// </summary>
+        public static Discriminacion Discriminar(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos)
         {
             var bruto = lineas.Sum(l => l.Bruto);
             var netoLineas = lineas.Sum(l => l.Neto);
@@ -111,11 +126,11 @@ namespace TheBuryProject.Helpers
                 return new Discriminacion(Array.Empty<ParteAlicuota>(), 0m, netoLineas, ivaLineas);
 
             // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
-            var truncado = total == Math.Floor(total) ? bruto - Math.Floor(bruto) : 0m;
+            var truncado = total == Math.Floor(total) ? bruto - aPesos(bruto) : 0m;
             var ajuste = total - (bruto - truncado);
             if (Math.Abs(ajuste) < 0.005m)
             {
-                var (n0, i0) = AbsorberTruncado(netoLineas, ivaLineas, truncado);
+                var (n0, i0) = AbsorberRedondeo(netoLineas, ivaLineas, truncado);
                 var residuo0 = total - (n0 + i0);
                 if (residuo0 != 0m && Math.Abs(residuo0) <= 0.05m * Math.Max(1, lineas.Count))
                     i0 += residuo0;
@@ -126,7 +141,7 @@ namespace TheBuryProject.Helpers
             var partes = Repartir(lineas.Select(l => (l.Porcentaje, l.Bruto)), Math.Abs(ajuste))
                 .Select(p => new ParteAlicuota(p.Porcentaje, signo * p.Bruto, signo * p.Neto, signo * p.Iva))
                 .ToList();
-            var (neto, iva) = AbsorberTruncado(netoLineas + partes.Sum(p => p.Neto), ivaLineas + partes.Sum(p => p.Iva), truncado);
+            var (neto, iva) = AbsorberRedondeo(netoLineas + partes.Sum(p => p.Neto), ivaLineas + partes.Sum(p => p.Iva), truncado);
             // Si el snapshot de alguna línea difiere del bruto en centavos (neto + IVA != total de la línea), el centavo se
             // absorbe en el IVA para que neto + IVA == total cobrado.
             var residuo = total - (neto + iva);
@@ -141,9 +156,15 @@ namespace TheBuryProject.Helpers
         /// IVA. Es el mismo desglose que imprime el comprobante de factura; la suma de los totales es siempre <paramref name="total"/>
         /// (cuando los ítems son coherentes) y la de neto + IVA también.
         /// </summary>
-        public static List<ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas)
+        public static List<ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) =>
+            ResumenPorAlicuota(total, lineas, Math.Floor);
+
+        public static List<ParteAlicuota> ResumenPorAlicuota(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos)
         {
-            var d = Discriminar(total, lineas);
+            var d = Discriminar(total, lineas, aPesos);
             var buckets = lineas
                 .GroupBy(l => l.Porcentaje)
                 .ToDictionary(g => g.Key, g => new ParteAlicuota(g.Key, g.Sum(l => l.Bruto), g.Sum(l => l.Neto), g.Sum(l => l.Iva)));
@@ -154,10 +175,10 @@ namespace TheBuryProject.Helpers
                     : parte;
             }
 
-            if (d.Truncado > 0m && buckets.Count > 0)
+            if (d.Truncado != 0m && buckets.Count > 0)
             {
                 var destino = buckets.Values.OrderByDescending(b => b.Iva).First();
-                var (neto, iva) = AbsorberTruncado(destino.Neto, destino.Iva, d.Truncado);
+                var (neto, iva) = AbsorberRedondeo(destino.Neto, destino.Iva, d.Truncado);
                 buckets[destino.Porcentaje] = new ParteAlicuota(destino.Porcentaje, destino.Bruto - ((destino.Neto - neto) + (destino.Iva - iva)), neto, iva);
             }
 
@@ -173,6 +194,19 @@ namespace TheBuryProject.Helpers
             if (truncado <= 0m) return (neto, iva);
             var deIva = Math.Min(truncado, iva);
             return (neto - (truncado - deIva), iva - deIva);
+        }
+
+        /// <summary>
+        /// Residuo de redondeo a pesos CON SIGNO. Positivo (el total quedó por debajo de los ítems): igual que
+        /// <see cref="AbsorberTruncado"/> (primero IVA, luego neto). Negativo (el total se redondeó hacia arriba, solo V2):
+        /// el excedente se suma al IVA para que Neto + IVA == Total; si no hay IVA (venta exenta) se suma al neto, de modo
+        /// que nunca aparezca IVA en una venta sin alícuota.
+        /// </summary>
+        public static (decimal Neto, decimal Iva) AbsorberRedondeo(decimal neto, decimal iva, decimal residuo)
+        {
+            if (residuo >= 0m) return AbsorberTruncado(neto, iva, residuo);
+            var exceso = -residuo;
+            return iva > 0m ? (neto, iva + exceso) : (neto + exceso, iva);
         }
     }
 }

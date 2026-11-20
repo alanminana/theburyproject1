@@ -317,6 +317,57 @@ public class FiscalVersionadoP02Tests : IDisposable
         }
     }
 
+    /// <summary>
+    /// P-02 / C1-C2 (respuesta del contador 2026-11-19): con <see cref="CriterioFiscalV2"/> vigente (solo en prueba: en producción la
+    /// vigente sigue siendo 1) una venta nueva se redondea comercialmente a pesos y la cadena venta → comprobante → Reporte de IVA
+    /// cierra: Neto + IVA == Total en cada capa, aunque el total haya subido por el redondeo.
+    /// </summary>
+    [Theory]
+    [InlineData(1000.49, 1000)]
+    [InlineData(1000.50, 1000)]
+    [InlineData(1000.51, 1001)]
+    [InlineData(1000.99, 1001)]
+    [InlineData(999.99, 1000)]
+    public async Task CriterioV2_RedondeoComercial_VentaComprobanteYReporteIvaCierranContraElTotal(double precio, int totalEsperado)
+    {
+        var (cliente, producto) = await SeedBaseAsync((decimal)precio);
+        var dia = DateTime.UtcNow.Date;
+
+        using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: CriterioFiscalRegistry.VersionDosRedondeoComercial);
+        var creada = await _ventas.CreateAsync(new VentaViewModel
+        {
+            ClienteId = cliente.Id, FechaVenta = DateTime.UtcNow, Estado = EstadoVenta.Cotizacion, TipoPago = TipoPago.Efectivo,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = (decimal)precio } }
+        });
+
+        var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
+        Assert.Equal(2, venta.CriterioFiscalVersion);
+        Assert.Equal(totalEsperado, venta.Total);
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);   // C3: no queda ninguna diferencia sin explicar
+        Assert.True(venta.IVA > 0m && venta.Subtotal > 0m);
+
+        venta.Estado = EstadoVenta.Facturada;
+        venta.FechaFacturacion = dia;
+        var factura = new Factura
+        {
+            VentaId = venta.Id, Numero = $"FV2-{Interlocked.Increment(ref _n)}", Tipo = TipoFactura.B, FechaEmision = dia,
+            Subtotal = venta.Subtotal, IVA = venta.IVA, Total = venta.Total
+        };
+        _context.Facturas.Add(factura);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var comprobante = await ComprobanteAsync(factura.Id);
+        Assert.Equal(totalEsperado, comprobante.Totales.Total);
+        Assert.Equal(comprobante.Totales.Total, comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible + r.IVA));
+        Assert.Equal(comprobante.Totales.Total, comprobante.ResumenAlicuotas.Sum(r => r.Total));
+
+        var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
+        Assert.Equal(totalEsperado, reporte.VentasTotal);
+        Assert.Equal(reporte.VentasTotal, reporte.VentasNeto + reporte.VentasIva);
+        Assert.Equal(venta.IVA, reporte.VentasIva);
+    }
+
     [Fact]
     public async Task OperacionConVersionNoRegistrada_FallaEnVezDeCalcularConOtrasReglas()
     {
