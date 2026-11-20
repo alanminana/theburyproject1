@@ -58,7 +58,10 @@ log INFO "=== backup '$MODE' inicio (db=$DB_NAME dir=$BACKUP_DIR) ==="
 # El lock se toma ANTES de los prerequisitos: asi la recuperacion de `app` (abajo) corre en cualquier modo aunque SQL no responda.
 # P-06: el full/archivos diario no puede perderse por coincidir con el log de 15 min (mismo segundo de cron): espera el lock hasta
 # BACKUP_LOCK_WAIT_SEC (default 180 s). El modo `log` no espera: el siguiente corre en 15 min y el full ya lo cubre.
-if [[ "$MODE" != log ]]; then BK_LOCK_WAIT="${BACKUP_LOCK_WAIT_SEC:-180}"; fi
+if [[ "$MODE" != log ]]; then
+  BK_LOCK_WAIT=$(cfg BACKUP_LOCK_WAIT_SEC 180)
+  is_uint "$BK_LOCK_WAIT" || die $EX_USAGE "BACKUP_LOCK_WAIT_SEC debe ser un entero >= 0 (segundos; 0 = no esperar)"
+fi
 lrc=0; acquire_lock || lrc=$?
 if (( lrc == 1 )); then
   if [[ "$MODE" == log ]]; then

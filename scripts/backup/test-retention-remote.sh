@@ -320,7 +320,7 @@ EOS
 else
   echo "SKIP lock con espera: requiere flock (Linux/WSL)"
 fi
-check "backup.sh: los modos que no son log esperan el lock (BACKUP_LOCK_WAIT_SEC, default 180)" grep -qF 'BK_LOCK_WAIT="${BACKUP_LOCK_WAIT_SEC:-180}"' "$HERE/backup.sh"
+check "backup.sh: los modos que no son log esperan el lock (BACKUP_LOCK_WAIT_SEC via cfg: .env o COMPOSE_ENV_FILES, default 180)" grep -qF 'BK_LOCK_WAIT=$(cfg BACKUP_LOCK_WAIT_SEC 180)' "$HERE/backup.sh"
 check "backup.sh: full/archivos que no corrio por lock ocupado es ERROR (stderr); el log solo WARN" grep -qF "NO se realizo: el lock siguio ocupado" "$HERE/backup.sh"
 unset -f log; source "$HERE/lib.sh" >/dev/null 2>&1; set +e
 
