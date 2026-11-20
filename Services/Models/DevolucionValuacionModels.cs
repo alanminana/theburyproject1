@@ -18,10 +18,10 @@ public sealed record DevolucionValuacionProducto(
 }
 
 /// <summary>
-/// Vista previa por producto: valuación + unidades disponibles + importe exacto a reintegrar para 0..N unidades
-/// (el índice del arreglo es la cantidad). Lo calcula el servidor con la misma regla que persiste.
+/// Vista previa por producto: valuación + unidades disponibles + remanente reintegrable (lo cobrado menos lo ya devuelto).
+/// El importe de N unidades es <c>N == disponible ? remanente : min(N x precio unitario, remanente)</c> (<c>SubtotalDevolucion</c>).
 /// </summary>
 public sealed record DevolucionPreviewProducto(
     DevolucionValuacionProducto Valuacion,
     int CantidadDisponible,
-    decimal[] ImportePorCantidad);
+    decimal Remanente);

@@ -9,7 +9,7 @@ using TheBuryProject.Tests.Concurrency;
 namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
-/// P-02 (cierre): el importe que el operador ve en el modal «Crear devolución» (<c>importePorCantidad</c> del contexto) es EXACTAMENTE
+/// P-02 (cierre): el importe que el operador ve en el modal «Crear devolución» (<c>precioUnitario</c>, <c>remanente</c> y <c>cantidadDisponible</c> del contexto, con la regla que aplica el modal) es EXACTAMENTE
 /// el que persiste <c>CrearDevolucionAsync</c> en el detalle y el total. Antes el modal mostraba el precio de lista
 /// ($3.002,01) aunque lo cobrado fuera menor ($2.851,90). Cubre descuento y recargo del medio de pago, descuento de línea,
 /// alícuotas mixtas, devolución parcial y total, y que lista − descuentos + ajuste = total reintegrable.
@@ -81,8 +81,13 @@ public sealed class DevolucionPreviewImporteP02Tests : IClassFixture<CustomWebAp
     private static JsonElement Item(JsonElement venta, int productoId)
         => venta.GetProperty("items").EnumerateArray().First(i => i.GetProperty("productoId").GetInt32() == productoId);
 
+    // Misma regla que venta-devolucion-modal.js (importeDeItem): agotar las unidades = remanente; si no, precio unitario x cantidad con tope.
     private static decimal Importe(JsonElement item, int cantidad)
-        => item.GetProperty("importePorCantidad")[cantidad].GetDecimal();
+    {
+        var remanente = item.GetProperty("remanente").GetDecimal();
+        if (cantidad == item.GetProperty("cantidadDisponible").GetInt32()) return remanente;
+        return Math.Min(Math.Round(cantidad * item.GetProperty("precioUnitario").GetDecimal(), 2), remanente);
+    }
 
     private async Task<Devolucion> CrearAsync(Sembrada v, int productoId, int cantidad)
     {
@@ -97,6 +102,30 @@ public sealed class DevolucionPreviewImporteP02Tests : IClassFixture<CustomWebAp
             {
                 new() { ProductoId = productoId, Cantidad = cantidad, AccionRecomendada = AccionProducto.ReintegrarStock }
             });
+    }
+
+    [Fact(DisplayName = "REGRESION [P-02]: si otra devolucion cambia el remanente tras la vista previa, la confirmacion se rechaza (no se persiste un importe distinto al visto)")]
+    public async Task Confirmar_ConImporteEsperadoDistinto_SeRechazaYNoPersiste()
+    {
+        var v = await SembrarAsync(100m, new Linea(3, 33.34m, 0m, 100.02m, 21m));
+        var visto = Item(await ContextoAsync(v.VentaId), v.ProductoIds[0]);
+        var esperadoParaDos = Importe(visto, 2);
+
+        await CrearAsync(v, v.ProductoIds[0], 1);   // otra operadora devuelve 1 unidad antes
+
+        using var scope = _factory.Services.CreateScope();
+        var svc = scope.ServiceProvider.GetRequiredService<IDevolucionService>();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CrearDevolucionAsync(
+            new Devolucion { VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "P02 esperado", TipoResolucion = TipoResolucionDevolucion.NotaCredito },
+            new List<DevolucionDetalle> { new() { ProductoId = v.ProductoIds[0], Cantidad = 2, ImporteEsperado = esperadoParaDos, AccionRecomendada = AccionProducto.ReintegrarStock } }));
+        Assert.Contains("cambió", ex.Message);
+
+        // Con el importe correcto (el que corresponde ahora) sí se registra.
+        var ahora = Item(await ContextoAsync(v.VentaId), v.ProductoIds[0]);
+        var ok = await svc.CrearDevolucionAsync(
+            new Devolucion { VentaId = v.VentaId, ClienteId = v.ClienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "P02 esperado ok", TipoResolucion = TipoResolucionDevolucion.NotaCredito },
+            new List<DevolucionDetalle> { new() { ProductoId = v.ProductoIds[0], Cantidad = 2, ImporteEsperado = Importe(ahora, 2), AccionRecomendada = AccionProducto.ReintegrarStock } });
+        Assert.Equal(Importe(ahora, 2), ok.TotalDevolucion);
     }
 
     public static IEnumerable<object[]> Escenarios()

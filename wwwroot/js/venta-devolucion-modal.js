@@ -100,8 +100,16 @@
         fila('devolucion-desglose-total', total, true);
     }
 
-    // P-02: el importe sale del servidor (importePorCantidad, la misma regla que persiste la devolución); acá solo se suma y se
-    // reparte el desglose informativo (lista, descuentos, ajuste del medio de pago) en proporción a las unidades elegidas.
+    // P-02: mismo criterio que DevolucionService.SubtotalDevolucion: la devolución que agota las unidades reintegra el remanente
+    // (lo cobrado menos lo ya devuelto); si no, precio unitario reintegrable x cantidad con tope en el remanente. El servidor VERIFICA
+    // el importe enviado (ImporteEsperado) y rechaza la confirmación si cambió (otra devolución concurrente).
+    function importeDeItem(item, cantidad) {
+        if (!(cantidad > 0)) return 0;
+        const remanente = Number(item.remanente || 0);
+        if (cantidad === Number(item.cantidadDisponible)) return remanente;
+        return Math.min(Math.round(cantidad * Number(item.precioUnitario) * 100) / 100, remanente);
+    }
+
     function updateSelectedTotal() {
         let total = 0;
         let lista = 0;
@@ -112,10 +120,11 @@
             const checked = row.querySelector('.devolucion-item-check')?.checked;
             const cantidad = Number(row.querySelector('.devolucion-item-cantidad')?.value || 0);
             const item = context?.items?.[Number(row.dataset.index)];
+            const esperado = row.querySelector('.devolucion-item-importe');
+            if (esperado) esperado.value = checked && cantidad > 0 && item ? String(Math.round(importeDeItem(item, cantidad) * 100)) : '';
 
             if (checked && cantidad > 0 && item) {
-                const importes = item.importePorCantidad || [];
-                const importe = Number(importes[Math.min(cantidad, importes.length - 1)] || 0);
+                const importe = importeDeItem(item, cantidad);
                 const parte = item.cantidadVendida > 0 ? cantidad / item.cantidadVendida : 0;
                 total += importe;
                 lista += item.valorLista * parte;
@@ -137,6 +146,7 @@
                     <input type="hidden" name="Items[${index}].ProductoCodigo" value="${escapeHtml(item.productoCodigo || '')}" />
                     <input type="hidden" name="Items[${index}].CantidadDisponible" value="${item.cantidadDisponible}" />
                     <input type="hidden" name="Items[${index}].PrecioUnitario" value="${item.precioUnitario}" />
+                    <input type="hidden" class="devolucion-item-importe" name="Items[${index}].ImporteEsperadoCentavos" value="" />
                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                         <input type="checkbox"
                                class="devolucion-item-check size-4 rounded border-slate-300 text-primary focus:ring-primary"

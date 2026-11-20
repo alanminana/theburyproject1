@@ -275,6 +275,11 @@ public class DevolucionService : IDevolucionService
                 var valuacion = new DevolucionValuacionProducto(detalle.ProductoId, vendido.CantidadVendida, 0m, 0m, 0m, vendido.TotalVendido);
                 detalle.PrecioUnitario = valuacion.PrecioUnitarioReintegrable;
                 detalle.Subtotal = SubtotalDevolucion(detalle.Cantidad, disponible, valuacion, importeYaDevuelto);
+                // Lo que el operador confirmó es lo que se persiste: si otra devolución cambió el remanente entre la vista previa y esta
+                // confirmación, se rechaza y debe volver a abrir el modal (nunca se cobra/reintegra un importe distinto al visto).
+                if (detalle.ImporteEsperado.HasValue && detalle.ImporteEsperado.Value != detalle.Subtotal)
+                    throw new InvalidOperationException(
+                        $"El importe a reintegrar cambió (se mostraba {detalle.ImporteEsperado.Value:N2} y ahora corresponde {detalle.Subtotal:N2}) porque se registró otra devolución de esta venta. Volvé a abrir la devolución para confirmar el nuevo importe.");
                 total += detalle.Subtotal;
 
                 // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
@@ -928,10 +933,7 @@ public class DevolucionService : IDevolucionService
         {
             var (yaDevuelto, importe) = devuelto.TryGetValue(v.ProductoId, out var d) ? d : (0, 0m);
             var disponible = Math.Max(0, v.CantidadVendida - yaDevuelto);
-            var importes = Enumerable.Range(0, disponible + 1)
-                .Select(q => q == 0 ? 0m : SubtotalDevolucion(q, disponible, v, importe))
-                .ToArray();
-            return new DevolucionPreviewProducto(v, disponible, importes);
+            return new DevolucionPreviewProducto(v, disponible, Math.Max(0m, v.TotalReintegrable - importe));
         }).ToList();
     }
 

@@ -69,6 +69,10 @@ public class Devolucion  : AuditableEntity
 /// </summary>
 public class DevolucionDetalle  : AuditableEntity
 {
+    /// <summary>P-02: importe que el operador vio en la vista previa. No se persiste: si al crear difiere (otra devolución concurrente), se rechaza para que lo confirme de nuevo.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal? ImporteEsperado { get; set; }
+
     [Required]
     public int DevolucionId { get; set; }
 

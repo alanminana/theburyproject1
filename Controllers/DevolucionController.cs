@@ -227,7 +227,7 @@ public class DevolucionController : Controller
                     descuentos = item.Preview.Valuacion.DescuentoLineas,
                     ajusteMedioPago = item.Preview.Valuacion.AjusteMedioPago,
                     totalReintegrable = item.Preview.Valuacion.TotalReintegrable,
-                    importePorCantidad = item.Preview.ImportePorCantidad
+                    remanente = item.Preview.Remanente
                 })
             }
         });
@@ -316,6 +316,7 @@ public class DevolucionController : Controller
                 {
                     ProductoId = item.ProductoId,
                     Cantidad = item.CantidadDevolver,
+                    ImporteEsperado = item.ImporteEsperadoCentavos.HasValue ? item.ImporteEsperadoCentavos.Value / 100m : null,
                     EstadoProducto = item.EstadoProducto,
                     AccionRecomendada = _devolucionService.DeterminarAccionRecomendada(item.EstadoProducto)
                 })

@@ -266,7 +266,7 @@ public class FiscalAlicuotasMixtasP02Tests : IDisposable
     /// Barrido de combinaciones con alícuotas mixtas (21 / 10,5 / exento) y ajuste del medio de pago. Verifica, por versión:
     /// (1) el importe cobrado coincide con el oráculo independiente y <c>Neto + IVA = Total</c> (el defecto histórico de V1 NO toca
     /// lo cobrado); (2) V2 reconstruye el neto del comprobante exactamente igual al guardado (divergencia 0); (3) V1 puede diferir en
-    /// centavos entre el neto guardado y el reconstruido, pero siempre < $1,00 (el truncado a pesos; medido hasta $0,71) y sin alterar el total; (4) un
+    /// centavos entre el neto guardado y el reconstruido, de centavos en los casos con ajustes reales (−5 % / +3 %; medido hasta $0,71, y la prueba exige < $1: NO es una cota universal, un recargo del 999 % extremo da más) y sin alterar el total; (4) un
     /// comprobante de una venta V1 se interpreta idéntico aunque después la versión vigente pase a V2 (se resuelve por la versión
     /// persistida en la venta, no por la vigente).
     /// </summary>
