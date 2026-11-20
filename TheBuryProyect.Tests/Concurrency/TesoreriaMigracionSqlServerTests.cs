@@ -96,7 +96,9 @@ public class TesoreriaMigracionSqlServerTests
             var migraciones = ctx.Database.GetMigrations().ToList();
             var d03 = migraciones.Single(m => m.EndsWith(MigracionD03, StringComparison.Ordinal));
             var anterior = migraciones[migraciones.IndexOf(d03) - 1];
-            Assert.Equal(d03, migraciones.Last());
+            // D03 ya no tiene por qué ser la ÚLTIMA migración (las posteriores se aplican en el MigrateAsync() final); la prueba fija el
+            // esquema ANTERIOR a D03 y migra hasta el final: lo que importa es que D03 exista una sola vez y no sea la primera.
+            Assert.True(migraciones.IndexOf(d03) > 0);
 
             // 1) Esquema ANTERIOR + datos sintéticos con el defecto: tres pagos vigentes con el mismo cheque, uno anulado y un cheque sin repetir.
             await ctx.GetService<IMigrator>().MigrateAsync(anterior);

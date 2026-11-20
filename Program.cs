@@ -225,6 +225,7 @@ builder.Services.AddScoped<IConfiguracionActualizacionDatosClienteService, Confi
 builder.Services.AddScoped<IReporteService, ReporteService>();
 builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<IDevolucionService, DevolucionService>();
+builder.Services.AddScoped<INotaCreditoFiscalExternaService, NotaCreditoFiscalExternaService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<IChequeRecibidoService, CajaService>();
 builder.Services.AddScoped<ICajaVendedorService, CajaVendedorService>();

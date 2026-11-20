@@ -2706,6 +2706,13 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.MontoTotal).HasPrecision(18, 2);
                 entity.Property(e => e.MontoUtilizado).HasPrecision(18, 2);
+
+                // P-02 / P3 (preparado): una NC fiscal externa se vincula a una sola NC interna.
+                entity.Property(e => e.FiscalExternaImporte).HasPrecision(18, 2);
+                entity.HasIndex(e => new { e.FiscalExternaPuntoVenta, e.FiscalExternaTipo, e.FiscalExternaNumero })
+                    .IsUnique()
+                    .HasFilter("[FiscalExternaNumero] IS NOT NULL")
+                    .HasDatabaseName("IX_NotasCredito_FiscalExterna");
             });
 
             // NotaCreditoUso (H4-E2): canje de una nota de crédito como medio de pago de una venta

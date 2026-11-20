@@ -7559,6 +7559,36 @@ namespace TheBuryProject.Migrations
                     b.Property<DateTime?>("FechaVencimiento")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FiscalExternaCae")
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<DateTime?>("FiscalExternaFecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("FiscalExternaImporte")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("FiscalExternaNumero")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("FiscalExternaPuntoVenta")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<DateTime?>("FiscalExternaRegistradaEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FiscalExternaRegistradaPor")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FiscalExternaTipo")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -7597,6 +7627,11 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("DevolucionId")
                         .IsUnique();
+
+                    b.HasIndex("FiscalExternaPuntoVenta", "FiscalExternaTipo", "FiscalExternaNumero")
+                        .IsUnique()
+                        .HasDatabaseName("IX_NotasCredito_FiscalExterna")
+                        .HasFilter("[FiscalExternaNumero] IS NOT NULL");
 
                     b.ToTable("NotasCredito", (string)null);
                 });
