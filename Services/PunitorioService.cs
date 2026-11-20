@@ -77,7 +77,8 @@ namespace TheBuryProject.Services
                 .Where(c => !c.IsDeleted)
                 .ToListAsync(cancellationToken);
 
-            var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fecha));
+            var graciaRetroactiva = await ResolverReglaDeLaCuotaAsync(cuotaId, cancellationToken) == ReglaGraciaAplicada.Retroactiva;
+            var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fecha, graciaRetroactiva));
 
             var pendiente = await ObtenerPunitorioAplicadoPendienteAsync(cuotaId, cancellationToken);
 
@@ -124,7 +125,9 @@ namespace TheBuryProject.Services
                 .ToListAsync(cancellationToken);
 
             var fechaCalculo = _reloj.HoyComercial;
-            var resultadoCalculo = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo));
+            var graciaRetroactiva = ResolverReglaDeLaCuota(
+                aplicaciones.Where(a => a.Estado != EstadoPunitorioAplicado.Anulado).Select(a => a.DesgloseSnapshotJson)) == ReglaGraciaAplicada.Retroactiva;
+            var resultadoCalculo = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo, graciaRetroactiva));
 
             var pagosOrdenados = cuota.Pagos
                 .OrderByDescending(p => p.FechaPagoComercial)
@@ -398,7 +401,15 @@ namespace TheBuryProject.Services
                     .ToListAsync(cancellationToken);
 
                 var fechaCalculo = _reloj.HoyComercial;
-                var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo));
+                var reglaDeLaCuota = await ResolverReglaDeLaCuotaAsync(cuotaId, cancellationToken);
+                if (reglaDeLaCuota == ReglaGraciaAplicada.Desconocida)
+                    throw new PunitorioAplicadoRechazadoException(
+                        MotivoRechazoPunitorioAplicado.Conflicto,
+                        "No se puede determinar con qué regla de gracia se calculó un punitorio ya aplicado a esta cuota (registro ilegible). " +
+                        "Para no cobrar de más no se aplican nuevos punitorios hasta que se revise y, de corresponder, se anule esa aplicación. " +
+                        "Los importes ya confirmados y su cobro no se modifican.");
+                var graciaRetroactiva = reglaDeLaCuota == ReglaGraciaAplicada.Retroactiva;
+                var resultado = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo, graciaRetroactiva));
 
                 ValidarEstadoCalculable(resultado);
 
@@ -450,7 +461,9 @@ namespace TheBuryProject.Services
                     CuotaId = cuota.Id,
                     FechaCalculo = fechaCalculo,
                     SaldoBase = resultado.SaldoFinal,
-                    DiasComputados = resultado.DiasTranscurridos,
+                    // C10: días que realmente devengaron punitorio (gracia real). Con la regla anterior conservada para cuotas con
+                    // historia, sigue siendo el atraso total como siempre.
+                    DiasComputados = graciaRetroactiva ? resultado.DiasTranscurridos : resultado.Segmentos.Sum(sg => sg.DiasPunitorio),
                     Importe = diferencial,
                     Estado = EstadoPunitorioAplicado.Aplicado,
                     ConfiguracionPunitorioId = configUnica?.Id,
@@ -458,7 +471,7 @@ namespace TheBuryProject.Services
                     PeriodoDias = configUnica?.PeriodoDias,
                     DiasGracia = configUnica?.DiasGracia,
                     DesgloseSnapshotJson = JsonSerializer.Serialize(
-                        ConstruirSnapshot(resultado, configuraciones, teorico, importePreviamenteAplicado, diferencial),
+                        ConstruirSnapshot(resultado, configuraciones, teorico, importePreviamenteAplicado, diferencial, graciaRetroactiva),
                         SnapshotJsonOptions),
                     MotivoAplicacion = comando.Motivo.Trim(),
                     FechaAplicacion = _reloj.AhoraUtc,
@@ -824,9 +837,80 @@ namespace TheBuryProject.Services
             decimal? ImporteTeorico,
             decimal? ImportePreviamenteAplicado);
 
-        private static PunitorioCalculoEntrada ConstruirEntrada(
-            Cuota cuota, IReadOnlyList<ConfiguracionPunitorio> configuraciones, DateOnly fechaCalculo) => new()
+        internal const string ReglaGraciaReal = "GraciaReal";
+        internal const string ReglaGraciaRetroactiva = "Retroactiva";
+
+        /// <summary>Regla de gracia con la que se calculó una aplicación (C10), según su snapshot persistido.</summary>
+        internal enum ReglaGraciaAplicada { Real, Retroactiva, Desconocida }
+
+        /// <summary>
+        /// C10: regla con la que se debe calcular la cuota según sus aplicaciones no anuladas (activas o pagadas; las anuladas nunca se
+        /// cobraron). <c>Retroactiva</c> si alguna fue calculada con la regla anterior (PUN-ML4): snapshot válido sin marca de regla (anterior a
+        /// C10) o marcado <c>Retroactiva</c>; la cuota sigue con esa regla hasta saldarse para que el diferencial sea coherente con lo ya
+        /// confirmado y cobrado. <c>Desconocida</c> si algún snapshot es ilegible, vacío o trae una marca no reconocida: no se puede demostrar
+        /// con qué regla se calculó, así que NO se asume ninguna (una suposición podría habilitar cobrar de más) y se bloquean nuevas
+        /// aplicaciones hasta resolverlo; los importes ya confirmados y su cobro no se tocan. <c>Real</c> en el resto (incluye cuotas sin historia).
+        /// </summary>
+        internal static ReglaGraciaAplicada ResolverReglaDeLaCuota(IEnumerable<string?> snapshotsNoAnulados)
         {
+            var regla = ReglaGraciaAplicada.Real;
+            foreach (var snapshot in snapshotsNoAnulados)
+            {
+                var r = ClasificarSnapshot(snapshot);
+                if (r == ReglaGraciaAplicada.Desconocida)
+                    return ReglaGraciaAplicada.Desconocida;
+                if (r == ReglaGraciaAplicada.Retroactiva)
+                    regla = ReglaGraciaAplicada.Retroactiva;
+            }
+            return regla;
+        }
+
+        private static ReglaGraciaAplicada ClasificarSnapshot(string? snapshotJson)
+        {
+            if (string.IsNullOrWhiteSpace(snapshotJson))
+                return ReglaGraciaAplicada.Desconocida;
+            try
+            {
+                using var document = JsonDocument.Parse(snapshotJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    return ReglaGraciaAplicada.Desconocida;
+                foreach (var propiedad in document.RootElement.EnumerateObject())
+                {
+                    if (!string.Equals(propiedad.Name, nameof(PunitorioAplicadoSnapshot.ReglaGracia), StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (propiedad.Value.ValueKind != JsonValueKind.String)
+                        return ReglaGraciaAplicada.Desconocida;
+                    return propiedad.Value.GetString() switch
+                    {
+                        ReglaGraciaReal => ReglaGraciaAplicada.Real,
+                        ReglaGraciaRetroactiva => ReglaGraciaAplicada.Retroactiva,
+                        _ => ReglaGraciaAplicada.Desconocida
+                    };
+                }
+                // Objeto válido sin marca de regla: snapshot de PUN-ML5/ML6, anterior a C10 (regla retroactiva).
+                return ReglaGraciaAplicada.Retroactiva;
+            }
+            catch (JsonException)
+            {
+                return ReglaGraciaAplicada.Desconocida;
+            }
+        }
+
+        private async Task<ReglaGraciaAplicada> ResolverReglaDeLaCuotaAsync(int cuotaId, CancellationToken cancellationToken)
+        {
+            var snapshots = await _context.PunitoriosAplicados
+                .AsNoTracking()
+                .Where(p => p.CuotaId == cuotaId && p.Estado != EstadoPunitorioAplicado.Anulado)
+                .Select(p => p.DesgloseSnapshotJson)
+                .ToListAsync(cancellationToken);
+
+            return ResolverReglaDeLaCuota(snapshots);
+        }
+
+        private static PunitorioCalculoEntrada ConstruirEntrada(
+            Cuota cuota, IReadOnlyList<ConfiguracionPunitorio> configuraciones, DateOnly fechaCalculo, bool graciaRetroactiva = false) => new()
+        {
+            GraciaRetroactiva = graciaRetroactiva,
             MontoOriginalCuota = cuota.MontoTotal,
             FechaVencimiento = DateOnly.FromDateTime(cuota.FechaVencimiento),
             FechaCalculo = fechaCalculo,
@@ -874,7 +958,8 @@ namespace TheBuryProject.Services
             IReadOnlyList<ConfiguracionPunitorio> configuraciones,
             decimal punitorioTeoricoAcumulado,
             decimal importePreviamenteAplicado,
-            decimal importeNuevoAplicado)
+            decimal importeNuevoAplicado,
+            bool graciaRetroactiva)
         {
             var configuracionesUsadas = ConfiguracionesUsadasEnSegmentos(resultado, configuraciones)
                 .Select(c => new PunitorioAplicadoSnapshotConfiguracion
@@ -903,6 +988,7 @@ namespace TheBuryProject.Services
                         Desde = s.Desde,
                         Hasta = s.Hasta,
                         Dias = s.Dias,
+                        DiasPunitorio = s.DiasPunitorio,
                         SaldoBase = s.SaldoBase,
                         ConfiguracionPunitorioId = s.ConfiguracionPunitorioId,
                         Porcentaje = s.Porcentaje,
@@ -916,7 +1002,8 @@ namespace TheBuryProject.Services
                 ConfiguracionesUtilizadas = configuracionesUsadas,
                 PunitorioTeoricoAcumulado = punitorioTeoricoAcumulado,
                 ImportePreviamenteAplicado = importePreviamenteAplicado,
-                ImporteNuevoAplicado = importeNuevoAplicado
+                ImporteNuevoAplicado = importeNuevoAplicado,
+                ReglaGracia = graciaRetroactiva ? ReglaGraciaRetroactiva : ReglaGraciaReal
             };
         }
 

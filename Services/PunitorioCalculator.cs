@@ -25,8 +25,11 @@ namespace TheBuryProject.Services
     ///
     /// 3. Por tramo con configuración: si la configuración está inactiva, o si los días transcurridos
     ///    desde el vencimiento (globales, no los del tramo) no superan la gracia de ESA configuración,
-    ///    el importe es 0. Si no, <c>saldoBase × porcentaje/100 × díasDelTramo ÷ periodoDías</c>, sin
-    ///    redondear. El total es la suma exacta de los tramos, redondeada una única vez.
+    ///    el importe es 0. Si no, <c>saldoBase × porcentaje/100 × díasPunitorioDelTramo ÷ periodoDías</c>, sin
+    ///    redondear. C10 (2026-11-20, gracia real): los días punitorios del tramo son solo los posteriores a
+    ///    <c>FechaVencimiento + DiasGracia</c> (<c>DiasPunitorio = Max(0, DiasAtraso - DiasGracia)</c>); el devengo ya
+    ///    no es retroactivo desde el vencimiento. <see cref="PunitorioCalculoEntrada.GraciaRetroactiva"/> conserva la
+    ///    regla anterior solo para cuotas con punitorio ya aplicado bajo ella. El total es la suma exacta de los tramos, redondeada una única vez.
     ///
     /// Ventana autoritativa (PUN-ML4): el resultado corresponde exclusivamente a
     /// [FechaVencimiento, FechaCalculo). El caller puede pasar <c>Cuota.Pagos</c> y el historial
@@ -229,6 +232,7 @@ namespace TheBuryProject.Services
                         Desde = desde,
                         Hasta = hasta,
                         Dias = dias,
+                        DiasPunitorio = 0,
                         SaldoBase = saldoBase,
                         ConfiguracionPunitorioId = null,
                         Porcentaje = null,
@@ -241,9 +245,20 @@ namespace TheBuryProject.Services
                     continue;
                 }
 
-                var pasaGracia = diasTranscurridos > config.DiasGracia;
-                var importe = config.Activa && pasaGracia
-                    ? saldoBase * config.Porcentaje / 100m * dias / config.PeriodoDias
+                // C10: gracia real. Con la regla vigente solo cuentan los días posteriores a FechaVencimiento + DiasGracia (el día del
+                // vencimiento es el día 0): atraso 13 con gracia 12 = 1 día. La regla anterior (retroactiva, PUN-ML4) se conserva solo
+                // para cuotas con punitorio ya aplicado bajo ella.
+                int diasPunitorio;
+                if (entrada.GraciaRetroactiva)
+                    diasPunitorio = diasTranscurridos > config.DiasGracia ? dias : 0;
+                else
+                {
+                    var inicioPunitorio = entrada.FechaVencimiento.DayNumber + config.DiasGracia;
+                    diasPunitorio = Math.Max(0, hasta.DayNumber - Math.Max(desde.DayNumber, inicioPunitorio));
+                }
+
+                var importe = config.Activa
+                    ? saldoBase * config.Porcentaje / 100m * diasPunitorio / config.PeriodoDias
                     : 0m;
 
                 segmentos.Add(new SegmentoPunitorio
@@ -251,6 +266,7 @@ namespace TheBuryProject.Services
                     Desde = desde,
                     Hasta = hasta,
                     Dias = dias,
+                    DiasPunitorio = diasPunitorio,
                     SaldoBase = saldoBase,
                     ConfiguracionPunitorioId = config.Id,
                     Porcentaje = config.Porcentaje,

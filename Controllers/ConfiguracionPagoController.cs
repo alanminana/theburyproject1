@@ -1065,7 +1065,7 @@ namespace TheBuryProject.Controllers
 
             return $"Se aplica un {c.Porcentaje.ToString("0.##")}% cada {c.PeriodoDias} día(s), prorrateado diariamente. " +
                    $"Durante los primeros {c.DiasGracia} día(s) posteriores al vencimiento no se cobra. " +
-                   "Al superar la gracia, el cálculo se realiza desde la fecha de vencimiento.";
+                   "Al superar la gracia solo devengan los días posteriores a ella (gracia real, sin retroactividad).";
         }
 
         #endregion

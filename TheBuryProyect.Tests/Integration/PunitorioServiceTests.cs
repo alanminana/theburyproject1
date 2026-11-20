@@ -205,7 +205,7 @@ public sealed class PunitorioServiceTests : IDisposable
     public async Task CalcularCuotaAsync_ConConfiguracionValida_DevuelveResultadoExactoDelCalculator()
     {
         // Ejemplo numérico del plan: $10.000, vencida hace 6 días, gracia 5, 10% cada 20 días → $300.
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var resultado = await _service.CalcularCuotaAsync(cuota.Id);
@@ -278,7 +278,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task CalcularCuotaAsync_SinFechaExplicita_UsaHoyComercialDelReloj()
     {
-        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var resultado = await _service.CalcularCuotaAsync(cuota.Id);
@@ -289,7 +289,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task CalcularCuotaAsync_ConPunitorioAplicadoPendiente_LoRefleja()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         await _service.AplicarAsync(cuota.Id, Comando());
@@ -434,7 +434,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_VencidaSinAplicacion_MuestraCalculoInformativoYPendienteRealCero()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
@@ -449,7 +449,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_AplicacionActivaSinPagos_MuestraPendienteCompletoYSnapshotTipado()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         _context.ChangeTracker.Clear();
@@ -471,7 +471,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_AplicacionParcialmentePagada_DerivaProgresoCorrecto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         await SeedPagoAsync(
@@ -491,7 +491,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_AplicacionTotalmentePagada_DerivaPagadoYPendienteCero()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         await SeedPagoAsync(
@@ -513,7 +513,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_AplicacionAnulada_QuedaEnHistorialYNoApareceActiva()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         await _service.AnularAsync(aplicada.Id, new PunitorioAnularComando { Motivo = "Error verificado" });
@@ -571,7 +571,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_PagosProyectanComposicionVinculoYOrdenEstable()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         var fechaAnterior = _reloj.HoyComercial.AddDays(-1);
@@ -601,7 +601,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_PagoSoloAPunitorio_DejaCapitalIntacto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         await SeedPagoAsync(
@@ -622,7 +622,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_PagoMixto_MuestraComposicionExacta()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         var tracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
@@ -648,7 +648,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_HistorialIncompleto_NoInventaComposicionNiProgreso()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
         await SeedPagoAsync(
@@ -678,7 +678,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_MontoPunitorioLegacy_NoAlteraElContrato()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var baseLine = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
 
@@ -697,7 +697,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_CreditoTasaInteres_NoAlteraElPunitorio()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var baseLine = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
 
@@ -715,7 +715,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerDetalleCuotaAsync_Repetida_ProduceMismoResultadoYCeroEscrituras()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _context.ChangeTracker.Clear();
 
@@ -778,7 +778,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_Valido_PersisteSnapshotExacto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         var config = new ConfiguracionPunitorio
         {
             Porcentaje = 10m, PeriodoDias = 20, DiasGracia = 5, ProrrateoDiario = true,
@@ -792,7 +792,7 @@ public sealed class PunitorioServiceTests : IDisposable
 
         Assert.Equal(300.00m, aplicado.Importe);
         Assert.Equal(10_000m, aplicado.SaldoBase);
-        Assert.Equal(6, aplicado.DiasComputados);
+        Assert.Equal(6, aplicado.DiasComputados);   // C10: 11 días de atraso - 5 de gracia = 6 días punitorios
         Assert.Equal(EstadoPunitorioAplicado.Aplicado, aplicado.Estado);
         Assert.Equal("operador1", aplicado.UsuarioAplicacion);
         Assert.Equal("Confirmado por supervisor", aplicado.MotivoAplicacion);
@@ -809,7 +809,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_IgnoraElMontoPunitorioLegacyDeLaCuota()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         // Campo legacy manipulado con un valor absurdo: AplicarAsync nunca debe leerlo como autoridad.
@@ -917,7 +917,7 @@ public sealed class PunitorioServiceTests : IDisposable
         var relojFijo = new RelojComercialFake(new DateOnly(2026, 8, 1)) { AhoraUtc = new DateTime(2026, 8, 1, 15, 30, 0, DateTimeKind.Utc) };
         var currentUserServidor = new StubCurrentUserServicePunitorio { Username = "operador-servidor" };
         var servicio = CrearServicio(_context, relojFijo, currentUserServidor);
-        var cuota = await SeedCuotaAsync(10_000m, relojFijo.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, relojFijo.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var aplicado = await servicio.AplicarAsync(cuota.Id, Comando());
@@ -930,7 +930,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_MotivoVacio_SeRechaza()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var ex = await Assert.ThrowsAsync<PunitorioAplicadoRechazadoException>(
@@ -950,7 +950,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_NoModificaMontoPagadoDeLaCuota()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         await _service.AplicarAsync(cuota.Id, Comando());
@@ -965,7 +965,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_NoRegistraCaja()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         await _service.AplicarAsync(cuota.Id, Comando());
@@ -980,7 +980,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_DobleClick_NoDuplica()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         await _service.AplicarAsync(cuota.Id, Comando());
@@ -995,7 +995,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ReintentoIdenticoTrasExito_DevuelveConflicto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         var primera = await _service.AplicarAsync(cuota.Id, Comando());
@@ -1014,7 +1014,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_DosContextosConcurrentes_SoloUnaAplicacionPersiste()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _context.ChangeTracker.Clear();
 
@@ -1093,7 +1093,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ConRowVersionDesactualizada_SeRechazaComoConflicto()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         // RowVersion distinto al real de la cuota (ej.: el que el operador vio quedó desactualizado
@@ -1117,7 +1117,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_ConservaLaFilaYNoCuentaComoPendiente()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
         _context.ChangeTracker.Clear();
@@ -1146,7 +1146,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_MotivoVacio_SeRechaza()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1166,7 +1166,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_NoSePuedeAnularDosVeces()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1181,7 +1181,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_NoSePuedeAnularUnaPagada()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1201,7 +1201,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_ConRowVersionDesactualizada_TrasOtraAnulacion_SeRechaza()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
         var rowVersionVieja = (byte[])aplicado.RowVersion.Clone();
@@ -1227,7 +1227,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_DosContextosConcurrentes_SoloUnaAnulacionPersiste()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
         _context.ChangeTracker.Clear();
@@ -1274,7 +1274,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_UsuarioNoAutenticado_SeRechaza()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _currentUser.Authenticated = false;
 
@@ -1288,7 +1288,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_UsuarioAutenticadoSinPermiso_SeRechaza()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _currentUser.Permisos.Remove(("cobranzas", "applyfine"));
 
@@ -1302,7 +1302,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_UsuarioConPermiso_PuedeAplicarYElActorPersistidoCoincideConElAutenticado()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _currentUser.Username = "operador-real";
 
@@ -1314,7 +1314,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_RechazoDeAutorizacion_NoModificaNadaDeLaCuotaNiCaja()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _currentUser.Authenticated = false;
 
@@ -1332,7 +1332,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_UsuarioSinPermisoDeAnulacion_NoPuedeAnular()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1350,7 +1350,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_UsuarioConPermisoDeAnulacion_PuedeAnular()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1362,7 +1362,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_UsuarioConPermisoDeAplicarPeroNoDeAnular_NoPuedeAnular()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         _currentUser.Permisos.Remove(("cobranzas", "revertfine"));
 
@@ -1450,7 +1450,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerPunitorioAplicadoPendienteAsync_NetaLosPagosEfectivosYaAtribuidos()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
@@ -1464,7 +1464,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerPunitorioAplicadoPendienteAsync_IgnoraPagosAnulados()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
@@ -1478,7 +1478,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task ObtenerAplicacionActivaConProgresoAsync_DevuelveMontoPagadoYPendienteCorrectos()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
@@ -1505,7 +1505,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularAsync_NoSePuedeAnularUnaAplicacionConPagosParciales()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
@@ -1529,7 +1529,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ConAplicacionPagadaYMasDiasTranscurridos_AplicaSoloElDiferencial()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
@@ -1541,12 +1541,12 @@ public sealed class PunitorioServiceTests : IDisposable
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 
-        // Avanza 10 días más (16 días de atraso en total): teórico acumulado = 10000*0.10*16/20 = 800.
+        // Avanza hasta 16 días de atraso: con gracia real (5) devengan 11 días → teórico acumulado = 10000*0.10*11/20 = 550.
         _reloj.HoyComercial = vencimiento.AddDays(16);
 
         var segunda = await _service.AplicarAsync(cuota.Id, Comando("Diferencial por más días"));
 
-        Assert.Equal(500.00m, segunda.Importe); // 800 teórico - 300 ya aplicado
+        Assert.Equal(250.00m, segunda.Importe); // 550 teórico - 300 ya aplicado
         Assert.NotEqual(primera.Id, segunda.Id);
 
         var todas = await _context.PunitoriosAplicados.Where(p => p.CuotaId == cuota.Id).ToListAsync();
@@ -1556,7 +1556,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ConAplicacionPagadaYMismoCalculo_RechazaComoNadaNuevoParaAplicar()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
@@ -1578,7 +1578,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ConAplicacionAnuladaPrevia_NoSeDescuentaDelNuevoCalculo()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
@@ -1596,7 +1596,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_ConfiguracionRetroactivaReduceElCalculoPorDebajoDeLoAplicado_RechazaComoConflicto()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
@@ -1626,7 +1626,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarAsync_Sucesiva_SnapshotIncluyeTeoricoPrevioYNuevo()
     {
-        var vencimiento = _reloj.HoyComercial.AddDays(-6);
+        var vencimiento = _reloj.HoyComercial.AddDays(-11);
         var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
@@ -1641,9 +1641,10 @@ public sealed class PunitorioServiceTests : IDisposable
 
         var snapshot = JsonSerializer.Deserialize<PunitorioAplicadoSnapshot>(segunda.DesgloseSnapshotJson);
         Assert.NotNull(snapshot);
-        Assert.Equal(800.00m, snapshot!.PunitorioTeoricoAcumulado);
+        Assert.Equal(550.00m, snapshot!.PunitorioTeoricoAcumulado);
         Assert.Equal(300.00m, snapshot.ImportePreviamenteAplicado);
-        Assert.Equal(500.00m, snapshot.ImporteNuevoAplicado);
+        Assert.Equal(250.00m, snapshot.ImporteNuevoAplicado);
+        Assert.Equal("GraciaReal", snapshot.ReglaGracia);
     }
 
     // ===========================================================================================
@@ -1725,7 +1726,7 @@ public sealed class PunitorioServiceTests : IDisposable
     {
         // Camino ya rechazado por AnularAsync (AnularAsync_NoSePuedeAnularUnaAplicacionConPagosParciales):
         // acá se confirma además que, al rechazar, Cuota.Estado tampoco se toca.
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1757,7 +1758,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AplicarPunitorio_NoDisparaRecalculoScore()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
 
         // SeedCuotaAsync usa el mismo id correlativo para Cliente/Credito/Cuota.
@@ -1781,7 +1782,7 @@ public sealed class PunitorioServiceTests : IDisposable
     [Fact]
     public async Task AnularPunitorio_NoDisparaRecalculoScore()
     {
-        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
         await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
         var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
 
@@ -1800,5 +1801,161 @@ public sealed class PunitorioServiceTests : IDisposable
             .Where(h => h.ClienteId == cuota.CreditoId)
             .ToListAsync();
         Assert.Empty(historial);
+    }
+
+    // ===========================================================================================
+    // C10 (2026-11-20) — gracia real de 12 días: aplicación, historia conservada, recálculo, día comercial
+    // ===========================================================================================
+
+    private async Task<PunitorioAplicado> SeedAplicacionAnteriorAsync(int cuotaId, decimal importe, EstadoPunitorioAplicado estado, string? snapshotJson = "{}")
+    {
+        var aplicacion = new PunitorioAplicado
+        {
+            CuotaId = cuotaId, FechaCalculo = _reloj.HoyComercial.AddDays(-5), SaldoBase = 10_000m, DiasComputados = 6, Importe = importe,
+            Estado = estado, FechaAplicacion = _reloj.AhoraUtc.AddDays(-5), MotivoAplicacion = "Anterior a C10", UsuarioAplicacion = "u0",
+            DesgloseSnapshotJson = snapshotJson ?? string.Empty
+        };
+        _context.PunitoriosAplicados.Add(aplicacion);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return aplicacion;
+    }
+
+    [Fact]
+    public async Task C10_CuotaSinHistoria_AplicaConGraciaReal_YMarcaElSnapshot()
+    {
+        // Gracia 12, 13 días de atraso → 1 día punitorio: 10.000 × 10 % × 1 / 20 = 50,00 (antes 650,00 retroactivo).
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-13).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 12, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+        var aplicado = await _service.AplicarAsync(cuota.Id, Comando());
+
+        Assert.Equal(50.00m, calculo.PunitorioCalculado);
+        Assert.Equal(50.00m, aplicado.Importe);
+        Assert.Equal(1, aplicado.DiasComputados);
+        var snapshot = JsonSerializer.Deserialize<PunitorioAplicadoSnapshot>(aplicado.DesgloseSnapshotJson);
+        Assert.Equal("GraciaReal", snapshot!.ReglaGracia);
+        Assert.Equal(13, snapshot.DiasTranscurridos);
+        Assert.Equal(1, Assert.Single(snapshot.Segmentos).DiasPunitorio);
+    }
+
+    [Fact]
+    public async Task C10_CuotaConPunitorioAplicadoBajoLaReglaAnterior_ConservaElImporteYSeguiraConEsaRegla()
+    {
+        // Historia: una aplicación de $300 ya PAGADA con la regla anterior (snapshot sin marca de regla). Cuota vencida hace 11 días, gracia 5.
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var historica = await SeedAplicacionAnteriorAsync(cuota.Id, 300m, EstadoPunitorioAplicado.Pagado);
+
+        // La cuota sigue calculándose con la regla anterior (11 días retroactivos = 550): el diferencial es 550 - 300, sin bloquearla ni
+        // reinterpretar los $300 ya cobrados.
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+        Assert.Equal(550.00m, calculo.PunitorioCalculado);
+
+        var nueva = await _service.AplicarAsync(cuota.Id, Comando());
+
+        Assert.Equal(250.00m, nueva.Importe);
+        Assert.Equal("Retroactiva", JsonSerializer.Deserialize<PunitorioAplicadoSnapshot>(nueva.DesgloseSnapshotJson)!.ReglaGracia);
+        var enBd = await _context.PunitoriosAplicados.AsNoTracking().SingleAsync(p => p.Id == historica.Id);
+        Assert.Equal(300m, enBd.Importe);                               // el histórico no se tocó
+        Assert.Equal(EstadoPunitorioAplicado.Pagado, enBd.Estado);
+        Assert.Equal("{}", enBd.DesgloseSnapshotJson);
+    }
+
+    [Fact]
+    public async Task C10_LaMismaCuotaSinHistoria_UsaLaReglaNueva()
+    {
+        // Contraste de la prueba anterior: sin aplicaciones previas, mismos datos → regla nueva (6 días punitorios = 300).
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+
+        Assert.Equal(300.00m, calculo.PunitorioCalculado);
+    }
+
+    [Fact]
+    public async Task C10_AplicacionAnteriorAnulada_NoFuerzaLaReglaAnterior()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-11).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        await SeedAplicacionAnteriorAsync(cuota.Id, 300m, EstadoPunitorioAplicado.Anulado);   // anulada: nunca se cobró
+
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+
+        Assert.Equal(300.00m, calculo.PunitorioCalculado);   // gracia real: 11 - 5 = 6 días
+    }
+
+    [Fact]
+    public async Task C10_RecalculoDespuesDeConfirmar_NoRedevengaLosDiasYaAplicados()
+    {
+        // 20 días de atraso, gracia 12 → 8 días = 400. Se confirma y se cobra; con 25 días el teórico son 13 días = 650: el diferencial es 250.
+        var vencimiento = _reloj.HoyComercial.AddDays(-20);
+        var cuota = await SeedCuotaAsync(10_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 12, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var primera = await _service.AplicarAsync(cuota.Id, Comando());
+        Assert.Equal(400.00m, primera.Importe);
+
+        var tracked = await _context.PunitoriosAplicados.SingleAsync(p => p.Id == primera.Id);
+        tracked.Estado = EstadoPunitorioAplicado.Pagado;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Sin pasar días no hay nada nuevo que aplicar (nunca se cobra dos veces).
+        var rechazo = await Assert.ThrowsAsync<PunitorioAplicadoRechazadoException>(() => _service.AplicarAsync(cuota.Id, Comando()));
+        Assert.Equal(MotivoRechazoPunitorioAplicado.NoAplicable, rechazo.Motivo);
+
+        _reloj.HoyComercial = vencimiento.AddDays(25);
+        var segunda = await _service.AplicarAsync(cuota.Id, Comando("Diferencial"));
+
+        Assert.Equal(250.00m, segunda.Importe);
+        var snapshot = JsonSerializer.Deserialize<PunitorioAplicadoSnapshot>(segunda.DesgloseSnapshotJson)!;
+        Assert.Equal(650.00m, snapshot.PunitorioTeoricoAcumulado);
+        Assert.Equal(400.00m, snapshot.ImportePreviamenteAplicado);
+        Assert.Equal("GraciaReal", snapshot.ReglaGracia);
+    }
+
+    [Fact]
+    public async Task C10_DiaComercialArgentino_UsaLaFechaDeArgentinaYNoLaDelServidorUtc()
+    {
+        // 01/11/2026 01:30 UTC es el 31/10/2026 22:30 en Argentina. Vencimiento 18/10: el día comercial 31/10 son 13 días de atraso (1 día
+        // punitorio = 50,00); con la fecha UTC (01/11) serían 14 días (100,00).
+        var relojArgentino = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 11, 1, 1, 30, 0, TimeSpan.Zero));
+        var servicio = new PunitorioService(_context, new PunitorioCalculator(), relojArgentino, _currentUser, NullLogger<PunitorioService>.Instance);
+        var cuota = await SeedCuotaAsync(10_000m, new DateTime(2026, 10, 18));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 12, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var calculo = await servicio.CalcularCuotaAsync(cuota.Id);
+
+        Assert.Equal(new DateOnly(2026, 10, 31), calculo.FechaCalculo);
+        Assert.Equal(50.00m, calculo.PunitorioCalculado);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("no es json {")]
+    [InlineData("[1,2]")]
+    [InlineData("{\"ReglaGracia\":\"Otra\"}")]
+    [InlineData("{\"ReglaGracia\":7}")]
+    public async Task C10_SnapshotIlegibleODeReglaDesconocida_NoSeAsumeReglaAnterior_BloqueaNuevasAplicacionesYConservaElImporte(string snapshot)
+    {
+        // Aplicación GraciaReal de $400 pagada cuyo snapshot quedó dañado: con la regla anterior supuesta el teórico sería 1.000 y se podrían cobrar
+        // otros $600 sin que pase un solo día. No se asume ninguna regla: la cuota no admite nuevas aplicaciones y los $400 quedan intactos.
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-20).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 12, vigenteDesde: new DateOnly(2025, 1, 1));
+        var danada = await SeedAplicacionAnteriorAsync(cuota.Id, 400m, EstadoPunitorioAplicado.Pagado, snapshot);
+
+        var ex = await Assert.ThrowsAsync<PunitorioAplicadoRechazadoException>(() => _service.AplicarAsync(cuota.Id, Comando()));
+
+        Assert.Equal(MotivoRechazoPunitorioAplicado.Conflicto, ex.Motivo);
+        Assert.Equal(1, await _context.PunitoriosAplicados.CountAsync(p => p.CuotaId == cuota.Id));
+        var enBd = await _context.PunitoriosAplicados.AsNoTracking().SingleAsync(p => p.Id == danada.Id);
+        Assert.Equal(400m, enBd.Importe);
+        Assert.Equal(EstadoPunitorioAplicado.Pagado, enBd.Estado);
+        // La consulta (sin aplicar) sigue disponible y usa la regla vigente: no falla ni cobra nada.
+        var calculo = await _service.CalcularCuotaAsync(cuota.Id);
+        Assert.Equal(400.00m, calculo.PunitorioCalculado);
     }
 }

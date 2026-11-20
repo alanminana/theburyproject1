@@ -70,10 +70,10 @@ public class PunitorioCalculatorTests
     }
 
     [Fact]
-    public void PrimerDiaPosteriorALaGracia_CuentaRetroactivoDesdeElVencimiento()
+    public void PrimerDiaPosteriorALaGracia_DevengaSoloEseDia_SinRetroactividad()
     {
-        // Ejemplo del pedido: vencimiento día 1, gracia 5, cálculo día 7 → 6 días desde el
-        // vencimiento (no 1 día desde el fin de la gracia). Saldo 1.000, 10% cada 20 días.
+        // C10 (2026-11-20, gracia real): vencimiento día 1 (día 0), gracia 5, cálculo día 7 → 6 días de atraso, de los cuales 5 son de gracia:
+        // devenga 1 día (antes, PUN-ML4, 6 días retroactivos). Saldo 1.000, 10% cada 20 días.
         var entrada = Entrada(1_000m, Vencimiento.AddDays(6),
             configuraciones: new[] { Config(1, Vencimiento, porcentaje: 10m, periodoDias: 20, diasGracia: 5) });
 
@@ -81,14 +81,33 @@ public class PunitorioCalculatorTests
 
         Assert.Equal(EstadoResultadoPunitorio.Calculado, r.EstadoResultado);
         Assert.Equal(6, r.DiasTranscurridos);
-        var esperado = 1_000m * (10m / 100m) * 6 / 20; // 30.00
-        Assert.Equal(esperado, r.PunitorioExacto);
-        Assert.Equal(30.00m, r.PunitorioRedondeado);
+        Assert.Equal(1_000m * (10m / 100m) * 1 / 20, r.PunitorioExacto); // 5,00
+        Assert.Equal(5.00m, r.PunitorioRedondeado);
 
         var segmento = Assert.Single(r.Segmentos);
         Assert.Equal(Vencimiento, segmento.Desde);
         Assert.Equal(Vencimiento.AddDays(6), segmento.Hasta);
         Assert.Equal(6, segmento.Dias);
+        Assert.Equal(1, segmento.DiasPunitorio);
+    }
+
+    [Fact]
+    public void GraciaRetroactiva_ConservaLaReglaAnterior_SoloParaCuotasConHistoria()
+    {
+        // Regla anterior (PUN-ML4), activable únicamente por PunitorioService en cuotas con punitorio ya aplicado bajo ella.
+        var entrada = new PunitorioCalculoEntrada
+        {
+            MontoOriginalCuota = 1_000m,
+            FechaVencimiento = Vencimiento,
+            FechaCalculo = Vencimiento.AddDays(6),
+            GraciaRetroactiva = true,
+            Configuraciones = new[] { Config(1, Vencimiento, porcentaje: 10m, periodoDias: 20, diasGracia: 5) }
+        };
+
+        var r = _sut.Calcular(entrada);
+
+        Assert.Equal(30.00m, r.PunitorioRedondeado);
+        Assert.Equal(6, Assert.Single(r.Segmentos).DiasPunitorio);
     }
 
     // =====================================================================
@@ -252,7 +271,8 @@ public class PunitorioCalculatorTests
         var r = _sut.Calcular(entrada);
 
         // Gracia=5, transcurridos=10 → se supera; ambos tramos (antes y después del pago) se
-        // calculan, cada uno con su propio saldo — nada se salta por haber caído en gracia.
+        // calculan, cada uno con su propio saldo. C10 (gracia real): el pago del día 3 cae dentro de la gracia, así que el primer
+        // tramo [0,3) no devenga nada y el segundo [3,10) solo devenga los días posteriores al día 5 (5 días).
         Assert.Equal(EstadoResultadoPunitorio.Calculado, r.EstadoResultado);
         Assert.Equal(2, r.Segmentos.Count);
 
@@ -265,7 +285,10 @@ public class PunitorioCalculatorTests
         Assert.Equal(pagoEnGracia, despues.Desde);
         Assert.Equal(600m, despues.SaldoBase);
 
-        var esperado = (1_000m * 10m / 100m * 3 / 20) + (600m * 10m / 100m * 7 / 20);
+        Assert.Equal(0, antes.DiasPunitorio);
+        Assert.Equal(5, despues.DiasPunitorio);
+        var esperado = 600m * 10m / 100m * 5 / 20;   // 15,00
+        Assert.Equal(15.00m, r.PunitorioRedondeado);
         Assert.Equal(Math.Round(esperado, 2, MidpointRounding.AwayFromZero), r.PunitorioRedondeado);
     }
 

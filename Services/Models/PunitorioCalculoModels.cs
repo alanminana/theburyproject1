@@ -113,6 +113,15 @@ namespace TheBuryProject.Services.Models
         public required DateOnly FechaCalculo { get; init; }
         public IReadOnlyList<PagoAplicadoPunitorioEntrada> PagosAplicados { get; init; } = Array.Empty<PagoAplicadoPunitorioEntrada>();
         public IReadOnlyList<ConfiguracionPunitorioEntrada> Configuraciones { get; init; } = Array.Empty<ConfiguracionPunitorioEntrada>();
+
+        /// <summary>
+        /// C10 (2026-11-20): <c>false</c> (regla vigente) = gracia REAL: los primeros <c>DiasGracia</c> días posteriores al vencimiento
+        /// no generan punitorio y solo los días posteriores a la gracia se computan (<c>DiasPunitorio = Max(0, DiasAtraso - DiasGracia)</c>).
+        /// <c>true</c> = regla anterior (PUN-ML4): superada la gracia, el devengo es retroactivo desde el vencimiento. Solo lo usa
+        /// <c>PunitorioService</c> para cuotas que ya tienen un punitorio aplicado bajo la regla anterior, de modo que el diferencial
+        /// de nuevas aplicaciones sea coherente con lo ya confirmado/cobrado (nunca se reinterpreta un importe histórico).
+        /// </summary>
+        public bool GraciaRetroactiva { get; init; }
     }
 
     /// <summary>
@@ -129,6 +138,12 @@ namespace TheBuryProject.Services.Models
         public required DateOnly Desde { get; init; }
         public required DateOnly Hasta { get; init; }
         public required int Dias { get; init; }
+
+        /// <summary>
+        /// Días del tramo que realmente devengan punitorio (C10): los posteriores a <c>FechaVencimiento + DiasGracia</c>. <see cref="Dias"/> son
+        /// los días corridos del tramo. Con la regla retroactiva anterior coincide con <see cref="Dias"/> (o 0 dentro de la gracia).
+        /// </summary>
+        public int DiasPunitorio { get; init; }
         public required decimal SaldoBase { get; init; }
         public int? ConfiguracionPunitorioId { get; init; }
         public decimal? Porcentaje { get; init; }

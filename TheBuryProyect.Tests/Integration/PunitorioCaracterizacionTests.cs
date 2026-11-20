@@ -483,10 +483,11 @@ public class PunitorioCaracterizacionTests : IDisposable
         public static decimal Calcular(
             decimal saldoImpago, decimal porcentaje, int periodoDias, int diasGracia, int diasTranscurridos)
         {
+            // C10: gracia real. DiasPunitorio = Max(0, DiasAtraso - DiasGracia).
             if (diasTranscurridos <= diasGracia)
                 return 0m;
 
-            var importe = saldoImpago * (porcentaje / 100m) * diasTranscurridos / periodoDias;
+            var importe = saldoImpago * (porcentaje / 100m) * (diasTranscurridos - diasGracia) / periodoDias;
             return Math.Round(importe, 2, MidpointRounding.AwayFromZero);
         }
     }
@@ -513,17 +514,33 @@ public class PunitorioCaracterizacionTests : IDisposable
     }
 
     [Fact]
-    public async Task ContratoNuevo_AlSuperarLaGracia_CuentaRetroactivoDesdeElVencimiento()
+    public async Task C10_CobroSinConfirmacionAutorizada_NoCobraElPunitorioCalculado()
     {
-        // Ejemplo numérico del plan (§8): cuota $10.000, vencimiento hace 6 días, gracia 5,
-        // 10% cada 20 días → punitorio esperado $300,00. PUN-ML6: el cobro nunca lo calcula por sí
+        // PUN-ML5 se mantiene con la gracia real: la cuota ya devenga 1 día ($50 calculados sobre $1.000 → $5), pero sin una aplicación
+        // confirmada por un usuario autorizado el cobro no cobra punitorio: el calculado se muestra, nunca se cobra solo.
+        await SeedConfiguracionPunitorioContratoAsync();
+        var (_, credito, cuota) = await SeedCreditoConCuota(24m, 1_000m, 800m, 200m, Hoy.AddDays(-6));
+
+        await PagarAsync(credito.Id, cuota.Id, 1_000m);
+
+        var fila = await _context.PagosCuota.SingleAsync(p => p.CuotaId == cuota.Id);
+        Assert.Equal(0m, fila.ImporteAplicadoPunitorio);
+        Assert.Equal(1_000m, fila.ImporteAplicadoCuota);
+        Assert.Empty(await _context.PunitoriosAplicados.Where(p => p.CuotaId == cuota.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ContratoNuevo_AlSuperarLaGracia_SoloDevengaLosDiasPosterioresALaGracia()
+    {
+        // C10 (gracia real): cuota $10.000, vencimiento hace 6 días, gracia 5, 10% cada 20 días → 1 día punitorio = $50,00
+        // (antes, PUN-ML4 retroactivo: $300,00). PUN-ML6: el cobro nunca lo calcula por sí
         // solo — se aplica explícitamente (autorización real, PUN-ML5) y sólo eso puede cobrarse.
         await SeedConfiguracionPunitorioContratoAsync();
         var (_, credito, cuota) = await SeedCreditoConCuota(24m, 10_000m, 8_000m, 2_000m, Hoy.AddDays(-6));
 
         var esperadoPorContrato = ContratoPunitorioNuevo.Calcular(
             saldoImpago: 10_000m, porcentaje: 10m, periodoDias: 20, diasGracia: 5, diasTranscurridos: 6);
-        Assert.Equal(300.00m, esperadoPorContrato);
+        Assert.Equal(50.00m, esperadoPorContrato);
 
         var aplicado = await AplicarPunitorioAsync(cuota.Id);
         Assert.Equal(esperadoPorContrato, aplicado.Importe); // el calculador real (PUN-ML4) coincide con el contrato
