@@ -38,6 +38,31 @@ namespace TheBuryProject.Helpers
         List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas);
 
         (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado);
+
+        /// <summary>
+        /// P-02 (hallazgo de Codex). Orden único de cálculo del importe cobrado: la base (productos con descuentos + servicios, con
+        /// centavos) se redondea a pesos ANTES de aplicar el descuento o recargo del medio de pago. Lo usan venta directa, cotizador y
+        /// conversión de cotización para cobrar exactamente el mismo importe. V1 conserva su comportamiento histórico (la conversión y
+        /// el cotizador aplicaban el ajuste sobre la base con centavos): devuelve la base sin tocar.
+        /// </summary>
+        decimal RedondearBaseAntesDeAjuste(decimal baseConCentavos) => baseConCentavos;
+
+        /// <summary>
+        /// P-02 / C5 (contador, 2026-11-19): el descuento de Efectivo/Transferencia se aplica solo sobre los productos; envío y armado no
+        /// lo reciben. V1 conserva su comportamiento histórico (el descuento alcanza a toda la base). El recargo sigue sobre toda la base.
+        /// </summary>
+        bool DescuentoDeMedioSoloSobreProductos => false;
+
+        /// <summary>
+        /// Igual que <see cref="Discriminar(decimal, IReadOnlyList{ValueTuple{decimal, decimal, decimal, decimal}})"/> cuando la venta
+        /// conserva el monto del ajuste del medio de pago (Efectivo/Transferencia). Con ese dato la base cobrada es exacta
+        /// (<c>total - ajuste</c>) y no se infiere por la presencia de centavos. V1 lo ignora (conserva su heurística histórica).
+        /// </summary>
+        RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            Discriminar(total, lineas);
+
+        List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            ResumenPorAlicuota(total, lineas);
     }
 
     /// <summary>
@@ -94,6 +119,17 @@ namespace TheBuryProject.Helpers
         public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => RecargoMedioPagoIva.Discriminar(total, lineas, TruncarAPesos);
         public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas, TruncarAPesos);
         public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => RecargoMedioPagoIva.AbsorberRedondeo(neto, iva, truncado);
+
+        /// <summary>P-02: la base se redondea a pesos (C1/C2) antes del ajuste del medio de pago, en todos los circuitos.</summary>
+        public decimal RedondearBaseAntesDeAjuste(decimal baseConCentavos) => TruncarAPesos(baseConCentavos);
+
+        public bool DescuentoDeMedioSoloSobreProductos => true;
+
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            RecargoMedioPagoIva.Discriminar(total, lineas, TruncarAPesos, contexto);
+
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) =>
+            RecargoMedioPagoIva.ResumenPorAlicuota(total, lineas, TruncarAPesos, contexto);
     }
 
     /// <summary>La versión de criterio fiscal pedida no está registrada (dato corrupto o código desactualizado).</summary>
@@ -117,6 +153,10 @@ namespace TheBuryProject.Helpers
         public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => inner.Discriminar(total, lineas);
         public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas) => inner.ResumenPorAlicuota(total, lineas);
         public (decimal Neto, decimal Iva) AbsorberTruncado(decimal neto, decimal iva, decimal truncado) => inner.AbsorberTruncado(neto, iva, truncado);
+        public decimal RedondearBaseAntesDeAjuste(decimal baseConCentavos) => inner.RedondearBaseAntesDeAjuste(baseConCentavos);
+        public bool DescuentoDeMedioSoloSobreProductos => inner.DescuentoDeMedioSoloSobreProductos;
+        public RecargoMedioPagoIva.Discriminacion Discriminar(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) => inner.Discriminar(total, lineas, contexto);
+        public List<RecargoMedioPagoIva.ParteAlicuota> ResumenPorAlicuota(decimal total, IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas, RecargoMedioPagoIva.AjusteMedioContexto? contexto) => inner.ResumenPorAlicuota(total, lineas, contexto);
     }
 
     /// <summary>

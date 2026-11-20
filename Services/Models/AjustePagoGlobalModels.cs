@@ -3,6 +3,8 @@ namespace TheBuryProject.Services.Models;
 public sealed class AjustePagoGlobalRequest
 {
     public decimal BaseVenta { get; init; }
+    /// <summary>P-02 / C5: parte de <see cref="BaseVenta"/> sobre la que se aplica el porcentaje (null = toda la base). El total siempre es BaseVenta + ajuste.</summary>
+    public decimal? BaseSujetaAAjuste { get; init; }
     public decimal PorcentajeAjuste { get; init; }
     public int CantidadCuotas { get; init; } = 1;
     public bool MedioActivo { get; init; } = true;

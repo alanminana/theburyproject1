@@ -84,7 +84,7 @@ namespace TheBuryProject.Helpers
                 {
                     Id = venta.Id,
                     Numero = venta.Numero,
-                    FechaVenta = venta.FechaVenta,
+                    FechaVenta = TheBuryProject.Services.FechaComercial.AComercial(venta.FechaVenta),
                     TipoPago = venta.TipoPago,
                     Estado = venta.Estado,
                     VendedorNombre = venta.VendedorNombre,
@@ -362,7 +362,15 @@ namespace TheBuryProject.Helpers
             var total = factura.Total != 0m ? factura.Total : venta.Total;
             var discriminacion = criterio.Discriminar(
                 total,
-                lineas.Select(l => (l.PorcentajeIVA, l.Total, l.SubtotalNeto, l.IVA)).ToList());
+                lineas.Select(l => (l.PorcentajeIVA, l.Total, l.SubtotalNeto, l.IVA)).ToList(),
+                // P-02: Efectivo/Transferencia conservan el monto exacto del ajuste (solo V2 lo usa para reconstruir la base cobrada).
+                new RecargoMedioPagoIva.AjusteMedioContexto(
+                    venta.DatosTarjeta == null ? venta.AjusteMedioPagoMonto : null,
+                    // C5 (V2): armados y envío (líneas de servicios exactas) no reciben el descuento del medio de pago.
+                    criterio.DescuentoDeMedioSoloSobreProductos
+                        ? lineas.Where(l => l.ProductoCodigo is "ARMADO" or "ENVIO").Sum(l => l.Total)
+                        : 0m,
+                    criterio.AlicuotaServicios));
             // Sin ajuste del medio de pago ni centavos truncados el comprobante es la suma de sus líneas.
             if (discriminacion.Partes.Count == 0 && discriminacion.Truncado == 0m) return vacio;
 

@@ -303,8 +303,8 @@ namespace TheBuryProject.Services
                 var envioServicio = await AplicarServiciosAsync(venta, viewModel);
                 CalcularTotales(venta, envioServicio);
                 // H10 (D4): Efectivo/Transferencia cobran el plan de 1 pago configurado, igual que la venta del cotizador.
-                await AplicarAjusteMedioUnPagoAsync(venta);
-                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+                await AplicarAjusteMedioUnPagoAsync(venta, envioServicio);
+                DiscriminarRecargoEnNetoEIva(venta, venta.Detalles, ServiciosExactos(venta, envioServicio));
                 await ValidarChequeContraVentaAsync(venta, viewModel);
                 await CalcularComisionesAsync(venta);
                 await NormalizarYValidarNotaCreditoAsync(venta);
@@ -983,8 +983,8 @@ namespace TheBuryProject.Services
             await SincronizarDatosChequeEdicionAsync(venta, viewModel);
             // CalcularTotales volvió a la base de lista, así que se reaplica (una sola vez) el descuento/recargo de
             // Efectivo/Transferencia: la misma regla que Create y que la conversión de la cotización (H10, D4).
-            await AplicarAjusteMedioUnPagoAsync(venta);
-            DiscriminarRecargoEnNetoEIva(venta, venta.Detalles);
+            await AplicarAjusteMedioUnPagoAsync(venta, envioServicio);
+            DiscriminarRecargoEnNetoEIva(venta, venta.Detalles, ServiciosExactos(venta, envioServicio));
             await SincronizarEnvioEdicionAsync(venta, viewModel);
             await ValidarChequeContraVentaAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
@@ -2087,9 +2087,11 @@ namespace TheBuryProject.Services
             // factura: una factura no precede a la operación que comprueba. Se tolera un día en ambos extremos por el
             // huso horario: FechaVenta se guarda en UTC y el formulario de facturación propone DateTime.Today (hora
             // local), así que entre las 21:00 y las 24:00 de Argentina el día UTC ya es el siguiente.
-            var hoyUtc = DateTime.UtcNow.Date;
+            // P-02 / C15: los días se comparan como días comerciales argentinos (FechaVenta es un instante UTC).
+            var hoyUtc = FechaComercial.DiaComercial(DateTime.UtcNow);
+            var diaVenta = FechaComercial.DiaComercial(venta.FechaVenta);
             var emision = facturaViewModel.FechaEmision.Date;
-            var desde = (venta.FechaVenta.Date > hoyUtc ? hoyUtc : venta.FechaVenta.Date).AddDays(-1);
+            var desde = (diaVenta > hoyUtc ? hoyUtc : diaVenta).AddDays(-1);
             if (emision > hoyUtc.AddDays(1) || emision < desde)
             {
                 throw new InvalidOperationException(
@@ -3354,7 +3356,8 @@ namespace TheBuryProject.Services
             if (plan == null)
             {
                 // H10 (D4): Efectivo/Transferencia no eligen plan; el servidor aplica el de 1 pago configurado (como Create).
-                var ajusteUnPago = await AjusteMedioUnPago.ResolverAsync(_context, tipoPago, response.Total);
+                var ajusteUnPago = await AjusteMedioUnPago.ResolverAsync(
+                    _context, tipoPago, response.Total, CriterioFiscalRegistry.Vigente, response.TotalArmados + response.ImporteEnvio);
                 if (ajusteUnPago != null)
                 {
                     response.AjustePagoGlobalAplicado = ajusteUnPago.MontoAjuste;
@@ -3370,7 +3373,7 @@ namespace TheBuryProject.Services
                         SubtotalFinal = d.SubtotalFinal,
                         SubtotalFinalNeto = d.SubtotalFinalNeto,
                         SubtotalFinalIVA = d.SubtotalFinalIVA
-                    }));
+                    }), RedondearMoneda(response.TotalArmados + response.ImporteEnvio));
                     response.Subtotal = ventaPreview.Subtotal;
                     response.IVA = ventaPreview.IVA;
                 }
@@ -3574,11 +3577,18 @@ namespace TheBuryProject.Services
             if (!string.IsNullOrEmpty(filter.Numero))
                 query = query.Where(v => v.Numero.Contains(filter.Numero));
 
+            // P-02 / C15: el filtro son DÍAS comerciales argentinos; FechaVenta es un instante UTC. «Hasta» incluye el día completo.
             if (filter.FechaDesde.HasValue)
-                query = query.Where(v => v.FechaVenta >= filter.FechaDesde.Value);
+            {
+                var desdeUtc = FechaComercial.InicioDiaUtc(filter.FechaDesde.Value);
+                query = query.Where(v => v.FechaVenta >= desdeUtc);
+            }
 
             if (filter.FechaHasta.HasValue)
-                query = query.Where(v => v.FechaVenta <= filter.FechaHasta.Value);
+            {
+                var hastaExclusivoUtc = FechaComercial.InicioDiaUtc(filter.FechaHasta.Value.Date.AddDays(1));
+                query = query.Where(v => v.FechaVenta < hastaExclusivoUtc);
+            }
 
             if (filter.Estado.HasValue)
                 query = query.Where(v => v.Estado == filter.Estado.Value);
@@ -4130,14 +4140,16 @@ namespace TheBuryProject.Services
         /// comprobante) o ambos en null si no hay plan, el ajuste es 0 o el medio no es Efectivo/Transferencia. No es idempotente
         /// sobre un Total ya ajustado: se llama una vez por operación, justo después de <c>CalcularTotales</c>.
         /// </summary>
-        private async Task AplicarAjusteMedioUnPagoAsync(Venta venta)
+        private async Task AplicarAjusteMedioUnPagoAsync(Venta venta, decimal importeEnvio = 0m)
         {
             venta.AjusteMedioPagoPorcentaje = null;
             venta.AjusteMedioPagoMonto = null;
             if (!AjusteMedioUnPago.Aplica(venta.TipoPago))
                 return;
 
-            var ajuste = await AjusteMedioUnPago.ResolverAsync(_context, venta.TipoPago, venta.Total);
+            var ajuste = await AjusteMedioUnPago.ResolverAsync(
+                _context, venta.TipoPago, venta.Total, CriterioDe(venta),
+                RedondearMoneda(venta.Detalles.Where(d => !d.IsDeleted).Sum(d => d.ArmadoSubtotal) + importeEnvio));
             if (ajuste == null)
                 return;
 
@@ -4155,7 +4167,11 @@ namespace TheBuryProject.Services
         /// Idempotente: tras aplicarlo la diferencia es 0. No toca ventas de cotización con Subtotal bruto (convención
         /// distinta, Subtotal + IVA &gt; Total): esas se normalizan con <see cref="NormalizarNetoEIvaDesdeTotal"/>.
         /// </summary>
-        internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles)
+        /// <summary>Bruto exacto de armados + envío de la venta (con IVA incluido), tal como lo suman <c>CalcularTotales</c> y la conversión.</summary>
+        private static decimal ServiciosExactos(Venta venta, decimal importeEnvio) =>
+            RedondearMoneda(venta.Detalles.Where(d => !d.IsDeleted).Sum(d => d.ArmadoSubtotal) + importeEnvio);
+
+        internal static void DiscriminarRecargoEnNetoEIva(Venta venta, IEnumerable<VentaDetalle> detalles, decimal? serviciosExactos = null)
         {
             var lineas = detalles.Where(d => !d.IsDeleted).ToList();
             var baseNetoIva = venta.Subtotal + venta.IVA;
@@ -4167,14 +4183,21 @@ namespace TheBuryProject.Services
             // no se reinterpreta el dato.
             var brutoLineas = lineas.Sum(d => d.SubtotalFinal);
             var servicios = Math.Max(0m, baseNetoIva - brutoLineas);
+            // P-02 (V2): los servicios son los exactos (armados + envío), no lo que queda de la base ya redondeada a pesos; así venta
+            // directa, conversión, comprobante y reporte discriminan lo mismo. V1 conserva la inferencia histórica.
+            var serviciosParaReparto = CriterioDe(venta).DescuentoDeMedioSoloSobreProductos && serviciosExactos.HasValue
+                ? serviciosExactos.Value
+                : servicios;
             var (serviciosNeto, serviciosIva) = CriterioDe(venta).SepararServicios(servicios);
             var subtotalEsperado = lineas.Sum(d => d.SubtotalFinalNeto) + serviciosNeto;
             if (Math.Abs(venta.Subtotal - subtotalEsperado) > 1m)
                 return;
 
             var bases = lineas.Select(d => (d.PorcentajeIVA, d.SubtotalFinal)).ToList();
-            if (servicios > 0m)
-                bases.Add((CriterioDe(venta).AlicuotaServicios, servicios));
+            // C5 (V2): un descuento del medio de pago no alcanza a los servicios; solo un recargo los incluye en el reparto.
+            var excluirServicios = ajuste < 0m && CriterioDe(venta).DescuentoDeMedioSoloSobreProductos;
+            if (serviciosParaReparto > 0m && !excluirServicios)
+                bases.Add((CriterioDe(venta).AlicuotaServicios, serviciosParaReparto));
 
             var signo = ajuste > 0m ? 1m : -1m;
             var partes = CriterioDe(venta).Repartir(bases, Math.Abs(ajuste));
@@ -4211,7 +4234,12 @@ namespace TheBuryProject.Services
                 items.Add((CriterioDe(venta).AlicuotaServicios, serviciosEnTotal, neto, iva));
             }
 
-            var resultado = CriterioDe(venta).Discriminar(venta.Total, items);
+            var resultado = CriterioDe(venta).Discriminar(
+                venta.Total, items,
+                new RecargoMedioPagoIva.AjusteMedioContexto(
+                    venta.AjusteMedioPagoMonto,
+                    CriterioDe(venta).DescuentoDeMedioSoloSobreProductos ? serviciosEnTotal : 0m,
+                    CriterioDe(venta).AlicuotaServicios));
             venta.Subtotal = resultado.Neto;
             venta.IVA = resultado.Iva;
             return true;
@@ -4783,10 +4811,17 @@ namespace TheBuryProject.Services
         /// </summary>
         internal static DateTime ResolverFechaVenta(DateTime entrante, DateTime fallback, DateTime? persistida, DateTime? ahoraUtc = null)
         {
-            var hoy = (ahoraUtc ?? DateTime.UtcNow).Date;
-            var enRango = entrante.Date >= hoy.AddDays(-1) && entrante.Date <= hoy.AddDays(1);
-            var sinCambio = persistida.HasValue && entrante.Date == persistida.Value.Date;
-            return enRango || sinCambio ? entrante : fallback;
+            // P-02 / C15: la fecha se guarda SIEMPRE como instante UTC (ver FechaComercial) y los días se comparan como días
+            // COMERCIALES argentinos: una fecha de formulario (sin hora) es el día elegido y se combina con la hora comercial actual.
+            var ahora = ahoraUtc ?? DateTime.UtcNow;
+            var hoy = FechaComercial.DiaComercial(ahora);
+            var instante = FechaComercial.InstanteUtcDeVenta(entrante, ahora);
+            var dia = FechaComercial.DiaComercial(instante);
+            var enRango = dia >= hoy.AddDays(-1) && dia <= hoy.AddDays(1);
+            // Editar sin cambiar el día conserva el instante ya persistido (no se reescribe la hora de una venta histórica).
+            if (persistida.HasValue && dia == FechaComercial.DiaComercial(persistida.Value))
+                return persistida.Value;
+            return enRango ? instante : fallback;
         }
 
         private async Task ValidarCreditoReferenciadoPerteneceAlClienteAsync(int clienteId, int? creditoId)

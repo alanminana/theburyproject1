@@ -208,7 +208,7 @@ public static class CajaConciliacionBuilder
         {
             VentaId = v.Id,
             Numero = v.Numero,
-            Fecha = v.FechaVenta.ToLocalTime(),
+            Fecha = FechaComercial.AComercial(v.FechaVenta),
             Cliente = ClienteLabel(v),
             Estado = v.Estado,
             EstadoLabel = EstadoLabel(v.Estado),

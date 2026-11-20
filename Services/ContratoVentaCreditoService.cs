@@ -723,9 +723,9 @@ namespace TheBuryProject.Services
             DocumentoContextoBuilder.AplicarCliente(ctx, datos.Cliente);
             DocumentoContextoBuilder.AplicarFiador(ctx, credito.Garante);
 
-            DocumentoContextoBuilder.AplicarOperacion(ctx, venta.Numero, venta.FechaVenta);
+            DocumentoContextoBuilder.AplicarOperacion(ctx, venta.Numero, FechaComercial.AComercial(venta.FechaVenta));
             ctx.Set("venta.numero", venta.Numero);
-            ctx.Set("venta.fecha", venta.FechaVenta.Date);
+            ctx.Set("venta.fecha", FechaComercial.DiaComercial(venta.FechaVenta));
             ctx.Set("venta.total", venta.Total);
             ctx.Set("venta.subtotal", venta.Subtotal);
             ctx.Set("venta.tipoPago", venta.TipoPago.ToString());
@@ -760,7 +760,7 @@ namespace TheBuryProject.Services
 
             DocumentoContextoBuilder.AplicarCuotas(ctx, snapshot.Credito.PlanCuotas.Select(c =>
                 DocumentoContextoBuilder.ItemCuota(c.NumeroCuota, c.MontoTotal, c.MontoCapital, c.MontoInteres, c.FechaVencimiento, "Pendiente")));
-            DocumentoContextoBuilder.AplicarFinanciacion(ctx, venta.Total - credito.MontoAprobado, venta.FechaVenta);
+            DocumentoContextoBuilder.AplicarFinanciacion(ctx, venta.Total - credito.MontoAprobado, FechaComercial.AComercial(venta.FechaVenta));
 
             return ctx;
         }

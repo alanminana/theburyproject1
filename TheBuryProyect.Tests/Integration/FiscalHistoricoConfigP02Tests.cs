@@ -92,7 +92,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
         var venta = new Venta
         {
             Numero = $"VQ02-{Interlocked.Increment(ref _n)}", ClienteId = cliente.Id, Estado = EstadoVenta.Facturada,
-            TipoPago = TipoPago.Efectivo, FechaVenta = fecha, FechaFacturacion = fecha,
+            TipoPago = TipoPago.Efectivo, FechaVenta = TheBuryProject.Services.FechaComercial.AUtc(fecha.Date.AddHours(12)), FechaFacturacion = fecha,
             Subtotal = 926.45m, IVA = 194.55m, Total = 1121m,
             CriterioFiscalVersion = version, AlicuotaServiciosSnapshot = alicuotaServicios,
             AperturaCajaId = (await _context.AperturasCaja.FirstAsync()).Id,
@@ -148,7 +148,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     public async Task CambiarAlicuotaConfigurada_NoAlteraReporteNiComprobante_DeUnaVentaConSnapshot()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (_, facturaId) = await SeedVentaAsync(cliente, producto, dia, alicuotaServicios: 21m);
 
         var antesReporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
@@ -176,7 +176,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     public async Task DosVentasConDistintaAlicuotaCongelada_ConviveEnElMismoReporte_SinMezclarse()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         await SeedVentaAsync(cliente, producto, dia, alicuotaServicios: 21m);
         await SeedVentaAsync(cliente, producto, dia, alicuotaServicios: 10.5m);
 
@@ -261,7 +261,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
         // alícuota de la versión, que lee la configuración. Cómo tratar estas ventas (backfill 21 % vs configuración vigente
         // al momento de la migración vs dejarlas) es una decisión sensible pendiente de aprobación: ver §8 del diseño.
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (_, facturaId) = await SeedVentaAsync(cliente, producto, dia, alicuotaServicios: null);
 
         Assert.Equal((21m, 100.00m, 21.00m), Armado(await ComprobanteAsync(facturaId)));
@@ -276,7 +276,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     {
         // La alícuota por línea es el snapshot VentaDetalle.PorcentajeIVA: ni el reporte ni el comprobante la toman de la configuración.
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         var (_, facturaId) = await SeedVentaAsync(cliente, producto, dia, alicuotaServicios: 21m);
         using (ProductoIvaResolver.UsarPorcentajeDefaultParaPruebas(10.5m))
         {
@@ -312,7 +312,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     public async Task ReporteIva_VersionInexistenteOInvalida_NoFalla_ExcluyeLaVenta_YLaInformaAparte(int version)
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         await SeedVentaAsync(cliente, producto, dia, version: 1, alicuotaServicios: 21m);
         await SeedVentaAsync(cliente, producto, dia, version: version, alicuotaServicios: 21m);
 
@@ -328,7 +328,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     public async Task ReporteIva_VersionInvalida_NoExponeDetalleInternoEnElViewModel()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var dia = DateTime.UtcNow.Date.AddDays(-1);
+        var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1);
         await SeedVentaAsync(cliente, producto, dia, version: 4242);
 
         var reporte = await _reportes.GenerarReporteIvaAsync(FiltroDia(dia));
@@ -344,7 +344,7 @@ public class FiscalHistoricoConfigP02Tests : IDisposable
     public async Task Comprobante_VersionInvalida_FallaConExcepcionTipada_SinCalcularConOtraRegla()
     {
         var (cliente, producto) = await SeedBaseAsync();
-        var (_, facturaId) = await SeedVentaAsync(cliente, producto, DateTime.UtcNow.Date.AddDays(-1), version: 77);
+        var (_, facturaId) = await SeedVentaAsync(cliente, producto, TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow).AddDays(-1), version: 77);
         var ex = await Assert.ThrowsAsync<CriterioFiscalDesconocidoException>(() => ComprobanteAsync(facturaId));
         Assert.Equal(77, ex.Version);
     }

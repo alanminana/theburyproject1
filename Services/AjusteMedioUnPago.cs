@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Models;
 
@@ -14,9 +15,19 @@ internal static class AjusteMedioUnPago
 {
     public static bool Aplica(TipoPago tipoPago) => tipoPago is TipoPago.Efectivo or TipoPago.Transferencia;
 
+    /// <summary>
+    /// P-02 / C5: parte de la base sobre la que se aplica el porcentaje. Con un descuento (porcentaje negativo) y un criterio fiscal que
+    /// lo limita a productos (V2) se excluyen los servicios (envío y armado); un recargo o V1 alcanzan a toda la base (null).
+    /// </summary>
+    public static decimal? BaseSujetaAAjuste(ICriterioFiscal criterio, decimal porcentaje, decimal baseVenta, decimal serviciosEnBase) =>
+        criterio.DescuentoDeMedioSoloSobreProductos && porcentaje < 0m && serviciosEnBase > 0m
+            ? Math.Max(0m, baseVenta - serviciosEnBase)
+            : null;
+
     /// <returns>El cálculo sobre <paramref name="baseVenta"/>, o null si no hay plan o el ajuste es 0.</returns>
     public static async Task<AjustePagoGlobalResultado?> ResolverAsync(
-        AppDbContext context, TipoPago tipoPago, decimal baseVenta, CancellationToken cancellationToken = default)
+        AppDbContext context, TipoPago tipoPago, decimal baseVenta, ICriterioFiscal criterio, decimal serviciosEnBase = 0m,
+        CancellationToken cancellationToken = default)
     {
         if (!Aplica(tipoPago))
             return null;
@@ -36,6 +47,7 @@ internal static class AjusteMedioUnPago
         var calculo = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
         {
             BaseVenta = baseVenta,
+            BaseSujetaAAjuste = BaseSujetaAAjuste(criterio, plan.AjustePorcentaje, baseVenta, serviciosEnBase),
             PorcentajeAjuste = plan.AjustePorcentaje,
             CantidadCuotas = 1,
             MedioActivo = true,

@@ -202,7 +202,7 @@ public class ExportacionesReporteConsistenciaTests : IDisposable
             ClienteId = cliente.Id,
             Estado = estado,
             TipoPago = tipoPago,
-            FechaVenta = fecha,
+            FechaVenta = TheBuryProject.Services.FechaComercial.AUtc(fecha),
             Subtotal = total - iva,
             IVA = iva,
             Total = total,
@@ -280,16 +280,16 @@ public class ExportacionesReporteConsistenciaTests : IDisposable
         new[] { new DateTime(2026, mes, 1), new DateTime(2026, mes, 1).AddMonths(1) };
 
     private Task<decimal> SqlTotalVentasAsync(DateTime desde, DateTime hastaExclusivo) =>
-        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(Total),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", desde, hastaExclusivo);
+        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(Total),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", TheBuryProject.Services.FechaComercial.InicioDiaUtc(desde), TheBuryProject.Services.FechaComercial.InicioDiaUtc(hastaExclusivo));
 
     private Task<decimal> SqlTotalIvaAsync(DateTime desde, DateTime hastaExclusivo) =>
-        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(IVA),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", desde, hastaExclusivo);
+        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(IVA),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", TheBuryProject.Services.FechaComercial.InicioDiaUtc(desde), TheBuryProject.Services.FechaComercial.InicioDiaUtc(hastaExclusivo));
 
     private Task<decimal> SqlTotalSubtotalAsync(DateTime desde, DateTime hastaExclusivo) =>
-        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(Subtotal),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", desde, hastaExclusivo);
+        SqlEscalarAsync($"SELECT CAST(COALESCE(SUM(Subtotal),0) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", TheBuryProject.Services.FechaComercial.InicioDiaUtc(desde), TheBuryProject.Services.FechaComercial.InicioDiaUtc(hastaExclusivo));
 
     private async Task<int> SqlCantidadVentasAsync(DateTime desde, DateTime hastaExclusivo) =>
-        (int)await SqlEscalarAsync($"SELECT CAST(COUNT(*) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", desde, hastaExclusivo);
+        (int)await SqlEscalarAsync($"SELECT CAST(COUNT(*) AS FLOAT) AS Value FROM Ventas WHERE {Comercial} AND FechaVenta >= {{0}} AND FechaVenta < {{1}}", TheBuryProject.Services.FechaComercial.InicioDiaUtc(desde), TheBuryProject.Services.FechaComercial.InicioDiaUtc(hastaExclusivo));
 
     /// <summary>Devoluciones que restan (Aprobada/Completada) por fecha de devolución, de ventas comerciales vigentes.</summary>
     private Task<decimal> SqlTotalDevolucionesAsync(DateTime desde, DateTime hastaExclusivo) =>

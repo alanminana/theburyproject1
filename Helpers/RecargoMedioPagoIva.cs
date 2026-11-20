@@ -19,6 +19,13 @@ namespace TheBuryProject.Helpers
         public readonly record struct ParteAlicuota(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva);
 
         /// <summary>
+        /// P-02: datos de la venta que permiten reconstruir EXACTAMENTE el ajuste del medio de pago. <c>AjustePersistido</c>: monto del
+        /// ajuste guardado en la venta (Efectivo/Transferencia). <c>ServiciosExcluidosDelDescuento</c> (C5, solo V2): bruto de armados +
+        /// envío, que no reciben el descuento y por eso no entran en su reparto entre alícuotas; <c>AlicuotaServicios</c> es la de esas líneas.
+        /// </summary>
+        public readonly record struct AjusteMedioContexto(decimal? AjustePersistido, decimal ServiciosExcluidosDelDescuento = 0m, decimal AlicuotaServicios = 0m);
+
+        /// <summary>
         /// Recargo (en pesos enteros) que contiene el total cobrado: total - truncado a pesos de lo que suman los ítems.
         /// El total ya viene truncado a pesos (VentaService.TruncarAPesos), así que la diferencia es un entero.
         /// 0 si no hay recargo (o si hay un descuento: eso no se discrimina aquí).
@@ -115,7 +122,19 @@ namespace TheBuryProject.Helpers
         public static Discriminacion Discriminar(
             decimal total,
             IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
-            Func<decimal, decimal> aPesos)
+            Func<decimal, decimal> aPesos) =>
+            Discriminar(total, lineas, aPesos, contexto: null);
+
+        /// <summary>
+        /// P-02: con <paramref name="contexto"/> (Efectivo/Transferencia: la venta guarda el monto exacto del ajuste) la
+        /// base cobrada es <c>total - ajuste</c> y el residuo de redondeo a pesos es <c>bruto - base</c>, aunque el total tenga centavos
+        /// (el ajuste del medio deja centavos sobre una base ya redondeada). Sin ese dato se conserva la heurística de V1.
+        /// </summary>
+        public static Discriminacion Discriminar(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos,
+            AjusteMedioContexto? contexto)
         {
             var bruto = lineas.Sum(l => l.Bruto);
             var netoLineas = lineas.Sum(l => l.Neto);
@@ -125,9 +144,19 @@ namespace TheBuryProject.Helpers
             if (total <= 0m)
                 return new Discriminacion(Array.Empty<ParteAlicuota>(), 0m, netoLineas, ivaLineas);
 
-            // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
-            var truncado = total == Math.Floor(total) ? bruto - aPesos(bruto) : 0m;
-            var ajuste = total - (bruto - truncado);
+            decimal truncado;
+            decimal ajuste;
+            if (contexto?.AjustePersistido is { } ajustePersistido && ajustePersistido != 0m)
+            {
+                truncado = bruto - (total - ajustePersistido);
+                ajuste = ajustePersistido;
+            }
+            else
+            {
+                // Un total con centavos no fue truncado a pesos (ventas nacidas de cotización): el ajuste es la diferencia exacta.
+                truncado = total == Math.Floor(total) ? bruto - aPesos(bruto) : 0m;
+                ajuste = total - (bruto - truncado);
+            }
             if (Math.Abs(ajuste) < 0.005m)
             {
                 var (n0, i0) = AbsorberRedondeo(netoLineas, ivaLineas, truncado);
@@ -138,7 +167,18 @@ namespace TheBuryProject.Helpers
             }
 
             var signo = ajuste > 0m ? 1m : -1m;
-            var partes = Repartir(lineas.Select(l => (l.Porcentaje, l.Bruto)), Math.Abs(ajuste))
+            // C5 (V2): un descuento no alcanza a los servicios; se reparte solo entre las alícuotas de los productos.
+            var bases = lineas.Select(l => (l.Porcentaje, l.Bruto));
+            if (ajuste < 0m && contexto is { ServiciosExcluidosDelDescuento: > 0m } c)
+            {
+                bases = lineas
+                    .GroupBy(l => l.Porcentaje)
+                    .Select(g => (Porcentaje: g.Key, Bruto: g.Sum(l => l.Bruto) - (g.Key == c.AlicuotaServicios ? c.ServiciosExcluidosDelDescuento : 0m)))
+                    .Where(b => b.Bruto > 0m)
+                    .ToList();
+            }
+
+            var partes = Repartir(bases, Math.Abs(ajuste))
                 .Select(p => new ParteAlicuota(p.Porcentaje, signo * p.Bruto, signo * p.Neto, signo * p.Iva))
                 .ToList();
             var (neto, iva) = AbsorberRedondeo(netoLineas + partes.Sum(p => p.Neto), ivaLineas + partes.Sum(p => p.Iva), truncado);
@@ -162,9 +202,16 @@ namespace TheBuryProject.Helpers
         public static List<ParteAlicuota> ResumenPorAlicuota(
             decimal total,
             IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
-            Func<decimal, decimal> aPesos)
+            Func<decimal, decimal> aPesos) =>
+            ResumenPorAlicuota(total, lineas, aPesos, contexto: null);
+
+        public static List<ParteAlicuota> ResumenPorAlicuota(
+            decimal total,
+            IReadOnlyList<(decimal Porcentaje, decimal Bruto, decimal Neto, decimal Iva)> lineas,
+            Func<decimal, decimal> aPesos,
+            AjusteMedioContexto? contexto)
         {
-            var d = Discriminar(total, lineas, aPesos);
+            var d = Discriminar(total, lineas, aPesos, contexto);
             var buckets = lineas
                 .GroupBy(l => l.Porcentaje)
                 .ToDictionary(g => g.Key, g => new ParteAlicuota(g.Key, g.Sum(l => l.Bruto), g.Sum(l => l.Neto), g.Sum(l => l.Iva)));

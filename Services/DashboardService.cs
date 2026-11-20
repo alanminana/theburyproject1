@@ -48,6 +48,10 @@ namespace TheBuryProject.Services
 
         #endregion
 
+        // P-02 / C15: FechaDevolucion es un instante UTC; el dashboard agrupa por día/mes comercial argentino.
+        private static VentasNetas.DevolucionNeta DevolucionEnHoraComercial(VentasNetas.DevolucionNeta d) =>
+            d with { Fecha = FechaComercial.AComercial(d.Fecha) };
+
         #region Dashboard principal
 
         public async Task<DashboardViewModel> GetDashboardDataAsync()
@@ -58,6 +62,8 @@ namespace TheBuryProject.Services
             var manana = hoy.AddDays(1);
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var inicioAnio = new DateTime(hoy.Year, 1, 1);
+            // P-02 / C15: FechaVenta (y FechaDevolucion) son instantes UTC; las ventanas son días comerciales argentinos.
+            var inicioAnioUtc = FechaComercial.InicioDiaUtc(inicioAnio);
 
             // DbContext no es thread-safe: ejecutar queries secuencialmente
             var totalClientes     = await _context.Clientes.CountAsync(c => !c.IsDeleted);
@@ -66,12 +72,13 @@ namespace TheBuryProject.Services
 
             // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
             var ventasRaw = await _context.Ventas.Comerciales()
-                .Where(v => v.FechaVenta >= inicioAnio)
+                .Where(v => v.FechaVenta >= inicioAnioUtc)
                 .Select(v => new { v.Id, v.FechaVenta, v.Total })
                 .ToListAsync();
+            ventasRaw = ventasRaw.Select(v => new { v.Id, FechaVenta = FechaComercial.AComercial(v.FechaVenta), v.Total }).ToList();
             // H10/D3: las ventas del período se informan netas de devoluciones Aprobadas/Completadas, por FECHA DE
             // DEVOLUCIÓN (misma definición que ReporteService.GenerarReporteVentasAsync).
-            var devolucionesAnio = await VentasNetas.ObtenerDevolucionesAsync(_context, inicioAnio, null);
+            var devolucionesAnio = (await VentasNetas.ObtenerDevolucionesAsync(_context, inicioAnioUtc, null)).Select(DevolucionEnHoraComercial).ToList();
             var ventasHoy     = ventasRaw.Where(v => v.FechaVenta >= hoy && v.FechaVenta < manana).Sum(v => v.Total)
                                 - devolucionesAnio.Where(d => d.Fecha >= hoy && d.Fecha < manana).Sum(d => d.Bruto);
             var ventasBrutasMes = ventasRaw.Where(v => v.FechaVenta >= inicioMes).Sum(v => v.Total);
@@ -268,13 +275,15 @@ namespace TheBuryProject.Services
             var hoy = _reloj.InicioDiaComercial;
             var hace7Dias = hoy.AddDays(-7);
 
-            var raw = await _context.Ventas.Comerciales()
-                .Where(v => v.FechaVenta >= hace7Dias)
+            var raw = (await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= FechaComercial.InicioDiaUtc(hace7Dias))
                 .Select(v => new { v.FechaVenta, v.Total })
-                .ToListAsync();
+                .ToListAsync())
+                .Select(v => new { FechaVenta = FechaComercial.AComercial(v.FechaVenta), v.Total })
+                .ToList();
 
             // H10/D3: cada día resta las devoluciones con esa fecha de devolución (puede quedar negativo).
-            var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(_context, hace7Dias, null);
+            var devoluciones = (await VentasNetas.ObtenerDevolucionesAsync(_context, FechaComercial.InicioDiaUtc(hace7Dias), null)).Select(DevolucionEnHoraComercial).ToList();
             var devueltoPorDia = devoluciones.GroupBy(d => d.Fecha.Date).ToDictionary(g => g.Key, g => g.Sum(d => d.Bruto));
 
             var agrupado = raw
@@ -304,13 +313,15 @@ namespace TheBuryProject.Services
             var hace12Meses = _reloj.InicioDiaComercial.AddMonths(-12);
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
-            var raw = await _context.Ventas.Comerciales()
-                .Where(v => v.FechaVenta >= hace12Meses)
+            var raw = (await _context.Ventas.Comerciales()
+                .Where(v => v.FechaVenta >= FechaComercial.InicioDiaUtc(hace12Meses))
                 .Select(v => new { v.FechaVenta, v.Total })
-                .ToListAsync();
+                .ToListAsync())
+                .Select(v => new { FechaVenta = FechaComercial.AComercial(v.FechaVenta), v.Total })
+                .ToList();
 
             // H10/D3: cada mes resta las devoluciones con fecha de devolución en ese mes.
-            var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(_context, hace12Meses, null);
+            var devoluciones = (await VentasNetas.ObtenerDevolucionesAsync(_context, FechaComercial.InicioDiaUtc(hace12Meses), null)).Select(DevolucionEnHoraComercial).ToList();
             var devueltoPorMes = devoluciones
                 .GroupBy(d => (d.Fecha.Year, d.Fecha.Month))
                 .ToDictionary(g => g.Key, g => g.Sum(d => d.Bruto));
@@ -336,6 +347,7 @@ namespace TheBuryProject.Services
         {
             var hoy = _reloj.InicioDiaComercial;
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
+            var inicioMesUtc = FechaComercial.InicioDiaUtc(inicioMes);
 
             var raw = await _context.VentaDetalles
                 .Where(vd => !vd.IsDeleted &&
@@ -344,7 +356,7 @@ namespace TheBuryProject.Services
                              vd.Venta != null &&
                              !vd.Venta.IsDeleted &&
                              EstadosVentaComerciales.Contains(vd.Venta.Estado) &&
-                             vd.Venta.FechaVenta >= inicioMes)
+                             vd.Venta.FechaVenta >= inicioMesUtc)
                 .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal, vd.SubtotalFinal })
                 .ToListAsync();
 
@@ -759,7 +771,7 @@ namespace TheBuryProject.Services
                 Tipo = "venta",
                 Titulo = "Venta registrada",
                 Detalle = $"#{v.Numero} por {v.Total.ToString("C", cultura)}",
-                Fecha = v.FechaVenta,
+                Fecha = FechaComercial.AComercial(v.FechaVenta),
                 Color = "emerald"
             }));
 

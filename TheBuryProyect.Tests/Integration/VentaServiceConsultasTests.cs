@@ -195,8 +195,9 @@ public class VentaServiceConsultasTests : IDisposable
 
         var resultado = await _service.GetAllAsync();
 
-        Assert.Equal(fecha2, resultado[0].FechaVenta);
-        Assert.Equal(fecha1, resultado[1].FechaVenta);
+        // P-02 / C15: la lista muestra la hora comercial argentina del instante UTC guardado.
+        Assert.Equal(TheBuryProject.Services.FechaComercial.AComercial(fecha2), resultado[0].FechaVenta);
+        Assert.Equal(TheBuryProject.Services.FechaComercial.AComercial(fecha1), resultado[1].FechaVenta);
     }
 
     // -------------------------------------------------------------------------
@@ -259,8 +260,9 @@ public class VentaServiceConsultasTests : IDisposable
     public async Task GetAll_FiltroFechaHasta_ExcluyePosteriores()
     {
         var cliente = await SeedClienteAsync();
-        var anterior = new DateTime(2024, 12, 30, 0, 0, 0, DateTimeKind.Utc);
-        var posterior = new DateTime(2025, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        var anterior = new DateTime(2024, 12, 30, 12, 0, 0, DateTimeKind.Utc);
+        // P-02 / C15: «hasta» es un día comercial completo; 02/01 00:00 UTC todavía es el 01/01 a las 21:00 en Argentina.
+        var posterior = new DateTime(2025, 1, 3, 12, 0, 0, DateTimeKind.Utc);
         var corte = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         await SeedVentaAsync(cliente.Id, fechaVenta: anterior);
