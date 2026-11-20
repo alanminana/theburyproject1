@@ -679,6 +679,25 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(aprobada.FechaAprobacion, nc.FechaEmision);
     }
 
+    [Theory]
+    [InlineData(2, 1)]   // V2: alta fuera de la ventana, aprobada dentro => cuenta en el período de la NC
+    [InlineData(1, 0)]   // V1: conserva la fecha de alta => no cuenta (no se reimputa lo histórico)
+    public async Task TotalDevolucionesPeriodo_C13_UsaLaFechaDeEfectoVersionada(int version, int cuentaEnOctubre)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        venta.CriterioFiscalVersion = version;
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Completada);
+        dev.FechaDevolucion = new DateTime(2026, 9, 30, 10, 0, 0);
+        dev.FechaAprobacion = new DateTime(2026, 10, 2, 10, 0, 0);
+        await _context.SaveChangesAsync();
+
+        var octubre = await _service.ObtenerTotalDevolucionesPeriodoAsync(new DateTime(2026, 10, 1), new DateTime(2026, 10, 31, 23, 59, 59));
+
+        Assert.Equal(cuentaEnOctubre * 50m, octubre);
+    }
+
     [Fact]
     public async Task Aprobar_SinRowVersion_LanzaExcepcion()
     {

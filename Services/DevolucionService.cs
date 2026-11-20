@@ -1678,8 +1678,13 @@ public class DevolucionService : IDevolucionService
         return await _context.Devoluciones
             .AsNoTracking()
             .Where(d => !d.IsDeleted &&
-                       d.FechaDevolucion >= desde &&
-                       d.FechaDevolucion <= hasta &&
+                       // P-02 / C13: misma fecha de efecto que Reportes y Dashboard (V2 = aprobación; V1 = alta).
+                       (d.Venta.CriterioFiscalVersion >= CriterioFiscalRegistry.VersionDosRedondeoComercial && d.FechaAprobacion != null
+                           ? d.FechaAprobacion.Value
+                           : d.FechaDevolucion) >= desde &&
+                       (d.Venta.CriterioFiscalVersion >= CriterioFiscalRegistry.VersionDosRedondeoComercial && d.FechaAprobacion != null
+                           ? d.FechaAprobacion.Value
+                           : d.FechaDevolucion) <= hasta &&
                        d.Estado == EstadoDevolucion.Completada)
             .SumAsync(d => d.TotalDevolucion);
     }

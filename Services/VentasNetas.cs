@@ -58,6 +58,17 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
+        /// P-02 / C13: fecha de efecto de una devolución ya cargada en memoria (misma definición que la de las consultas de
+        /// <see cref="ObtenerDevolucionesAsync"/>): con V2 en la venta original y devolución aprobada es <c>FechaAprobacion</c>
+        /// (emisión de la NC); en cualquier otro caso, <c>FechaDevolucion</c>. Requiere la <c>Venta</c> cargada; sin ella (null)
+        /// se conserva <c>FechaDevolucion</c>.
+        /// </summary>
+        public static DateTime FechaDeEfecto(Devolucion devolucion) =>
+            devolucion.Venta?.CriterioFiscalVersion >= VersionConFechaDeAprobacion && devolucion.FechaAprobacion != null
+                ? devolucion.FechaAprobacion.Value
+                : devolucion.FechaDevolucion;
+
+        /// <summary>
         /// Una devolución valuada: <see cref="Bruto"/> = lo realmente cobrado por lo devuelto (con IVA, incluida su parte del
         /// recargo/descuento del medio de pago; es <c>Devolucion.TotalDevolucion</c>), <see cref="Neto"/> = esa misma
         /// porción sin IVA y <see cref="Costo"/> = costo de la venta original de las unidades devueltas.

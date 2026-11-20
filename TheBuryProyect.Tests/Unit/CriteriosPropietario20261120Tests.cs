@@ -100,6 +100,22 @@ public class CriteriosPropietario20261120Tests
         Assert.Contains("FechaAprobacion", sql);
     }
 
+    [Theory]
+    [InlineData(2, true, "2026-10-02")]    // V2 con aprobación: emisión de la NC
+    [InlineData(1, true, "2026-09-30")]    // V1: fecha de alta (no se reimputa lo histórico)
+    [InlineData(2, false, "2026-09-30")]   // sin aprobación: fecha de alta
+    public void C13_FechaDeEfecto_EnMemoria_ConcuerdaConLaDeLasConsultas(int version, bool aprobada, string esperada)
+    {
+        var devolucion = new TheBuryProject.Models.Entities.Devolucion
+        {
+            FechaDevolucion = new DateTime(2026, 9, 30, 10, 0, 0),
+            FechaAprobacion = aprobada ? new DateTime(2026, 10, 2, 10, 0, 0) : null,
+            Venta = new TheBuryProject.Models.Entities.Venta { CriterioFiscalVersion = version }
+        };
+
+        Assert.Equal(DateTime.Parse(esperada, System.Globalization.CultureInfo.InvariantCulture).Date, VentasNetas.FechaDeEfecto(devolucion).Date);
+    }
+
     // ------------------------------------------------------------------ C10: mora desde el día 13
 
     private static PunitorioCalculoEntrada Entrada(DateOnly vencimiento, int diasTranscurridos, int diasGracia) => new()
