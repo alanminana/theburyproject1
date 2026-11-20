@@ -73,25 +73,64 @@
             .join('');
     }
 
+    function renderDesglose(lista, descuentos, ajuste, redondeo, total) {
+        const box = document.getElementById('devolucion-desglose');
+        if (!box) return;
+        if (!(total > 0)) {
+            box.hidden = true;
+            return;
+        }
+        const fila = (id, valor, show) => {
+            const row = document.getElementById(id);
+            if (!row) return;
+            row.hidden = !show;
+            const cell = row.querySelector('[data-valor]');
+            if (cell) cell.textContent = currency.format(valor);
+        };
+        box.hidden = false;
+        fila('devolucion-desglose-lista', lista, true);
+        fila('devolucion-desglose-descuentos', -descuentos, Math.abs(descuentos) >= 0.005);
+        const ajusteRow = document.getElementById('devolucion-desglose-ajuste');
+        if (ajusteRow) {
+            const label = ajusteRow.querySelector('[data-label]');
+            if (label) label.textContent = ajuste < 0 ? 'Descuento por medio de pago' : 'Recargo por medio de pago';
+        }
+        fila('devolucion-desglose-ajuste', ajuste, Math.abs(ajuste) >= 0.005);
+        fila('devolucion-desglose-redondeo', redondeo, Math.abs(redondeo) >= 0.005);
+        fila('devolucion-desglose-total', total, true);
+    }
+
+    // P-02: el importe sale del servidor (importePorCantidad, la misma regla que persiste la devolución); acá solo se suma y se
+    // reparte el desglose informativo (lista, descuentos, ajuste del medio de pago) en proporción a las unidades elegidas.
     function updateSelectedTotal() {
         let total = 0;
+        let lista = 0;
+        let descuentos = 0;
+        let ajuste = 0;
 
         itemsBody.querySelectorAll('tr').forEach((row) => {
             const checked = row.querySelector('.devolucion-item-check')?.checked;
             const cantidad = Number(row.querySelector('.devolucion-item-cantidad')?.value || 0);
-            const precio = Number(row.dataset.precio || 0);
+            const item = context?.items?.[Number(row.dataset.index)];
 
-            if (checked && cantidad > 0) {
-                total += cantidad * precio;
+            if (checked && cantidad > 0 && item) {
+                const importes = item.importePorCantidad || [];
+                const importe = Number(importes[Math.min(cantidad, importes.length - 1)] || 0);
+                const parte = item.cantidadVendida > 0 ? cantidad / item.cantidadVendida : 0;
+                total += importe;
+                lista += item.valorLista * parte;
+                descuentos += item.descuentos * parte;
+                ajuste += item.ajusteMedioPago * parte;
             }
         });
 
-        totalSeleccionado.textContent = `Total seleccionado: ${currency.format(total)}`;
+        totalSeleccionado.textContent = `Total a reintegrar: ${currency.format(total)}`;
+        renderDesglose(lista, descuentos, ajuste, total - (lista - descuentos + ajuste), total);
     }
 
     function renderItems(items) {
         itemsBody.innerHTML = items.map((item, index) => `
-            <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors" data-index="${index}" data-precio="${item.precioUnitario}">
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors" data-index="${index}">
                 <td class="px-4 py-3 align-top">
                     <input type="hidden" name="Items[${index}].ProductoId" value="${item.productoId}" />
                     <input type="hidden" name="Items[${index}].ProductoNombre" value="${escapeHtml(item.productoNombre)}" />
@@ -112,7 +151,7 @@
                     <p class="text-xs text-slate-400">${escapeHtml(item.productoCodigo || 'Sin código')}</p>
                 </td>
                 <td class="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-200">${item.cantidadDisponible}</td>
-                <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">${item.precioUnitarioDisplay}</td>
+                <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">${item.precioUnitarioDisplay}${item.cantidadVendida > 0 && Math.abs(item.valorLista / item.cantidadVendida - item.precioUnitario) >= 0.005 ? `<p class="text-[11px] font-normal text-slate-400">Lista ${currency.format(item.valorLista / item.cantidadVendida)}</p>` : ''}</td>
                 <td class="px-4 py-3">
                     <input type="number"
                            min="0"
@@ -217,7 +256,7 @@
         loading.classList.remove('hidden');
         submitBtn.disabled = false;
         submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-        totalSeleccionado.textContent = `Total seleccionado: ${currency.format(0)}`;
+        totalSeleccionado.textContent = `Total a reintegrar: ${currency.format(0)}`;
         helperBox.textContent = initialHelperText;
         cajaCheckbox.checked = false;
         cajaCheckbox.disabled = true;

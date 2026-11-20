@@ -200,9 +200,18 @@
                                     <p class="text-sm text-slate-400">Marcá los ítems, definí la cantidad y el estado en que reingresan.</p>
                                 </div>
                                 <div class="rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-primary" id="devolucion-total-seleccionado">
-                                    Total seleccionado: $0.00
+                                    Total a reintegrar: $0.00
                                 </div>
                             </div>
+
+                            <dl id="devolucion-desglose" hidden class="grid gap-1 border-b px-4 py-3 text-sm border-slate-800 bg-slate-950/30 sm:px-5" aria-label="Desglose del importe a reintegrar">
+                                <div id="devolucion-desglose-lista" class="flex justify-between gap-3"><dt class="text-slate-400">Valor de lista</dt><dd data-valor class="font-semibold text-slate-200 tabular-nums"></dd></div>
+                                <div id="devolucion-desglose-descuentos" class="flex justify-between gap-3"><dt class="text-slate-400">Descuentos</dt><dd data-valor class="font-semibold text-slate-200 tabular-nums"></dd></div>
+                                <div id="devolucion-desglose-ajuste" class="flex justify-between gap-3"><dt data-label class="text-slate-400">Recargo por medio de pago</dt><dd data-valor class="font-semibold text-slate-200 tabular-nums"></dd></div>
+                                <div id="devolucion-desglose-redondeo" class="flex justify-between gap-3"><dt class="text-slate-400">Redondeo</dt><dd data-valor class="font-semibold text-slate-200 tabular-nums"></dd></div>
+                                <div id="devolucion-desglose-total" class="flex justify-between gap-3 border-t pt-2 border-slate-800"><dt class="font-bold text-white">Importe a reintegrar</dt><dd data-valor class="font-black text-primary tabular-nums"></dd></div>
+                                <p class="text-xs text-slate-400">Es lo que efectivamente se cobró por estos productos: el mismo importe se registra en la devolución, tanto si se resuelve con nota de crédito como con reembolso.</p>
+                            </dl>
 
                             <div data-oc-scroll style="--oc-scroll-min-width: 34.25rem;" class="overflow-hidden">
                                 <div class="border-b px-4 py-3 border-slate-800 bg-slate-950/30">
@@ -220,7 +229,7 @@
                                                     <th class="px-4 py-3 text-left">Selección</th>
                                                     <th class="px-4 py-3 text-left">Producto</th>
                                                     <th class="px-4 py-3 text-center">Disponible</th>
-                                                    <th class="px-4 py-3 text-right">Precio</th>
+                                                    <th class="px-4 py-3 text-right">Reintegro unit.</th>
                                                     <th class="px-4 py-3 text-center">Cantidad</th>
                                                     <th class="px-4 py-3 text-left">Estado</th>
                                                 </tr>

@@ -180,20 +180,19 @@ public class DevolucionController : Controller
 
         // P-07: la cantidad ofrecida descuenta lo ya devuelto (mismo criterio que valida CrearDevolucionAsync). Antes se
         // ofrecía siempre lo vendido: tras devolver todo, el modal seguía dejando elegir unidades que el servidor rechazaba.
-        var yaDevueltoPorProducto = await _devolucionService.ObtenerCantidadesDevueltasPorProductoAsync(ventaId);
-        var restantePorConsumir = new Dictionary<int, int>(yaDevueltoPorProducto);
-        var itemsDisponibles = venta.Detalles.Select(detalle =>
-        {
-            var consumido = restantePorConsumir.TryGetValue(detalle.ProductoId, out var pendiente)
-                ? Math.Min(pendiente, detalle.Cantidad)
-                : 0;
-            if (consumido > 0)
-                restantePorConsumir[detalle.ProductoId] = restantePorConsumir[detalle.ProductoId] - consumido;
-            return new { Detalle = detalle, Disponible = detalle.Cantidad - consumido };
-        }).ToList();
+        // P-02: el importe de cada producto es lo REINTEGRABLE (descuentos y ajuste del medio de pago incluidos), no el precio de
+        // lista: sale de la misma valuación que persiste CrearDevolucionAsync, así lo que ve el operador es lo que se registra.
+        var preview = await _devolucionService.ObtenerPreviewDevolucionAsync(ventaId);
+        var itemsDisponibles = preview
+            .Select(p => new
+            {
+                Preview = p,
+                Detalle = venta.Detalles.First(d => d.ProductoId == p.Valuacion.ProductoId)
+            })
+            .ToList();
 
         var puedeDevolver = await _devolucionService.PuedeDevolverVentaAsync(ventaId)
-                            && itemsDisponibles.Any(i => i.Disponible > 0);
+                            && itemsDisponibles.Any(i => i.Preview.CantidadDisponible > 0);
 
         return Json(new
         {
@@ -220,10 +219,15 @@ public class DevolucionController : Controller
                     productoId = item.Detalle.ProductoId,
                     productoNombre = item.Detalle.ProductoNombre ?? "Producto",
                     productoCodigo = item.Detalle.ProductoCodigo,
-                    cantidadDisponible = item.Disponible,
-                    precioUnitario = item.Detalle.PrecioUnitario,
-                    precioUnitarioDisplay = item.Detalle.PrecioUnitario.ToString("C2"),
-                    subtotalDisplay = item.Detalle.Subtotal.ToString("C2")
+                    cantidadDisponible = item.Preview.CantidadDisponible,
+                    cantidadVendida = item.Preview.Valuacion.CantidadVendida,
+                    precioUnitario = item.Preview.Valuacion.PrecioUnitarioReintegrable,
+                    precioUnitarioDisplay = item.Preview.Valuacion.PrecioUnitarioReintegrable.ToString("C2"),
+                    valorLista = item.Preview.Valuacion.ValorLista,
+                    descuentos = item.Preview.Valuacion.DescuentoLineas,
+                    ajusteMedioPago = item.Preview.Valuacion.AjusteMedioPago,
+                    totalReintegrable = item.Preview.Valuacion.TotalReintegrable,
+                    importePorCantidad = item.Preview.ImportePorCantidad
                 })
             }
         });

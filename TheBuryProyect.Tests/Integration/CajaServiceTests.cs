@@ -940,6 +940,28 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(5_000m, resultado.DescuentoMedioPago);
     }
 
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConDescuentoConCentavos_BasePorAjusteIgualaLoCobrado()
+    {
+        // P-02: cuota $350,35, descuento en efectivo −$17,52, cobrado $332,83. El descuento se registra en DescuentoMedioPago
+        // (RecargoMedioPago queda vacío: conceptos separados) y Monto = ImporteBase + recargo − descuento, sin duplicar movimientos.
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 44, creditoNumero: "CRED-012", numeroCuota: 1,
+            montoBase: 350.35m, recargoMedioPago: -17.52m,
+            tipoPago: TipoPago.Efectivo, medioPago: "Efectivo", usuario: "testuser");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(332.83m, resultado!.Monto);
+        Assert.Equal(350.35m, resultado.ImporteBase);
+        Assert.Null(resultado.RecargoMedioPago);
+        Assert.Equal(17.52m, resultado.DescuentoMedioPago);
+        Assert.Equal(resultado.Monto, resultado.ImporteBase!.Value + (resultado.RecargoMedioPago ?? 0m) - (resultado.DescuentoMedioPago ?? 0m));
+        Assert.Equal(1, _context.MovimientosCaja.Count(m => m.ReferenciaId == 44 && m.Concepto == ConceptoMovimientoCaja.CobroCuota));
+    }
+
     // FIN-CAJA-4-P0: con apertura candidata resuelta por el llamador (antes de su transacción), el servicio no
     // vuelve a consultar la apertura: toma el lock y revalida estado y propietario desde la base.
 

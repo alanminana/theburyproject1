@@ -260,6 +260,98 @@ public class FiscalAlicuotasMixtasP02Tests : IDisposable
         }
     }
 
+    // ─── Integridad V1/V2 con ajuste de medio de pago y alícuotas mixtas (cierre P-02) ───────────────────────────────
+
+    /// <summary>
+    /// Barrido de combinaciones con alícuotas mixtas (21 / 10,5 / exento) y ajuste del medio de pago. Verifica, por versión:
+    /// (1) el importe cobrado coincide con el oráculo independiente y <c>Neto + IVA = Total</c> (el defecto histórico de V1 NO toca
+    /// lo cobrado); (2) V2 reconstruye el neto del comprobante exactamente igual al guardado (divergencia 0); (3) V1 puede diferir en
+    /// centavos entre el neto guardado y el reconstruido, pero siempre < $1,00 (el truncado a pesos; medido hasta $0,71) y sin alterar el total; (4) un
+    /// comprobante de una venta V1 se interpreta idéntico aunque después la versión vigente pase a V2 (se resuelve por la versión
+    /// persistida en la venta, no por la vigente).
+    /// </summary>
+    [Theory]
+    [InlineData(1, 21.0, 1000.51, 10.5, 333.33, -5.0, 0)]
+    [InlineData(1, 21.0, 1000.51, 10.5, 333.33, 3.0, 1)]
+    [InlineData(1, 21.0, 999.99, 0.0, 250.75, 3.0, 1)]
+    [InlineData(1, 10.5, 1234.57, 21.0, 777.77, -5.0, 0)]
+    [InlineData(1, 21.0, 4321.09, 10.5, 99.99, 3.0, 1)]
+    [InlineData(2, 21.0, 1000.51, 10.5, 333.33, -5.0, 0)]
+    [InlineData(2, 21.0, 1000.51, 10.5, 333.33, 3.0, 1)]
+    [InlineData(2, 21.0, 999.99, 0.0, 250.75, 3.0, 1)]
+    [InlineData(2, 10.5, 1234.57, 21.0, 777.77, -5.0, 0)]
+    [InlineData(2, 21.0, 4321.09, 10.5, 99.99, 3.0, 1)]
+    public async Task IntegridadFiscal_AjusteConAlicuotasMixtas_NoAlteraLoCobradoYV2NoDiverge(
+        int version, double ivaA, double precioA, double ivaB, double precioB, double pct, int tipoPagoInt)
+    {
+        var tipo = (TipoPago)tipoPagoInt;
+        var n = Interlocked.Increment(ref _n);
+        var cliente = new Cliente { Nombre = "Int", Apellido = "Fiscal", TipoDocumento = "DNI", NumeroDocumento = n.ToString("D8"), Email = $"if{n}@t.com", NivelRiesgo = NivelRiesgoCredito.AprobadoTotal };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        var a = await NuevoProductoAsync((decimal)precioA, (decimal)ivaA);
+        var b = await NuevoProductoAsync((decimal)precioB, (decimal)ivaB);
+        await ConfigurarMedioAsync(tipo, (decimal)pct, servicios: false);
+
+        using var _ = CriterioFiscalRegistry.UsarParaPruebas(vigente: version);
+        var creada = await _ventas.CreateAsync(new VentaViewModel
+        {
+            ClienteId = cliente.Id, FechaVenta = DateTime.UtcNow, Estado = EstadoVenta.Cotizacion, TipoPago = tipo,
+            Detalles = new List<VentaDetalleViewModel>
+            {
+                new() { ProductoId = a.Id, Cantidad = 1, PrecioUnitario = (decimal)precioA },
+                new() { ProductoId = b.Id, Cantidad = 1, PrecioUnitario = (decimal)precioB }
+            }
+        });
+        var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
+
+        var (totalEsperado, _) = Oraculo(version, (decimal)precioA + (decimal)precioB, 0m, (decimal)pct);
+        Assert.Equal(totalEsperado, venta.Total);                 // (1) lo cobrado = oráculo, en ambas versiones
+        Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);    //     y Neto + IVA = Total
+
+        var dia = FechaComercial.DiaComercial(DateTime.UtcNow);
+        venta.Estado = EstadoVenta.Facturada;
+        venta.FechaFacturacion = dia;
+        _context.Facturas.Add(new Factura
+        {
+            VentaId = venta.Id, Numero = $"INT-{Interlocked.Increment(ref _n)}", Tipo = TipoFactura.B, FechaEmision = dia,
+            Subtotal = venta.Subtotal, IVA = venta.IVA, Total = venta.Total
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        async Task<FacturaComprobanteViewModel> ConstruirAsync()
+        {
+            var f = await _context.Facturas
+                .Include(x => x.Venta).ThenInclude(v => v.Detalles).ThenInclude(d => d.Producto)
+                .Include(x => x.Venta).ThenInclude(v => v.Cliente)
+                .Include(x => x.Venta).ThenInclude(v => v.Envio)
+                .Include(x => x.Venta).ThenInclude(v => v.DatosTarjeta)
+                .AsNoTracking().SingleAsync(x => x.VentaId == venta.Id);
+            return FacturaComprobanteBuilder.Build(f);
+        }
+
+        var comprobante = await ConstruirAsync();
+        Assert.Equal(venta.Total, comprobante.Totales.Total);
+        var divergencia = Math.Abs(venta.Subtotal - comprobante.ResumenAlicuotas.Sum(r => r.BaseImponible));
+
+        if (version == 2)
+            Assert.Equal(0m, divergencia);                         // (2) V2 no reproduce la inconsistencia
+        else
+            Assert.True(divergencia < 1.00m, $"V1: divergencia {divergencia} >= 1,00");   // (3) cota histórica de V1: < $1
+
+        // (4) con V2 vigente, el comprobante de una venta V1 se interpreta exactamente igual (versión persistida en la venta).
+        if (version == 1)
+        {
+            using var v2Vigente = CriterioFiscalRegistry.UsarParaPruebas(vigente: 2);
+            var bajoV2 = await ConstruirAsync();
+            Assert.Equal(comprobante.Totales.Total, bajoV2.Totales.Total);
+            Assert.Equal(
+                comprobante.ResumenAlicuotas.Select(r => (r.PorcentajeIVA, r.BaseImponible, r.IVA, r.Total)),
+                bajoV2.ResumenAlicuotas.Select(r => (r.PorcentajeIVA, r.BaseImponible, r.IVA, r.Total)));
+        }
+    }
+
     // ─── Devoluciones parciales: nunca se reintegra más de lo cobrado por los productos ──────────────────────────────
 
     [Theory]

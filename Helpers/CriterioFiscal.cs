@@ -85,9 +85,10 @@ namespace TheBuryProject.Helpers
     }
 
     /// <summary>
-    /// Versión 2 (P-02, 2026-11-19). <b>Registrada pero NO vigente</b>: <see cref="CriterioFiscalRegistry.VersionVigente"/> sigue en 1
-    /// hasta que el propietario autorice la activación y su fecha de corte (P6). Una operación nace con V2 solo si la vigente es 2.
-    /// Contiene exclusivamente reglas con respuesta inequívoca del contador (2026-11-19), todo lo demás delega en V1:
+    /// Versión 2 (P-02, 2026-11-19). <b>Autorizada (P6, 2026-11-20) y activable solo por configuración</b>: sin
+    /// <c>Fiscal:CriterioV2Desde</c> (<c>FISCAL_CRITERIO_V2_DESDE</c>) <see cref="CriterioFiscalRegistry.VersionVigente"/> es 1; con ella
+    /// es 2 desde ese instante (ver <see cref="ActivacionCriterioFiscal"/>). Una operación nace con V2 solo si la vigente es 2.
+    /// Reglas con respuesta inequívoca del contador (2026-11-19), todo lo demás delega en V1:
     /// <list type="bullet">
     /// <item><b>C1/C2 redondeo del total a pesos</b>: hasta $0,50 inclusive se redondea hacia abajo y desde $0,51 hacia arriba
     /// (1.000,50 → 1.000; 1.000,51 y 1.000,99 → 1.001). V1 trunca siempre.</item>
@@ -96,8 +97,9 @@ namespace TheBuryProject.Helpers
     /// (invariante técnica de comprobantes y reportes) el residuo, que puede ser negativo, se absorbe en el IVA igual que en V1; no
     /// se crea ningún concepto ni línea nueva. Si el contador exige otro tratamiento, es un cambio local en
     /// <see cref="RecargoMedioPagoIva.AbsorberRedondeo"/>.
-    /// NO incluye (sin criterio firme, ver docs/p02-respuestas-contador-20261119.md): C5 descuento solo sobre productos, C7/C8
-    /// recargos, C9–C11 cuotas/punitorios/intereses, C12 crédito fiscal, C13/C14 devoluciones.
+    /// También incluye C5 (el descuento del medio de pago solo alcanza a los productos; ver <c>DescuentoDeMedioSoloSobreProductos</c>).
+    /// NO incluye (sin criterio firme, ver docs/p02-respuestas-contador-20261119.md): C7/C8 recargos, C9–C11
+    /// cuotas/punitorios/intereses, C12 crédito fiscal, C13 período de la NC fiscal.
     /// </summary>
     public sealed class CriterioFiscalV2 : ICriterioFiscal
     {
