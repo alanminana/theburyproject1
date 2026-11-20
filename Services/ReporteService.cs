@@ -159,7 +159,7 @@ namespace TheBuryProject.Services
                 var totalIngresoNeto = ventasItems.Sum(v => v.IngresoNeto);
                 var totalGananciaVentas = ventasItems.Sum(v => v.Ganancia);
 
-                // H10/D3: devoluciones Aprobadas/Completadas por FECHA DE APROBACIÓN (emisión de la NC, C13; legacy sin aprobación: fecha de devolución) dentro del período (aunque la venta sea de otro
+                // H10/D3: devoluciones Aprobadas/Completadas por su FECHA DE EFECTO (C13: con V2 la aprobación = emisión de la NC; con V1 la fecha de alta) dentro del período (aunque la venta sea de otro
                 // período), de las mismas ventas que pasan los filtros; sin alterar ningún registro histórico.
                 var devoluciones = await VentasNetas.ObtenerDevolucionesAsync(
                     _context,
@@ -524,13 +524,13 @@ namespace TheBuryProject.Services
                     })
                     .ToListAsync();
 
-                // H10/D3: las unidades devueltas (Aprobadas/Completadas, por fecha de aprobación = emisión de la NC; C13) se restan de lo vendido.
+                // H10/D3: las unidades devueltas (Aprobadas/Completadas, con V2 por fecha de aprobación = emisión de la NC; C13) se restan de lo vendido.
                 var devueltasRecientes = await _context.DevolucionDetalles
                     .AsNoTracking()
                     .Where(dd => !dd.IsDeleted &&
                                  !dd.Devolucion.IsDeleted &&
                                  VentasNetas.EstadosDevolucionQueRestan.Contains(dd.Devolucion.Estado) &&
-                                 (dd.Devolucion.FechaAprobacion ?? dd.Devolucion.FechaDevolucion) >= hace30Dias &&
+                                 (dd.Devolucion.Venta.CriterioFiscalVersion >= CriterioFiscalRegistry.VersionDosRedondeoComercial && dd.Devolucion.FechaAprobacion != null ? dd.Devolucion.FechaAprobacion.Value : dd.Devolucion.FechaDevolucion) >= hace30Dias &&
                                  !dd.Devolucion.Venta.IsDeleted &&
                                  EstadosVentaComerciales.Contains(dd.Devolucion.Venta.Estado))
                     .GroupBy(dd => dd.ProductoId)
@@ -1247,7 +1247,7 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, colGanancia).Value = reporte.TotalGananciaVentas;
                 worksheet.Cell(row, colMargen).Value = CalcularMargenPorcentaje(reporte.TotalGananciaVentas, reporte.TotalIngresoNeto);
 
-                // H10/D3: devoluciones del período (por fecha de aprobación = emisión de la NC) y totales netos. Ganancia y margen sin IVA.
+                // H10/D3: devoluciones del período (por fecha de efecto, C13) y totales netos. Ganancia y margen sin IVA.
                 row++;
                 worksheet.Cell(row, 5).Value = "Devoluciones del período:";
                 worksheet.Cell(row, colTotal).Value = -reporte.TotalDevoluciones;

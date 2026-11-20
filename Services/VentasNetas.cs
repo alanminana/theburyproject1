@@ -13,6 +13,9 @@ namespace TheBuryProject.Services
     /// </summary>
     internal static class VentasNetas
     {
+        /// <summary>P-02 / C13: desde esta versión fiscal de la venta la devolución se imputa a su fecha de aprobación.</summary>
+        private const int VersionConFechaDeAprobacion = CriterioFiscalRegistry.VersionDosRedondeoComercial;
+
         /// <summary>
         /// Devoluciones que cuentan: Aprobada (genera la nota de crédito o el reintegro) y Completada (stock/caja
         /// procesados). Pendiente, En revisión, Rechazada y Cancelada no restan. Un mismo registro no se cuenta dos veces:
@@ -64,10 +67,11 @@ namespace TheBuryProject.Services
         /// <summary>
         /// Devoluciones que restan cuya FECHA DE EFECTO cae en [<paramref name="desde"/>, <paramref name="hastaExclusivo"/>),
         /// de ventas comerciales vigentes (una venta cancelada no suma, así que su devolución tampoco resta).
-        /// P-02 / C13: la fecha de efecto es la de la APROBACIÓN (<c>FechaAprobacion</c>), que es el instante en que se emite la nota
-        /// de crédito (misma transacción) o se decide el reintegro; así una devolución dada de alta el 30/09 y aprobada el 02/10
-        /// resta en octubre y nunca modifica a posteriori un período ya informado. Las devoluciones sin fecha de aprobación
-        /// (anteriores a este criterio) conservan <c>FechaDevolucion</c>. Nunca se imputa al mes de la venta original.
+        /// P-02 / C13: con criterio fiscal V2 en la venta original la fecha de efecto es la de la APROBACIÓN (<c>FechaAprobacion</c>,
+        /// el mismo instante en que se emite la nota de crédito o se decide el reintegro): una devolución dada de alta el 30/09 y
+        /// aprobada el 02/10 resta en octubre y nunca modifica a posteriori un período ya informado. Con V1 (operaciones previas a
+        /// la puesta en marcha de V2, o V2 no vigente) y sin fecha de aprobación se conserva <c>FechaDevolucion</c>, así que ningún
+        /// período histórico se reimputa. Nunca se imputa al mes de la venta original.
         /// <paramref name="ventaIds"/> restringe a las ventas que pasaron los filtros del reporte (cliente, vendedor, medio de pago…).
         /// </summary>
         public static async Task<List<DevolucionNeta>> ObtenerDevolucionesAsync(
@@ -77,11 +81,11 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Where(d => !d.IsDeleted &&
                             EstadosDevolucionQueRestan.Contains(d.Estado) &&
-                            (d.FechaAprobacion ?? d.FechaDevolucion) >= desde &&
+                            (d.Venta.CriterioFiscalVersion >= VersionConFechaDeAprobacion && d.FechaAprobacion != null ? d.FechaAprobacion.Value : d.FechaDevolucion) >= desde &&
                             context.Ventas.Comerciales().Any(v => v.Id == d.VentaId));
 
             if (hastaExclusivo.HasValue)
-                query = query.Where(d => (d.FechaAprobacion ?? d.FechaDevolucion) < hastaExclusivo.Value);
+                query = query.Where(d => (d.Venta.CriterioFiscalVersion >= VersionConFechaDeAprobacion && d.FechaAprobacion != null ? d.FechaAprobacion.Value : d.FechaDevolucion) < hastaExclusivo.Value);
 
             if (ventaIds != null)
                 query = query.Where(d => ventaIds.Contains(d.VentaId));
@@ -91,7 +95,7 @@ namespace TheBuryProject.Services
                 {
                     d.Id,
                     d.VentaId,
-                    Fecha = d.FechaAprobacion ?? d.FechaDevolucion,
+                    Fecha = (d.Venta.CriterioFiscalVersion >= VersionConFechaDeAprobacion && d.FechaAprobacion != null ? d.FechaAprobacion.Value : d.FechaDevolucion),
                     d.TotalDevolucion,
                     Detalles = d.Detalles
                         .Where(x => !x.IsDeleted)

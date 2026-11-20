@@ -464,10 +464,13 @@ public class DevolucionService : IDevolucionService
 
             await ValidarCreditoNoVigenteAsync(devolucion.VentaId, "aprobar");
 
+            // P-02 / C13: UN solo instante para la aprobación y la emisión de la NC; los períodos imputan la devolución a
+            // FechaAprobacion, así que no puede quedar un mes distinto al de NotaCredito.FechaEmision.
+            var instanteAprobacion = DateTime.UtcNow;
             devolucion.Estado = EstadoDevolucion.Aprobada;
             devolucion.AprobadoPor = aprobadoPor;
-            devolucion.FechaAprobacion = DateTime.UtcNow;
-            devolucion.UpdatedAt = DateTime.UtcNow;
+            devolucion.FechaAprobacion = instanteAprobacion;
+            devolucion.UpdatedAt = instanteAprobacion;
 
             NotaCredito? notaCredito = null;
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.NotaCredito)
@@ -477,7 +480,7 @@ public class DevolucionService : IDevolucionService
                     DevolucionId = devolucion.Id,
                     ClienteId = devolucion.ClienteId,
                     NumeroNotaCredito = await GenerarNumeroNotaCreditoAsync(),
-                    FechaEmision = DateTime.UtcNow,
+                    FechaEmision = instanteAprobacion,
                     MontoTotal = devolucion.TotalDevolucion,
                     Estado = EstadoNotaCredito.Vigente,
                     FechaVencimiento = DateTime.UtcNow.AddYears(1)

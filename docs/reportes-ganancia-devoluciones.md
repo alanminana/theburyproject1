@@ -5,7 +5,7 @@ Fuente única del cálculo: `Services/VentasNetas.cs`. Usada por `ReporteService
 ## Fórmulas
 
 - **Ventas brutas** = Σ `Venta.Total` de las ventas del período que cuentan como venta efectiva.
-- **Devoluciones** = Σ `TotalDevolucion` (ya valuada por el importe realmente cobrado, ver `DevolucionService.ImporteCobradoDeLinea`) de devoluciones en estado Aprobada o Completada, por su **fecha de efecto** = `FechaAprobacion` (el instante en que se emite la nota de crédito o se decide el reintegro; C13, 2026-11-20), con `FechaDevolucion` solo como respaldo para registros sin aprobación registrada. Nunca por la fecha de la venta ni por la de alta de una devolución aprobada después: una devolución dada de alta el 30/09 y aprobada el 02/10 resta en octubre y no modifica septiembre a posteriori. Pendientes y rechazadas no restan.
+- **Devoluciones** = Σ `TotalDevolucion` (ya valuada por el importe realmente cobrado, ver `DevolucionService.ImporteCobradoDeLinea`) de devoluciones en estado Aprobada o Completada, por su **fecha de efecto** (C13, 2026-11-20): con criterio fiscal V2 en la venta es `FechaAprobacion` (el mismo instante en que se emite la nota de crédito o se decide el reintegro); con V1 y en registros sin aprobación es `FechaDevolucion`, para no reimputar períodos ya informados. Nunca por la fecha de la venta. Con V2, una devolución dada de alta el 30/09 y aprobada el 02/10 resta en octubre: no modifica septiembre a posteriori. Pendientes y rechazadas no restan.
 - **Ventas netas** = brutas − devoluciones.
 - **Ganancia por venta** = `(Total − IVA − neto del recargo de débito) − costo`.
   - Costo: `CostoTotalAlMomento`; si falta, `CostoUnitarioAlMomento × cantidad`; si falta, `PrecioCompra × cantidad`.

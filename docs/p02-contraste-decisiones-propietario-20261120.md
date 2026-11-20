@@ -14,7 +14,7 @@ Restricciones respetadas: V1 y el versionado fiscal intactos; sin migraciones ni
 | **C9/C11** | Financiación calculada al vender; cuota y recibo coherentes; capital sin duplicar | **Coincide** | Al confirmar la venta a crédito, `GenerarCuotasCreditoAsync` persiste capital + interés por cuota (`SimularPlanCredito`, la última absorbe el residuo): Σ capital = monto financiado, cuota = capital + interés (`VentaServiceConfirmarCreditoTests`). La venta factura el capital una sola vez (el interés no se suma a `Venta.Total`); el cobro lee lo persistido y el recibo muestra importe aplicado + ajuste del medio de pago leído del movimiento de caja, sin recalcular (`DocumentoContextoBuilder`, `DocumentoCreditoArgentinaTests`) |
 | **C10** | Mora desde el día 13; recargo calculado al cobrar; IVA solo si se factura y según alícuota del producto | **Coincide en el mecanismo; hay casos no definidos (ver abajo)** | `PunitorioCalculator`: con `DiasGracia = 12` el día 12 no devenga y el día 13 sí (`C10_ConGracia12_…`). El importe se calcula a la fecha de cobro (`CalculoActual`); lo cobrable es lo ya aplicado con confirmación autorizada (invariante PUN-ML5). El punitorio no tiene ningún concepto de IVA (`C10_ElPunitorioNoTieneConceptoDeIva…`): el ERP no lo factura |
 | **C12** | Costo de compra con IVA incluido para calcular ganancia | **Coincide** | `Producto.PrecioCompra` = «costo real final: compra con IVA + gastos»; la ganancia es `neto de venta (sin IVA) − costo con IVA` (`ReporteService`, `VentasNetas`, `Margenes`); `ReporteDevolucionesNetasTests.Ganancia_*` y `Margenes_CalculaSobrePrecioNetoSinIva` |
-| **C13** | NC imputadas al mes de emisión, nunca retroactivamente al de la venta original | **Discrepancia → CORREGIDA** | Ver abajo |
+| **C13** | NC imputadas al mes de emisión, nunca retroactivamente al de la venta original | **Discrepancia → CORREGIDA (rige con V2)** | Ver abajo |
 
 ## C13: discrepancia confirmada y corregida
 
@@ -22,9 +22,14 @@ Restricciones respetadas: V1 y el versionado fiscal intactos; sin migraciones ni
 
 **Reproducción.** Dos pruebas fallaban antes del cambio (`C13_DevolucionCreadaEnSeptiembreYAprobadaEnOctubre_…`, `C13_Dashboard_DevolucionAprobadaEnOtroMes_…`); la de registros legacy sin aprobación pasaba.
 
-**Corrección.** La fecha de efecto es `FechaAprobacion ?? FechaDevolucion` (`VentasNetas`, y la rotación de 30 días de `ReporteService`). Los registros sin `FechaAprobacion` conservan su comportamiento previo, así que los datos históricos no se reinterpretan. Sin migración. Nunca se usa la fecha de la venta. **No se activa el neteo del IVA por NC fiscal**: el Reporte de IVA sigue sin leer NC.
+**Corrección (revisada tras la revisión adversarial de Codex).**
+1. **Fecha de efecto versionada** (`VentasNetas.ObtenerDevolucionesAsync`, rotación de 30 días de `ReporteService`): con criterio fiscal **V2** en la venta original la devolución se imputa a `FechaAprobacion`; con **V1** (toda operación previa a la puesta en marcha de V2, o mientras V2 no esté vigente) y en registros sin aprobación se conserva `FechaDevolucion`. Así **ningún período histórico ni V1 se reimputa** (primera versión del cambio, sin versionado, reabría períodos cerrados: hallazgo *alto* de Codex, confirmado y corregido). Sin migración. La consulta se traduce a `CASE` en SQL Server (`C13_FechaDeEfecto_SeTraduceASqlServer…`).
+2. **Un solo instante** (`DevolucionService.AprobarDevolucionAsync`): `FechaAprobacion` y `NotaCredito.FechaEmision` toman el mismo `UtcNow` (antes eran dos lecturas separadas por `GenerarNumeroNotaCreditoAsync`; hallazgo *medio* de Codex, confirmado): la devolución no puede quedar en un mes distinto al de su NC (`Aprobar_TipoNotaCredito_C13_…`). Las NC ya emitidas no se tocan.
+3. Pruebas: venta V2 → octubre (no septiembre); venta V1 → septiembre (conserva); sin aprobación → fecha de alta; Dashboard.
 
-**Qué no cubre.** Una NC con reintegro (no NC) usa igualmente la fecha de aprobación como momento de la decisión. La fecha del comprobante fiscal **externo** (`NotaCredito.FiscalExternaFecha`) es otra cosa: solo se usará para el IVA cuando el propietario autorice el neteo (P3).
+**No se activa el neteo del IVA por NC fiscal**: el Reporte de IVA sigue sin leer NC.
+
+**Qué no cubre.** Una devolución con reintegro (no NC) usa igualmente la fecha de aprobación como momento de la decisión. La fecha del comprobante fiscal **externo** (`NotaCredito.FiscalExternaFecha`) es otra cosa: solo se usará para el IVA cuando el propietario autorice el neteo (P3). Mientras V2 no esté vigente (hoy rige V1 en toda base), el comportamiento observable no cambia; C13 rige desde la activación de V2 junto con C1/C2/C5.
 
 ## Casos no definidos (no se inventó ningún cálculo)
 
@@ -34,6 +39,6 @@ Restricciones respetadas: V1 y el versionado fiscal intactos; sin migraciones ni
 
 ## Qué queda cerrado y qué depende de la instalación productiva
 
-Cerrados en desarrollo: C3, C4/C7/C8 (V2), C6, C9/C11, C12, C13 (corregido). Parcial: C10 (mecanismo cerrado; casos 1–3 pendientes de decisión).
+Cerrados en desarrollo: C3, C4/C7/C8 (V2), C6, C9/C11, C12, C13 (corregido, con V2). Parcial: C10 (mecanismo cerrado; casos 1–3 pendientes de decisión).
 
 Dependen de la puesta en marcha (sin cambios respecto de `docs/p02-cierre-desarrollo.md` §3): `FISCAL_CRITERIO_V2_DESDE` (C3/C4/C5/C7/C8 en V2 solo rigen con V2 vigente; V1 sigue siendo la vigente), carga de la configuración de punitorio/mora, 21 % de servicios por configuración, y la migración `P02NotaCreditoFiscalExterna`. **El neteo de IVA por NC fiscal sigue desactivado** hasta autorización separada y respuesta del contador sobre el período.

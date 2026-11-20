@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
@@ -76,6 +77,27 @@ public class CriteriosPropietario20261120Tests
 
         Assert.Equal(21m, congelada.AlicuotaServicios);
         Assert.Equal((1000m, 210m), congelada.SepararServicios(1210m));
+    }
+
+    // ------------------------------------------------------------------ C13: la consulta de fecha de efecto se traduce a SQL Server
+
+    [Fact]
+    public void C13_FechaDeEfecto_SeTraduceASqlServerComoCase_SinEvaluarEnMemoria()
+    {
+        var opciones = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TheBuryProject.Data.AppDbContext>()
+            .UseSqlServer("Server=(local);Database=sin_conexion;Trusted_Connection=True;TrustServerCertificate=True").Options;
+        using var contexto = new TheBuryProject.Data.AppDbContext(opciones);
+        var desde = new DateTime(2026, 10, 1);
+
+        var sql = contexto.Devoluciones
+            .Where(d => (d.Venta.CriterioFiscalVersion >= CriterioFiscalRegistry.VersionDosRedondeoComercial && d.FechaAprobacion != null
+                ? d.FechaAprobacion.Value
+                : d.FechaDevolucion) >= desde)
+            .ToQueryString();
+
+        Assert.Contains("CASE", sql);
+        Assert.Contains("CriterioFiscalVersion", sql);
+        Assert.Contains("FechaAprobacion", sql);
     }
 
     // ------------------------------------------------------------------ C10: mora desde el día 13

@@ -663,6 +663,23 @@ public class DevolucionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Aprobar_TipoNotaCredito_C13_LaAprobacionYLaEmisionDeLaNcSonElMismoInstante()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            tipoResolucion: TipoResolucionDevolucion.NotaCredito);
+
+        await _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion);
+
+        // Los períodos imputan la devolución a FechaAprobacion: no puede caer en un mes distinto al de la emisión de la NC.
+        var nc = await _context.NotasCredito.AsNoTracking().SingleAsync(n => n.DevolucionId == dev.Id);
+        var aprobada = await _context.Devoluciones.AsNoTracking().SingleAsync(d => d.Id == dev.Id);
+        Assert.Equal(aprobada.FechaAprobacion, nc.FechaEmision);
+    }
+
+    [Fact]
     public async Task Aprobar_SinRowVersion_LanzaExcepcion()
     {
         var cliente = await SeedClienteAsync();
