@@ -167,12 +167,18 @@ def main():
             sessions[role] = (s, user, pw)
             mism, nallow, ndeny = [], 0, 0
             for path, m, ac in ROUTES:
-                got = fetch(s, path)[0]
                 should = (m, ac) in perms[role]
-                if should: nallow += 1
-                else: ndeny += 1
-                if (should and got != "allowed") or ((not should) and got != "denied"):
-                    mism.append(f"{path}:{'permitido' if should else 'denegado'}!={got}")
+                if should:
+                    nallow += 1
+                    got = fetch(s, path)[0]               # permitido: el DESTINO final responde 200 (se siguen los alias)
+                    if got != "allowed":
+                        mism.append(f"{path}:permitido!={got}")
+                else:
+                    ndeny += 1
+                    # denegado: el rechazo debe producirlo el filtro de la RUTA DE ORIGEN en la primera respuesta (no un destino de alias con otro permiso)
+                    first = classify(*s.send("GET", path)[:2])
+                    if first != "denied":
+                        mism.append(f"{path}:denegado!=primera_respuesta:{first}")
             check(f"3.{role}", f"{role}: login y {nallow} rutas permitidas / {ndeny} denegadas coinciden con la BD", okl and not mism,
                   "discrepancias: " + (", ".join(mism) or "ninguna"))
 

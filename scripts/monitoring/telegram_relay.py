@@ -25,7 +25,6 @@ import socket
 import sys
 import threading
 import time
-import urllib.error
 import urllib.request
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -129,16 +128,66 @@ class Relay:
 
 
 MAX_CONCURRENT = 8                    # TasksMax=16 en la unidad systemd: nunca mas de la mitad ocupada por conexiones lentas
-READ_TIMEOUT = 5                      # segundos para recibir cabeceras y cuerpo; una conexion que no avanza se descarta
+READ_TIMEOUT = 5                      # segundos por lectura de socket; una conexion que no avanza se descarta
+READ_DEADLINE = 10                    # plazo TOTAL para recibir cabeceras y cuerpo (un cliente que gotea 1 byte cada 4 s no lo evade)
 
 
-def make_handler(relay, slots=None, read_timeout=READ_TIMEOUT):
-    slots = slots or threading.BoundedSemaphore(MAX_CONCURRENT)
+class BoundedServer(ThreadingHTTPServer):
+    """El cupo de conexiones se toma en el accept, ANTES de crear el hilo: ThreadingHTTPServer lanza un hilo por conexion y lee las cabeceras dentro
+    de el, asi que un semaforo dentro del handler llega tarde (20 conexiones sin cabeceras completas = 20 hilos). Sin cupo: 503 inmediato y se cierra."""
+    daemon_threads = True
 
+    def __init__(self, address, handler, max_concurrent=MAX_CONCURRENT):
+        super().__init__(address, handler)
+        self.slots = threading.BoundedSemaphore(max_concurrent)
+
+    def process_request(self, request, client_address):
+        if not self.slots.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()          # cualquier handler (autenticado o no, con o sin error) devuelve el cupo
+
+
+def make_server(relay, bind="127.0.0.1", port=9098, max_concurrent=MAX_CONCURRENT, read_timeout=READ_TIMEOUT, read_deadline=READ_DEADLINE):
+    return BoundedServer((bind, port), make_handler(relay, read_timeout, read_deadline), max_concurrent)
+
+
+def make_handler(relay, read_timeout=READ_TIMEOUT, read_deadline=READ_DEADLINE):
     class Handler(BaseHTTPRequestHandler):
         server_version = "bury-relay"
         sys_version = ""
-        timeout = read_timeout            # socket de la conexion (slowloris): vence la lectura y se libera el hilo
+        timeout = read_timeout            # socket de la conexion (slowloris): vence cada lectura
+
+        def setup(self):
+            super().setup()
+            # plazo total de lectura: si vence se corta el socket (cabeceras o cuerpo que no terminan); se cancela al terminar de leer el cuerpo
+            self._watchdog = threading.Timer(read_deadline, self._abort)
+            self._watchdog.daemon = True
+            self._watchdog.start()
+
+        def finish(self):
+            self._watchdog.cancel()
+            super().finish()
+
+        def _abort(self):
+            try:
+                self.request.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 
         def log_message(self, format, *args):   # noqa: A002 - sin logs de acceso: la URL/cabeceras podrian arrastrar secretos
             pass
@@ -154,8 +203,6 @@ def make_handler(relay, slots=None, read_timeout=READ_TIMEOUT):
             self.close_connection = True
 
         def do_POST(self):
-            if not slots.acquire(blocking=False):
-                return self.reply(503, "busy")
             try:
                 if self.path != "/alert":
                     return self.reply(404, "not found")
@@ -177,12 +224,11 @@ def make_handler(relay, slots=None, read_timeout=READ_TIMEOUT):
                     return self.reply(408, "request timeout")
                 if len(raw) != length:
                     return self.reply(400, "incomplete body")
+                self._watchdog.cancel()       # la lectura termino: el envio a Telegram tiene su propio timeout
                 status, msg = relay.handle(self.headers.get("Authorization"), raw)
                 self.reply(status, msg)
             except OSError:
                 self.close_connection = True
-            finally:
-                slots.release()
 
         def do_GET(self):
             self.reply(405, "method not allowed")
@@ -218,7 +264,7 @@ def main(argv=None):
     if args.bind not in ("127.0.0.1", "::1", "localhost"):
         print(json.dumps({"error": "el relevo solo escucha en loopback"}), flush=True); return 2
     relay = Relay(telegram, env("BURY_RELAY_AUTH_TOKEN"))
-    server = ThreadingHTTPServer((args.bind, args.port), make_handler(relay))
+    server = make_server(relay, args.bind, args.port)
     print(json.dumps({"relay": "escuchando", "bind": args.bind, "port": args.port}), flush=True)
     try:
         server.serve_forever()

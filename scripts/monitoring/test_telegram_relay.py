@@ -132,7 +132,7 @@ class ConcurrencyAndHardeningTests(unittest.TestCase):
     def serve(self, **handler_kwargs):
         self.fake = FakeTelegram(); self.addCleanup(self.fake.close)
         self.r = relay.Relay(relay.Telegram(BOT, CHAT, self.fake.url, timeout=3), AUTH)
-        srv = relay.ThreadingHTTPServer(("127.0.0.1", 0), relay.make_handler(self.r, **handler_kwargs)); self.addCleanup(srv.server_close)
+        srv = relay.make_server(self.r, "127.0.0.1", 0, **handler_kwargs); self.addCleanup(srv.server_close)
         threading.Thread(target=srv.serve_forever, daemon=True).start(); self.addCleanup(srv.shutdown)
         return srv.server_port
 
@@ -192,9 +192,52 @@ class ConcurrencyAndHardeningTests(unittest.TestCase):
         self.assertIn(b"408", data)                                                                 # la lenta vence por timeout (1 s) y libera el hilo
 
     def test_concurrency_is_bounded_so_slow_clients_cannot_exhaust_the_service(self):
-        port = self.serve(read_timeout=3, slots=threading.BoundedSemaphore(1))
+        port = self.serve(read_timeout=3, max_concurrent=1)
         hold = socket.create_connection(("127.0.0.1", port), timeout=5); hold.sendall(self.headers(length=500).encode()); time.sleep(0.3)
         self.assertIn("503", self.raw(port, self.headers(), b"{}") or ""); hold.close()
+
+    def test_connections_without_complete_headers_cannot_create_unbounded_threads(self):
+        """Regresion (Codex): el cupo se toma en el accept, antes del hilo. Con 3 cupos, 25 conexiones que no completan las cabeceras no crean 25 hilos."""
+        port = self.serve(read_timeout=2, read_deadline=3, max_concurrent=3)
+        base = threading.active_count()
+        socks = []
+        for _ in range(25):
+            c = socket.create_connection(("127.0.0.1", port), timeout=3)
+            c.sendall(b"POST /alert HTTP/1.1\r\nHost:")                      # cabeceras incompletas, sin Bearer
+            socks.append(c)
+        time.sleep(0.5)
+        self.assertLessEqual(threading.active_count() - base, 3 + 3, "hilos extra por encima del cupo")      # cupo + timers de vigilancia
+        rechazadas = 0
+        for c in socks:
+            c.settimeout(0.3)
+            try:
+                if b"503" in c.recv(64):
+                    rechazadas += 1
+            except OSError:
+                pass
+        self.assertGreaterEqual(rechazadas, 20)                                                             # el resto recibio 503 inmediato, sin hilo
+        [c.close() for c in socks]
+        time.sleep(3.5)                                                                                     # las 3 conexiones colgadas vencen por plazo y liberan el cupo
+        r = urllib.request.Request(f"http://127.0.0.1:{port}/alert", json.dumps(event(event_id="tras-ataque")).encode(),
+                                   {"Authorization": "Bearer " + AUTH, "Content-Type": "application/json"}, method="POST")
+        self.assertEqual(urllib.request.urlopen(r, timeout=5).status, 200)                                  # el servicio sigue entregando alertas legitimas
+
+    def test_trickling_client_cannot_evade_the_total_read_deadline(self):
+        """Regresion (Codex): un cliente que envia 1 byte cada 0.4 s renueva el timeout por lectura; el plazo TOTAL lo corta."""
+        port = self.serve(read_timeout=1, read_deadline=1.5, max_concurrent=4)
+        c = socket.create_connection(("127.0.0.1", port), timeout=5)
+        t0 = time.time(); cerrado = False
+        try:
+            c.sendall(b"POST /alert HTTP/1.1\r\n")
+            for _ in range(20):
+                time.sleep(0.4)
+                c.sendall(b"X")                                                                         # nunca termina la cabecera
+        except OSError:
+            cerrado = True                                                                              # el servidor corto el socket
+        c.close()
+        self.assertTrue(cerrado or time.time() - t0 > 8, "el servidor no corto el goteo")
+        self.assertTrue(cerrado, "la conexion que gotea deberia haber sido cortada por el plazo total")
+        self.assertLess(time.time() - t0, 6)
 
     def test_malformed_length_headers_are_rejected(self):
         port = self.serve()
@@ -213,7 +256,7 @@ class ServerAndCliTests(unittest.TestCase):
         import monitor
         fake = FakeTelegram(); self.addCleanup(fake.close)
         r = relay.Relay(relay.Telegram(BOT, CHAT, fake.url, timeout=3), AUTH)
-        srv = relay.ThreadingHTTPServer(("127.0.0.1", 0), relay.make_handler(r)); self.addCleanup(srv.server_close)
+        srv = relay.make_server(r, "127.0.0.1", 0); self.addCleanup(srv.server_close)
         threading.Thread(target=srv.serve_forever, daemon=True).start(); self.addCleanup(srv.shutdown)
         old = {k: os.environ.get(k) for k in ("BURY_MONITOR_WEBHOOK", "BURY_MONITOR_TOKEN")}
         os.environ["BURY_MONITOR_WEBHOOK"] = f"http://127.0.0.1:{srv.server_port}/alert"; os.environ["BURY_MONITOR_TOKEN"] = AUTH
