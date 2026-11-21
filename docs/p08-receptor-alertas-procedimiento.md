@@ -52,3 +52,5 @@ Estado 2026-11-14: **preparado, no conectado**. Este documento no contiene crede
 4. `Check-ErpHealth.ps1` ejecutado contra el servidor vivo (ruta `wsl.exe`/SSH → `monitor-status`, `curl.exe --resolve`) y programado.
 5. Umbrales de CPU/RAM/disco ajustados con carga real y varias semanas de histórico.
 6. Offsite real (proveedor) para que `offsite-sql`, `offsite-restore-test` y custodia se prueben contra el remoto de verdad.
+
+> **Actualización 2026-11-21:** activación guiada (`scripts/monitoring/activar-canales.sh`), heartbeat estilo Healthchecks.io y pasos mínimos del propietario en `docs/p08-activacion-propietario.md`.

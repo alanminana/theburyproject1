@@ -2,6 +2,8 @@
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import threading
 import time
@@ -98,6 +100,42 @@ class MonitoringTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("FALLO", printed)
         self.assertNotIn("synthetic-secret-token", printed)
+
+    def test_heartbeat_url_styles_kuma_and_healthchecks(self):
+        base = "https://observer.invalid/ping/abc"
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("BURY_MONITOR_HEARTBEAT_STYLE", None)
+            self.assertIn("status=up", monitor.heartbeat_url(base + "?x=1", True, "ok"))
+            self.assertIn("status=down", monitor.heartbeat_url(base, False, "mal"))
+        with patch.dict(os.environ, {"BURY_MONITOR_HEARTBEAT_STYLE": "healthchecks"}):
+            self.assertEqual(monitor.heartbeat_url(base + "/", True, "ok"), base)
+            self.assertEqual(monitor.heartbeat_url(base, False, "mal"), base + "/fail")
+        with patch.dict(os.environ, {"BURY_MONITOR_HEARTBEAT_STYLE": "otro"}):
+            with self.assertRaises(ValueError):
+                monitor.heartbeat_url(base, True, "ok")
+
+    def test_channel_check_uses_healthchecks_style_and_unknown_style_fails_without_leaking(self):
+        pings = []
+        env = {"BURY_MONITOR_WEBHOOK": "http://127.0.0.1:9", "BURY_MONITOR_HEARTBEAT": "https://observer.invalid/ping/hb-synthetic",
+               "BURY_MONITOR_HEARTBEAT_STYLE": "healthchecks"}
+        with patch.dict(os.environ, env), patch("sys.stdout"):
+            self.assertEqual(monitor.test_channel(deliver=lambda event: True, ping=lambda url: pings.append(url) or True), 0)
+        self.assertEqual(pings, ["https://observer.invalid/ping/hb-synthetic"])
+        env["BURY_MONITOR_HEARTBEAT_STYLE"] = "otro"
+        with patch.dict(os.environ, env), patch("sys.stdout") as out:
+            code = monitor.test_channel(deliver=lambda event: True, ping=lambda url: True)
+        printed = "".join(call.args[0] for call in out.write.call_args_list)
+        self.assertEqual(code, 1)
+        self.assertNotIn("hb-synthetic", printed)
+
+    def test_channel_check_heartbeat_only_is_tested_without_webhook(self):
+        pings = []
+        env = {"BURY_MONITOR_HEARTBEAT": "https://observer.invalid/ping/hb-synthetic", "BURY_MONITOR_HEARTBEAT_STYLE": "healthchecks"}
+        with patch.dict(os.environ, env), patch("sys.stdout"):
+            os.environ.pop("BURY_MONITOR_WEBHOOK", None)
+            self.assertEqual(monitor.test_channel(ping=lambda url: pings.append(url) or True), 0)
+            self.assertEqual(monitor.test_channel(ping=lambda url: False), 1)
+        self.assertEqual(len(pings), 1)
 
     def test_channel_check_exit_codes_without_webhook_and_on_delivery_failure(self):
         with patch.dict(os.environ, {"BURY_MONITOR_WEBHOOK": ""}), patch("sys.stdout"):
@@ -529,6 +567,86 @@ class MonitoringTests(unittest.TestCase):
 
 # P-08: las pruebas del relevo a Telegram se ejecutan junto con las del monitor (el CI descubre solo este archivo; ver test_telegram_relay.py).
 from test_telegram_relay import ConcurrencyAndHardeningTests, RelayTests, ServerAndCliTests  # noqa: E402,F401
+
+
+@unittest.skipUnless(os.name == "posix" and shutil.which("bash") and shutil.which("openssl"), "activar-canales.sh es POSIX")
+class ActivarCanalesTests(unittest.TestCase):
+    """Activacion guiada: validaciones, permisos 0600 y ausencia de secretos en la salida (valores armados en runtime)."""
+    SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "activar-canales.sh")
+
+    def run_script(self, root, extra_env, *args):
+        env = {**os.environ, "BURY_ACT_ROOT": root, "BURY_ACT_NO_SYSTEMD": "1"}
+        for k in [k for k in env if k.startswith("BURY_ACT_") and k not in ("BURY_ACT_ROOT", "BURY_ACT_NO_SYSTEMD")]:
+            del env[k]
+        env.update(extra_env)
+        return subprocess.run(["bash", self.SCRIPT, *args], capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL, timeout=60)
+
+    def values(self):
+        return {"BURY_ACT_TELEGRAM_TOKEN": "123456789:" + "Ab1_" * 9, "BURY_ACT_TELEGRAM_CHAT_ID": "-1001234567890",
+                "BURY_ACT_HEARTBEAT_URL": "https://observer.invalid/ping/" + "hb" * 8}
+
+    def test_dry_run_validates_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as root:
+            p = self.run_script(root, self.values(), "--dry-run")
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertFalse(os.path.exists(os.path.join(root, "etc")))
+            for secret in self.values().values():
+                self.assertNotIn(secret, p.stdout + p.stderr)
+
+    def test_no_values_exits_3_and_invalid_values_exit_2(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(self.run_script(root, {}).returncode, 3)
+            bad = {**self.values(), "BURY_ACT_TELEGRAM_TOKEN": "no-es-un-token"}
+            self.assertEqual(self.run_script(root, bad).returncode, 2)
+            bad = {**self.values(), "BURY_ACT_TELEGRAM_CHAT_ID": "abc"}
+            self.assertEqual(self.run_script(root, bad).returncode, 2)
+            bad = {**self.values(), "BURY_ACT_HEARTBEAT_URL": "http://insegura.invalid/x"}
+            self.assertEqual(self.run_script(root, bad).returncode, 2)
+            self.assertFalse(os.path.exists(os.path.join(root, "etc")))
+
+    def test_url_with_shell_metacharacters_is_rejected_and_ampersand_is_literal(self):
+        with tempfile.TemporaryDirectory() as root:
+            for bad in ("https://observer.invalid/$(id)", "https://observer.invalid/x;id", "https://observer.invalid/`id`", 'https://observer.invalid/x"y'):
+                p = self.run_script(root, {"BURY_ACT_HEARTBEAT_URL": bad})
+                self.assertEqual(p.returncode, 2, bad)
+            self.assertFalse(os.path.exists(os.path.join(root, "etc")))
+            ok = "https://observer.invalid/ping/abc?a=1&b=2"
+            p = self.run_script(root, {"BURY_ACT_HEARTBEAT_URL": ok})
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertIn("BURY_MONITOR_HEARTBEAT=" + ok, open(os.path.join(root, "etc", "bury-monitor", "monitor.env")).read())
+
+    def test_reactivation_keeps_the_internal_bearer_so_the_running_relay_still_authenticates(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(self.run_script(root, self.values()).returncode, 0)
+            tge = os.path.join(root, "etc", "bury-monitor", "telegram-relay.env")
+            first = [l for l in open(tge).read().splitlines() if l.startswith("BURY_RELAY_AUTH_TOKEN=")]
+            self.assertEqual(self.run_script(root, self.values()).returncode, 0)
+            second = [l for l in open(tge).read().splitlines() if l.startswith("BURY_RELAY_AUTH_TOKEN=")]
+            self.assertEqual(first, second)
+
+    def test_writes_0600_files_keeps_previous_values_and_never_prints_secrets(self):
+        with tempfile.TemporaryDirectory() as root:
+            etc = os.path.join(root, "etc", "bury-monitor")
+            os.makedirs(etc)
+            with open(os.path.join(etc, "monitor.env"), "w") as f:
+                f.write("BURY_OTRA=conservar\nBURY_MONITOR_WEBHOOK=http://viejo.invalid\n")
+            v = self.values()
+            p = self.run_script(root, v)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            for secret in v.values():
+                self.assertNotIn(secret, p.stdout + p.stderr)
+            mon = open(os.path.join(etc, "monitor.env")).read()
+            tge = open(os.path.join(etc, "telegram-relay.env")).read()
+            self.assertIn("BURY_OTRA=conservar", mon)
+            self.assertEqual(mon.count("BURY_MONITOR_WEBHOOK="), 1)
+            self.assertIn("BURY_MONITOR_WEBHOOK=http://127.0.0.1:9098/alert", mon)
+            self.assertIn("BURY_MONITOR_HEARTBEAT_STYLE=healthchecks", mon)
+            auth_mon = [l.split("=", 1)[1] for l in mon.splitlines() if l.startswith("BURY_MONITOR_TOKEN=")][0]
+            auth_tge = [l.split("=", 1)[1] for l in tge.splitlines() if l.startswith("BURY_RELAY_AUTH_TOKEN=")][0]
+            self.assertEqual(auth_mon, auth_tge)
+            self.assertGreaterEqual(len(auth_mon), 32)
+            for name in ("monitor.env", "telegram-relay.env", "monitor.env.previo"):
+                self.assertEqual(oct(os.stat(os.path.join(etc, name)).st_mode & 0o777), "0o600", name)
 
 
 if __name__ == "__main__":
