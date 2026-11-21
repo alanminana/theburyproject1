@@ -539,6 +539,23 @@ def event_stream(config, store, stop, processes):
         stop.wait(10)
 
 
+def heartbeat_url(raw, healthy, msg):
+    """URL del ping de heartbeat segun el observador externo (BURY_MONITOR_HEARTBEAT_STYLE):
+    `kuma` (defecto): Uptime Kuma Push, `?status=up|down&msg=...`.
+    `healthchecks`: Healthchecks.io y compatibles (ping URL; un fallo es el sufijo `/fail`; la ausencia de ping la detecta el servicio).
+    La URL y su token nunca se imprimen."""
+    parts = urllib.parse.urlsplit(raw)
+    style = os.environ.get("BURY_MONITOR_HEARTBEAT_STYLE", "kuma").strip().lower()
+    if style == "healthchecks":
+        path = parts.path.rstrip("/")
+        return urllib.parse.urlunsplit(parts._replace(path=path if healthy else path + "/fail"))
+    if style != "kuma":
+        raise ValueError("BURY_MONITOR_HEARTBEAT_STYLE desconocido")
+    query = dict(urllib.parse.parse_qsl(parts.query))
+    query.update(status="up" if healthy else "down", msg=msg)
+    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+
+
 def test_channel(now=None, deliver=send, ping=http_ok):
     """Comprueba el canal de alertas SIN tocar el estado ni los umbrales: envia al receptor configurado un par de eventos
     sinteticos (key monitor.test, firing y luego resolved, severidad WARNING) y, si hay URL de heartbeat, un ping `up`.
@@ -557,10 +574,7 @@ def test_channel(now=None, deliver=send, ping=http_ok):
     heartbeat = os.environ.get("BURY_MONITOR_HEARTBEAT")
     if heartbeat:
         try:  # la excepcion de urllib puede incluir partes de la URL (token): nunca se imprime
-            parts = urllib.parse.urlsplit(heartbeat)
-            query = dict(urllib.parse.parse_qsl(parts.query))
-            query.update(status="up", msg="prueba de canal")
-            up = ping(urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query))))
+            up = ping(heartbeat_url(heartbeat, True, "prueba de canal"))
         except Exception:
             up = False
         report["heartbeat"] = "entregado" if up else "FALLO"
@@ -626,12 +640,12 @@ def run_loop(cfg, store, stop, once):
         heartbeat = os.environ.get("BURY_MONITOR_HEARTBEAT")
         if heartbeat:
             # Push also reports delivery/collection trouble; URL and token never enter logs.
-            parts = urllib.parse.urlsplit(heartbeat)
-            query = dict(urllib.parse.parse_qsl(parts.query))
             unhealthy = store.get("delivery.failed", False) or any(
                 key.startswith("collector.") and value["severity"] != "INFO" for key, value in signals.items())
-            query.update(status="down" if unhealthy else "up", msg="collector requires attention" if unhealthy else "collection completed")
-            http_ok(urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query))))
+            try:
+                http_ok(heartbeat_url(heartbeat, not unhealthy, "collector requires attention" if unhealthy else "collection completed"))
+            except ValueError:
+                pass  # estilo invalido: sin ping (el observador lo vera como ausencia); la validacion ocurre en --test-channel
         print(json.dumps({"at": dt.datetime.now(dt.timezone.utc).isoformat(), "signals": len(signals),
                           "seconds": round(time.monotonic() - start, 2)}), flush=True)
         if once:
