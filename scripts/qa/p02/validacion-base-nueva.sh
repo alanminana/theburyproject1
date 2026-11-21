@@ -99,7 +99,9 @@ deploy() { bash "$REPO/scripts/deploy/deploy.sh" --env-file "$REPO/.env" --proje
 cleanup() {
   if [ "$KEEP" = 1 ]; then say "Pila conservada: proyecto $P (destruir: docker compose -p $P down -v). Evidencia: $OUT"; return; fi
   dcp down -v >/dev/null 2>&1 || true
-  rm -f "$REPO/.env"
+  LEFT="$(docker ps -aq --filter "label=com.docker.compose.project=$P" | wc -l)+$(docker volume ls -q --filter "label=com.docker.compose.project=$P" | wc -l)+$(docker network ls -q --filter "label=com.docker.compose.project=$P" | wc -l)"
+  if [ "$LEFT" = "0+0+0" ]; then say "limpieza verificada: 0 contenedores, volúmenes y redes del proyecto $P"; else say "[FALLA] quedaron recursos del proyecto $P (contenedores+volúmenes+redes = $LEFT); .env conservado para destruirlos a mano"; EXIT_LEFT=1; fi
+  [ "${EXIT_LEFT:-0}" = 1 ] || rm -f "$REPO/.env"
   # Los backups de SQL Server pertenecen al usuario del contenedor (uid 10001): se borran con un contenedor descartable.
   rm -rf "$T/backups" "$T/verif.sql" 2>/dev/null || docker run --rm -v "$T:/t" alpine sh -c 'rm -rf /t/backups /t/verif.sql' >/dev/null 2>&1 || true
   rmdir "$T" 2>/dev/null || true
@@ -121,7 +123,8 @@ sec "2. La base es nueva: migraciones completas y sin datos de ningún ensayo an
 MIG_REPO="$(ls "$REPO"/Migrations | grep -E '^[0-9]{14}_[^.]*\.cs$' | wc -l | tr -d ' ')"
 MIG_DB="$(sql1 'select count(*) from __EFMigrationsHistory')"
 chk "todas las migraciones del repo aplicadas ($MIG_REPO) y ninguna de más" "[ \"$MIG_DB\" = \"$MIG_REPO\" ]" "repo=$MIG_REPO base=$MIG_DB"
-V="$(verif "")"; echo "$V" >>"$LOG"
+V="$(verif "")"; RCV=$?; echo "$V" >>"$LOG"
+chk "la verificación SQL se ejecutó (exit 0) y devolvió controles OK" "[ $RCV -eq 0 ] && echo \"\$V\" | grep -q '|OK'" "exit $RCV"
 chk "P3 aplicada (8 columnas + índice, esquema coherente)" "echo \"\$V\" | grep -q 'esquema coherente.*|aplicada|'" "$(echo "$V" | grep -i 'P3')"
 chk "verificación de instalación: ningún control en FALLA" "! echo \"\$V\" | grep -q '|FALLA'" "$(echo "$V" | grep FALLA)"
 for T_ in Clientes Ventas Creditos Facturas Cajas AperturasCaja MovimientosCaja Productos Proveedores OrdenesCompra Cotizaciones Cuotas Cheques; do
@@ -149,7 +152,8 @@ chk "primera venta creada y facturada" "[ -n \"$S1\" ]" "ver $LOG"
 chk "versión fiscal 2" "[ \"\$(sql1 \"select CriterioFiscalVersion from Ventas where Id=$S1\")\" = 2 ]" "no es V2"
 TOT="$(sql1 "select cast(Total as varchar(20)) from Ventas where Id=$S1")"
 chk "V2 redondea comercialmente: total 1000,51 -> 1001.00" "[ \"$TOT\" = 1001.00 ]" "total=$TOT"
-V="$(verif "$(date -u -d "$ACTIVACION" '+%Y-%m-%dT%H:%M:%S')")"; echo "$V" >>"$LOG"
+V="$(verif "$(date -u -d "$ACTIVACION" '+%Y-%m-%dT%H:%M:%S')")"; RCV=$?; echo "$V" >>"$LOG"
+chk "la verificación posterior se ejecutó (exit 0) y devolvió controles OK" "[ $RCV -eq 0 ] && echo \"\$V\" | grep -q '|OK'" "exit $RCV"
 chk "verificación posterior a la puesta en marcha: ningún control en FALLA" "! echo \"\$V\" | grep -q '|FALLA'" "$(echo "$V" | grep FALLA)"
 chk "ninguna venta quedó en versión 1" "[ \"\$(sql1 'select count(*) from Ventas where CriterioFiscalVersion=1')\" = 0 ]" "hay ventas V1"
 

@@ -35,6 +35,9 @@ def main():
     host, ip = a.resolve.split("=")
     if ip not in ("127.0.0.1", "::1") or not re.fullmatch(r"[A-Za-z0-9_-]+", a.project):
         print("guarda: --resolve debe apuntar a 127.0.0.1 y --project ser un nombre simple"); return 2
+    from urllib.parse import urlparse
+    if urlparse(a.base).hostname != host:
+        print("guarda: el hostname de --base debe ser el mismo que el de --resolve (HTTP y SQL del mismo stack)"); return 2
     orig = socket.getaddrinfo
     socket.getaddrinfo = lambda h, *x, **k: orig(ip if h == host else h, *x, **k)
     ctx = ssl.create_default_context(cafile=os.path.expanduser(a.ca))
@@ -132,22 +135,23 @@ def main():
         check("B.7", "Desbloqueo manual restablece el acceso", okV2 and sV2.send("GET", "/Venta")[0] == 200, f"login={okV2}")
 
         # --- permisos minimos ---------------------------------------------------------------------------------------------------
-        deny = lambda c: c in (302, 303, 401, 403, 404)
+        def deny(r):  # denegacion real: 403/401 o redireccion a AccessDenied/Login (un 404 o un 302 cualquiera no cuentan)
+            return r[0] in (401, 403) or (r[0] in (302, 303) and re.search(r"AccessDenied|/Account/Login", r[1]) is not None)
         def act(s, path, fields):
             f = dict(fields); f["__RequestVerificationToken"] = s.token("/Venta"); return s.send("POST", path, f)
-        c_seg = sV2.send("GET", "/Seguridad")[0]; c_usr = sV2.send("GET", "/Usuarios")[0]
-        check("M.1", "Vendedor sin acceso a Seguridad ni a Usuarios", deny(c_seg) and deny(c_usr), f"/Seguridad={c_seg}; /Usuarios={c_usr}")
+        r_seg = sV2.send("GET", "/Seguridad")
+        check("M.1", "Vendedor sin acceso a Seguridad (denegacion real) mientras SuperAdmin si entra", deny(r_seg) and sA.access() == "OK", f"vendedor={r_seg[0]} {r_seg[1]}")
         create(sA, vend2, pw_v2, "Vendedor")
         stamp0 = one(f"SELECT SecurityStamp FROM AspNetUsers WHERE UserName='{vend2}'")
         r1 = act(sV2, "/Usuarios/CambiarPassword", {"UserId": uid(vend2), "UserName": vend2, "NewPassword": "Hacker12345x", "ConfirmPassword": "Hacker12345x"})
         r2 = act(sV2, "/Usuarios/Bloquear", {"UserId": uid(vend2), "UserName": vend2, "MotivoBloqueo": "intento"})
         r3 = act(sV2, "/Usuarios/Desactivar", {"id": uid(vend2), "returnUrl": "/Seguridad"})
         intacto = (one(f"SELECT SecurityStamp FROM AspNetUsers WHERE UserName='{vend2}'") == stamp0 and not locked(vend2) and active(vend2))
-        check("M.2", "Vendedor no puede resetear clave, bloquear ni desactivar a otro", intacto and not OK_JSON.search(r1[2]) and not OK_JSON.search(r2[2]),
+        check("M.2", "Vendedor no puede resetear clave, bloquear ni desactivar a otro", intacto and all(deny(r) for r in (r1, r2, r3)),
               f"cambiarPw={r1[0]}; bloquear={r2[0]}; desactivar={r3[0]}; cuenta intacta={intacto}")
         r4 = act(sV2, "/Usuarios/Create", {"UserName": f"p03c.esc{suf}", "Email": "e@ensayo.invalid", "Password": "Escalada12345", "ConfirmPassword": "Escalada12345",
                                              "Nombre": "E", "Apellido": "E", "RolesSeleccionados": "SuperAdmin", "Activo": "true", "EmailConfirmed": "true"})
-        check("M.3", "Vendedor no puede crear un SuperAdmin (escalada)", not exists(f"p03c.esc{suf}"), f"HTTP {r4[0]}")
+        check("M.3", "Vendedor no puede crear un SuperAdmin (escalada)", not exists(f"p03c.esc{suf}") and deny(r4), f"HTTP {r4[0]} {r4[1]}")
 
         # --- restablecimiento de clave de una cuenta no administradora ----------------------------------------------------------
         sV3, _ = login_full(vend, pw_v)

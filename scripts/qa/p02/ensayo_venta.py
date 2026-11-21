@@ -120,8 +120,8 @@ def modulos():
     malas = []
     for ruta in rutas:
         r = adm.get(ruta, follow=True)
-        if r.status != 200:
-            malas.append("%s=%s" % (ruta, r.status))
+        if r.status != 200 or "/Account/Login" in r.url or "AccessDenied" in r.url:
+            malas.append("%s=%s@%s" % (ruta, r.status, r.url))
     print("MODULOS_OK=%d MODULOS_MALOS=%s" % (len(rutas) - len(malas), ",".join(malas) or "-"))
 
 
