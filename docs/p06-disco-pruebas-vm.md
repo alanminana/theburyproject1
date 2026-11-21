@@ -63,6 +63,11 @@ ls /srv/bury-backups/sql | grep full_2026-11-21_053                # el .bak y s
 
 Requiere la VM encendida a esa hora (no suspender el PC).
 
+## Actualización 2026-11-21
+
+El mismo disco aloja ahora, además, una **copia local cifrada de los respaldos** (contenedor LUKS `tbp-respaldo.luks`): ver [`p06-respaldo-disco-local-vm.md`](p06-respaldo-disco-local-vm.md).
+Sigue sin ser un respaldo externo. Evidencia del cron de las 02:30 del 21/11: `backup 'all' OK` a las 05:30:30Z con el fix de PR #338 (sin «omitido»).
+
 ## Qué NO cubre (P-04 / P-06 siguen abiertos)
 
 - P-06: copia externa **independiente del PC** (otro dispositivo/ubicación): sigue sin existir (`BACKUP_REMOTE` vacío, `BACKUP_REQUIRE_OFFSITE=false`).
