@@ -163,6 +163,31 @@ check "firewall: puerto fuera de rango se rechaza" bash -c '! BURY_FW_CONF="$1" 
 IPT_LOG="$T/ipt.log" BURY_IPTABLES="$T/ipt" BURY_FW_CONF="$T/fw.conf" bash "$FW" print >"$T/print.out" 2>&1
 check "firewall print no ejecuta iptables" test ! -s "$T/ipt.log"
 
+# --- P-02 / P6: fecha real de V2 desde el instalador --------------------------------------------------------------------
+bash "$INSTALL" --env-only --env-file "$T/v1.env" --admin-email a@example.com >/dev/null 2>&1
+check "sin --fiscal-v2-desde, FISCAL_CRITERIO_V2_DESDE queda vacio (V1)" test -z "$(val "$T/v1.env" FISCAL_CRITERIO_V2_DESDE)"
+bash "$INSTALL" --env-only --env-file "$T/v2.env" --admin-email a@example.com --fiscal-v2-desde 2026-12-01T03:00:00Z >/dev/null 2>&1; rc=$?
+check "--fiscal-v2-desde valido se escribe en el .env" test "$rc" = 0 -a "$(val "$T/v2.env" FISCAL_CRITERIO_V2_DESDE)" = 2026-12-01T03:00:00Z
+for bad_v in 2026-02-31T03:00:00Z 2026-12-01T03:00 2025-12-01T03:00:00Z 2026-12-01T03:00:00z manana; do
+  check "rechaza --fiscal-v2-desde '$bad_v'" rej --admin-email a@example.com --fiscal-v2-desde "$bad_v"
+done
+
+# --- proteccion de datos: un .env nuevo no se genera sobre un proyecto Compose que ya tiene volumenes ---------------------
+mkdir -p "$T/fakebin"
+cat >"$T/fakebin/docker" <<'FAKE'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "volume ls") [[ -n "${FAKE_VOLUMES:-}" ]] && echo "$FAKE_VOLUMES"; exit 0 ;;
+  *) exit 0 ;;
+esac
+FAKE
+chmod +x "$T/fakebin/docker"
+PATH="$T/fakebin:$PATH" FAKE_VOLUMES=theburyproject_db_data bash "$INSTALL" --no-deploy --yes --env-file "$T/g.env" --project theburyproject --admin-email a@example.com >"$T/g.out" 2>&1; rc=$?
+check "proyecto con volumenes y sin .env: se rechaza y no crea .env" test "$rc" != 0 -a ! -e "$T/g.env"
+check "el rechazo explica como usar otro proyecto" grep -q -- '--project' "$T/g.out"
+PATH="$T/fakebin:$PATH" FAKE_VOLUMES= bash "$INSTALL" --no-deploy --yes --env-file "$T/h.env" --project tbp-prod --admin-email a@example.com --backup-dir "$T/bk" >"$T/h.out" 2>&1; rc=$?
+check "proyecto sin volumenes: genera el .env" test -s "$T/h.env"
+
 echo
 echo "install tests: $PASS PASS, $FAIL FAIL"
 (( FAIL == 0 ))

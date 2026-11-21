@@ -134,6 +134,14 @@ done
 chk "exactamente 1 usuario (el administrador inicial) y ningún usuario importado" "[ \"\$(sql1 \"select cast(count(*) as varchar(5))+'|'+cast(sum(case when UserName='admin_ens' then 1 else 0 end) as varchar(5)) from AspNetUsers\")\" = '1|1' ]" "usuarios inesperados"
 chk "ninguna cuenta de ensayo previo (p03/p05/tbp.local)" "[ \"\$(sql1 \"select count(*) from AspNetUsers where UserName like 'p0%' or Email like '%tbp.local'\")\" = 0 ]" "restos de otro ensayo"
 chk "ConfiguracionesPunitorio vacía: la gracia NO está sembrada" "[ \"\$(sql1 'select count(*) from ConfiguracionesPunitorio')\" = 0 ]" "hay una versión sembrada"
+# P-07: control de cuentas (solo lectura). Alta de cuentas (@Cierre=0): 1 SuperAdmin y el detector de cuentas sintéticas marca al admin del ensayo (@example.invalid); al cierre (@Cierre=1) con 1 solo SuperAdmin DEBE fallar (la compuerta funciona).
+CTA0="$T/cuentas0.sql"; CTA1="$T/cuentas1.sql"
+cp "$REPO/scripts/sql/p07-verificar-cuentas.sql" "$CTA0"; sed 's/@Cierre bit = 0/@Cierre bit = 1/' "$CTA0" > "$CTA1"
+docker cp "$CTA0" "$P-db-1:/tmp/cta0.sql" >/dev/null; docker cp "$CTA1" "$P-db-1:/tmp/cta1.sql" >/dev/null
+C0="$(docker exec -i "$P-db-1" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SAPW" -d BuryP02Ens -W -s'|' -I -b -i /tmp/cta0.sql 2>&1)"
+C1="$(docker exec -i "$P-db-1" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SAPW" -d BuryP02Ens -W -s'|' -I -b -i /tmp/cta1.sql 2>&1)"
+chk "p07-verificar-cuentas (alta): 1 SuperAdmin; el detector marca como sintético SOLO al admin del ensayo (correo @example.invalid) y no hay otra FALLA" "[ \"\$(echo \"\$C0\" | grep -c '|FALLA')\" = 1 ] && echo \"\$C0\" | grep -q 'SuperAdmin operativos|1|' && echo \"\$C0\" | grep -q 'sintéticas/demo activas|admin_ens|.*|FALLA'" "$(echo "$C0" | grep -E 'FALLA|SuperAdmin')"
+chk "p07-verificar-cuentas (cierre): con un solo SuperAdmin FALLA (compuerta efectiva)" "echo \"\$C1\" | grep -q 'SuperAdmin operativos|1|.*|FALLA'" "$(echo "$C1" | grep SuperAdmin)"
 
 sec "3. Arranque en V2 y humo inicial de los módulos principales"
 chk "log de arranque informa V2 en este proceso" "docker logs \"$P-app-1\" 2>&1 | grep -q 'FISCAL.*= V2'" "falta [FISCAL] ... V2"

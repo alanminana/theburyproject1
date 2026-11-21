@@ -4,6 +4,7 @@
 #   scripts/install/install.sh --admin-email correo@dominio [--domain tbp] [--license community|commercial]
 #                              [--automapper-key KEY] [--backup-dir /srv/bury-backups] [--admin-user admin]
 #                              [--image repo:tag] [--env-file RUTA] [--project theburyproject]
+#                              [--fiscal-v2-desde 2026-12-01T03:00:00Z]
 #                              [--schedule] [--env-only] [--no-deploy] [--yes]
 #
 # Pasos (cada uno es idempotente; se puede volver a ejecutar):
@@ -32,8 +33,9 @@ SCHEDULE=0
 ENV_ONLY=0
 NO_DEPLOY=0
 ASSUME_YES=0
+FISCAL_V2_DESDE=""
 
-usage() { sed -n '2,19p' "$0"; }
+usage() { sed -n '2,20p' "$0"; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain) DOMAIN="${2:-}"; shift 2 ;;
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --image) IMAGE="${2:-}"; shift 2 ;;
     --env-file) DP_ENV_FILE="${2:-}"; shift 2 ;;
     --project) DP_PROJECT="${2:-}"; shift 2 ;;
+    --fiscal-v2-desde) FISCAL_V2_DESDE="${2:-}"; shift 2 ;;
     --schedule) SCHEDULE=1; shift ;;
     --env-only) ENV_ONLY=1; shift ;;
     --no-deploy) NO_DEPLOY=1; shift ;;
@@ -63,6 +66,7 @@ case "$LICENSE_MODE" in
   commercial) [[ -n "$AUTOMAPPER_KEY" ]] || die $EX_USAGE "--license commercial requiere --automapper-key" ;;
   *) die $EX_USAGE "--license debe ser community|commercial" ;;
 esac
+[[ -z "$FISCAL_V2_DESDE" ]] || valid_fiscal_v2_desde "$FISCAL_V2_DESDE" \n  || die $EX_USAGE "--fiscal-v2-desde invalido: instante ISO-8601 con zona (p. ej. 2026-12-01T03:00:00Z = 00:00 de Argentina); la app no arrancaria"
 [[ "$BACKUP_DIR_ARG" == /* ]] || die $EX_USAGE "--backup-dir debe ser una ruta absoluta"
 [[ "$BACKUP_DIR_ARG" =~ ^/[A-Za-z0-9_./-]+$ ]] || die $EX_USAGE "--backup-dir tiene caracteres no soportados (usar letras, digitos, _ . / -)"
 
@@ -115,6 +119,8 @@ generate_env() {
   set_env_value "$tmp" AUTOMAPPER_LICENSE_MODE "$([[ $LICENSE_MODE == community ]] && echo community || echo '')"
   set_env_value "$tmp" AUTOMAPPER_LICENSE_KEY "$AUTOMAPPER_KEY"
   set_env_value "$tmp" BACKUP_DIR "$BACKUP_DIR_ARG"
+  # P-02 / P6: fecha real de puesta en marcha de CriterioFiscal V2. Vacio = V1. Solo se escribe si el propietario la indico.
+  [[ -z "$FISCAL_V2_DESDE" ]] || set_env_value "$tmp" FISCAL_CRITERIO_V2_DESDE "$FISCAL_V2_DESDE"
   # Solo copias locales (decision de despliegue): sin destino externo no se exige copia offsite. Para activarla despues:
   # BACKUP_REMOTE=secure:erp y BACKUP_REQUIRE_OFFSITE=true (docs/offsite-monitoring-activacion.md).
   set_env_value "$tmp" BACKUP_REQUIRE_OFFSITE "false"
@@ -136,11 +142,23 @@ generate_env() {
   fi
 }
 
+# Un .env NUEVO trae secretos nuevos (sa, usuarios de app). Si el proyecto Compose ya tiene volumenes (p. ej. la base de preproduccion
+# o una instalacion anterior), esa base conserva la password anterior y el despliegue fallaria o, peor, se mezclaria con datos ajenos.
+# Se rechaza: una base nueva exige un proyecto propio (--project) con volumenes propios.
+project_has_volumes() {
+  local n
+  n=$(docker volume ls -q --filter "label=com.docker.compose.project=$DP_PROJECT" 2>/dev/null | wc -l)
+  (( n > 0 ))
+}
+
 ensure_env() {
   if [[ -f "$DP_ENV_FILE" ]]; then
     log INFO "OK   .env ya existe ($DP_ENV_FILE): se conserva sin cambios"
     if grep -qi 'CHANGE_ME' "$DP_ENV_FILE"; then die $EX_USAGE "$DP_ENV_FILE conserva valores CHANGE_ME sin reemplazar"; fi
   else
+    if project_has_volumes; then
+      die $EX_USAGE "el proyecto Compose '$DP_PROJECT' ya tiene volumenes y no hay $DP_ENV_FILE: un .env nuevo no abre esa base. Para una base NUEVA usar otro proyecto y otro .env (--project theburyproject-prod --env-file <ruta>); para esa base, restaurar su .env original. No se modifica nada."
+    fi
     generate_env "$DP_ENV_FILE"
   fi
 }
@@ -261,4 +279,4 @@ if (( ENV_GENERATED )); then
   echo "Ahora: 1) guardar el archivo $DP_ENV_FILE completo en el gestor de contrasenas (sin el no se puede recuperar el sistema)."
   echo "       2) entrar, cambiar la password, y luego quitar ADMIN_PASSWORD del .env y ejecutar: docker compose -p $DP_PROJECT rm -f migrate"
 fi
-echo "Siguiente: docs/instalacion-servidor.md (clientes, DNS/VPN, backups programados)."
+echo "Siguiente: docs/instalacion-servidor.md (clientes, DNS/VPN, backups programados) y docs/puesta-en-marcha-p07-p02.md (cuentas reales, V2, verificacion)."

@@ -40,6 +40,16 @@ log() { # log NIVEL mensaje...
 }
 die() { local code=$1; shift; log ERROR "$*"; exit "$code"; }
 
+# valid_fiscal_v2_desde VALOR -> 0 si es un instante ISO-8601 CON zona (Z o +hh:mm), anio >= 2026, calendario real, zona <= +-14 h.
+# Misma regla que valida la app al arrancar (Fiscal:CriterioV2Desde); la usan preflight.sh e install.sh.
+valid_fiscal_v2_desde() {
+  local v=${1:-}
+  [[ "$v" =~ ^(20[2-9][0-9])-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2})(:([0-9]{2})(\.[0-9]+)?)?(Z|[+-]([0-9]{2}):([0-9]{2}))$ ]] || return 1
+  (( 10#${BASH_REMATCH[1]} >= 2026 )) || return 1
+  [[ -z "${BASH_REMATCH[10]}" || ( 10#${BASH_REMATCH[10]} -le 14 && 10#${BASH_REMATCH[11]} -le 59 ) ]] || return 1
+  date -u -d "$(printf '%s' "$v" | sed -E 's/\.[0-9]+//')" +%s >/dev/null 2>&1
+}
+
 is_uint() { [[ "${1:-}" =~ ^[0-9]+$ ]]; }
 
 # ---------------------------------------------------------------- compose wrapper
