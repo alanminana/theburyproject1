@@ -79,3 +79,7 @@ Prueba nueva `TransicionCuentasCookieHttpTests` (SQLite descartable, pipeline re
 | Degradación (quitar SuperAdmin, poner Vendedor) | la **misma cookie** pasa de 200 a 403 sin relogin (los roles se releen de la base en cada request) |
 
 Resultado de la revisión de P-03: **sin vulnerabilidades técnicas nuevas confirmadas**. Defecto 1 de §3 (límite de 10 letras por palabra en Nombre/Apellido) sigue siendo una decisión de producto, no de seguridad. `vendedor2` no se tocó (ver `docs/vendedor2-eliminacion.md`).
+
+## 7. Complemento 2026-11-21 (bloqueo, permisos mínimos, reset de claves, último SuperAdmin)
+
+`scripts/qa/p03/p03_complemento.py`: 21 OK / 0 FALLA en Production (VM de ensayo). Detalle y cierre técnico de P-03 en `docs/cierre-p03-p07-p02-20261121.md`.

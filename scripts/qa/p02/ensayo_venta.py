@@ -111,6 +111,39 @@ def detalle():
     print("DETALLE_STATUS=%s" % r.status)
 
 
+def modulos():
+    """Humo inicial de los modulos principales sobre una base nueva: cada pantalla abre (200) con el administrador inicial."""
+    adm = sesion()
+    rutas = ["/", "/Cliente", "/Catalogo", "/Venta", "/Cotizacion", "/Caja", "/Credito", "/Proveedor", "/OrdenCompra",
+             "/MovimientoStock", "/Devolucion", "/Documento", "/Seguridad", "/ConfiguracionPago", "/Mora", "/Reporte",
+             "/Tesoreria", "/CuentaPorPagar", "/ListaPrecio"]
+    malas = []
+    for ruta in rutas:
+        r = adm.get(ruta, follow=True)
+        if r.status != 200 or "/Account/Login" in r.url or "AccessDenied" in r.url:
+            malas.append("%s=%s@%s" % (ruta, r.status, r.url))
+    print("MODULOS_OK=%d MODULOS_MALOS=%s" % (len(rutas) - len(malas), ",".join(malas) or "-"))
+
+
+def gracia():
+    """Carga por la pantalla real (versionado, nunca sembrado) una configuracion de punitorios con 12 dias de gracia y comprueba
+    con la vista previa del calculador real: dentro de la gracia no se cobra, el primer dia posterior si. La tasa es SINTETICA."""
+    import datetime, json
+    adm = sesion()
+    hoy = datetime.date.today().isoformat()
+    ov = {"Punitorios.CrearForm.VigenteDesde": hoy, "Punitorios.CrearForm.Porcentaje": "1", "Punitorios.CrearForm.PeriodoDias": "30",
+          "Punitorios.CrearForm.DiasGracia": "12", "Punitorios.CrearForm.Activa": "true",
+          "Punitorios.CrearForm.MotivoCambio": "Ensayo base nueva (tasa sintetica)"}
+    r, _ = adm.submit("/ConfiguracionPago/CreditoPersonal", ov, action_contains="CrearVersionPunitorio", follow=False)
+    n = int(q1("select count(*) from ConfiguracionesPunitorio where IsDeleted=0"))
+    fila = sql("select DiasGracia, cast(Porcentaje as varchar(20)), PeriodoDias from ConfiguracionesPunitorio where IsDeleted=0")
+    print("GRACIA_HTTP=%s VERSIONES=%d FILA=%s" % (r.status, n, fila[0] if fila else "-"))
+    pv = adm.get("/ConfiguracionPago/PreviewPunitorio?porcentaje=1&periodoDias=30&diasGracia=12", follow=False)
+    puntos = json.loads(pv.text).get("puntos") or json.loads(pv.text).get("Puntos") or []
+    imp = [float(p.get("importe", p.get("Importe", -1))) for p in puntos]
+    print("PREVIEW_IMPORTES=%s" % imp)
+
+
 if __name__ == "__main__":
     guardia()
-    {"preparar": preparar, "vender": vender, "detalle": detalle}[sys.argv[1]]()
+    {"preparar": preparar, "vender": vender, "detalle": detalle, "modulos": modulos, "gracia": gracia}[sys.argv[1]]()
