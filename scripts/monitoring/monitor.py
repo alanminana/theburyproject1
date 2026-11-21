@@ -477,6 +477,14 @@ class Collector:
         if exit_code != 0 or status.get("verified") is not True:
             self.signals[key]["detail"] += f"; copia ATRASADA (ultimo intento exit={exit_code}, last_success={last_ok}): " + str(status.get("message", ""))[:200]
 
+    def removable_verify(self):
+        """Verificacion de la copia secundaria (verify-local-copy.sh --> monitor-status/removable-verify.json): montaje, cifrado activo, sha256 de cada
+        archivo, antiguedad del ultimo full copiado y espacio. Existe solo si el verificador ya corrio (diario). Un fallo es CRITICAL de inmediato
+        hasta que una corrida posterior pase; sin corridas recientes sube a warning/critical (2 / 4 dias). enabled=false lo desactiva."""
+        path = Path(self.cfg["backup_dir"]) / "monitor-status" / "removable-verify.json"
+        if path.exists() and flag(self.cfg.get("removable_verify", {}).get("enabled", True)) is not False:
+            self.restore_test("removable-verify", "removable_verify", (2 * 86400, 4 * 86400))
+
     def collect(self):
         self.signals = {}
         now = time.time()
@@ -498,6 +506,7 @@ class Collector:
         self.safe("custody", self.custody)
         self.safe("capacity", self.capacity)
         self.safe("removable-copy", self.removable_copy)
+        self.safe("removable-verify", self.removable_verify)
         if self.slow:
             self.safe("sql", self.sql)
             self.safe("tls", lambda: self.tls_expiry(base))

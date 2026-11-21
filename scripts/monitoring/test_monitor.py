@@ -544,6 +544,26 @@ class MonitoringTests(unittest.TestCase):
         self.collector.capacity()
         self.assertNotIn("backup.capacity", self.collector.signals)
 
+    def test_removable_verify_absent_ok_failed_and_recovery(self):
+        now = monitor.time.time()
+        self.collector.removable_verify()
+        self.assertNotIn("backup.removable-verify", self.collector.signals)   # sin verificador ejecutado no hay estado
+        self.write_status("removable-verify", time=now - 600, exit=0, verified=True, last_success=now - 600, message="ok")
+        self.assertEqual(self.severity("removable_verify", "backup.removable-verify"), "INFO")
+        # montaje ausente / sha256 distinto / sin espacio: CRITICAL de inmediato, aunque el ultimo exito sea de hoy
+        self.write_status("removable-verify", time=now, exit=13, verified=False, last_success=now - 600, message="V1 destino NO disponible")
+        self.assertEqual(self.severity("removable_verify", "backup.removable-verify"), "CRITICAL")
+        self.assertIn("FAILED", self.collector.signals["backup.removable-verify"]["detail"])
+        self.write_status("removable-verify", time=now, exit=0, verified=True, last_success=now, message="ok")
+        self.assertEqual(self.severity("removable_verify", "backup.removable-verify"), "INFO")
+        for age, expected in ((3 * 86400, "WARNING"), (5 * 86400, "CRITICAL")):   # el verificador dejo de correr
+            self.write_status("removable-verify", time=now - age, exit=0, verified=True, last_success=now - age, message="ok")
+            self.assertEqual(self.severity("removable_verify", "backup.removable-verify"), expected)
+        self.cfg["removable_verify"] = {"enabled": False}
+        self.collector.signals = {}
+        self.collector.removable_verify()
+        self.assertNotIn("backup.removable-verify", self.collector.signals)
+
     def test_removable_copy_absent_current_stale_and_invalid(self):
         now = monitor.time.time()
         self.collector.removable_copy()
