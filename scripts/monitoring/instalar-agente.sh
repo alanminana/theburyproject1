@@ -28,7 +28,9 @@ done
 mkdir -p "$DEST" || exit 1
 [ -L "$DEST" ] && { echo "FALLA: el destino es un enlace simbolico; no se instalo nada" >&2; exit 2; }
 STAGE="$(mktemp -d "$DEST/.instalacion.XXXXXX")" || { echo "FALLA: no se pudo crear el directorio temporal en $DEST" >&2; exit 1; }
-trap 'rm -rf "$STAGE"' EXIT
+KEEP_STAGE=0; PUBLISHING=0
+cleanup() { [ "$KEEP_STAGE" = 1 ] || rm -rf "$STAGE"; }
+trap cleanup EXIT
 mkdir "$STAGE/new" "$STAGE/old" || exit 1
 
 # 1) Preparar todo (nada del destino cambia todavia) y respaldar lo que se va a reemplazar.
@@ -46,20 +48,33 @@ done
 
 # 2) Publicar con rename (mismo filesystem); ante cualquier error, revertir lo publicado.
 revert() {
+  PUBLISHING=0
   echo "Revirtiendo lo ya publicado..." >&2
+  local bad=0 f
   for f in "${PUBLISHED[@]}"; do
-    if [ -e "$STAGE/old/$f" ]; then mv -f "$STAGE/old/$f" "$DEST/$f"; else rm -f "$DEST/$f"; fi
+    if [ -e "$STAGE/old/$f" ]; then mv -f "$STAGE/old/$f" "$DEST/$f" || bad=1; else rm -f "$DEST/$f" || bad=1; fi
   done
+  if [ "$bad" = 1 ]; then
+    KEEP_STAGE=1
+    echo "ATENCION: la reversion fue INCOMPLETA. Se CONSERVA $STAGE (copias originales en $STAGE/old); restaurar a mano." >&2
+  fi
 }
+on_signal() { [ "$PUBLISHING" = 1 ] && revert; exit 130; }
+trap on_signal INT TERM HUP
+PUBLISHING=1
 for f in "${CHANGED[@]}"; do
   if ! mv -f "$STAGE/new/$f" "$DEST/$f"; then echo "FALLA: no se pudo publicar $f" >&2; revert; exit 1; fi
   PUBLISHED+=("$f")
 done
+PUBLISHING=0
 # 3) Permisos correctos aunque el contenido ya coincidiera.
 for e in "${FILES[@]}"; do chmod "${e##*:}" "$DEST/${e%%:*}" 2>/dev/null || echo "AVISO: no se pudieron fijar permisos de ${e%%:*}" >&2; done
 # 4) .bak de los .py reemplazados (rm previo: nunca se sigue un enlace simbolico preexistente).
 for f in "${CHANGED[@]}"; do
-  if [[ "$f" == *.py ]] && [ -e "$STAGE/old/$f" ]; then rm -f "$DEST/$f.bak"; cp -p "$STAGE/old/$f" "$DEST/$f.bak" || echo "AVISO: no se pudo crear $f.bak" >&2; fi
+  if [[ "$f" == *.py ]] && [ -e "$STAGE/old/$f" ]; then 
+    if rm -f "$DEST/$f.bak" && [ ! -e "$DEST/$f.bak" ] && [ ! -L "$DEST/$f.bak" ]; then cp -p "$STAGE/old/$f" "$DEST/$f.bak" || echo "AVISO: no se pudo crear $f.bak" >&2
+    else echo "AVISO: no se pudo despejar $f.bak (no se crea el respaldo para no seguir un enlace)" >&2; fi
+  fi
   echo "instalado: $f"
 done
 if [ "${#CHANGED[@]}" = 0 ]; then echo "Sin cambios de contenido: $DEST ya esta al dia (permisos verificados)."; exit 0; fi
