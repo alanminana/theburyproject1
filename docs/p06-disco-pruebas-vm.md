@@ -56,7 +56,8 @@ curso`) porque el `log` de 15 min arrancó en el mismo segundo y tomó el lock. 
 **aún no hay evidencia del 02:30 con el fix**. La primera es la de la madrugada del 2026-11-21 (02:30 local = 05:30Z). Verificar con:
 
 ```
-grep -a "2026-11-21T05:3" /srv/bury-backups/logs/backup.log   # esperado: 'all' inicio ... OK, sin 'omitido'
+grep -a "2026-11-21T05:3" /srv/bury-backups/logs/backup.log | grep -a "backup 'all'"   # esperado: 'all' inicio y luego 'all' OK
+# (un 'log' omitido mientras corre 'all' es legitimo; lo que NO debe aparecer es "backup 'all' omitido")
 ls /srv/bury-backups/sql | grep full_2026-11-21_053                # el .bak y su .sha256
 ```
 
