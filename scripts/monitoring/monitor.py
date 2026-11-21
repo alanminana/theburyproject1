@@ -559,18 +559,21 @@ def heartbeat_url(raw, healthy, msg):
 def test_channel(now=None, deliver=send, ping=http_ok):
     """Comprueba el canal de alertas SIN tocar el estado ni los umbrales: envia al receptor configurado un par de eventos
     sinteticos (key monitor.test, firing y luego resolved, severidad WARNING) y, si hay URL de heartbeat, un ping `up`.
-    No imprime URLs ni tokens. Devuelve el codigo de salida: 0 todo entregado, 1 alguna entrega fallo, 2 sin webhook configurado."""
+    No imprime URLs ni tokens. Devuelve el codigo de salida: 0 todo entregado, 1 alguna entrega fallo, 2 sin webhook ni heartbeat configurados (el heartbeat solo tambien se prueba)."""
     now = time.time() if now is None else now
     report = {"webhook": "no configurado", "resolved": "no enviado", "heartbeat": "no configurado"}
-    if not os.environ.get("BURY_MONITOR_WEBHOOK"):
+    heartbeat = os.environ.get("BURY_MONITOR_HEARTBEAT")
+    if not os.environ.get("BURY_MONITOR_WEBHOOK") and not heartbeat:
         print(json.dumps(report), flush=True)
         return 2
-    base = {"key": "monitor.test", "severity": "WARNING", "time": now}
-    firing = deliver({**base, "event_id": str(uuid.uuid4()), "status": "firing", "detail": "prueba de canal: no es un incidente real"})
-    resolved = deliver({**base, "event_id": str(uuid.uuid4()), "status": "resolved", "severity": "INFO", "detail": "prueba de canal: fin de la prueba"})
-    report["webhook"] = "entregado" if firing else "FALLO"
-    report["resolved"] = "entregado" if resolved else "FALLO"
-    ok = bool(firing and resolved)
+    ok = True
+    if os.environ.get("BURY_MONITOR_WEBHOOK"):
+        base = {"key": "monitor.test", "severity": "WARNING", "time": now}
+        firing = deliver({**base, "event_id": str(uuid.uuid4()), "status": "firing", "detail": "prueba de canal: no es un incidente real"})
+        resolved = deliver({**base, "event_id": str(uuid.uuid4()), "status": "resolved", "severity": "INFO", "detail": "prueba de canal: fin de la prueba"})
+        report["webhook"] = "entregado" if firing else "FALLO"
+        report["resolved"] = "entregado" if resolved else "FALLO"
+        ok = bool(firing and resolved)
     heartbeat = os.environ.get("BURY_MONITOR_HEARTBEAT")
     if heartbeat:
         try:  # la excepcion de urllib puede incluir partes de la URL (token): nunca se imprime

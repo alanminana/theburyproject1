@@ -128,6 +128,15 @@ class MonitoringTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertNotIn("hb-synthetic", printed)
 
+    def test_channel_check_heartbeat_only_is_tested_without_webhook(self):
+        pings = []
+        env = {"BURY_MONITOR_HEARTBEAT": "https://observer.invalid/ping/hb-synthetic", "BURY_MONITOR_HEARTBEAT_STYLE": "healthchecks"}
+        with patch.dict(os.environ, env), patch("sys.stdout"):
+            os.environ.pop("BURY_MONITOR_WEBHOOK", None)
+            self.assertEqual(monitor.test_channel(ping=lambda url: pings.append(url) or True), 0)
+            self.assertEqual(monitor.test_channel(ping=lambda url: False), 1)
+        self.assertEqual(len(pings), 1)
+
     def test_channel_check_exit_codes_without_webhook_and_on_delivery_failure(self):
         with patch.dict(os.environ, {"BURY_MONITOR_WEBHOOK": ""}), patch("sys.stdout"):
             self.assertEqual(monitor.test_channel(), 2)
@@ -594,6 +603,26 @@ class ActivarCanalesTests(unittest.TestCase):
             bad = {**self.values(), "BURY_ACT_HEARTBEAT_URL": "http://insegura.invalid/x"}
             self.assertEqual(self.run_script(root, bad).returncode, 2)
             self.assertFalse(os.path.exists(os.path.join(root, "etc")))
+
+    def test_url_with_shell_metacharacters_is_rejected_and_ampersand_is_literal(self):
+        with tempfile.TemporaryDirectory() as root:
+            for bad in ("https://observer.invalid/$(id)", "https://observer.invalid/x;id", "https://observer.invalid/`id`", 'https://observer.invalid/x"y'):
+                p = self.run_script(root, {"BURY_ACT_HEARTBEAT_URL": bad})
+                self.assertEqual(p.returncode, 2, bad)
+            self.assertFalse(os.path.exists(os.path.join(root, "etc")))
+            ok = "https://observer.invalid/ping/abc?a=1&b=2"
+            p = self.run_script(root, {"BURY_ACT_HEARTBEAT_URL": ok})
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertIn("BURY_MONITOR_HEARTBEAT=" + ok, open(os.path.join(root, "etc", "bury-monitor", "monitor.env")).read())
+
+    def test_reactivation_keeps_the_internal_bearer_so_the_running_relay_still_authenticates(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(self.run_script(root, self.values()).returncode, 0)
+            tge = os.path.join(root, "etc", "bury-monitor", "telegram-relay.env")
+            first = [l for l in open(tge).read().splitlines() if l.startswith("BURY_RELAY_AUTH_TOKEN=")]
+            self.assertEqual(self.run_script(root, self.values()).returncode, 0)
+            second = [l for l in open(tge).read().splitlines() if l.startswith("BURY_RELAY_AUTH_TOKEN=")]
+            self.assertEqual(first, second)
 
     def test_writes_0600_files_keeps_previous_values_and_never_prints_secrets(self):
         with tempfile.TemporaryDirectory() as root:

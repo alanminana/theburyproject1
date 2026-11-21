@@ -55,7 +55,7 @@ fi
 if [ "$DO_HB" = 1 ]; then
   ask HEARTBEAT_URL "URL de ping del observador externo (Healthchecks.io u otro)" secret; HB_URL="$HEARTBEAT_URL"
   if [ -n "$HB_URL" ]; then
-    [[ "$HB_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/[^[:space:]]+$ ]] || { echo "FALLA: la URL de heartbeat debe ser https://host/ruta (sin espacios)" >&2; exit 2; }
+    [[ "$HB_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/[A-Za-z0-9._~/%?=\&:@+,-]+$ ]] || { echo "FALLA: la URL de heartbeat debe ser https://host/ruta con caracteres de URL simples (sin espacios, comillas, \$, parentesis ni punto y coma)" >&2; exit 2; }
     ask HEARTBEAT_STYLE "Estilo del observador: healthchecks (defecto) o kuma"; HB_STYLE="${HEARTBEAT_STYLE:-healthchecks}"
     [[ "$HB_STYLE" == healthchecks || "$HB_STYLE" == kuma ]] || { echo "FALLA: estilo debe ser healthchecks o kuma" >&2; exit 2; }
   fi
@@ -72,51 +72,78 @@ fi
 [ -n "$HB_URL" ] && echo "Heartbeat: URL https valida, estilo $HB_STYLE (no se muestra)."
 if [ "$DRY" = 1 ]; then echo "--dry-run: no se escribio nada."; exit 0; fi
 
-set_env_kv() { # set_env_kv <archivo> <CLAVE> <valor>  -> reemplaza o agrega, sin pasar el valor por argv de otro proceso
+load_env() { # load_env <archivo>: exporta KEY=valor LITERAL (nunca se evalua como shell); solo claves BURY_*
+  local k v
+  while IFS='=' read -r k v; do
+    [[ "$k" =~ ^BURY_[A-Z0-9_]+$ ]] && export "$k=$v"
+  done < "$1"
+}
+get_env() { grep -m1 -E "^$2=" "$1" 2>/dev/null | cut -d= -f2-; }
+set_env_kv() { # set_env_kv <archivo> <CLAVE> <valor>  -> reemplaza o agrega (clave constante); falla si no puede escribir
   local file="$1" key="$2" val="$3" tmp
-  tmp="$(mktemp "$file.XXXXXX")"
-  { grep -v -E "^${key}=" "$file" 2>/dev/null || true; printf '%s=%s\n' "$key" "$val"; } > "$tmp"
-  chmod 600 "$tmp"; mv -f "$tmp" "$file"
+  tmp="$(mktemp "$file.XXXXXX")" || return 1
+  { grep -v -E "^${key}=" "$file" 2>/dev/null || true; printf '%s=%s
+' "$key" "$val"; } > "$tmp" || { rm -f "$tmp"; return 1; }
+  chmod 600 "$tmp" && mv -f "$tmp" "$file"
 }
 
-mkdir -p "$ETC"; chmod 755 "$ETC" 2>/dev/null || true
+mkdir -p "$ETC" || exit 1; chmod 755 "$ETC" 2>/dev/null || true
 MON="$ETC/monitor.env"; TGE="$ETC/telegram-relay.env"
-[ -f "$MON" ] && cp -p "$MON" "$MON.previo" && chmod 600 "$MON.previo"
-touch "$MON"; chmod 600 "$MON"
-
-if [ -n "$TG_TOKEN" ]; then
-  AUTH="$(openssl rand -hex 24)"
-  touch "$TGE"; chmod 600 "$TGE"
-  set_env_kv "$TGE" BURY_RELAY_TELEGRAM_TOKEN "$TG_TOKEN"
-  set_env_kv "$TGE" BURY_RELAY_TELEGRAM_CHAT_ID "$TG_CHAT"
-  set_env_kv "$TGE" BURY_RELAY_AUTH_TOKEN "$AUTH"
-  set_env_kv "$MON" BURY_MONITOR_WEBHOOK "http://127.0.0.1:9098/alert"
-  set_env_kv "$MON" BURY_MONITOR_TOKEN "$AUTH"
-  unset AUTH
+UNIT=/etc/systemd/system/bury-telegram-relay.service
+# Estado previo para rollback: copia .previo de lo que existia; lo que no existia se borra al revertir.
+MON_EXISTED=0; TGE_EXISTED=0; UNIT_EXISTED=0
+[ -f "$MON" ] && { MON_EXISTED=1; cp -p "$MON" "$MON.previo"; chmod 600 "$MON.previo"; }
+[ -f "$TGE" ] && { TGE_EXISTED=1; cp -p "$TGE" "$TGE.previo"; chmod 600 "$TGE.previo"; }
+[ -f "$UNIT" ] && UNIT_EXISTED=1
+rollback() {
+  echo "Revirtiendo la configuracion a su estado anterior..." >&2
+  if [ "$MON_EXISTED" = 1 ]; then cp -p "$MON.previo" "$MON"; else rm -f "$MON"; fi
+  if [ "$TGE_EXISTED" = 1 ]; then cp -p "$TGE.previo" "$TGE"; else rm -f "$TGE"; fi
+  rm -f "$MON.previo" "$TGE.previo"
   if [ "$NOSD" != 1 ]; then
-    install -m 0644 "$SRC/bury-telegram-relay.service" /etc/systemd/system/bury-telegram-relay.service
-    systemd-analyze verify /etc/systemd/system/bury-telegram-relay.service 2>&1 | grep -v -E "^$" | head -5 || true
-    systemctl daemon-reload
+    if [ -n "$TG_TOKEN" ]; then
+      [ "$TGE_EXISTED" = 1 ] || { systemctl disable --now bury-telegram-relay >/dev/null 2>&1; [ "$UNIT_EXISTED" = 1 ] || rm -f "$UNIT"; systemctl daemon-reload; }
+    fi
+    systemctl restart bury-monitor >/dev/null 2>&1 || true
   fi
+}
+fail() { echo "FALLA: $*" >&2; rollback; exit 1; }
+touch "$MON" || fail "no se pudo crear $MON"; chmod 600 "$MON"
+
+AUTH=""
+if [ -n "$TG_TOKEN" ]; then
+  AUTH="$(get_env "$TGE" BURY_RELAY_AUTH_TOKEN)"                       # reactivar conserva el Bearer: el relevo en marcha sigue autenticando
+  [ -n "$AUTH" ] || AUTH="$(openssl rand -hex 24)" || fail "openssl no pudo generar el token interno"
+  [ "${#AUTH}" -ge 32 ] || fail "token interno invalido"
+  if [ "$NOSD" != 1 ]; then
+    # Validacion REAL antes de escribir nada: variables del proceso (no argv), nunca archivos.
+    ( export BURY_RELAY_TELEGRAM_TOKEN="$TG_TOKEN" BURY_RELAY_TELEGRAM_CHAT_ID="$TG_CHAT" BURY_RELAY_AUTH_TOKEN="$AUTH"
+      "$PY" "$SRC/telegram_relay.py" --check ) || fail "telegram_relay.py --check"
+    echo "Enviando UN mensaje de prueba real a Telegram..."
+    ( export BURY_RELAY_TELEGRAM_TOKEN="$TG_TOKEN" BURY_RELAY_TELEGRAM_CHAT_ID="$TG_CHAT" BURY_RELAY_AUTH_TOKEN="$AUTH"
+      "$PY" "$SRC/telegram_relay.py" --send-test ) || fail "Telegram no confirmo el mensaje (token/chat_id incorrectos, o el bot no esta en el chat)"
+    OK="${BURY_ACT_CONFIRM:-}"
+    if [ -z "$OK" ] && [ -t 0 ]; then read -rp "¿Le llego el mensaje de prueba al chat? (si/no): " OK; fi
+    [ "$OK" = si ] || fail "no se confirmo la recepcion del mensaje; no se activo nada (reintente cuando el mensaje llegue)"
+  fi
+  set_env_kv "$TGE" BURY_RELAY_TELEGRAM_TOKEN "$TG_TOKEN" && set_env_kv "$TGE" BURY_RELAY_TELEGRAM_CHAT_ID "$TG_CHAT"     && set_env_kv "$TGE" BURY_RELAY_AUTH_TOKEN "$AUTH" && set_env_kv "$MON" BURY_MONITOR_WEBHOOK "http://127.0.0.1:9098/alert"     && set_env_kv "$MON" BURY_MONITOR_TOKEN "$AUTH" || fail "no se pudo escribir la configuracion"
+  unset AUTH
 fi
 if [ -n "$HB_URL" ]; then
-  set_env_kv "$MON" BURY_MONITOR_HEARTBEAT "$HB_URL"
-  set_env_kv "$MON" BURY_MONITOR_HEARTBEAT_STYLE "$HB_STYLE"
+  set_env_kv "$MON" BURY_MONITOR_HEARTBEAT "$HB_URL" && set_env_kv "$MON" BURY_MONITOR_HEARTBEAT_STYLE "$HB_STYLE" || fail "no se pudo escribir el heartbeat"
 fi
 echo "Configuracion escrita (root, 0600). Copia previa: $MON.previo"
 [ "$NOSD" = 1 ] && { echo "BURY_ACT_NO_SYSTEMD=1: no se tocaron servicios."; exit 0; }
 
-RC=0
 if [ -n "$TG_TOKEN" ]; then
-  ( set -a; . "$TGE"; set +a; "$PY" "$SRC/telegram_relay.py" --check ) || { echo "FALLA: telegram_relay.py --check" >&2; exit 1; }
-  echo "Enviando UN mensaje de prueba real a Telegram..."
-  ( set -a; . "$TGE"; set +a; "$PY" "$SRC/telegram_relay.py" --send-test ) || { echo "FALLA: Telegram no confirmo el mensaje (token/chat_id incorrectos, o el bot no tiene permiso en el chat). El relevo NO se habilito." >&2; exit 1; }
-  echo ">>> Confirme que el mensaje llego al chat. <<<"
-  systemctl enable --now bury-telegram-relay || RC=1
-  sleep 2; systemctl is-active bury-telegram-relay >/dev/null || { echo "FALLA: el relevo no quedo activo" >&2; RC=1; }
+  install -m 0644 "$SRC/bury-telegram-relay.service" "$UNIT" || fail "no se pudo instalar la unidad"
+  systemctl daemon-reload || fail "daemon-reload"
+  systemctl enable bury-telegram-relay || fail "enable del relevo"
+  systemctl restart bury-telegram-relay || fail "no arranco el relevo"   # restart: toma siempre el Bearer vigente
+  sleep 2; systemctl is-active --quiet bury-telegram-relay || fail "el relevo no quedo activo"
 fi
 echo "Probando el canal completo (firing + resolved + heartbeat)..."
-( set -a; . "$MON"; set +a; "$PY" "$SRC/monitor.py" --test-channel ) || { echo "FALLA: monitor.py --test-channel" >&2; RC=1; }
-systemctl restart bury-monitor || RC=1
-[ "$RC" = 0 ] && echo "LISTO: canales activos. Registre fecha, canal y quien recibio el aviso en docs/monitoreo-validacion.md." || echo "TERMINO CON FALLAS (ver arriba)." >&2
-exit $RC
+( load_env "$MON"; "$PY" "$SRC/monitor.py" --test-channel ) || fail "monitor.py --test-channel"
+systemctl restart bury-monitor || fail "no se pudo reiniciar bury-monitor"
+echo "LISTO: canales activos. Registre fecha, canal y quien recibio el aviso en docs/monitoreo-validacion.md."
+exit 0
