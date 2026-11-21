@@ -83,6 +83,7 @@ class Relay:
     def __init__(self, telegram, auth_token):
         self.telegram, self.auth_token = telegram, auth_token
         self.seen = OrderedDict()
+        self.inflight = {}          # event_id -> threading.Event: una sola solicitud envia; las solapadas esperan su resultado
         self.lock = threading.Lock()
 
     def authorized(self, header):
@@ -106,40 +107,85 @@ class Relay:
         with self.lock:
             if event_id in self.seen:
                 return 200, "duplicate"
-        if not self.telegram.send(text):
-            return 502, "telegram delivery failed"
-        with self.lock:
-            self.seen[event_id] = True
-            while len(self.seen) > SEEN_MAX:
-                self.seen.popitem(last=False)
-        return 200, "delivered"
+            waiting = self.inflight.get(event_id)
+            if waiting is None:
+                self.inflight[event_id] = threading.Event()      # esta solicitud hace el envio
+        if waiting is not None:
+            # misma entrega solapada: esperar a la que esta enviando; si ella tuvo exito esto es un duplicado, si no, el monitor reintenta
+            waiting.wait(timeout=self.telegram.timeout + 5)
+            with self.lock:
+                return (200, "duplicate") if event_id in self.seen else (503, "delivery in progress or failed; retry")
+        try:
+            delivered = self.telegram.send(text)
+            with self.lock:
+                if delivered:
+                    self.seen[event_id] = True
+                    while len(self.seen) > SEEN_MAX:
+                        self.seen.popitem(last=False)
+        finally:
+            with self.lock:
+                self.inflight.pop(event_id).set()
+        return (200, "delivered") if delivered else (502, "telegram delivery failed")
 
 
-def make_handler(relay):
+MAX_CONCURRENT = 8                    # TasksMax=16 en la unidad systemd: nunca mas de la mitad ocupada por conexiones lentas
+READ_TIMEOUT = 5                      # segundos para recibir cabeceras y cuerpo; una conexion que no avanza se descarta
+
+
+def make_handler(relay, slots=None, read_timeout=READ_TIMEOUT):
+    slots = slots or threading.BoundedSemaphore(MAX_CONCURRENT)
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "bury-relay"
         sys_version = ""
+        timeout = read_timeout            # socket de la conexion (slowloris): vence la lectura y se libera el hilo
 
-        def log_message(self, fmt, *args):   # sin logs de acceso: la URL/cabeceras podrian arrastrar secretos
+        def log_message(self, format, *args):   # noqa: A002 - sin logs de acceso: la URL/cabeceras podrian arrastrar secretos
             pass
 
-        def do_POST(self):
-            length = int(self.headers.get("Content-Length") or 0)
-            if self.path != "/alert":
-                status, msg = 404, "not found"
-            elif length <= 0 or length > MAX_BODY:
-                status, msg = 413, "body size"
-            else:
-                status, msg = relay.handle(self.headers.get("Authorization"), self.rfile.read(length))
+        def reply(self, status, msg):
             payload = json.dumps({"result": msg}).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
+            self.close_connection = True
+
+        def do_POST(self):
+            if not slots.acquire(blocking=False):
+                return self.reply(503, "busy")
+            try:
+                if self.path != "/alert":
+                    return self.reply(404, "not found")
+                # 1) autenticar ANTES de leer el cuerpo: un proceso sin el Bearer no retiene el hilo ni hace leer bytes
+                if not relay.authorized(self.headers.get("Authorization")):
+                    return self.reply(401, "unauthorized")
+                # 2) Content-Length unico, numerico y acotado; sin Transfer-Encoding (no se soporta chunked)
+                lengths = self.headers.get_all("Content-Length") or []
+                if self.headers.get("Transfer-Encoding") is not None:
+                    return self.reply(411, "length required")
+                if len(lengths) != 1 or not lengths[0].strip().isdigit():
+                    return self.reply(400, "invalid content-length")
+                length = int(lengths[0])
+                if length <= 0 or length > MAX_BODY:
+                    return self.reply(413, "body size")
+                try:
+                    raw = self.rfile.read(length)
+                except OSError:           # timeout de lectura / conexion cortada
+                    return self.reply(408, "request timeout")
+                if len(raw) != length:
+                    return self.reply(400, "incomplete body")
+                status, msg = relay.handle(self.headers.get("Authorization"), raw)
+                self.reply(status, msg)
+            except OSError:
+                self.close_connection = True
+            finally:
+                slots.release()
 
         def do_GET(self):
-            self.send_response(405); self.end_headers()
+            self.reply(405, "method not allowed")
     return Handler
 
 

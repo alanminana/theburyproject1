@@ -70,7 +70,8 @@ Deduplicación: cada transición `firing`/`resolved` lleva un `event_id` (UUID);
 - Deduplica por `event_id`; texto plano (sin `parse_mode`: nada del evento se interpreta como formato), acotado a 3.500 caracteres; ícono por severidad y «RESUELTO» al recuperarse.
 - Responde 2xx **solo si Telegram confirma `ok:true`**; ante cualquier fallo (red, 5xx, 429, `ok:false`) responde 502 → el monitor reintenta y el evento **no** queda marcado como entregado.
 - El token del bot, el chat id y el Bearer **nunca** se imprimen (ni en respuestas, ni en logs, ni en mensajes); no hay *access log*. Unidad con `DynamicUser`, `ProtectSystem=strict`, sin red salvo IPv4/IPv6.
-- Pruebas (`test_telegram_relay.py`, 14, dentro de `test_monitor.py`: **corren en CI**) contra una API de Telegram simulada en loopback, incluida la cadena `monitor.send()` real → relevo HTTP real → Telegram simulado.
+- Endurecido tras la revisión de Codex: autentica **antes** de leer el cuerpo, timeout de lectura (5 s, contra conexiones lentas), máximo 8 conexiones simultáneas (503 si se agotan), `Content-Length` único/numérico/acotado (16 KiB) y sin `chunked`, y deduplicación también para entregas **solapadas** del mismo `event_id` (un solo mensaje; si falla el envío, ninguna recibe 2xx).
+- Pruebas (`test_telegram_relay.py`, 20, dentro de `test_monitor.py`: **corren en CI**) contra una API de Telegram simulada en loopback, incluida la cadena `monitor.send()` real → relevo HTTP real → Telegram simulado.
 
 **Lo que debe hacer el propietario (nada de esto lo hice yo):**
 1. En Telegram, con `@BotFather`, crear un bot (token) y obtener el `chat_id` del chat o grupo destino (escribirle al bot / agregarlo al grupo y consultar `getUpdates`).

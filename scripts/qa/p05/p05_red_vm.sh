@@ -55,9 +55,18 @@ if (( REINICIOS )); then
   cd "$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)/theburyproject1" 2>/dev/null || { echo "no encuentro el repo"; exit 2; }
   snap() { { iptables -S DOCKER-USER; iptables -S BURY-ERP; iptables -S INPUT | head -1; ufw status | sed -n '/^22/p'; } | sha256sum | cut -c1-16; }
   S0=$(snap)
+  web_ok() { # live y ready por el host virtual correcto (SNI tbp) a traves de Caddy
+    local u
+    for u in live ready; do
+      [[ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 4 --resolve tbp:443:127.0.0.1 "https://tbp/health/$u" 2>/dev/null)" == 200 ]] || return 1
+    done
+  }
+  espera_web() { local i; for i in $(seq 1 60); do web_ok && return 0; sleep 3; done; return 1; }
   for svc in caddy app; do
-    sudo -u "${SUDO_USER:-root}" docker compose restart "$svc" >/dev/null 2>&1
-    for i in $(seq 1 40); do curl -sk -o /dev/null -w '%{http_code}' --max-time 3 https://127.0.0.1/health/live 2>/dev/null | grep -q 200 && break; sleep 3; done
+    sudo -u "${SUDO_USER:-root}" docker compose restart "$svc" >/dev/null 2>&1; rc=$?
+    chk "reinicio de $svc: docker compose restart termino sin error" "$([[ $rc -eq 0 ]] && echo ok || echo fail)" "rc=$rc"
+    espera_web; rcw=$?
+    chk "reinicio de $svc: el ERP vuelve a responder live y ready (200 por https://tbp)" "$([[ $rcw -eq 0 ]] && echo ok || echo fail)" "espera hasta 180 s"
     S1=$(snap)
     chk "reinicio de $svc: reglas (DOCKER-USER, BURY-ERP, INPUT, ufw 22) identicas" "$([[ "$S0" == "$S1" ]] && echo ok || echo fail)" "huella $S0 -> $S1"
     [[ "$(probe 443)" != open ]] && r443=ok || r443=fail
@@ -65,9 +74,11 @@ if (( REINICIOS )); then
     [[ "$(probe 1433)" != open && "$(probe 8080)" != open ]] && rr=ok || rr=fail
     chk "reinicio de $svc: 1433 y 8080 siguen inalcanzables" "$rr" ""
   done
-  ufw reload >/dev/null 2>&1
+  ufw reload >/dev/null 2>&1; rcu=$?
+  chk "ufw reload termino sin error" "$([[ $rcu -eq 0 ]] && echo ok || echo fail)" "rc=$rcu"
   S2=$(snap)
   chk "ufw reload: reglas identicas y la sesion SSH actual sigue viva" "$([[ "$S0" == "$S2" ]] && echo ok || echo fail)" "huella $S0 -> $S2"
+  web_ok; chk "tras ufw reload el ERP sigue respondiendo (live y ready 200)" "$([[ $? -eq 0 ]] && echo ok || echo fail)" ""
 fi
 echo "---"
 echo "P-05 red (origen no autorizado): $OK OK, $FAIL FALLA"

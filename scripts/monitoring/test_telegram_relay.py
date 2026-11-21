@@ -4,9 +4,11 @@ Uso:  python3 -m unittest discover -s scripts/monitoring -p 'test_telegram_relay
 """
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -24,7 +26,7 @@ AUTH = "".join(["relay", "-", "bearer", "-", "synthetic", "-", "42"])
 
 class FakeTelegram:
     def __init__(self):
-        self.messages, self.mode = [], "ok"          # ok | fail500 | notok | rate
+        self.messages, self.mode, self.delay = [], "ok", 0          # ok | fail500 | notok | rate ; delay = segundos antes de responder
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -33,6 +35,7 @@ class FakeTelegram:
 
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                time.sleep(outer.delay)
                 outer.messages.append({"path": self.path, "body": body})
                 code, payload = 200, {"ok": True, "result": {"message_id": len(outer.messages)}}
                 if outer.mode == "fail500": code, payload = 500, {"ok": False}
@@ -123,6 +126,85 @@ class RelayTests(unittest.TestCase):
             self.r.seen[f"e{i}"] = True
         self.post(event(event_id="nuevo"))
         self.assertLessEqual(len(self.r.seen), relay.SEEN_MAX)
+
+
+class ConcurrencyAndHardeningTests(unittest.TestCase):
+    def serve(self, **handler_kwargs):
+        self.fake = FakeTelegram(); self.addCleanup(self.fake.close)
+        self.r = relay.Relay(relay.Telegram(BOT, CHAT, self.fake.url, timeout=3), AUTH)
+        srv = relay.ThreadingHTTPServer(("127.0.0.1", 0), relay.make_handler(self.r, **handler_kwargs)); self.addCleanup(srv.server_close)
+        threading.Thread(target=srv.serve_forever, daemon=True).start(); self.addCleanup(srv.shutdown)
+        return srv.server_port
+
+    def raw(self, port, head, body=b"", wait=2.0):
+        """Envia bytes crudos y devuelve la linea de estado (o None si el servidor cerro/expiro)."""
+        with socket.create_connection(("127.0.0.1", port), timeout=wait) as sock:
+            sock.sendall(head.encode() + body)
+            try:
+                data = sock.recv(256)
+            except socket.timeout:
+                return "TIMEOUT"
+        return data.decode("latin1").split("\r\n")[0] if data else None
+
+    def headers(self, extra="", auth=True, length=2):
+        return (f"POST /alert HTTP/1.1\r\nHost: x\r\n" + (f"Authorization: Bearer {AUTH}\r\n" if auth else "")
+                + (f"Content-Length: {length}\r\n" if length is not None else "") + extra + "\r\n")
+
+    def test_same_event_delivered_concurrently_is_sent_once(self):
+        self.fake = FakeTelegram(); self.addCleanup(self.fake.close); self.fake.delay = 0.6      # el envio tarda: las dos solicitudes se solapan
+        r = relay.Relay(relay.Telegram(BOT, CHAT, self.fake.url, timeout=5), AUTH)
+        out, gate = [], threading.Barrier(2)
+        def call():
+            gate.wait(); out.append(r.handle("Bearer " + AUTH, json.dumps(event(event_id="mismo")).encode()))
+        ts = [threading.Thread(target=call) for _ in range(2)]
+        [t.start() for t in ts]; [t.join(10) for t in ts]
+        self.assertEqual(len(self.fake.messages), 1)
+        self.assertEqual(sorted(out), [(200, "delivered"), (200, "duplicate")])
+        self.assertEqual(r.inflight, {})
+
+    def test_concurrent_duplicate_after_a_failed_delivery_is_retryable_not_lost(self):
+        self.fake = FakeTelegram(); self.addCleanup(self.fake.close); self.fake.delay = 0.4; self.fake.mode = "fail500"
+        r = relay.Relay(relay.Telegram(BOT, CHAT, self.fake.url, timeout=5), AUTH)
+        out, gate = [], threading.Barrier(2)
+        def call():
+            gate.wait(); out.append(r.handle("Bearer " + AUTH, json.dumps(event(event_id="falla")).encode())[0])
+        ts = [threading.Thread(target=call) for _ in range(2)]
+        [t.start() for t in ts]; [t.join(10) for t in ts]
+        self.assertTrue(all(code in (502, 503) for code in out), out)                              # ninguna 2xx: el monitor reintenta
+        self.fake.mode = "ok"; self.fake.delay = 0
+        self.assertEqual(r.handle("Bearer " + AUTH, json.dumps(event(event_id="falla")).encode()), (200, "delivered"))
+
+    def test_unauthenticated_request_is_rejected_before_reading_the_body(self):
+        port = self.serve()
+        t0 = time.time()
+        status = self.raw(port, self.headers(auth=False, length=1000))                            # promete 1000 bytes y no envia ninguno
+        self.assertIn("401", status or ""); self.assertLess(time.time() - t0, 1.5)
+
+    def test_slow_authenticated_connection_is_dropped_and_does_not_block_others(self):
+        port = self.serve(read_timeout=1)
+        started = time.time()
+        slow = socket.create_connection(("127.0.0.1", port), timeout=5)
+        slow.sendall(self.headers(length=500).encode())                                            # autenticado, promete cuerpo y no lo envia
+        r = urllib.request.Request(f"http://127.0.0.1:{port}/alert", json.dumps(event(event_id="ok1")).encode(),
+                                   {"Authorization": "Bearer " + AUTH, "Content-Type": "application/json"}, method="POST")
+        self.assertEqual(urllib.request.urlopen(r, timeout=5).status, 200)                         # otro cliente sigue siendo atendido
+        slow.settimeout(4); data = slow.recv(256); slow.close()                                   # si el servidor no la soltara, recv vencería (socket.timeout)
+        self.assertIn(b"408", data)                                                                 # la lenta vence por timeout (1 s) y libera el hilo
+
+    def test_concurrency_is_bounded_so_slow_clients_cannot_exhaust_the_service(self):
+        port = self.serve(read_timeout=3, slots=threading.BoundedSemaphore(1))
+        hold = socket.create_connection(("127.0.0.1", port), timeout=5); hold.sendall(self.headers(length=500).encode()); time.sleep(0.3)
+        self.assertIn("503", self.raw(port, self.headers(), b"{}") or ""); hold.close()
+
+    def test_malformed_length_headers_are_rejected(self):
+        port = self.serve()
+        self.assertIn("400", self.raw(port, self.headers(extra="Content-Length: 5\r\n")) or "")      # Content-Length duplicado
+        self.assertIn("400", self.raw(port, self.headers(length=None, extra="Content-Length: abc\r\n")) or "")
+        self.assertIn("400", self.raw(port, self.headers(length=None, extra="Content-Length: -5\r\n")) or "")
+        self.assertIn("400", self.raw(port, self.headers(length=None)) or "")                           # sin Content-Length
+        self.assertIn("411", self.raw(port, self.headers(length=None, extra="Transfer-Encoding: chunked\r\n")) or "")
+        self.assertIn("413", self.raw(port, self.headers(length=relay.MAX_BODY + 1)) or "")
+        self.assertEqual(self.fake.messages, [])
 
 
 class ServerAndCliTests(unittest.TestCase):

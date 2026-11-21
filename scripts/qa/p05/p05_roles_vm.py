@@ -13,7 +13,7 @@ GUARDAS (mismas que P-03): solo contra un servidor de ENSAYO, HTTP y SQL del mis
 p05.* activas previas. NO imprime contrasenas. Al terminar da de baja (y borra) las cuentas p05.* y verifica que `admin` conserve su clave original.
 Salida: 0 todo OK | 1 hay FALLA o limpieza no verificada | 2 uso/guarda.
 """
-import argparse, os, re, secrets, socket, ssl, subprocess, sys
+import argparse, os, re, secrets, socket, ssl, subprocess, sys, urllib.parse
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "p03"))
 from p03_vm_produccion import Session, read_env, new_password  # noqa: E402
 
@@ -32,7 +32,7 @@ ROLES = ["Administrador", "Gerente", "Vendedor", "Cajero", "Contador", "Reposito
 
 
 def classify(status, loc):
-    """allowed | denied | login | other (200 o redireccion interna = allowed; 403/AccessDenied = denied; al login = login)"""
+    """allowed (200) | denied (403/AccessDenied) | login (redireccion al login) | redirect (otra redireccion: se sigue hasta el destino) | other"""
     if status == 200:
         return "allowed"
     if status == 403:
@@ -43,8 +43,21 @@ def classify(status, loc):
             return "denied"
         if "/identity/account/login" in l:
             return "login"
-        return "allowed"   # redireccion posterior a la autorizacion (p. ej. /Categoria -> /Catalogo): el filtro de permisos ya dejo pasar
+        return "redirect"
     return "other"
+
+
+def fetch(sess, path, hops=3):
+    """GET siguiendo hasta `hops` redirecciones internas (alias como /Categoria -> /Catalogo): el veredicto es el del DESTINO, no el de la redireccion.
+    Devuelve (clase, status, location, ruta_final). Una redireccion que no termina en 200/denegado/login es 'other' (inconcluso = falla)."""
+    for _ in range(hops + 1):
+        st, loc, _ = sess.send("GET", path)
+        c = classify(st, loc)
+        if c != "redirect":
+            return c, st, loc, path
+        u = urllib.parse.urlsplit(loc)
+        path = u.path + (("?" + u.query) if u.query else "")
+    return "other", st, loc, path
 
 
 def post_with_token(sess, path, fields, pages=("/", "/Dashboard", "/Caja", "/Producto", "/Cliente", "/Seguridad")):
@@ -134,11 +147,11 @@ def main():
 
         # --- 1. sin sesion: todo redirige al login
         anon = S("anonimo")
-        bad = [p for p, _, _ in ROUTES if classify(*anon.send("GET", p)[:2]) != "login"]
+        bad = [p for p, _, _ in ROUTES if fetch(anon, p)[0] != "login"]
         check("1.1", f"sin sesion, las {len(ROUTES)} rutas protegidas redirigen al login", not bad, "excepciones: " + (", ".join(bad) or "ninguna"))
 
         # --- 2. admin (SuperAdmin) accede a todas
-        bad = [p for p, _, _ in ROUTES if classify(*sA.send("GET", p)[:2]) != "allowed"]
+        bad = [p for p, _, _ in ROUTES if fetch(sA, p)[0] != "allowed"]
         check("2.1", "SuperAdmin (admin) accede a todas las rutas", not bad, "sin acceso: " + (", ".join(bad) or "ninguna"))
 
         # --- 3. cada rol: lo que el servidor responde == lo que la BD dice
@@ -154,7 +167,7 @@ def main():
             sessions[role] = (s, user, pw)
             mism, nallow, ndeny = [], 0, 0
             for path, m, ac in ROUTES:
-                got = classify(*s.send("GET", path)[:2])
+                got = fetch(s, path)[0]
                 should = (m, ac) in perms[role]
                 if should: nallow += 1
                 else: ndeny += 1
@@ -170,16 +183,27 @@ def main():
             if role not in sessions or ("usuarios", "create") in perms.get(role, set()):
                 continue
             s = sessions[role][0]
-            intr = f"p05.escala{role.lower()}{suf}"
-            r1, t1 = post_with_token(s, "/Usuarios/Create", {"UserName": intr, "Email": f"{intr}@ensayo.invalid", "Password": "Aa1" + secrets.token_hex(8), "ConfirmPassword": "x",
-                                               "RolesSeleccionados": "SuperAdmin", "Activo": "true", "EmailConfirmed": "true"})
+            intr = f"p05.escala{role.lower()}{suf}"; pw_i, pw_n = new_password(), new_password()
+            # Formularios VALIDOS (contrasenas que coinciden, todos los campos): un rechazo solo puede deberse a la autorizacion, no a la validacion
+            r1, t1 = post_with_token(s, "/Usuarios/Create", {"UserName": intr, "Email": f"{intr}@ensayo.invalid", "Password": pw_i, "ConfirmPassword": pw_i, "Nombre": "Pruebas",
+                                                             "Apellido": "Ensayo", "RolesSeleccionados": "SuperAdmin", "Activo": "true", "EmailConfirmed": "true"})
             created.append(intr)
-            r2, t2 = post_with_token(s, "/Usuarios/CambiarPassword", {"UserId": uid(victim), "UserName": victim, "NewPassword": "Zz9" + secrets.token_hex(8), "ConfirmPassword": "x"})
+            r2, t2 = post_with_token(s, "/Usuarios/CambiarPassword", {"UserId": uid(victim), "UserName": victim, "NewPassword": pw_n, "ConfirmPassword": pw_n})
             r3, t3 = post_with_token(s, "/Usuarios/Desactivar", {"id": uid(victim), "returnUrl": "/Seguridad"})
             still = S("v").login(victim, pw_v)
-            ok = (not exists(intr)) and active(victim) and still
-            check(f"4.{role}", f"{role}: no crea usuarios, ni cambia la clave ni desactiva a otro", ok,
-                  f"creado={exists(intr)}; victima_activa={active(victim)}; victima_clave_original={still}; http=({r1[0]},{r2[0]},{r3[0]}); con_token={t1 and t2 and t3}")
+            den = [classify(r[0], r[1]) == "denied" for r in (r1, r2, r3)]
+            ok = (not exists(intr)) and active(victim) and still and all(den) and t1 and t2 and t3
+            check(f"4.{role}", f"{role}: crear/cambiar clave/desactivar con formulario valido y token -> denegado y sin efecto", ok,
+                  f"creado={exists(intr)}; victima_activa={active(victim)}; victima_clave_original={still}; http=({r1[0]},{r2[0]},{r3[0]}); denegado_explicito={den}; con_token={t1 and t2 and t3}")
+
+        # control positivo: los MISMOS formularios, ejecutados por admin sobre una cuenta de control, SI funcionan (sin esto un rechazo podria ser un formulario roto)
+        ctl, pw_c, pw_c2 = f"p05.control{suf}", new_password(), new_password()
+        okc = create_user(sA, ctl, pw_c, "Vendedor") and exists(ctl)
+        rc2, _ = post_with_token(sA, "/Usuarios/CambiarPassword", {"UserId": uid(ctl), "UserName": ctl, "NewPassword": pw_c2, "ConfirmPassword": pw_c2})
+        cambio = (not S("c1").login(ctl, pw_c)) and S("c2").login(ctl, pw_c2)
+        rc3, _ = post_with_token(sA, "/Usuarios/Desactivar", {"id": uid(ctl), "returnUrl": "/Seguridad"})
+        check("4.control", "control positivo: admin crea, cambia la clave y desactiva con esos mismos formularios", okc and cambio and not active(ctl),
+              f"alta={okc}; clave_cambiada={cambio}; desactivada={not active(ctl)}; http=({rc2[0]},{rc3[0]})")
 
         # --- 6. endpoints sensibles: ni siquiera un SuperAdmin llega a diagnostico/swagger/metricas en Production (404), y el rol minimo no llega a mantenimiento
         for path in ("/Diagnostico", "/Diagnostico/ResetPassword", "/swagger", "/swagger/v1/swagger.json", "/metrics", "/hangfire", "/Identity/Account/Register"):
@@ -190,12 +214,15 @@ def main():
                 st, loc, _ = sessions["Tecnico"][0].send("GET", path)
                 check("6.2", f"Tecnico (rol minimo): {path} sin acceso", st in (403, 404) or classify(st, loc) == "denied", f"http={st} {loc[:60]}")
 
-        # --- 5. antiforgery: POST sin token se rechaza
-        r = sA.send("POST", "/Usuarios/Create", {"UserName": f"p05.csrf{suf}", "Email": f"p05.csrf{suf}@ensayo.invalid", "Password": "Aa1" + secrets.token_hex(8),
-                                                  "ConfirmPassword": "x", "RolesSeleccionados": "Vendedor", "Activo": "true"})
-        created.append(f"p05.csrf{suf}")
-        check("5.1", "POST sin token antiforgery rechazado", r[0] in (400, 403) or (r[0] in (302, 303) and classify(r[0], r[1]) in ("login", "denied")) and not exists(f"p05.csrf{suf}"),
-              f"http={r[0]}; creado={exists(f'p05.csrf{suf}')}")
+        # --- 5. antiforgery: formulario VALIDO sin token -> rechazado; el mismo con token (control positivo, via create_user) -> creado
+        csrf_user, pw_csrf = f"p05.csrf{suf}", new_password()
+        form = {"UserName": csrf_user, "Email": f"{csrf_user}@ensayo.invalid", "Password": pw_csrf, "ConfirmPassword": pw_csrf, "Nombre": "Pruebas", "Apellido": "Ensayo",
+                "RolesSeleccionados": "Vendedor", "Activo": "true", "EmailConfirmed": "true"}
+        r = sA.send("POST", "/Usuarios/Create", form)
+        created.append(csrf_user)
+        sin_token = r[0] in (400, 403) and not exists(csrf_user)
+        con_token = create_user(sA, csrf_user, pw_csrf, "Vendedor") and exists(csrf_user)
+        check("5.1", "POST valido SIN token antiforgery rechazado; con token funciona (control)", sin_token and con_token, f"sin_token http={r[0]} rechazado={sin_token}; con_token creado={con_token}")
     finally:
         try:
             sAd = S("admin-limpieza"); admin_ok = sAd.login("admin", pw_admin)
