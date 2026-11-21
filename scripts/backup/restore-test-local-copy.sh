@@ -39,13 +39,13 @@ full_ts=$(grep -oE "$BK_TS" <<<"$full")
 mapfile -t logs < <(ls -1 "$SRC" | grep -E "^${DB_NAME}_log_${BK_TS}\.trn$" | sort | while read -r f; do t=$(grep -oE "$BK_TS" <<<"$f"); [[ "$t" > "$full_ts" ]] && echo "$f"; done)
 
 rnd() { od -An -N"${1:-6}" -tx1 /dev/urandom | tr -d ' \n'; }
-PROJ="bury-lcrt-$(rnd 4)"; DBN=LocalCopyRestoreTest
+PROJ="bury-lcrt-$(rnd 4)"; DBN=LocalCopyRestoreTest   # DBN = base DESTINO; el nombre de la base ORIGEN (DB_NAME) se conserva para que restore-sql.sh encuentre los logs
 TMPBASE="${TMPDIR:-/tmp}"; T=$(mktemp -d "$TMPBASE/bury-lcrt.XXXXXX"); BKD="$T/backups"; mkdir -p "$BKD"; : >"$T/empty.env"
 SA="Aa1!$(rnd 10)"
 used=$(docker network ls -q | xargs -r docker network inspect --format '{{range .IPAM.Config}}{{.Subnet}} {{end}}' 2>/dev/null)
 SUBNET=""; for i in $(seq 1 80); do n=$((100 + RANDOM % 120)); [[ " $used " == *" 172.29.$n.0/24 "* ]] || { SUBNET="172.29.$n.0/24"; break; }; done
 [[ -n "$SUBNET" ]] || { rm -rf "$T"; die $EX_PREREQ "sin subred libre"; }
-export COMPOSE_PROJECT_NAME="$PROJ" COMPOSE_ENV_FILES="$T/empty.env" BURY_NET_SUBNET="$SUBNET" MSSQL_SA_PASSWORD="$SA" MSSQL_DATABASE="$DBN" MSSQL_PID=Express DB_MEMORY=2g DB_CPUS=2
+export COMPOSE_PROJECT_NAME="$PROJ" COMPOSE_ENV_FILES="$T/empty.env" BURY_NET_SUBNET="$SUBNET" MSSQL_SA_PASSWORD="$SA" MSSQL_DATABASE="$DB_NAME" MSSQL_PID=Express DB_MEMORY=2g DB_CPUS=2
 export BACKUP_DIR="$BKD" BACKUP_STOP_APP=false BACKUP_REMOVABLE_DIR="" BACKUP_REMOTE=""
 export ERP_DOMAIN=tbp ADMIN_EMAIL=bk@example.invalid ADMIN_USERNAME=admin ADMIN_PASSWORD=Zz9!unused0 ERP_DB_USER=u ERP_DB_PASSWORD=x ERP_MIGRATION_USER=m ERP_MIGRATION_PASSWORD=y ERP_IMAGE=bury-lcrt-noexiste:0
 dcq() { docker compose --progress quiet "$@" </dev/null; }
@@ -86,7 +86,9 @@ OUT="$T/resultado.txt"; : >"$OUT"
 say() { echo "$*" | tee -a "$OUT"; }
 bash "$BK_SCRIPT_DIR/restore-sql.sh" --backup "$full" --target-db "$DBN" --with-logs >"$T/restore.out" 2>&1; rc=$?
 if (( rc != 0 )); then tail -n 15 "$T/restore.out"; die $EX_RESTORE "restore-sql.sh fallo (rc $rc)"; fi
-say "OK  RESTORE de full + ${#logs[@]} log(s) -> [$DBN] ONLINE"
+applied=$(grep -oE 'logs aplicados: [0-9]+' "$T/restore.out" | tail -n1 | grep -oE '[0-9]+$')
+[[ "$applied" =~ ^[0-9]+$ && "$applied" == "${#logs[@]}" ]] || die $EX_RESTORE "se copiaron ${#logs[@]} log(s) pero restore-sql.sh aplico '${applied:-?}': la cadena NO se restauro completa"
+say "OK  RESTORE de full + $applied log(s) -> [$DBN] ONLINE (logs aplicados = logs copiados)"
 dbcc=$(sqlq "DBCC CHECKDB ([$DBN]) WITH NO_INFOMSGS" 2>&1) || { echo "$dbcc"; die $EX_RESTORE "DBCC CHECKDB reporto errores"; }
 [[ -z "$dbcc" ]] || { echo "$dbcc"; die $EX_RESTORE "DBCC CHECKDB devolvio mensajes"; }
 say "OK  DBCC CHECKDB sin errores"
