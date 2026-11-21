@@ -27,7 +27,7 @@ set -Eeuo pipefail
 HOST_MOUNT=/mnt/tbp-pruebas SIZE_GB=3 MNT=/mnt/tbp-respaldo OWNER="${SUDO_USER:-}" ACTION="" VERIFY_AT="03:15"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 NAME=tbp-respaldo; KEYDIR=/etc/bury-backup; KEY=$KEYDIR/local-disk.key; HDR=$KEYDIR/local-disk.luks-header
-LABEL=tbp-respaldo-cifrado; MARKER=.bury-backup-removable
+LABEL=tbp-respaldo; MARKER=.bury-backup-removable
 die() { echo "ERROR: $*" >&2; exit 8; }
 usage() { sed -n '2,29p' "$0"; }
 while (( $# )); do
@@ -81,7 +81,7 @@ UUID_MAP=$(blkid -s UUID -o value "/dev/mapper/$NAME")
 mkdir -p "$MNT"; chattr +i "$MNT"   # sin montar, nadie puede escribir en el disco del sistema
 cp -a /etc/fstab "/etc/fstab.bak-$(date +%Y%m%d%H%M%S)"; [[ -e /etc/crypttab ]] && cp -a /etc/crypttab "/etc/crypttab.bak-$(date +%Y%m%d%H%M%S)"
 echo "$NAME $CONT $KEY luks,nofail,x-systemd.device-timeout=15s" >>/etc/crypttab
-echo "/dev/mapper/$NAME $MNT ext4 defaults,nofail,x-systemd.requires=systemd-cryptsetup@$NAME.service,x-systemd.device-timeout=15s 0 2" >>/etc/fstab
+echo "/dev/mapper/$NAME $MNT ext4 defaults,nofail,x-systemd.device-timeout=15s 0 2" >>/etc/fstab
 systemctl daemon-reload
 mount "$MNT"
 chown "$OWNER:" "$MNT"; chmod 0750 "$MNT"
