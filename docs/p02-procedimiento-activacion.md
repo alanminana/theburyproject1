@@ -125,3 +125,7 @@ COMPOSE_PROJECT_NAME=theburyproject-prod scripts/backup/backup.sh all && COMPOSE
 
 Como la base es **nueva**, P3 se aplica con todas las migraciones del `migrate` (no hace falta ejecutar `p02-nc-fiscal-externa-up.sql`; ese script y el `down` son para una base existente de 144 migraciones, como en el ensayo). Con `FISCAL_CRITERIO_V2_DESDE` definido en el primer arranque, **V2 rige desde la primera venta**. El neteo de IVA por NC fiscal **no se activa** (pendiente del contador, §4).
 
+
+### 6.1 Validación en base nueva (2026-11-21)
+
+`scripts/qa/p02/validacion-base-nueva.sh --image <imagen>`: instalación limpia en Production con V2 desde el primer arranque, 145 migraciones, base sin datos, gracia de 12 días por versionado y primera venta V2; 33 OK / 0 FALLA. Ver `docs/cierre-p03-p07-p02-20261121.md`.
