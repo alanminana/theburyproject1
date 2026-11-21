@@ -66,7 +66,7 @@ cd "$REPO"
 bash "$BK_SCRIPT_DIR/prepare-dir.sh" >/dev/null 2>&1 || die $EX_PREREQ "prepare-dir.sh fallo"
 # copia de lo que se va a restaurar, verificando sha256 (la copia es la que se prueba, no el origen). Se lee desde un contenedor como root: los
 # backups copiados por backup-files conservan el modo 0640 del origen y el usuario normal no puede leerlos.
-docker run --rm --network none -v "$BACKUP_REMOVABLE_DIR/bury-backup/sql":/src:ro -v "$BKD/sql":/dst alpine:3 sh -c '
+docker run --rm --network none -v "$SRC":/src:ro -v "$BKD/sql":/dst alpine:3 sh -c '
   set -eu
   for f in "$@"; do
     [ -f "/src/$f.sha256" ] || { echo "falta $f.sha256 en la copia" >&2; exit 3; }
