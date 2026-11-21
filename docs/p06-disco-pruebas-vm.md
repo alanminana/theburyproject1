@@ -11,8 +11,8 @@
 | Sistema | `sda` 100 G (`sda2` ext4 `/`, UUID `5a3dc53b…`): **no se tocó** |
 | Disco nuevo | `sdb` 40 G, `VMware Virtual S`, `scsi0:1` → `tbp-0.vmdk` (`lsblk`: sin particiones, sin FSTYPE/UUID) |
 | Verificación de vacío | `blkid -p` rc 2 (sin firma), `wipefs -n` sin firmas, `sfdisk -d` sin tabla, primeros y últimos 4 MiB en cero, sin holders LVM/md, no en `/proc/mounts` ni `fstab` |
-| Ubicación física | `C:\Users\c0sm3\OneDrive\Documents\Virtual Machines\tbp\tbp-0.vmdk` (**monolithicSparse**: crece a medida que se escribe y **nunca se reduce solo**; `fstrim` no soportado) |
-| Espacio libre en Windows | `C:` ≈ 14,9 GB al inicio (11,5 GB al cierre). El VMDK de 40 GB **no está reservado**: llenar el disco guest por encima de lo libre en `C:` pausaría/rompería la VM |
+| Ubicación física | `C:\Users\c0sm3\OneDrive\Documents\Virtual Machines\tbp\tbp-0.vmdk` (**monolithicSparse**: crece a medida que se escribe y **nunca se reduce solo**; 3,36 GB tras las pruebas; `fstrim` no soportado) |
+| Espacio libre en Windows | `C:` ≈ 14,9 GB al inicio (11,5 GB al cierre de las pruebas, 13,4 GB tras la limpieza). El VMDK de 40 GB **no está reservado**: llenar el disco guest por encima de lo libre en `C:` pausaría/rompería la VM |
 
 Como todo estaba inequívocamente vacío se formateó sin pedir más autorización (instrucción del propietario).
 
@@ -42,6 +42,7 @@ Estructura: `/mnt/tbp-pruebas/{tmp,logs,evidencia,backups-sinteticos}`; los arne
 | `test-dr-integral.sh` (pérdida total → recuperación; imagen del ERP ya construida) | 53 PASS / 0 FAIL, sin residuos Docker |
 | Datos sintéticos propios (~600 MB, 2002 archivos, 3 backups tar.gz + sha256) | integridad, restauración idéntica por manifiesto sha256, corrupción de 1 byte detectada (sha256 y `gzip -t`), truncado detectado, **fallback al backup anterior válido** |
 | Persistencia | `umount` → `fsck.ext4 -fn` limpio → `mount -a` por UUID/fstab → sha256 idénticos → `findmnt --verify` sin errores |
+| Persistencia (2.ª verificación, 22:5x, con datos nuevos de ~100 MB) | tar.gz + sha256 → `sync` → `umount` → `fsck.ext4 -fn` limpio → `mount -a` → sha256 OK, `gzip -t` OK, restauración idéntica por manifiesto; luego limpieza. `findmnt --verify`: sin errores |
 
 Notas: la primera versión del caso "fallback" falló por un defecto **del test** (el byte elegido ya valía 0, no hubo corrupción); se corrigió
 invirtiendo el byte y se repitió: PASS. **No validado**: comportamiento de `nofail` con el disco realmente ausente (exigiría quitar el VMDK de
