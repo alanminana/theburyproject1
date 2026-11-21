@@ -98,3 +98,29 @@ git add -- docker-compose.monitoring.yml scripts/monitoring/monitor.py scripts/m
 - Medir consumo con monitores configurados/histórico y respaldar configuración/estado del monitoreo.
 
 No se avanzó a firewall, hardening SSH/RDP, CI/CD, dominio real, auditoría web ni Mercado Libre.
+
+
+## Cierre de P-08 con excepción documentada (2026-11-21)
+
+Entorno: preproducción **sintética** de la VM `tbp` (0 ventas, 5 clientes de ensayo). Las pruebas no tocaron bases de datos, SQL Server, Caddy, Windows, VMware, Tailscale ni Raspberry; cada interrupción tuvo un temporizador de recuperación independiente (`systemd-run`) armado antes de comenzar y cancelado al restaurar.
+
+| Verificación | Resultado | Evidencia |
+|---|---|---|
+| Aviso humano por Telegram (WARNING/RESUELTO de prueba del canal) | **PROBADO** | El propietario recibió los mensajes (14:25:59 y 14:29:52 ART) |
+| Caída de la app ERP: CRITICAL | **PROBADO con recepción humana** | App detenida 17:36:57Z; evento a **182 s**; entrega al relevo/Telegram a 184 s; el propietario recibió 4 CRITICAL (`http.erp`, `http.live`, `http.ready`, `docker.app`) a las 14:39:59 ART |
+| Recuperación de la app: RESUELTO | **PROBADO con recepción humana** | `healthy` a 6 s de reiniciar; RESUELTO generado a **58 s**; el propietario recibió 4 RESUELTO a las 14:40:58 ART. 8 `event_id` distintos: **sin duplicados** |
+| Alertas legítimas por ausencia de copia externa (P-06) | Siguen encendidas | `backup.offsite-sql` y `backup.offsite-files`, CRITICAL cada hora; no se silencian |
+| Heartbeat saliente cada 60 s a Healthchecks.io | **PROBADO** | El log de pings del propietario muestra un ping por minuto desde la activación (17:29Z) |
+| Pérdida de heartbeat: interrupción real en el origen | **PROBADO** | Prueba 1 (monitor detenido 17:43:34Z–17:51:34Z): el log de pings muestra el hueco 17:43→17:51Z. Prueba 2 (18:42:34Z–18:50:34Z, con Period 2 min / Grace 3 min): interrupción y restauración ejecutadas y registradas |
+| **Pérdida de heartbeat: DOWN y UP notificados por Healthchecks** | **NO CONFIRMADO (excepción)** | Prueba 1: el check tenía el período/gracia por defecto y no pasó a DOWN (configuración, no del sistema). Prueba 2: con la configuración correcta, Healthchecks conserva solo 100 pings y los de la prueba ya habían rotado cuando se pidió la evidencia; **no se capturaron los eventos DOWN/UP ni los avisos recibidos**. No existe una clave de API de Healthchecks autorizada en el entorno, así que `/api/v3/checks/<uuid>/flips/` (retención independiente de los pings) no se pudo consultar y la URL de ping no se usó para eso |
+
+### Decisión
+
+El propietario aceptó **cerrar administrativamente P-08** con esta excepción: la **notificación externa DOWN/UP de Healthchecks no pudo confirmarse** y **no se informa como aprobada**. Tampoco se probó un apagado físico del anfitrión (no se apagó Windows ni VMware): esa prueba valida la ausencia de heartbeat y el observador independiente, no un corte de energía.
+
+Para convertir la excepción en evidencia, basta repetir en cualquier momento la interrupción de 8 minutos (procedimiento: `docs/p08-activacion-propietario.md` §2.C) y capturar, antes de que rote, el historial de cambios de estado del check (pantalla *Log* o `GET /api/v3/checks/<uuid>/flips/` con una clave de API de solo lectura creada por el propietario) y los avisos recibidos.
+
+### Pendiente de seguridad
+
+- **Rotar la URL de ping (heartbeat) de Healthchecks.io**: quedó expuesta durante las pruebas. Regenerar/recrear el check, actualizar la URL con `sudo bash /opt/theburyproject/scripts/monitoring/activar-canales.sh --heartbeat` y verificar que los pings continúan. Hasta rotarla, quien la conozca puede enviar pings falsos (y ocultar una caída).
+- Crear, si se quiere automatizar la verificación, una clave de API **de solo lectura** y guardarla fuera de Git.

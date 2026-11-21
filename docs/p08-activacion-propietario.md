@@ -3,7 +3,7 @@
 Base: `main` f7c51e07. Complementa `p08-cierre-operativo-20261120.md` y `p08-receptor-alertas-procedimiento.md`. Sin credenciales en este documento.
 **No se crearon bots, cuentas ni servicios externos, no se generaron credenciales, no se tocó Tailscale ni la Raspberry, no se apagó Windows/VMware.**
 
-> **Estado P-08: EN PROGRESO.** Todo lo que no requiere recursos del propietario está implementado y probado; faltan dos evidencias que solo existen con
+> **Estado P-08: FINALIZADO CON EXCEPCIÓN DOCUMENTADA (2026-11-21, aceptada por el propietario; ver `docs/monitoreo-validacion.md`).** Histórico previo: EN PROGRESO. Todo lo que no requiere recursos del propietario está implementado y probado; faltan dos evidencias que solo existen con
 > una cuenta suya: (1) un aviso **recibido por una persona** y (2) la detección de **caída total del host desde un observador externo real**.
 
 ## 1. Qué se agregó en esta tanda
@@ -56,3 +56,7 @@ Otras fallas ya probadas y que **corren en CI**: SQL Server caído y recuperado,
 5. Ajustar umbrales de CPU/RAM/disco con semanas de carga real.
 
 Cuando 1–3 estén hechos y registrados en `monitoreo-validacion.md`, P-08 pasa a **Finalizado**.
+
+## 5. Resultado final (2026-11-21)
+
+Telegram y Healthchecks fueron configurados por el propietario. Caída/recuperación del ERP: probada con recepción humana. Heartbeat: enviado cada 60 s e interrupción real comprobada; **el DOWN/UP externo de Healthchecks no pudo confirmarse** (el historial de pings rotó y no hay clave de API autorizada para `flips`). Excepción aceptada y registrada; pendiente de seguridad: rotar la URL de heartbeat expuesta.
