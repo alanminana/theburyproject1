@@ -527,6 +527,9 @@ class MonitoringTests(unittest.TestCase):
         (Path(self.tmp.name) / "monitor-status" / "removable-copy.json").write_text("{no json")
         self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "CRITICAL")
 
+# P-08: las pruebas del relevo a Telegram se ejecutan junto con las del monitor (el CI descubre solo este archivo; ver test_telegram_relay.py).
+from test_telegram_relay import ConcurrencyAndHardeningTests, RelayTests, ServerAndCliTests  # noqa: E402,F401
+
 
 if __name__ == "__main__":
     unittest.main()

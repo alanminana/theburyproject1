@@ -134,6 +134,30 @@ class StatusChainTests(unittest.TestCase):
         self.assertEqual(sev["backup.custody"], "INFO")
         self.assertEqual(self.statuses("backup.custody"), ["firing", "resolved"])
 
+    @unittest.skipUnless(shutil.which("flock"), "requiere flock (util-linux)")
+    def test_daily_backup_that_could_not_take_the_lock_fires_within_one_cycle_and_recovers(self):
+        """P-08 / #338: un `backup.sh all` que no obtiene el lock sale con exit 4 y ahora PUBLICA el fallo (antes solo un WARN en el log):
+        el monitor lo ve en el siguiente ciclo (~60 s) en lugar de esperar 26 h a que venza la ventana del ultimo full. `log` no publica."""
+        holder = subprocess.Popen([BASH, "-c", f"exec 9>>'{(self.backups / '.lock.flock').as_posix()}'; flock -n 9 && sleep 15"])
+        self.addCleanup(holder.wait)
+        self.addCleanup(holder.kill)
+        (self.backups / ".bury-backup-root").write_text("test")
+        import time
+        time.sleep(1)
+        env = {**os.environ, "BACKUP_DIR": str(self.backups), "BACKUP_LOCK_WAIT_SEC": "1"}
+        for mode, published in (("log", False), ("all", True)):
+            run = subprocess.run([BASH, str(BACKUP / "backup.sh"), mode], env=env, capture_output=True, text=True, timeout=60)
+            self.assertEqual(run.returncode, 4, run.stdout + run.stderr)
+            self.assertEqual((self.backups / "monitor-status" / f"run-{mode}.json").exists(), published, mode)
+        self.assertIn("NO se realizo", run.stderr)                                # el modo all deja ERROR en stderr (cron.err)
+        sev = self.observe("backups", keys=["backup.run-all"])
+        self.assertEqual(sev, {"backup.run-all": "CRITICAL"})
+        self.assertEqual(self.statuses("backup.run-all"), ["firing"])
+        self.lib("monitor_status run-all 0 true")                                  # el siguiente `all` exitoso
+        sev = self.observe("backups", keys=["backup.run-all"])
+        self.assertEqual(sev, {"backup.run-all": "INFO"})
+        self.assertEqual(self.statuses("backup.run-all"), ["firing", "resolved"])
+
     def test_missing_status_never_resolves_a_firing_alert(self):
         self.lib("monitor_status offsite-sql 6 false")
         self.observe("backups", keys=["backup.offsite-sql"])

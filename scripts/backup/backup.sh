@@ -69,6 +69,9 @@ if (( lrc == 1 )); then
   else
     # Un full/archivos que NO corrio es un fallo (no un aviso): ERROR va a stderr -> /var/log/bury-backup-errors.log del cron.
     log ERROR "backup '$MODE' NO se realizo: el lock siguio ocupado ${BK_LOCK_WAIT}s (otra ejecucion larga o colgada); revisar y relanzar"
+    # P-08: publicar el fallo para el monitor (backup.run-<modo> CRITICAL en el siguiente ciclo, ~60 s) en vez de esperar a que venza la ventana
+    # de antiguedad del ultimo exito (26 h para el full). El siguiente backup exitoso del mismo modo lo sobrescribe y el monitor emite `resolved`.
+    monitor_status "run-$MODE" "$EX_BUSY" false
   fi
   trap - EXIT; exit $EX_BUSY
 elif (( lrc != 0 )); then

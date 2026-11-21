@@ -11,6 +11,9 @@ Estado 2026-11-14: **preparado, no conectado**. Este documento no contiene crede
 | Receptor | (a) Uptime Kuma con Push + canal nativo, (b) servicio HTTP propio que acepte el contrato JSON | (a) cubre también "cayó todo el servidor"; (b) solo recibe lo que el agente envía |
 | Observador externo | otro servidor, otro sitio, otra red eléctrica | Sin él, la caída total del host/energía/router **no avisa a nadie** |
 
+> **Actualización 2026-11-20:** el relevo a Telegram (`scripts/monitoring/telegram_relay.py`, probado con una API simulada), el estado real de los controles, la detección del backup diario y las alternativas de observador
+> externo están en `docs/p08-cierre-operativo-20261120.md`. Siguen pendientes (propietario): el bot/chat de Telegram, el observador externo y la prueba con aviso recibido por una persona.
+
 ## Contrato que debe cumplir el receptor del webhook
 
 `POST` con `Content-Type: application/json` y, si se configura `BURY_MONITOR_TOKEN`, `Authorization: Bearer <token>`. Cuerpo:
