@@ -64,15 +64,17 @@ trap cleanup EXIT
 echo "origen (solo lectura): $SRC"; echo "full: $full  logs posteriores: ${#logs[@]}  proyecto descartable: $PROJ"
 cd "$REPO"
 bash "$BK_SCRIPT_DIR/prepare-dir.sh" >/dev/null 2>&1 || die $EX_PREREQ "prepare-dir.sh fallo"
-# copia de lo que se va a restaurar, verificando sha256 (la copia es la que se prueba, no el origen)
-for f in "$full" "${logs[@]}"; do
-  cp -- "$SRC/$f" "$BKD/sql/$f" 2>/dev/null || die $EX_PREREQ "no se pudo copiar $f (permisos del contenedor sql/?)"
-  if [[ -f "$SRC/$f.sha256" ]]; then
-    exp=$(cut -d' ' -f1 "$SRC/$f.sha256"); got=$(sha256sum "$BKD/sql/$f" | cut -d' ' -f1)
-    [[ -n "$exp" && "$exp" == "$got" ]] || die $EX_RESTORE "sha256 de $f NO coincide con su .sha256: copia corrupta"
-  else die $EX_RESTORE "falta $f.sha256 en la copia"; fi
-done
-chmod -R a+rX "$BKD/sql" 2>/dev/null || true
+# copia de lo que se va a restaurar, verificando sha256 (la copia es la que se prueba, no el origen). Se lee desde un contenedor como root: los
+# backups copiados por backup-files conservan el modo 0640 del origen y el usuario normal no puede leerlos.
+docker run --rm --network none -v "$BACKUP_REMOVABLE_DIR/bury-backup/sql":/src:ro -v "$BKD/sql":/dst alpine:3 sh -c '
+  set -eu
+  for f in "$@"; do
+    [ -f "/src/$f.sha256" ] || { echo "falta $f.sha256 en la copia" >&2; exit 3; }
+    cp -- "/src/$f" "/dst/$f"
+    exp=$(cut -d" " -f1 "/src/$f.sha256"); got=$(sha256sum "/dst/$f" | cut -d" " -f1)
+    [ -n "$exp" ] && [ "$exp" = "$got" ] || { echo "sha256 de $f NO coincide con su .sha256: copia corrupta" >&2; exit 4; }
+  done
+  chmod 0644 /dst/*; chmod 0755 /dst' _ "$full" "${logs[@]}" || die $EX_RESTORE "no se pudo copiar/verificar la cadena desde la copia secundaria"
 echo "OK  full + ${#logs[@]} log(s) copiados con sha256 verificado"
 
 dcq up -d --no-deps db >/dev/null 2>&1 || die $EX_PREREQ "no se pudo levantar el SQL Server descartable"
