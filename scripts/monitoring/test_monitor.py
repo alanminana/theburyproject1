@@ -566,6 +566,49 @@ class MonitoringTests(unittest.TestCase):
         self.assertEqual(self.severity("removable_copy", "backup.removable-copy"), "CRITICAL")
 
 # P-08: las pruebas del relevo a Telegram se ejecutan junto con las del monitor (el CI descubre solo este archivo; ver test_telegram_relay.py).
+@unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "instalar-agente.sh es POSIX")
+class InstalarAgenteTests(unittest.TestCase):
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def test_activar_canales_detects_incomplete_deployment(self):
+        with tempfile.TemporaryDirectory() as d:
+            for f in ("activar-canales.sh", "monitor.py"):  # falta telegram_relay.py y la unidad: el caso real de la VM
+                shutil.copy(os.path.join(self.HERE, f), d)
+            p = subprocess.run(["bash", os.path.join(d, "activar-canales.sh"), "--dry-run"], capture_output=True, text=True,
+                               stdin=subprocess.DEVNULL, timeout=30)
+            self.assertEqual(p.returncode, 2)
+            self.assertIn("instalar-agente.sh", p.stderr)
+
+    def test_installer_copies_the_complete_set_keeps_bak_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as dest:
+            env = {**os.environ, "BURY_INSTALL_ANY_USER": "1"}
+            with open(os.path.join(dest, "monitor.py"), "w") as f:
+                f.write("# version vieja\n")
+            run = lambda: subprocess.run(["bash", os.path.join(self.HERE, "instalar-agente.sh"), dest], capture_output=True, text=True, env=env, timeout=60)
+            first = run()
+            self.assertEqual(first.returncode, 0, first.stderr)
+            for f in ("monitor.py", "telegram_relay.py", "activar-canales.sh", "bury-monitor.service", "bury-telegram-relay.service"):
+                self.assertTrue(os.path.isfile(os.path.join(dest, f)), f)
+            self.assertEqual(open(os.path.join(dest, "monitor.py.bak")).read(), "# version vieja\n")
+            self.assertTrue(os.access(os.path.join(dest, "activar-canales.sh"), os.X_OK))
+            self.assertIn("Sin cambios", run().stdout)
+
+    def test_installer_fixes_permissions_even_if_content_matches_and_rejects_symlinked_target(self):
+        with tempfile.TemporaryDirectory() as dest:
+            env = {**os.environ, "BURY_INSTALL_ANY_USER": "1"}
+            run = lambda d: subprocess.run(["bash", os.path.join(self.HERE, "instalar-agente.sh"), d], capture_output=True, text=True, env=env, timeout=60)
+            self.assertEqual(run(dest).returncode, 0)
+            script = os.path.join(dest, "activar-canales.sh")
+            os.chmod(script, 0o644)
+            self.assertEqual(run(dest).returncode, 0)
+            self.assertTrue(os.access(script, os.X_OK))
+            os.remove(os.path.join(dest, "telegram_relay.py"))
+            os.symlink(os.path.join(dest, "monitor.py"), os.path.join(dest, "telegram_relay.py"))
+            p = run(dest)
+            self.assertEqual(p.returncode, 2)
+            self.assertEqual(len([n for n in os.listdir(dest) if n.startswith(".instalacion")]), 0)
+
+
 from test_telegram_relay import ConcurrencyAndHardeningTests, RelayTests, ServerAndCliTests  # noqa: E402,F401
 
 

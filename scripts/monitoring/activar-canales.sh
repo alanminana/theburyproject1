@@ -25,6 +25,10 @@ for a in "$@"; do
 done
 [ "$ANY" = 0 ] && { DO_TG=1; DO_HB=1; }
 
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for f in monitor.py telegram_relay.py bury-telegram-relay.service; do
+  [ -f "$SRC/$f" ] || { echo "FALLA: despliegue incompleto: falta $f junto a este script ($SRC). Instalar el conjunto completo con scripts/monitoring/instalar-agente.sh" >&2; exit 2; }
+done
 ROOT="${BURY_ACT_ROOT:-}"
 ETC="$ROOT/etc/bury-monitor"
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -89,12 +93,12 @@ set_env_kv() { # set_env_kv <archivo> <CLAVE> <valor>  -> reemplaza o agrega (cl
 
 mkdir -p "$ETC" || exit 1; chmod 755 "$ETC" 2>/dev/null || true
 MON="$ETC/monitor.env"; TGE="$ETC/telegram-relay.env"
-UNIT=/etc/systemd/system/bury-telegram-relay.service
+UNIT="$ROOT/etc/systemd/system/bury-telegram-relay.service"
 # Estado previo para rollback: copia .previo de lo que existia (si la copia falla se aborta ANTES de cambiar nada).
 MON_EXISTED=0; TGE_EXISTED=0; UNIT_EXISTED=0; RELAY_WAS_ACTIVE=0; RELAY_WAS_ENABLED=0
 if [ -f "$MON" ]; then cp -p "$MON" "$MON.previo" && chmod 600 "$MON.previo" || { echo "FALLA: no se pudo respaldar $MON; no se cambio nada" >&2; exit 1; }; MON_EXISTED=1; fi
 if [ -f "$TGE" ]; then cp -p "$TGE" "$TGE.previo" && chmod 600 "$TGE.previo" || { echo "FALLA: no se pudo respaldar $TGE; no se cambio nada" >&2; exit 1; }; TGE_EXISTED=1; fi
-if [ -f "$UNIT" ]; then cp -p "$UNIT" "$UNIT.previo" || { echo "FALLA: no se pudo respaldar la unidad; no se cambio nada" >&2; exit 1; }; UNIT_EXISTED=1; fi
+if [ "$NOSD" != 1 ] && [ -f "$UNIT" ]; then cp -p "$UNIT" "$UNIT.previo" || { echo "FALLA: no se pudo respaldar la unidad; no se cambio nada" >&2; exit 1; }; UNIT_EXISTED=1; fi
 if [ "$NOSD" != 1 ]; then
   systemctl is-active --quiet bury-telegram-relay 2>/dev/null && RELAY_WAS_ACTIVE=1
   systemctl is-enabled --quiet bury-telegram-relay 2>/dev/null && RELAY_WAS_ENABLED=1
