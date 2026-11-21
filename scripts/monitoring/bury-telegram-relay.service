@@ -1,0 +1,28 @@
+[Unit]
+Description=TheBuryProject alert relay (monitor webhook -> Telegram)
+After=network-online.target
+Wants=network-online.target
+Before=bury-monitor.service
+
+[Service]
+Type=simple
+# Solo escucha en 127.0.0.1:9098; sale a api.telegram.org:443. No requiere root ni acceso a Docker/respaldos.
+ExecStart=/usr/bin/python3 /opt/theburyproject/scripts/monitoring/telegram_relay.py --serve --port 9098
+EnvironmentFile=/etc/bury-monitor/telegram-relay.env
+DynamicUser=yes
+UMask=0077
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=64M
+TasksMax=16
+
+[Install]
+WantedBy=multi-user.target

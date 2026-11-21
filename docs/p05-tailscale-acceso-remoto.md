@@ -155,6 +155,9 @@ Lista de aceptación desde cada cliente autorizado: `p07-preparacion-windows-doc
 
 ## 9. Avance de P-05
 
+> **Actualización 2026-11-20:** el alcance técnico **local/LAN** de P-05 quedó verificado y cerrado (ver `docs/p05-cierre-tecnico-local-20261120.md`: HTTPS/cadena, autorización por rol 26/26, SSH, UFW/Docker, endpoints
+> sensibles, persistencia tras reinicios de servicios). La tabla de abajo sigue siendo el avance del acceso **remoto** (Tailscale real), que continúa pendiente y separado.
+
 | Criterio | Estado |
 |---|---|
 | Caddy/TLS interno, puertos mínimos publicados | ✅ hecho y probado |
