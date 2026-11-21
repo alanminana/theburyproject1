@@ -48,14 +48,16 @@ done
 
 # 2) Publicar con rename (mismo filesystem); ante cualquier error, revertir lo publicado.
 revert() {
+  trap '' INT TERM HUP      # la reversion no se interrumpe
   PUBLISHING=0
+  KEEP_STAGE=1              # hasta confirmar que todo se restauro, el temporal con los originales se conserva
   echo "Revirtiendo lo ya publicado..." >&2
   local bad=0 f
   for f in "${PUBLISHED[@]}"; do
     if [ -e "$STAGE/old/$f" ]; then mv -f "$STAGE/old/$f" "$DEST/$f" || bad=1; else rm -f "$DEST/$f" || bad=1; fi
   done
-  if [ "$bad" = 1 ]; then
-    KEEP_STAGE=1
+  if [ "$bad" = 0 ]; then KEEP_STAGE=0
+  else
     echo "ATENCION: la reversion fue INCOMPLETA. Se CONSERVA $STAGE (copias originales en $STAGE/old); restaurar a mano." >&2
   fi
 }
@@ -63,8 +65,8 @@ on_signal() { [ "$PUBLISHING" = 1 ] && revert; exit 130; }
 trap on_signal INT TERM HUP
 PUBLISHING=1
 for f in "${CHANGED[@]}"; do
+  PUBLISHED+=("$f")         # se registra ANTES del rename: una senal entre ambos tambien se revierte
   if ! mv -f "$STAGE/new/$f" "$DEST/$f"; then echo "FALLA: no se pudo publicar $f" >&2; revert; exit 1; fi
-  PUBLISHED+=("$f")
 done
 PUBLISHING=0
 # 3) Permisos correctos aunque el contenido ya coincidiera.
