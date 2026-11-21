@@ -110,10 +110,7 @@ if [[ -f "$DP_ENV_FILE" ]]; then
   fv2_val=$(printf '%s' "$fv2_val" | tr -d '\r' | sed -E "s/^[[:space:]]+//; s/[[:space:]]+$//; s/^(['\"])(.*)\1$/\2/")
   if [[ -z "$fv2_val" ]]; then
     log INFO "OK   FISCAL_CRITERIO_V2_DESDE ausente o vacio (rige CriterioFiscal V1)"
-  elif [[ "$fv2_val" =~ ^(20[2-9][0-9])-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2})(:([0-9]{2})(\.[0-9]+)?)?(Z|[+-]([0-9]{2}):([0-9]{2}))$ ]] \
-       && (( 10#${BASH_REMATCH[1]} >= 2026 )) \
-       && [[ -z "${BASH_REMATCH[10]}" || ( 10#${BASH_REMATCH[10]} -le 14 && 10#${BASH_REMATCH[11]} -le 59 ) ]] \
-       && date -u -d "$(printf '%s' "$fv2_val" | sed -E 's/\.[0-9]+//')" +%s >/dev/null 2>&1; then
+  elif valid_fiscal_v2_desde "$fv2_val"; then
     log INFO "OK   FISCAL_CRITERIO_V2_DESDE=$fv2_val (CriterioFiscal V2 en el proceso que arranque desde ese instante; V1 antes)"
     log WARN "FISCAL_CRITERIO_V2_DESDE definido: confirmar que es la fecha real de puesta en marcha y que no se quitara luego (docs/p02-procedimiento-activacion.md)"
   else

@@ -129,3 +129,5 @@ Como la base es **nueva**, P3 se aplica con todas las migraciones del `migrate` 
 ### 6.1 Validación en base nueva (2026-11-21)
 
 `scripts/qa/p02/validacion-base-nueva.sh --image <imagen>`: instalación limpia en Production con V2 desde el primer arranque, 145 migraciones, base sin datos, gracia de 12 días por versionado y primera venta V2; 35 OK / 0 FALLA. Ver `docs/cierre-p03-p07-p02-20261121.md`.
+
+`validacion-base-nueva.sh` incluye desde 2026-11-21 el control de cuentas `scripts/sql/p07-verificar-cuentas.sql` (37 OK / 0 FALLA). Orden de puesta en marcha, cuentas, parámetros y reversión: `docs/puesta-en-marcha-p07-p02.md`.
