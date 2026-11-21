@@ -90,22 +90,29 @@ set_env_kv() { # set_env_kv <archivo> <CLAVE> <valor>  -> reemplaza o agrega (cl
 mkdir -p "$ETC" || exit 1; chmod 755 "$ETC" 2>/dev/null || true
 MON="$ETC/monitor.env"; TGE="$ETC/telegram-relay.env"
 UNIT=/etc/systemd/system/bury-telegram-relay.service
-# Estado previo para rollback: copia .previo de lo que existia; lo que no existia se borra al revertir.
-MON_EXISTED=0; TGE_EXISTED=0; UNIT_EXISTED=0
-[ -f "$MON" ] && { MON_EXISTED=1; cp -p "$MON" "$MON.previo"; chmod 600 "$MON.previo"; }
-[ -f "$TGE" ] && { TGE_EXISTED=1; cp -p "$TGE" "$TGE.previo"; chmod 600 "$TGE.previo"; }
-[ -f "$UNIT" ] && UNIT_EXISTED=1
+# Estado previo para rollback: copia .previo de lo que existia (si la copia falla se aborta ANTES de cambiar nada).
+MON_EXISTED=0; TGE_EXISTED=0; UNIT_EXISTED=0; RELAY_WAS_ACTIVE=0; RELAY_WAS_ENABLED=0
+if [ -f "$MON" ]; then cp -p "$MON" "$MON.previo" && chmod 600 "$MON.previo" || { echo "FALLA: no se pudo respaldar $MON; no se cambio nada" >&2; exit 1; }; MON_EXISTED=1; fi
+if [ -f "$TGE" ]; then cp -p "$TGE" "$TGE.previo" && chmod 600 "$TGE.previo" || { echo "FALLA: no se pudo respaldar $TGE; no se cambio nada" >&2; exit 1; }; TGE_EXISTED=1; fi
+if [ -f "$UNIT" ]; then cp -p "$UNIT" "$UNIT.previo" || { echo "FALLA: no se pudo respaldar la unidad; no se cambio nada" >&2; exit 1; }; UNIT_EXISTED=1; fi
+if [ "$NOSD" != 1 ]; then
+  systemctl is-active --quiet bury-telegram-relay 2>/dev/null && RELAY_WAS_ACTIVE=1
+  systemctl is-enabled --quiet bury-telegram-relay 2>/dev/null && RELAY_WAS_ENABLED=1
+fi
 rollback() {
   echo "Revirtiendo la configuracion a su estado anterior..." >&2
-  if [ "$MON_EXISTED" = 1 ]; then cp -p "$MON.previo" "$MON"; else rm -f "$MON"; fi
-  if [ "$TGE_EXISTED" = 1 ]; then cp -p "$TGE.previo" "$TGE"; else rm -f "$TGE"; fi
-  rm -f "$MON.previo" "$TGE.previo"
-  if [ "$NOSD" != 1 ]; then
-    if [ -n "$TG_TOKEN" ]; then
-      [ "$TGE_EXISTED" = 1 ] || { systemctl disable --now bury-telegram-relay >/dev/null 2>&1; [ "$UNIT_EXISTED" = 1 ] || rm -f "$UNIT"; systemctl daemon-reload; }
-    fi
-    systemctl restart bury-monitor >/dev/null 2>&1 || true
+  local bad=0
+  if [ "$MON_EXISTED" = 1 ]; then cp -p "$MON.previo" "$MON" || bad=1; else rm -f "$MON"; fi
+  if [ "$TGE_EXISTED" = 1 ]; then cp -p "$TGE.previo" "$TGE" || bad=1; else rm -f "$TGE"; fi
+  if [ "$NOSD" != 1 ] && [ -n "$TG_TOKEN" ]; then
+    if [ "$UNIT_EXISTED" = 1 ]; then cp -p "$UNIT.previo" "$UNIT" || bad=1; else rm -f "$UNIT"; fi
+    systemctl daemon-reload || bad=1
+    if [ "$RELAY_WAS_ENABLED" = 1 ]; then systemctl enable bury-telegram-relay >/dev/null 2>&1 || bad=1; else systemctl disable bury-telegram-relay >/dev/null 2>&1; fi
+    if [ "$RELAY_WAS_ACTIVE" = 1 ]; then systemctl restart bury-telegram-relay || bad=1; else systemctl stop bury-telegram-relay >/dev/null 2>&1; fi
   fi
+  [ "$NOSD" = 1 ] || systemctl restart bury-monitor >/dev/null 2>&1 || bad=1
+  if [ "$bad" = 0 ]; then rm -f "$MON.previo" "$TGE.previo" "$UNIT.previo"
+  else echo "ATENCION: la reversion fue incompleta; las copias *.previo se CONSERVAN (revisar $ETC y $UNIT.previo a mano)." >&2; fi
 }
 fail() { echo "FALLA: $*" >&2; rollback; exit 1; }
 touch "$MON" || fail "no se pudo crear $MON"; chmod 600 "$MON"
@@ -145,5 +152,6 @@ fi
 echo "Probando el canal completo (firing + resolved + heartbeat)..."
 ( load_env "$MON"; "$PY" "$SRC/monitor.py" --test-channel ) || fail "monitor.py --test-channel"
 systemctl restart bury-monitor || fail "no se pudo reiniciar bury-monitor"
+rm -f "$UNIT.previo"
 echo "LISTO: canales activos. Registre fecha, canal y quien recibio el aviso en docs/monitoreo-validacion.md."
 exit 0
