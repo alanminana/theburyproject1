@@ -53,17 +53,27 @@ GROUP BY rp.ClaimValue, r.Name;
 INSERT #c SELECT N'Planes de Crédito Personal activos', CAST(COUNT(*) AS nvarchar(10)), N'(informativo: 0 al inicio)', N'INFO'
 FROM ConfiguracionCreditoPersonalCuotas WHERE Activo = 1;
 
--- 6) Punitorios: versión vigente esperada 0 % / 30 días / gracia 12 (solo informa la divergencia; se edita por pantalla).
-DECLARE @pPorc decimal(18,4), @pPer int, @pGra int, @pDesde date;
-SELECT TOP 1 @pPorc = Porcentaje, @pPer = PeriodoDias, @pGra = DiasGracia, @pDesde = CONVERT(date, VigenteDesde)
-FROM ConfiguracionesPunitorio WHERE IsDeleted = 0 AND Activa = 1 ORDER BY VigenteDesde DESC, Id DESC;
-INSERT #c VALUES (N'Punitorio vigente (más reciente)',
-       CASE WHEN @pPer IS NULL THEN N'(sin versión cargada)'
-            ELSE CONCAT(CONVERT(nvarchar(20), @pPorc), N' % / ', @pPer, N' días / gracia ', @pGra, N' (desde ', CONVERT(nvarchar(10), @pDesde), N')') END,
-       N'0 % / 30 días / gracia 12',
-       CASE WHEN @pPer IS NOT NULL AND @pPorc = 0 AND @pPer = 30 AND @pGra = 12 THEN N'OK' ELSE N'INFO' END);
+-- 6) Créditos ya existentes: una venta/crédito creado ANTES de cerrar los cupos se puede confirmar después sin volver a evaluar el cupo
+--    (el cupo se evalúa al crear). En una instalación nueva debe haber 0.
+DECLARE @creditos int = (SELECT COUNT(*) FROM Creditos WHERE IsDeleted = 0);
+INSERT #c VALUES (N'Créditos existentes (no eliminados)', CAST(@creditos AS nvarchar(10)), N'0 en instalación nueva',
+       CASE WHEN @creditos = 0 THEN N'OK' WHEN @Operando = 1 THEN N'INFO' ELSE N'FALLA' END);
+
+-- 7) Punitorios: misma selección que ConfiguracionPunitorioService.ObtenerVigenteAsync (última versión con VigenteDesde <= hoy
+--    comercial UTC-3, aunque esté inactiva). Esperado 0 % / 30 días / gracia 12 y versión Activa. Solo informa; se edita por pantalla.
+DECLARE @hoy date = CONVERT(date, DATEADD(hour, -3, SYSUTCDATETIME()));
+DECLARE @pPorc decimal(18,4), @pPer int, @pGra int, @pDesde date, @pActiva bit;
+SELECT TOP 1 @pPorc = Porcentaje, @pPer = PeriodoDias, @pGra = DiasGracia, @pDesde = CONVERT(date, VigenteDesde), @pActiva = Activa
+FROM ConfiguracionesPunitorio WHERE IsDeleted = 0 AND VigenteDesde <= @hoy ORDER BY VigenteDesde DESC, Id DESC;
+INSERT #c VALUES (N'Punitorio vigente hoy',
+       CASE WHEN @pPer IS NULL THEN N'(sin versión vigente)'
+            ELSE CONCAT(CONVERT(nvarchar(20), @pPorc), N' % / ', @pPer, N' días / gracia ', @pGra, N' (desde ', CONVERT(nvarchar(10), @pDesde),
+                        CASE WHEN @pActiva = 1 THEN N', activa)' ELSE N', INACTIVA)' END) END,
+       N'0 % / 30 días / gracia 12, activa',
+       CASE WHEN @pPer IS NOT NULL AND @pActiva = 1 AND @pPorc = 0 AND @pPer = 30 AND @pGra = 12 THEN N'OK' ELSE N'INFO' END);
 
 SELECT control, valor, esperado, estado FROM #c ORDER BY n;
-IF EXISTS (SELECT 1 FROM #c WHERE estado = N'FALLA') PRINT N'RESULTADO: HAY FALLAS. No habilitar operaciones de crédito.';
-ELSE PRINT N'RESULTADO: sin FALLA.';
+DECLARE @fallas int = (SELECT COUNT(*) FROM #c WHERE estado = N'FALLA');
 DROP TABLE #c;
+IF @fallas > 0 RAISERROR(N'RESULTADO: %d FALLA(S). No habilitar operaciones de crédito.', 16, 1, @fallas); -- con sqlcmd -b corta con código de salida distinto de 0
+ELSE PRINT N'RESULTADO: sin FALLA.';
