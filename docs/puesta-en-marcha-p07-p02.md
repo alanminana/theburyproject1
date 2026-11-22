@@ -41,9 +41,9 @@ Ejecución (igual que la verificación P-02, con la contraseña del `.env`, nunc
 
 | Parámetro | Estado conocido | Dónde |
 |---|---|---|
-| Punitorios: tasa y período | Decidido: **gracia de 12 días** (día 13 devenga). **Falta tasa y período**: el ensayo usó 1 %/30 días, sintético | Configuración de punitorios (`configuracion.managepunitorio`) |
+| Punitorios: tasa, período y gracia | **Decidido por el propietario (2026-11-21)**: tasa **0 %**, período técnico **30 días** (el sistema exige período ≥ 1), gracia **12 días** (día 13 devenga). Modificables luego por pantalla. El 1 %/30 días del ensayo era sintético y **no** es valor comercial. Con 0 % el sistema no genera importe (estado `TasaCero`) | Configuración de punitorios (`configuracion.managepunitorio`): cargar una versión vigente con 0 / 30 / 12 |
 | Mora: días de gracia de la bandeja | Debe coincidir con la gracia de punitorios | Configuración de mora |
-| Crédito: cupo y monto financiable por puntaje | Sembrados en 0 (solo el puntaje 0 trae cupo $200.000): **sin definir no se financia** | Configuración de crédito / cliente |
+| Crédito: cupo y monto financiable por puntaje | Cupo (`PuntajeCreditoLimite`) sembrado en 0 salvo el **puntaje 0 = $200.000** (todo cliente nuevo). La tabla «monto financiable por puntaje» (en 0) **no es consultada por el flujo de venta**: es solo configuración. **Lo que impide financiar hoy es la ausencia de planes de Crédito Personal activos**, no los montos en 0 (ver `cierre-administrativo-20261121.md` §5) | Configuración de crédito / cliente |
 | Planes de cuotas y % de recargo | Sin planes; el plan es la única autoridad del porcentaje | Configuración de pagos |
 | Recargos/descuentos por medio de pago | A cargar (referencia dada: −5 % / +3 %) | Configuración de pagos |
 | Costos de envío y armado | En $0 hasta que se definan; IVA de servicios 21 % por configuración | Configuración de pagos → Envíos y armados |
@@ -61,9 +61,23 @@ No se activan: neteo de IVA por NC fiscal externa ni IVA del punitorio con alíc
 ## 6. Decisiones mínimas del propietario para empezar a operar
 
 1. **Instante real de puesta en marcha** (`--fiscal-v2-desde`).
-2. **Tasa y período de punitorios** (la gracia de 12 días ya está decidida).
+2. ~~Tasa y período de punitorios~~ **Decidido**: 0 % / 30 días / gracia 12 días (§4). Solo falta cargarlo por pantalla al arrancar.
 3. **Quiénes son los dos SuperAdmin** y dónde se custodian sus claves; lista del personal con rol, sucursal y caja.
 4. **Cupos/montos por puntaje, planes de cuotas, medios de pago y costos de envío/armado** (§4).
 5. **Destino de la copia externa de respaldos** (condición para llamar «segura» a la producción).
 
 El servidor definitivo (P-04) y CSP Enforce (D-05) siguen diferidos; las respuestas del contador no bloquean el inicio.
+
+## 7. Lista de verificación del primer inicio operativo (no ejecutar hasta el corte autorizado)
+
+- [ ] Propietario autoriza el corte y fija el instante `--fiscal-v2-desde`.
+- [ ] Proyecto `theburyproject-prod` (nunca el de preproducción); `docker compose -p theburyproject-prod ps` sin volúmenes previos antes de instalar.
+- [ ] `install.sh` terminado; `p02-verificar-instalacion.sql` sin FALLA.
+- [ ] Dos SuperAdmin reales ingresaron; `p07-verificar-cuentas.sql` con `@Cierre = 1` sin FALLA (≥ 2 SuperAdmin, 0 cuentas sintéticas).
+- [ ] Personal con rol mínimo, sucursal y caja; cuenta inicial con contraseña cambiada.
+- [ ] Punitorios cargados: 0 % / 30 días / gracia 12; mora: gracia coincidente (12).
+- [ ] **Antes de habilitar ventas a crédito:** decidir cupo por puntaje y planes de cuotas. Mientras no haya planes activos no se puede financiar; **al crear el primer plan, un cliente nuevo (puntaje 0) puede financiar hasta $200.000** (cupo sembrado; derivado de la lectura del código, no probado en un ensayo dedicado). Si no se desea, bajar ese cupo a 0 en la configuración antes de crear planes.
+- [ ] Costos de envío/armado, medios de pago, origen de fondos y cajas cargados.
+- [ ] `backup.sh all` + `restore-test.sh` verdes; `.env` completo guardado fuera del servidor; clave y cabecera LUKS de la copia local custodiadas fuera de la VM.
+- [ ] Primera venta acordada: versión fiscal 2, Subtotal + IVA = Total.
+- [ ] Reversión (§5) entendida: antes de operar, repetir instalación en otro proyecto; con operación, solo `rollback.sh` de imagen o restauración de backup. No borrar volúmenes con datos reales.
