@@ -61,3 +61,7 @@ BEGIN
 END
 
 SELECT control, valor, esperado, estado FROM #r ORDER BY n;
+DECLARE @fallas int = (SELECT COUNT(*) FROM #r WHERE estado = N'FALLA');
+DROP TABLE #r;
+IF @fallas > 0 RAISERROR(N'RESULTADO: %d FALLA(S). No avanzar con la puesta en marcha.', 16, 1, @fallas); -- con sqlcmd -b corta con código de salida distinto de 0
+ELSE PRINT N'RESULTADO: sin FALLA.';

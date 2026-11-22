@@ -292,6 +292,7 @@ jobs:
         run: |
           bash scripts/backup/test-hardening.sh
           bash scripts/install/test-install.sh
+          bash scripts/install/test-verificadores-sql.sh
           bash scripts/install/test-tailscale-policy.sh
           python3 -I scripts/install/tailscale-policy-check.py
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
