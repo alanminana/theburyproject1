@@ -60,9 +60,11 @@ Lectura del código en main:
 | P-08: URL de heartbeat sin rotar; DOWN/UP externo no confirmado | Postergado por el propietario; sin cambios |
 | Remontaje de la copia local tras reinicio real | No probado |
 
+> **Actualización 2026-11-22:** el propietario decidió dejar el cupo en $0 en todos los puntajes (incluido el 0) y los montos financiables en $0. Ver `cierre-credito-cupos-cero-20261122.md`; lo de §5 sobre el cupo del puntaje 0 queda resuelto.
+
 ## 7. Decisiones que siguen siendo del propietario
 
 1. Autorizar el corte y fijar `--fiscal-v2-desde`.
 2. Quiénes son los 2 SuperAdmin, custodia de sus claves y de las claves LUKS; lista del personal con rol, sucursal y caja.
-3. Cupo del puntaje 0 ($200.000 sembrado, no asignado por el alta normal: mantener o poner en 0) y cupos de los puntajes 1-10 (hoy 0), planes de cuotas, medios de pago y costos de envío/armado.
+3. ~~Cupos por puntaje~~ resuelto: $0 (2026-11-22). Pendientes: planes de cuotas, medios de pago y costos de envío/armado.
 4. Aceptar o mitigar el riesgo de la falta de offsite antes de operar con datos reales.
