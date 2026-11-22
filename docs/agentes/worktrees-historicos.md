@@ -85,3 +85,24 @@ Ninguno de estos se retira ni se fusiona hasta que el usuario cierre sus PR.
 - Trabajo único rescatado: tests de sesión/bloqueo (adaptados a `main`) y spec e2e de concurrencia HTTP.
 - Trabajo único NO rescatado por decisión: doc SEC-S-005 (contradice a `main`), E1 (`agent-e1`), `PILOTO-N0.md`.
 - Pendiente del usuario: VALID-L13 sin PR; PR #158, #163, #164, #187, #188, #192, #193 abiertas.
+
+## 7. Actualización 2026-11-22 (auditoría no destructiva sobre `main` = `ddcef55c`)
+
+Método igual al de arriba (`git cherry`, `git status`, comparación de contenido contra `main`). Quedaron 14 worktrees (antes 40).
+
+**Retirados hoy** (limpios, sin archivos ignorados de valor; las ramas se conservan): `csp-d05`, `p02`, `p07`, `qa-fin-residual`, `qa-fin-sql-historico` y el worktree de la tarea de cierre #348. No se pudo retirar `theburyproject1-p58` (Windows: «Permission denied», un proceso lo retiene) ni `theburyproject1-pm` (directorio vacío, «Device or resource busy»): **no se forzó**.
+
+**Funcionalidad no integrada en `main`: ninguna.** Las ramas locales con parches «únicos» por `git cherry` son squash-merges (el asunto del commit figura en `main` en las 6 de producto: `fix/d05-def-uni-01`, `hito9-m2-cotizador`, `hito9-m5-backup-externo`, `hito9-m5-red-arranque`, `hito9-m6-seg-compras`, `hito9-n2-conversion`; los dos `qa/fin-*` están en `main` por contenido) salvo `qa/visual-pr73-20261015`, cuyos 2 commits dicen «TEMPORAL … (no fusionar)». No hay PR abiertas.
+
+| Worktree | Estado hoy | Clasificación | Acción |
+|---|---|---|---|
+| theburyproject1 (principal, `trabajo/cambios-pendientes`) | 26 cambios locales: `AGENTS.md`/`CLAUDE.md`/`docs/ci.md`/`settings.local.json`, 17 copias de skills en `.agents/skills`, `.codex/agents`, `h4e2-snap.yml` | Mayormente ya en `main`; **única parte ausente de `main`**: la propuesta de optimización de CI de `docs/ci.md` (8 ítems) y 2 párrafos de política de CI. Skills y `.codex/agents` son herramientas locales; `h4e2-snap.yml` es un snapshot de Playwright | Preservado; el propietario decide si esas propuestas de `docs/ci.md` se versionan |
+| agent-e1 / t-pilot-n0-doc / coord-codex | guard E1, copias de skills, tarea del piloto | Ajeno/experimento (ver §4); 161 de 162 archivos de `t-pilot` idénticos a `agent-e1` | Preservado |
+| diag-fin | 3 archivos sin commit | **Obsoleto**: versiones intermedias (578 vs 1735 líneas, 532 vs 1501) superadas en `main` | Preservado; retirable con autorización |
+| qa-cfg-tx, qa-fin-p0, qa-seg | sin commit | Contenido en `main` (versión final o idéntico) | Preservado; retirables |
+| sec-s-005 | doc + tests sin commit | El doc contradice a `main` (decisión de §2) | Preservado |
+| agent-a077…, agent-a1bd… (`.claude/worktrees`) | solo `settings.local.json` | Menor | Preservado |
+| cierre, run | limpios, pero con `qa-evidence/` y `keys/` ignorados | Evidencia/claves locales | **No retirar** sin revisar esos directorios |
+| p58, pm | bloqueados por Windows | — | Documentado, sin forzar |
+
+Ninguna operación destructiva: sin `reset --hard`, `clean` ni borrado de worktrees con cambios.

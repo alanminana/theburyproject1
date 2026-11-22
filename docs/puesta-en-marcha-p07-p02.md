@@ -43,7 +43,7 @@ Ejecución (igual que la verificación P-02, con la contraseña del `.env`, nunc
 |---|---|---|
 | Punitorios: tasa, período y gracia | **Decidido por el propietario (2026-11-21)**: tasa **0 %**, período técnico **30 días** (el sistema exige período ≥ 1), gracia **12 días** (día 13 devenga). Modificables luego por pantalla. El 1 %/30 días del ensayo era sintético y **no** es valor comercial. Con 0 % el sistema no genera importe (estado `TasaCero`) | Configuración de punitorios (`configuracion.managepunitorio`): cargar una versión vigente con 0 / 30 / 12 |
 | Mora: días de gracia de la bandeja | Debe coincidir con la gracia de punitorios | Configuración de mora |
-| Crédito: cupo y monto financiable por puntaje | Cupo (`PuntajeCreditoLimite`) sembrado en 0 salvo el **puntaje 0 = $200.000**; el alta normal de clientes fija puntaje 1 (cupo 0), así que un cliente nuevo no hereda ese cupo. La tabla «monto financiable por puntaje» (en 0) **no es consultada por el flujo de venta**: es solo configuración. **Lo que impide financiar hoy es la ausencia de planes de Crédito Personal activos**, no los montos en 0 (ver `cierre-administrativo-20261121.md` §5) | Configuración de crédito / cliente |
+| Crédito: cupo y monto financiable por puntaje | **Decidido (2026-11-22): $0 en TODOS los puntajes (0 al 10) y montos financiables $0.** La semilla trae el puntaje 0 en $200.000: **llevarlo a $0 por pantalla antes de operar** y comprobarlo con `p07-verificar-credito-cerrado.sql`. Detalle y verificación del flujo: `cierre-credito-cupos-cero-20261122.md` | Clientes → «Límites por puntaje» (`clientes.managecreditlimits`) y Configuración de pagos |
 | Planes de cuotas y % de recargo | Sin planes; el plan es la única autoridad del porcentaje | Configuración de pagos |
 | Recargos/descuentos por medio de pago | A cargar (referencia dada: −5 % / +3 %) | Configuración de pagos |
 | Costos de envío y armado | En $0 hasta que se definan; IVA de servicios 21 % por configuración | Configuración de pagos → Envíos y armados |
@@ -63,7 +63,7 @@ No se activan: neteo de IVA por NC fiscal externa ni IVA del punitorio con alíc
 1. **Instante real de puesta en marcha** (`--fiscal-v2-desde`).
 2. ~~Tasa y período de punitorios~~ **Decidido**: 0 % / 30 días / gracia 12 días (§4). Solo falta cargarlo por pantalla al arrancar.
 3. **Quiénes son los dos SuperAdmin** y dónde se custodian sus claves; lista del personal con rol, sucursal y caja.
-4. **Cupos/montos por puntaje, planes de cuotas, medios de pago y costos de envío/armado** (§4).
+4. ~~Cupos/montos por puntaje~~ **Decidido: $0** (§4). Siguen pendientes planes de cuotas, medios de pago y costos de envío/armado (§4), que no bloquean el inicio con el crédito cerrado.
 5. **Destino de la copia externa de respaldos** (condición para llamar «segura» a la producción).
 
 El servidor definitivo (P-04) y CSP Enforce (D-05) siguen diferidos; las respuestas del contador no bloquean el inicio.
@@ -76,7 +76,8 @@ El servidor definitivo (P-04) y CSP Enforce (D-05) siguen diferidos; las respues
 - [ ] Dos SuperAdmin reales ingresaron; `p07-verificar-cuentas.sql` con `@Cierre = 1` sin FALLA (≥ 2 SuperAdmin, 0 cuentas sintéticas).
 - [ ] Personal con rol mínimo, sucursal y caja; cuenta inicial con contraseña cambiada.
 - [ ] Punitorios cargados: 0 % / 30 días / gracia 12; mora: gracia coincidente (12).
-- [ ] **Antes de habilitar ventas a crédito:** definir cupos por puntaje (1-10 están en 0; el alta normal da puntaje 1) y planes de cuotas. Sin planes activos no se financia. El puntaje 0 trae $200.000 sembrado pero el alta no lo asigna; para impedirlo del todo, ponerlo en 0 antes de crear planes (derivado de la lectura del código, no probado en un ensayo dedicado).
+- [ ] **Crédito cerrado (condición inicial obligatoria):** cupos $0 en los puntajes 0 al 10 (el 0 viene sembrado en $200.000: bajarlo por pantalla), montos financiables $0, sin planes de cuotas, ningún límite por cliente; solo SuperAdmin con `ventas.authorize` y `clientes.managecreditlimits`. Comprobar con `scripts/sql/p07-verificar-credito-cerrado.sql` (`@Operando = 0`) sin FALLA.
+- [ ] **Para abrir el crédito más adelante (decisión del propietario, por pantalla):** definir cupos por puntaje, planes de cuotas y permisos; volver a correr el control con `@Operando = 1` y dejar constancia.
 - [ ] Costos de envío/armado, medios de pago, origen de fondos y cajas cargados.
 - [ ] `backup.sh all` + `restore-test.sh` verdes; `.env` completo guardado fuera del servidor; clave y cabecera LUKS de la copia local custodiadas fuera de la VM.
 - [ ] Primera venta acordada: versión fiscal 2, Subtotal + IVA = Total.
