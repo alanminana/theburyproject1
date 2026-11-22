@@ -53,7 +53,7 @@ else if (!Model.Origenes.Any())
 }
 else
 {
-    <form asp-action="Anticipar" method="post" class="space-y-4" aria-label="Registro de anticipo a proveedor">
+    <form asp-action="Anticipar" method="post" data-prevent-double-submit class="space-y-4" aria-label="Registro de anticipo a proveedor">
         <input type="hidden" name="ProveedorId" value="@Model.Proveedor.Id" />
         <input type="hidden" name="ClaveIdempotencia" value="@d.ClaveIdempotencia" />
 

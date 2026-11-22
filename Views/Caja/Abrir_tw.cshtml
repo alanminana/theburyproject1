@@ -67,7 +67,7 @@
     {
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 
-        <form asp-action="Abrir" asp-route-origen="@origen" method="post" class="lg:col-span-2 card card-pad">
+        <form asp-action="Abrir" asp-route-origen="@origen" method="post" data-prevent-double-submit class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()
 
             <div asp-validation-summary="ModelOnly"

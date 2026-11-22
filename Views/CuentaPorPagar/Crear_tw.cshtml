@@ -48,7 +48,7 @@
 }
 else
 {
-    <form asp-action="Crear" method="post" class="card-erp-panel space-y-4 p-4" aria-label="Alta de comprobante de proveedor">
+    <form asp-action="Crear" method="post" data-prevent-double-submit class="card-erp-panel space-y-4 p-4" aria-label="Alta de comprobante de proveedor">
         <input type="hidden" name="ProveedorId" value="@Model.Proveedor.Id" />
         <p class="text-sm text-slate-300">Proveedor: <strong class="text-white">@Model.Proveedor.Nombre</strong>
             <a asp-action="Crear" class="ml-2 text-xs text-primary">cambiar</a></p>

@@ -54,7 +54,7 @@
 
     <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden" role="alert"></div>
 
-    <form asp-action="Cerrar" method="post" id="form-cerrar">
+    <form asp-action="Cerrar" method="post" id="form-cerrar" data-prevent-double-submit>
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="AperturaCajaId" />
         <input type="hidden" asp-for="ChequesContados" value="0" />
