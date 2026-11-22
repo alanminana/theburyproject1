@@ -43,11 +43,11 @@ Verificado en código (`ConfiguracionPunitorioService`): rechaza solo porcentaje
 
 Lectura del código en main:
 
-- El **cupo** del cliente sale de `PuntajeCreditoLimite` (`CreditoDisponibleService`). Sembrado: puntaje 0 (todo cliente nuevo) = **$200.000**; puntajes 1-10 = 0.
+- El **cupo** del cliente sale de `PuntajeCreditoLimite` (`CreditoDisponibleService`). Sembrado: puntaje 0 = **$200.000**; puntajes 1-10 = 0. **El alta canónica de clientes** (`ClienteService.CreateAsync` → `ReiniciarCamposCalculadosPorElServidor`) fija `PuntajeCliente = 1`, o sea cupo 0: un cliente nuevo **no** hereda los $200.000.
 - La tabla **«monto máximo financiable por puntaje»** (`ConfiguracionCreditoMontoPorPuntaje`, sembrada en 0) solo la leen/escriben las pantallas de configuración; **ninguna regla de venta o crédito la consulta**.
-- El bloqueo efectivo hoy es otro: sin **planes de Crédito Personal activos** el sistema informa «no puede financiarse con este medio de pago» (`ConfiguracionPagoService`). En la instalación nueva (sin planes) no se financia; **al crear el primer plan, un cliente nuevo podría financiar hasta $200.000** aunque los «montos financiables» sigan en 0.
+- El bloqueo efectivo hoy es otro: sin **planes de Crédito Personal activos** el sistema informa «no puede financiarse con este medio de pago» (`ConfiguracionPagoService`). En la instalación nueva (sin planes) no se financia; con planes activos solo podría financiar un cliente cuyo puntaje efectivo tenga cupo > 0: hoy únicamente el puntaje 0 ($200.000), que el alta normal no asigna (sí alcanzable por puntaje manual o datos existentes). Los «montos financiables» en 0 no frenan nada.
 - La afirmación anterior «sembrados en 0, sin definir no se financia» era **inexacta**; se corrigió en `puesta-en-marcha-p07-p02.md`.
-- **No se cambió ninguna regla.** Conclusión derivada de la lectura del código, no de un ensayo dedicado. Decisión del propietario (§7): si no quiere que un cliente nuevo financie $200.000, poner el cupo del puntaje 0 en 0 antes de crear planes; si la tabla de montos financiables debe regir, es desarrollo nuevo.
+- **No se cambió ninguna regla.** Conclusión derivada de la lectura del código, no de un ensayo dedicado. Decisión del propietario (§7): si no quiere que ningún cliente pueda financiar $200.000 por puntaje 0, poner ese cupo en 0 antes de crear planes; si la tabla de montos financiables debe regir, es desarrollo nuevo.
 
 ## 6. Riesgos no mitigados / aceptados / diferidos
 
@@ -64,5 +64,5 @@ Lectura del código en main:
 
 1. Autorizar el corte y fijar `--fiscal-v2-desde`.
 2. Quiénes son los 2 SuperAdmin, custodia de sus claves y de las claves LUKS; lista del personal con rol, sucursal y caja.
-3. Cupo del puntaje 0 ($200.000 sembrado: mantener o poner en 0), planes de cuotas, medios de pago y costos de envío/armado.
+3. Cupo del puntaje 0 ($200.000 sembrado, no asignado por el alta normal: mantener o poner en 0) y cupos de los puntajes 1-10 (hoy 0), planes de cuotas, medios de pago y costos de envío/armado.
 4. Aceptar o mitigar el riesgo de la falta de offsite antes de operar con datos reales.
