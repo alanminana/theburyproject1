@@ -146,4 +146,26 @@ public class ProveedorBajaConSaldoCxpTests : IDisposable
 
         Assert.True(await _proveedores.DeleteAsync(prov.Id));
     }
+
+    [Fact]
+    public async Task Anulacion_PosteriorALaBaja_NoReabreDeudaNiSaldoSobreProveedorEliminado()
+    {
+        var prov = await SeedProveedorAsync();
+        var facturaId = await FacturaAsync(prov.Id, 1000m);
+        var anticipoId = await AnticipoAsync(prov.Id, 1000m);
+        Assert.True((await _cxp.AplicarAnticipoAsync(anticipoId,
+            new[] { new ImputacionRequest { ComprobanteId = facturaId, Monto = 1000m } }, null, "tester")).Ok);
+        Assert.True(await _proveedores.DeleteAsync(prov.Id));
+        var aplicacionId = await _context.AnticipoAplicaciones.AsNoTracking()
+            .Where(a => a.AnticipoProveedorId == anticipoId).Select(a => a.Id).SingleAsync();
+
+        var r = await _cxp.AnularAplicacionAnticipoAsync(aplicacionId, "intento posterior a la baja", "tester");
+
+        Assert.False(r.Ok);
+        Assert.Contains("dado de baja", r.Error);
+        var saldo = await _context.ComprobantesProveedor.AsNoTracking()
+            .Where(c => c.Id == facturaId).Select(c => c.SaldoPendiente).SingleAsync();
+        Assert.Equal(0m, saldo);
+        Assert.False(await _context.AnticipoAplicaciones.AsNoTracking().Where(a => a.Id == aplicacionId).Select(a => a.Anulada).SingleAsync());
+    }
 }
