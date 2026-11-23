@@ -112,6 +112,8 @@ Ejemplo seguro para las claves LUKS (desde la PC, sin escribirlas en el repo ni 
 
 * Cada corrida escribe `$BACKUP_DIR/monitor-status/{full,log,files,run-*,restore-test,custody}.json`; un fallo lo pone en `exit != 0`/`verified false` y el monitor (`monitor.py`) alerta (CRITICAL) por fallo o antigüedad.
 * Preprod: `bury-monitor.service` (config en `/etc/bury-monitor/config.json`, `backup_dir=/srv/bury-backups`) → webhook/relay Telegram ya activos.
+> **Actualización 2026-11-23:** el procedimiento manual de abajo está automatizado en `scripts/monitoring/instalar-instancia.sh` (probado por `test-instalar-instancia.sh`, en CI). Por defecto solo genera `config.json` y la unidad en un directorio temporal; `--apply` (root, con ventana y autorización) instala `/etc/bury-monitor-prod/` y `bury-monitor-prod.service` sin tocar la instancia base ni leer `monitor.env`. Ejemplo: `sudo scripts/monitoring/instalar-instancia.sh --name prod --project theburyproject-prod --backup-dir /srv/bury-backups-prod --base-url https://tbp-prod:8443 --apply`. **No aplicado en la VM** (requiere autorización del propietario).
+
 * **Producción: no hay monitor apuntando a `/srv/bury-backups-prod`.** El monitor soporta otra instancia (`--config`), probado hoy en seco (sin instalar nada) con una configuración temporal sobre el directorio real de producción: `monitor.py --once` leyó los seis estados de producción y los dejó en `INFO` (ok). Para activarlo (requiere ventana y autorización, reutiliza el relay existente, **sin crear destinos nuevos**):
 
 ```
