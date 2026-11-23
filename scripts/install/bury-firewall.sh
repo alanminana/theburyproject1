@@ -15,6 +15,7 @@
 #                       Cada entrada admite el sufijo @INTERFAZ: el origen solo se acepta si el paquete ENTRA por esa interfaz. Para la
 #                       red de Tailscale (100.64.0.0/10) usar @tailscale0: sin eso, un equipo de la LAN podria suplantar un origen 100.x
 #                       (Tailscale protege INPUT con su propia cadena, pero NO los puertos publicados por Docker, que van por FORWARD).
+#   BURY_FW_CHAIN=BURY-ERP-PROD (variable de entorno)  nombre de la cadena; por defecto BURY-ERP. Una segunda pila usa su cadena, su BURY_FW_CONF y su puerto.
 #   HTTPS_PORT=443                                 puerto original publicado por Caddy (ERP_HTTPS_PORT)
 # IMPORTANTE: las reglas llevan `--ctstate DNAT`: solo alcanzan a las conexiones ENTRANTES redirigidas a un contenedor (puerto publicado).
 # Sin eso, `ctorigdstport 443` tambien descartaria el HTTPS SALIENTE de los contenedores (NuGet, ACME, SFTP...), porque su destino original es :443.
@@ -23,7 +24,7 @@ set -Eeuo pipefail
 
 CONF="${BURY_FW_CONF:-/etc/bury/firewall.conf}"
 IPT="${BURY_IPTABLES:-iptables -w 5}"   # -w: esperar el lock de xtables (Docker toca las mismas tablas al arrancar)
-CHAIN="BURY-ERP"
+CHAIN="${BURY_FW_CHAIN:-BURY-ERP}"   # otra cadena (p. ej. BURY-ERP-PROD) permite una segunda pila con su propio puerto sin tocar la primera
 ACTION="${1:-}"
 
 ALLOW_FROM=""

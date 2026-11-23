@@ -148,6 +148,14 @@ check "firewall: el enganche nuevo se inserta ANTES de retirar el viejo" bash -c
 check "firewall: RETURN para cada red y protocolo (2 redes x tcp/udp + final)" test "$(grep -c -- '-j RETURN' "$T/ipt.log")" = 5
 check "firewall: DROP del puerto original 443 para el resto (tcp y udp)" test "$(grep -c -- 'ctorigdstport 443 --ctdir ORIGINAL -j DROP' "$T/ipt.log")" = 2
 check "firewall: el origen de Tailscale exige entrar por tailscale0 (tcp y udp)" test "$(grep -c -- '-i tailscale0 .*-s 100.64.0.0/10 -j RETURN' "$T/ipt.log")" = 2
+# segunda pila: cadena y puerto propios sin tocar la cadena BURY-ERP
+printf 'ALLOW_FROM="192.168.1.0/24"
+HTTPS_PORT=8443
+' >"$T/fw2.conf"
+: >"$T/ipt2.log"
+IPT_LOG="$T/ipt2.log" BURY_IPTABLES="$T/ipt" BURY_FW_CONF="$T/fw2.conf" BURY_FW_CHAIN=BURY-ERP-PROD bash "$FW" apply >/dev/null 2>&1; rc=$?
+check "firewall (2da pila): apply rc=0 con cadena BURY-ERP-PROD" test "$rc" = 0
+check "firewall (2da pila): usa solo BURY-ERP-PROD y filtra 8443" bash -c 'grep -qx -- "-I DOCKER-USER 1 -j BURY-ERP-PROD-NEW" "$1" && ! grep -q -- "-j BURY-ERP$" "$1" && grep -q -- "ctorigdstport 8443 --ctdir ORIGINAL -j DROP" "$1"' _ "$T/ipt2.log"
 check "firewall: la LAN no lleva restriccion de interfaz" bash -c '! grep -- "-s 192.168.1.0/24" "$1" | grep -q -- "-i "' _ "$T/ipt.log"
 check "firewall: los DROP van DESPUES de los RETURN" bash -c 'a=$(grep -n -- "-s 100.64.0.0/10 -j RETURN" "$1" | tail -1 | cut -d: -f1); b=$(grep -n -- "-j DROP" "$1" | head -1 | cut -d: -f1); [[ $a -lt $b ]]' _ "$T/ipt.log"
 printf 'ALLOW_FROM=""\n' >"$T/fw-empty.conf"
