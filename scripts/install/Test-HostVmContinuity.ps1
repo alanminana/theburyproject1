@@ -127,8 +127,11 @@ Warn 'H06' ("los unicos medios visibles son discos INTERNOS del mismo anfitrion:
 
 # --- H07 historial de cierres NO limpios del anfitrion (Kernel-Power 41 / bugcheck): evidencia de estabilidad, no de causa
 $dias = 30
-$k41 = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41; StartTime = (Get-Date).AddDays(-$dias) } -ErrorAction SilentlyContinue)
-if ($k41.Count -eq 0) { Ok 'H07' "ningun cierre no limpio del anfitrion en $dias dias" }
+$k41 = @(); $h07Error = $null
+try { $k41 = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41; StartTime = (Get-Date).AddDays(-$dias) } -ErrorAction Stop) }
+catch { if ($_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*') { $h07Error = $_.Exception.Message } }
+if ($h07Error) { Warn 'H07' ("no se pudo consultar el registro del sistema (ejecutar como administrador o revisar el servicio de eventos): $h07Error. NO se afirma que no haya cierres no limpios") }
+elseif ($k41.Count -eq 0) { Ok 'H07' "ningun cierre no limpio del anfitrion en $dias dias" }
 else {
   $codigos = @($k41 | ForEach-Object {
     $v = ([xml]$_.ToXml()).Event.EventData.Data | Where-Object { $_.Name -eq 'BugcheckCode' } | Select-Object -ExpandProperty '#text'
@@ -142,16 +145,16 @@ else {
 # --- H08 la VM depende de una sesion interactiva (no corre como servicio)
 $vmx = @(Get-Process -Name 'vmware-vmx' -ErrorAction SilentlyContinue)
 if ($vmx.Count -eq 0) { Warn 'H08' 'no hay proceso vmware-vmx (la VM no esta encendida)' }
-elseif (($vmx | Where-Object { $_.SessionId -gt 0 }).Count -gt 0 -and -not $viaServicio) {
-  Warn 'H08' ('la VM corre en una sesion interactiva de usuario (sesion ' + (($vmx | Select-Object -ExpandProperty SessionId -Unique) -join ',') + '): si nadie inicia sesion tras un reinicio, no arranca; cerrar sesion o bloquear el usuario no debe apagarla (verificar la politica de cierre de sesion)')
-} else { Ok 'H08' 'la VM no depende de una sesion interactiva (servicio de autostart de VMware)' }
+elseif (($vmx | Where-Object { $_.SessionId -gt 0 }).Count -gt 0) {
+  Warn 'H08' ('hay proceso vmware-vmx en una sesion interactiva de usuario (sesion ' + (($vmx | Select-Object -ExpandProperty SessionId -Unique) -join ',') + '; el chequeo no distingue de que VM es): si nadie inicia sesion tras un reinicio, esa VM no arranca; que haya autostart configurado no prueba que este VM corra como servicio. Cerrar sesion o bloquear el usuario no debe apagarla (verificar la politica de cierre de sesion)')
+} else { Ok 'H08' 'todos los procesos vmware-vmx corren en la sesion 0 (no dependen de una sesion interactiva)' }
 
 # --- H09 presupuesto de RAM del anfitrion: VM + tope de WSL2/Docker Desktop de desarrollo (si existe) + margen para Windows
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
 $vmGB = 0; foreach ($l in Get-Content -LiteralPath $VmxPath -ErrorAction SilentlyContinue) { if ($l -match '^\s*memsize\s*=\s*"?(\d+)"?') { $vmGB = [math]::Round([int]$Matches[1] / 1024, 1) } }
 $wslCfg = Join-Path $env:USERPROFILE '.wslconfig'
 $wslGB = [math]::Round($ramGB * 0.5, 1); $wslTxt = 'sin .wslconfig: tope por defecto = 50 % de la RAM'
-if (Test-Path -LiteralPath $wslCfg) { foreach ($l in Get-Content -LiteralPath $wslCfg) { if ($l -match '^\s*memory\s*=\s*(\d+)\s*GB') { $wslGB = [int]$Matches[1]; $wslTxt = '.wslconfig memory=' + $Matches[1] + 'GB' } } }
+if (Test-Path -LiteralPath $wslCfg) { foreach ($l in Get-Content -LiteralPath $wslCfg) { if ($l -match '^\s*memory\s*=\s*(\d+(?:\.\d+)?)\s*(GB|G|MB|M)\s*$') { $n = [double]$Matches[1]; $wslGB = if ($Matches[2] -in 'MB', 'M') { [math]::Round($n / 1024, 1) } else { $n }; $wslTxt = '.wslconfig memory=' + $Matches[1] + $Matches[2] } } }
 $margen = 4
 $msgR = "RAM {0} GB; VM {1} GB + tope de WSL2/Docker de desarrollo {2} GB ({3}) + margen Windows {4} GB" -f $ramGB, $vmGB, $wslGB, $wslTxt, $margen
 if ($vmGB -le 0) { Warn 'H09' 'no se pudo leer memsize del .vmx' }
