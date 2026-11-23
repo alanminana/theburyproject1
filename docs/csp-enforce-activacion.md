@@ -53,7 +53,7 @@ powershell -NoProfile -File scripts\ops\csp-observacion.ps1 -Ruta D:\csp-obs -De
 - Un reporte que no se puede interpretar cuenta como propio (no hay forma de que una violación quede oculta por un formato inesperado).
 - **Exit code**: `0` solo si hay `≤ -MaxPropias` (por defecto 0) violaciones propias **y** la medición es válida; `1` hay propias; `2` uso incorrecto; `3` **medición inválida** (sin archivos, sin ninguna línea de log en el rango, menos días con actividad que `-DiasMinimos`, o falta el centinela con `-ExigirCentinela`). Un log vacío o un rango equivocado nunca dan verde.
 - **Centinela**: al iniciar la ventana, desde un navegador real con la sesión abierta y la consola de desarrollo, se provoca **una** violación inofensiva: `document.body.appendChild(Object.assign(document.createElement('img'),{src:'https://csp-centinela.invalid/c.png'}))`. El script la reconoce (no es ruido ni propia) y, con `-ExigirCentinela`, exige verla: prueba que **navegador → `/csp-report` → log** funciona de punta a punta. Sin eso, «0 violaciones» podría significar «el circuito está roto».
-- Límites: las violaciones sobre el límite de 30/min por IP reciben 429 y **no quedan en el log** (los conteos son una cota inferior; basta una propia para frenar el GO). Los logs pueden contener *query strings* de las URL (el script no las muestra, pero el archivo las tiene): tratarlos como datos sensibles, guardarlos fuera del repo y no compartirlos.
+- Límites: las violaciones sobre el límite de 30/min por IP reciben 429 y **no quedan en el log** (los conteos son una cota inferior; basta una propia para frenar el GO). Desde 2026-11-23 el endpoint **no registra query ni fragmento** de `document-uri`, `blocked-uri` ni `source-file` (un reporte de `/Identity/Account/ResetPassword?code=…` o de una búsqueda `?q=<DNI>` dejaba el token o el dato personal en el log; test `ReporteCsp_NoLoguea_QueryNiFragmento_DeLasUrls` y `ReporteCsp_NoLoguea_NonceDeLaPolitica_NiContenidoData_NiCredencialesEnUrl`). Los logs anteriores a ese cambio **sí** pueden tenerlos: no usar para la ventana un binario sin esa corrección y, aun así, guardar los logs fuera del repo, con permisos restringidos, sin compartirlos.
 - Revisión semanal sugerida durante la ventana (el mismo comando con el rango acumulado) y **antes de cada reinicio** archivar el log (§5, paso P4).
 
 ## 3. Criterios GO / NO-GO (numéricos y verificables)
@@ -223,3 +223,76 @@ Evidencia cruda (fuera del repo): `D:\tmp\mision\r2csp\` (logs `app-*.log`, res�
 6. ¿Quiénes usan cada **rol** y quién puede actuar como Verificador y suplente? ¿Existe un **usuario de prueba** del propietario para el humo automatizado (si no, el humo es manual)?
 7. **Ventana**: ¿qué día y horario (fuera de la apertura/cierre de caja), y cuántos días de observación acepta (propuesta: ≥ 10 hábiles que incluyan un cierre de mes)?
 8. ¿Dónde se guardan las copias del acta, los logs archivados y el `.env`/comando previo (fuera del repo)?
+
+## 10. Estado real a 2026-11-23 (preparación D-05, sin activar nada)
+
+**`Csp:Mode` sigue en `Off` por defecto y no se activó `ReportOnly` ni `Enforce` en ninguna instalación operativa.** La ventana de 10 días hábiles **no empezó**: ningún dato sintético la reemplaza ni la acorta.
+
+**Verificado en esta pasada (sin repetir suites):**
+- Política vigente = `Security/Csp.cs` (sin `unsafe-inline`/`unsafe-eval` en scripts; única excepción acotada `style-src-attr 'unsafe-inline'`; `script-src-attr 'none'`; `frame-src 'self' blob:`). Sin cambios de política.
+- Inventario estático sobre `main` (647207c1): 0 `on*=` en Views/Areas, 0 `javascript:` ejecutable, 0 `eval`/`new Function`/`setTimeout(string)`, ningún host externo salvo las fuentes de Google permitidas. Desde el último recorrido (2026-11-14) cambiaron ~100 archivos de Views/JS: la cobertura la da el gate de CI (`Playwright Tests`, 0 violaciones, verde en las 3 últimas corridas de `main` del 2026-11-23); `CspHandlersInlineContractTests` impide reintroducir handlers inline.
+- Violaciones conocidas: **ninguna abierta de la app**. Las dos históricas están corregidas (`frame-src blob:` de DocumentosConfig, `Csp:Mode` inválido que degradaba en silencio). Abierto y sin relación con Enforce: DEF-ML-01 (Mercado Libre, diferido).
+- Scripts inline: todos con nonce por `CspNonceTagHelper`; los atributos de evento migraron a `data-action` (`wwwroot/js/csp-actions.js`, lista cerrada).
+
+**Defecto real corregido:** el log de `/csp-report` incluía query y fragmento de las URL (tokens de ConfirmEmail/ResetPassword, búsquedas por DNI/nombre). Ahora se recortan antes de loguear. En todos los campos se depuran además el **nonce de la política** (viene dentro de `violated-directive`/`effective-directive`), el contenido de URIs `data:` y las credenciales embebidas `user:pass@`. Revisados todos los campos permitidos (`document-uri`, `blocked-uri`, `effective-directive`, `violated-directive`, `source-file`, `line-number`, `disposition`): no se registran `referrer`, `script-sample` ni `original-policy`; cada valor se trunca a 200 caracteres y los caracteres de control se reemplazan. Pruebas nuevas y mutación (sin la corrección los tests fallan).
+
+### Riesgos pendientes (de la ventana, no de QA)
+
+| # | Riesgo | Mitigación / dueño |
+|---|---|---|
+| R1 | **Pérdida de evidencia por rotación**: Docker conserva 3 × 10 MB para todo el log de `app`; en local, `bin\app.log` se trunca en cada reinicio. En 10 días hábiles una rotación o un reinicio sin archivar borra días | Archivar a diario (O3) y **antes de cada reinicio** (P4). Un día sin archivo baja los «días con actividad» y el script da exit 3 (falla seguro, pero reinicia la ventana). Responsable de la ventana |
+| R2 | `/csp-report` responde 413 si la petición llega sin `Content-Length` (p. ej. chunked tras un proxy). Los navegadores lo envían, pero no se midió a través del Caddy definitivo | El centinela de G3 se ejecuta **por el camino real** (host/proxy definitivos) el primer y el último día; sin centinela = NO-GO |
+| R3 | Rate limit 30/min por IP (el 429 no queda en el log): ante una violación sistemática el conteo es una cota inferior | Basta una violación propia para NO-GO; en `Enforce` un pico se ve además como pantalla rota |
+| R4 | Safari/iOS/Android reales, impresoras, extensiones, host/Caddy definitivos, fuentes de Google | G5/G7 y §4: dependen del propietario y de hardware real |
+| R5 | `frame-ancestors` no se evalúa en Report-Only | `X-Frame-Options: SAMEORIGIN` rige en todos los modos; medido bajo Enforce en QA |
+| R6 | Logs previos al 2026-11-23 pueden contener query strings | No usarlos como evidencia de la ventana; custodia fuera del repo |
+
+### Cobertura de pruebas (qué protege qué)
+
+| Capa | Qué cubre | Dónde |
+|---|---|---|
+| Contrato de política y reporte | cabeceras por modo, nonce único, `Csp:Mode` inválido impide arrancar, 204/404/413/429, rate limit exacto, `frame-src`, **no se loguea query/fragmento** | `CspHttpTests` |
+| Configuración/activación | compose, `.env.example`, preflight, lanzador | `CspActivacionConfiguracionContractTests` |
+| Handlers inline | prohíbe `on*=` y exige registro en `csp-actions.js` | `CspHandlersInlineContractTests` |
+| Escritura | permisos/antiforgery de las 8 acciones recorridas | `CspEscrituraD05ContractTests` |
+| Navegador (CI, ReportOnly) | suite E2E completa instrumentada, gate 0 violaciones, crawl de 7 roles | job `Playwright Tests` |
+| Navegador (stack QA aislado, manual) | 44 + 11 + 12 escenarios × Chromium/Firefox/WebKit × ReportOnly/Enforce, impresión, HTTPS+SignalR | `scripts/qa/csp-roles/` |
+| Operación real | **solo la ventana**: datos reales, equipos reales, flujos con efectos | §2–§3 |
+
+Vacíos de cobertura relevantes: ninguno nuevo que se pueda cerrar en QA; lo que falta es exclusivamente evidencia de uso real (G1, G4–G7).
+
+## 11. Después de los 10 días hábiles
+
+1. **Cierre de evidencia (Responsable, día 11):** archivar el último log, correr `csp-observacion.ps1 -Ruta $LOGS -Desde <inicio> -Hasta <fin> -DiasMinimos 10 -MaxPropias 0 -ExigirCentinela` (exit 0 requerido) y completar la planilla G4/G5. Si el rango no incluye un cierre de mes, **extender** (G1).
+2. **Clasificar** cada fila de ruido y cada violación (propia/ruido) en el acta. Una violación propia → corregir la causa (nunca relajar la política), **reiniciar G1/G2** y volver a observar.
+3. **Acta de aprobación** (plantilla abajo) firmada por el Propietario; sin firma no hay `Enforce`.
+4. **Ventana de activación** (§5): P1–P7, A1–A4, V1–V8, con la reversión de §6 copiada en el acta.
+5. **Monitoreo post-activación** (§5): +1 h, +4 h, fin de día, día siguiente, días 2–7; al día 7 «Enforce estable».
+6. **Después:** actualizar `docs/csp-enforce-pendientes.md` (ítem 8 cerrado) y `docs/seguridad-web.md`; conservar logs y acta ≥ 90 días; Mercado Libre queda fuera salvo que entre en G4.
+
+### Acta de aprobación (plantilla; completar fuera del repo)
+
+```
+Acta D-05 - activación de CSP Enforce
+Modalidad: [ ] local  [ ] Docker+Caddy        Host/URL: ________
+Ventana de observación (ReportOnly): ____/____/____ a ____/____/____  (días hábiles: __; incluye cierre de mes: sí/no)
+Binario/commit observado: ________   (debe incluir el recorte de query del log)
+G1 duración ___  G2 propias = 0 ___  G3 centinela inicio/fin ___  G4 12/12 áreas ___  G5 equipos cubiertos ___
+G6 SignalR ___  G7 impresión/descargas ___  G8 humo ___  G9 respaldo+config previa ___  G10 reversión <=5 min ___
+Ruido clasificado y justificado: ________   -RuidoExtra usado: sí/no (justificación: ________)
+Violaciones propias y corrección (si hubo; G1/G2 reiniciados el ____): ________
+Reversión copiada: ________________________________
+Ventana de activación: ____/____ ____:____   Responsable: ______  Suplente: ______  Verificador: ______
+Decisión del Propietario: [ ] AUTORIZA Enforce  [ ] NO AUTORIZA / extender observación      Firma/fecha: ________
+```
+
+### 12. Condiciones previas para iniciar la ventana (estado: NO iniciada)
+
+La cuenta de los 10 días hábiles **solo empieza** cuando estén cumplidas las cuatro, en este orden, y quede anotado en el acta con fecha y hora:
+
+1. **Corrección desplegada**: el binario/imagen del entorno real incluye el recorte de query/nonce/data del log (commit de la PR de D-05 del 2026-11-23 o posterior).
+2. **Reportes verificados a través de Caddy**: con el host y el proxy definitivos y `ReportOnly` activo (con su propia autorización), el centinela del §2 desde un navegador real aparece en el log (prueba también R2: `Content-Length` tras el proxy). Sin esto, 0 violaciones no significa nada.
+3. **Conservación diaria asegurada**: el archivado de O3 está en marcha con responsable y suplente (carpeta fuera del repo, permisos restringidos), y se comprobó que el primer archivo diario contiene el centinela.
+4. **Autorización escrita** del propietario para activar `ReportOnly` (distinta de la de `Enforce`).
+
+Mientras falte cualquiera, D-05 sigue abierto sin reloj corriendo. D-05 se cierra recién tras: 10 días hábiles con GO (§3), aprobación del propietario, activación de `Enforce` y monitoreo posterior superado (§5).
