@@ -437,7 +437,7 @@ namespace TheBuryProject.Data
                 CuitVendedor                = null,
                 CiudadFirma                 = "Ciudad",
                 Jurisdiccion                = "Provincia",
-                InteresMoraDiarioPorcentaje = 0.05m,
+                InteresMoraDiarioPorcentaje = 0m, // sin tasa por defecto: el interés por mora sale de los punitorios vigentes
                 VigenteDesde                = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                 VigenteHasta                = null,
                 CreatedBy                   = "sistema",
@@ -468,7 +468,7 @@ Plan de cuotas:
 {{PLAN_CUOTAS}}
 
 CLÁUSULA 3 — INTERÉS POR MORA
-El atraso en el pago de cualquier cuota devengará un interés punitorio del {{INTERES_MORA}}% diario sobre el capital adeudado.
+Respecto del atraso en el pago de cualquier cuota: {{INTERES_MORA_TEXTO}}.
 
 CLÁUSULA 4 — JURISDICCIÓN
 Las partes se someten a la jurisdicción de los tribunales ordinarios de {{VENDEDOR_DOMICILIO}}.

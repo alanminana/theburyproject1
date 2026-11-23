@@ -38,11 +38,11 @@ namespace TheBuryProject.Services.Documentos
         /// <summary>Datos de la empresa con los que se reproducen los documentos de referencia.</summary>
         public sealed record EmpresaInicial(
             string Titular, string TitularDni, string Cuit, string NombreComercial, string Domicilio, string DomicilioCompleto,
-            string Localidad, string Jurisdiccion, decimal InteresMoraDiario, string CondicionFiscalCliente)
+            string Localidad, string Jurisdiccion, string CondicionFiscalCliente)
         {
             public static EmpresaInicial Referencia { get; } = new(
                 "Javier Martinez", "37.898.524", "20-37898524-3", "ELECTRONICA MARTINEZ",
-                "Av. San Martín 443", "Av. San Martín n° 443", "Monte", "La Plata", 0.20m, "Consumidor Final");
+                "Av. San Martín 443", "Av. San Martín n° 443", "Monte", "La Plata", "Consumidor Final");
         }
 
         public sealed class Resultado
@@ -79,7 +79,7 @@ namespace TheBuryProject.Services.Documentos
             var plantillaPresupuesto = await PlantillaAsync(context, resultado, presupuesto, CodPresupuesto, "Presupuesto Crédito",
                 TextoPresupuesto, "operacion.numero,cliente.nombreCompleto,productos", firmantes: null);
             var plantillaContrato = await PlantillaAsync(context, resultado, contrato, CodContrato, "Contrato de Venta Crédito",
-                TextoContrato, "operacion.numero,cliente.nombreCompleto,credito.saldoFinanciado,productos,cuotas", firmantes: "vendedor,comprador,fiador");
+                TextoContrato, "operacion.numero,cliente.nombreCompleto,credito.saldoFinanciado,productos,cuotas,contrato.interesMoraTexto", firmantes: "vendedor,comprador,fiador");
             var plantillaPagare = await PlantillaAsync(context, resultado, pagare, CodPagare, "Pagaré Crédito",
                 TextoPagare, "operacion.numero,cliente.nombreCompleto,credito.saldoFinanciado", firmantes: "firmante");
             var plantillaRecibo = await PlantillaAsync(context, resultado, recibo, CodRecibo, "Recibo de Cobranza",
@@ -148,7 +148,7 @@ namespace TheBuryProject.Services.Documentos
             if (Vacio(empresa.Domicilio)) empresa.Domicilio = datos.Domicilio;
             if (Vacio(empresa.Ciudad)) empresa.Ciudad = datos.Localidad;
             if (Vacio(empresa.Jurisdiccion)) empresa.Jurisdiccion = datos.Jurisdiccion;
-            if (empresa.InteresMoraDiarioPorcentaje <= 0 || empresa.InteresMoraDiarioPorcentaje == 0.05m) empresa.InteresMoraDiarioPorcentaje = datos.InteresMoraDiario;
+            // El interés por mora no se siembra: sale de los punitorios vigentes al emitir (sin tasa por defecto).
             if (Vacio(empresa.NombreComercial)) empresa.NombreComercial = datos.NombreComercial;
             if (Vacio(empresa.DomicilioCompleto)) empresa.DomicilioCompleto = datos.DomicilioCompleto;
             if (Vacio(empresa.CondicionFiscalClientePorDefecto)) empresa.CondicionFiscalClientePorDefecto = datos.CondicionFiscalCliente;
@@ -163,8 +163,6 @@ namespace TheBuryProject.Services.Documentos
                 legada.DomicilioVendedor = empresa.Domicilio;
                 legada.CiudadFirma = empresa.Ciudad;
                 legada.Jurisdiccion = empresa.Jurisdiccion;
-                if (empresa.InteresMoraDiarioPorcentaje > 0)
-                    legada.InteresMoraDiarioPorcentaje = empresa.InteresMoraDiarioPorcentaje;
             }
 
             await context.SaveChangesAsync();
@@ -324,7 +322,7 @@ Pago: {{numeroFormateado}} Vencimiento: {{vencimiento}} Forma: Cuotas $ {{import
 El lugar de pago se fija en el domicilio del Vendedor. La falta de pago en término de una sola de las cuotas determinará la caducidad y vencimiento de todos los plazos por el presente contrato se establecen y dará derecho al vendedor a exigir la totalidad del saldo adeudado al comprador sin necesidad de intimación extrajudicial, pactándose en forma expresa la vía ejecutiva para perseguir dicho cobro.
 
 ** TERCERA
-Sin perjuicio de lo anteriormente expresado la falta de pago en término del importe adeudado determinará que se devengue un interés diario a favor del vendedor del {{contrato.interesMoraDiario}} sobre las cuotas adeudadas y/o el saldo del precio adeudado.
+Sin perjuicio de lo anteriormente expresado respecto de la falta de pago en término del importe adeudado: {{contrato.interesMoraTexto}}.
 
 ** CUARTA
 A los efectos legales emergentes del presente contrato, las partes constituyen domicilio legal y especial en los indicados al comienzo del presente, donde se tendrán válidas las notificaciones o intimaciones que en las mismas se practiquen y se someten a la jurisdicción y competencia de los tribunales ordinarios de justicia de La Plata, con renuncia expresa a cualquier otro fuero o jurisdicción que pudiere corresponder.

@@ -156,11 +156,6 @@
                     · En gracia (@resumen.DiasGracia @(resumen.DiasGracia == 1 ? "día" : "días")): <span class="font-semibold tabular-nums" data-kpi="capital-en-gracia">@resumen.MontoEnGracia.ToString("C2")</span>
                 </p>
             </div>
-            <div class="card-erp-metric-warning">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Mora acumulada</p>
-                <p class="mc-kpi-value" data-kpi="mora-acumulada">@resumen.MontoMoraAcumulada.ToString("C2")</p>
-                <p class="mt-1 text-xs text-slate-500">Total: @resumen.MontoTotal.ToString("C2")</p>
-            </div>
             <div class="card-erp-metric">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Atraso máximo</p>
                 <p class="mc-kpi-value" data-kpi="dias-atraso">@resumen.DiasMaxAtraso @(resumen.DiasMaxAtraso == 1 ? "día" : "días")</p>
@@ -245,7 +240,6 @@
                                                 <th scope="col" data-card="half" class="px-3 py-2 font-semibold">Vencimiento</th>
                                                 <th scope="col" data-card="half" class="px-3 py-2 font-semibold">Atraso</th>
                                                 <th scope="col" data-card="half" class="px-3 py-2 text-right font-semibold">Pendiente</th>
-                                                <th scope="col" data-card="half" class="px-3 py-2 text-right font-semibold">Mora</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-800">
@@ -256,14 +250,13 @@
                                                     <td class="px-3 py-2 whitespace-nowrap text-slate-300">@cuota.FechaVencimiento.ToString("dd/MM/yyyy")</td>
                                                     <td class="px-3 py-2 whitespace-nowrap tabular-nums text-slate-300">@cuota.DiasAtraso @(cuota.DiasAtraso == 1 ? "día" : "días")</td>
                                                     <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-slate-100">@((cuota.MontoTotal - cuota.MontoPagado).ToString("C2"))</td>
-                                                    <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-slate-300">@cuota.MontoMora.ToString("C2")</td>
                                                 </tr>
                                             }
                                         </tbody>
                                     </table>
                                 </div>
                                 <p class="text-right text-xs text-slate-400 tabular-nums">
-                                    Capital pendiente @credito.MontoCuotasVencidas.ToString("C2") · mora @credito.MontoMora.ToString("C2")
+                                    Capital pendiente @credito.MontoCuotasVencidas.ToString("C2")
                                 </p>
                             </article>
                         }
