@@ -18,8 +18,8 @@ namespace TheBuryProject.ViewModels.Mora
         public int CuotasVencidas { get; set; }
         public int DiasMaxAtraso { get; set; }
         public decimal MontoVencido { get; set; }
-        public decimal MontoMora { get; set; }
-        public decimal MontoTotal => MontoVencido + MontoMora;
+        // Sin importe de mora estimado: solo capital pendiente, cuotas y días (el punitorio real vive en PunitorioAplicado).
+        public decimal MontoTotal => MontoVencido;
         
         // Clasificación
         public PrioridadAlerta PrioridadMaxima { get; set; }
@@ -71,7 +71,6 @@ namespace TheBuryProject.ViewModels.Mora
         
         // Resumen general
         public decimal MontoTotalVencido { get; set; }
-        public decimal MontoTotalMora { get; set; }
         public int ClientesCriticos { get; set; }
         public int ClientesConPromesa { get; set; }
         public int ClientesConAcuerdo { get; set; }

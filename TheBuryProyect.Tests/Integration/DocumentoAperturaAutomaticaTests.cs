@@ -42,6 +42,7 @@ public class DocumentoAperturaAutomaticaTests : DocumentoTestBase
             VigenteDesde = DateTime.UtcNow.Date.AddDays(-1)
         });
         await Context.SaveChangesAsync();
+        await SembrarPunitorioAsync();
         await DocumentoConfiguracionCredito.ConfigurarAsync(Context, NullLogger.Instance);
 
         _motorConTracker = new DocumentoService(

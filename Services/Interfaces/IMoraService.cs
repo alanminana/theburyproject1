@@ -231,8 +231,6 @@ namespace TheBuryProject.Services.Interfaces
         
         // Montos
         public decimal MontoTotalVencido { get; set; }
-        public decimal MoraTotal { get; set; }
-        public decimal MontoTotal => MontoTotalVencido + MoraTotal;
         
         // Alertas
         public int AlertasActivas { get; set; }
@@ -268,6 +266,5 @@ namespace TheBuryProject.Services.Interfaces
         public int ClientesAlta => ClientesPrioridadAlta;
         public int ClientesMedia => ClientesPrioridadMedia;
         public int ClientesBaja => ClientesPrioridadBaja;
-        public decimal MontoTotalMora => MoraTotal;
     }
 }

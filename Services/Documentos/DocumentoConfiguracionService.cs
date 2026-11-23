@@ -47,15 +47,11 @@ namespace TheBuryProject.Services.Documentos
 
         private static readonly Regex IdentificadorFiscalRegex = new(@"^[0-9\-\.]{0,20}$", RegexOptions.Compiled);
 
-        /// <summary>La empresa con el interés por mora vigente (el de Configuración → Mora, que es la única fuente).</summary>
+        /// <summary>Datos de la empresa (sin interés por mora: ese valor sale de los punitorios vigentes).</summary>
         public async Task<EmpresaConfiguracion?> ObtenerEmpresaAsync()
         {
-            var empresa = await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
-            var tasa = await _context.ConfiguracionesMora.AsNoTracking()
-                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
-            if (empresa != null && tasa is > 0)
-                empresa.InteresMoraDiarioPorcentaje = tasa.Value;
-            return empresa;
+            // El interés por mora no es un dato de la empresa: se toma de los punitorios vigentes al emitir (InteresMoraContractual).
+            return await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
         }
 
         public async Task<EmpresaConfiguracion> GuardarEmpresaAsync(EmpresaInput input)
@@ -118,11 +114,7 @@ namespace TheBuryProject.Services.Documentos
                 empresa.Domicilio = domicilio;
                 empresa.Ciudad = ciudad;
                 empresa.Jurisdiccion = jurisdiccion;
-                // El interés por mora no se edita acá: se toma de Configuración → Mora (se deja la columna alineada).
-                var tasaMora = await _context.ConfiguracionesMora.AsNoTracking()
-                    .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
-                if (tasaMora is > 0)
-                    empresa.InteresMoraDiarioPorcentaje = tasaMora.Value;
+                // El interés por mora no se edita ni se copia acá: sale de los punitorios vigentes al emitir.
                 empresa.NombreComercial = Opcional(input.NombreComercial);
                 empresa.DomicilioCompleto = Opcional(input.DomicilioCompleto);
                 empresa.CondicionFiscalClientePorDefecto = Opcional(input.CondicionFiscalClientePorDefecto);
@@ -138,8 +130,6 @@ namespace TheBuryProject.Services.Documentos
                     legada.DomicilioVendedor = domicilio;
                     legada.CiudadFirma = ciudad;
                     legada.Jurisdiccion = jurisdiccion;
-                    if (empresa.InteresMoraDiarioPorcentaje > 0)
-                        legada.InteresMoraDiarioPorcentaje = empresa.InteresMoraDiarioPorcentaje;
                 }
 
                 await _context.SaveChangesAsync();
@@ -660,7 +650,7 @@ namespace TheBuryProject.Services.Documentos
                 ErroresPlantilla = errores,
                 VariablesVacias = render.Vacias,
                 VariablesNoResueltas = render.NoResueltas,
-                RequeridasFaltantes = DocumentoService.VariablesFaltantes(variablesRequeridas, ctx),
+                RequeridasFaltantes = DocumentoService.VariablesFaltantes(variablesRequeridas, contenido, ctx),
                 UsaDatosReales = real
             };
         }
