@@ -354,7 +354,7 @@ mkdir -p "$T/restore-e1b"
 BACKUP_DIR="$T/restore-e1b" BACKUP_REMOTE=offsite:upload/plano run_script fetch-offsite.sh
 expect_rc "e1b/plano: fetch-offsite detecta el tar alterado por sha256 de origen" 3
 check "e1b/plano: el mensaje nombra el .sha256 que no coincide" out_has "sha256 NO coincide.*files_.*\.tar\.gz\.sha256"
-BACKUP_DIR="$T/restore-e1b" run_script restore-files.sh --archive "$PTAR" --force
+BURY_ALLOW_BACKUP_DIR_MISMATCH=1 BACKUP_DIR="$T/restore-e1b" run_script restore-files.sh --archive "$PTAR" --force
 expect_rc "e1b/plano: restore-files RECHAZA el tar alterado (no se acepta)" 9
 check "e1b/plano: rechazo por sha256 antes de tocar los volumenes" bash -c 'grep -q "sha256 NO coincide" "$1"' _ "$OUT"
 check "e1b/plano: los volumenes siguen intactos tras el rechazo (huella igual)" test "$(files_hash)" = "$FH0"

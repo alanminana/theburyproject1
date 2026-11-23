@@ -27,6 +27,7 @@ load_config
 command -v docker >/dev/null 2>&1 || die $EX_PREREQ "docker no esta disponible"
 mkdir_new_mode 700 "$BACKUP_DIR" "$BACKUP_DIR/logs"
 backup_dir_usable
+assert_backup_dir_matches_project   # --force vacia los volumenes del proyecto Compose efectivo: debe ser el de ESTE BACKUP_DIR
 
 if (( LIST )); then
   echo "Archivos en $BACKUP_DIR/files (el manifiesto set_<ts>.txt acredita el PAR full+tar de una corrida 'all'):"

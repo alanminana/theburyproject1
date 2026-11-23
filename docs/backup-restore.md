@@ -93,6 +93,13 @@ $BACKUP_DIR/
 `sql/` `750` dueño `10001` (usuario `mssql`), `.bak` `640`; `files/` `600 root`. Un usuario cualquiera del host **no** puede leerlos.
 Para copiar fuera del servidor a mano: `sudo rsync -a $BACKUP_DIR/ destino:` (o usar la copia externa automática).
 
+### 5.1 Dos instalaciones en el mismo servidor
+
+Cada instalación necesita su propio clon, `BACKUP_DIR`, proyecto Compose y cron. Definir `COMPOSE_PROJECT_NAME` en el entorno o en el `.env` del clon
+(el `docker-compose.yml` fija `name: theburyproject`; sin la variable un clon apunta a la pila de la otra) e instalar el cron con
+`install-schedule.sh --install --project <proyecto> [--log-offset N]`. Los scripts abortan (exit 8) si el `db` del proyecto efectivo no monta el `BACKUP_DIR`
+del clon, y un destino extraíble solo lo usa la instalación que lo reclamó. Detalle, pruebas y riesgos: [p06-cierre-tecnico-dos-instalaciones.md](p06-cierre-tecnico-dos-instalaciones.md).
+
 ## 6. Copia externa
 
 Un solo mecanismo (rclone, en un contenedor `backup-offsite`) con destino configurable; **el proveedor lo elige el usuario** (ver 6.1).
