@@ -19,7 +19,7 @@ Base: `main` 647207c1 (#358). Solo documentación. No se tocó ninguna base, VM,
 | Hitos diferidos | §7. |
 | Condiciones para cerrar el proyecto completo | §8. |
 
-**No se declara el proyecto al 100 %.** Hay hitos abiertos (P-04, P-06 offsite, P-08, P-07/P-02 operativos, D-05).
+**No se declara el proyecto al 100 %.** Hay hitos abiertos (P-04, P-06 offsite, P-07/P-02 operativos, D-05, implementación de la decisión de mora y seguimientos diferidos de P-08).
 
 ## 2. Estado por hito (sin inferencias)
 
@@ -35,11 +35,11 @@ Base: `main` 647207c1 (#358). Solo documentación. No se tocó ninguna base, VM,
 | P-05 acceso remoto | Cierre técnico local | Sí | Tailscale real sin confirmar | `p05-cierre-tecnico-local` [R] |
 | P-06 respaldos | Local cifrado FINALIZADO (#347); general **En progreso** | Sí | **Sin offsite**; claves LUKS solo dentro de la VM; remontaje tras reinicio sin probar | `cierre-administrativo` §2 [R] |
 | P-07 puesta en marcha | Técnico listo | Sí (verificadores con exit≠0, 145 migraciones, config inicial validada en QA #354) | **Pendiente** | `p07-configuracion-inicial-checklist` [R] |
-| P-08 monitoreo | Cierre con excepción documentada | Sí | URL de heartbeat sin rotar; DOWN/UP externo no confirmado; falta token/chat_id Telegram | `cierre-administrativo` §6 [R] |
+| P-08 monitoreo | **Finalizado en el tablero maestro** (informado por el agente principal; no re-verificado aquí) | Sí | Cierre con excepción documentada. Seguimientos **diferidos, no criterios de cierre**: rotar URL de heartbeat; confirmar DOWN/UP externo; token/chat_id Telegram | `cierre-administrativo` §6 [R] |
 | D-05 CSP | Preparado y medido: 0 violaciones en 7 roles × 3 tamaños con `Enforce` en stack QA | Sí | **No activado**; falta observación `ReportOnly` en uso real (10 días hábiles) | `csp-enforce-*` [R] |
 | Crédito personal | Implementado | — | **Cerrado**: cupos $0, sin planes, montos financiables $0 (#349) | `cierre-credito-cupos-cero-20261122` [R] |
 
-Nota CI [V]: al momento de esta consulta, los workflows `CI`, `Playwright Tests` y `FIN SQL Server` sobre 647207c1 seguían en curso (sin conclusión); otros tres SQL Server en success. La verde de CI de #358 debe confirmarse antes de usarla como base de aceptación.
+Nota CI: **confirmado externamente** (informado por el agente principal; no consultado por mí tras la primera lectura) que los workflows de `main` 647207c1 finalizaron en verde, incluidos CI, Playwright y FIN SQL Server. En mi consulta inicial estaban en curso.
 
 ## 3. Evidencia disponible: sintética vs navegador real vs producción
 
@@ -92,7 +92,7 @@ Bloqueos ya documentados para instalar (`puesta-en-marcha-estado-20261123` §2):
 4. Una sola instancia de la app; hora de logs en UTC (esperado).
 5. Lector de pantalla real (NVDA/JAWS/VoiceOver) no verificado.
 6. IVA de punitorio con alícuotas mixtas, interés de financiación y recargo: tratamiento fiscal sin validar (contador). Facturación fiscal externa.
-7. Interés por mora `TasaMoraBase`: unidades contradictorias (diario vs mensual); contado no afectado, crédito cerrado sin exposición. **Debe decidirse (A/B/C) antes de abrir crédito.**
+7. Interés por mora `TasaMoraBase`: unidades contradictorias (diario vs mensual); contado no afectado, crédito cerrado sin exposición. **Decisión tomada:** contrato y pagaré alineados con el punitorio vigente (hoy 0 %) y sin estimaciones monetarias inconsistentes en alertas. **Implementación y validación a cargo del agente responsable: NO realizadas ni verificadas en este informe**; mientras no haya evidencia (PR fusionada + prueba), el riesgo sigue abierto y crédito debe permanecer cerrado.
 
 ## 7. Funcionalidades diferidas
 
@@ -110,8 +110,8 @@ Crédito personal (abierto solo por decisión posterior); facturación electrón
 8. Método de costeo de compras (manual hoy).
 9. Instante `--fiscal-v2-desde`.
 10. Aceptar o mitigar la falta de offsite antes de datos reales.
-11. Telegram (token/chat_id) y observador externo de P-08.
-12. Interés por mora (A/B/C) antes de abrir crédito.
+11. Seguimiento diferido de P-08 (no bloquea su cierre): Telegram (token/chat_id), rotación de URL de heartbeat y observador externo.
+12. ~~Interés por mora (A/B/C)~~ decidida; falta evidencia de implementación (§6.7).
 
 ## 9. Criterios para declarar el ERP **listo para operar** (contado inicial)
 
@@ -130,7 +130,11 @@ Todos deben cumplirse y quedar evidenciados:
 
 ## 10. Criterios adicionales para cerrar el **proyecto completo**
 
-P-04 con servidor físico y anfitrión endurecido; P-06 con offsite real y remontaje probado; P-08 con canal externo y observador DOWN/UP confirmados; D-05 con 10 días hábiles en `ReportOnly` real y decisión de `Enforce`; decisiones del contador (IVA/NC/redondeo) cerradas; apertura o descarte definitivo del crédito; revisión de lectores de pantalla.
+P-04 con servidor físico y anfitrión endurecido; P-06 con offsite real y remontaje probado; seguimientos diferidos de P-08 (canal externo, DOWN/UP, rotación de URL); D-05 con 10 días hábiles en `ReportOnly` real y decisión de `Enforce`; decisiones del contador (IVA/NC/redondeo) cerradas; apertura o descarte definitivo del crédito; revisión de lectores de pantalla.
+
+## 10b. Estado de la validación de la instalación (sin cambios)
+
+La instalación P-07/P-02 **sigue pendiente de confirmación por el agente 1**. No se aceptó ninguna prueba sobre la nueva instancia: todos los controles de §5 permanecen [P] hasta recibir evidencia real (salidas de healthchecks, migraciones, verificadores SQL, fecha V2, cuentas). Ningún criterio de §9 se marca cumplido por anticipado, y el ERP no se declara al 100 %.
 
 ## 11. Notion
 
