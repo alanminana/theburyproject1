@@ -78,6 +78,19 @@ public class ConfiguracionCreditoLimitesPermisoHttpTests : IClassFixture<CustomW
         Assert.All(await LeerCuposAsync(), c => Assert.Equal(500_000m, c));
     }
 
+    [Fact]
+    public async Task ConfiguracionUpdateSinManageCreditLimits_ConCupoInvalidoConPrefijoConfig_NoBloqueaElGuardadoNiTocaLosCupos()
+    {
+        await SembrarCuposAsync(0m);
+        var client = _factory.CreateClientWithUserId(_soloConfigId);
+
+        var response = await PostCreditoPersonalAsync(client, limite: 750_000m, prefijo: "config.", cupoInvalido: true);
+
+        Assert.True(response.StatusCode == HttpStatusCode.Redirect,
+            $"Se esperaba el guardado (302), HTTP {(int)response.StatusCode}.");
+        Assert.All(await LeerCuposAsync(), c => Assert.Equal(0m, c));
+    }
+
     private async Task SembrarCuposAsync(decimal limite)
     {
         using var scope = _factory.Services.CreateScope();
@@ -106,7 +119,8 @@ public class ConfiguracionCreditoLimitesPermisoHttpTests : IClassFixture<CustomW
         return filas.Select(f => f.LimiteMonto).ToList();
     }
 
-    private static async Task<HttpResponseMessage> PostCreditoPersonalAsync(HttpClient client, decimal limite)
+    private static async Task<HttpResponseMessage> PostCreditoPersonalAsync(
+        HttpClient client, decimal limite, string prefijo = "", bool cupoInvalido = false)
     {
         var login = await client.GetAsync("/Identity/Account/Login");
         var match = Regex.Match(await login.Content.ReadAsStringAsync(), "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
@@ -123,9 +137,12 @@ public class ConfiguracionCreditoLimitesPermisoHttpTests : IClassFixture<CustomW
         for (var p = 0; p <= 5; p++)
         {
             campos.Add(new($"LimitesPorPuntaje[{p}].Puntaje", p.ToString()));
-            campos.Add(new($"LimitesPorPuntaje[{p}].LimiteMonto", limite.ToString("0")));
+            campos.Add(new($"LimitesPorPuntaje[{p}].LimiteMonto", cupoInvalido && p == 0 ? "no-es-un-numero" : limite.ToString("0")));
             campos.Add(new($"LimitesPorPuntaje[{p}].Activo", "true"));
         }
+
+        if (prefijo.Length > 0)
+            campos = campos.Select(c => c.Key.StartsWith("__", StringComparison.Ordinal) ? c : new KeyValuePair<string, string>(prefijo + c.Key, c.Value)).ToList();
 
         return await client.PostAsync("/ConfiguracionPago/CreditoPersonal", new FormUrlEncodedContent(campos));
     }

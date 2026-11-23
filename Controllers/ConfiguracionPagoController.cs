@@ -552,8 +552,10 @@ namespace TheBuryProject.Controllers
             if (!User.TienePermiso("clientes", "managecreditlimits"))
             {
                 config.LimitesPorPuntaje = new List<ClienteCreditoLimiteItemViewModel>();
+                // El binder admite el campo sin prefijo y con el nombre del parámetro ("config."), sin distinguir mayúsculas.
                 ModelState.ClearValidationState(nameof(config.LimitesPorPuntaje));
-                foreach (var clave in ModelState.Keys.Where(k => k.StartsWith(nameof(config.LimitesPorPuntaje), StringComparison.Ordinal)).ToList())
+                var prefijos = new[] { nameof(config.LimitesPorPuntaje), $"config.{nameof(config.LimitesPorPuntaje)}" };
+                foreach (var clave in ModelState.Keys.Where(k => prefijos.Any(p => k.StartsWith(p, StringComparison.OrdinalIgnoreCase))).ToList())
                     ModelState.Remove(clave);
             }
 
