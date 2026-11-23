@@ -628,7 +628,7 @@ namespace TheBuryProject.Services.Documentos
                 provisorio.Set("documento.numeroPagare", "(sin asignar)");
                 provisorio.Set("recibo.numero", "(sin asignar)");
 
-                var faltantes = VariablesFaltantes(item.Version.VariablesRequeridas, provisorio);
+                var faltantes = VariablesFaltantes(item.Version.VariablesRequeridas, item.Version.Contenido, provisorio);
                 if (faltantes.Count > 0)
                 {
                     errores.Add(new DocumentoErrorItem(DocumentoErrores.ContextoIncompleto,
@@ -637,6 +637,20 @@ namespace TheBuryProject.Services.Documentos
                     items.Remove(item);
                 }
             }
+        }
+
+        /// <summary>
+        /// Igual que <see cref="VariablesFaltantes(string?, DocumentoContexto)"/>, y además exige las variables de interés por mora
+        /// que el contenido use aunque la plantilla no las haya declarado: una plantilla antigua no puede emitirse con la cláusula
+        /// de interés en blanco cuando no hay punitorio vigente (o cuando solo hay un equivalente diario inexacto).
+        /// </summary>
+        public static List<string> VariablesFaltantes(string? requeridas, string? contenido, DocumentoContexto contexto)
+        {
+            // Mismo criterio de lectura que el renderizador (espacios, filtros y secciones incluidos): no basta un Contains literal.
+            var extra = string.IsNullOrEmpty(contenido)
+                ? Array.Empty<string>()
+                : InteresMoraContractual.VariablesDeInteresUsadasEn(contenido).ToArray();
+            return VariablesFaltantes(extra.Length == 0 ? requeridas : string.Join(",", (requeridas ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Concat(extra).Distinct()), contexto);
         }
 
         /// <summary>Variables requeridas (coma-separadas) que no tienen valor en el contexto.</summary>
@@ -982,8 +996,11 @@ namespace TheBuryProject.Services.Documentos
                 PagoCuotaIds = LeerPagosDeMetadata(original.MetadataJson)
             };
             var contexto = await _contextoBuilder.ConstruirAsync(original.EventoOrigen, origen);
+            // Regenerar no reescribe las condiciones de mora pactadas: se conservan las del documento original (su snapshot),
+            // no las punitorios de hoy. Si el original no las tiene, quedan vacías y la plantilla que las exija no se regenera.
+            InteresMoraContractual.RestaurarDesdeSnapshot(contexto, original.DatosSnapshotJson);
 
-            var faltantes = VariablesFaltantes(version.VariablesRequeridas, contexto);
+            var faltantes = VariablesFaltantes(version.VariablesRequeridas, version.Contenido, contexto);
             if (faltantes.Count > 0)
                 throw new DocumentoException(DocumentoErrores.ContextoIncompleto,
                     $"Faltan datos requeridos para regenerar: {string.Join(", ", faltantes)}.");

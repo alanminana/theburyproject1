@@ -334,13 +334,13 @@ namespace TheBuryProject.Services
                 return null;
             }
 
-            // El interés por mora es único: sale de Configuración → Mora, no de la plantilla.
-            var tasaMora = await _context.ConfiguracionesMora.AsNoTracking()
-                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
-            if (tasaMora is > 0)
-                plantilla.InteresMoraDiarioPorcentaje = tasaMora.Value;
+            // El interés por mora es único: sale de la configuración de punitorios vigente (la que devenga la deuda real),
+            // no de Configuración → Mora ni de la plantilla. 0 % es válido; sin configuración activa no se emite.
+            var interesMora = await InteresMoraContractual.ResolverAsync(_context, _reloj);
+            if (!interesMora.Disponible)
+                result.Errores.Add(InteresMoraContractual.ErrorNoDisponible);
 
-            ValidarPlantilla(plantilla, result);
+            ValidarPlantilla(plantilla, interesMora, result);
 
             var planCuotas = await ConstruirPlanCuotasAsync(venta, credito, result);
             if (!planCuotas.Any())
@@ -352,6 +352,7 @@ namespace TheBuryProject.Services
                 Credito = credito,
                 Cliente = venta.Cliente!, // ValidarCliente ya registró el error si es null
                 Plantilla = plantilla,
+                InteresMora = interesMora,
                 PlanCuotas = planCuotas
             };
         }
@@ -448,8 +449,12 @@ namespace TheBuryProject.Services
             AgregarSiVacio(domicilio, "El garante debe tener domicilio.", result);
         }
 
+        private static readonly string[] VariablesInteresDiarioAntiguas =
+            { "INTERES_MORA", "empresa.interesMoraDiario", "contrato.interesMoraDiario" };
+
         private static void ValidarPlantilla(
             PlantillaContratoCredito plantilla,
+            InteresMoraContractual interesMora,
             ContratoVentaCreditoValidacionResult result)
         {
             AgregarSiVacio(plantilla.NombreVendedor, "La plantilla debe tener nombre de vendedor.", result);
@@ -459,8 +464,15 @@ namespace TheBuryProject.Services
             AgregarSiVacio(plantilla.TextoContrato, "La plantilla debe tener texto de contrato.", result);
             AgregarSiVacio(plantilla.TextoPagare, "La plantilla debe tener texto de pagaré.", result);
 
-            if (plantilla.InteresMoraDiarioPorcentaje <= 0)
-                result.Errores.Add("La plantilla debe tener interés por mora diario mayor a cero.");
+            // El interés por mora ya no se valida contra la plantilla (0 % es válido). Una plantilla que todavía imprime un
+            // «interés diario» solo es coherente con un punitorio del 0 %: con una tasa positiva hay que usar {{INTERES_MORA_TEXTO}}.
+            if (interesMora.Disponible && !interesMora.EsCero
+                && InteresMoraContractual.VariablesDeInteresUsadasEn(plantilla.TextoContrato + " " + plantilla.TextoPagare)
+                    .Any(v => VariablesInteresDiarioAntiguas.Contains(v, StringComparer.OrdinalIgnoreCase)))
+            {
+                result.Errores.Add("El texto de la plantilla expresa el interés por mora como porcentaje diario, que no coincide con el punitorio vigente. " +
+                                   "Reemplazá la variable por {{INTERES_MORA_TEXTO}}.");
+            }
         }
 
         private async Task<List<CuotaContratoSnapshot>> ConstruirPlanCuotasAsync(
@@ -533,7 +545,12 @@ namespace TheBuryProject.Services
                     CUIT = datos.Plantilla.CuitVendedor,
                     CiudadFirma = datos.Plantilla.CiudadFirma,
                     Jurisdiccion = datos.Plantilla.Jurisdiccion,
-                    InteresMoraDiarioPorcentaje = datos.Plantilla.InteresMoraDiarioPorcentaje
+                    InteresMoraDiarioPorcentaje = datos.InteresMora.EquivalenteDiarioExacto
+                        ?? (datos.InteresMora.Disponible ? Math.Round(datos.InteresMora.Porcentaje / datos.InteresMora.PeriodoDias, 4) : 0m),
+                    InteresMoraTexto = datos.InteresMora.Texto,
+                    PunitorioPorcentaje = datos.InteresMora.Disponible ? datos.InteresMora.Porcentaje : null,
+                    PunitorioPeriodoDias = datos.InteresMora.Disponible ? datos.InteresMora.PeriodoDias : null,
+                    PunitorioDiasGracia = datos.InteresMora.Disponible ? datos.InteresMora.DiasGracia : null
                 },
                 Comprador = new CompradorSnapshot
                 {
@@ -720,6 +737,7 @@ namespace TheBuryProject.Services
 
             var empresa = await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
             DocumentoContextoBuilder.AplicarEmpresa(ctx, empresa, datos.Plantilla);
+            datos.InteresMora.AplicarA(ctx);
             DocumentoContextoBuilder.AplicarCliente(ctx, datos.Cliente);
             DocumentoContextoBuilder.AplicarFiador(ctx, credito.Garante);
 
@@ -934,6 +952,7 @@ namespace TheBuryProject.Services
                 ["{{VALOR_CUOTA}}"]               = montoCuota,
                 ["{{PLAN_CUOTAS}}"]               = planCuotas,
                 ["{{INTERES_MORA}}"]              = snapshot.Vendedor.InteresMoraDiarioPorcentaje.ToString("F4"),
+                ["{{INTERES_MORA_TEXTO}}"]        = snapshot.Vendedor.InteresMoraTexto ?? string.Empty,
                 ["{{USUARIO_GENERACION}}"]        = usuario,
                 ["{{SUCURSAL}}"]                  = sucursal,
                 ["{{CAJA}}"]                      = caja,

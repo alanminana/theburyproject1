@@ -1,3 +1,4 @@
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Models.Entities;
 
 namespace TheBuryProject.Services.Models
@@ -42,7 +43,17 @@ namespace TheBuryProject.Services.Models
         public string? CUIT { get; init; }
         public string CiudadFirma { get; init; } = string.Empty;
         public string Jurisdiccion { get; init; } = string.Empty;
+        /// <summary>
+        /// Histórico: interés diario de las plantillas anteriores. Desde MORA-CONTRACTUAL vale 0 cuando el punitorio vigente es 0 %
+        /// y, con una tasa positiva, solo es el equivalente diario aproximado (informativo; la cláusula impresa es
+        /// <see cref="InteresMoraTexto"/>). No es la fuente de ningún cálculo.
+        /// </summary>
         public decimal InteresMoraDiarioPorcentaje { get; init; }
+        /// <summary>Cláusula de mora impresa, tomada de los punitorios vigentes al emitir. Nula en contratos anteriores.</summary>
+        public string? InteresMoraTexto { get; init; }
+        public decimal? PunitorioPorcentaje { get; init; }
+        public int? PunitorioPeriodoDias { get; init; }
+        public int? PunitorioDiasGracia { get; init; }
     }
 
     internal sealed class CompradorSnapshot
@@ -115,6 +126,7 @@ namespace TheBuryProject.Services.Models
         public required Credito Credito { get; init; }
         public required Cliente Cliente { get; init; }
         public required PlantillaContratoCredito Plantilla { get; init; }
+        public required InteresMoraContractual InteresMora { get; init; }
         public required List<CuotaContratoSnapshot> PlanCuotas { get; init; }
     }
 }

@@ -88,8 +88,22 @@ public abstract class DocumentoTestBase : IDisposable
             TextoPagare = "PAGARE {{documento.numero}} por {{PRECIO_TOTAL}}. Contrato asociado {{documento.numeroContrato}}.",
             VigenteDesde = DateTime.UtcNow.Date.AddDays(-1)
         });
-        await Context.SaveChangesAsync();
+        await SembrarPunitorioAsync();
         await DocumentoSeeder.EnsureAsync(Context, NullLogger.Instance);
+    }
+
+    /// <summary>
+    /// El interés por mora impreso sale de los punitorios vigentes (0 % / 30 días / gracia 12 aprobado); sin una configuración
+    /// activa el contrato no se emite. Sin <paramref name="vigenteDesde"/> rige desde 2020.
+    /// </summary>
+    protected async Task SembrarPunitorioAsync(decimal porcentaje = 0m, int periodoDias = 30, int diasGracia = 12, DateOnly? vigenteDesde = null, bool activa = true)
+    {
+        Context.ConfiguracionesPunitorio.Add(new ConfiguracionPunitorio
+        {
+            Porcentaje = porcentaje, PeriodoDias = periodoDias, DiasGracia = diasGracia, ProrrateoDiario = true, Activa = activa,
+            VigenteDesde = vigenteDesde ?? new DateOnly(2020, 1, 1)
+        });
+        await Context.SaveChangesAsync();
     }
 
     protected Task<PlantillaDocumento> PlantillaAsync(string codigo)

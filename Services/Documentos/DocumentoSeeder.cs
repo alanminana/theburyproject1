@@ -150,7 +150,7 @@ namespace TheBuryProject.Services.Documentos
             empresa.Domicilio = legada.DomicilioVendedor;
             empresa.Ciudad = legada.CiudadFirma;
             empresa.Jurisdiccion = legada.Jurisdiccion;
-            empresa.InteresMoraDiarioPorcentaje = legada.InteresMoraDiarioPorcentaje;
+            // El interés por mora no se copia de la plantilla legada: sale de los punitorios vigentes al emitir.
             return empresa;
         }
 

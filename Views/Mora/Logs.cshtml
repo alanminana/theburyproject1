@@ -128,7 +128,6 @@
                                 <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Alertas generadas</th>
                                 <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Errores</th>
                                 <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Mora total</th>
-                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Recargos aplicados</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800">
@@ -156,7 +155,6 @@
                                     <td class="px-3 py-3 text-right tabular-nums text-slate-300">@l.AlertasGeneradas</td>
                                     <td class="px-3 py-3 text-right tabular-nums @(l.Errores > 0 ? "font-semibold text-rose-400" : "text-slate-300")">@l.Errores</td>
                                     <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-100">@l.TotalMora.ToString("C2")</td>
-                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-300">@l.TotalRecargosAplicados.ToString("C2")</td>
                                 </tr>
                             }
                         </tbody>

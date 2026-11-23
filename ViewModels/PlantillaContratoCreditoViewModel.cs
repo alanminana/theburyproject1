@@ -45,8 +45,12 @@ namespace TheBuryProject.ViewModels
         [StringLength(200)]
         public string Jurisdiccion { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Histórico/sin efecto: el interés por mora de contratos y pagarés sale de los punitorios vigentes
+        /// (Configuración → Punitorios), no de la plantilla. Se conserva la columna por compatibilidad y puede ser 0.
+        /// </summary>
         [Display(Name = "Interés por mora diario (%)")]
-        [Range(0.0001, 100, ErrorMessage = "El interés por mora diario debe ser mayor a 0 y no superar 100")]
+        [Range(0, 100)]
         public decimal InteresMoraDiarioPorcentaje { get; set; }
 
         [Display(Name = "Texto del contrato")]

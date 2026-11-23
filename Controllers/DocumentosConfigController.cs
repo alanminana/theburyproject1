@@ -550,8 +550,7 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError(string.Empty, ex.Message);
             }
 
-            // El interés por mora es de solo lectura (viene de Configuración → Mora): se recompone al volver a mostrar el form.
-            input.InteresMoraDiarioPorcentaje = (await _config.ObtenerEmpresaAsync())?.InteresMoraDiarioPorcentaje ?? 0;
+            // El interés por mora no es un dato de la empresa: viene de los punitorios vigentes.
             ModelState.Remove(nameof(EmpresaInput.InteresMoraDiarioPorcentaje));
             return View(input);
         }

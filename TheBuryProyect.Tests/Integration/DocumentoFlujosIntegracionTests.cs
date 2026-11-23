@@ -148,6 +148,7 @@ public class DocumentoContratoLegadoIntegracionTests : DocumentoTestBase
             TextoPagare = "pagare {{PRECIO_TOTAL}}", VigenteDesde = DateTime.UtcNow.Date.AddDays(-1)
         });
         await Context.SaveChangesAsync();
+        await SembrarPunitorioAsync();
         var venta = await SembrarVentaAsync();
         var servicio = CrearServicioLegado();
 
