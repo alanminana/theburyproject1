@@ -49,6 +49,8 @@ Ejecución (igual que la verificación P-02, con la contraseña del `.env`, nunc
 | Costos de envío y armado | En $0 hasta que se definan; IVA de servicios 21 % por configuración | Configuración de pagos → Envíos y armados |
 | Catálogos: origen de fondos, cajas, sucursal, datos de la empresa | Sin datos iniciales (la sucursal por defecto existe) | Tesorería, Caja, Documentos |
 
+Validación de cada pantalla en una base descartable, huecos (sucursales, texto de mora del contrato) y checklist automático vs. propietario: `p07-configuracion-inicial-checklist.md`.
+
 No se activan: neteo de IVA por NC fiscal externa ni IVA del punitorio con alícuotas mixtas (esperan al contador).
 
 ## 5. Reversión y protección de datos
