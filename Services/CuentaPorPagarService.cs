@@ -315,6 +315,8 @@ namespace TheBuryProject.Services
 
             return await EnTransaccionAsync(proveedorId.Value, async () =>
             {
+                if (!await _context.Proveedores.AnyAsync(p => p.Id == proveedorId.Value && !p.IsDeleted))
+                    return ResultadoCxp.Falla("El proveedor está dado de baja: la anulación reabriría deuda o saldo a favor sobre un proveedor eliminado.");
                 var pago = await _context.PagosProveedor.FirstOrDefaultAsync(p => p.Id == pagoId);
                 if (pago is null)
                     return ResultadoCxp.Falla("El pago no existe.");
@@ -440,6 +442,8 @@ namespace TheBuryProject.Services
 
             return await EnTransaccionAsync(origen.ProveedorId, async () =>
             {
+                if (!await _context.Proveedores.AnyAsync(p => p.Id == origen.ProveedorId && !p.IsDeleted))
+                    return ResultadoCxp.Falla("El proveedor está dado de baja: la anulación reabriría deuda o saldo a favor sobre un proveedor eliminado.");
                 var imp = await _context.ImputacionesNotaCredito.FirstOrDefaultAsync(i => i.Id == imputacionId);
                 if (imp is null)
                     return ResultadoCxp.Falla("La aplicación de nota de crédito no existe.");

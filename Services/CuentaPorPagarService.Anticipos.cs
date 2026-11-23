@@ -288,6 +288,8 @@ namespace TheBuryProject.Services
 
             return await EnTransaccionAsync(origen.ProveedorId, async () =>
             {
+                if (!await _context.Proveedores.AnyAsync(p => p.Id == origen.ProveedorId && !p.IsDeleted))
+                    return ResultadoCxp.Falla("El proveedor está dado de baja: la anulación reabriría deuda o saldo a favor sobre un proveedor eliminado.");
                 var aplicacion = await _context.AnticipoAplicaciones.FirstOrDefaultAsync(a => a.Id == aplicacionId);
                 if (aplicacion is null)
                     return ResultadoCxp.Falla("La aplicación de anticipo no existe.");
