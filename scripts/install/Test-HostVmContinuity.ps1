@@ -9,6 +9,9 @@
     H04 politica de reinicio automatico de Windows Update y suspension en corriente alterna
     H05 existe un medio EXTERNO con capacidad (disco USB / extraible) conectado al anfitrion
     H06 los respaldos de la VM no dependen de un volumen del mismo anfitrion (informativo: el unico medio visible son discos internos)
+    H07 historial de cierres NO limpios del anfitrion en 30 dias (Kernel-Power 41, bugcheck): 3 o mas = FAIL (anfitrion inestable)
+    H08 la instancia de ESTA VM corre en una sesion interactiva de usuario (no en la sesion 0), haya o no autostart configurado
+    H09 presupuesto de RAM: VM + tope de WSL2/Docker de desarrollo + margen de Windows
   Exit: 0 sin FAIL | 12 con al menos un FAIL. WARN = requiere decision u accion humana. Un anfitrion no puede probar desde dentro que
   haya energia ininterrumpida, el valor "restaurar tras perdida de CA" del BIOS ni una copia fuera del sitio: eso es FISICO.
 .PARAMETER VmxPath
@@ -121,6 +124,65 @@ if ($externos.Count -gt 0 -or $vols.Count -gt 0) {
 # --- H06 informativo: volumenes del propio anfitrion
 $internos = (Get-Disk -ErrorAction SilentlyContinue | Where-Object { $_.BusType -ne 'USB' -and $_.Size -gt 0 } | ForEach-Object { "{0} ({1})" -f $_.FriendlyName, $_.BusType }) -join '; '
 Warn 'H06' ("los unicos medios visibles son discos INTERNOS del mismo anfitrion: $internos. Otro disco del mismo PC, WSL2 o una carpeta compartida NO protegen de perder el equipo")
+
+# --- H07 historial de cierres NO limpios del anfitrion (Kernel-Power 41 / bugcheck): evidencia de estabilidad, no de causa
+$dias = 30
+$k41 = @(); $k41Error = $null
+try { $k41 = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41; StartTime = (Get-Date).AddDays(-$dias) } -ErrorAction Stop) }
+catch { if ($_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*') { $k41Error = $_.Exception.Message } }
+if ($k41Error) { Warn 'H07' "no se pudo leer el registro System (se requiere permiso de lectura de eventos): sin evidencia sobre el historial de cierres no limpios ($k41Error)" }
+elseif ($k41.Count -eq 0) { Ok 'H07' "ningun cierre no limpio del anfitrion en $dias dias (registro System leido sin errores)" }
+else {
+  $codigos = @($k41 | ForEach-Object {
+    $v = ([xml]$_.ToXml()).Event.EventData.Data | Where-Object { $_.Name -eq 'BugcheckCode' } | Select-Object -ExpandProperty '#text'
+    if ($v -and [int]$v -ne 0) { '0x{0:X}' -f [int]$v } else { 'sin bugcheck (corte de energia o reinicio forzado)' }
+  } | Group-Object | ForEach-Object { "{0} x{1}" -f $_.Name, $_.Count })
+  $msg = "{0} cierre(s) no limpio(s) del anfitrion en {1} dias, ultimo {2:yyyy-MM-dd HH:mm}: {3}. Cada uno apaga la VM sin cierre ordenado" -f $k41.Count, $dias, ($k41 | Select-Object -First 1).TimeCreated, ($codigos -join '; ')
+  if ($k41.Count -ge 3) { Fail 'H07' ($msg + ': un anfitrion que se cae asi no sirve para operar; diagnosticar (minidumps en C:\Windows\Minidump, BIOS/controladores) antes de la puesta en marcha') }
+  else { Warn 'H07' $msg }
+}
+
+# --- H08 la instancia de ESTA VM corre en una sesion interactiva (independiente de que haya autostart configurado)
+$todos = @(Get-CimInstance Win32_Process -Filter "Name='vmware-vmx.exe'" -ErrorAction SilentlyContinue)
+# comparacion por ruta COMPLETA del .vmx extraida de la linea de comandos (no por subcadena: tbp.vmx.other.vmx no es tbp.vmx)
+$vmxProcs = @($todos | Where-Object { $_.CommandLine -and (@([regex]::Matches($_.CommandLine, '(?i)[a-z]:[\/][^"]*?\.vmx(?=["\s]|$)') | ForEach-Object { $_.Value.ToLowerInvariant().Replace('/', '\') }) -contains $vmxNorm) })
+if ($vmxProcs.Count -eq 0 -and $todos.Count -eq 1 -and $vmrun) {
+  # la linea de comandos puede no ser legible (proceso de otro usuario/protegido): con UNA sola VM encendida y la nuestra en vmrun list, es esa
+  $encendidas = @(& $vmrun list 2>$null | Where-Object { $_ -match '\.vmx$' })
+  if ($encendidas.Count -eq 1 -and $encendidas[0].ToLowerInvariant().Replace('/', '\') -eq $vmxNorm) { $vmxProcs = $todos }
+}
+if ($vmxProcs.Count -eq 0) { Warn 'H08' 'no se encontro un proceso vmware-vmx de esta VM (apagada, o hay varias VM encendidas y no se pudo atribuir el proceso)' }
+else {
+  $sesiones = @($vmxProcs | Select-Object -ExpandProperty SessionId -Unique)
+  if ($sesiones | Where-Object { $_ -gt 0 }) {
+    Warn 'H08' ('esta instancia de la VM corre en una sesion interactiva de usuario (sesion ' + ($sesiones -join ',') + '), aunque haya autostart configurado: tras un reinicio solo arrancara sin sesion si el autostart la lanza (H03); cerrar sesion puede apagarla')
+  } else { Ok 'H08' 'esta instancia de la VM corre en la sesion 0 (servicio/tarea), sin depender de un usuario conectado' }
+}
+
+# --- H09 presupuesto de RAM del anfitrion: VM + tope de WSL2/Docker Desktop de desarrollo (si existe) + margen para Windows
+$ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+$vmGB = 0; foreach ($l in Get-Content -LiteralPath $VmxPath -ErrorAction SilentlyContinue) { if ($l -match '^\s*memsize\s*=\s*"?(\d+)"?') { $vmGB = [math]::Round([int]$Matches[1] / 1024, 1) } }
+$wslCfg = Join-Path $env:USERPROFILE '.wslconfig'
+$wslGB = [math]::Round($ramGB * 0.5, 1); $wslTxt = 'sin .wslconfig: tope por defecto = 50 % de la RAM'; $wslIlegible = $false
+if (Test-Path -LiteralPath $wslCfg) {
+  $seccion = ''
+  foreach ($l in Get-Content -LiteralPath $wslCfg) {
+    if ($l -match '^\s*\[([^\]]+)\]') { $seccion = $Matches[1].Trim().ToLowerInvariant(); continue }
+    if ($seccion -eq 'wsl2' -and $l -match '^\s*memory\s*=') {
+      if ($l -match '^\s*memory\s*=\s*(\d+(?:\.\d+)?)\s*(GB|G|MB|M)?\s*(#.*)?$') {
+        $n = [double]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture)
+        $wslGB = if ($Matches[2] -match '^M') { [math]::Round($n / 1024, 1) } else { [math]::Round($n, 1) }
+        $wslTxt = '.wslconfig ' + $l.Trim(); $wslIlegible = $false
+      } else { $wslIlegible = $true; $wslTxt = ".wslconfig tiene un memory= que no se pudo interpretar ($($l.Trim())): se asume el tope por defecto (50 % de la RAM)" }
+    }
+  }
+}
+$margen = 4
+$msgR = "RAM {0} GB; VM {1} GB + tope de WSL2/Docker de desarrollo {2} GB ({3}) + margen Windows {4} GB" -f $ramGB, $vmGB, $wslGB, $wslTxt, $margen
+if ($vmGB -le 0) { Warn 'H09' 'no se pudo leer memsize del .vmx' }
+elseif ($wslIlegible) { Warn 'H09' $msgR }
+elseif (($vmGB + $wslGB + $margen) -le $ramGB) { Ok 'H09' $msgR }
+else { Warn 'H09' ($msgR + ': con la pila de desarrollo a tope el anfitrion paginaria o terminaria el vmmem; fijar memory= en .wslconfig (requiere reiniciar WSL: ventana)') }
 
 Write-Host '---'
 Write-Host 'FISICO (no verificable por software): UPS/energia, BIOS "Restore on AC Power Loss", copia fuera del sitio, custodia de claves.'
