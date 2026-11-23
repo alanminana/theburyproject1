@@ -307,6 +307,12 @@ check "extraible de OTRA instalacion: rc 0 (no rompe el backup), no copia nada y
 check "extraible de OTRA instalacion: estado 'atrasada' (exit 1, verified false) en el monitor de la intrusa" bash -c 'grep -q "\"exit\":1" "$1/monitor-status/removable-copy.json" && grep -q "\"verified\":false" "$1/monitor-status/removable-copy.json"' _ "$S3"
 cfgrun "$S3" BACKUP_REMOVABLE_DIR="$REM" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply --strict >/dev/null 2>&1; rc=$?
 check "extraible de OTRA instalacion con --strict: rc 1" test "$rc" = 1
+# marca no escribible (reclamo imposible): fail-closed, no copia nada y no la deja "libre"
+S4=$(newbk src4); mkchain "$S4" $((1*D)) 1 1000 1; REM4=$(newrem rem4); : >"$REM4/.bury-backup-removable"
+if [[ "$(id -u)" != 0 ]] && chmod 0444 "$REM4/.bury-backup-removable" 2>/dev/null && [[ ! -w "$REM4/.bury-backup-removable" ]]; then
+  out=$(cfgrun "$S4" BACKUP_REMOVABLE_DIR="$REM4" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply 2>&1); rc=$?
+  check "marca no escribible: rc 0, NO copia nada (fail-closed) y avisa" bash -c '[[ "$1" == 0 && ! -d "$2/bury-backup/sql" ]] && grep -q "NO disponible" <<<"$3"' _ "$rc" "$REM4" "$out"
+else echo "SKIP marca no escribible: el entorno no respeta chmod o corre como root"; fi
 check "extraible de OTRA instalacion: la marca del dueño no se pisa" test "$(head -n1 "$REM/.bury-backup-removable")" = "$S"
 # atrasada: llega un log nuevo al origen y el disco esta desconectado
 mkf "$S" "sql/${DB}_log_$(stamp 60).trn" 100; shaf "$S" "sql/${DB}_log_$(stamp 60).trn"

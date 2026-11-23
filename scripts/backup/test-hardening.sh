@@ -76,6 +76,16 @@ check "otro clon sin --project: rechazado (rc!=0), mensaje claro y cron intacto"
 BURY_SCHEDULE_SANDBOX="$SB2" bash "$CL2/scripts/backup/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-otro >/dev/null; rc=$?
 check "otro clon con su --project: crea su archivo y deja los demas" bash -c '[[ '"$rc"' == 0 && -f "$1/etc/cron.d/bury-backup-otro" && -f "$1/etc/cron.d/bury-backup-prod" ]]' _ "$SB2"
 
+hprod=$(sha256sum "$SB2/etc/cron.d/bury-backup-prod" | cut -d' ' -f1)
+err=$(BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" --project prod 2>&1 >/dev/null); rc=$?
+check "mismo sufijo, otro proyecto (--project prod vs theburyproject-prod): rechazado y cron intacto" bash -c '[[ '"$rc"' != 0 && "$1" == *"pertenece al proyecto"* ]] && [[ "$(sha256sum "$2" | cut -d" " -f1)" == "$3" ]]' _ "$err" "$SB2/etc/cron.d/bury-backup-prod" "$hprod"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --uninstall --project prod >/dev/null 2>&1; rc=$?
+check "--uninstall con el proyecto equivocado: rechazado y NO borra el cron ajeno" bash -c '[[ '"$rc"' != 0 && -f "$1" ]]' _ "$SB2/etc/cron.d/bury-backup-prod"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$CL2/scripts/backup/install-schedule.sh" --uninstall --project theburyproject-otro >/dev/null 2>&1; rc=$?
+check "--uninstall con su proyecto: borra solo su archivo" bash -c '[[ '"$rc"' == 0 && ! -e "$1/etc/cron.d/bury-backup-otro" && -f "$1/etc/cron.d/bury-backup-prod" && -f "$1/etc/cron.d/bury-backup" ]]' _ "$SB2"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-prod >/dev/null; rc=$?
+check "reinstalar el mismo proyecto desde el mismo clon sigue permitido" test "$rc" = 0
+
 # assert_backup_dir_matches_project: docker falso (ps -aq db / inspect). Solo aborta ante discrepancia POSITIVA.
 mkdir -p "$T/gbin" "$T/bkA/sql" "$T/bkB/sql"
 cat >"$T/gbin/docker" <<'FAKE'

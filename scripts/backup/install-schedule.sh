@@ -111,19 +111,27 @@ prepare_err_log() {
   [[ "$(stat -c %U "$ERR_LOG_REAL")" == "$RUN_USER" ]] || { echo "$ERR_LOG_REAL no quedo con owner $RUN_USER" >&2; exit 1; }
 }
 
+# No tocar el cron de OTRA instalacion: un archivo existente debe apuntar a ESTE clon y a ESTE proyecto Compose. Dos --project distintos pueden dar el mismo
+# sufijo de archivo (p. ej. "prod" y "theburyproject-prod"): la identidad real es el proyecto grabado en el cron. Sin COMPOSE_PROJECT_NAME = theburyproject.
+guard_not_foreign() {
+  [[ -f "$FILE" ]] || return 0
+  local prev_repo prev_proj want_proj=${PROJECT:-theburyproject}
+  prev_repo=$(grep -vE '^[[:space:]]*#' "$FILE" | sed -nE 's;.*[[:space:]]cd (/[^ ]+) &&.*;\1;p' | head -n1)
+  prev_proj=$(grep -vE '^[[:space:]]*#' "$FILE" | sed -nE 's;^(.*[[:space:]])?COMPOSE_PROJECT_NAME=([^[:space:]]+).*;\2;p' | head -n1)
+  if [[ -n "$prev_repo" && "$prev_repo" != "$REPO_DIR" ]]; then
+    echo "$FILE ya existe y pertenece a otro clon ($prev_repo), no a $REPO_DIR: NO se modifica. Para una segunda instalacion usar --project <proyecto> (archivo propio); si es el mismo servicio movido de carpeta, eliminarlo antes con --uninstall desde el clon anterior" >&2; exit 1
+  fi
+  if [[ "${prev_proj:-theburyproject}" != "$want_proj" ]]; then
+    echo "$FILE ya existe y pertenece al proyecto '${prev_proj:-theburyproject}', no a '$want_proj': NO se modifica (dos nombres de --project pueden dar el mismo archivo). Usar el --project original o eliminar ese cron a mano" >&2; exit 1
+  fi
+}
+
 case "$ACTION" in
   print) render ;;
   print-logrotate) render_logrotate ;;
   install)
     [[ -n "$ROOT_PFX" || $EUID -eq 0 ]] || { echo "--install requiere root (sudo)" >&2; exit 1; }
-    # No pisar el cron de OTRA instalacion: si el archivo existe y apunta a otro clon del repo, se rechaza (borrarlo a mano si es intencional).
-    if [[ -f "$FILE" ]]; then
-      prev_repo=$(grep -vE '^[[:space:]]*#' "$FILE" | sed -nE 's;.*[[:space:]]cd (/[^ ]+) &&.*;\1;p' | head -n1)
-      if [[ -n "$prev_repo" && "$prev_repo" != "$REPO_DIR" ]]; then
-        echo "$FILE ya existe y pertenece a otro clon ($prev_repo), no a $REPO_DIR: NO se reemplaza. Para una segunda instalacion usar --project <proyecto> (archivo propio); si es el mismo servicio movido de carpeta, eliminarlo antes con --uninstall desde el clon anterior" >&2
-        exit 1
-      fi
-    fi
+    guard_not_foreign
     prepare_err_log
     mkdir -p "$(dirname "$FILE")" "$(dirname "$LOGROTATE_FILE")"
     tmp=$(mktemp); render >"$tmp"
@@ -134,5 +142,6 @@ case "$ACTION" in
     echo "instalado: $FILE y $LOGROTATE_FILE (log: $ERR_LOG_REAL, owner $RUN_USER:$RUN_GROUP, 0600)"; echo "programacion:"; grep -vE '^(#|$|SHELL|PATH)' "$FILE" ;;
   uninstall)
     [[ -n "$ROOT_PFX" || $EUID -eq 0 ]] || { echo "--uninstall requiere root (sudo)" >&2; exit 1; }
+    guard_not_foreign
     rm -f "$FILE" "$LOGROTATE_FILE"; echo "eliminado: $FILE y $LOGROTATE_FILE (el log de errores se conserva)" ;;
 esac
