@@ -592,6 +592,19 @@ public class MoraConfigQaCfgServiceTests : IDisposable
         Assert.Equal(mensual, diaria);
     }
 
+    // MORA-CONTRACTUAL-DIAG (2026-11-23) — caracterización: con TasaMoraBase > 0 la mora estimada se calcula y se
+    // suma al LogMora, pero la alerta NO la persiste: AlertaCobranza.MontoMoraCalculada queda en 0 y los KPIs de la
+    // bandeja (MoraTotal / MontoMora de clientes) muestran $0. Falla a propósito el día que se persista ese monto.
+    [Fact]
+    public async Task CFG14d_Caracterizacion_AlertaNoPersisteMontoMoraCalculada_AunConTasaPositiva()
+    {
+        var logMora = await MoraCalculadaAsync(TipoTasaMora.Mensual, 5m, 10, 1_000m);
+
+        Assert.True(logMora > 0m);
+        var alerta = await _context.AlertasCobranza.AsNoTracking().SingleAsync();
+        Assert.Equal(0m, alerta.MontoMoraCalculada);
+    }
+
     // CFG-15 — operaciones nuevas usan el parámetro configurado vigente
     [Fact]
     public async Task CFG15_OperacionNueva_UsaLaTasaVigente_YCambioPosteriorSeReflejaEnLaSiguiente()

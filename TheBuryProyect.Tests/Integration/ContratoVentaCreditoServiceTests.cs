@@ -271,6 +271,57 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(contrato.NumeroContrato));
     }
 
+    // MORA-CONTRACTUAL-DIAG (2026-11-23) — caracterización del interés por mora del contrato anterior.
+    // No fijan una regla comercial: documentan que hoy ConfiguracionMora.TasaMoraBase pisa la plantilla
+    // solo si es > 0, y que ValidarPlantilla bloquea la emisión si el resultado es <= 0.
+    private async Task<(Venta Venta, PlantillaContratoCredito Plantilla)> SeedMoraContractualAsync(decimal? tasaMoraBase, decimal interesPlantilla)
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+        var plantilla = await _context.PlantillasContratoCredito.FirstAsync(p => p.Activa);
+        plantilla.InteresMoraDiarioPorcentaje = interesPlantilla;
+        _context.ConfiguracionesMora.Add(new ConfiguracionMora { TasaMoraBase = tasaMoraBase, DiasGracia = 3 });
+        await _context.SaveChangesAsync();
+        return (venta, plantilla);
+    }
+
+    [Fact]
+    public async Task MoraContractual_TasaMoraBasePositiva_PisaLaPlantilla_YQuedaEnElSnapshot()
+    {
+        var (venta, _) = await SeedMoraContractualAsync(tasaMoraBase: 5m, interesPlantilla: 1m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        using var doc = JsonDocument.Parse(contrato.DatosSnapshotJson);
+        Assert.Equal(5m, doc.RootElement.GetProperty("Vendedor").GetProperty("InteresMoraDiarioPorcentaje").GetDecimal());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(null)]
+    public async Task MoraContractual_TasaMoraBaseCeroONula_CaeALaPlantilla(int? tasaEntera)
+    {
+        var (venta, _) = await SeedMoraContractualAsync(tasaEntera, interesPlantilla: 1m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        using var doc = JsonDocument.Parse(contrato.DatosSnapshotJson);
+        Assert.Equal(1m, doc.RootElement.GetProperty("Vendedor").GetProperty("InteresMoraDiarioPorcentaje").GetDecimal());
+    }
+
+    [Fact]
+    public async Task MoraContractual_TasaCeroYPlantillaCero_BloqueaLaGeneracionDelContrato()
+    {
+        var (venta, _) = await SeedMoraContractualAsync(tasaMoraBase: 0m, interesPlantilla: 0m);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("interés por mora diario mayor a cero", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task ValidarDatosParaGenerarAsync_TasaNegativa_DevuelveError()
     {
