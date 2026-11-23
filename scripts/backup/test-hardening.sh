@@ -86,6 +86,11 @@ check "--uninstall con su proyecto: borra solo su archivo" bash -c '[[ '"$rc"' =
 BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-prod >/dev/null; rc=$?
 check "reinstalar el mismo proyecto desde el mismo clon sigue permitido" test "$rc" = 0
 
+# cron.d admite el valor entre comillas (cron manual): el guard no debe rechazar el mismo proyecto
+sed 's/COMPOSE_PROJECT_NAME=theburyproject-prod /COMPOSE_PROJECT_NAME="theburyproject-prod" /' "$SB2/etc/cron.d/bury-backup-prod" >"$T/quoted.cron" && cp "$T/quoted.cron" "$SB2/etc/cron.d/bury-backup-prod"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-prod >/dev/null 2>&1; rc=$?
+check "cron con COMPOSE_PROJECT_NAME entre comillas: el mismo proyecto se reinstala sin falso rechazo" test "$rc" = 0
+
 # assert_backup_dir_matches_project: docker falso (ps -aq db / inspect). Solo aborta ante discrepancia POSITIVA.
 mkdir -p "$T/gbin" "$T/bkA/sql" "$T/bkB/sql"
 cat >"$T/gbin/docker" <<'FAKE'

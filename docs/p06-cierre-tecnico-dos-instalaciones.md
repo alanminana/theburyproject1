@@ -17,7 +17,7 @@ respaldo, cómo se recupera y qué sigue sin cubrirse. No repite las pruebas his
 | D3 | El destino extraíble (`BACKUP_REMOVABLE_DIR`) guardaba siempre en `<destino>/bury-backup/`. Los nombres (`TheBuryProjectDb_full_<ts>.bak`) son idénticos entre instalaciones (ambas usan `TheBuryProjectDb`), y la retención por cadenas las trataría como una sola: una instalación podaría las copias de la otra. | La primera copia reclama el destino grabando `BACKUP_DIR` en la marca `.bury-backup-removable` bajo `flock` de la propia marca y con relectura (`removable_claim`); `removable_available` rechaza (atrasada, exit 1 en `--strict`, nunca rompe el backup) un destino cuya marca nombra a otra instalación, y si no se puede reclamar o confirmar el dueño no se copia ni poda nada (fail-closed; revisión Codex). Marca vacía (legado) = libre, se reclama al copiar. |
 | D4 | No había forma de ensayar la restauración de un `BACKUP_DIR` **real** en un SQL Server descartable (solo desde la copia secundaria), ni medir tiempos. | `restore-test-local-copy.sh --from-backup-dir DIR` (solo lectura, `:ro`) y línea `TIEMPOS` en la evidencia. |
 
-Pruebas añadidas: `test-hardening.sh` (106 casos, 0 fallos en la VM) y `test-retention-capacity.sh` (102 casos, 0 fallos; +6 del destino extraíble).
+Pruebas añadidas: `test-hardening.sh` (107 casos, 0 fallos en la VM) y `test-retention-capacity.sh` (102 casos, 0 fallos; +6 del destino extraíble).
 En `test-retention-capacity.sh` falla un caso **ajeno** (`test_telegram_relay…cannot_create_unbounded_threads`): intermitente en `main` sin estos
 cambios (falló 1 de 2 corridas en el clon de producción a 647207c1).
 

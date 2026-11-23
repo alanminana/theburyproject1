@@ -118,6 +118,7 @@ guard_not_foreign() {
   local prev_repo prev_proj want_proj=${PROJECT:-theburyproject}
   prev_repo=$(grep -vE '^[[:space:]]*#' "$FILE" | sed -nE 's;.*[[:space:]]cd (/[^ ]+) &&.*;\1;p' | head -n1)
   prev_proj=$(grep -vE '^[[:space:]]*#' "$FILE" | sed -nE 's;^(.*[[:space:]])?COMPOSE_PROJECT_NAME=([^[:space:]]+).*;\2;p' | head -n1)
+  prev_proj=$(printf '%s' "$prev_proj" | tr -d "\"'")   # cron.d admite COMPOSE_PROJECT_NAME="x" o 'x'
   if [[ -n "$prev_repo" && "$prev_repo" != "$REPO_DIR" ]]; then
     echo "$FILE ya existe y pertenece a otro clon ($prev_repo), no a $REPO_DIR: NO se modifica. Para una segunda instalacion usar --project <proyecto> (archivo propio); si es el mismo servicio movido de carpeta, eliminarlo antes con --uninstall desde el clon anterior" >&2; exit 1
   fi
