@@ -142,14 +142,18 @@ public class FiscalTarjetaServiciosV2P02Tests : IDisposable
     /// Invariante: lo persistido en la venta (neto/IVA) == comprobante == Reporte de IVA, y Neto + IVA == Total.
     /// </summary>
     [Theory]
-    [InlineData(2, 1000.51, 10.0, 3)]
-    [InlineData(2, 999.99, 15.0, 6)]
-    [InlineData(2, 4321.09, 10.0, 3)]
-    [InlineData(1, 1000.51, 10.0, 3)]
-    [InlineData(1, 999.99, 15.0, 6)]
-    public async Task Tarjeta_ConServiciosYCentavos_VentaComprobanteYReporteDiscriminanLoMismo(int version, double precio, double pct, int cuotas)
+    [InlineData(2, 1000.51, 21.0, 10.0, 3)]
+    [InlineData(2, 999.99, 21.0, 15.0, 6)]
+    [InlineData(2, 4321.09, 21.0, 10.0, 3)]
+    [InlineData(2, 1234.57, 10.5, 10.0, 3)]
+    [InlineData(2, 999.99, 10.5, 15.0, 6)]
+    [InlineData(2, 4321.09, 10.5, 10.0, 3)]
+    [InlineData(1, 1000.51, 21.0, 10.0, 3)]
+    [InlineData(1, 999.99, 21.0, 15.0, 6)]
+    public async Task Tarjeta_ConServiciosYCentavos_VentaComprobanteYReporteDiscriminanLoMismo(int version, double precio, double iva, double pct, int cuotas)
     {
         var (cliente, producto) = await SeedBaseAsync((decimal)precio);
+        producto.PorcentajeIVA = (decimal)iva;
         var dia = TheBuryProject.Services.FechaComercial.DiaComercial(DateTime.UtcNow);
         var medio = new ConfiguracionPago { TipoPago = TipoPago.MercadoPago, Nombre = "MP", Activo = true };
         _context.ConfiguracionesPago.Add(medio);
@@ -181,7 +185,12 @@ public class FiscalTarjetaServiciosV2P02Tests : IDisposable
 
         var venta = await _context.Ventas.Include(v => v.Detalles).SingleAsync(v => v.Id == creada.Id);
         Assert.Equal(version, venta.CriterioFiscalVersion);
-        Assert.NotEqual(0m, venta.AjusteMedioPagoMonto);
+        // El recargo de tarjeta vive en DatosTarjeta.MontoAjustePagoAplicado (no en AjusteMedioPagoMonto) y debe ser el del plan.
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        var criterio = TheBuryProject.Helpers.CriterioFiscalRegistry.Resolver(version);
+        var baseCobrada = criterio.TruncarAPesos((decimal)precio + 650m);
+        Assert.True(datos.MontoAjustePagoAplicado > 0m);
+        Assert.Equal(venta.Total, criterio.TruncarAPesos(baseCobrada + datos.MontoAjustePagoAplicado.GetValueOrDefault()));
         Assert.Equal(venta.Total, venta.Subtotal + venta.IVA);
 
         venta.Estado = EstadoVenta.Facturada;

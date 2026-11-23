@@ -133,16 +133,16 @@ Como la base es **nueva**, P3 se aplica con todas las migraciones del `migrate` 
 
 `validacion-base-nueva.sh` incluye desde 2026-11-21 el control de cuentas `scripts/sql/p07-verificar-cuentas.sql` (37 OK / 0 FALLA). Orden de puesta en marcha, cuentas, parámetros y reversión: `docs/puesta-en-marcha-p07-p02.md`.
 
-### 6.2 Validación fiscal V2 de contado, sin cambios de código (2026-11-23)
+### 6.2 Validación fiscal V2 de contado (2026-11-23)
 
-Sobre `main` 3de0402e, con servicios reales sobre SQLite en memoria (prueba sintética: **no es aceptación fiscal de producción**). Nuevas pruebas en `FiscalTarjetaServiciosV2P02Tests` y `PunitorioGraciaRealTests`:
+Sobre `main` 3de0402e, con servicios reales sobre SQLite en memoria (prueba sintética: **no es aceptación fiscal de producción**). Un cambio de código mínimo (la ruta de tarjeta, ver tabla). Nuevas pruebas en `FiscalTarjetaServiciosV2P02Tests` y `PunitorioGraciaRealTests`:
 
 | Escenario | Resultado |
 |---|---|
-| Tarjeta (plan con recargo) + armado + envío + centavos, V1 y V2 | Venta = comprobante = Reporte de IVA al centavo; `Neto + IVA = Total` |
+| Tarjeta (plan con recargo) + armado + envío + centavos, V1 y V2, producto al 21 % y al 10,5 % | **Defecto encontrado y corregido** (revisión independiente de Codex): con V2 y alícuotas mixtas (p. ej. producto 1.234,57 al 10,5 % + servicios 650 + recargo 10 %), `GuardarDatosTarjetaAsync` discriminaba el recargo sin los servicios exactos y el neto persistido (1.819,49) difería un centavo del comprobante y el reporte (1.819,50); el total no cambiaba. Ahora pasa los servicios exactos (solo V2; V1 los ignora). Después: venta = comprobante = Reporte de IVA al centavo; `Neto + IVA = Total` |
 | Emisión real de factura de contado (Efectivo −5 %, Transferencia +3 %; IVA 21 % y 10,5 %; centavos; armado + envío) | V2: factura = venta persistida = comprobante = reporte = ingreso de Caja, sin reescribir importes al facturar. V1: total exacto; desglose neto/IVA del comprobante difiere hasta $0,81 (hallazgo V1 documentado) |
 | Devolución total V2 con descuento de Efectivo + servicios | Reintegra exactamente lo cobrado por productos (`Total − servicios`); egreso de Caja = total de la devolución |
 | Punitorio 0 % / 30 días / 12 de gracia | $0 en cualquier atraso, sin error |
 | `FISCAL_CRITERIO_V2_DESDE` ausente / inválida | ya cubierto (`ActivacionCriterioFiscalTests`, `preflight.sh`): ausente = V1; inválida = no arranca |
 
-Riesgo operativo residual (no es defecto de código): sin `FISCAL_CRITERIO_V2_DESDE` en el `.env` la instalación nueva opera en V1 sin avisar; se detecta solo con `p02-verificar-instalacion.sql` tras la primera venta. Por eso §3 paso 6 es obligatorio.
+Riesgo operativo residual (no es defecto de código): `FISCAL_CRITERIO_V2_DESDE` ausente o vacía es una configuración válida (rige V1), así que `preflight.sh` solo lo informa («ausente o vacío (rige CriterioFiscal V1)») y la app arranca igual: una omisión del `.env` no se bloquea. La versión realmente aplicada se confirma con `p02-verificar-instalacion.sql` tras la primera venta (§3 paso 6, obligatorio).

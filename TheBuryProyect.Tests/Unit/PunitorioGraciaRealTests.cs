@@ -236,7 +236,11 @@ public class PunitorioGraciaRealTests
 
         var r = Calcular(Venc, Venc.AddDays(atraso), 12, configs: new[] { config });
 
+        // Un resultado indeterminado (sin configuración / historial incompleto) tiene importe null: acá debe ser un $0 calculado.
+        Assert.NotEqual(EstadoResultadoPunitorio.SinConfiguracion, r.EstadoResultado);
+        Assert.NotEqual(EstadoResultadoPunitorio.HistorialIncompleto, r.EstadoResultado);
         Assert.Equal(atraso, r.DiasTranscurridos);
-        Assert.Equal(0m, r.PunitorioRedondeado ?? 0m);
+        Assert.NotNull(r.PunitorioRedondeado);
+        Assert.Equal(0m, r.PunitorioRedondeado);
     }
 }
