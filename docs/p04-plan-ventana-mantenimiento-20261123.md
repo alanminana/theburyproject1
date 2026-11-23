@@ -86,7 +86,7 @@ Precondición: ventana A cerrada y estable ≥ 24 h, respaldo del día verificad
 | 2 | **Cerrar sesión** de Windows y reiniciar con `shutdown /r /t 60` (desde otra sesión remota) o desde la pantalla de bloqueo | Se inicia el reinicio |
 | 3 | **No iniciar sesión.** Cronometrar desde «Windows encendido» hasta que `Check-ErpHealth.ps1 -VmHost 192.168.50.162` pase (desde otro equipo o móvil en la LAN) | **Criterio de éxito: ERP sano ≤ 5 min tras el arranque de Windows, sin intervención** |
 | 4 | Iniciar sesión y verificar | `vmware-vmx` en sesión 0 (H08 OK); en la VM `journalctl -b -1` termina con apagado ordenado; SQL **sin** líneas «rolled forward» de recuperación; `docker compose ps` `healthy`; LUKS reabierto; cron del siguiente `*/15` OK |
-| 5 | Registrar RTO medido y actualizar `p04-continuidad-matriz-20261123.md` | Solo entonces H03 pasa de WARN a OK |
+| 5 | Registrar RTO medido y actualizar `p04-continuidad-matriz-20261123.md` | La prueba queda **registrada manualmente** en la matriz: el auditor nunca emite OK para H03 (siempre WARN «no probado») |
 | 6 | Repetir una vez más tras el siguiente reinicio planeado de Windows Update (o forzado) | Segunda corrida OK = recuperación probada |
 
 **Fallo:** si pasados 10 min la VM no responde → no tocar nada más, iniciar sesión y encenderla a mano (el RTO queda registrado como fallido) y aplicar §7.
