@@ -1,5 +1,7 @@
 # Mora contractual: diagnóstico técnico y diseño de la solución (2026-11-23)
 
+> **Estado:** el propietario decidió A+B (2026-11-23) y se implementó; ver `mora-contractual-implementacion-20261123.md`. Este documento queda como diagnóstico de origen; sus pruebas de caracterización se reemplazaron por pruebas del comportamiento nuevo.
+
 Base: `main` 647207c1. Complementa la §3 de `puesta-en-marcha-estado-20261123.md`. **No cambia ninguna regla financiera**: el único código nuevo son pruebas de caracterización (§8). El crédito sigue cerrado y no se estableció ninguna tasa.
 
 ## 1. Resumen

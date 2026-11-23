@@ -184,10 +184,6 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido</p>
                     <p class="mc-kpi-value" data-kpi="capital-vencido">@Model.MontoTotalVencido.ToString("C2")</p>
                 </div>
-                <div class="card-erp-metric-warning">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Mora calculada</p>
-                    <p class="mc-kpi-value" data-kpi="mora-calculada">@Model.MontoTotalMora.ToString("C2")</p>
-                </div>
                 <div class="card-erp-metric-danger">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridad crítica</p>
                     <p class="mc-kpi-value" data-kpi="clientes-criticos">@Model.ClientesCriticos</p>
@@ -377,7 +373,6 @@
                                 <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Prioridad</th>
                                 <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Atraso</th>
                                 <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Capital vencido</th>
-                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Mora</th>
                                 <th scope="col" data-card="hide" class="px-3 py-3 font-semibold">Gestión</th>
                                 <th scope="col" data-card="actions" class="px-3 py-3 text-right font-semibold">Acciones</th>
                             </tr>
@@ -408,7 +403,6 @@
                                         </span>
                                     </td>
                                     <td class="px-3 py-3 text-right whitespace-nowrap font-semibold tabular-nums text-slate-100">@c.MontoVencido.ToString("C2")</td>
-                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-300">@c.MontoMora.ToString("C2")</td>
                                     <td class="px-3 py-3 text-xs text-slate-400">
                                         <span class="block whitespace-nowrap">
                                             Último contacto: @(c.UltimoContacto.HasValue ? c.UltimoContacto.Value.ToString("dd/MM/yyyy") : "sin contactos")

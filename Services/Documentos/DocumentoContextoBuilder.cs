@@ -85,14 +85,15 @@ namespace TheBuryProject.Services.Documentos
             return null;
         }
 
-        /// <summary>El interés por mora es único: sale de Configuración → Mora y pisa lo que haya en empresa o plantilla.</summary>
+        /// <summary>
+        /// El interés por mora impreso sale de la configuración de punitorios vigente (la misma que devenga la deuda real),
+        /// nunca de la empresa, la plantilla ni <c>ConfiguracionMora.TasaMoraBase</c>. Sin configuración activa las
+        /// variables quedan vacías y las plantillas que las requieren no se emiten.
+        /// </summary>
         private async Task AplicarInteresMoraAsync(DocumentoContexto ctx)
         {
-            var tasa = await _context.ConfiguracionesMora.AsNoTracking()
-                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
-            if (tasa is not > 0) return;
-            ctx.Set("empresa.interesMoraDiario", tasa.Value.ToString("F4", Cultura));
-            ctx.Set("contrato.interesMoraDiario", PorcentajeTexto(tasa.Value));
+            var interes = await InteresMoraContractual.ResolverAsync(_context, _reloj);
+            interes.AplicarA(ctx);
         }
 
         public static void AplicarEmpresa(DocumentoContexto ctx, EmpresaConfiguracion? empresa, PlantillaContratoCredito? respaldo)
@@ -109,13 +110,11 @@ namespace TheBuryProject.Services.Documentos
             ctx.Set("empresa.direccion", empresa.Domicilio);
             ctx.Set("empresa.ciudad", empresa.Ciudad);
             ctx.Set("empresa.jurisdiccion", empresa.Jurisdiccion);
-            ctx.Set("empresa.interesMoraDiario", empresa.InteresMoraDiarioPorcentaje.ToString("F4", Cultura));
             ctx.Set("empresa.nombreComercial", string.IsNullOrWhiteSpace(empresa.NombreComercial) ? empresa.Nombre : empresa.NombreComercial);
             ctx.Set("empresa.titular", empresa.Nombre);
             ctx.Set("empresa.titularDni", empresa.Dni);
             ctx.Set("empresa.direccionCompleta", string.IsNullOrWhiteSpace(empresa.DomicilioCompleto) ? empresa.Domicilio : empresa.DomicilioCompleto);
             ctx.Set("empresa.localidad", empresa.Ciudad);
-            ctx.Set("contrato.interesMoraDiario", PorcentajeTexto(empresa.InteresMoraDiarioPorcentaje));
             // Datos de empresa que no son variables de plantilla pero que el contexto necesita más adelante.
             ctx.Valores["_condicionFiscalCliente"] = empresa.CondicionFiscalClientePorDefecto;
             ctx.Valores["_pagareModo"] = empresa.PagareVencimientoModo;
@@ -130,17 +129,12 @@ namespace TheBuryProject.Services.Documentos
             ctx.Set("empresa.direccion", p?.DomicilioVendedor);
             ctx.Set("empresa.ciudad", p?.CiudadFirma);
             ctx.Set("empresa.jurisdiccion", p?.Jurisdiccion);
-            ctx.Set("empresa.interesMoraDiario", p == null ? null : p.InteresMoraDiarioPorcentaje.ToString("F4", Cultura));
             ctx.Set("empresa.nombreComercial", p?.NombreVendedor);
             ctx.Set("empresa.titular", p?.NombreVendedor);
             ctx.Set("empresa.titularDni", p?.DniVendedor);
             ctx.Set("empresa.direccionCompleta", p?.DomicilioVendedor);
             ctx.Set("empresa.localidad", p?.CiudadFirma);
-            ctx.Set("contrato.interesMoraDiario", p == null ? null : PorcentajeTexto(p.InteresMoraDiarioPorcentaje));
         }
-
-        /// <summary>0,20% — dos decimales como mínimo, más si el valor los tiene.</summary>
-        public static string PorcentajeTexto(decimal porcentaje) => porcentaje.ToString("0.00##", Cultura) + "%";
 
         public static void AplicarCliente(DocumentoContexto ctx, Cliente? c)
         {

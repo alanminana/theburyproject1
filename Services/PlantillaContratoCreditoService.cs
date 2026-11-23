@@ -99,7 +99,7 @@ namespace TheBuryProject.Services
                 Nombre = "Contrato de venta - Crédito personal",
                 Activa = true,
                 VigenteDesde = RelojComercial.Sistema.InicioDiaComercial,
-                InteresMoraDiarioPorcentaje = 0.20m
+                InteresMoraDiarioPorcentaje = 0m
             };
         }
 

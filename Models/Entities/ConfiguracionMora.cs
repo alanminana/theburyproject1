@@ -18,7 +18,8 @@ namespace TheBuryProject.Models.Entities
         public TipoTasaMora? TipoTasaMora { get; set; }
 
         /// <summary>
-        /// Tasa base de mora (porcentaje). Si es null o 0, no se calcula mora.
+        /// [SIN EFECTO desde MORA-CONTRACTUAL] Ya no alimenta contratos, pagarés ni alertas. El interés por mora lo define
+        /// <c>ConfiguracionPunitorio</c>. Se conserva la columna por compatibilidad y para no modificar datos históricos.
         /// </summary>
         public decimal? TasaMoraBase { get; set; }
 

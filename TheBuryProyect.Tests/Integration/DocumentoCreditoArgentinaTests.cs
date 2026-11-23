@@ -27,6 +27,7 @@ public class DocumentoCreditoArgentinaTests : DocumentoTestBase
             TextoContrato = "x", TextoPagare = "x", VigenteDesde = DateTime.UtcNow.Date.AddDays(-1)
         });
         await Context.SaveChangesAsync();
+        await SembrarPunitorioAsync();
         await DocumentoConfiguracionCredito.ConfigurarAsync(Context, NullLogger.Instance);
     }
 
@@ -194,7 +195,7 @@ public class DocumentoCreditoArgentinaTests : DocumentoTestBase
         Assert.Equal("Av. San Martín 443", empresa.Domicilio);
         Assert.Equal("Av. San Martín n° 443", empresa.DomicilioCompleto);
         Assert.Equal("Monte", empresa.Ciudad);
-        Assert.Equal(0.20m, empresa.InteresMoraDiarioPorcentaje);
+        Assert.Equal(0m, empresa.InteresMoraDiarioPorcentaje); // sin tasa semilla: el interés por mora sale de los punitorios vigentes
         Assert.Equal("Consumidor Final", empresa.CondicionFiscalClientePorDefecto);
         Assert.Null(empresa.PagareVencimientoModo);      // la regla del vencimiento NO se asume
 
@@ -313,7 +314,7 @@ public class DocumentoCreditoArgentinaTests : DocumentoTestBase
         Assert.Contains("Entre Javier Martinez con domicilio en Av. San Martín n° 443 de la ciudad de Monte, DNI 37.898.524 (CUIT 20-37898524-3) en adelante denominado EL VENDEDOR, por una parte y por la otra el señor: Fucillo Omar con domicilio 9 DE JULIO SEC QUINTAS N°: S/N - ABBOTT (7228) y D.N.I. N° 7.701.419 en adelante denominado EL COMPRADOR, se conviene a celebrar el presente contrato de compraventa de acuerdo a las siguientes cláusulas y condiciones.", contrato);
         Assert.Contains("(1) Drean - Lavarropas Next 8.12", contrato);
         Assert.Contains("El lugar de pago se fija en el domicilio del Vendedor. La falta de pago en término de una sola de las cuotas determinará la caducidad y vencimiento de todos los plazos por el presente contrato se establecen y dará derecho al vendedor a exigir la totalidad del saldo adeudado al comprador sin necesidad de intimación extrajudicial, pactándose en forma expresa la vía ejecutiva para perseguir dicho cobro.", contrato);
-        Assert.Contains("se devengue un interés diario a favor del vendedor del 0,20% sobre las cuotas adeudadas y/o el saldo del precio adeudado.", contrato);
+        Assert.Contains("respecto de la falta de pago en término del importe adeudado: a la fecha de emisión de este documento no se devenga interés punitorio por la falta de pago en término (0 %) (configuración de punitorios vigente desde el 01/01/2020).", contrato);
         Assert.Contains("se someten a la jurisdicción y competencia de los tribunales ordinarios de justicia de La Plata, con renuncia expresa a cualquier otro fuero o jurisdicción que pudiere corresponder.", contrato);
         Assert.Contains("En prueba de conformidad se firman dos ejemplares de un mismo tenor y a los mismos efectos en la ciudad de MONTE a los 2 días del mes de Septiembre del 2026.-", contrato);
 

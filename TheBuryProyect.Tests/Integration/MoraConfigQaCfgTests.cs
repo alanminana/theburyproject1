@@ -536,12 +536,13 @@ public class MoraConfigQaCfgServiceTests : IDisposable
         Assert.Equal(antes, await _context.AcuerdosPago.CountAsync());
     }
 
-    // CFG-14 — interpretación de tasa mensual vs diaria en el cálculo de mora de alertas
-    private async Task<decimal> MoraCalculadaAsync(TipoTasaMora? tipo, decimal tasa, int diasVencido, decimal monto)
+    // CFG-14 — MORA-CONTRACTUAL: las alertas de cobranza NO estiman importes de mora. Antes se calculaba una mora a partir de
+    // TasaMoraBase (mensual/30, ignorando TipoTasaMora) que no coincidía con el punitorio real; se retiró. La alerta informa
+    // capital vencido, cuotas y días de atraso. TasaMoraBase y TipoTasaMora quedan sin efecto sobre las alertas.
+    private async Task<(AlertaCobranza Alerta, LogMora Log)> ProcesarAlertaAsync(TipoTasaMora? tipo, decimal? tasa, int diasVencido, decimal monto)
     {
         await ConfigAsync(c => { c.TipoTasaMora = tipo; c.TasaMoraBase = tasa; c.DiasGracia = 0; });
-        var (cl, cr, _) = await EscenarioAlertaAsync();
-        // Se elimina la alerta sembrada: ProcesarMora genera la suya.
+        var (_, cr, _) = await EscenarioAlertaAsync();
         _context.Set<AlertaCobranza>().RemoveRange(_context.Set<AlertaCobranza>());
         _context.Set<Cuota>().RemoveRange(_context.Set<Cuota>()); // aísla: sólo la cuota de este escenario
         _context.Set<Cuota>().Add(new Cuota
@@ -555,65 +556,35 @@ public class MoraConfigQaCfgServiceTests : IDisposable
 
         await NuevoServicio().ProcesarMoraAsync();
 
-        // ProcesarMoraAsync calcula la mora pero NO la persiste en AlertaCobranza.MontoMoraCalculada
-        // (hallazgo CFG-DEF-03): lo único observable es LogMora.TotalRecargosAplicados.
-        Assert.Single(await _context.AlertasCobranza.Where(a => a.CreditoId == cr.Id).ToListAsync());
-        return await _context.LogsMora.OrderByDescending(l => l.Id).Select(l => l.TotalRecargosAplicados).FirstAsync();
+        var alerta = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.CreditoId == cr.Id);
+        var log = await _context.LogsMora.AsNoTracking().OrderByDescending(l => l.Id).FirstAsync();
+        return (alerta, log);
     }
 
-    [Fact]
-    public async Task CFG14a_TasaMensual_ProrrateaPorDias()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(TipoTasaMora.Mensual, 3)]
+    [InlineData(TipoTasaMora.Diaria, 5)]
+    public async Task CFG14_Alerta_NoEstimaMora_PeroInformaCapitalYDiasDeAtraso(TipoTasaMora? tipo, int? tasaEntera)
     {
-        // 3% mensual sobre 1000, 10 días => 1000 * 0.03 / 30 * 10 = 10.00
-        var mora = await MoraCalculadaAsync(TipoTasaMora.Mensual, 3m, 10, 1_000m);
-        _out.WriteLine($"CFG-14a Mensual 3% x 10d sobre 1000 => {mora}");
-        Assert.Equal(10.00m, mora);
-    }
+        var (alerta, log) = await ProcesarAlertaAsync(tipo, tasaEntera, 10, 1_000m);
 
-    // Fase 4 (QA-CFG-FIX): NO se cambió la fórmula. TipoTasaMora no se lee en ningún cálculo y
-    // ContratoVentaCreditoService copia TasaMoraBase como interés diario; cambiarlo altera importes
-    // de alertas, contratos y punitorios. Requiere decisión de negocio (ver docs/qa-cfg-resultados.md).
-    [Fact(Skip = "CFG-DEF-04 pendiente de decisión de negocio: TipoTasaMora no se interpreta en CalcularMora.")]
-    public async Task CFG14b_TasaDiaria_SeAplicaPorCadaDiaDeAtraso()
-    {
-        // 3% diaria sobre 1000, 10 días => 1000 * 0.03 * 10 = 300.00 (según el enum: "se aplica por cada día de atraso")
-        var mora = await MoraCalculadaAsync(TipoTasaMora.Diaria, 3m, 10, 1_000m);
-        _out.WriteLine($"CFG-14b Diaria 3% x 10d sobre 1000 => {mora} (CalcularMora ignora TipoTasaMora: siempre trata la tasa como mensual/30)");
-        Assert.Equal(300.00m, mora);
-    }
-
-    // Caracterización del comportamiento ACTUAL (no es el deseado): con TipoTasaMora=Diaria el
-    // cálculo es idéntico al mensual. Falla a propósito el día que alguien implemente CFG-DEF-04.
-    [Fact]
-    public async Task CFG14c_Caracterizacion_TipoTasaDiaria_HoyCalculaIgualQueMensual()
-    {
-        var mensual = await MoraCalculadaAsync(TipoTasaMora.Mensual, 3m, 10, 1_000m);
-        var diaria = await MoraCalculadaAsync(TipoTasaMora.Diaria, 3m, 10, 1_000m);
-        Assert.Equal(mensual, diaria);
-    }
-
-    // MORA-CONTRACTUAL-DIAG (2026-11-23) — caracterización: con TasaMoraBase > 0 la mora estimada se calcula y se
-    // suma al LogMora, pero la alerta NO la persiste: AlertaCobranza.MontoMoraCalculada queda en 0 y los KPIs de la
-    // bandeja (MoraTotal / MontoMora de clientes) muestran $0. Falla a propósito el día que se persista ese monto.
-    [Fact]
-    public async Task CFG14d_Caracterizacion_AlertaNoPersisteMontoMoraCalculada_AunConTasaPositiva()
-    {
-        var logMora = await MoraCalculadaAsync(TipoTasaMora.Mensual, 5m, 10, 1_000m);
-
-        Assert.True(logMora > 0m);
-        var alerta = await _context.AlertasCobranza.AsNoTracking().SingleAsync();
         Assert.Equal(0m, alerta.MontoMoraCalculada);
+        Assert.Equal(0m, log.TotalRecargosAplicados);
+        Assert.Equal(1_000m, alerta.MontoVencido);
+        Assert.Equal(10, alerta.DiasAtraso);
+        Assert.Equal(1, alerta.CuotasVencidas);
     }
 
-    // CFG-15 — operaciones nuevas usan el parámetro configurado vigente
     [Fact]
-    public async Task CFG15_OperacionNueva_UsaLaTasaVigente_YCambioPosteriorSeReflejaEnLaSiguiente()
+    public async Task CFG14_CambiarTasaMoraBase_NoCambiaLoQueInformaLaAlerta()
     {
-        var m1 = await MoraCalculadaAsync(TipoTasaMora.Mensual, 3m, 10, 1_000m);
-        var m2 = await MoraCalculadaAsync(TipoTasaMora.Mensual, 6m, 10, 1_000m);
-        _out.WriteLine($"CFG-15 3% => {m1}; 6% => {m2}");
-        Assert.Equal(10.00m, m1);
-        Assert.Equal(20.00m, m2);
+        var (a1, _) = await ProcesarAlertaAsync(TipoTasaMora.Mensual, 3m, 10, 1_000m);
+        var (a2, _) = await ProcesarAlertaAsync(TipoTasaMora.Mensual, 6m, 10, 1_000m);
+
+        Assert.Equal(a1.MontoVencido, a2.MontoVencido);
+        Assert.Equal(a1.DiasAtraso, a2.DiasAtraso);
+        Assert.Equal(0m, a2.MontoMoraCalculada);
     }
 
     [Fact]
@@ -631,31 +602,17 @@ public class MoraConfigQaCfgServiceTests : IDisposable
     [Fact]
     public async Task CFG16_OperacionExistente_ConservaValoresHistoricos_TrasCambiarLaTasa()
     {
-        await ConfigAsync(c => { c.TasaMoraBase = 3m; c.DiasGracia = 0; });
-        var (_, cr, _) = await EscenarioAlertaAsync();
-        _context.Set<AlertaCobranza>().RemoveRange(_context.Set<AlertaCobranza>());
-        _context.Set<Cuota>().Add(new Cuota
-        {
-            CreditoId = cr.Id, NumeroCuota = ++_cuota, MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
-            MontoPagado = 0m, Estado = EstadoCuota.Pendiente,
-            FechaVencimiento = RelojComercial.Sistema.InicioDiaComercial.AddDays(-10)
-        });
-        await _context.SaveChangesAsync();
-        _context.ChangeTracker.Clear();
-        await NuevoServicio().ProcesarMoraAsync();
-        var log1 = await _context.LogsMora.AsNoTracking().OrderByDescending(l => l.Id).FirstAsync();
-        var antes = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.CreditoId == cr.Id);
+        var (antes, log1) = await ProcesarAlertaAsync(TipoTasaMora.Mensual, 3m, 10, 1_000m);
 
         await ConfigAsync(c => { c.TasaMoraBase = 9m; c.DiasGracia = 0; });
         await NuevoServicio().ProcesarMoraAsync(); // reproceso con la tasa nueva
-        var despues = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.CreditoId == cr.Id);
+        var despues = await _context.AlertasCobranza.AsNoTracking().SingleAsync(a => a.CreditoId == antes.CreditoId);
         var log1Despues = await _context.LogsMora.AsNoTracking().SingleAsync(l => l.Id == log1.Id);
 
-        _out.WriteLine($"CFG-16 log1.TotalRecargos={log1.TotalRecargosAplicados} (tras cambio: {log1Despues.TotalRecargosAplicados}); alerta MontoVencido {antes.MontoVencido}->{despues.MontoVencido}");
-        Assert.Equal(10.00m, log1.TotalRecargosAplicados);
         Assert.Equal(log1.TotalRecargosAplicados, log1Despues.TotalRecargosAplicados); // el log histórico no se recalcula
         Assert.Equal(antes.MontoVencido, despues.MontoVencido);
-        Assert.Equal(antes.Id, despues.Id); // la alerta existente no se duplica ni se recalcula con la tasa nueva
+        Assert.Equal(antes.Id, despues.Id); // la alerta existente no se duplica
+        Assert.Equal(0m, despues.MontoMoraCalculada);
     }
 
     [Fact]
