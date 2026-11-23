@@ -234,6 +234,7 @@ Objetivo: reducir progresivamente CSS duplicado y aumentar la adopción de
   (scroll affordance, toasts) antes de reimplementarlo por módulo.
 - Handlers idempotentes cuando el nodo puede volver a inicializarse (modales, tabs tras
   fetch parcial).
+- Formularios que mueven dinero o stock (caja, compras, tesorería, cuentas por pagar) llevan `data-prevent-double-submit` (`shared-ui.js`): un reenvío antes de la respuesta no registra la operación dos veces. Enter en un buscador/autocompletar dentro de un formulario nunca debe enviarlo.
 
 ## 14. Metodología de auditoría (4 capas)
 

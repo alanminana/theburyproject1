@@ -232,6 +232,47 @@ TheBury.confirmActionWithNote = function (message, onConfirm, notePlaceholder) {
 })();
 
 /**
+ * Anti doble envío opt-in: <form data-prevent-double-submit>. Para formularios que mueven dinero o stock
+ * (caja, compras, tesorería, cuentas por pagar): un doble click o un Enter repetido antes de que llegue la
+ * respuesta no puede registrar la operación dos veces. Corre en burbuja, después de jQuery Validate y de
+ * data-confirm-message: si algún handler canceló el envío (validación, confirmación pendiente) no bloquea
+ * nada; el bloqueo se aplica solo cuando el envío sigue adelante (incluido el reenvío tras confirmar).
+ * Se libera al volver con el botón "atrás" (bfcache) y como salvaguarda a los 20 s sin navegación.
+ */
+(function () {
+    'use strict';
+    function unlock(form) {
+        delete form.dataset.submitting;
+        form.removeAttribute('aria-busy');
+        form.querySelectorAll('[data-submit-locked]').forEach(function (btn) {
+            btn.disabled = false;
+            btn.removeAttribute('data-submit-locked');
+        });
+    }
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-prevent-double-submit')) return;
+        if (form.dataset.submitting === '1') { e.preventDefault(); return; }
+        if (e.defaultPrevented) return;
+        form.dataset.submitting = '1';
+        form.setAttribute('aria-busy', 'true');
+        // Deshabilitar recién después: el submitter ya entró en los datos del formulario.
+        window.setTimeout(function () {
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.setAttribute('data-submit-locked', 'true');
+            });
+        }, 0);
+        window.setTimeout(function () { unlock(form); }, 20000);
+    });
+    window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        document.querySelectorAll('form[data-prevent-double-submit]').forEach(unlock);
+    });
+})();
+
+/**
  * Normalize a string for accent-insensitive search (NFD + lowercase).
  */
 TheBury.normalizeText = function (value) {

@@ -622,10 +622,16 @@
             }
 
             if (event.key === 'Enter') {
-                const firstResult = dropdown?.querySelector('[data-id]');
-                if (!firstResult) return;
+                // Enter en el buscador nunca envía la orden: elige el primer resultado o explica por qué no hay.
                 event.preventDefault();
-                seleccionarProductoDesdeElemento(firstResult);
+                const firstResult = dropdown?.querySelector('[data-id]');
+                if (firstResult) {
+                    seleccionarProductoDesdeElemento(firstResult);
+                } else if (!productoSeleccionado) {
+                    agregarProducto();
+                } else {
+                    inpCantidad?.focus();
+                }
             }
         });
     }

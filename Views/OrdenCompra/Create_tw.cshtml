@@ -76,7 +76,7 @@
     </div>
 </div>
 
-<form asp-action="@(esEdicion ? "Edit" : "Create")" asp-route-id="@(esEdicion ? Model!.Id : (int?)null)" method="post" id="form-orden">
+<form asp-action="@(esEdicion ? "Edit" : "Create")" asp-route-id="@(esEdicion ? Model!.Id : (int?)null)" method="post" id="form-orden" data-prevent-double-submit>
     @Html.AntiForgeryToken()
     @if (esEdicion)
     {

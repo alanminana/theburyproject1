@@ -29,7 +29,7 @@
     <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden" role="alert"></div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <form asp-action="RegistrarMovimiento" method="post" class="lg:col-span-2 card card-pad">
+        <form asp-action="RegistrarMovimiento" method="post" data-prevent-double-submit class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="AperturaCajaId" />
             <input type="hidden" asp-for="IdempotencyKey" />

@@ -17,7 +17,7 @@
     <p class="mt-1 text-sm text-slate-400">De dónde sale el dinero de los pagos y anticipos a proveedores (efectivo administrativo, una cuenta bancaria…). No es una caja de ventas y no lleva saldo.</p>
 </section>
 
-<form asp-action="Guardar" method="post" class="card-erp-panel space-y-4 p-4" aria-label="Origen de fondos">
+<form asp-action="Guardar" method="post" data-prevent-double-submit class="card-erp-panel space-y-4 p-4" aria-label="Origen de fondos">
     @if (Model.EsEdicion)
     {
         <input type="hidden" name="Id" value="@d.Id" />
