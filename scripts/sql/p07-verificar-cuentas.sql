@@ -55,4 +55,8 @@ INSERT #c SELECT N'Cuenta: ' + u.UserName,
 FROM #u u ORDER BY u.UserName;
 
 SELECT control, valor, esperado, estado FROM #c ORDER BY n;
+DECLARE @fallas int = (SELECT COUNT(*) FROM #c WHERE estado = N'FALLA');
 DROP TABLE #u;
+DROP TABLE #c;
+IF @fallas > 0 RAISERROR(N'RESULTADO: %d FALLA(S). No avanzar con la puesta en marcha.', 16, 1, @fallas); -- con sqlcmd -b corta con código de salida distinto de 0
+ELSE PRINT N'RESULTADO: sin FALLA.';

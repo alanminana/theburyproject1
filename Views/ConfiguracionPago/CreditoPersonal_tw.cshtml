@@ -11,6 +11,7 @@
     var limitesActivos = limites.Count(l => l.Activo);
     var limiteClienteNuevo = limites.FirstOrDefault(l => l.Puntaje == 0)?.LimiteMonto ?? 0m;
     var puedeEditar = User.TienePermiso("configuracion", "update");
+    var puedeEditarCupos = puedeEditar && User.TienePermiso("clientes", "managecreditlimits");
     var puedeConfigMora = User.TienePermiso("mora", "config");
     var dg = Model.DefaultsGlobales ?? new DefaultsGlobalesViewModel();
     var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
@@ -557,13 +558,13 @@
                                 <div class="relative">
                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-mono pointer-events-none">$</span>
                                     <input asp-for="LimitesPorPuntaje[i].LimiteMonto" type="number" step="1" min="0"
-                                           readonly="@(!puedeEditar)" class="cp-field cp-field-money font-mono" data-money-hint />
+                                           readonly="@(!puedeEditarCupos)" class="cp-field cp-field-money font-mono" data-money-hint />
                                 </div>
                                 <span asp-validation-for="LimitesPorPuntaje[i].LimiteMonto" class="text-xs text-red-400"></span>
                             </div>
                             <p class="cp-hint cp-lim-out font-mono" data-money-out aria-live="polite"></p>
                             <label class="cp-lim-active inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                                <input asp-for="LimitesPorPuntaje[i].Activo" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                <input asp-for="LimitesPorPuntaje[i].Activo" disabled="@(!puedeEditarCupos)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
                                 Activo
                             </label>
                         </div>

@@ -547,6 +547,18 @@ namespace TheBuryProject.Controllers
             config.ScoringThresholds = null;
             config.MontosPorPuntaje = new List<MontoPorPuntajeCreditoViewModel>();
 
+            // Los cupos por puntaje los administra clientes.managecreditlimits (mismo permiso que Clientes → Límites por
+            // puntaje): con solo configuracion.update se descarta la grilla enviada y rigen los valores guardados.
+            if (!User.TienePermiso("clientes", "managecreditlimits"))
+            {
+                config.LimitesPorPuntaje = new List<ClienteCreditoLimiteItemViewModel>();
+                // El binder admite el campo sin prefijo y con el nombre del parámetro ("config."), sin distinguir mayúsculas.
+                ModelState.ClearValidationState(nameof(config.LimitesPorPuntaje));
+                var prefijos = new[] { nameof(config.LimitesPorPuntaje), $"config.{nameof(config.LimitesPorPuntaje)}" };
+                foreach (var clave in ModelState.Keys.Where(k => prefijos.Any(p => k.StartsWith(p, StringComparison.OrdinalIgnoreCase))).ToList())
+                    ModelState.Remove(clave);
+            }
+
             if (config.DefaultsGlobales == null)
             {
                 ModelState.AddModelError(nameof(config.DefaultsGlobales), "Debe indicar los valores globales.");
