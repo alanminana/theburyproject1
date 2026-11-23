@@ -64,6 +64,18 @@ Server real; requiere `QA_SEC_SUPERADMIN_SQL` apuntando a una BD descartable `qa
 **se omite** en `ci.yml`; la ejecuta el workflow `.github/workflows/sec-superadmin-sqlserver.yml` (SQL Server efímero,
 RCSI apagado y encendido, exige 9/9 `Passed` en el TRX).
 
+`PerfilesPorRolQaHttpTests` (QA por perfil, SQLite): lado **positivo** (cada rol de sistema abre todas las pantallas GET sin
+parámetros que sus permisos cubren, sin 403 ni 5xx), pantallas con control interno (`Seguridad/Index`, `DocumentosConfig/Index`),
+quién recibe cada permiso sensible (usuarios, roles, `configuracion.update`, `ventas.authorize`, `clientes.managecreditlimits`),
+que Administrador recibe todo el catálogo salvo la lista aprobada y no es SuperAdmin, y que 13 acciones sensibles denegadas por
+rol (usuarios, roles, cupos de crédito, autorizar ventas, Configuración de pagos) **no alteran** usuarios, roles, permisos,
+cupos ni clientes (huella SHA-256 antes/después).
+
+Escritores de cupos de crédito (auditados tras #353): `Cliente/LimitesPorPuntajeGuardar`, `AsignarLimiteCredito`,
+`AsignarNivelCreditoManual`, `LimpiarNivelCreditoManual` (todos `clientes.managecreditlimits`) y
+`ConfiguracionPago/CreditoPersonal` (descarta la grilla sin ese permiso; `MontosPorPuntaje` y `ScoringThresholds` se anulan en el
+controller y no son escribibles por ahí). No hay otra ruta que escriba `PuntajesCreditoLimite` ni `Cliente.LimiteCredito`.
+
 ## Riesgos conocidos
 
 - `CopyPermisosRol`/`SavePermisosRol` sobre `Administrador`/`Gerente`: un actor puede agregar o quitar permisos que él
