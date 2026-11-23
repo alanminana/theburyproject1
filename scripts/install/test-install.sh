@@ -196,6 +196,45 @@ check "el rechazo explica como usar otro proyecto" grep -q -- '--project' "$T/g.
 PATH="$T/fakebin:$PATH" FAKE_VOLUMES= bash "$INSTALL" --no-deploy --yes --env-file "$T/h.env" --project tbp-prod --admin-email a@example.com --backup-dir "$T/bk" >"$T/h.out" 2>&1; rc=$?
 check "proyecto sin volumenes: genera el .env" test -s "$T/h.env"
 
+# --- identidad efectiva de la imagen (defecto 2026-11-23: `dc up -d caddy` recreaba app/migrate con theburyproject/erp:local) -----
+# 1) contrato estatico: ERP_IMAGE se exporta en install.sh ANTES de deploy.sh y Caddy se levanta sin recrear dependencias
+ln_exp=$(grep -n '^export ERP_IMAGE="\$IMAGE"' "$INSTALL" | head -1 | cut -d: -f1)
+ln_dep=$(grep -n '^bash "\$DP_SCRIPT_DIR/deploy.sh"' "$INSTALL" | head -1 | cut -d: -f1)
+ln_cad=$(grep -n '^start_caddy$' "$INSTALL" | head -1 | cut -d: -f1)
+ln_ver=$(grep -n '^verify_image_identity$' "$INSTALL" | head -1 | cut -d: -f1)
+check "install.sh exporta ERP_IMAGE antes de deploy.sh" test -n "$ln_exp" -a -n "$ln_dep" -a "${ln_exp:-999}" -lt "${ln_dep:-0}"
+check "install.sh verifica la identidad de imagen despues de levantar Caddy" test -n "$ln_ver" -a "${ln_cad:-999}" -lt "${ln_ver:-0}"
+# 2) comportamiento: se extraen las funciones reales y se ejecutan con un docker/dc simulados
+extract_fn() { sed -n "/^$1() {/,/^}/p" "$INSTALL"; }
+{ echo 'log() { shift; echo "$*"; }; die() { shift; echo "DIE: $*" >&2; exit 1; }; EX_IMAGE=7; DP_PROJECT=t; IMAGE=theburyproject/erp:rel'
+  echo 'dc() { echo "dc $*" >>"$DC_LOG"; if [[ "$1 $2 $3" == "ps -a -q" ]]; then echo "cid-$4"; fi; }'
+  extract_fn start_caddy; extract_fn verify_image_identity; } >"$T/fns.sh"
+cat >"$T/fakebin/docker" <<'FAKE'
+#!/usr/bin/env bash
+# docker image inspect <tag> -> id de la release; docker inspect <cid> -> id efectivo segun FAKE_ID_<servicio>
+case "$1 $2" in
+  "image inspect") echo "sha256:${FAKE_REL_ID:-aaaaaaaaaaaaaaaaaaaaaaaa}"; exit 0 ;;
+  "volume ls") exit 0 ;;
+esac
+if [[ "$1" == inspect ]]; then
+  cid=${@: -1}; svc=${cid#cid-}
+  v="FAKE_ID_${svc}"; [[ -n "${!v:-}" ]] && echo "sha256:${!v}"; exit 0
+fi
+exit 0
+FAKE
+run_fns() { ( export DC_LOG="$T/dc.log"; : >"$DC_LOG"; PATH="$T/fakebin:$PATH"; source "$T/fns.sh"; "$@" ) 2>&1; }
+FAKE_REL_ID=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_app=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_migrate=aaaaaaaaaaaaaaaaaaaaaaaa run_fns verify_image_identity >"$T/vi.out"; rc=$?
+check "verify_image_identity: app y migrate con la imagen desplegada -> OK" test "$rc" = 0
+FAKE_REL_ID=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_app=bbbbbbbbbbbbbbbbbbbbbbbb FAKE_ID_migrate=aaaaaaaaaaaaaaaaaaaaaaaa run_fns verify_image_identity >"$T/vi.out"; rc=$?
+check "verify_image_identity: app con otra imagen (erp:local) -> falla" test "$rc" != 0
+check "verify_image_identity: el mensaje nombra el servicio que difiere" grep -q 'FAIL app NO usa' "$T/vi.out"
+FAKE_REL_ID=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_app=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_migrate=cccccccccccccccccccccccc run_fns verify_image_identity >"$T/vi.out"; rc=$?
+check "verify_image_identity: migrate con otra imagen -> falla" test "$rc" != 0
+check "verify_image_identity: el mensaje nombra migrate" grep -q 'FAIL migrate NO usa' "$T/vi.out"
+FAKE_REL_ID=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_app=aaaaaaaaaaaaaaaaaaaaaaaa run_fns verify_image_identity >"$T/vi.out"; rc=$?
+check "verify_image_identity: contenedor ausente -> falla (no se da por bueno)" test "$rc" != 0
+run_fns start_caddy >/dev/null; check "start_caddy usa --no-deps (no recrea app/migrate)" grep -q '^dc up -d --no-deps caddy$' "$T/dc.log"
+
 echo
 echo "install tests: $PASS PASS, $FAIL FAIL"
 (( FAIL == 0 ))
