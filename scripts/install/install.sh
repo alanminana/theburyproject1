@@ -214,9 +214,32 @@ build_image() {
 # ---------------------------------------------------------------- Caddy
 # deploy.sh no gestiona Caddy (en un host con Caddy ya corriendo no lo toca): en una instalacion nueva hay que levantarlo aqui.
 # `up -d` es idempotente: si ya corre con la misma configuracion no lo recrea.
+#   --no-deps: caddy depende de app, y app de migrate; sin esto `up` recrearia esos servicios al detectar otra definicion de imagen.
+#   ERP_IMAGE se exporta en main (deploy.sh lo exporta solo en su proceso hijo): sin ella compose resolveria el fallback
+#   theburyproject/erp:local y recrearia app y migrate con una imagen antigua (defecto reproducido en la VM, 2026-11-23).
 start_caddy() {
-  dc up -d caddy >/dev/null 2>&1 || die $EX_PREREQ "no se pudo levantar caddy (docker compose -p $DP_PROJECT logs caddy); si el puerto 443 esta ocupado definir ERP_HTTPS_PORT en .env"
+  dc up -d --no-deps caddy >/dev/null 2>&1 || die $EX_PREREQ "no se pudo levantar caddy (docker compose -p $DP_PROJECT logs caddy); si el puerto 443 esta ocupado definir ERP_HTTPS_PORT en .env"
   log INFO "OK   caddy en ejecucion (unico servicio publicado: HTTPS)"
+}
+
+# ---------------------------------------------------------------- identidad efectiva de las imagenes
+# Compara el ID de imagen con el que corren los contenedores app y migrate contra el de la imagen desplegada. Un tag igual no
+# basta (el fallback :local es otro tag): se compara el ID real. Falla la instalacion si difieren.
+verify_image_identity() {
+  local want svc cid got got_short bad=0
+  want=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null) || die $EX_IMAGE "no se pudo leer la identidad de la imagen $IMAGE"
+  for svc in app migrate; do
+    cid=$(dc ps -a -q "$svc" 2>/dev/null | head -n1)
+    got=""
+    [[ -z "$cid" ]] || got=$(docker inspect --format '{{.Image}}' "$cid" 2>/dev/null || true)
+    got_short=ausente; [[ -z "$got" ]] || got_short=${got:7:12}
+    if [[ -n "$got" && "$got" == "$want" ]]; then
+      log INFO "OK   $svc usa la imagen desplegada ($IMAGE, ${want:7:12})"
+    else
+      log ERROR "FAIL $svc NO usa la imagen desplegada: esperada=${want:7:12} efectiva=${got_short} (contenedor ${cid:0:12})"; bad=1
+    fi
+  done
+  (( bad == 0 )) || die $EX_IMAGE "las imagenes efectivas de app/migrate no coinciden con $IMAGE: no usar esta instalacion; corregir con scripts/deploy/deploy.sh --image $IMAGE"
 }
 
 # ---------------------------------------------------------------- CA de Caddy
@@ -258,8 +281,10 @@ fi
 
 resolve_image
 build_image
+export ERP_IMAGE="$IMAGE"   # todo `dc` posterior (caddy, CA, verificacion) resuelve la misma imagen que deploy.sh
 bash "$DP_SCRIPT_DIR/deploy.sh" --image "$IMAGE" --env-file "$DP_ENV_FILE" --project "$DP_PROJECT" || die $? "deploy fallo (ver mensajes anteriores y docs/deploy-rollback.md)"
 start_caddy
+verify_image_identity
 export_caddy_ca
 
 if (( SCHEDULE )); then
