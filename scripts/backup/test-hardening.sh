@@ -112,6 +112,8 @@ out=$(FAKE_CID="" guard "$T/bkA"); rc=$?
 check "guard: sin contenedor db (servidor nuevo en recuperacion) -> no bloquea" test "$rc" = 0
 out=$(FAKE_SRC="/run/desktop/mnt/host/c/x/sql" guard "$T/bkA"); rc=$?
 check "guard: rutas de Docker Desktop (sin evidencia) -> no bloquea" test "$rc" = 0
+out=$(FAKE_SRC="$T/bkB/sql" BURY_ALLOW_BACKUP_DIR_MISMATCH=1 guard "$T/bkA"); rc=$?
+check "guard: BURY_ALLOW_BACKUP_DIR_MISMATCH=1 (staging explicito) -> no bloquea y avisa" bash -c '[[ '"$rc"' == 0 && "$1" == *"BURY_ALLOW_BACKUP_DIR_MISMATCH=1"* ]]' _ "$out"
 if ln -sfn "$T/bkB" "$T/lnB" 2>/dev/null && [[ -L "$T/lnB" ]]; then
   out=$(FAKE_SRC="$T/bkB/sql" guard "$T/lnB"); rc=$?
   check "guard: BACKUP_DIR que es enlace al mismo directorio -> pasa" test "$rc" = 0

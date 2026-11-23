@@ -193,8 +193,11 @@ service_running() { # sin pipe directo a grep -q (SIGPIPE + pipefail)
 # BACKUP_DIR de esta o de vaciar volumenes ajenos con restore-files --force. Se compara el directorio del host que el contenedor `db` del proyecto
 # efectivo monta en /backups/sql con $BACKUP_DIR/sql. Solo ABORTA ante una discrepancia POSITIVA (ambas rutas conocidas y distintas): sin db creado
 # (servidor nuevo en recuperacion), sin docker inspect o con rutas no Linux (Docker Desktop) no hay evidencia y no se bloquea nada.
+# BURY_ALLOW_BACKUP_DIR_MISMATCH=1: opt-in EXPLICITO para un restore que lee de un directorio de preparacion (staging) distinto del que monta el db
+# (p. ej. los simulacros de DR). Nunca debe ir en un .env ni en un cron: se avisa por WARN cada vez.
 assert_backup_dir_matches_project() {
   [[ "$BACKUP_DIR" == /* ]] || return 0
+  if [[ "${BURY_ALLOW_BACKUP_DIR_MISMATCH:-0}" == 1 ]]; then log WARN "BURY_ALLOW_BACKUP_DIR_MISMATCH=1: no se comprueba que BACKUP_DIR corresponda al proyecto Compose (uso explicito, p. ej. staging)"; return 0; fi
   local cid src proj want real
   cid=$(dc ps -aq db 2>/dev/null | head -n1 | tr -d '\r' || true)
   [[ -n "$cid" ]] || return 0
@@ -206,7 +209,7 @@ assert_backup_dir_matches_project() {
   [[ -n "$real" && "$src" == "$real" ]] && return 0
   [[ "$(readlink -f "$src" 2>/dev/null || true)" == "$real" && -n "$real" ]] && return 0
   proj=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$cid" 2>/dev/null | tr -d '\r' || true)
-  die $EX_PREREQ "PROYECTO COMPOSE EQUIVOCADO: el servicio db del proyecto '${proj:-?}' monta '$src' en /backups/sql, pero BACKUP_DIR de este clon es '$BACKUP_DIR'. Definir COMPOSE_PROJECT_NAME (en el entorno, en el .env del clon o con 'install-schedule.sh --project') con el proyecto de ESTA instalacion. No se hizo nada"
+  die $EX_PREREQ "PROYECTO COMPOSE EQUIVOCADO: el servicio db del proyecto '${proj:-?}' monta '$src' en /backups/sql, pero BACKUP_DIR de este clon es '$BACKUP_DIR'. Definir COMPOSE_PROJECT_NAME (en el entorno, en el .env del clon o con 'install-schedule.sh --project') con el proyecto de ESTA instalacion; si leer de este directorio es a proposito (staging), BURY_ALLOW_BACKUP_DIR_MISMATCH=1. No se hizo nada"
 }
 
 check_prereqs() {
