@@ -6,6 +6,8 @@
 #   P07_DB_CONTAINER=<contenedor> P07_SA_PASSWORD=<pwd> [P07_DB_NAME=TheBuryProjectDb] bash scripts/install/test-verificadores-sql.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SQLD="$HERE/../sql"
+export MSYS_NO_PATHCONV=1   # Git Bash (Windows): que docker reciba las rutas del contenedor (/tmp/...) sin traducir
+win() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }   # rutas del host para docker.exe
 PASS=0 FAIL=0
 ok()  { PASS=$((PASS+1)); echo "PASS $1"; }
 bad() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
@@ -26,7 +28,7 @@ if [[ -n "${P07_DB_CONTAINER:-}" && -n "${P07_SA_PASSWORD:-}" ]]; then
   DB="${P07_DB_NAME:-TheBuryProjectDb}"; T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
   run() {  # run <bloque SQL previo> <verificador>  -> imprime la salida; devuelve el exit de sqlcmd
     { echo "SET NOCOUNT ON; BEGIN TRAN;"; echo "$1"; echo "GO"; echo ":r /tmp/chk.sql"; echo "GO"; echo "ROLLBACK;"; } > "$T/drv.sql"
-    docker cp "$SQLD/$2" "$P07_DB_CONTAINER:/tmp/chk.sql" >/dev/null; docker cp "$T/drv.sql" "$P07_DB_CONTAINER:/tmp/drv.sql" >/dev/null
+    docker cp "$(win "$SQLD/$2")" "$P07_DB_CONTAINER:/tmp/chk.sql" >/dev/null; docker cp "$(win "$T/drv.sql")" "$P07_DB_CONTAINER:/tmp/drv.sql" >/dev/null
     docker exec "$P07_DB_CONTAINER" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$P07_SA_PASSWORD" -C -d "$DB" -I -b -W -s'|' -i /tmp/drv.sql 2>&1
   }
   # inserta una fila en $1 con valores neutros por tipo (FKs sin chequear dentro de la transacción) y $2 = "Col=valor;Col=valor" (literales T-SQL)
