@@ -77,6 +77,7 @@ Hoy el Reporte de IVA no netea devoluciones y su nota lo advierte. Diseño para 
 ## 5. Residuos conocidos (documentados, sin cambio)
 
 - **Carrera entre NC distintas de la misma venta: CERRADA (2026-11-20).** El vínculo modifica la venta en el mismo guardado, de modo que dos vínculos simultáneos sobre la misma venta chocan por el token de concurrencia de `Ventas`; el perdedor falla y su reintento revalida contra lo ya acreditado. Prueba `Registrar_DosNcDistintasDeLaMismaVentaEnCarrera_NoSuperanElTotalDeLaVenta` (falla sin el fix) y `…DobleEnvioConcurrenteSobreLaMismaNc…`; revisión independiente de Codex sin hallazgos sobre este punto. Efecto colateral aceptado: una edición de esa venta en curso en el mismo instante recibiría un conflicto de concurrencia y debe reintentarse.
+- **Actualización 2026-11-23 (validación Agente 3):** con envío + armado y recargo/descuento de medio de pago, la misma diferencia de desglose V1 se midió hasta **$0,81** (emisión real con `FacturarVentaAsync`, prueba `EmisionDeFactura_ContadoConServiciosYCentavos_…`); el total, `Neto + IVA = Total` y el ingreso de Caja coinciden siempre, y V2 da 0 en los mismos casos. Misma conclusión: V1 inmutable, informativa, sin versión nueva.
 - **Hallazgo histórico V1 (medido 2026-11-20):** con ajuste de medio de pago (recargo o descuento) y alícuotas mixtas, el neto guardado en la venta puede diferir del reconstruido al leer el comprobante. **Medido hasta $0,71** (casos de la prueba `IntegridadFiscal_AjusteConAlicuotasMixtas_…`: 0,71 / 0,64 / 0,30 / 0,06); **no hay una cota universal demostrada**: en casos de uso razonables es de centavos (< $1), pero un contraejemplo extremo calculado en revisión independiente (producto exento de $1.000,99 + servicio al 21 % de $1 + recargo del 999 %, que la configuración permite) da $1,88. Crece con el porcentaje de ajuste; con los ajustes reales del negocio (−5 % / +3 %) se midió ≤ $0,71. Impacto real: **ninguno sobre lo cobrado** (el total coincide con el oráculo independiente y `Neto + IVA = Total` en venta, comprobante y reporte); es una diferencia de desglose neto/IVA, informativa. V2 la tiene en **0** (prueba). V1 es inmutable y no se corrige; **no** se crea una versión fiscal nueva por esta diferencia (no la justifica ni está autorizada). Un comprobante de venta V1 se interpreta idéntico aunque la versión vigente sea V2 (se resuelve por la versión persistida en la venta; prueba incluida). Nota: la cifra «~$0,70» de documentos anteriores queda corregida a «máx. medido 0,71 con los ajustes reales; sin cota universal».
 
 ## 6. Ensayo general (2026-11-20, VM `tbp`, stack aislado) — evidencia de ejecución
@@ -131,3 +132,17 @@ Como la base es **nueva**, P3 se aplica con todas las migraciones del `migrate` 
 `scripts/qa/p02/validacion-base-nueva.sh --image <imagen>`: instalación limpia en Production con V2 desde el primer arranque, 145 migraciones, base sin datos, gracia de 12 días por versionado y primera venta V2; 35 OK / 0 FALLA. Ver `docs/cierre-p03-p07-p02-20261121.md`.
 
 `validacion-base-nueva.sh` incluye desde 2026-11-21 el control de cuentas `scripts/sql/p07-verificar-cuentas.sql` (37 OK / 0 FALLA). Orden de puesta en marcha, cuentas, parámetros y reversión: `docs/puesta-en-marcha-p07-p02.md`.
+
+### 6.2 Validación fiscal V2 de contado, sin cambios de código (2026-11-23)
+
+Sobre `main` 3de0402e, con servicios reales sobre SQLite en memoria (prueba sintética: **no es aceptación fiscal de producción**). Nuevas pruebas en `FiscalTarjetaServiciosV2P02Tests` y `PunitorioGraciaRealTests`:
+
+| Escenario | Resultado |
+|---|---|
+| Tarjeta (plan con recargo) + armado + envío + centavos, V1 y V2 | Venta = comprobante = Reporte de IVA al centavo; `Neto + IVA = Total` |
+| Emisión real de factura de contado (Efectivo −5 %, Transferencia +3 %; IVA 21 % y 10,5 %; centavos; armado + envío) | V2: factura = venta persistida = comprobante = reporte = ingreso de Caja, sin reescribir importes al facturar. V1: total exacto; desglose neto/IVA del comprobante difiere hasta $0,81 (hallazgo V1 documentado) |
+| Devolución total V2 con descuento de Efectivo + servicios | Reintegra exactamente lo cobrado por productos (`Total − servicios`); egreso de Caja = total de la devolución |
+| Punitorio 0 % / 30 días / 12 de gracia | $0 en cualquier atraso, sin error |
+| `FISCAL_CRITERIO_V2_DESDE` ausente / inválida | ya cubierto (`ActivacionCriterioFiscalTests`, `preflight.sh`): ausente = V1; inválida = no arranca |
+
+Riesgo operativo residual (no es defecto de código): sin `FISCAL_CRITERIO_V2_DESDE` en el `.env` la instalación nueva opera en V1 sin avisar; se detecta solo con `p02-verificar-instalacion.sql` tras la primera venta. Por eso §3 paso 6 es obligatorio.

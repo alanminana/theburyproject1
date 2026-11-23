@@ -214,4 +214,29 @@ public class PunitorioGraciaRealTests
 
         Assert.Equal(65.00m, retro.PunitorioRedondeado);   // regla anterior: 13 días × $5
     }
+
+    /// <summary>
+    /// P-02 / Agente 3: parámetros iniciales de la puesta en marcha (0 % cada 30 días, 12 de gracia). Con tasa 0 el punitorio es $0 en
+    /// cualquier atraso (antes, dentro y mucho después de la gracia), sin error ni importe negativo, y sin
+    /// IVA (el punitorio no tiene concepto de IVA). Así la tasa 0 % no distorsiona nada fiscal hasta que el propietario la fije.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(45)]
+    [InlineData(400)]
+    public void ParametrosIniciales_Tasa0_30Dias_Gracia12_NoGeneranPunitorio(int atraso)
+    {
+        var config = new ConfiguracionPunitorioEntrada
+        {
+            Id = 1, VigenteDesde = new DateOnly(2020, 1, 1), Porcentaje = 0m, PeriodoDias = 30, DiasGracia = 12,
+            Activa = true, ProrrateoDiario = true
+        };
+
+        var r = Calcular(Venc, Venc.AddDays(atraso), 12, configs: new[] { config });
+
+        Assert.Equal(atraso, r.DiasTranscurridos);
+        Assert.Equal(0m, r.PunitorioRedondeado ?? 0m);
+    }
 }
