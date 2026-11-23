@@ -2755,7 +2755,16 @@ namespace TheBuryProject.Services
             return resultado;
         }
 
-        public async Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta)
+        public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) =>
+            GuardarDatosTarjetaAsync(ventaId, datosTarjeta, importeEnvioAunSinGuardar: null);
+
+        /// <param name="importeEnvioAunSinGuardar">
+        /// Envío incluido en el total que todavía no se persistió (el alta de la venta guarda la tarjeta ANTES que el envío). Con
+        /// null se lee el envío ya guardado de la venta. P-02 (V2): sirve para discriminar el recargo con los servicios EXACTOS,
+        /// igual que Create/Edit/comprobante/reporte; sin él el recargo se repartía sobre servicios inferidos y el neto/IVA
+        /// persistido podía diferir un centavo del comprobante.
+        /// </param>
+        private async Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta, decimal? importeEnvioAunSinGuardar)
         {
             var venta = await _context.Ventas
                 .FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
@@ -2775,7 +2784,13 @@ namespace TheBuryProject.Services
 
             _context.DatosTarjeta.Add(datosTarjetaEntity);
             var detallesVenta = await _context.VentaDetalles.Where(d => d.VentaId == ventaId && !d.IsDeleted).ToListAsync();
-            DiscriminarRecargoEnNetoEIva(venta, detallesVenta);
+            var envioIncluido = importeEnvioAunSinGuardar
+                ?? await _context.VentaEnvios
+                    .Where(e => e.VentaId == ventaId && !e.IsDeleted && e.IncluidoEnTotal)
+                    .Select(e => (decimal?)e.CostoEnvio)
+                    .FirstOrDefaultAsync();
+            var serviciosExactos = RedondearMoneda(detallesVenta.Sum(d => d.ArmadoSubtotal) + VentaMontos.NormalizarImporteEnvio(envioIncluido));
+            DiscriminarRecargoEnNetoEIva(venta, detallesVenta, serviciosExactos);
             await _context.SaveChangesAsync();
 
             return true;
@@ -5397,7 +5412,10 @@ namespace TheBuryProject.Services
         {
             if (viewModel.DatosTarjeta != null && TipoPagoRequiereDatosTarjeta(viewModel.TipoPago))
             {
-                await GuardarDatosTarjetaAsync(ventaId, viewModel.DatosTarjeta);
+                var envioPendiente = viewModel.TieneEnvio && viewModel.Envio is { IncluidoEnTotal: true }
+                    ? viewModel.Envio.CostoEnvio
+                    : 0m;
+                await GuardarDatosTarjetaAsync(ventaId, viewModel.DatosTarjeta, envioPendiente);
             }
 
             if (viewModel.DatosCheque != null && viewModel.TipoPago == TipoPago.Cheque)
