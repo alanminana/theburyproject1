@@ -44,7 +44,25 @@ Las cotizaciones y el simulador solo consultan; no persisten crédito ni reserva
 
 `docker cp scripts/sql/p07-verificar-credito-cerrado.sql <db>:/tmp/k.sql && docker exec <db> /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -d TheBuryProjectDb -I -b -i /tmp/k.sql`
 
-Estado de la validación del script: **sintaxis comprobada con `SET PARSEONLY ON` en SQL Server (LocalDB), sin ejecutarlo contra ninguna base**; los nombres de tablas y columnas salen del modelo EF. Falta su primera ejecución real en la base nueva de la puesta en marcha (o en un ensayo con base descartable).
+Estado de la validación del script (2026-11-22): **ejecutado contra una base nueva y descartable** (instalada con `install.sh` real, proyecto `tbp-p07ens`, SQL Server 2022, 145 migraciones; destruida al terminar; no se tocó ninguna base real ni la preproducción):
+
+| Caso | Resultado |
+|---|---|
+| Base recién instalada | **FALLA** correcta: `puntaje 0 = 200000.00` (semilla), exit 1 |
+| Cupo llevado a $0 por la pantalla real («Límites por puntaje», `LimitesPorPuntajeGuardar`, usuario SuperAdmin) | `sin FALLA`, exit 0 (cupos y montos en 0, 0 límites por cliente, 0 créditos) |
+| Cupo > 0 en un puntaje activo / monto financiable > 0 | FALLA, exit 1 (con `@Operando = 1` pasa a INFO, exit 0) |
+| Cupo > 0 en fila **inactiva** | no cuenta (coincide con `ResolverLimiteAsync`, que filtra `Activo`) |
+| Cliente con límite manual / monto personalizado; override o excepción de cupo | FALLA, exit 1 (cliente eliminado lógicamente: no cuenta) |
+| Crédito preexistente | FALLA, exit 1 (crédito eliminado lógicamente: no cuenta) |
+| Plan activo | INFO (no bloquea, como se documentó) |
+| Punitorio 0 % / 30 / 12 activo (cargado en transacción revertida) | OK; sin versión cargada: INFO «sin versión vigente» |
+| **Solo lectura** | Ejecutado con un usuario `db_datareader` (sin permiso de escritura: un `UPDATE` directo da «permission denied») y snapshot de las 141 tablas (filas + checksum) idéntico antes y después. Las únicas escrituras del script son la tabla temporal `#c` (tempdb) |
+
+Los casos negativos se ejecutan en transacciones que se revierten, con `scripts/install/test-verificadores-sql.sh` en modo vivo (`P07_DB_CONTAINER`, `P07_SA_PASSWORD`; base **descartable**); sin esas variables solo corre la parte estática (CI).
+
+Hallazgo informativo del control (§4, INFO): en una instalación nueva los roles **Administrador y Gerente** ya tienen `ventas.authorize` y `clientes.managecreditlimits` (la condición «solo SuperAdmin» del §3 **no** viene de la semilla: hay que quitarlos por pantalla en Seguridad → Roles antes de dar esos roles al personal, o decidir que se mantienen).
+
+Defecto corregido en esta ronda: `p07-verificar-cuentas.sql` y `p02-verificar-instalacion.sql` mostraban «FALLA» pero terminaban con **exit 0** aun con `sqlcmd -b` (el runbook promete que la FALLA detiene el procedimiento); ahora terminan con `RAISERROR` igual que el control de crédito.
 
 Cuando el propietario decida abrir el crédito (definir cupos por puntaje, planes y permisos), vuelve a correrlo con `@Operando = 1` y deja constancia.
 
