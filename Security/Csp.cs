@@ -134,7 +134,14 @@ public static class CspReportEndpoint
                 var partes = new List<string>();
                 foreach (var campo in CamposPermitidos)
                     if (rep.TryGetProperty(campo, out var v))
-                        partes.Add($"{campo}={Sanear(v.ToString())}");
+                    {
+                        var texto = v.ToString();
+                        // La query y el fragmento pueden traer tokens (ConfirmEmail/ResetPassword ?code=) o datos personales (?q=DNI):
+                        // nunca llegan al log. El resto de los campos no son URL.
+                        if (CamposUrl.Contains(campo)) texto = QuitarConsultaYFragmento(texto);
+                        texto = Depurar(texto);
+                        partes.Add($"{campo}={Sanear(texto)}");
+                    }
                 lf.CreateLogger("CspReport").LogWarning("CSP violation: {Reporte}", string.Join(" | ", partes));
             }
             catch (System.Text.Json.JsonException)
@@ -143,6 +150,29 @@ public static class CspReportEndpoint
             }
             return Results.NoContent();
         }).AllowAnonymous().DisableAntiforgery().RequireRateLimiting(CspPolicy.PoliticaRateLimit);
+
+    private static readonly HashSet<string> CamposUrl = ["document-uri", "blocked-uri", "source-file"];
+
+    private static readonly System.Text.RegularExpressions.Regex NonceEnPolitica = new(@"'nonce-[^']*'", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+    private static readonly System.Text.RegularExpressions.Regex UserInfoEnUrl = new(@"(?<=//)[^/@\s]*@", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Aplica a TODOS los campos: el nonce de la politica (viene dentro de violated-directive), el contenido de URIs data: y credenciales embebidas (user:pass@).</summary>
+    internal static string Depurar(string valor)
+    {
+        valor = NonceEnPolitica.Replace(valor, "'nonce-…'");
+        if (valor.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            var coma = valor.IndexOf(',');
+            valor = coma < 0 ? valor : valor[..coma] + ",…";
+        }
+        return UserInfoEnUrl.Replace(valor, "");
+    }
+
+    internal static string QuitarConsultaYFragmento(string valor)
+    {
+        var i = valor.AsSpan().IndexOfAny('?', '#');
+        return i < 0 ? valor : valor[..i];
+    }
 
     private static string Sanear(string valor)
     {
