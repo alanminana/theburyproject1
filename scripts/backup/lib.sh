@@ -187,10 +187,33 @@ service_running() { # sin pipe directo a grep -q (SIGPIPE + pipefail)
   grep -qx "$1" <<<"$svcs"
 }
 
+# Defensa contra "proyecto Compose equivocado" (dos instalaciones en el mismo servidor, cada una en su clon con su BACKUP_DIR). Compose resuelve
+# el proyecto por COMPOSE_PROJECT_NAME o, si falta, por el `name:` del docker-compose.yml: un cron o un restore lanzado desde el clon de una
+# instalacion SIN COMPOSE_PROJECT_NAME apuntaria a OTRA pila (la de `name: theburyproject`), con riesgo de respaldar la base equivocada dentro del
+# BACKUP_DIR de esta o de vaciar volumenes ajenos con restore-files --force. Se compara el directorio del host que el contenedor `db` del proyecto
+# efectivo monta en /backups/sql con $BACKUP_DIR/sql. Solo ABORTA ante una discrepancia POSITIVA (ambas rutas conocidas y distintas): sin db creado
+# (servidor nuevo en recuperacion), sin docker inspect o con rutas no Linux (Docker Desktop) no hay evidencia y no se bloquea nada.
+assert_backup_dir_matches_project() {
+  [[ "$BACKUP_DIR" == /* ]] || return 0
+  local cid src proj want real
+  cid=$(dc ps -aq db 2>/dev/null | head -n1 | tr -d '\r' || true)
+  [[ -n "$cid" ]] || return 0
+  src=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/backups/sql"}}{{.Source}}{{end}}{{end}}' "$cid" 2>/dev/null | tr -d '\r' || true)
+  [[ "$src" == /* && "$src" != /run/desktop/* && "$src" != /host_mnt/* && "$src" != /mnt/host/* ]] || return 0
+  src=${src%/}; want="$BACKUP_DIR/sql"
+  [[ "$src" == "$want" ]] && return 0
+  real=$(readlink -f "$want" 2>/dev/null || true)
+  [[ -n "$real" && "$src" == "$real" ]] && return 0
+  [[ "$(readlink -f "$src" 2>/dev/null || true)" == "$real" && -n "$real" ]] && return 0
+  proj=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$cid" 2>/dev/null | tr -d '\r' || true)
+  die $EX_PREREQ "PROYECTO COMPOSE EQUIVOCADO: el servicio db del proyecto '${proj:-?}' monta '$src' en /backups/sql, pero BACKUP_DIR de este clon es '$BACKUP_DIR'. Definir COMPOSE_PROJECT_NAME (en el entorno, en el .env del clon o con 'install-schedule.sh --project') con el proyecto de ESTA instalacion. No se hizo nada"
+}
+
 check_prereqs() {
   command -v docker >/dev/null 2>&1 || die $EX_PREREQ "docker no esta disponible"
   dc version >/dev/null 2>&1 || die $EX_PREREQ "docker compose v2 no esta disponible"
   service_running db || die $EX_PREREQ "el servicio db no esta corriendo"
+  assert_backup_dir_matches_project
   sql_exec "SELECT 1" >/dev/null 2>&1 || die $EX_PREREQ "SQL Server no responde"
 }
 

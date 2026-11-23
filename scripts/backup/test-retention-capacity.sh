@@ -298,6 +298,16 @@ check "extraible: removable-copy.json exit 0 verified true 'al dia'" bash -c 'gr
 check "extraible: el origen no se modifica (3 cadenas intactas)" bash -c '[[ $(ls "$1/sql" | grep -c "^TheBuryProjectDb_full_.*.bak$") == 3 ]]' _ "$S"
 out=$(cfgrun "$S" BACKUP_REMOVABLE_DIR="$REM" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply 2>&1)
 check "extraible: segunda corrida copia 0 archivos (idempotente)" bash -c 'grep -q "AL DIA" <<<"$1" && grep -q "(cadena .*, 0 archivo(s) copiados)" <<<"$1"' _ "$out"
+# un destino extraible es de UNA instalacion (P-06 cierre tecnico): la primera copia graba BACKUP_DIR en la marca y otra instalacion no puede usarlo
+check "extraible: la primera copia graba el dueño (BACKUP_DIR) en la marca" test "$(head -n1 "$REM/.bury-backup-removable")" = "$S"
+S3=$(newbk src3); mkchain "$S3" $((1*D)) 1 1000 1
+hrem=$(cd "$REM" && find bury-backup -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+out=$(cfgrun "$S3" BACKUP_REMOVABLE_DIR="$REM" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply 2>&1); rc=$?
+check "extraible de OTRA instalacion: rc 0 (no rompe el backup), no copia nada y avisa 'OTRA instalacion'" bash -c '[[ "$1" == 0 ]] && grep -q "OTRA instalacion" <<<"$2" && [[ "$(cd "$3" && find bury-backup -type f | sort | xargs sha256sum | sha256sum | cut -d" " -f1)" == "$4" ]]' _ "$rc" "$out" "$REM" "$hrem"
+check "extraible de OTRA instalacion: estado 'atrasada' (exit 1, verified false) en el monitor de la intrusa" bash -c 'grep -q "\"exit\":1" "$1/monitor-status/removable-copy.json" && grep -q "\"verified\":false" "$1/monitor-status/removable-copy.json"' _ "$S3"
+cfgrun "$S3" BACKUP_REMOVABLE_DIR="$REM" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply --strict >/dev/null 2>&1; rc=$?
+check "extraible de OTRA instalacion con --strict: rc 1" test "$rc" = 1
+check "extraible de OTRA instalacion: la marca del dueño no se pisa" test "$(head -n1 "$REM/.bury-backup-removable")" = "$S"
 # atrasada: llega un log nuevo al origen y el disco esta desconectado
 mkf "$S" "sql/${DB}_log_$(stamp 60).trn" 100; shaf "$S" "sql/${DB}_log_$(stamp 60).trn"
 mv "$REM" "$T/rem1-desconectado"

@@ -57,6 +57,51 @@ if command -v logrotate >/dev/null; then
   check "logrotate -d acepta la config" bash -c 'logrotate -d "$1" >/dev/null 2>&1' _ "$SB/etc/logrotate.d/bury-backup"
 fi
 
+# --- dos instalaciones en el mismo servidor (P-06 cierre tecnico): cron propio por proyecto y rechazo de pisar el ajeno -------------------
+SB2="$T/sb2"; mkdir -p "$SB2"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" >/dev/null
+hlegacy=$(sha256sum "$SB2/etc/cron.d/bury-backup" | cut -d' ' -f1)
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$HERE/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-prod >/dev/null; rc=$?
+check "--project theburyproject-prod: rc=0 y archivos propios (cron, logrotate, log de errores)" bash -c '[[ '"$rc"' == 0 && -f "$1/etc/cron.d/bury-backup-prod" && -f "$1/etc/logrotate.d/bury-backup-prod" && -f "$1/var/log/bury-backup-prod-errors.log" ]]' _ "$SB2"
+check "--project: NO toca el cron de la otra instalacion" test "$(sha256sum "$SB2/etc/cron.d/bury-backup" | cut -d' ' -f1)" = "$hlegacy"
+check "--project: los 4 jobs llevan COMPOSE_PROJECT_NAME y su propio log de errores" bash -c '[[ $(grep -c "COMPOSE_PROJECT_NAME=theburyproject-prod /bin/bash" "$1") == 4 && $(grep -c "2>>/var/log/bury-backup-prod-errors.log" "$1") == 4 && $(grep -c "bury-backup-errors.log" "$1") == 0 ]]' _ "$SB2/etc/cron.d/bury-backup-prod"
+check "sin --project el cron legado NO lleva COMPOSE_PROJECT_NAME ni cambia de nombre" bash -c '! grep -q COMPOSE_PROJECT_NAME "$1" && grep -q "bury-backup-errors.log" "$1"' _ "$SB2/etc/cron.d/bury-backup"
+check "--log-offset 7 con --log-every 15 -> minutos 7,22,37,52" bash -c 'bash "$1/install-schedule.sh" --print --user "$2" --log-offset 7 | grep -q "^7,22,37,52 \* \* \* \* "' _ "$HERE" "$USER_NOW"
+check "--log-offset fuera de rango se rechaza" bash -c '! bash "$1/install-schedule.sh" --print --log-offset 15 >/dev/null 2>&1' _ "$HERE"
+check "--project invalido se rechaza" bash -c '! bash "$1/install-schedule.sh" --print --project "Prod X" >/dev/null 2>&1' _ "$HERE"
+# otro clon del repo no puede reemplazar el cron existente (mismo nombre de archivo)
+CL2="$T/clone2"; mkdir -p "$CL2/scripts/backup"; cp "$HERE/install-schedule.sh" "$CL2/scripts/backup/"
+err=$(BURY_SCHEDULE_SANDBOX="$SB2" bash "$CL2/scripts/backup/install-schedule.sh" --install --user "$USER_NOW" 2>&1 >/dev/null); rc=$?
+check "otro clon sin --project: rechazado (rc!=0), mensaje claro y cron intacto" bash -c '[[ '"$rc"' != 0 && "$1" == *"pertenece a otro clon"* ]] && [[ "$(sha256sum "$2" | cut -d" " -f1)" == "$3" ]]' _ "$err" "$SB2/etc/cron.d/bury-backup" "$hlegacy"
+BURY_SCHEDULE_SANDBOX="$SB2" bash "$CL2/scripts/backup/install-schedule.sh" --install --user "$USER_NOW" --project theburyproject-otro >/dev/null; rc=$?
+check "otro clon con su --project: crea su archivo y deja los demas" bash -c '[[ '"$rc"' == 0 && -f "$1/etc/cron.d/bury-backup-otro" && -f "$1/etc/cron.d/bury-backup-prod" ]]' _ "$SB2"
+
+# assert_backup_dir_matches_project: docker falso (ps -aq db / inspect). Solo aborta ante discrepancia POSITIVA.
+mkdir -p "$T/gbin" "$T/bkA/sql" "$T/bkB/sql"
+cat >"$T/gbin/docker" <<'FAKE'
+#!/bin/sh
+case "$*" in
+  *"ps -aq db"*) [ -n "${FAKE_CID-x}" ] && printf '%s\n' "${FAKE_CID-cid123}" ;;
+  *"inspect -f"*"/backups/sql"*) printf '%s\n' "${FAKE_SRC-}" ;;
+  *"inspect -f"*"compose.project"*) printf '%s\n' "${FAKE_PROJ-theburyproject}" ;;
+  *) exit 0 ;;
+esac
+FAKE
+chmod +x "$T/gbin/docker"
+guard() { ( export PATH="$T/gbin:$PATH"; source "$HERE/lib.sh" >/dev/null 2>&1; BACKUP_DIR="$1"; assert_backup_dir_matches_project ) 2>&1; }
+out=$(FAKE_SRC="$T/bkA/sql" guard "$T/bkA"); rc=$?
+check "guard: db monta el sql/ de ESTE BACKUP_DIR -> pasa" test "$rc" = 0
+out=$(FAKE_SRC="$T/bkB/sql" FAKE_PROJ=theburyproject guard "$T/bkA"); rc=$?
+check "guard: db de OTRO BACKUP_DIR -> aborta (rc 8) nombrando proyecto y rutas" bash -c '[[ '"$rc"' == 8 && "$1" == *"PROYECTO COMPOSE EQUIVOCADO"* && "$1" == *"theburyproject"* && "$1" == *"bkB/sql"* ]]' _ "$out"
+out=$(FAKE_CID="" guard "$T/bkA"); rc=$?
+check "guard: sin contenedor db (servidor nuevo en recuperacion) -> no bloquea" test "$rc" = 0
+out=$(FAKE_SRC="/run/desktop/mnt/host/c/x/sql" guard "$T/bkA"); rc=$?
+check "guard: rutas de Docker Desktop (sin evidencia) -> no bloquea" test "$rc" = 0
+if ln -sfn "$T/bkB" "$T/lnB" 2>/dev/null && [[ -L "$T/lnB" ]]; then
+  out=$(FAKE_SRC="$T/bkB/sql" guard "$T/lnB"); rc=$?
+  check "guard: BACKUP_DIR que es enlace al mismo directorio -> pasa" test "$rc" = 0
+else echo "SKIP guard con enlace simbolico: el entorno no crea symlinks"; fi
+
 # --- sanitize_text --------------------------------------------------------------------------------------------------------
 # shellcheck source=lib.sh
 source "$HERE/lib.sh" >/dev/null 2>&1

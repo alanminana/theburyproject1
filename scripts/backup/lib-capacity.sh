@@ -340,6 +340,14 @@ removable_available() { # -> rc 0 disponible | 1 no (REMOVABLE_WHY = motivo)
   fi
   [[ -f "$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" ]] || { REMOVABLE_WHY="falta el archivo-marca '$BACKUP_REMOVABLE_MARKER' en la raiz del destino (crearlo una vez con touch en el disco correcto)"; return 1; }
   [[ -w "$BACKUP_REMOVABLE_DIR" ]] || { REMOVABLE_WHY="el destino no es escribible por $(id -un)"; return 1; }
+  # Un destino extraible es de UNA instalacion: el nombre de archivo de los respaldos (<db>_full_<ts>.bak) es identico entre instalaciones y la
+  # retencion por cadenas las trataria como una sola (una podaria las copias de la otra). La primera copia graba BACKUP_DIR en la marca
+  # (removable_sync); aqui se rechaza un destino cuya marca nombra a OTRA instalacion. Marca vacia (legado) = libre, se reclama al copiar.
+  local owner; owner=$(head -c 1024 "$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" 2>/dev/null | tr -d '\r' | head -n1 || true)
+  if [[ -n "$owner" && "$owner" != "$BACKUP_DIR" ]]; then
+    REMOVABLE_WHY="el destino pertenece a OTRA instalacion (su marca nombra BACKUP_DIR=$owner, esta es $BACKUP_DIR): usar un destino extraible propio por instalacion. Si se movio BACKUP_DIR a proposito, corregir el contenido de '$BACKUP_REMOVABLE_MARKER'"
+    return 1
+  fi
   return 0
 }
 
@@ -361,6 +369,10 @@ removable_sync() { # removable_sync <apply 0|1>
   fi
   local llist rlist now; now=$(date -u +%s)
   llist=$(cap_run local "$CAP_LIST_SH" 2>&1) || { log WARN "copia extraible: no se pudo listar BACKUP_DIR: $(sanitize_text "$llist" | tr '\n' ' ' | cut -c1-200)"; (( apply )) && removable_status 1 false "atrasada: no se pudo listar el origen"; return 0; }
+  if (( apply )) && [[ ! -s "$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" ]]; then
+    printf '%s
+' "$BACKUP_DIR" >"$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" 2>/dev/null       && log INFO "destino extraible reclamado por esta instalacion (marca = $BACKUP_DIR)"       || log WARN "no se pudo grabar el dueño del destino extraible en la marca (se sigue sin exclusividad)"
+  fi
   if (( apply )); then
     cap_run removable "$CAP_PREP_SH" >/dev/null 2>&1 || { log WARN "copia extraible: no se pudo preparar el destino"; removable_status 1 false "atrasada: no se pudo preparar el destino"; [[ "${REMOVABLE_STRICT:-0}" == 1 ]] && return 1; return 0; }
   fi
