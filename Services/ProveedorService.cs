@@ -215,6 +215,13 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // QA financiera: la baja se decide bajo el mismo lock de proveedor que usa Cuentas por pagar, así un pago, un
+                // anticipo o una factura que se está registrando no puede colarse entre la comprobación de saldos y la baja.
+                await using var transaccionPropia = _context.Database.CurrentTransaction == null
+                    ? await _context.Database.BeginTransactionAsync()
+                    : null;
+                await ProveedorConcurrencia.BloquearAsync(_context, id);
+
                 // Respetar query filters (soft delete): si ya está eliminado, no debería aparecer
                 var proveedor = await _context.Proveedores.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
                 if (proveedor == null)
@@ -243,9 +250,39 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("No se puede eliminar el proveedor porque tiene cheques vigentes asociados");
                 }
 
+                // La baja lógica sacaría al proveedor de Cuentas por pagar (ya no admite pagos ni aplicaciones) y dejaría
+                // huérfana su deuda o su saldo a favor. Se rechaza mientras exista cualquiera de los dos (mismo criterio que H-24 en clientes).
+                var comprobantesConSaldo = await _context.ComprobantesProveedor.AsNoTracking()
+                    .Where(c => c.ProveedorId == id && !c.IsDeleted && c.Estado != EstadoComprobanteProveedor.Anulado)
+                    .Select(c => c.SaldoPendiente).ToListAsync(); // se suma en memoria: SQLite no suma decimales
+                if (comprobantesConSaldo.Any(saldo => saldo > 0m))
+                {
+                    throw new InvalidOperationException(
+                        "No se puede eliminar el proveedor porque tiene comprobantes con saldo pendiente o notas de crédito sin aplicar. Cancelá o aplicá esos saldos primero.");
+                }
+
+                var anticipos = await _context.AnticiposProveedor.AsNoTracking()
+                    .Where(a => a.ProveedorId == id && !a.IsDeleted && !a.Anulado)
+                    .Select(a => new { a.Id, a.Monto }).ToListAsync();
+                if (anticipos.Count > 0)
+                {
+                    var ids = anticipos.Select(a => a.Id).ToList();
+                    var aplicado = (await _context.AnticipoAplicaciones.AsNoTracking()
+                            .Where(x => ids.Contains(x.AnticipoProveedorId) && !x.Anulada)
+                            .Select(x => new { x.AnticipoProveedorId, x.Monto }).ToListAsync())
+                        .GroupBy(x => x.AnticipoProveedorId).ToDictionary(g => g.Key, g => g.Sum(x => x.Monto));
+                    if (anticipos.Any(a => a.Monto - aplicado.GetValueOrDefault(a.Id) > 0m))
+                    {
+                        throw new InvalidOperationException(
+                            "No se puede eliminar el proveedor porque tiene anticipos con saldo a favor sin aplicar. Aplicalos o anulalos primero.");
+                    }
+                }
+
                 // Soft delete
                 proveedor.IsDeleted = true;
                 await _context.SaveChangesAsync();
+                if (transaccionPropia != null)
+                    await transaccionPropia.CommitAsync();
 
                 _logger.LogInformation("Proveedor eliminado: {Id} - {RazonSocial}", id, proveedor.RazonSocial);
                 return true;
