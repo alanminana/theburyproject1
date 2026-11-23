@@ -47,8 +47,7 @@ y **el crash del 22/11 ocurrió con la versión posterior a la actualización de
 
 1. **Decisión del propietario (la acción de mayor valor, reversible):** ¿se usa Riot Vanguard? Si no hace falta, desinstalarlo (Apps → Riot Vanguard; pide reiniciar). Si se necesita,
    dejarlo pero tratar al equipo como **no apto para servidor** y mover el ERP a un equipo sin Vanguard (o sin juegos) antes de la puesta en marcha real.
-2. **Prueba de causalidad:** tras desinstalarlo, observar **≥ 14 días sin `0x133`**. La tasa observada es un cierre cada ~4-5 días (4 `0x133` en 14 días), así que 14 días sin ninguno
-   equivalen a ≈ 95 % de confianza de que el problema desapareció (3 intervalos esperados; no es una prueba formal). `Test-HostVmContinuity.ps1` (H07) lo mide solo.
+2. **Prueba de causalidad (observacional):** tras desinstalarlo, registrar la fecha y observar si reaparece un `0x133`. La tasa previa fue de un cierre cada ~4-5 días (4 `0x133` en 14 días): 14 días sin ninguno es una señal favorable pero **no demuestra** que el problema desapareció (no es una prueba estadística formal; otros factores pueden coincidir). `Test-HostVmContinuity.ps1` (H07) usa una ventana móvil de 30 días y cuenta todos los eventos 41: **no conoce la fecha de desinstalación ni mide este experimento**; hay que contar los eventos posteriores a esa fecha con `Get-WinEvent` y registrarlo a mano.
 3. **Volcado completo para el próximo crash (ventana de mantenimiento, cambia el sistema):** `CrashDumpEnabled` hoy es 3 (minidump) y solo se conservan 3. Pasar a *kernel dump*
    y verificar espacio en `C:` (16 GB libres) permite identificar el titular del lock. No hecho: modifica configuración de Windows.
 4. Actualizar BIOS (F20 de 6/10/2026) y el controlador de GPU **solo** si el crash persiste sin Vanguard; hoy no hay evidencia que los señale.

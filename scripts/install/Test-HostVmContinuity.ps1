@@ -144,11 +144,12 @@ else {
 
 # --- H08 la instancia de ESTA VM corre en una sesion interactiva (independiente de que haya autostart configurado)
 $todos = @(Get-CimInstance Win32_Process -Filter "Name='vmware-vmx.exe'" -ErrorAction SilentlyContinue)
-$vmxProcs = @($todos | Where-Object { $_.CommandLine -and (($_.CommandLine.ToLowerInvariant().Replace('/', '')) -like "*$vmxNorm*") })
+# comparacion por ruta COMPLETA del .vmx extraida de la linea de comandos (no por subcadena: tbp.vmx.other.vmx no es tbp.vmx)
+$vmxProcs = @($todos | Where-Object { $_.CommandLine -and (@([regex]::Matches($_.CommandLine, '(?i)[a-z]:[\/][^"]*?\.vmx(?=["\s]|$)') | ForEach-Object { $_.Value.ToLowerInvariant().Replace('/', '\') }) -contains $vmxNorm) })
 if ($vmxProcs.Count -eq 0 -and $todos.Count -eq 1 -and $vmrun) {
   # la linea de comandos puede no ser legible (proceso de otro usuario/protegido): con UNA sola VM encendida y la nuestra en vmrun list, es esa
   $encendidas = @(& $vmrun list 2>$null | Where-Object { $_ -match '\.vmx$' })
-  if ($encendidas.Count -eq 1 -and $encendidas[0].ToLowerInvariant().Replace('/', '') -eq $vmxNorm) { $vmxProcs = $todos }
+  if ($encendidas.Count -eq 1 -and $encendidas[0].ToLowerInvariant().Replace('/', '\') -eq $vmxNorm) { $vmxProcs = $todos }
 }
 if ($vmxProcs.Count -eq 0) { Warn 'H08' 'no se encontro un proceso vmware-vmx de esta VM (apagada, o hay varias VM encendidas y no se pudo atribuir el proceso)' }
 else {
@@ -164,8 +165,10 @@ $vmGB = 0; foreach ($l in Get-Content -LiteralPath $VmxPath -ErrorAction Silentl
 $wslCfg = Join-Path $env:USERPROFILE '.wslconfig'
 $wslGB = [math]::Round($ramGB * 0.5, 1); $wslTxt = 'sin .wslconfig: tope por defecto = 50 % de la RAM'; $wslIlegible = $false
 if (Test-Path -LiteralPath $wslCfg) {
+  $seccion = ''
   foreach ($l in Get-Content -LiteralPath $wslCfg) {
-    if ($l -match '^\s*memory\s*=') {
+    if ($l -match '^\s*\[([^\]]+)\]') { $seccion = $Matches[1].Trim().ToLowerInvariant(); continue }
+    if ($seccion -eq 'wsl2' -and $l -match '^\s*memory\s*=') {
       if ($l -match '^\s*memory\s*=\s*(\d+(?:\.\d+)?)\s*(GB|G|MB|M)?\s*(#.*)?$') {
         $n = [double]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture)
         $wslGB = if ($Matches[2] -match '^M') { [math]::Round($n / 1024, 1) } else { [math]::Round($n, 1) }
