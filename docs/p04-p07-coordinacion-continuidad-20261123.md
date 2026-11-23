@@ -6,7 +6,11 @@ Convención: **[V]** verificado en esta pasada · **[R]** tomado de otro documen
 
 ## 1. Prioridad 1: diagnóstico del anfitrión
 
-### 1.1 Los minidumps NO pudieron analizarse (bloqueo)
+### 1.0 Actualización: los volcados SÍ fueron analizados por otro agente (reportado, no re-verificado aquí)
+
+PR #359 (`docs/p04-diagnostico-bugcheck-20261123.md`) informa, con elevación aprobada por el propietario y WinDbg/`cdb`: **los 3 minidumps son `0x133` y en los 3 el código en ejecución es `vgk.sys` (Riot Vanguard, anticheat de kernel) esperando un spinlock**; el crash del 22/11 ocurrió con la versión posterior a la actualización del 20/11. Los `0x50` del 11/11 y el `0x133` del 9/11 no tienen minidump: **causa no determinada**. Wi-Fi USB, NVMe y RAM no aparecen en ninguna pila. Esto **reemplaza** los sospechosos ordenados de §1.3, que eran hipótesis sin volcados (GPU/PCIe, RAM, BIOS siguen como contexto, no como causa). Lo que sigue en 1.1-1.4 se conserva como registro de lo que se verificó antes de contar con ese análisis. Acción de mayor valor (decisión del propietario, reversible): desinstalar Vanguard y observar ≥ 14 días sin `0x133`; mientras exista, el equipo no es apto como servidor.
+
+### 1.1 (histórico) Los minidumps NO pudieron analizarse desde mi sesión
 
 `C:\Windows\Minidump` (3 archivos: 111726-22843-01, 111726-24187-01, 112226-23828-01, ~12 MB c/u) devuelve **Acceso denegado** a la sesión actual (no elevada) [V]. No se cambió la ACL ni se usó ninguna elevación (modificaría Windows). WinDbg está disponible (`Microsoft.WinDbg` 1.2611, `cdb.exe`/`kd.exe` amd64) [V].
 
