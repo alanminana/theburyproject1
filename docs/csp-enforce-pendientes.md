@@ -207,3 +207,7 @@ Cierra lo que la ronda anterior declaró «NO validado»: alta de plantillas de 
 - **Cómo repetirlo:** `docker compose --env-file <env> -p bury-d05w -f docker-compose.yml -f docker-compose.ci.yml up -d --build app`, sembrar con los 4 `*E2ESeedRunner.Sembrar` y `CSP_QA_STACK_AISLADO=1 E2E_BASE_URL=http://127.0.0.1:18300 node scripts/qa/csp-roles/escenarios.js --browser <b> --modo reportonly|enforce --solo "D-05"` (para `enforce` recrear `app` con `Csp__Mode=Enforce`; el script aborta si la cabecera no coincide con `--modo`).
 
 **Sigue NO validado (depende del propietario o de hardware/entorno real):** Safari/iOS/Android reales, impresoras y visores PDF del sistema, datos reales (límites de volumen, caracteres inesperados en clientes reales), ventana de ≥ 10 días hábiles en `ReportOnly` con uso real, host/Caddy definitivos, fuentes de Google con salida a Internet y la autorización escrita del propietario. **`Csp:Mode` sigue en `Off` por defecto; no se activó `Enforce` en ningún entorno real.**
+
+## Ronda 2026-11-23 (D-05, preparación de cierre): estado
+
+Sin cambios de política ni de modo (`Csp:Mode` sigue en `Off`; no se activó `ReportOnly` ni `Enforce`; la ventana de 10 días hábiles **no empezó**). Se corrigió el log de `/csp-report` (sin query, fragmento, nonce de la política, contenido `data:` ni credenciales de URL) y se documentaron riesgos, cobertura, condiciones de inicio de ventana, post-ventana y acta de aprobación en `docs/csp-enforce-activacion.md` §10–§12. El ítem 8 sigue pendiente.
