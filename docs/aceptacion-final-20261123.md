@@ -1,10 +1,10 @@
 # Informe de aceptación final (2026-11-23)
 
-Base: `main` 647207c1 (#358), actualizada el 23/11 (noche) a `main` f39a8416 (#359 a #363 fusionadas; #364 en revisión). Solo documentación. No se tocó ninguna base, VM, contenedor ni usuario. No reabre módulos cerrados: consolida lo ya decidido y probado.
+Base: `main` 647207c1 (#358), actualizada el 23/11 (noche) a `main` f39a8416 (#359 a #363 fusionadas; #364 en revisión). Esta PR es solo documentación. El informe original de la mañana se hizo en solo lectura; las comprobaciones de la noche (despliegue en `theburyproject-prod`, §5; pruebas descartables, §12b) se describen donde corresponden y **no** tocaron preproducción ni datos reales. No reabre módulos cerrados: consolida lo ya decidido y probado.
 
 **Convención de evidencia**
 - **[V]** verificado en esta pasada (git/gh, lectura de documentos, consulta a la VM; en la actualización de la noche del 23/11 también el despliegue y las pruebas sobre `theburyproject-prod`, descritos en §5).
-- **[R]** reportado por documentos o agentes anteriores; no re-ejecutado aquí.
+- **[R]** reportado por documentos o agentes anteriores; no re-ejecutado aquí. Las observaciones hechas por otro agente, aunque se hayan visto en la VM, se marcan [R].
 - **[P]** pendiente / no verificable hoy.
 
 ## 1. Respuestas directas
@@ -29,7 +29,7 @@ Base: `main` 647207c1 (#358), actualizada el 23/11 (noche) a `main` f39a8416 (#3
 | D-02 referencias/crédito/autorizaciones | Finalizado funcional | Sí (reservas: lector de pantalla real) | — | §16.4 [R] |
 | D-03 Tesorería/anticipos/cheque único | Finalizado | Sí | Orígenes de fondos y cajas reales sin cargar | §17 [R] |
 | V-02 cheques informativos | Finalizado (alcance informativo) | Sí | — | §18 [R] |
-| P-02 fiscal V2 | Implementado y probado | Sí (instalador con `--fiscal-v2-desde`, verificador SQL) | **Pendiente**: instante fiscal, instalación, aceptación. IVA de punitorio con alícuotas mixtas sin tratamiento (contador) | `p02-*`, `cierre-administrativo-20261121` [R] |
+| P-02 fiscal V2 | Implementado y probado | Sí (instalador con `--fiscal-v2-desde`, verificador SQL) | Instalación e instante fiscal **verificados** en `theburyproject-prod` (§5, control 4); **pendiente** la aceptación con operación real (0 ventas V2 hasta hoy). IVA de punitorio con alícuotas mixtas sin tratamiento (contador) | `p02-*`, `cierre-administrativo-20261121` [R] |
 | P-03 seguridad de usuarios | Verificado (software) | Sí | Cuentas reales (2 SuperAdmin) sin crear | `estado-software-pre-instalacion` [R] |
 | P-04 servidor definitivo | Diferido (diagnóstico ampliado 23/11: `p04-diagnostico…` §5; sin cambios en el anfitrión) | Arnés Win11/Ubuntu fusionado | **No hay servidor físico**; solo la VM `tbp`, que es de la PC de desarrollo | `puesta-en-marcha-estado-20261123` [R] |
 | P-05 acceso remoto | Cierre técnico local | Sí | Tailscale real sin confirmar | `p05-cierre-tecnico-local` [R] |
@@ -57,7 +57,7 @@ Fuente: agente P-06 (PR #362 fusionada en `main` `f39a8416`; `docs/p06-cierre-te
 | Preproducción intacta | Contenedores sanos, monitor activo, su cron y su `log.json` con horario propio; no se modificó su LUKS ni su configuración. No se auditó el contenido de sus datos | [R] |
 | Espacio | `/` 99 GB, 70 GB libres (27 %); respaldos de prod 37 MB, de preprod 175 MB; `BACKUP_MAX_TOTAL_GB` y `BACKUP_MIN_FREE_GB` siguen en 0 (sin datos reales de negocio no hay medición que justifique un límite) | [R] |
 
-**Observado [V] después (23/11, 22:21 hora VM; hecho por otro agente, no por P-06):** `BACKUP_REMOVABLE_DIR=/mnt/tbp-respaldo-prod` (volumen LUKS `tbp-respaldo-prod`, mismo host); `removable-copy.json` y `removable-verify.json` existen y el log registra «33 archivos sha256 OK». Es una segunda copia **local**: **no cumple** el criterio de respaldo independiente del anfitrión.
+**Observado [R] después (23/11, 22:21 hora VM; hecho por otro agente, no por P-06; visto en `.env`, `monitor-status` y log, no re-ejecutado):** `BACKUP_REMOVABLE_DIR=/mnt/tbp-respaldo-prod` (volumen LUKS `tbp-respaldo-prod`, mismo host); `removable-copy.json` y `removable-verify.json` existen y el log registra «33 archivos sha256 OK». Es una segunda copia **local**: **no cumple** el criterio de respaldo independiente del anfitrión.
 
 **Verificación del full sin intervención:** en la VM quedó un timer transitorio de solo lectura (`p06-verifica-full`, 24/11 03:55) que escribe `~/p06-verificacion-full-<fecha>.txt` con `full.json`, líneas del log, `sha256sum -c`, `RESTORE VERIFYONLY` independiente, aislamiento y estado de monitores. Probado en seco el 23/11 (verifyonly del full del 23/11 15:30: «The backup set on file 1 is valid», SHA256 OK).
 
@@ -87,7 +87,7 @@ Fuente: agente P-06 (PR #362 fusionada en `main` `f39a8416`; `docs/p06-cierre-te
 | Compras | Aprobado con limitaciones | QA OC, recepción parcial; #350 | Costo manual (costeo: decisión abierta); una OC real |
 | Proveedores | Aprobado | #351 (baja con deuda rechazada), D-03 | Alta de proveedores reales |
 | Tesorería | Finalizado | D-03, `TesoreriaSqlServerTests` | Orígenes de fondos reales (hoy 0) |
-| Facturación V2 | Implementado | P-02, #355 (tarjeta V2 con servicios exactos), `p02-verificar-instalacion.sql` | Fecha V2 persistida: **no verificable** sin instalación. Facturación fiscal legal es externa al ERP (decidido); el ERP emite comprobante interno |
+| Facturación V2 | Implementado | P-02, #355 (tarjeta V2 con servicios exactos), `p02-verificar-instalacion.sql` | Fecha V2 persistida: **verificada** en `theburyproject-prod` (§5, control 4); aceptación operativa pendiente. Facturación fiscal legal es externa al ERP (decidido); el ERP emite comprobante interno |
 | Reportes económicos | Aprobado con limitaciones | Ventas, Márgenes, IVA contrastados con SQL | IVA sin netear devoluciones, costo con IVA, envío/armado y recargo fuera de la ganancia: contador |
 | Respaldos | Aprobado con limitaciones | Full diario, logs 15 min, `verifyonly` OK, copia local LUKS [R] | **Sin offsite**; claves fuera de la VM |
 | Recuperación | Aprobado con limitaciones | Restauración full + 67 logs, `CHECKDB` OK, 44 s desde copia externa en ensayo [R] | Restauración sobre la instalación real; remontaje tras reinicio |
@@ -120,7 +120,7 @@ Bloqueos de instalación ya resueltos: la VM se usó con autorización; correo/u
 4. Una sola instancia de la app; hora de logs en UTC (esperado).
 5. Lector de pantalla real (NVDA/JAWS/VoiceOver) no verificado.
 6. IVA de punitorio con alícuotas mixtas, interés de financiación y recargo: tratamiento fiscal sin validar (contador). Facturación fiscal externa.
-7. Interés por mora `TasaMoraBase`: unidades contradictorias (diario vs mensual); contado no afectado, crédito cerrado sin exposición. **Decisión tomada:** contrato y pagaré alineados con el punitorio vigente (hoy 0 %) y sin estimaciones monetarias inconsistentes en alertas. **Implementación y validación a cargo del agente responsable: NO realizadas ni verificadas en este informe**; mientras no haya evidencia (PR fusionada + prueba), el riesgo sigue abierto y crédito debe permanecer cerrado.
+7. Interés por mora `TasaMoraBase`: unidades contradictorias (diario vs mensual); contado no afectado, crédito cerrado sin exposición. **Decisión tomada:** contrato y pagaré alineados con el punitorio vigente (hoy 0 %) y sin estimaciones monetarias inconsistentes en alertas. **Implementación: PR #363 fusionada y desplegada (§10b). Validación funcional sobre un contrato real: NO realizada** (§12b: tramo crédito→contrato NO VALIDADO) y redacción legal pendiente; mientras no haya esa evidencia el riesgo sigue abierto y crédito debe permanecer cerrado.
 
 ## 7. Funcionalidades diferidas
 
@@ -179,7 +179,7 @@ La instalación independiente `theburyproject-prod` está **instalada, desplegad
 
 - **Integrado en `main`** [V por `gh`/`git`]: interés por mora del contrato y del pagaré = punitorio **vigente** (`ConfiguracionPunitorio`), 0 % válido, sin respaldos en `TasaMoraBase`/5 %/0,05 %/0,20 %, sin emitir si no hay configuración activa; las alertas dejan de mostrar importe de mora estimado (se conservan capital vencido, cuotas y días de atraso). Sin migración EF, no abre crédito, no fija tasas, no toca operaciones históricas.
 - **Desplegado** [V]: la imagen en ejecución `20261124-f39a8416` contiene #363 (ancestro de `f39a8416`; identidad del contenedor comprobada).
-- **Probado sobre la instalación real:** **no se puede**: el crédito está cerrado y la base no tiene créditos; el verificador de crédito cerrado pasa y el punitorio vigente es 0 %. El comportamiento del contrato se valida solo en el ambiente descartable (ver §12b). 
+- **Probado sobre la instalación real:** **no se puede**: el crédito está cerrado y la base no tiene créditos; el verificador de crédito cerrado pasa y el punitorio vigente es 0 %. **Validación funcional del contrato pendiente:** en el ambiente descartable el tramo crédito→contrato quedó NO VALIDADO (§12b); solo existe la prueba unitaria reportada de #363. 
 - **Acción pendiente en base real (de #363):** actualizar el texto de las **plantillas de contrato ya cargadas** (no se modifican por código) y la redacción legal de la cláusula (propietario/asesor).
 
 ## 11. Notion
@@ -194,7 +194,7 @@ No hay conector de Notion disponible en esta sesión: **no se actualizó**. Text
 | P-06 | **En progreso** (falta respaldo independiente; riesgo aceptado, no mitigado; full automático del 24/11 03:45 por verificar) | §2b |
 | P-07 | **En progreso** (faltan 2 SuperAdmin, datos de empresa, pruebas humanas) | §5 controles 3, 5, 7 |
 | D-05 | **Preparado, no activado** (`CSP_MODE=Off`) | §5 control 5 |
-| Mora contractual A+B (#363) | **Integrado y desplegado; validación legal pendiente** | §10b |
+| Mora contractual A+B (#363) | **Integrado y desplegado; validación funcional (contrato real) y legal pendientes** | §10b, §12b |
 
 ## 12b. Pruebas fiscales y comerciales en ambiente descartable (23/11, noche)
 
@@ -210,4 +210,4 @@ Acciones sobre el script de QA (local, **no incluidas en esta PR**): el recorrid
 
 ## 12. Defectos reproducibles hallados en esta pasada
 
-Ninguno. No se ejecutaron pruebas funcionales nuevas.
+Ninguno nuevo en `main`. Hubo pruebas sintéticas parciales (108 OK, 0 FALLA, §12b); el tramo crédito→contrato→cobros quedó NO VALIDADO. El recorrido de QA necesita un paso de autorización BCRA y de guardado de la venta (script, no aplicación).
