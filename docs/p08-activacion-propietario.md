@@ -1,5 +1,7 @@
 # P-08: activación de los canales reales (guía del propietario) y estado de cierre (2026-11-21)
 
+> Nota (2026-11-24): la VM `tbp` quedó fuera del plan; donde esta guía dice «servidor» se refiere al servidor de pruebas (notebook Ubuntu) o al servidor definitivo, aún por definir. Los resultados fechados de abajo son los emitidos en su momento.
+
 Base: `main` f7c51e07. Complementa `p08-cierre-operativo-20261120.md` y `p08-receptor-alertas-procedimiento.md`. Sin credenciales en este documento.
 **No se crearon bots, cuentas ni servicios externos, no se generaron credenciales, no se tocó Tailscale ni la Raspberry, no se apagó Windows/VMware.**
 
@@ -18,19 +20,19 @@ Base: `main` f7c51e07. Complementa `p08-cierre-operativo-20261120.md` y `p08-rec
 1. En Telegram buscar `@BotFather` → `/newbot` → elegir nombre → **copiar el token** (formato `123456789:AAH…`). No compartirlo por chat ni correo.
 2. Crear un grupo (o usar su chat personal), **agregar el bot** y escribir cualquier mensaje al bot/grupo.
 3. Abrir en un navegador `https://api.telegram.org/bot<TOKEN>/getUpdates` (reemplazando `<TOKEN>`): en la respuesta, `"chat":{"id": …}` es el **chat_id** (los grupos son negativos, p. ej. `-100…`).
-4. En la VM: `sudo bash /opt/theburyproject/scripts/monitoring/activar-canales.sh --telegram` y pegar token y chat_id cuando los pida. Debe llegar un mensaje de prueba a Telegram; confirmarlo.
+4. En el servidor de pruebas (notebook Ubuntu) o, más adelante, en el servidor definitivo (por definir): `sudo bash /opt/theburyproject/scripts/monitoring/activar-canales.sh --telegram` y pegar token y chat_id cuando los pida. Debe llegar un mensaje de prueba a Telegram; confirmarlo.
 
 ### B. Observador externo (heartbeat saliente, nada expuesto a Internet)
-Recomendado: **Healthchecks.io** (plan gratuito; recibe un ping HTTPS *saliente* cada minuto desde la VM y avisa por Telegram/correo cuando **dejan de llegar** o vuelven; funciona aunque Windows, VMware y la VM estén apagados porque corre en la nube). Alternativas equivalentes: Better Stack / Cronitor / Uptime Kuma en otro sitio (estilo `kuma`).
+Recomendado: **Healthchecks.io** (plan gratuito; recibe un ping HTTPS *saliente* cada minuto desde el servidor y avisa por Telegram/correo cuando **dejan de llegar** o vuelven; funciona aunque el servidor y su host estén apagados porque corre en la nube). Alternativas equivalentes: Better Stack / Cronitor / Uptime Kuma en otro sitio (estilo `kuma`).
 1. Crear cuenta en healthchecks.io → *Add Check* → nombre «ERP tbp», **Period 2 minutes, Grace 3 minutes** (el monitor pega cada 60 s).
 2. En *Integrations* del check agregar **Telegram** (vincula un chat; puede ser el mismo del punto A) y, opcional, correo.
 3. Copiar la **ping URL** del check (`https://hc-ping.com/<uuid>`). Tratarla como secreto.
-4. En la VM: `sudo bash /opt/theburyproject/scripts/monitoring/activar-canales.sh --heartbeat` y pegar la URL (estilo `healthchecks`).
+4. En el servidor (de pruebas o definitivo): `sudo bash /opt/theburyproject/scripts/monitoring/activar-canales.sh --heartbeat` y pegar la URL (estilo `healthchecks`).
 (Los pasos exactos de la interfaz de un servicio de terceros pueden variar: seguir su documentación; lo que importa es *period* mayor que 60 s y *grace* de unos minutos.)
 
 ### C. Prueba con persona real (30 minutos, con su autorización)
-1. `docker compose stop caddy` (o `app`) en la VM durante ~4 minutos → debe llegar a Telegram «CRITICAL http…»; `docker compose start` → «RESUELTO». Registrar fecha, canal y quién lo vio en `monitoreo-validacion.md`.
-2. Para la caída total: **solo con su autorización**, apagar la VM (o desconectarla de la red) ~6 minutos → Healthchecks debe avisar «DOWN» por Telegram; al encenderla, «UP». Esto es lo que prueba la independencia del observador.
+1. `docker compose stop caddy` (o `app`) en el servidor durante ~4 minutos → debe llegar a Telegram «CRITICAL http…»; `docker compose start` → «RESUELTO». Registrar fecha, canal y quién lo vio en `monitoreo-validacion.md`.
+2. Para la caída total: **solo con su autorización**, apagar el servidor (o desconectarlo de la red) ~6 minutos → Healthchecks debe avisar «DOWN» por Telegram; al encenderla, «UP». Esto es lo que prueba la independencia del observador.
 
 ## 3. Lo comprobado hoy (evidencia real, sin canal humano)
 

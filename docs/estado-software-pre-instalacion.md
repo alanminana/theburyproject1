@@ -36,7 +36,7 @@ Base: `main` bacc9744 + la tanda `task/software-cierre-20261119`. Alcance: todo 
 ## 3. Validaciones que obligatoriamente requieren el servidor real
 
 - Respaldos: capacidad real de disco, copia externa/SFTP, restauración cronometrada, custodia de la clave de Caddy (`BACKUP_CA_KEY`), arranque sin sesión de usuario.
-- Plataforma: Windows Server + Hyper-V/VM, convivencia con la VM, Tailscale (identidades y ACL), firewall, Caddy/HTTPS reales, SignalR sobre el proxy real.
+- Plataforma: Windows Server + Hyper-V/VM (opción no elegida), Tailscale (identidades y ACL), firewall, Caddy/HTTPS reales, SignalR sobre el proxy real.
 - CSP: ventana de observación en `ReportOnly` con uso real (ítem 8 de `csp-enforce-pendientes.md`) antes de proponer `Enforce`; Firefox/Safari y móvil físicos.
 - Cuentas reales: creación de usuarios productivos, rotación/desactivación de `admin` y cuentas demo (runbook de `p03-ensayo-transicion-cuentas.md` §4) y el mínimo de 10 caracteres solo rige con `ASPNETCORE_ENVIRONMENT=Production`.
 - Migraciones sobre la base real (`H10…`, `D03…`, etc.): con respaldo verificado y autorización expresa.
