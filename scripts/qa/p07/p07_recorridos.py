@@ -378,6 +378,16 @@ def main():
     chk("R8.2", "instalacion nueva: credito personal NO disponible hasta configurar tasa/planes (dato faltante, no defecto)", cp["disponible"] is False, cp["motivoNoDisponible"])
     r, _ = sup.submit("/ConfiguracionPago/CreditoPersonal", ov, action_contains="/ConfiguracionPago/CreditoPersonal", follow=False)
     chk("R8.3", "SuperAdmin guarda tasa, limites por puntaje y 3 planes (3/6/12 cuotas)", r.status == 302 and q1("select count(*) from ConfiguracionCreditoPersonalCuotas where Activo=1") == "3", r.location)
+    # Mora contractual (#363): el contrato de credito solo se genera con una version de punitorios vigente y activa (puede ser 0 %).
+    # Se crea por la pantalla real, como SuperAdmin (tasa SINTETICA, solo para esta pila descartable).
+    import datetime
+    hoy_ar = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date().isoformat()  # dia comercial argentino, no el del host
+    r, _ = sup.submit("/ConfiguracionPago/CreditoPersonal", {
+        "Punitorios.CrearForm.VigenteDesde": hoy_ar, "Punitorios.CrearForm.Porcentaje": "1",
+        "Punitorios.CrearForm.PeriodoDias": "30", "Punitorios.CrearForm.DiasGracia": "12", "Punitorios.CrearForm.Activa": "true",
+        "Punitorios.CrearForm.MotivoCambio": "P07 recorridos (tasa sintetica)"}, action_contains="CrearVersionPunitorio", follow=False)
+    chk("R8.3b", "SuperAdmin crea la version de punitorios vigente (requisito del contrato de credito, #363)",
+        r.status == 302 and q1("select count(*) from ConfiguracionesPunitorio where IsDeleted=0 and Activa=1 and cast(VigenteDesde as date) <= '%s'" % hoy_ar) == "1", r.location)
     cp = [o for o in adm.post_json("/api/cotizacion/simular", sim).json["opcionesPago"] if o["medioPago"] == 5][0]
     p6 = [p for p in cp["planes"] if p["cantidadCuotas"] == 6]
     chk("R8.4", "simulacion: 6 cuotas con recargo 20 %% = 217.800 (6 x 36.300)", cp["disponible"] and p6 and dec(p6[0]["total"]) == 217800 and dec(p6[0]["valorCuota"]) == 36300, p6[:1])
