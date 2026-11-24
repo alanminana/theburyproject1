@@ -78,10 +78,20 @@ La «restauración entre equipos con la VM» deja de ser un objetivo (se reempla
 | D-05: activación `ReportOnly` / centinela por Caddy / reversión a `Off` | cabecera `Content-Security-Policy-Report-Only` presente; `/csp-report` por Caddy responde 204 **con y sin `Content-Length`** (riesgo R2 medido); activación 5,2 s, reversión 4,9 s; imagen intacta. **No inicia la ventana de 10 días hábiles** |
 | Energía/servidor | tapa y suspensión deshabilitadas (`logind` + `*.target` enmascarados); SSH solo desde el equipo administrador (se eliminó una regla `OpenSSH ALLOW Anywhere` preexistente) |
 
-### Hallazgo de recuperación: la copia del extraíble pierde el dueño de `sql/`
+### Hallazgo de recuperación (corregido): la copia del extraíble perdía el dueño de `sql/`
 
-La copia del pendrive la hace el contenedor `backup-files` como `root:root` (modo 640), mientras que en el original los `.bak/.trn` son del uid 10001 (SQL Server). Al restaurar en una instalación limpia, `RESTORE VERIFYONLY` **falla** (SQL Server no puede leer el archivo)
-y, si se levanta el stack igual, `migrate` crea una base vacía (no es una recuperación). Solución: tras copiar, `chown -R 10001:10001 <BACKUP_DIR>/sql`. Quedó anotado en `docs/backup-restore.md` §10. `restore-test-local-copy.sh` no se ve afectado porque copia dentro del contenedor.
+La copia del pendrive la hace el contenedor `backup-files` con `cp` sin conservar dueño ni modo: `sql/` y los `.bak/.trn` quedaban `root:root` (700/640) mientras que en el original son del uid 10001 (SQL Server). Al restaurar en una instalación limpia,
+`RESTORE VERIFYONLY` **fallaba** y, si se levantaba el stack igual, `migrate` creaba una base vacía (no era una recuperación). **Corregido en código** (no es un paso manual): `copy-removable` conserva dueño y modo; `restore-sql.sh`
+corrige el directorio y los archivos desde un contenedor root y aborta si no puede; la nueva `scripts/backup/recover.sh` hace la recuperación completa con salida estricta, compuerta previa al arranque y marca `.recovery-incomplete`
+(ver `backup-restore.md` §10). Prueba: `scripts/qa/p07/run-dr-datos.sh` (abajo).
+
+### Recuperación con datos comerciales sintéticos conocidos (`run-dr-datos.sh`): 38/38
+
+Pila A: los recorridos P-07 cargan por la aplicación 1 cliente, 1 producto, 1 proveedor, 1 orden de compra, 5 ventas, 3 facturas, 8 movimientos de caja, 2 devoluciones, 1 nota de crédito, 1 crédito con 6 cuotas, 3 documentos subidos y 12 movimientos de stock;
+con `app` detenida se toma la huella de **las 141 tablas** (filas + `CHECKSUM_AGG(BINARY_CHECKSUM(*))`) y de `uploads`, y se hace `backup.sh all`. Pila B (volúmenes vacíos): los respaldos llegan como `root:root` 600 y se recupera con `recover.sh`.
+Casos negativos (todos se detienen con código ≠ 0, sin levantar `app`/`migrate`): `.bak` alterado (código 3, no cambia nada), tar ausente (código 3, no cambia nada), `.bak` corrupto con sha256 recalculado (código 3 tras restaurar archivos; la base no existe, queda la marca y `preflight.sh` rechaza desplegar).
+Positivo: huella de las 141 tablas **idéntica** entre A y B, uploads idénticos, 0 violaciones de FK/CHECK; recuperación completa con stack sano; tras arrancar, clientes, ventas, facturas y documentos conservan filas y checksum.
+Además, smoke de interfaz en Chrome real sobre el sistema recuperado (24 pantallas × 1366/390 vía túnel SSH): 48/48 en la segunda corrida (la primera tuvo 1 observación transitoria de recursos abortados en un arranque en frío).
 
 ## 5. Hallazgo: el runner P-07 estaba desactualizado
 

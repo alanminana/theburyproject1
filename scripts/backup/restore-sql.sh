@@ -17,6 +17,24 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 BACKUP="" TARGET="" WITH_LOGS=0 STOPAT="" OVERWRITE=0 CONFIRM="" LIST=0
+# SQL Server corre como uid 10001 y debe poder LEER cada archivo. Los respaldos traidos de un disco extraible o del offsite pueden llegar como
+# root:root 640 (hallazgo 2026-11-24: RESTORE VERIFYONLY fallaba y, si se seguia con `docker compose up`, migrate creaba una base VACIA).
+# Se corrige el dueño/modo desde un contenedor root (el contenido ya se verifico por sha256) y, si aun asi no se puede leer, se ABORTA.
+# Lo mismo para el DIRECTORIO sql/: tras copiarlo desde un extraible/offsite puede quedar root:root 700 y SQL Server ni siquiera lo atraviesa
+# (sintoma enganoso: "el backup no existe o esta vacio"). Es el mismo ajuste que hace prepare_dirs() de lib.sh al respaldar.
+asegurar_directorio_sql() {
+  dc exec -T db test -x /backups/sql 2>/dev/null && return 0
+  log WARN "SQL Server no puede atravesar $BACKUP_DIR/sql (dueño/modo): se corrige a 10001:0 modo 750 desde un contenedor root"
+  tools sh -c 'chown 10001:0 /backups/sql && chmod 750 /backups/sql' >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $BACKUP_DIR/sql: el restore NO continua"
+  dc exec -T db test -x /backups/sql 2>/dev/null || die $EX_VERIFY "SQL Server sigue sin poder atravesar $BACKUP_DIR/sql: el restore NO continua"
+}
+asegurar_legible() { # asegurar_legible <archivo dentro de /backups/sql>
+  dc exec -T db test -r "/backups/sql/$1" 2>/dev/null && return 0
+  log WARN "SQL Server no puede leer $1 (dueño/modo): se corrige a 10001:0 modo 640 desde un contenedor root"
+  tools sh -c 'chown 10001:0 "/backups/sql/$0" && chmod 640 "/backups/sql/$0"' "$1" >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $1: el restore NO continua"
+  dc exec -T db test -r "/backups/sql/$1" 2>/dev/null || die $EX_VERIFY "SQL Server sigue sin poder leer $1: el restore NO continua"
+}
+
 while (( $# )); do
   case "$1" in
     --backup) BACKUP="${2:-}"; shift 2 ;;
@@ -62,6 +80,7 @@ fi
 
 log INFO "=== restore-sql inicio: $BACKUP -> [$TARGET] logs=$WITH_LOGS stopat='${STOPAT:-}' ==="
 
+asegurar_directorio_sql
 # 1) el archivo existe, no esta vacio y coincide con su sha256
 size=$(dc exec -T db bash -c 'test -s "/backups/sql/$0" && stat -c %s "/backups/sql/$0"' "$BACKUP" 2>/dev/null | tr -d '\r' || true)
 is_uint "$size" && (( size > 0 )) || die $EX_VERIFY "el backup '$BACKUP' no existe o esta vacio en $BACKUP_DIR/sql"
@@ -70,6 +89,16 @@ if [[ "$(tools sh -c 'test -f "/backups/sql/$0.sha256" && echo yes' "$BACKUP" | 
   log INFO "sha256 OK"
 else
   log WARN "no hay $BACKUP.sha256: se omite esa verificacion"
+fi
+
+# 1b) SQL Server debe poder leer el full y, con --with-logs, cada log posterior (antes de tocar nada)
+asegurar_legible "$BACKUP"
+if (( WITH_LOGS )); then
+  _fts=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$BACKUP")
+  for _f in $(dc exec -T db bash -c 'ls -1 /backups/sql | grep -E "^${0}_log_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.trn$" | sort' "$DB_NAME" | tr -d '\r' || true); do
+    _t=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$_f")
+    if [[ "$_t" > "$_fts" ]]; then asegurar_legible "$_f"; fi
+  done
 fi
 
 # 2) proteccion contra sobrescritura accidental

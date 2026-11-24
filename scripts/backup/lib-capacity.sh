@@ -247,6 +247,10 @@ for p in "$@"; do
        else cmp -s -- "$p" "$tmp" && ok=1; fi ;;
   esac
   [ "$ok" = 1 ] || { rm -f -- "$tmp"; echo "la verificacion de integridad (sha256) FALLO: $p" >&2; exit 6; }
+  # Conserva dueño y modo del origen: SQL Server (uid 10001) debe poder leer los .bak/.trn al restaurar desde esta copia (sin esto quedaban root:root 640 y
+  # RESTORE VERIFYONLY fallaba). Mejor esfuerzo: NTFS/exFAT no soportan chown; ahi restore-sql.sh lo corrige al restaurar.
+  chown "$(stat -c %u:%g -- "$p")" "$tmp" 2>/dev/null || true
+  chmod "$(stat -c %a -- "$p")" "$tmp" 2>/dev/null || true
   mv -f -- "$tmp" "$dst"; n=$((n + 1))
 done
 echo "$n"'
