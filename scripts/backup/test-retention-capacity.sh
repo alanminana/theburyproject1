@@ -265,6 +265,23 @@ check "sql/ es un symlink: no se sigue y NO se borra nada fuera de BACKUP_DIR" t
 # el fragmento de borrado rechaza rutas fuera de sql/ files/ aunque el plan estuviera adulterado
 out=$(ROOT="$R3" MARK="$R3/.bury-backup-root" sh -c "$CAP_DELETE_SH" cap "../s1/sql/x" "/etc/passwd" 2>&1); rc=$?
 check "borrado en el contenedor/host rechaza rutas absolutas o con '..' (rc 3)" test "$rc" = 3
+# regresion A10: un `rm` que falla NO puede quedar enmascarado por el echo final. Se simula con un `rm` falso (PATH) que falla en sql/*.bak
+# (independiente de ser root: chattr/permisos no son fiables en CI).
+RMSTUB="$T/rmstub"; mkdir -p "$RMSTUB"
+cat >"$RMSTUB/rm" <<'RMEOF'
+#!/bin/sh
+for a in "$@"; do case "$a" in sql/*.bak) echo "rm: no se puede borrar '$a': Operation not permitted" >&2; exit 1 ;; esac; done
+exec /bin/rm "$@"
+RMEOF
+chmod +x "$RMSTUB/rm"
+R7=$(newbk rmfail7); mkchain "$R7" $((2*D)) 1 1000 0; mkchain "$R7" $((1*D)) 1 1000 0
+f7=$(cd "$R7" && ls sql/*_full_*.bak | head -n1)
+out=$(PATH="$RMSTUB:$PATH" ROOT="$R7" MARK="$R7/.bury-backup-root" sh -c "$CAP_DELETE_SH" cap "$f7" 2>&1); rc=$?
+check "A10 fragmento de borrado: si rm falla sale con rc 4 (no 0) y lo informa" bash -c '[[ "$1" == 4 ]] && grep -q "no se pudo borrar" <<<"$2" && [[ -f "$3/$4" ]]' _ "$rc" "$out" "$R7" "$f7"
+R8=$(newbk rmfail8); mkchain "$R8" $((2*D)) 1 1000 0; mkchain "$R8" $((1*D)) 1 1000 0
+out=$(PATH="$RMSTUB:$PATH" cfgrun "$R8" BACKUP_MAX_TOTAL_GB=0.000001 BACKUP_CAPACITY_MIN_CHAINS=1 -- retention-capacity.sh --apply 2>&1); rc=$?
+check "A10 capacity_run con rm que falla: exit 7 (no se declara exito) y mensaje claro" bash -c '[[ "$1" == 7 ]] && grep -q "el borrado fallo" <<<"$2" && ! grep -q "archivo(s) borrado(s)" <<<"$2"' _ "$rc" "$out"
+check "A10 capacity.json refleja el fallo (exit 7, verified false)" bash -c 'grep -q "\"exit\":7" "$1/monitor-status/capacity.json" && grep -q "\"verified\":false" "$1/monitor-status/capacity.json"' _ "$R8"
 # concurrencia: con el lock tomado, --apply sale con 4 y no borra
 R6=$(newbk lock6); mkchain "$R6" $((2*D)) 1 1000 0; mkchain "$R6" $((1*D)) 1 1000 0; b6=$(snap "$R6")
 ( exec 9>>"$R6/.lock.flock"; flock -n 9 && sleep 6 ) & LKPID=$!; sleep 1

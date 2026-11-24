@@ -8,7 +8,7 @@
 #
 #   bash scripts/qa/p02/ensayo-puesta-en-marcha.sh --image-a <imagen-anterior> --image-b <imagen-nueva> [--out DIR] [--keep]
 #
-# Aislamiento (guardas): proyecto Compose propio tbp-p02ens-<hex>, red/volúmenes/puertos/subred propios, .env y backups en un directorio
+# Aislamiento (guardas): proyecto Compose propio tbp-p02ens-<hex> (prefijo historico; la guarda de ensayo_venta.py lo exige tal cual), red/volúmenes/puertos/subred propios, .env y backups en un directorio
 # temporal. NUNCA toca otro proyecto, ninguna base real, ni el .env real (se niega a correr si ya existe un .env en el checkout).
 # Al terminar destruye contenedores y volúmenes del proyecto (salvo --keep). No usa `docker compose down -v` sobre otro proyecto.
 set -uo pipefail

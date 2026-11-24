@@ -217,14 +217,16 @@ CAP_DELETE_SH='cd "$ROOT" || exit 2
 [ -f "$MARK" ] || { echo "marca ausente ($MARK): no se borra nada" >&2; exit 2; }
 [ -L sql ] || [ -L files ] && { echo "sql/ o files/ es un enlace simbolico: no se borra nada" >&2; exit 3; }
 n=0
+failed=0
 for p in "$@"; do
   case "$p" in sql/*|files/*) ;; *) echo "ruta rechazada: $p" >&2; exit 3 ;; esac
   case "$p" in */../*|*/./*|*//*|*/) echo "ruta rechazada: $p" >&2; exit 3 ;; esac
   if [ -L "$p" ]; then echo "enlace simbolico: no se borra $p" >&2; continue; fi
   [ -f "$p" ] || continue
-  rm -f -- "$p" && n=$((n + 1))
+  if rm -f -- "$p"; then n=$((n + 1)); else echo "no se pudo borrar $p (rm fallo): ese espacio NO se libero" >&2; failed=1; fi
 done
-echo "$n"'
+echo "$n"
+[ "$failed" = 0 ] || exit 4'
 CAP_PREP_SH='[ -f "$MARK" ] || { echo "marca ausente ($MARK): destino no montado" >&2; exit 2; }
 mkdir -p "$ROOT/sql" "$ROOT/files"'
 CAP_COPY_SH='set -eu

@@ -55,10 +55,11 @@ if (( REINICIOS )); then
   cd "$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)/theburyproject1" 2>/dev/null || { echo "no encuentro el repo"; exit 2; }
   snap() { { iptables -S DOCKER-USER; iptables -S BURY-ERP; iptables -S INPUT | head -1; ufw status | sed -n '/^22/p'; } | sha256sum | cut -c1-16; }
   S0=$(snap)
-  web_ok() { # live y ready por el host virtual correcto (SNI tbp) a traves de Caddy
+  ENS_HOST=${BURY_ENSAYO_HOST:-tbp}
+  web_ok() { # live y ready por el host virtual correcto (SNI del host de ensayo; default tbp) a traves de Caddy
     local u
     for u in live ready; do
-      [[ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 4 --resolve tbp:443:127.0.0.1 "https://tbp/health/$u" 2>/dev/null)" == 200 ]] || return 1
+      [[ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 4 --resolve "$ENS_HOST:443:127.0.0.1" "https://$ENS_HOST/health/$u" 2>/dev/null)" == 200 ]] || return 1
     done
   }
   espera_web() { local i; for i in $(seq 1 60); do web_ok && return 0; sleep 3; done; return 1; }
@@ -66,7 +67,7 @@ if (( REINICIOS )); then
     sudo -u "${SUDO_USER:-root}" docker compose restart "$svc" >/dev/null 2>&1; rc=$?
     chk "reinicio de $svc: docker compose restart termino sin error" "$([[ $rc -eq 0 ]] && echo ok || echo fail)" "rc=$rc"
     espera_web; rcw=$?
-    chk "reinicio de $svc: el ERP vuelve a responder live y ready (200 por https://tbp)" "$([[ $rcw -eq 0 ]] && echo ok || echo fail)" "espera hasta 180 s"
+    chk "reinicio de $svc: el ERP vuelve a responder live y ready (200 por https://$ENS_HOST)" "$([[ $rcw -eq 0 ]] && echo ok || echo fail)" "espera hasta 180 s"
     S1=$(snap)
     chk "reinicio de $svc: reglas (DOCKER-USER, BURY-ERP, INPUT, ufw 22) identicas" "$([[ "$S0" == "$S1" ]] && echo ok || echo fail)" "huella $S0 -> $S1"
     [[ "$(probe 443)" != open ]] && r443=ok || r443=fail
