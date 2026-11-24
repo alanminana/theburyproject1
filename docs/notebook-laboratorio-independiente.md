@@ -56,30 +56,43 @@ cd /mnt/recup/bury-backup && for f in sql/*.bak sql/*.trn files/*.tar.gz; do (cd
 # restaurar SIEMPRE primero en un SQL descartable: scripts/backup/restore-test-local-copy.sh (docs/p06-copia-cifrada-produccion.md, «Recuperación»)
 ```
 
-## 4. Qué se probó (2026-11-24)
+## 4. Qué se probó (2026-11-24, todo en esta notebook)
+
+**Decisión del propietario (2026-11-24):** la VM `tbp` queda **fuera del plan** y no se vuelve a usar; esta notebook es el entorno independiente de pruebas hasta finalizar el ERP; no se usan datos comerciales reales.
+La «restauración entre equipos con la VM» deja de ser un objetivo (se reemplaza por la recuperación desde instalación limpia de abajo).
 
 | Prueba | Resultado |
 |---|---|
 | `install.sh` en base nueva | deploy OK, 145 migraciones, health live+ready 200, smoke OK, `app`/`migrate` con la imagen desplegada (`668ccf61b741`) |
-| `p02-verificar-instalacion.sql` | sin FALLA |
-| `p07-verificar-credito-cerrado.sql` | FALLA inicial real (semilla puntaje 0 = $200.000) → corregido por pantalla → sin FALLA |
-| `backup.sh all` | OK (27 s); copia al extraíble cifrado verificada con sha256 |
-| `verify-local-copy.sh` V1-V5 | OK |
-| Fallo seguro (volumen cifrado cerrado) | `touch` denegado, `copy-removable --strict` rc 1, verificador rc 13, nada escrito en `/`; tras remontar, OK |
-| `restore-test-local-copy.sh` | full restaurado ONLINE, `DBCC CHECKDB` sin errores, 145 migraciones, 141 tablas, 0 residuos |
-| SFTP + `rclone crypt` **por loopback** (copia propia de la notebook) | subida con nombres cifrados en el pendrive, bajada con SHA256 idéntico; sin shell, sin contraseña, jaula; limpieza completa |
-| Reinicio controlado de `db`/`app`/`caddy` | `ready=200` en 6 s, misma imagen, datos intactos |
-| `scripts/qa/p07/run-p07.sh --no-ui` (pila descartable en esta notebook) | **131/131** (ver §5) |
+| `p02-verificar-instalacion.sql`, `p07-verificar-credito-cerrado.sql` | sin FALLA (el de crédito falló al inicio por la semilla del puntaje 0 = $200.000 → corregido por la pantalla real `LimitesPorPuntajeGuardar`) |
+| `backup.sh all` y copia al extraíble cifrado | OK (26-27 s); sha256 verificado |
+| `verify-local-copy.sh` V1-V5 y fallo seguro (volumen cerrado) | OK; con el volumen cerrado `touch` denegado, `copy-removable --strict` rc 1, verificador rc 13, nada escrito en `/` |
+| `restore-test-local-copy.sh`, `restore-test.sh`, `check-custody.sh` (trabajos semanales) | restore ONLINE, `DBCC CHECKDB` sin errores, 145 migraciones, 141 tablas, 4 s; custodia OK (2 avisos esperados: sin `BACKUP_REMOTE`, `root.key` de Caddy en el tar) |
+| SFTP + `rclone crypt` **por loopback** | nombres cifrados en el pendrive, bajada con SHA256 idéntico; sin shell, sin contraseña, jaula; limpieza completa. No es transferencia entre equipos |
+| **Reinicio completo** (`systemctl reboot`) | volvió sola, misma IP; SSH, Docker, `bury-firewall`, ufw, cron, volumen LUKS remontado, contenedores sanos con 0 reinicios, `ready=200` al primer intento; 145 migraciones; copia cifrada con el mismo hash. Arranque total 33 s (firmware 8,6 + loader 6,2 + kernel 1,2 + initrd 1,8 + userspace 15,0) |
+| **Corte brusco** (`sysrq-b`, sin sync ni cierre de servicios) tras confirmar un cambio por pantalla (versión de punitorios 0 %/30 d/gracia 12) | SQL Server: «22 transactions rolled forward, 0 rolled back»; el cambio persistió; `DBCC CHECKDB` sin errores; copia cifrada reabierta (30 archivos sha256 OK); `ready=200` |
+| **Recuperación desde instalación limpia** | clon nuevo del repo (`ab27a838`), `.env` extraído del paquete cifrado (`recovery-package.sh`), proyecto Compose nuevo con volúmenes vacíos, respaldos traídos de la copia del pendrive (30 archivos sha256 OK), `restore-files` + `restore-sql` (par coherente) + stack completo. Mismo usuario y hash de contraseña, 145 migraciones, **la cookie de sesión de la instancia viva fue aceptada por la restaurada** (mismas claves de Data Protection; sin cookie → 302 a Login), misma CA de Caddy (HTTPS 200 con la CA original), `DBCC CHECKDB` sin errores, verificadores P-02 y crédito sin FALLA. Stack DR destruido (0 residuos) |
+| `scripts/qa/instalacion-limpia.sh` | OK (instalación limpia verificada) |
+| `scripts/qa/p02/validacion-base-nueva.sh` | 37 OK / 0 FALLA (V2 desde el primer arranque, gracia por pantalla, V2 efectivo en la primera venta, backup + restore-test) |
+| `scripts/qa/p07/run-p07.sh --no-ui` | **131/131** (ver §5) |
+| D-05: activación `ReportOnly` / centinela por Caddy / reversión a `Off` | cabecera `Content-Security-Policy-Report-Only` presente; `/csp-report` por Caddy responde 204 **con y sin `Content-Length`** (riesgo R2 medido); activación 5,2 s, reversión 4,9 s; imagen intacta. **No inicia la ventana de 10 días hábiles** |
+| Energía/servidor | tapa y suspensión deshabilitadas (`logind` + `*.target` enmascarados); SSH solo desde el equipo administrador (se eliminó una regla `OpenSSH ALLOW Anywhere` preexistente) |
+
+### Hallazgo de recuperación: la copia del extraíble pierde el dueño de `sql/`
+
+La copia del pendrive la hace el contenedor `backup-files` como `root:root` (modo 640), mientras que en el original los `.bak/.trn` son del uid 10001 (SQL Server). Al restaurar en una instalación limpia, `RESTORE VERIFYONLY` **falla** (SQL Server no puede leer el archivo)
+y, si se levanta el stack igual, `migrate` crea una base vacía (no es una recuperación). Solución: tras copiar, `chown -R 10001:10001 <BACKUP_DIR>/sql`. Quedó anotado en `docs/backup-restore.md` §10. `restore-test-local-copy.sh` no se ve afectado porque copia dentro del contenedor.
 
 ## 5. Hallazgo: el runner P-07 estaba desactualizado
 
 Con `main` `ab27a838`, `p07_recorridos.py` fallaba en R8.10-R8.12 y se cortaba con `IndexError`. **Causa raíz**: el PR #363 (mora contractual) hizo que generar el contrato de crédito exija una versión de punitorios
-vigente y activa (`ContratoVentaCreditoValidacionException`); el guion (19/11) no la creaba. No es un defecto del ERP. Se agregó el paso R8.3b (alta de la versión por la pantalla real, como SuperAdmin, tasa sintética): 131/131.
+vigente y activa (`ContratoVentaCreditoValidacionException`); el guion (19/11) no la creaba. No es un defecto del ERP. PR #367: paso R8.3b (alta de la versión por la pantalla real, como SuperAdmin, tasa sintética, día comercial argentino): 131/131.
+Esto además **valida el tramo crédito → contrato → cobros** que `aceptacion-final-20261123.md` §12b dejaba NO VALIDADO (con punitorio sintético 1 %, no 0 %).
 
 ## 6. Qué NO quedó demostrado
 
-* **Restauración entre equipos con respaldos de la VM `tbp`**: la VM (192.168.50.162) **estaba apagada o fuera de la red** durante la sesión (sin ping ni ARP). No se la encendió ni se tocó. Falta ejecutar con la VM encendida: clave SSH de la VM → `authorized_keys` de `bury-sftp`,
-  `known_hosts` fijado, passwords `rclone crypt`, envío de una cadena existente, bajada, sha256, restauración y `DBCC CHECKDB` aquí. La prueba por loopback demuestra el receptor, **no** la transferencia entre equipos.
-* Reinicio de la notebook (arranque del volumen cifrado, `bury-firewall`, contenedores): no se reinició. Montaje persistente configurado, **sin ensayar**.
-* Interfaz de usuario (Playwright): se omitió (`--no-ui`); no hay Chrome en la notebook.
-* Ninguna copia es externa al lugar físico: el pendrive vive junto a la notebook.
+* **Respaldo independiente del anfitrión**: el pendrive está junto a la notebook. Cuenta como medio extraíble solo si se guarda fuera del equipo.
+* **Custodia externa de claves** (LUKS, passphrase del paquete de recuperación, `.env`): hoy solo en la notebook (`/etc/bury-backup/`, `~/.bury-custodia/`) y el paquete cifrado en el pendrive.
+* **Corte de energía real** (UPS, batería): solo se simuló el corte lógico.
+* **Interfaz con navegador** (Playwright) y **lectores de pantalla**: no se ejecutaron en la notebook (no hay Chrome).
+* **Red**: solo Wi-Fi con DHCP; SSH permitido únicamente desde la IP actual del equipo administrador. Reservar IP en el router y preferir cable.
