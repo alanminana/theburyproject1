@@ -94,9 +94,13 @@ fi
 
 # 1b) SQL Server debe poder leer el full y, con --with-logs, cada log posterior (antes de tocar nada)
 asegurar_legible "$BACKUP"
+LOGS_LIST=""
 if (( WITH_LOGS )); then
-  _fts=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$BACKUP")
-  for _f in $(dc exec -T db bash -c 'ls -1 /backups/sql | grep -E "^${0}_log_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.trn$" | sort' "$DB_NAME" | tr -d '\r' || true); do
+  # Un fallo al ENUMERAR los logs aborta (antes quedaba como lista vacia y la base se recuperaba sin logs devolviendo exito).
+  _lst=$(dc exec -T db bash -c 'ls -1 /backups/sql' | tr -d '\r') || die $EX_VERIFY "no se pudo listar /backups/sql para leer la cadena de logs: el restore NO continua"
+  LOGS_LIST=$(grep -E "^${DB_NAME}_log_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.trn$" <<<"$_lst" | sort || true)   # grep sin coincidencias = no hay logs (valido)
+  _fts=${BACKUP##*_full_}; _fts=${_fts%.bak}   # solo el timestamp que sigue a _full_ (el prefijo del nombre puede contener otro)
+  for _f in $LOGS_LIST; do
     _t=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$_f")
     if [[ "$_t" > "$_fts" ]]; then asegurar_legible "$_f"; fi
   done
@@ -143,10 +147,10 @@ fi
 
 # 5) cadena de logs
 if (( WITH_LOGS )); then
-  full_ts=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$BACKUP")
+  full_ts=${BACKUP##*_full_}; full_ts=${full_ts%.bak}
   stop_ts=""
   if [[ -n "$STOPAT" ]]; then stop_ts="${STOPAT:0:10}_${STOPAT:11:2}${STOPAT:14:2}${STOPAT:17:2}Z"; fi
-  logs=$(dc exec -T db bash -c 'ls -1 /backups/sql | grep -E "^${0}_log_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z\.trn$" | sort' "$DB_NAME" | tr -d '\r' || true)
+  logs=$LOGS_LIST   # enumerados ANTES de tocar la base (1b): un fallo al listar ya aborto el restore
   applied=0
   for f in $logs; do
     t=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}Z' <<<"$f")

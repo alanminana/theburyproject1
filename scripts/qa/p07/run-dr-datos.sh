@@ -107,6 +107,9 @@ echo "-- A: respaldo con la aplicacion detenida (base quieta) y huella"
 dcA stop app >/dev/null 2>&1
 envA bash scripts/backup/backup.sh all > "$T/backup.log" 2>&1; BRC=$?
 [ "$BRC" = 0 ] && ok "backup.sh all (pila A) rc 0" || { bad "backup.sh all fallo (rc $BRC)"; tail -5 "$T/backup.log"; exit 1; }
+envA bash scripts/backup/backup.sh log > "$T/backup-log.log" 2>&1; LRC=$?
+NLOG=$(docker run --rm -v "$T/b1:/b:ro" "$ALPINE" sh -c 'ls /b/sql/*_log_*.trn 2>/dev/null | wc -l' | tr -d '\r')
+[ "$LRC" = 0 ] && [ "${NLOG:-0}" -ge 1 ] && ok "backup.sh log (pila A) rc 0: $NLOG log(s) de transacciones para la cadena" || bad "backup.sh log fallo (rc $LRC, logs=$NLOG)"
 check "la aplicacion de A sigue detenida tras el backup (la huella es la del respaldo)" bash -c "! docker ps --format '{{.Names}}' | grep -q '^${PA}-app-1$'"
 sqlq "$PA" "$T/snap.sql" > "$T/snapA.txt"
 sqlq "$PA" "$T/fk.sql" > "$T/fkA.txt"
@@ -160,8 +163,9 @@ docker run --rm -v "$T/b2:/b" "$ALPINE" sh -c "mv /b/$FULLN.bueno /b/sql/$FULLN 
 docker run --rm -v "$T/b1:/s:ro" -v "$T/b2:/b" "$ALPINE" sh -c "cp /s/sql/$FULLN.sha256 /b/sql/$FULLN.sha256 && chown 0:0 /b/sql/$FULLN.sha256"
 
 echo "-- B positivo (fase 1): reintento con la copia buena (--force-files), SIN arrancar app"
-RCP=$(rtry --apply --force-files --no-start); tail -n 3 "$T/rec.log" | cut -c1-200
+RCP=$(rtry --apply --force-files --no-start --with-logs); tail -n 3 "$T/rec.log" | cut -c1-200
 [ "$RCP" = 0 ] && ok "recover.sh --no-start termino bien (rc 0): archivos + SQL restaurados y compuerta superada" || bad "recover.sh fallo en el reintento (rc $RCP)"
+grep -q 'logs aplicados: [1-9]' "$T/rec.log" && ok "la cadena de logs se aplico sobre el full (opcion B)" || bad "no se aplicaron logs"
 grep -q 'corrige a 10001' "$T/rec.log" && ok "restore-sql.sh corrigio el dueño/modo root:root 600 de los respaldos (SQL Server pudo leerlos)" || bad "no se vio la correccion de permisos"
 sqlq "$PB" "$T/snap.sql" > "$T/snapB.txt"; sqlq "$PB" "$T/fk.sql" > "$T/fkB.txt"; UPB="$(uploads_hash "$PB")"
 if diff -q "$T/snapA.txt" "$T/snapB.txt" >/dev/null; then ok "huella de TODAS las tablas ($TBL) identica entre A y B: registros, importes y relaciones recuperados"; else bad "la huella difiere:"; diff "$T/snapA.txt" "$T/snapB.txt" | head -10; fi
@@ -172,7 +176,7 @@ VA=$(grep -vc 'DBCC execution completed' "$T/fkA.txt"); VB=$(grep -vc 'DBCC exec
 echo "-- B positivo (fase 2): recuperacion COMPLETA (sin --no-start) sobre una pila B limpia"
 dcB down -v >/dev/null 2>&1
 docker run --rm -v "$T/b2:/b" "$ALPINE" sh -c 'rm -f /b/.recovery-incomplete'
-RCP=$(rtry --apply); tail -n 2 "$T/rec.log" | cut -c1-200
+RCP=$(rtry --apply --with-logs); tail -n 2 "$T/rec.log" | cut -c1-200
 [ "$RCP" = 0 ] && ok "recover.sh completo rc 0: stack sano y sin recreacion de la base" || bad "recover.sh completo fallo (rc $RCP)"
 check "la marca .recovery-incomplete se elimino al terminar bien" bash -c "! test -e '$T/b2/.recovery-incomplete'"
 APP_PORT_B="$(grep ^APP_PORT "$T/envB" | cut -d= -f2)"

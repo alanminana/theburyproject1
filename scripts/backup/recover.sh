@@ -42,7 +42,7 @@ while (( $# )); do
   esac
 done
 [[ -n "$ACTION" ]] || { sed -n '2,29p' "$0"; exit "$EX_USAGE"; }
-is_uint "$MIN_USERS" || { echo "--min-users debe ser un entero" >&2; exit "$EX_USAGE"; }
+is_uint "$MIN_USERS" && (( MIN_USERS >= 1 )) || { echo "--min-users debe ser un entero >= 1 (una base operativa nunca tiene 0 usuarios)" >&2; exit "$EX_USAGE"; }
 
 load_config
 BK_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,12 +73,13 @@ verificar_sha() { # verificar_sha <ruta relativa a BACKUP_DIR>
 verificar_sha "files/$ARCHIVE"
 verificar_sha "sql/$FULL"
 if (( WITH_LOGS )); then
-  fts=$(grep -oE "$RE_TS" <<<"$FULL")
+  SQL_LS=$(tools sh -c 'ls -1 /backups/sql' | tr -d '\r') || die "$EX_VERIFY" "no se pudo listar $BACKUP_DIR/sql para leer la cadena de logs (no se cambio nada)"
+  fts=${FULL##*_full_}; fts=${fts%.bak}   # solo el timestamp que sigue a _full_
   while IFS= read -r lg; do
     [[ -n "$lg" ]] || continue
     lts=$(grep -oE "$RE_TS" <<<"$lg")
     if [[ "$lts" > "$fts" ]]; then verificar_sha "sql/$lg"; fi
-  done < <(tools sh -c 'ls -1 /backups/sql' 2>/dev/null | tr -d '\r' | grep -E "^${DB_NAME}_log_${RE_TS}\.trn$" | sort || true)
+  done < <(grep -E "^${DB_NAME}_log_${RE_TS}\.trn$" <<<"$SQL_LS" | sort || true)
 fi
 log INFO "OK  respaldos presentes y con sha256 correcto"
 service_running app && die "$EX_PREREQ" "app esta corriendo: detenerla antes de recuperar (docker compose stop app)"
