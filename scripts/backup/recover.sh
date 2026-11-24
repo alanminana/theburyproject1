@@ -102,7 +102,7 @@ falla() { # falla <codigo> <mensaje>
 args=(--archive "$ARCHIVE"); (( FORCE_FILES )) && args+=(--force)
 RFOUT=$(mktemp); trap 'rm -f "$RFOUT"' EXIT
 frc=0; bash "$BK_SCRIPT_DIR/restore-files.sh" "${args[@]}" >"$RFOUT" 2>&1 || frc=$?   # sin tuberia: con pipefail un `| tee || true` enmascararia el codigo
-cat "$RFOUT"
+cat "$RFOUT" || true   # solo informativo: un fallo de impresion no debe cortar antes de decidir la marca
 if (( frc != 0 )); then
   # Solo el rechazo explicito "ya tiene contenido" (sin --force) garantiza que NO se cambio nada; cualquier otro fallo puede haber extraido
   # parte de los archivos (p. ej. al desellar la clave de la CA, que ocurre despues de extraer): estado incierto => marca.
