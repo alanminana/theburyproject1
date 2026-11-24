@@ -52,3 +52,39 @@ y **el crash del 22/11 ocurrió con la versión posterior a la actualización de
    y verificar espacio en `C:` (16 GB libres) permite identificar el titular del lock. No hecho: modifica configuración de Windows.
 4. Actualizar BIOS (F20 de 6/10/2026) y el controlador de GPU **solo** si el crash persiste sin Vanguard; hoy no hay evidencia que los señale.
 5. Registrar cualquier crash nuevo con `Get-WinEvent` (41/1001) y conservar el dump antes de que se sobrescriba.
+
+## 5. Actualización 2026-11-23 (noche): evidencia nueva, solo lectura
+
+Nada se modificó (ni BIOS, ni Windows, ni VMware, ni la VM, ni el arranque). Consultas de lectura sobre el registro de eventos, el registro de Windows y los controladores.
+
+### 5.1 Hechos nuevos
+
+| # | Hecho | Evidencia | Qué cambia |
+|---|---|---|---|
+| N1 | **Sin cierres no limpios desde el 22/11 22:21** (uptime ≈ 24 h al medir) | `Get-WinEvent` ids 41/1001/6008 posteriores: ninguno | No hay dump nuevo; la tasa previa (un cierre cada ~4-5 días) aún no permite concluir nada |
+| N2 | Los `0x50` del 11/11 **sí generaron minidump** (`111126-22515-01.dmp`, `111126-24078-01.dmp`) y el `0x133` del 9/11 también (`110926-20953-01.dmp`); **hoy no existen** | Evento 1001 «Se guardó un volcado en…»; `C:\Windows\Minidump` solo tiene los 3 de `vgk` | Corrige §2: no «no existen», sino «existieron y se perdieron» |
+| N3 | `MinidumpsCount=5` y solo hay 3 archivos; `Overwrite=1` | `HKLM\…\CrashControl` | La configuración actual **no permite determinar cómo se perdieron** (un tope anterior distinto o un borrado externo; Storage Sense está activo y existe la tarea `SilentCleanup`); **causa no determinada** |
+| N4 | Para **ambos `0x50`** (11/11 12:35 y 13:40), Windows registra (evento 1019) «controlador posiblemente relacionado: **`athurx.sys`**» | WER-SystemErrorReporting 1019 | Candidato nuevo y distinto de `vgk`; ver 5.2 |
+| N5 | `athurx.sys` es un controlador **Atheros USB Wi-Fi de 2010** (v2.0.0.32, `WinDDK`), servicio `athur` **Manual/Detenido** hoy | `Win32_SystemDriver`, versión del archivo | Hoy no está cargado |
+| N6 | El adaptador USB Wi-Fi presente (**TP-Link, `USB\VID_2357&PID_0120`**) usa hoy **`RtlWlanu` (Realtek 1030.52.1216.2025)**; el cable Ethernet está desconectado, así que **el anfitrión y la VM dependen de ese Wi-Fi USB** | `Get-PnpDeviceProperty`, `Get-NetAdapter` | Si el 11/11 el mismo dispositivo se enlazó a `athurx` (no demostrable ahora), el Wi-Fi USB pasa a ser sospechoso de los `0x50` |
+| N7 | **Archivo de paginación solo en `E:`** (`E:\pagefile.sys`, 50 GB); no hay en `C:`. `CrashDumpEnabled=3` (minidump), sin `DedicatedDumpFile`. `C:` tiene ≈ 14 GB libres | `Win32_PageFileUsage`, `CrashControl` | Un volcado de kernel/completo **no está garantizado**: requiere archivo de paginación en el volumen de arranque o un `DedicatedDumpFile` explícito |
+
+### 5.2 Lectura (qué prueba y qué no)
+
+- **Probado antes (§1):** los 3 `0x133` con dump son `vgk.sys` esperando un *spinlock*.
+- **Sugerido, no probado:** los 2 `0x50` apuntan a `athurx.sys` solo por la heurística de WER (módulo en pila/dirección del fallo); sin el minidump no se puede confirmar ni descartar, y hoy el controlador no está cargado.
+- **Dos hipótesis independientes** (anticheat y Wi-Fi USB) explicarían familias distintas de cierres; ninguna descarta a la otra. **No se atribuye causa única**.
+- Sigue sin determinarse **quién retiene el lock** en los `0x133` (requiere volcado de kernel).
+
+### 5.3 Soluciones preparadas, ordenadas por lo que exigen
+
+| Acción | Cambia Windows | Reinicio / ventana | Reversible | Evidencia que la respalda |
+|---|---|---|---|---|
+| A. **Preservar volcados:** copiar `C:\Windows\Minidump\*.dmp` a `E:\crash-dumps` tras cada cierre (tarea programada al arranque, solo copia) | Crea una tarea | **No** | Sí (borrar la tarea) | N2/N3: se perdieron 3 dumps con evidencia |
+| B. **Volcado de kernel con `DedicatedDumpFile` en `E:`** (`CrashDumpEnabled=2`, `DedicatedDumpFile=E:\dedicateddump.sys`, `DumpFileSize` según RAM del kernel) | `CrashControl` | **Sí: reinicio de Windows** (cae el ERP de la VM) → dentro de la ventana A del plan | Sí | N7 + §2 de este documento: identifica al titular del lock |
+| C. **Deshabilitar el servicio `athur`** (`sc config athur start= disabled`) | Un servicio | No (no está cargado) | Sí (`start= demand`) | N4/N5; riesgo: dejaría sin driver a un adaptador Atheros que dependiera de él (hoy el TP-Link usa Realtek) |
+| D. **Desinstalar Riot Vanguard** (decisión del propietario, §4.1) | Software | Reinicio (dentro de la ventana A) | Reinstalar | §1: 3 de 3 `0x133` |
+| E. **Conectar Ethernet** (puerto del router) y que la VM no dependa del Wi-Fi USB | Físico | No | Sí | N6 (y E3 de la matriz de continuidad) |
+| F. Actualizar BIOS/GPU | Firmware | Sí | Parcial | **Sin evidencia hoy** (§4.4): no hacerlo |
+
+Requieren **ventana de mantenimiento**: B y D (reinicio de Windows → ERP caído). **Sin ventana**: A, C y E. Ninguna se aplicó en este informe.
