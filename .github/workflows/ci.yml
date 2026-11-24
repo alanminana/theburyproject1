@@ -298,6 +298,7 @@ jobs:
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
           python3 -m unittest discover -s scripts/monitoring -p 'test_status_chain.py'
           bash scripts/install/test-host-portability.sh
+          bash scripts/monitoring/test-instalar-instancia.sh
 
       - name: Eliminar .env sintetico
         if: always()
