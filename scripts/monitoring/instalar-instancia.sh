@@ -37,7 +37,14 @@ done
 [ -z "$CA_FILE" ] || grep -q 'BEGIN CERTIFICATE' "$CA_FILE" 2>/dev/null || { echo "FALLA: --ca-file no es un certificado PEM legible" >&2; exit 2; }
 
 ETC_DIR="$ETC_ROOT/bury-monitor-$NAME"; SVC="bury-monitor-$NAME"; STATE="bury-monitor-$NAME"
+# --apply: fallar cerrado ANTES de generar nada (si --out apuntara a /etc/bury-monitor-<name> o al directorio de unidades, generar ya sobrescribiria).
+if [ "$APPLY" = 1 ]; then
+  [ ! -e "$ETC_DIR" ] && [ ! -e "$UNIT_DIR/$SVC.service" ] || { echo "FALLA: la instancia '$NAME' ya existe; no se sobrescribe" >&2; exit 2; }
+fi
 if [ -z "$OUT" ]; then OUT="$(mktemp -d)"; else mkdir -p "$OUT"; fi
+for d in "$ETC_DIR" "$UNIT_DIR"; do
+  case "$(readlink -f "$OUT")/" in "$(readlink -f "$d")/"*) echo "FALLA: --out no puede estar dentro de $d" >&2; exit 2;; esac
+done
 
 # 1) config.json: parte de config.example.json (la base real puede tener ajustes propios; aqui se usa el ejemplo versionado).
 "$PY" - "$SRC/config.example.json" "$OUT/config.json" "$PROJECT" "$BACKUP_DIR" "/var/lib/$STATE" "$BASE_URL" "$KEEP_OFFSITE" <<'PYEOF'
@@ -80,7 +87,10 @@ echo "Instancia: $NAME | proyecto: $PROJECT | respaldos: $BACKUP_DIR | estado: /
   || [ -n "${BURY_INSTALL_ANY_USER:-}" ] || { echo "FALLA: monitor.py no esta instalado en /opt/theburyproject/scripts/monitoring (correr instalar-agente.sh)" >&2; exit 2; }
 install -d -m 0750 "$ETC_DIR"
 if [ "$KEEP_HEARTBEAT" = 1 ]; then install -m 0600 "$BASE_ETC/monitor.env" "$ETC_DIR/monitor.env"
-else ( umask 077; grep -v '^BURY_MONITOR_HEARTBEAT' "$BASE_ETC/monitor.env" > "$ETC_DIR/monitor.env" || true ); chmod 0600 "$ETC_DIR/monitor.env"; fi
+else rc=0; ( umask 077; grep -v -E '^[[:space:]]*(export[[:space:]]+)?BURY_MONITOR_HEARTBEAT' "$BASE_ETC/monitor.env" > "$ETC_DIR/monitor.env" ) || rc=$?
+  # grep: 0 = quedaron lineas, 1 = no quedo ninguna (aceptable); >=2 = error de lectura/escritura: no continuar con un canal vacio.
+  [ "$rc" -le 1 ] && [ -s "$ETC_DIR/monitor.env" ] || { rm -rf "$ETC_DIR"; echo "FALLA: no se pudo copiar monitor.env (o quedo vacio); instalacion abortada" >&2; exit 1; }
+  chmod 0600 "$ETC_DIR/monitor.env"; fi
 [ -z "$CA_FILE" ] || install -m 0644 "$CA_FILE" "$ETC_DIR/ca.crt"
 install -m 0644 "$OUT/config.json" "$ETC_DIR/config.json"
 install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service"

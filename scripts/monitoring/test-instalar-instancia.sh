@@ -29,7 +29,8 @@ done
 # 3) --apply sobre un arbol sintetico; no pisa una instancia existente; no filtra el contenido de monitor.env
 mkdir -p "$T/etc/bury-monitor" "$T/units"; printf 'BURY_MONITOR_TOKEN=SECRETO-SINTETICO
 BURY_MONITOR_HEARTBEAT=https://hb.invalid/push/HBSECRETO
-BURY_MONITOR_HEARTBEAT_STYLE=kuma
+  BURY_MONITOR_HEARTBEAT_STYLE=kuma
+	export BURY_MONITOR_HEARTBEAT_X=1
 ' > "$T/etc/bury-monitor/monitor.env"
 printf -- '-----BEGIN CERTIFICATE-----
 QUJD
@@ -45,4 +46,16 @@ echo "$OUTP" | grep -q -e SECRETO -e HBSECRETO && ko "no filtra secreto" || ok "
 "$S" "${A[@]}" --apply --out "$T/a2" >/dev/null 2>&1 && ko "no sobrescribe" || ok "no sobrescribe"
 grep -q HEARTBEAT "$T/etc/bury-monitor/monitor.env" && ok "base intacta" || ko "base intacta"
 "$S" "${A[@]}" --ca-file "$T/no-existe.crt" --out "$T/b2" >/dev/null 2>&1 && ko "rechaza CA invalida" || ok "rechaza CA invalida"
+
+# 4) Codex #364: --out dentro de la instancia existente no la pisa; fallo de lectura aborta sin dejar instancia a medias
+CFG0="$(md5sum "$T/etc/bury-monitor-prod/config.json")"
+"$S" "${A[@]}" --apply --out "$T/etc/bury-monitor-prod" >/dev/null 2>&1 && ko "out=instancia existente" || ok "out=instancia existente rechazado"
+[ "$(md5sum "$T/etc/bury-monitor-prod/config.json")" = "$CFG0" ] && ok "config existente intacta" || ko "config existente intacta"
+"$S" "${A[@]}" --apply --out "$T/units" >/dev/null 2>&1 && ko "out=directorio de unidades" || ok "out=directorio de unidades rechazado"
+mkdir -p "$T/etc2/bury-monitor"; echo 'BURY_MONITOR_TOKEN=X' > "$T/etc2/bury-monitor/monitor.env"; chmod 000 "$T/etc2/bury-monitor/monitor.env"
+if [ "$(id -u)" != 0 ]; then
+  BURY_MONITOR_ETC_ROOT="$T/etc2" "$S" "${A[@]}" --apply --out "$T/a3" >/dev/null 2>&1 && ko "monitor.env ilegible aborta" || ok "monitor.env ilegible aborta"
+  [ ! -e "$T/etc2/bury-monitor-prod" ] && ok "sin instancia a medias" || ko "sin instancia a medias"
+fi
+chmod 600 "$T/etc2/bury-monitor/monitor.env"
 exit $fail
