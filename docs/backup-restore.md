@@ -334,7 +334,7 @@ coincide con su propio `.sha256` no se copia) y se renombra de forma atómica. E
 **Copia local cifrada en un segundo disco de la misma VM (P-06, solo local).** `scripts/backup/setup-local-disk-copy.sh` crea un contenedor LUKS2 (archivo) dentro de un volumen ya montado
 y lo deja en un punto de montaje propio para usarlo como `BACKUP_REMOVABLE_DIR` (+ `BACKUP_REMOVABLE_MAPPER`, `BACKUP_REMOVABLE_MAX_AGE_HOURS`). `verify-local-copy.sh` (diario)
 verifica montaje, cifrado, sha256, antigüedad y espacio y alimenta al monitor (`backup.removable-verify`, CRITICAL inmediato); `restore-test-local-copy.sh` restaura desde esa copia
-en un SQL Server descartable. **No es una copia externa.** Detalle y resultados: [`p06-respaldo-disco-local-vm.md`](p06-respaldo-disco-local-vm.md).
+en un SQL Server descartable. **No es una copia externa.** Detalle y resultados: [`p06-respaldo-disco-local-vm.md`](p06-respaldo-disco-local-vm.md). Con `--name`/`--project` el mismo script crea una copia **independiente por instalacion** (clave, mapper y cron propios); produccion: [`p06-copia-cifrada-produccion.md`](p06-copia-cifrada-produccion.md).
 
 #### Qué se probó y qué NO
 
