@@ -1,6 +1,6 @@
 # Notebook Ubuntu como servidor independiente de pruebas (2026-11-24)
 
-Instalación **de laboratorio**, independiente de la VM `tbp`: hardware, disco y CA propios. No es una migración productiva, no contiene datos reales
+Instalación **de laboratorio**, independiente (la VM `tbp` quedó fuera del plan el 2026-11-24, ver §4): hardware, disco y CA propios. No es una migración productiva, no contiene datos reales
 y **no equivale** a una primera venta comercial real ni a los 10 días hábiles de observación CSP.
 
 ## 1. Qué es
@@ -14,7 +14,7 @@ y **no equivale** a una primera venta comercial real ni a los 10 días hábiles 
 | ERP | commit `ab27a838` (main, PR #365), imagen `theburyproject/erp:20261124-ab27a838` |
 | Instancia | proyecto Compose `theburyproject-notebook`, dominio `tbp-nb` (`https://tbp-nb`, resolver a la IP del equipo), CA de Caddy propia |
 | Base | SQL Server Express nueva y vacía; 145 migraciones; volúmenes `theburyproject-notebook_*` |
-| Fiscal V2 | `FISCAL_CRITERIO_V2_DESDE=2026-11-01T03:00:00Z` solo en esta instalación (la VM no se tocó) |
+| Fiscal V2 | `FISCAL_CRITERIO_V2_DESDE=2026-11-01T03:00:00Z` solo en esta instalación |
 | Crédito | cerrado: cupos $0 en los puntajes 0-5 (el 0 se bajó por la pantalla real `LimitesPorPuntajeGuardar`), sin planes; `p07-verificar-credito-cerrado.sql` sin FALLA |
 | Cuenta | `lab-admin` (SuperAdmin sintético, correo `.invalid`). `p07-verificar-cuentas.sql @Cierre=1` la marca FALLA **por diseño**: solo aplica a producción |
 
@@ -24,7 +24,7 @@ sin cambios de código.
 ## 2. Aislamiento
 
 * Solo se publica `443` (Caddy). `db` (1433), `app` (8080) y la API de Caddy (2019) no se publican. Medido desde otro equipo de la LAN: 80, 1433, 2019, 8080 y 8443 cerrados.
-* `bury-firewall` (DOCKER-USER) limita el 443 a `192.168.50.0/24`; `ufw` deniega todo lo entrante salvo SSH (22) desde el equipo administrador y la VM `tbp` (/32).
+* `bury-firewall` (DOCKER-USER) limita el 443 a `192.168.50.0/24`; `ufw` deniega todo lo entrante salvo SSH (22) desde el equipo administrador (/32).
   **Si la IP del administrador cambia (DHCP), SSH deja de entrar: usar la consola local o reservar la IP.**
 * HTTPS desde otro equipo: 200 con `caddy-root-ca.crt`; sin la CA, rechazado.
 * Docker con `shutdown-timeout: 60`. Pertenecer al grupo `docker` equivale a root.
@@ -37,7 +37,7 @@ sin cambios de código.
 * Cron `/etc/cron.d/bury-backup-notebook` (full+archivos 02:30, log cada 15 min, restore-test semanal domingo 04:30, custodia domingo 05:30) y verificador `bury-backup-localcopy-bury-notebook` 03:15.
 * Retención: local por capacidad (`BACKUP_MIN_FREE_GB=20`) y por días (14); extraíble por capacidad. `BACKUP_REQUIRE_OFFSITE=false`: **no hay copia externa activa**.
 * Recepción de respaldos de otro equipo: usuario `bury-sftp` (sin shell, `internal-sftp`, jaula `/mnt/bury-pendrive/sftp-recepcion`, solo clave, `authorized_keys` vacío y propiedad de root en `/var/lib/bury-sftp/.ssh/`).
-  Para autorizar a la VM: agregar **su** clave pública con `restrict,from="<IP de la VM>"`; clave del servidor a fijar en `known_hosts` de la VM por canal independiente.
+  Hoy no hay ningún cliente autorizado (`authorized_keys` vacío). Para autorizar a otro equipo: agregar **su** clave pública con `restrict,from="<IP del equipo>"` y fijar la clave del servidor en su `known_hosts` por un canal independiente.
 
 ### Custodia de claves (pendiente del propietario)
 
@@ -45,7 +45,7 @@ Sin la clave, el pendrive es ilegible. Están **solo en la notebook** (disco int
 
 * `/etc/bury-backup/local-disk-bury-notebook.key` y `/etc/bury-backup/local-disk-bury-notebook.luks-header`
 * `~/theburyproject1/.env` completo (secretos de SQL, Data Protection, contraseña inicial del admin)
-* Las passwords de `rclone crypt` (`SECURE_PASSWORD` y `SECURE_PASSWORD2`) no existen todavía en esta instalación: se generan al activar el envío desde la VM.
+* Las passwords de `rclone crypt` (`SECURE_PASSWORD` y `SECURE_PASSWORD2`) no existen todavía en esta instalación: se generan al activar un envío hacia este receptor.
 
 ### Recuperar desde el pendrive en otra máquina
 
