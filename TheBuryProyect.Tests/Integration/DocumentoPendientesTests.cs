@@ -28,7 +28,7 @@ public class DocumentoEmpresaTests : DocumentoTestBase
         Assert.Equal("The Bury SA", empresa!.Nombre);
         Assert.Equal("30-12345678-9", empresa.Cuit);
         Assert.Equal("Rosario", empresa.Ciudad);
-        Assert.Equal(0.5m, empresa.InteresMoraDiarioPorcentaje);
+        Assert.Equal(0m, empresa.InteresMoraDiarioPorcentaje); // el interés por mora no se copia de la plantilla: sale de los punitorios vigentes
     }
 
     [Fact]
@@ -49,10 +49,7 @@ public class DocumentoEmpresaTests : DocumentoTestBase
     public async Task GuardarEmpresa_ReplicaLosDatosEnLaPlantillaVigente_ParaElContratoAnterior()
     {
         await SembrarConfiguracionInicialAsync();
-        // El interés por mora es único: sale de Configuración → Mora, no de lo que se envíe en el formulario de empresa.
-        Context.ConfiguracionesMora.Add(new TheBuryProject.Models.Entities.ConfiguracionMora { TasaMoraBase = 0.3m });
-        await Context.SaveChangesAsync();
-
+        // El interés por mora no se edita ni se copia desde la empresa: se verifica que la plantilla legada no lo recibe.
         await Config.GuardarEmpresaAsync(EmpresaValida());
 
         Context.ChangeTracker.Clear();
@@ -60,7 +57,7 @@ public class DocumentoEmpresaTests : DocumentoTestBase
         Assert.Equal("Empresa Nueva SA", legada.NombreVendedor);
         Assert.Equal("Calle Nueva 1", legada.DomicilioVendedor);
         Assert.Equal("Cordoba", legada.CiudadFirma);
-        Assert.Equal(0.3m, legada.InteresMoraDiarioPorcentaje);
+        Assert.Equal(0.5m, legada.InteresMoraDiarioPorcentaje); // valor histórico de la plantilla, intacto
         Assert.Equal(1, await Context.EmpresasConfiguracion.CountAsync());
         Assert.Contains(Auditoria.Eventos, e => e.Accion == "modificar-empresa");
     }

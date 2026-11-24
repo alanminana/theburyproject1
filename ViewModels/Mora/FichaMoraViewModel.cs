@@ -51,13 +51,13 @@ namespace TheBuryProject.ViewModels.Mora
         public int TotalCuotasVencidas { get; set; }
         public int DiasMaxAtraso { get; set; }
         public decimal MontoCapitalVencido { get; set; }
+        /// <summary>Capital pendiente vencido (sin importe de mora estimado).</summary>
+        public decimal MontoTotal => MontoCapitalVencido;
         /// <summary>H-22: parte del capital vencido DENTRO de los dias de gracia (todavia no es mora; no esta en la bandeja).</summary>
         public decimal MontoEnGracia { get; set; }
         /// <summary>H-22: parte del capital vencido FUERA de la gracia (la misma deuda que cuenta la bandeja de cobranza).</summary>
         public decimal MontoEnMora { get; set; }
         public int DiasGracia { get; set; }
-        public decimal MontoMoraAcumulada { get; set; }
-        public decimal MontoTotal => MontoCapitalVencido + MontoMoraAcumulada;
         public PrioridadAlerta PrioridadMaxima { get; set; }
         public EstadoGestionCobranza EstadoGestion { get; set; }
         public int ContactosRealizados { get; set; }
@@ -82,7 +82,6 @@ namespace TheBuryProject.ViewModels.Mora
         public int CuotasVencidas { get; set; }
         public int DiasAtraso { get; set; }
         public decimal MontoCuotasVencidas { get; set; }
-        public decimal MontoMora { get; set; }
 
         public List<CuotaVencidaViewModel> CuotasDetalle { get; set; } = new();
     }
@@ -99,7 +98,6 @@ namespace TheBuryProject.ViewModels.Mora
         public decimal MontoInteres { get; set; }
         public decimal MontoTotal { get; set; }
         public decimal MontoPagado { get; set; }
-        public decimal MontoMora { get; set; }
         public int DiasAtraso { get; set; }
     }
 

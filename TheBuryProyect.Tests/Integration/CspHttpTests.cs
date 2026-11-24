@@ -162,6 +162,54 @@ public class CspHttpTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(30, avisos.Count);
     }
 
+    [Fact]
+    public async Task ReporteCsp_NoLoguea_QueryNiFragmento_DeLasUrls()
+    {
+        // D-05: los logs de la ventana de observacion se archivan 90 dias; un reporte de /Identity/Account/ResetPassword?code=...
+        // o de una busqueda ?q=<DNI> no puede dejar el token ni el dato personal en el log.
+        var logs = new CapturaLogs();
+        var c = _factory.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Csp:Mode", "ReportOnly");
+            b.ConfigureServices(sv => Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider>(sv, logs));
+        }).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cuerpo = "{\"csp-report\":{\"document-uri\":\"https://erp.local/Identity/Account/ResetPassword?code=TOKEN-SECRETO&email=a@b.c#frag-sec\"," +
+                     "\"violated-directive\":\"img-src\",\"effective-directive\":\"img-src\"," +
+                     "\"blocked-uri\":\"https://cdn.example/x.png?sig=FIRMA-SECRETA\"," +
+                     "\"source-file\":\"https://erp.local/js/a.js?v=DNI-30123456\",\"line-number\":7,\"disposition\":\"report\"}}";
+        var r = await c.PostAsync("/csp-report", new StringContent(cuerpo, Encoding.UTF8, "application/csp-report"));
+        Assert.Equal(HttpStatusCode.NoContent, r.StatusCode);
+        var aviso = Assert.Single(logs.Mensajes, m => m.Contains("CSP violation"));
+        Assert.Contains("document-uri=https://erp.local/Identity/Account/ResetPassword |", aviso);
+        Assert.Contains("blocked-uri=https://cdn.example/x.png |", aviso);
+        Assert.Contains("source-file=https://erp.local/js/a.js |", aviso);
+        Assert.Contains("line-number=7", aviso);
+        foreach (var secreto in new[] { "TOKEN-SECRETO", "FIRMA-SECRETA", "DNI-30123456", "frag-sec", "a@b.c" })
+            Assert.DoesNotContain(secreto, aviso);
+    }
+
+    [Fact]
+    public async Task ReporteCsp_NoLoguea_NonceDeLaPolitica_NiContenidoData_NiCredencialesEnUrl()
+    {
+        var logs = new CapturaLogs();
+        var c = _factory.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Csp:Mode", "ReportOnly");
+            b.ConfigureServices(sv => Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider>(sv, logs));
+        }).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cuerpo = "{\"csp-report\":{\"document-uri\":\"https://usr:PASS-SECRETA@erp.local/Cliente\"," +
+                     "\"violated-directive\":\"script-src-elem 'self' 'nonce-NONCE-SECRETO'\",\"effective-directive\":\"script-src-elem 'nonce-NONCE-SECRETO'\"," +
+                     "\"blocked-uri\":\"data:text/plain;base64,CONTENIDO-SECRETO\",\"disposition\":\"report\"}}";
+        var r = await c.PostAsync("/csp-report", new StringContent(cuerpo, Encoding.UTF8, "application/csp-report"));
+        Assert.Equal(HttpStatusCode.NoContent, r.StatusCode);
+        var aviso = Assert.Single(logs.Mensajes, m => m.Contains("CSP violation"));
+        foreach (var secreto in new[] { "NONCE-SECRETO", "CONTENIDO-SECRETO", "PASS-SECRETA", "usr:" })
+            Assert.DoesNotContain(secreto, aviso);
+        Assert.Contains("document-uri=https://erp.local/Cliente", aviso);
+        Assert.Contains("blocked-uri=data:text/plain;base64,…", aviso);
+        Assert.Contains("violated-directive=script-src-elem 'self' 'nonce-…'", aviso);
+    }
+
     private sealed class CapturaLogs : Microsoft.Extensions.Logging.ILoggerProvider
     {
         public System.Collections.Concurrent.ConcurrentBag<string> Mensajes { get; } = new();

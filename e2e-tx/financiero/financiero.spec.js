@@ -259,10 +259,9 @@ test('FASE 3 — mora: vencimiento controlado, proceso real, alertas y cambios d
     const tot1 = Number(c1.MontoTotal);
     rep.chk('19', 'Alerta: monto vencido = cuota 1 sin pagar', tot1, Number(al?.MontoVencido));
     rep.chk('19', 'Alerta: cantidad de cuotas vencidas = 1', 1, Number(al?.CuotasVencidas));
-    const moraEsp = R.moraAlerta(tot1, 15, MORA.tasaBase);
-    if (Number(l1.AlertasGeneradas) === 1) rep.chk('18', 'Interés de mora (log TotalRecargosAplicados) = monto × tasa/100/30 × días', moraEsp, Number(l1.TotalRecargosAplicados), { tol: 0.01 });
-    else rep.bloqueado('18', 'Interés de mora del log', `El log agrega ${l1.AlertasGeneradas} alertas; no aislable`);
-    rep.chk('18', 'Alerta.MontoMoraCalculada persiste el interés de mora', moraEsp, Number(al?.MontoMoraCalculada), { tol: 0.01, nota: 'El servicio calcula la mora solo para el log; el campo de la alerta queda en 0 (CalcularMora no se persiste en AlertaCobranza).' });
+    // MORA-CONTRACTUAL: las alertas ya no estiman importes de mora (el punitorio real se verifica más abajo).
+    rep.chk('18', 'Mora estimada en el log (TotalRecargosAplicados) = 0: sin estimaciones monetarias', 0, Number(l1.TotalRecargosAplicados), { tol: 0.001 });
+    rep.chk('18', 'Alerta.MontoMoraCalculada = 0: sin estimaciones monetarias', 0, Number(al?.MontoMoraCalculada), { tol: 0.001 });
     // punitorio
     const dias = 15;
     const pEsp = punEsperado(tot1, v1, hoy);

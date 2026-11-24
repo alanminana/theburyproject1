@@ -83,7 +83,6 @@ namespace TheBuryProject.Services
                     _configuracion = new ConfiguracionMora
                     {
                         DiasGracia = 3,
-                        TasaMoraBase = 5.0m,
                         ProcesoAutomaticoActivo = true,
                         NotificacionesActivas = true,
                         HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
@@ -246,7 +245,6 @@ namespace TheBuryProject.Services
                         // AlertaCobranza.Leida; tocarlo marcaría como "leída" una alerta que nadie vio).
                         // Calcular datos de mora
                         var montoVencido = cuotasDelCredito.Sum(c => c.MontoTotal - c.MontoPagado);
-                        var moraCalculada = CalcularMora(montoVencido, diasMora, config);
 
                         if (alertasActivasPorCredito.TryGetValue(creditoId, out var alertaExistente))
                         {
@@ -296,7 +294,6 @@ namespace TheBuryProject.Services
 
                         log.CuotasConMora += cuotasDelCredito.Count;
                         log.TotalMora += montoVencido;
-                        log.TotalRecargosAplicados += moraCalculada;
 
                         _logger.LogInformation(
                             "Alerta generada - Crédito: {CreditoId}, Cliente: {Cliente}, Mora: ${Mora}, Días: {Días}",
@@ -873,7 +870,6 @@ namespace TheBuryProject.Services
                         a.CuotasVencidas,
                         a.DiasAtraso,
                         a.MontoVencido,
-                        a.MontoMoraCalculada,
                         a.Prioridad,
                         a.EstadoGestion,
                         a.FechaPromesaPago,
@@ -895,7 +891,6 @@ namespace TheBuryProject.Services
                         CuotasVencidas = g.Sum(a => a.CuotasVencidas),
                         DiasMaxAtraso = g.Max(a => a.DiasAtraso),
                         MontoVencido = g.Sum(a => a.MontoVencido),
-                        MontoMora = g.Sum(a => a.MontoMoraCalculada),
                         PrioridadMaxima = g.Max(a => a.Prioridad),
                         EstadoGestion = g.Max(a => a.EstadoGestion),
                         AlertasActivas = g.Count(),
@@ -937,7 +932,6 @@ namespace TheBuryProject.Services
                         CuotasVencidas = c.CuotasVencidas,
                         DiasMaxAtraso = c.DiasMaxAtraso,
                         MontoVencido = c.MontoVencido,
-                        MontoMora = c.MontoMora,
                         PrioridadMaxima = c.PrioridadMaxima,
                         EstadoGestion = c.EstadoGestion,
                         AlertasActivas = c.AlertasActivas,
@@ -969,7 +963,6 @@ namespace TheBuryProject.Services
                     Filtros = filtros,
                     TotalClientes = totalClientes,
                     MontoTotalVencido = clientes.Sum(c => c.MontoVencido),
-                    MontoTotalMora = clientes.Sum(c => c.MontoMora),
                     ClientesCriticos = clientes.Count(c => c.PrioridadMaxima == PrioridadAlerta.Critica),
                     ClientesConPromesa = clientes.Count(c => c.TienePromesaActiva),
                     ClientesConAcuerdo = clientes.Count(c => c.TieneAcuerdoActivo)
@@ -1062,7 +1055,6 @@ namespace TheBuryProject.Services
                     TotalCuotasVencidas = creditos.Sum(c => c.CuotasVencidas),
                     DiasMaxAtraso = creditos.Any() ? creditos.Max(c => c.DiasAtraso) : 0,
                     MontoCapitalVencido = creditos.Sum(c => c.MontoCuotasVencidas),
-                    MontoMoraAcumulada = creditos.Sum(c => c.MontoMora),
                     PrioridadMaxima = alertasActivas.Any() ? alertasActivas.Max(a => a.Prioridad) : PrioridadAlerta.Baja,
                     // Determinar estado de gestión basado en alertas activas
                     // Nota: TipoNombre contiene TipoAlertaCobranza, no EstadoGestionCobranza
@@ -1188,9 +1180,6 @@ namespace TheBuryProject.Services
                         MontoInteres = c.MontoInteres,
                         MontoTotal = c.MontoTotal,
                         MontoPagado = c.MontoPagado,
-                        // MontoMora: valor legacy (Cuota.MontoPunitorio), congelado desde PUN-ML6 —
-                        // fuera de alcance de esta corrección (no se toca fórmula de punitorios).
-                        MontoMora = c.MontoPunitorio,
                         DiasAtraso = EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial)
                     }).ToList();
 
@@ -1207,7 +1196,6 @@ namespace TheBuryProject.Services
                         CuotasVencidas = cuotasVencidas.Count,
                         DiasAtraso = cuotasVencidas.Max(c => EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial)),
                         MontoCuotasVencidas = cuotasVencidas.Sum(c => c.MontoTotal - c.MontoPagado),
-                        MontoMora = cuotasVencidas.Sum(c => c.MontoPunitorio),
                         CuotasDetalle = cuotasDetalle
                     });
                 }
@@ -2500,7 +2488,6 @@ namespace TheBuryProject.Services
                     ClientesPrioridadBaja = conteoPorPrioridad.GetValueOrDefault(PrioridadAlerta.Baja, 0),
                     DiasPromedioAtraso = (decimal)diasPromedio,
                     MontoTotalVencido = alertas.Sum(a => a.MontoVencido),
-                    MoraTotal = alertas.Sum(a => a.MontoMoraCalculada),
                     AlertasActivas = alertas.Count,
                     AlertasNoLeidas = alertas.Count(a => a.CreatedAt > (config.UltimaEjecucion ?? DateTime.MinValue)),
                     AlertasCriticas = alertas.Count(a => a.Prioridad == PrioridadAlerta.Critica),
@@ -2530,21 +2517,8 @@ namespace TheBuryProject.Services
 
         #region Métodos Privados Helpers
 
-        // Fórmula de mora para alertas de cobranza: usa ConfiguracionMora.TasaMoraBase (tasa global configurable).
-        // NOTA: difiere de MoraAlertasService y CreditoService que usan Credito.TasaInteres por crédito.
-        // Esta bifurcación produce MontoMoraCalculada en AlertaCobranza inconsistente con MontoPunitorio en Cuota.
-        // Pendiente de alineación — requiere decisión de negocio sobre régimen de tasa punitoria.
-        private decimal CalcularMora(decimal montoVencido, int diasAtraso, ConfiguracionMora config)
-        {
-            if (diasAtraso <= 0 || montoVencido <= 0)
-                return 0;
-
-            var tasaBase = config.TasaMoraBase ?? 0m;
-            var tasaDiaria = tasaBase / 100m / DiasPorMesComercial; // Convertir a tasa diaria
-            var mora = montoVencido * tasaDiaria * diasAtraso;
-
-            return Math.Round(mora, 2);
-        }
+        // Las alertas de cobranza NO estiman importes de mora (MORA-CONTRACTUAL): informan cuotas vencidas, días de
+        // atraso y capital pendiente. El punitorio real lo devenga PunitorioService con la configuración vigente.
 
         private PrioridadAlerta DeterminarPrioridad(int diasMora, decimal montoVencido, ConfiguracionMora config)
         {

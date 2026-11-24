@@ -340,6 +340,31 @@ removable_available() { # -> rc 0 disponible | 1 no (REMOVABLE_WHY = motivo)
   fi
   [[ -f "$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" ]] || { REMOVABLE_WHY="falta el archivo-marca '$BACKUP_REMOVABLE_MARKER' en la raiz del destino (crearlo una vez con touch en el disco correcto)"; return 1; }
   [[ -w "$BACKUP_REMOVABLE_DIR" ]] || { REMOVABLE_WHY="el destino no es escribible por $(id -un)"; return 1; }
+  # Un destino extraible es de UNA instalacion: el nombre de archivo de los respaldos (<db>_full_<ts>.bak) es identico entre instalaciones y la
+  # retencion por cadenas las trataria como una sola (una podaria las copias de la otra). La primera copia graba BACKUP_DIR en la marca
+  # (removable_sync); aqui se rechaza un destino cuya marca nombra a OTRA instalacion. Marca vacia (legado) = libre, se reclama al copiar.
+  local owner; owner=$(head -c 1024 "$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" 2>/dev/null | tr -d '\r' | head -n1 || true)
+  if [[ -n "$owner" && "$owner" != "$BACKUP_DIR" ]]; then
+    REMOVABLE_WHY="el destino pertenece a OTRA instalacion (su marca nombra BACKUP_DIR=$owner, esta es $BACKUP_DIR): usar un destino extraible propio por instalacion. Si se movio BACKUP_DIR a proposito, corregir el contenido de '$BACKUP_REMOVABLE_MARKER'"
+    return 1
+  fi
+  return 0
+}
+
+# removable_claim: graba BACKUP_DIR como dueño en la marca si esta vacia (legado) y confirma por relectura que el dueño es ESTA instalacion.
+# rc 0 = el destino es nuestro | 1 = de otra instalacion o no se pudo grabar (REMOVABLE_WHY). Con `flock` la lectura+escritura es atomica entre procesos.
+removable_claim() {
+  local mark="$BACKUP_REMOVABLE_DIR/$BACKUP_REMOVABLE_MARKER" owner
+  if command -v flock >/dev/null 2>&1; then
+    ( flock -x -w 30 8 || exit 1; [[ -s "$mark" ]] || printf '%s\n' "$BACKUP_DIR" >"$mark" ) 8>>"$mark" 2>/dev/null \
+      || { REMOVABLE_WHY="no se pudo reclamar el destino (marca '$BACKUP_REMOVABLE_MARKER' bloqueada o no escribible)"; return 1; }
+  else
+    [[ -s "$mark" ]] || printf '%s\n' "$BACKUP_DIR" >"$mark" 2>/dev/null || { REMOVABLE_WHY="no se pudo grabar el dueño del destino en la marca"; return 1; }
+  fi
+  owner=$(head -c 1024 "$mark" 2>/dev/null | tr -d '\r' | head -n1 || true)
+  if [[ "$owner" != "$BACKUP_DIR" ]]; then
+    REMOVABLE_WHY="el destino pertenece a OTRA instalacion o su dueño no se pudo confirmar (marca='${owner:-vacia}', esta es $BACKUP_DIR)"; return 1
+  fi
   return 0
 }
 
@@ -361,6 +386,12 @@ removable_sync() { # removable_sync <apply 0|1>
   fi
   local llist rlist now; now=$(date -u +%s)
   llist=$(cap_run local "$CAP_LIST_SH" 2>&1) || { log WARN "copia extraible: no se pudo listar BACKUP_DIR: $(sanitize_text "$llist" | tr '\n' ' ' | cut -c1-200)"; (( apply )) && removable_status 1 false "atrasada: no se pudo listar el origen"; return 0; }
+  if (( apply )); then
+    # Reclamo del destino: bajo flock de la propia marca (excluye a la OTRA instalacion, cuyo lock de BACKUP_DIR es distinto) y con relectura:
+    # si el dueño grabado no es este BACKUP_DIR, o no se pudo grabar, NO se copia ni se poda nada (fail-closed).
+    removable_claim || { log WARN "destino extraible NO disponible: $REMOVABLE_WHY. Los backups siguen en BACKUP_DIR; la copia extraible queda ATRASADA"
+      removable_status 1 false "atrasada: destino no disponible: $REMOVABLE_WHY"; [[ "${REMOVABLE_STRICT:-0}" == 1 ]] && return 1; return 0; }
+  fi
   if (( apply )); then
     cap_run removable "$CAP_PREP_SH" >/dev/null 2>&1 || { log WARN "copia extraible: no se pudo preparar el destino"; removable_status 1 false "atrasada: no se pudo preparar el destino"; [[ "${REMOVABLE_STRICT:-0}" == 1 ]] && return 1; return 0; }
   fi

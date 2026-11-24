@@ -34,6 +34,13 @@ public class ContratoVentaCreditoServiceTests : IDisposable
 
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
+        // El interés por mora del contrato sale de los punitorios vigentes (0 % aprobado); sin configuración no se emite.
+        _context.ConfiguracionesPunitorio.Add(new ConfiguracionPunitorio
+        {
+            Porcentaje = 0m, PeriodoDias = 30, DiasGracia = 12, ProrrateoDiario = true, Activa = true,
+            VigenteDesde = new DateOnly(2020, 1, 1)
+        });
+        _context.SaveChanges();
 
         _configuracionPagoService = new NoOpConfiguracionPagoService();
         _service = new ContratoVentaCreditoService(
@@ -269,6 +276,126 @@ public class ContratoVentaCreditoServiceTests : IDisposable
 
         Assert.NotNull(contrato);
         Assert.False(string.IsNullOrWhiteSpace(contrato.NumeroContrato));
+    }
+
+    // MORA-CONTRACTUAL — el interés por mora del contrato anterior sale de los punitorios vigentes (0 % aprobado), admite 0 %,
+    // no usa TasaMoraBase ni la plantilla, y sin configuración activa no se emite.
+    private async Task<Venta> SeedMoraContractualAsync(decimal? tasaMoraBase = 5m, decimal interesPlantilla = 0m, string? textoPagare = null)
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+        var plantilla = await _context.PlantillasContratoCredito.FirstAsync(p => p.Activa);
+        plantilla.InteresMoraDiarioPorcentaje = interesPlantilla;
+        if (textoPagare != null) plantilla.TextoPagare = textoPagare;
+        _context.ConfiguracionesMora.Add(new ConfiguracionMora { TasaMoraBase = tasaMoraBase, DiasGracia = 3 });
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
+    private static JsonElement Vendedor(ContratoVentaCredito contrato)
+        => JsonDocument.Parse(contrato.DatosSnapshotJson).RootElement.GetProperty("Vendedor").Clone();
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(null)]
+    public async Task MoraContractual_Punitorio0_GeneraContratoConInteres0_SinImportarTasaMoraBaseNiPlantilla(int? tasaEntera)
+    {
+        var venta = await SeedMoraContractualAsync(tasaEntera, interesPlantilla: 0m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        var v = Vendedor(contrato);
+        Assert.Equal(0m, v.GetProperty("InteresMoraDiarioPorcentaje").GetDecimal());
+        Assert.Equal(0m, v.GetProperty("PunitorioPorcentaje").GetDecimal());
+        Assert.Equal(30, v.GetProperty("PunitorioPeriodoDias").GetInt32());
+        Assert.Equal(12, v.GetProperty("PunitorioDiasGracia").GetInt32());
+        Assert.Contains("no se devenga interés punitorio", v.GetProperty("InteresMoraTexto").GetString());
+    }
+
+    [Fact]
+    public async Task MoraContractual_ElInteresDeLaPlantillaSemilla_NoSePisaNiSeImprime()
+    {
+        var venta = await SeedMoraContractualAsync(tasaMoraBase: null, interesPlantilla: 0.05m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        Assert.Equal(0m, Vendedor(contrato).GetProperty("InteresMoraDiarioPorcentaje").GetDecimal());
+    }
+
+    [Fact]
+    public async Task MoraContractual_CambioDeTasa_ElContratoNuevoUsaLaVigente_YElSnapshotEmitidoNoCambia()
+    {
+        var venta1 = await SeedMoraContractualAsync();
+        var contrato1 = await _service.GenerarAsync(venta1.Id, "tester");
+        var snapshot1 = contrato1.DatosSnapshotJson;
+
+        _context.ConfiguracionesPunitorio.Add(new ConfiguracionPunitorio
+        {
+            Porcentaje = 3m, PeriodoDias = 30, DiasGracia = 5, ProrrateoDiario = true, Activa = true,
+            VigenteDesde = new DateOnly(2021, 1, 1)
+        });
+        await _context.SaveChangesAsync();
+        var venta2 = await SeedVentaCreditoAsync(new[] { DetalleSeed("P2", "Producto 2", subtotal: 500m, subtotalFinal: 500m) }, total: 500m);
+        var contrato2 = await _service.GenerarAsync(venta2.Id, "tester");
+
+        var v2 = Vendedor(contrato2);
+        Assert.Equal(3m, v2.GetProperty("PunitorioPorcentaje").GetDecimal());
+        Assert.Contains("3,00 % cada 30 día(s)", v2.GetProperty("InteresMoraTexto").GetString());
+        Assert.Equal(0.1m, v2.GetProperty("InteresMoraDiarioPorcentaje").GetDecimal()); // 3/30, solo informativo
+        _context.ChangeTracker.Clear();
+        var releido = await _context.ContratosVentaCredito.AsNoTracking().FirstAsync(c => c.Id == contrato1.Id);
+        Assert.Equal(snapshot1, releido.DatosSnapshotJson);
+    }
+
+    [Fact]
+    public async Task MoraContractual_SinPunitorioVigente_BloqueaLaGeneracion_SinInventarTasa()
+    {
+        var venta = await SeedMoraContractualAsync();
+        _context.ConfiguracionesPunitorio.RemoveRange(_context.ConfiguracionesPunitorio);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("punitorios vigente y activa", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task MoraContractual_PunitorioInactivo_BloqueaLaGeneracion()
+    {
+        var venta = await SeedMoraContractualAsync();
+        var config = await _context.ConfiguracionesPunitorio.SingleAsync();
+        config.Activa = false;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("punitorios vigente y activa", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task MoraContractual_PlantillaConInteresDiarioAntiguo_ConPunitorioPositivo_SeRechaza_PeroConCeroSeAcepta()
+    {
+        var venta = await SeedMoraContractualAsync(textoPagare: "Interés punitorio del {{INTERES_MORA}}% diario.");
+
+        // Con 0 % la variable antigua es exacta (0): se acepta.
+        Assert.True((await _service.ValidarDatosParaGenerarAsync(venta.Id)).EsValido);
+
+        var config = await _context.ConfiguracionesPunitorio.SingleAsync();
+        _context.ConfiguracionesPunitorio.Add(new ConfiguracionPunitorio
+        {
+            Porcentaje = 10m, PeriodoDias = 30, DiasGracia = 0, ProrrateoDiario = true, Activa = true,
+            VigenteDesde = new DateOnly(2021, 1, 1)
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("INTERES_MORA_TEXTO"));
     }
 
     [Fact]

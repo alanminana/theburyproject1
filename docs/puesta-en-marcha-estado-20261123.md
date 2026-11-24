@@ -24,6 +24,8 @@ El instante fiscal **no** es un bloqueo: se toma del reloj en el momento del cor
 
 ## 3. Inconsistencia de interés por mora (`ConfiguracionMora.TasaMoraBase`)
 
+> **Resuelto en código (decisión A+B, 2026-11-23):** contrato y pagaré toman el interés de los punitorios vigentes (0 % válido, sin fallbacks) y las alertas ya no estiman mora. Ver `mora-contractual-implementacion-20261123.md`. Lo que sigue es el diagnóstico original.
+
 ### Origen
 La fila de `ConfiguracionesMora` no se siembra: la crea `MoraService.GetConfiguracionAsync` al primer acceso con **TasaMoraBase = 5, DiasGracia = 3, ProcesoAutomaticoActivo = true, NotificacionesActivas = true**. Verificado en una instalación nueva (fila id 1 con esos valores). `ConfiguracionMoraService` tiene otro default (0,1) que no se usa si la fila ya existe.
 

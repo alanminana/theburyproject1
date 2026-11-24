@@ -119,13 +119,18 @@ namespace TheBuryProject.Services.Documentos
             T("empresa.direccion", "Domicilio", "Empresa");
             T("empresa.ciudad", "Ciudad de firma", "Empresa");
             T("empresa.jurisdiccion", "Jurisdicción", "Empresa");
-            T("empresa.interesMoraDiario", "Interés por mora diario (%)", "Empresa");
+            T("empresa.interesMoraDiario", "Interés por mora diario (%) — solo con punitorio 0 %; usar contrato.interesMoraTexto", "Empresa");
             T("empresa.nombreComercial", "Nombre comercial", "Empresa");
             T("empresa.titular", "Titular / vendedor", "Empresa");
             T("empresa.titularDni", "DNI del titular", "Empresa");
             T("empresa.direccionCompleta", "Domicilio completo (contrato)", "Empresa");
             T("empresa.localidad", "Localidad", "Empresa");
-            T("contrato.interesMoraDiario", "Interés por mora diario con % (ej. 0,20%)", "Empresa");
+            T("contrato.interesMoraDiario", "Interés por mora diario con % — solo con punitorio 0 %; usar contrato.interesMoraTexto", "Empresa");
+            T("contrato.interesMoraTexto", "Cláusula de interés por mora (según los punitorios vigentes)", "Empresa");
+            T("contrato.interesMoraPorcentaje", "Interés punitorio vigente (%)", "Empresa");
+            T("contrato.interesMoraPeriodoDias", "Período del interés punitorio (días)", "Empresa");
+            T("contrato.interesMoraGraciaDias", "Días de gracia del interés punitorio", "Empresa");
+            T("contrato.interesMoraVigenteDesde", "Vigencia de la configuración de punitorios", "Empresa");
 
             T("cliente.nombre", "Nombre", "Cliente");
             T("cliente.apellido", "Apellido", "Cliente");
@@ -270,7 +275,7 @@ namespace TheBuryProject.Services.Documentos
             ["PRODUCTOS_DETALLE"] = "venta.productosDetalle", ["PRECIO_TOTAL"] = "venta.total",
             ["SALDO_FINANCIADO"] = "credito.saldoFinanciado", ["CANTIDAD_CUOTAS"] = "credito.cantidadCuotas",
             ["VALOR_CUOTA"] = "credito.importeCuota", ["PLAN_CUOTAS"] = "credito.planCuotasDetalle",
-            ["INTERES_MORA"] = "empresa.interesMoraDiario", ["USUARIO_GENERACION"] = "documento.usuario",
+            ["INTERES_MORA"] = "empresa.interesMoraDiario", ["INTERES_MORA_TEXTO"] = "contrato.interesMoraTexto", ["USUARIO_GENERACION"] = "documento.usuario",
             ["SUCURSAL"] = "venta.sucursal", ["CAJA"] = "venta.caja"
         };
 
