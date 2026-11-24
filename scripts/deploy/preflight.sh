@@ -142,6 +142,16 @@ if (( REQUIRE_DB_UP )); then
   fi
 fi
 
+# --- recuperacion incompleta (scripts/backup/recover.sh deja la marca hasta terminar bien) ---
+_bd=""
+[[ -f "$DP_ENV_FILE" ]] && _bd=$(grep -E '^BACKUP_DIR=' "$DP_ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d "\r\"'" || true)
+_bd=${_bd:-./backups}; [[ "$_bd" =~ ^(/|[A-Za-z]:[/\]) ]] || _bd="$REPO_DIR/${_bd#./}"   # relativo o ausente -> respecto del repo (igual que backup/lib.sh y Compose)
+if [[ -e "$_bd/.recovery-incomplete" ]]; then
+  log ERROR "FAIL hay una recuperacion INCOMPLETA ($_bd/.recovery-incomplete): desplegar ahora haria que migrate cree una base vacia. Terminar scripts/backup/recover.sh o, si se descarta, borrar la marca a mano"; FAIL=1
+else
+  log INFO "OK   sin recuperacion incompleta pendiente"
+fi
+
 # --- espacio libre ---
 FREE_KB=$(df -Pk "$REPO_DIR" 2>/dev/null | awk 'NR==2{print $4}')
 if is_uint "$FREE_KB" && (( FREE_KB > 5 * 1024 * 1024 )); then

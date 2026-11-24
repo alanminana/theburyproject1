@@ -391,9 +391,16 @@ Conserva dueños (uid 1654 de `app`). Verifica `sha256` y el tar antes de tocar 
 Servidor nuevo (Linux + Docker + Compose ≥ 2.24 + `git`). **No** arrancar todavía el stack completo: si `app` arranca antes de restaurar
 las claves, genera claves nuevas y las cookies/tokens viejos quedan invalidados.
 
-> **Si los respaldos vienen de la copia del disco extraíble (no de `BACKUP_DIR`)** (ensayado 2026-11-24, notebook Ubuntu): esa copia deja los `.bak/.trn` como `root:root` modo 640 y SQL Server (uid 10001) no puede leerlos:
-> `RESTORE VERIFYONLY` falla y, si se levanta el stack igual, `migrate` crea una base **vacía** (no es una recuperación). Tras copiar al `BACKUP_DIR` nuevo: `sudo chown -R 10001:10001 <BACKUP_DIR>/sql`.
-> Recuperar el `.env` con `recovery-package.sh extract` (ANTES de levantar nada) y verificar al final que la cookie de sesión de la instalación vieja siga siendo válida (prueba de que las claves de Data Protection se restauraron).
+> **Recomendado: `scripts/backup/recover.sh`** (ensayado 2026-11-24, notebook Ubuntu; `scripts/qa/p07/run-dr-datos.sh`). Orquesta los pasos 2-5 de abajo con salida estricta:
+> verifica ANTES de tocar nada que existan el tar, el full y (con `--with-logs`) los logs con su sha256; restaura archivos y SQL; aplica una **compuerta** (base ONLINE, migraciones, ≥ 1 usuario, `DBCC CHECKDB`)
+> y solo entonces levanta `app`/`migrate`/`caddy`. **Cualquier fallo detiene la recuperación sin levantar `app`/`migrate`** (si `docker compose up` corriera tras un restore fallido, `migrate` crearía una base **vacía** que
+> arrancaría "sana"), deja la marca `BACKUP_DIR/.recovery-incomplete` y `scripts/deploy/preflight.sh` rechaza desplegar mientras exista. `--plan` solo muestra el par elegido; `--no-start` restaura y verifica sin arrancar;
+> `--force-files` permite reintentar cuando los archivos ya se repusieron.
+>
+> **Permisos de los respaldos traídos de un extraíble u offsite.** La copia al extraíble hacía `cp` sin conservar dueño ni modo: `sql/` y los `.bak/.trn` quedaban `root:root` 700/640 y SQL Server (uid 10001) no los podía leer
+> (`RESTORE VERIFYONLY` fallaba o "el backup no existe o está vacío"). Corregido en tres capas: `copy-removable` conserva dueño y modo del origen (mejor esfuerzo: NTFS/exFAT no soportan `chown`);
+> `restore-sql.sh` corrige dueño/modo del directorio `sql/` y de cada archivo desde un contenedor root (el sha256 ya se verificó) y, si aun así SQL Server no puede leerlos, **aborta**.
+> Ya no hace falta ningún `chown` manual.
 
 ```bash
 # 1. Código y secretos
