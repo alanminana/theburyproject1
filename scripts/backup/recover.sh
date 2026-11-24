@@ -42,7 +42,7 @@ while (( $# )); do
   esac
 done
 [[ -n "$ACTION" ]] || { sed -n '2,29p' "$0"; exit "$EX_USAGE"; }
-is_uint "$MIN_USERS" && (( MIN_USERS >= 1 )) || { echo "--min-users debe ser un entero >= 1 (una base operativa nunca tiene 0 usuarios)" >&2; exit "$EX_USAGE"; }
+[[ "$MIN_USERS" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "--min-users debe ser un entero decimal entre 1 y 999999999, sin ceros a la izquierda (una base operativa nunca tiene 0 usuarios)" >&2; exit "$EX_USAGE"; }
 
 load_config
 BK_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
