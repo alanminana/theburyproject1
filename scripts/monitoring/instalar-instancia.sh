@@ -45,6 +45,10 @@ if [ -z "$OUT" ]; then OUT="$(mktemp -d)"; else mkdir -p "$OUT"; fi
 for d in "$ETC_DIR" "$UNIT_DIR"; do
   case "$(readlink -f "$OUT")/" in "$(readlink -f "$d")/"*) echo "FALLA: --out no puede estar dentro de $d" >&2; exit 2;; esac
 done
+# Los archivos de salida no pueden existir de antemano (ni como symlink): la escritura seguiria el enlace y pisaria otro archivo.
+for f in "$OUT/config.json" "$OUT/$SVC.service"; do
+  if [ -e "$f" ] || [ -L "$f" ]; then echo "FALLA: $f ya existe; usar un --out vacio" >&2; exit 2; fi
+done
 
 # 1) config.json: parte de config.example.json (la base real puede tener ajustes propios; aqui se usa el ejemplo versionado).
 "$PY" - "$SRC/config.example.json" "$OUT/config.json" "$PROJECT" "$BACKUP_DIR" "/var/lib/$STATE" "$BASE_URL" "$KEEP_OFFSITE" <<'PYEOF'
@@ -85,15 +89,21 @@ echo "Instancia: $NAME | proyecto: $PROJECT | respaldos: $BACKUP_DIR | estado: /
 [ -f "$BASE_ETC/monitor.env" ] || { echo "FALLA: falta $BASE_ETC/monitor.env (canal de alertas de la instancia base)" >&2; exit 2; }
 "$PY" -c 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")' /opt/theburyproject/scripts/monitoring/monitor.py 2>/dev/null \
   || [ -n "${BURY_INSTALL_ANY_USER:-}" ] || { echo "FALLA: monitor.py no esta instalado en /opt/theburyproject/scripts/monitoring (correr instalar-agente.sh)" >&2; exit 2; }
-install -d -m 0750 "$ETC_DIR"
+# Creacion atomica: mkdir falla si ya existe (carrera con otro proceso); solo se limpia lo que ESTE script creo.
+CREATED=0 UNIT_CREATED=0
+cleanup_apply() { rc=$?; if [ "$rc" != 0 ]; then [ "$CREATED" = 1 ] && rm -rf "$ETC_DIR"; [ "$UNIT_CREATED" = 1 ] && rm -f "$UNIT_DIR/$SVC.service"; fi; return 0; }
+trap cleanup_apply EXIT
+mkdir -m 0750 "$ETC_DIR" 2>/dev/null || { echo "FALLA: no se pudo crear $ETC_DIR (existe o sin permisos); no se sobrescribe" >&2; exit 2; }
+CREATED=1
 if [ "$KEEP_HEARTBEAT" = 1 ]; then install -m 0600 "$BASE_ETC/monitor.env" "$ETC_DIR/monitor.env"
 else rc=0; ( umask 077; grep -v -E '^[[:space:]]*(export[[:space:]]+)?BURY_MONITOR_HEARTBEAT' "$BASE_ETC/monitor.env" > "$ETC_DIR/monitor.env" ) || rc=$?
   # grep: 0 = quedaron lineas, 1 = no quedo ninguna (aceptable); >=2 = error de lectura/escritura: no continuar con un canal vacio.
-  [ "$rc" -le 1 ] && [ -s "$ETC_DIR/monitor.env" ] || { rm -rf "$ETC_DIR"; echo "FALLA: no se pudo copiar monitor.env (o quedo vacio); instalacion abortada" >&2; exit 1; }
+  [ "$rc" -le 1 ] && [ -s "$ETC_DIR/monitor.env" ] || { echo "FALLA: no se pudo copiar monitor.env (o quedo vacio); instalacion abortada" >&2; exit 1; }
   chmod 0600 "$ETC_DIR/monitor.env"; fi
 [ -z "$CA_FILE" ] || install -m 0644 "$CA_FILE" "$ETC_DIR/ca.crt"
 install -m 0644 "$OUT/config.json" "$ETC_DIR/config.json"
-install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service"
+[ -e "$UNIT_DIR/$SVC.service" ] || [ -L "$UNIT_DIR/$SVC.service" ] && { echo "FALLA: la unidad ya existe; no se sobrescribe" >&2; exit 2; }
+install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service" && UNIT_CREATED=1
 if [ -z "${BURY_INSTALL_ANY_USER:-}" ]; then
   systemctl daemon-reload
   systemctl enable --now "$SVC"

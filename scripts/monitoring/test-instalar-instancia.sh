@@ -47,15 +47,26 @@ echo "$OUTP" | grep -q -e SECRETO -e HBSECRETO && ko "no filtra secreto" || ok "
 grep -q HEARTBEAT "$T/etc/bury-monitor/monitor.env" && ok "base intacta" || ko "base intacta"
 "$S" "${A[@]}" --ca-file "$T/no-existe.crt" --out "$T/b2" >/dev/null 2>&1 && ko "rechaza CA invalida" || ok "rechaza CA invalida"
 
-# 4) Codex #364: --out dentro de la instancia existente no la pisa; fallo de lectura aborta sin dejar instancia a medias
+# 4) Codex #364: rutas de salida peligrosas, symlinks, carrera/limpieza y lectura fallida (cada caso con rutas propias: sin falsos positivos)
 CFG0="$(md5sum "$T/etc/bury-monitor-prod/config.json")"
 "$S" "${A[@]}" --apply --out "$T/etc/bury-monitor-prod" >/dev/null 2>&1 && ko "out=instancia existente" || ok "out=instancia existente rechazado"
 [ "$(md5sum "$T/etc/bury-monitor-prod/config.json")" = "$CFG0" ] && ok "config existente intacta" || ko "config existente intacta"
-"$S" "${A[@]}" --apply --out "$T/units" >/dev/null 2>&1 && ko "out=directorio de unidades" || ok "out=directorio de unidades rechazado"
-mkdir -p "$T/etc2/bury-monitor"; echo 'BURY_MONITOR_TOKEN=X' > "$T/etc2/bury-monitor/monitor.env"; chmod 000 "$T/etc2/bury-monitor/monitor.env"
+mkdir -p "$T/etc4/bury-monitor" "$T/units4"; echo 'BURY_MONITOR_TOKEN=X' > "$T/etc4/bury-monitor/monitor.env"
+BURY_MONITOR_ETC_ROOT="$T/etc4" BURY_MONITOR_UNIT_DIR="$T/units4" "$S" "${A[@]}" --apply --out "$T/units4" >/dev/null 2>&1 && ko "out=directorio de unidades" || ok "out=directorio de unidades rechazado"
+[ ! -e "$T/etc4/bury-monitor-prod" ] && ok "rechazo antes de crear nada" || ko "rechazo antes de crear nada"
+# symlink preexistente en --out: no se sigue ni se pisa el destino
+mkdir -p "$T/out5"; echo 'AJENO' > "$T/ajeno.txt"; ln -s "$T/ajeno.txt" "$T/out5/config.json"
+"$S" "${A[@]}" --out "$T/out5" >/dev/null 2>&1 && ko "symlink en --out" || ok "symlink en --out rechazado"
+[ "$(cat "$T/ajeno.txt")" = AJENO ] && ok "destino del symlink intacto" || ko "destino del symlink intacto"
+# --out con una ruta relativa que apunta a la instancia existente (..)
+( cd "$T/etc" && "$S" "${A[@]}" --apply --out "bury-monitor-prod/../bury-monitor-prod" >/dev/null 2>&1 ) && ko "out relativo a instancia" || ok "out relativo a instancia rechazado"
+# lectura fallida de monitor.env: aborta y no deja instancia a medias (solo como usuario no root)
+mkdir -p "$T/etc2/bury-monitor" "$T/units2"; echo 'BURY_MONITOR_TOKEN=X' > "$T/etc2/bury-monitor/monitor.env"; chmod 000 "$T/etc2/bury-monitor/monitor.env"
 if [ "$(id -u)" != 0 ]; then
-  BURY_MONITOR_ETC_ROOT="$T/etc2" "$S" "${A[@]}" --apply --out "$T/a3" >/dev/null 2>&1 && ko "monitor.env ilegible aborta" || ok "monitor.env ilegible aborta"
-  [ ! -e "$T/etc2/bury-monitor-prod" ] && ok "sin instancia a medias" || ko "sin instancia a medias"
+  BURY_MONITOR_ETC_ROOT="$T/etc2" BURY_MONITOR_UNIT_DIR="$T/units2" "$S" "${A[@]}" --apply --out "$T/a3" >/dev/null 2>&1 && ko "monitor.env ilegible aborta" || ok "monitor.env ilegible aborta"
+  [ ! -e "$T/etc2/bury-monitor-prod" ] && [ ! -e "$T/units2/bury-monitor-prod.service" ] && ok "sin instancia a medias" || ko "sin instancia a medias"
+  BURY_MONITOR_ETC_ROOT="$T/etc2" BURY_MONITOR_UNIT_DIR="$T/units2" "$S" "${A[@]}" --keep-heartbeat --apply --out "$T/a4" >/dev/null 2>&1 && ko "keep-heartbeat ilegible aborta" || ok "keep-heartbeat ilegible aborta"
+  [ ! -e "$T/etc2/bury-monitor-prod" ] && ok "keep-heartbeat: sin instancia a medias" || ko "keep-heartbeat: sin instancia a medias"
 fi
 chmod 600 "$T/etc2/bury-monitor/monitor.env"
 exit $fail
