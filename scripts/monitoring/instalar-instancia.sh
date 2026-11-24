@@ -103,7 +103,8 @@ else rc=0; ( umask 077; grep -v -E '^[[:space:]]*(export[[:space:]]+)?BURY_MONIT
 [ -z "$CA_FILE" ] || install -m 0644 "$CA_FILE" "$ETC_DIR/ca.crt"
 install -m 0644 "$OUT/config.json" "$ETC_DIR/config.json"
 [ -e "$UNIT_DIR/$SVC.service" ] || [ -L "$UNIT_DIR/$SVC.service" ] && { echo "FALLA: la unidad ya existe; no se sobrescribe" >&2; exit 2; }
-install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service" && UNIT_CREATED=1
+UNIT_CREATED=1   # antes de instalar: una unidad parcial tambien se limpia (la existencia previa ya se descarto arriba)
+install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service" || { echo "FALLA: no se pudo instalar la unidad" >&2; exit 1; }
 if [ -z "${BURY_INSTALL_ANY_USER:-}" ]; then
   systemctl daemon-reload
   systemctl enable --now "$SVC"
