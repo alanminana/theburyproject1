@@ -1,5 +1,7 @@
 # Disco de PRUEBAS de la VM tbp (2026-11-20)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 > **Este disco NO es un respaldo externo independiente del PC y no permite cerrar P-06 por sí solo.** Es un VMDK dentro de la misma carpeta
 > de la VM, en el mismo volumen `C:` de Windows que el resto de la VM: si se pierde la PC (o ese volumen, o OneDrive lo corrompe), se pierden
 > la VM, sus backups productivos simulados **y** este disco a la vez. Sirve únicamente para ensayos con datos sintéticos.

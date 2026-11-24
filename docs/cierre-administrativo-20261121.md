@@ -1,5 +1,7 @@
 # Cierre administrativo 2026-11-21: C-02, P-06 (alcance local), P-02 y preparación P-07
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `main` a098606a (PR #347). Solo documentación: no se tocó ninguna base, respaldo, clave, VM ni infraestructura.
 
 ## 1. C-02: DESCARTADO por decisión del propietario

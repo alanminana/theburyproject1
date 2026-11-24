@@ -1,5 +1,7 @@
 # P-06 — cierre técnico de respaldos con dos instalaciones en la misma VM (2026-11-23)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Alcance: que los respaldos de la instalación nueva (proyecto Compose `theburyproject-prod`, `/srv/bury-backups-prod`, clon `~/theburyproject-prod-src`)
 convivan con la preproducción (`theburyproject`, `/srv/bury-backups`, clon `~/theburyproject1`) sin mezclarse, y dejar a la vista qué protege cada
 respaldo, cómo se recupera y qué sigue sin cubrirse. No repite las pruebas históricas de P-06 (ver [backup-restore.md](backup-restore.md),

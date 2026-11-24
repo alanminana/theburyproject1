@@ -1,5 +1,7 @@
 # P-02: procedimiento de puesta en marcha — activar CriterioFiscal V2 y aplicar P3 (NC fiscal externa)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Fecha: 2026-11-20. **P3 y P6 AUTORIZADAS por el propietario (2026-11-20).** Estado: **mecanismos implementados y ensayados en un stack aislado (§6); aplicación real PENDIENTE de la puesta en marcha sobre la base nueva de producción** (ver §7: la base de la VM es de preproducción con datos sintéticos y no se usa como productiva). Complementa `docs/deploy-rollback.md`, `docs/despliegue-produccion.md`, `docs/backup-restore.md` y `docs/p02-respuestas-contador-20261119.md`.
 
 Scripts de apoyo (todos validados contra un SQL Server descartable el 2026-11-20):

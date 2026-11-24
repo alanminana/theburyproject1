@@ -1,5 +1,7 @@
 # Informe de aceptación final (2026-11-23)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `main` 647207c1 (#358), actualizada el 23/11 (noche) a `main` f39a8416 (#359 a #363 fusionadas; #364 en revisión). Esta PR es solo documentación. El informe original de la mañana se hizo en solo lectura; las comprobaciones de la noche (despliegue en `theburyproject-prod`, §5; pruebas descartables, §12b) se describen donde corresponden y **no** tocaron preproducción ni datos reales. No reabre módulos cerrados: consolida lo ya decidido y probado.
 
 **Convención de evidencia**

@@ -1,5 +1,7 @@
 # Matriz de criterios P-03..P-08 y D-05 con la VM Ubuntu como servidor definitivo SIMULADO (2026-11-19)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Estrategia: la VM Ubuntu (VMware, 4 CPU, 7,8 GiB, disco 100 GB, Docker Engine 29.10, ERP real en Docker + Caddy + SQL Server Express, datos
 **sintéticos**) es el servidor definitivo **simulado**. Todo lo que se puede probar ahí se probó; lo que no, queda pendiente con el motivo exacto.
 **Nada de esto cierra un hito**: las condiciones de aceptación originales no se modificaron. Sin credenciales ni datos productivos en este documento.

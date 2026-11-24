@@ -1,5 +1,7 @@
 # P-06: copia LOCAL cifrada en el disco adicional de la VM (2026-11-21)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 > **Esto es un respaldo LOCAL adicional, no una copia externa ni offsite.** El disco `sdb` es un VMDK dentro de la carpeta de la VM
 > (`C:\Users\…\OneDrive\Documents\Virtual Machines\tbp\`), en el mismo volumen `C:` y el mismo PC que la VM. **No protege contra la pérdida
 > completa del PC** (robo, incendio, falla de disco, ransomware, borrado de la VM). P-06 **no queda cerrado** como protección externa:

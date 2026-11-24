@@ -1,5 +1,7 @@
 # P-04 / P-07: diagnóstico del anfitrión, margen de memoria y procedimiento de continuidad (2026-11-23)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `main` 647207c1 + PR #359 (matriz de continuidad, en revisión). **Solo lectura**: no se reinició Windows, no se movió la VM, no se tocó VMware/WSL/BIOS/controladores, no se cambiaron permisos. **P-04 sigue abierto. La recuperación automática del anfitrión NO está resuelta.** No se habilitan operaciones comerciales reales mientras los riesgos críticos de §1 no se resuelvan o se acepten formalmente por escrito.
 
 Convención: **[V]** verificado en esta pasada · **[R]** tomado de otro documento · **[H]** hipótesis, sin prueba.

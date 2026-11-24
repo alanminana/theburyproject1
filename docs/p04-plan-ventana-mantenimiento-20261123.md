@@ -1,5 +1,7 @@
 # P-04: plan de ejecución de la ventana de mantenimiento (preparado 2026-11-23; NO ejecutado)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Objetivo: (1) ampliar la RAM de la VM `tbp` a 16 GB, (2) sacar la VM de OneDrive y de `C:`, (3) lograr que arranque sola tras reiniciar Windows y (4) **probar** esa recuperación.
 Sirve a `p04-continuidad-matriz-20261123.md` (pasos 3-5 de su §5) y se apoya en `p04-diagnostico-bugcheck-20261123.md`.
 **Este documento solo prepara: no se apagó, movió ni reconfiguró nada.** Todo lo de abajo exige autorización del propietario, una persona delante del PC y ≈ 2-3 h sin ERP.
