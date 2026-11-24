@@ -76,6 +76,7 @@ if [[ -d "$MNT" ]] && [[ -n "$(ls -A "$MNT" 2>/dev/null)" ]]; then die "$MNT exi
 [[ ! -e "$KEY" ]] || die "$KEY ya existe: no se reutiliza ni se sobrescribe la clave de otra copia (usar otro --name)"
 [[ ! -e "$HDR" ]] || die "$HDR ya existe: no se sobrescribe el encabezado de otra copia (usar otro --name)"
 [[ ! -e "$CRONF" ]] || die "$CRONF ya existe: no se sobrescribe"
+awk -v m="$MNT" '$1 !~ /^#/ && $2 == m {f=1} END {exit !f}' /etc/fstab 2>/dev/null && die "$MNT ya tiene una entrada en /etc/fstab (otra copia): usar otro --mount"
 grep -qE "^\s*$NAME\s" /etc/crypttab 2>/dev/null && die "ya hay una entrada '$NAME' en /etc/crypttab"
 echo "OK  precondiciones: $HOST_MOUNT montado y distinto de /, ${free_kb} KiB libres, contenedor $CONT nuevo, $MNT libre"
 echo "PLAN contenedor LUKS2 ${SIZE_GB}G (disperso) en $CONT -> /dev/mapper/$NAME -> ext4 '$LABEL' -> $MNT (dueño $OWNER)"

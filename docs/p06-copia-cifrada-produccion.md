@@ -57,13 +57,14 @@ Necesario: el archivo `tbp-respaldo-prod.luks` (o el VMDK `sdb`) y **la clave** 
 del contenedor se danara. **Sin la clave los datos son irrecuperables.** *Hoy clave y encabezado solo existen en la VM (`/etc/bury-backup/`): copiarlos FUERA de la VM es una accion pendiente del propietario.*
 
 ```
-# 1) abrir y montar (solo lectura)
+# 1) abrir y montar (lectura-escritura: los scripts de restauracion exigen destino escribible; no escribir a mano en el)
 sudo cryptsetup open --type luks2 --key-file local-disk-tbp-respaldo-prod.key tbp-respaldo-prod.luks recup-prod
-sudo mkdir -p /mnt/recup-prod && sudo mount -o ro /dev/mapper/recup-prod /mnt/recup-prod
+sudo mkdir -p /mnt/recup-prod && sudo mount /dev/mapper/recup-prod /mnt/recup-prod
 ls /mnt/recup-prod/bury-backup/sql    # TheBuryProjectDb_full_*.bak + _log_*.trn + .sha256 ; files/*.tar.gz
 # 2) verificar integridad
 cd /mnt/recup-prod/bury-backup && for f in sql/*.bak sql/*.trn files/*.tar.gz; do (cd "$(dirname "$f")" && sha256sum -c "$(basename "$f").sha256"); done
 # 3) restaurar SIEMPRE primero en un SQL descartable: scripts/backup/restore-test-local-copy.sh (con la copia montada como BACKUP_REMOVABLE_DIR)
+#    (en una maquina nueva: .env con BACKUP_REMOVABLE_DIR=/mnt/recup-prod y BACKUP_DIR=<el BACKUP_DIR dueno de la marca, /srv/bury-backups-prod>)
 #    o restore-sql.sh / restore-files.sh segun docs/backup-restore.md. Nunca sobre una base activa sin ensayo previo.
 # 4) si el contenedor no abre (encabezado danado): restaurar el encabezado guardado
 sudo cryptsetup luksHeaderRestore tbp-respaldo-prod.luks --header-backup-file local-disk-tbp-respaldo-prod.luks-header
