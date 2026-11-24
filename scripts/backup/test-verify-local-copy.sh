@@ -85,5 +85,11 @@ check "tras corregir la copia, la siguiente verificacion vuelve a rc 0 y conserv
 # el setup no debe poder ejecutarse sin root ni sobre un volumen que no es punto de montaje (no cambia nada)
 check "setup --check sin root se niega (exit 8) y no crea nada" bash -c 'out=$(bash "$1/setup-local-disk-copy.sh" --check --owner "$(id -un)" --host-mount "$2/x" --mount "$2/y" 2>&1); rc=$?; if [[ $EUID == 0 ]]; then [[ $rc == 8 ]] || exit 1; else [[ $rc == 8 && "$out" == *"requiere root"* ]] || exit 1; fi; [[ ! -e "$2/x" && ! -e "$2/y" ]]' _ "$HERE" "$T"
 
+# dos copias independientes (--name/--project): entradas invalidas se rechazan (exit 1) antes de cualquier otra comprobacion; no cambia nada
+for bad in "--name Prod" "--name x" "--name tbp_respaldo" "--name tbp-respaldo-prod --project Mayus" "--name tbp-respaldo-prod --project a/b"; do
+  check "setup rechaza argumentos invalidos ($bad) con exit 1" bash -c 'bash "$1/setup-local-disk-copy.sh" --check --owner "$(id -un)" $3 >/dev/null 2>&1; [[ $? == 1 ]]' _ "$HERE" "$T" "$bad"
+done
+check "setup con --name/--project validos llega a la comprobacion de root (exit 8 sin root), sin tocar nada" bash -c 'if [[ $EUID == 0 ]]; then exit 0; fi; out=$(bash "$1/setup-local-disk-copy.sh" --check --owner "$(id -un)" --name tbp-respaldo-prod --project theburyproject-prod --host-mount "$2/x" --mount "$2/y" 2>&1); [[ $? == 8 && "$out" == *"requiere root"* && ! -e "$2/x" ]]' _ "$HERE" "$T"
+
 echo; echo "RESULTADO: PASS=$PASS FAIL=$FAIL"
 [[ "$FAIL" == 0 ]]
