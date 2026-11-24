@@ -145,7 +145,8 @@ fi
 # --- recuperacion incompleta (scripts/backup/recover.sh deja la marca hasta terminar bien) ---
 _bd=""
 [[ -f "$DP_ENV_FILE" ]] && _bd=$(grep -E '^BACKUP_DIR=' "$DP_ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d "\r\"'" || true)
-if [[ "$_bd" == /* && -e "$_bd/.recovery-incomplete" ]]; then
+_bd=${_bd:-./backups}; [[ "$_bd" =~ ^(/|[A-Za-z]:[/\]) ]] || _bd="$REPO_DIR/${_bd#./}"   # relativo o ausente -> respecto del repo (igual que backup/lib.sh y Compose)
+if [[ -e "$_bd/.recovery-incomplete" ]]; then
   log ERROR "FAIL hay una recuperacion INCOMPLETA ($_bd/.recovery-incomplete): desplegar ahora haria que migrate cree una base vacia. Terminar scripts/backup/recover.sh o, si se descarta, borrar la marca a mano"; FAIL=1
 else
   log INFO "OK   sin recuperacion incompleta pendiente"

@@ -25,13 +25,13 @@ BACKUP="" TARGET="" WITH_LOGS=0 STOPAT="" OVERWRITE=0 CONFIRM="" LIST=0
 asegurar_directorio_sql() {
   dc exec -T db test -x /backups/sql 2>/dev/null && return 0
   log WARN "SQL Server no puede atravesar $BACKUP_DIR/sql (dueño/modo): se corrige a 10001:0 modo 750 desde un contenedor root"
-  tools sh -c 'chown 10001:0 /backups/sql && chmod 750 /backups/sql' >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $BACKUP_DIR/sql: el restore NO continua"
+  tools sh -c '[ -d /backups/sql ] && [ ! -L /backups/sql ] && chown 10001:0 /backups/sql && chmod 750 /backups/sql' >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $BACKUP_DIR/sql (¿es un enlace simbolico?): el restore NO continua"
   dc exec -T db test -x /backups/sql 2>/dev/null || die $EX_VERIFY "SQL Server sigue sin poder atravesar $BACKUP_DIR/sql: el restore NO continua"
 }
 asegurar_legible() { # asegurar_legible <archivo dentro de /backups/sql>
   dc exec -T db test -r "/backups/sql/$1" 2>/dev/null && return 0
   log WARN "SQL Server no puede leer $1 (dueño/modo): se corrige a 10001:0 modo 640 desde un contenedor root"
-  tools sh -c 'chown 10001:0 "/backups/sql/$0" && chmod 640 "/backups/sql/$0"' "$1" >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $1: el restore NO continua"
+  tools sh -c '[ -f "/backups/sql/$0" ] && [ ! -L "/backups/sql/$0" ] && chown 10001:0 "/backups/sql/$0" && chmod 640 "/backups/sql/$0"' "$1" >/dev/null 2>&1 || die $EX_VERIFY "no se pudo corregir el dueño de $1 (¿es un enlace simbolico?): el restore NO continua"
   dc exec -T db test -r "/backups/sql/$1" 2>/dev/null || die $EX_VERIFY "SQL Server sigue sin poder leer $1: el restore NO continua"
 }
 

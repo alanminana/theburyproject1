@@ -88,17 +88,31 @@ if [[ "$ACTION" == plan ]]; then
   exit 0
 fi
 
-# --- 3. ejecucion estricta: cualquier fallo deja la marca y se sale SIN levantar app/migrate
-{ echo "recuperacion iniciada $(date -u +%Y-%m-%dT%H:%M:%SZ) archivos=$ARCHIVE sql=$FULL"; } >"$MARK" 2>/dev/null || die "$EX_PREREQ" "no se pudo escribir la marca $MARK"
+# --- 3. ejecucion estricta: cualquier fallo sale SIN levantar app/migrate
+# La marca .recovery-incomplete se escribe recien cuando los archivos YA se repusieron (primer punto destructivo): si restore-files se niega
+# (volumenes con contenido = instalacion viva, error de uso) no cambia nada y NO debe bloquear los despliegues de una instalacion sana.
+marcar() { echo "recuperacion iniciada $(date -u +%Y-%m-%dT%H:%M:%SZ) archivos=$ARCHIVE sql=$FULL" >"$MARK" 2>/dev/null || die "$EX_PREREQ" "no se pudo escribir la marca $MARK"; }
 falla() { # falla <codigo> <mensaje>
   log ERROR "RECUPERACION DETENIDA: $2"
-  log ERROR "NO se levanto app/migrate (migrate crearia una base VACIA). Corregir la causa y reintentar (con --force-files si los archivos ya se repusieron). Marca: $MARK"
+  if [[ -e "$MARK" ]]; then log ERROR "NO se levanto app/migrate (migrate crearia una base VACIA). Corregir la causa y reintentar (con --force-files si los archivos ya se repusieron). Marca: $MARK"
+  else log ERROR "No se cambio nada (no se levanto app/migrate)."; fi
   exit "$1"
 }
 
-frc=0; args=(--archive "$ARCHIVE"); (( FORCE_FILES )) && args+=(--force)
-bash "$BK_SCRIPT_DIR/restore-files.sh" "${args[@]}" || frc=$?
-(( frc == 0 )) || falla "$EX_RESTORE" "restore-files.sh fallo (codigo $frc)"
+args=(--archive "$ARCHIVE"); (( FORCE_FILES )) && args+=(--force)
+RFOUT=$(mktemp); trap 'rm -f "$RFOUT"' EXIT
+frc=0; bash "$BK_SCRIPT_DIR/restore-files.sh" "${args[@]}" >"$RFOUT" 2>&1 || frc=$?   # sin tuberia: con pipefail un `| tee || true` enmascararia el codigo
+cat "$RFOUT"
+if (( frc != 0 )); then
+  # Solo el rechazo explicito "ya tiene contenido" (sin --force) garantiza que NO se cambio nada; cualquier otro fallo puede haber extraido
+  # parte de los archivos (p. ej. al desellar la clave de la CA, que ocurre despues de extraer): estado incierto => marca.
+  if (( ! FORCE_FILES )) && grep -q 'ya tiene contenido' "$RFOUT"; then
+    falla "$EX_RESTORE" "restore-files.sh se nego: los volumenes ya tienen contenido (esta instalacion NO esta vacia). Si se quiere REEMPLAZARLOS: --force-files"
+  fi
+  marcar
+  falla "$EX_RESTORE" "restore-files.sh fallo (codigo $frc)"
+fi
+marcar
 
 urc=0; dc up -d --wait db >/dev/null 2>&1 || urc=$?
 (( urc == 0 )) || falla "$EX_PREREQ" "no se pudo levantar el servicio db (codigo $urc)"

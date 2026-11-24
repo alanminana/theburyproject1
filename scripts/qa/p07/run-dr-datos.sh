@@ -182,5 +182,22 @@ for tb in Clientes Ventas Facturas DocumentosCliente; do
   a=$(grep -E "^${tb}\|" "$T/snapA.txt" | cut -d'|' -f2-); b=$(grep -E "^${tb}\|" "$T/snapB2.txt" | cut -d'|' -f2-)
   [ "$a" = "$b" ] && ok "tras arrancar: $tb conserva filas+checksum ($a)" || bad "tras arrancar $tb difiere: A=$a B=$b"
 done
+echo "-- B negativo 4: recover.sh sobre una instalacion VIVA (error de uso): no cambia nada y no deja marca"
+RCN=$(rtry --apply); [ "$RCN" != 0 ] && ok "recover.sh se niega (codigo $RCN) con la aplicacion corriendo" || bad "recover.sh devolvio 0 sobre una instalacion viva"
+check "no dejo la marca .recovery-incomplete (no bloquea despliegues de una instalacion sana)" bash -c "! test -e '$T/b2/.recovery-incomplete'"
+sqlq "$PB" "$T/snap.sql" > "$T/snapB3.txt"
+diff -q "$T/snapB2.txt" "$T/snapB3.txt" >/dev/null && ok "la base viva quedo intacta tras el intento" || bad "la base cambio tras un recover.sh rechazado"
+echo "-- B negativo 5: aplicacion detenida pero volumenes CON contenido (instalacion no vacia): restore-files se niega, sin marca ni cambios"
+dcB stop app >/dev/null 2>&1
+RCN=$(rtry --apply); [ "$RCN" != 0 ] && ok "recover.sh se niega (codigo $RCN) cuando los volumenes ya tienen contenido" || bad "recover.sh devolvio 0 sobre volumenes con contenido"
+grep -q 'ya tienen contenido\|ya tiene contenido' "$T/rec.log" && ok "el mensaje indica que la instalacion no esta vacia y como reemplazarla (--force-files)" || bad "mensaje inesperado: $(tail -n 2 "$T/rec.log" | cut -c1-160)"
+check "no dejo marca (nada cambio)" bash -c "! test -e '$T/b2/.recovery-incomplete'"
+dcB start app >/dev/null 2>&1
+echo "-- preflight.sh con BACKUP_DIR RELATIVO (./...) detecta la marca"
+PFD=".tmp-pf-$RAND"; mkdir -p "$REPO/$PFD" && touch "$REPO/$PFD/.recovery-incomplete"
+sed "s|^BACKUP_DIR=.*|BACKUP_DIR=./$PFD|" "$T/envB" > "$T/envPF"
+PF2=$(bash scripts/deploy/preflight.sh --image "$IMAGE" --env-file "$T/envPF" --project "$PB" 2>&1 || true)
+echo "$PF2" | grep -q 'recuperacion INCOMPLETA' && ok "preflight.sh rechaza con BACKUP_DIR relativo" || bad "preflight.sh ignoro la marca con BACKUP_DIR relativo"
+rm -r -- "${REPO:?}/$PFD"
 echo; echo "== RESUMEN DR con datos conocidos: $PASS OK, $FAIL con falla =="
 [ "$FAIL" = 0 ]
