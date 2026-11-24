@@ -1,9 +1,9 @@
 # Informe de aceptación final (2026-11-23)
 
-Base: `main` 647207c1 (#358). Solo documentación. No se tocó ninguna base, VM, contenedor ni usuario. No reabre módulos cerrados: consolida lo ya decidido y probado.
+Base: `main` 647207c1 (#358), actualizada el 23/11 (noche) a `main` f39a8416 (#359 a #363 fusionadas; #364 en revisión). Solo documentación. No se tocó ninguna base, VM, contenedor ni usuario. No reabre módulos cerrados: consolida lo ya decidido y probado.
 
 **Convención de evidencia**
-- **[V]** verificado en esta pasada (git/gh, lectura de documentos, consulta de solo lectura a la VM).
+- **[V]** verificado en esta pasada (git/gh, lectura de documentos, consulta a la VM; en la actualización de la noche del 23/11 también el despliegue y las pruebas sobre `theburyproject-prod`, descritos en §5).
 - **[R]** reportado por documentos o agentes anteriores; no re-ejecutado aquí.
 - **[P]** pendiente / no verificable hoy.
 
@@ -13,13 +13,13 @@ Base: `main` 647207c1 (#358). Solo documentación. No se tocó ninguna base, VM,
 |---|---|
 | ¿Terminado el desarrollo funcional inicial? | **Sí para el alcance de contado y administración** [R, documentado en `aceptacion-erp.md`, `estado-software-pre-instalacion.md`, `hitos-d01-d03…` §16-18]. Los PR #156-#358 están fusionados en `main` [V: `gh pr list`]. **No** está terminado lo diferido (§6) ni crédito, que se mantiene cerrado por decisión. |
 | ¿Qué está validado? | Pruebas automáticas, QA en clones y preproducción sintética (§3). **Nada se validó con datos reales de producción.** |
-| ¿La nueva instalación funciona? | **No verificable: no existe.** [V] En la VM `tbp` solo corre el proyecto `theburyproject` (preproducción sintética: app healthy, db healthy, caddy en 443). No hay proyecto productivo. Existe un directorio `/srv/bury-backups-prod` (indicio de preparación; sin contenido verificado). El agente 1 no confirmó instalación. |
+| ¿La nueva instalación funciona? | **Sí, técnicamente [V] (23/11, noche):** `theburyproject-prod` corre la imagen de `main` f39a8416, con 145 migraciones, health 200, login real, Fiscal V2 sin cambios y verificadores sin FALLA (§5). **No está lista para operar**: faltan 2 SuperAdmin reales, datos de empresa/cajas/medios de pago y pruebas humanas con datos reales (P-07). |
 | ¿Qué falta para operar con datos reales? | §5. |
 | Riesgos aceptados | §6. |
 | Hitos diferidos | §7. |
 | Condiciones para cerrar el proyecto completo | §8. |
 
-**No se declara el proyecto al 100 %.** Hay hitos abiertos (P-04, P-06 offsite, P-07/P-02 operativos, D-05, implementación de la decisión de mora y seguimientos diferidos de P-08).
+**No se declara el proyecto al 100 %.** Hay hitos abiertos (P-04, P-06 respaldo independiente, P-07/P-02 operativos, D-05, validación legal de la cláusula de mora y seguimientos diferidos de P-08).
 
 ## 2. Estado por hito (sin inferencias)
 
@@ -31,15 +31,39 @@ Base: `main` 647207c1 (#358). Solo documentación. No se tocó ninguna base, VM,
 | V-02 cheques informativos | Finalizado (alcance informativo) | Sí | — | §18 [R] |
 | P-02 fiscal V2 | Implementado y probado | Sí (instalador con `--fiscal-v2-desde`, verificador SQL) | **Pendiente**: instante fiscal, instalación, aceptación. IVA de punitorio con alícuotas mixtas sin tratamiento (contador) | `p02-*`, `cierre-administrativo-20261121` [R] |
 | P-03 seguridad de usuarios | Verificado (software) | Sí | Cuentas reales (2 SuperAdmin) sin crear | `estado-software-pre-instalacion` [R] |
-| P-04 servidor definitivo | Diferido | Arnés Win11/Ubuntu fusionado | **No hay servidor físico**; solo la VM `tbp`, que es de la PC de desarrollo | `puesta-en-marcha-estado-20261123` [R] |
+| P-04 servidor definitivo | Diferido (diagnóstico ampliado 23/11: `p04-diagnostico…` §5; sin cambios en el anfitrión) | Arnés Win11/Ubuntu fusionado | **No hay servidor físico**; solo la VM `tbp`, que es de la PC de desarrollo | `puesta-en-marcha-estado-20261123` [R] |
 | P-05 acceso remoto | Cierre técnico local | Sí | Tailscale real sin confirmar | `p05-cierre-tecnico-local` [R] |
-| P-06 respaldos | Local cifrado FINALIZADO (#347); general **En progreso** | Sí | **Sin offsite**; claves LUKS solo dentro de la VM; remontaje tras reinicio sin probar | `cierre-administrativo` §2 [R] |
+| P-06 respaldos | Local cifrado FINALIZADO (#347); aislamiento prod/preprod fusionado (#362, `f39a8416`); general **En progreso** | Sí | **Sin respaldo independiente del anfitrión** (riesgo aceptado, no mitigado); full automático del 24/11 03:45 **sin verificar**; claves LUKS y paquete de recuperación solo dentro de la VM; remontaje tras reinicio sin probar | §2b, `cierre-administrativo` §2 [R] |
 | P-07 puesta en marcha | Técnico listo | Sí (verificadores con exit≠0, 145 migraciones, config inicial validada en QA #354) | **Pendiente** | `p07-configuracion-inicial-checklist` [R] |
 | P-08 monitoreo | **Finalizado en el tablero maestro** (informado por el agente principal; no re-verificado aquí) | Sí | Cierre con excepción documentada. Seguimientos **diferidos, no criterios de cierre**: rotar URL de heartbeat; confirmar DOWN/UP externo; token/chat_id Telegram | `cierre-administrativo` §6 [R] |
 | D-05 CSP | Preparado y medido: 0 violaciones en 7 roles × 3 tamaños con `Enforce` en stack QA | Sí | **No activado**; falta observación `ReportOnly` en uso real (10 días hábiles) | `csp-enforce-*` [R] |
 | Crédito personal | Implementado | — | **Cerrado**: cupos $0, sin planes, montos financiables $0 (#349) | `cierre-credito-cupos-cero-20261122` [R] |
 
 Nota CI: **confirmado externamente** (informado por el agente principal; no consultado por mí tras la primera lectura) que los workflows de `main` 647207c1 finalizaron en verde, incluidos CI, Playwright y FIN SQL Server. En mi consulta inicial estaban en curso.
+
+### 2b. P-06: evidencias del cierre técnico de dos instalaciones (23/11/2026, noche)
+
+Fuente: agente P-06 (PR #362 fusionada en `main` `f39a8416`; `docs/p06-cierre-tecnico-dos-instalaciones.md`). Las pruebas ya aprobadas se citan, no se repiten.
+
+| Control | Evidencia | Tipo |
+|---|---|---|
+| Proyecto Compose correcto | `COMPOSE_PROJECT_NAME=theburyproject-prod` en el `.env` de prod; `docker compose` desde el clon de prod solo ve `theburyproject-prod`; el guard `assert_backup_dir_matches_project` fusionado en #362 | [R] por el agente P-06 (ejecutó y observó en la VM; no re-ejecutado en esta pasada) |
+| Respaldos aislados | El `db` de prod monta `/srv/bury-backups-prod/sql` y el de preprod `/srv/bury-backups/sql`; los logs de cada instalación no mencionan el directorio de la otra; `bury-backup-prod-errors.log` vacío | [R] |
+| Cron de producción cada 15 min | Logs de las 20:37 y 20:52 (hora VM, -03) con `dir=/srv/bury-backups-prod`, `exit 0`, `verified true`, `verifyonly=OK`, `sha256=OK`; full del 23/11 15:30 con SHA256 OK | [R] |
+| Monitores | `bury-monitor` (preprod) y `bury-monitor-prod` activos; el de prod con configuración, estado y heartbeat propios (sin heartbeat compartido) y vigilando solo `/srv/bury-backups-prod`; sin alertas activas en prod. Preprod conserva activas `backup.offsite-sql/files` (offsite no configurado; preexistente) | [R] |
+| Relay | `monitor.py --test-channel` (prod): evento sintético firing + resolved "prueba de canal: no es un incidente real" entregado al relay operativo; `delivery.failed=false` en ambos monitores. Prueba de falla/recuperación de respaldos hecha en un directorio temporal con receptor local (no tocó prod ni el relay) | [R] |
+| Paquete cifrado de recuperación | Creado con `recovery-package.sh` y verificado (descifrado autenticado, sha256 OK, paquete alterado rechazado); contiene `.env` y manifiesto; **todavía dentro de la VM** (`~/p06-custodia-prod/{paquete,clave}`, directorios distintos). **No hay custodia externa**: no cuenta como respaldo independiente | [R] |
+| Restauración SQL aislada | Aprobada previamente (respaldo real de prod restaurado en SQL descartable, 16 s, base sin datos de negocio; no extrapolar tiempos) | [R] (#362) |
+| Preproducción intacta | Contenedores sanos, monitor activo, su cron y su `log.json` con horario propio; no se modificó su LUKS ni su configuración. No se auditó el contenido de sus datos | [R] |
+| Espacio | `/` 99 GB, 70 GB libres (27 %); respaldos de prod 37 MB, de preprod 175 MB; `BACKUP_MAX_TOTAL_GB` y `BACKUP_MIN_FREE_GB` siguen en 0 (sin datos reales de negocio no hay medición que justifique un límite) | [R] |
+
+**Observado [V] después (23/11, 22:21 hora VM; hecho por otro agente, no por P-06):** `BACKUP_REMOVABLE_DIR=/mnt/tbp-respaldo-prod` (volumen LUKS `tbp-respaldo-prod`, mismo host); `removable-copy.json` y `removable-verify.json` existen y el log registra «33 archivos sha256 OK». Es una segunda copia **local**: **no cumple** el criterio de respaldo independiente del anfitrión.
+
+**Verificación del full sin intervención:** en la VM quedó un timer transitorio de solo lectura (`p06-verifica-full`, 24/11 03:55) que escribe `~/p06-verificacion-full-<fecha>.txt` con `full.json`, líneas del log, `sha256sum -c`, `RESTORE VERIFYONLY` independiente, aislamiento y estado de monitores. Probado en seco el 23/11 (verifyonly del full del 23/11 15:30: «The backup set on file 1 is valid», SHA256 OK).
+
+**[P] Pendiente de verificación:** full automático de `theburyproject-prod` del **24/11/2026 03:45 (hora argentina)**. Al redactar, el reloj de la VM marcaba 23/11 21:17 y el full no había corrido. Para cerrarlo, comprobar: `monitor-status/full.json` (`exit 0`, `verified true`, `time` posterior a las 03:45), líneas del full en `logs/backup.log`, `sha256sum -c` del `.bak` nuevo y `verifyonly=OK`. No ejecutar un full manual ni reiniciar servicios.
+
+**Estado de P-06: EN PROGRESO.** No se declara Finalizado: falta el criterio de respaldo independiente del anfitrión. El propietario decidió continuar sin nube ni disco externo físico; la pérdida total del equipo es un **riesgo aceptado temporalmente, no mitigado** (decisión cerrada, no se vuelve a abrir). Los dos SuperAdmin reales corresponden a P-07 y no se mezclan con P-06.
 
 ## 3. Evidencia disponible: sintética vs navegador real vs producción
 
@@ -70,25 +94,29 @@ Nota CI: **confirmado externamente** (informado por el agente principal; no cons
 
 ## 5. Validación de la nueva instalación (Sección C): estado
 
-No iniciable: el agente 1 no confirmó instalación y [V] no existe proyecto productivo. Checklist a ejecutar cuando se confirme, con quién:
+**Actualización 23/11 (noche).** La instalación independiente **existe**: proyecto Compose `theburyproject-prod` en la VM `tbp` (https://tbp-prod:8443, respaldos en `/srv/bury-backups-prod`, cron y firewall propios), instalada sobre `main` 647207c1. Es una instancia **preoperativa**: 0 ventas, 0 clientes, 0 créditos, 0 movimientos de caja, 0 facturas y 1 sola cuenta (`admin`). Preproducción (`theburyproject`) convive en la misma VM y no se tocó.
+
+**Despliegue de la imagen vigente [V].** La imagen activa era `20261123-647207c1` (sin #363). Se construyó `theburyproject/erp:20261124-f39a8416` (árbol limpio, sin `-dirty`; id `10b6ac962b2d`) y se desplegó **solo** `theburyproject-prod` con `scripts/deploy/deploy.sh --backup skip` (sin operaciones reales que respaldar; el último full verificado es del 23/11 15:30 y los logs corren cada 15 min). Resultado: preflight OK, `db-init` OK, `migrate` **145 aplicadas, 0 pendientes**, health live/ready 200, smoke OK (`/Account/Login` 200, `AspNetUsers`=1). Identidad efectiva: `app` y `migrate` ejecutan la imagen nueva y el `md5` de `TheBuryProyect.dll` del contenedor coincide con el de la imagen. Preproducción: los tres contenedores conservan id, hora de arranque e imagen (snapshot antes/después idéntico) y su `health/ready` responde 200.
 
 | # | Control | Cómo | Estado |
 |---|---|---|---|
-| 1 | Healthchecks | Evidencia del agente 1 (`docker ps` healthy, `/health`, heartbeat) | [P] |
-| 2 | Migraciones | 145 aplicadas, sin pendientes (`__EFMigrationsHistory`) | [P] |
-| 3 | Verificadores SQL | `p02-verificar-instalacion.sql`, `p07-verificar-credito-cerrado.sql`, `p07-verificar-cuentas.sql` con `sqlcmd -I -b`, exit 0 (cuentas con `@Cierre = 1`) | [P] |
-| 4 | Fecha fiscal V2 | Valor persistido = `--fiscal-v2-desde` (UTC, `Z`) = `FISCAL_CRITERIO_V2_DESDE` | [P] |
-| 5 | Seguridad | HTTPS, `ASPNETCORE_ENVIRONMENT=Production`, sin cuentas demo, 2 SuperAdmin, CSP en modo acordado | [P] |
-| 6 | Datos de prueba vs operativos | 0 cuentas sintéticas; la preproducción sintética no se usa como productiva | [P] |
-| 7 | Pruebas con intervención humana | Login de administrador, una venta de contado, un cierre de caja, una restauración de backup, rotación de credenciales | [P] |
+| 1 | Healthchecks | `docker ps` healthy; `live`/`ready` 200 en el gate de `deploy.sh`; monitor de prod sin alertas | **[V]** |
+| 2 | Migraciones | `migrate`: 145 aplicadas, 0 pendientes; sin migración nueva en #359-#363 | **[V]** |
+| 3 | Verificadores SQL | `p02-verificar-instalacion.sql`, `p07-verificar-credito-cerrado.sql`, `p07-verificar-cuentas.sql` con `sqlcmd -I -b`: los tres **exit 0, «sin FALLA»**. `p07-verificar-cuentas` ejecutado **sin** `@Cierre = 1` (informativo): marca 1 SuperAdmin de ≥ 2 | **[V]**; con `@Cierre = 1` **[P]** (P-07: requiere 2 SuperAdmin reales) |
+| 4 | Fecha fiscal V2 | `FISCAL_CRITERIO_V2_DESDE=2026-11-23T18:16:50Z` en `.env` = `Fiscal__CriterioV2Desde` del contenedor = log `[FISCAL] … = V2`. **No se modificó** | **[V]** |
+| 5 | Seguridad | `ASPNETCORE_ENVIRONMENT=Production`; HTTPS con CA propia de Caddy; login real de `admin` (302, cookie `Identity.Application`, Dashboard 200) y clave incorrecta rechazada (200 sin cookie); 0 cuentas sintéticas/demo; **`CSP_MODE=Off`** (D-05 no activado) | **[V]**; 2 SuperAdmin **[P]** (P-07) |
+| 6 | Datos de prueba vs operativos | 0 cuentas sintéticas activas; 0 ventas/créditos/facturas/caja; preproducción sintética no usada como productiva | **[V]** |
+| 7 | Pruebas con intervención humana | Login de administrador hecho **por HTTP** (no sustituye la prueba manual en navegador). Falta: una venta de contado real, un cierre de caja, una restauración de backup elegida por el propietario, rotación de credenciales | **[P]** (datos comerciales reales) |
+| 8 | Crédito cerrado | Verificador: 0 créditos, montos máximos financiables > 0 = ninguno, 0 overrides, 0 planes activos; punitorio vigente 0 % / 30 días / gracia 12 (desde 2026-11-23). Cupos configurados: 6 puntajes con cupo informativo, **ningún monto financiable** | **[V]** |
+| 9 | Monitores | `bury-monitor-prod` y `bury-monitor` activos; durante el despliegue **0 alertas** y `delivery.failed=false`; prueba de canal al relay entregada (§2b) | **[V]** |
 
-Bloqueos ya documentados para instalar (`puesta-en-marcha-estado-20261123` §2): servidor definitivo o autorización para usar la VM; correo y usuario del administrador inicial; directorio de respaldos propio. La preproducción ocupa `0.0.0.0:443`. #358 (cadena de firewall parametrizable para segunda pila) apunta a resolver la convivencia; no verificado que se haya usado.
+Bloqueos de instalación ya resueltos: la VM se usó con autorización; correo/usuario del administrador inicial existen; directorio de respaldos propio (`/srv/bury-backups-prod`); firewall parametrizable (#358) en uso (`bury-firewall-prod.service`, cadena `BURY-ERP-PROD`) y verificado.
 
 ## 6. Riesgos aceptados (no mitigados)
 
-1. Pérdida total del PC (robo, disco, ransomware, borrado de la VM): sin offsite. Aceptado temporalmente por el propietario.
+1. Pérdida total del PC (robo, disco, ransomware, borrado de la VM): **sin respaldo independiente del anfitrión** (ni nube ni disco externo). **Aceptado temporalmente por el propietario; no mitigado; decisión cerrada.** Incluye el paquete cifrado de recuperación de producción, que sigue dentro de la VM, y la copia local cifrada de prod (`tbp-respaldo-prod`), que vive en el mismo host.
 2. Claves LUKS (`local-disk.key`, `luks-header`) dentro de la VM: perdidas = respaldo local irrecuperable.
-3. Anfitrión sin endurecer (UPS, BIOS, Windows, autoarranque, Wi-Fi): P-04 diferido.
+3. Anfitrión sin endurecer (UPS, BIOS, Windows, autoarranque, Wi-Fi USB como único enlace, Ethernet desconectado): P-04 diferido. Cierres no limpios: `0x133` causados por `vgk.sys` (Riot Vanguard, 3 de 3 con dump) y `0x50` con `athurx.sys` solo como sospecha de WER (ver `p04-diagnostico-bugcheck-20261123.md` §5). **Aceptado, no mitigado.**
 4. Una sola instancia de la app; hora de logs en UTC (esperado).
 5. Lector de pantalla real (NVDA/JAWS/VoiceOver) no verificado.
 6. IVA de punitorio con alícuotas mixtas, interés de financiación y recargo: tratamiento fiscal sin validar (contador). Facturación fiscal externa.
@@ -132,13 +160,53 @@ Todos deben cumplirse y quedar evidenciados:
 
 P-04 con servidor físico y anfitrión endurecido; P-06 con offsite real y remontaje probado; seguimientos diferidos de P-08 (canal externo, DOWN/UP, rotación de URL); D-05 con 10 días hábiles en `ReportOnly` real y decisión de `Enforce`; decisiones del contador (IVA/NC/redondeo) cerradas; apertura o descarte definitivo del crédito; revisión de lectores de pantalla.
 
-## 10b. Estado de la validación de la instalación (sin cambios)
+## 10b. Estado de la validación de la instalación (actualizado 23/11, noche)
 
-La instalación P-07/P-02 **sigue pendiente de confirmación por el agente 1**. No se aceptó ninguna prueba sobre la nueva instancia: todos los controles de §5 permanecen [P] hasta recibir evidencia real (salidas de healthchecks, migraciones, verificadores SQL, fecha V2, cuentas). Ningún criterio de §9 se marca cumplido por anticipado, y el ERP no se declara al 100 %.
+La instalación independiente `theburyproject-prod` está **instalada, desplegada con la imagen de `main` f39a8416 y verificada técnicamente** (§5, controles 1-6, 8 y 9 **[V]**). **No** está lista para operar: faltan los controles 3 y 5 con `@Cierre = 1` (2 SuperAdmin reales), el control 7 (pruebas humanas con datos comerciales reales) y los datos de empresa, cajas/orígenes y medios de pago reales (P-07, a cargo del propietario). Ningún criterio de §9 se marca cumplido por anticipado y el ERP no se declara al 100 %. Esos pendientes **no** se mezclan con P-06.
+
+### PR fusionadas relevantes (#359-#363) y PR en revisión (#364)
+
+| PR | Contenido | Estado | Desplegado en `theburyproject-prod` |
+|---|---|---|---|
+| #359 | P-04: matriz de continuidad y auditor del anfitrión (H07-H09) | Fusionada | Solo documentación y scripts de host; no aplica a la imagen |
+| #360 | D-05: sanear log de `/csp-report` y preparar el cierre (sin activar CSP) | Fusionada | **Sí** (código en la imagen `f39a8416`); `CSP_MODE=Off` |
+| #361 | `install.sh`: la imagen desplegada no puede ser sustituida por `erp:local` | Fusionada | Corrige el instalador; la imagen activa se verificó por id y md5 |
+| #362 | P-06: aislar respaldos de dos instalaciones en la misma VM | Fusionada | Scripts del clon de prod actualizados a `f39a8416` |
+| #363 | **Mora contractual A+B** (ver abajo) | Fusionada | **Sí** (código en la imagen `f39a8416`) |
+| #364 | P-06: instalador de segunda instancia del monitor y corrección de la documentación obsoleta | **En revisión** (no fusionada al redactar) | No aplica: `bury-monitor-prod` ya está instalado manualmente y **no se reinstala** |
+
+### Corrección contractual A+B (#363): código integrado vs. despliegue verificado
+
+- **Integrado en `main`** [V por `gh`/`git`]: interés por mora del contrato y del pagaré = punitorio **vigente** (`ConfiguracionPunitorio`), 0 % válido, sin respaldos en `TasaMoraBase`/5 %/0,05 %/0,20 %, sin emitir si no hay configuración activa; las alertas dejan de mostrar importe de mora estimado (se conservan capital vencido, cuotas y días de atraso). Sin migración EF, no abre crédito, no fija tasas, no toca operaciones históricas.
+- **Desplegado** [V]: la imagen en ejecución `20261124-f39a8416` contiene #363 (ancestro de `f39a8416`; identidad del contenedor comprobada).
+- **Probado sobre la instalación real:** **no se puede**: el crédito está cerrado y la base no tiene créditos; el verificador de crédito cerrado pasa y el punitorio vigente es 0 %. El comportamiento del contrato se valida solo en el ambiente descartable (ver §12b). 
+- **Acción pendiente en base real (de #363):** actualizar el texto de las **plantillas de contrato ya cargadas** (no se modifican por código) y la redacción legal de la cláusula (propietario/asesor).
 
 ## 11. Notion
 
-No hay conector de Notion disponible en esta sesión: **no se actualizó**. Los estados de §2 no deben pasarse a Notion sin coordinar con el agente principal y sin la validación de la instalación (§5).
+No hay conector de Notion disponible en esta sesión: **no se actualizó**. Texto listo para pegar, solo con estados respaldados por evidencia:
+
+| Hito | Estado propuesto | Respaldo |
+|---|---|---|
+| Instalación `theburyproject-prod` | **Instalada y verificada técnicamente; no operativa** | §5 (imagen `f39a8416`, 145 migraciones, verificadores exit 0) |
+| P-02 | **En progreso** (V2 activa en la instancia, 0 ventas V2; falta aceptación con operación real) | §5 control 4 |
+| P-04 | **En progreso / diferido** | diagnóstico §5; sin servidor físico |
+| P-06 | **En progreso** (falta respaldo independiente; riesgo aceptado, no mitigado; full automático del 24/11 03:45 por verificar) | §2b |
+| P-07 | **En progreso** (faltan 2 SuperAdmin, datos de empresa, pruebas humanas) | §5 controles 3, 5, 7 |
+| D-05 | **Preparado, no activado** (`CSP_MODE=Off`) | §5 control 5 |
+| Mora contractual A+B (#363) | **Integrado y desplegado; validación legal pendiente** | §10b |
+
+## 12b. Pruebas fiscales y comerciales en ambiente descartable (23/11, noche)
+
+Entorno: pila **propia y descartable** de `scripts/qa/p07/run-p07.sh` (proyecto Compose aleatorio, SQL Server de contenedor, datos 100 % sintéticos, imagen construida desde `main` f39a8416), en esta PC, **sin tocar** `theburyproject-prod` ni preproducción; al terminar se destruyó (0 contenedores `buryp07*`). No se registró ninguna venta ni factura ficticia en la instancia reservada.
+
+| Resultado | Detalle |
+|---|---|
+| **108 comprobaciones OK, 0 FALLA** [V] | R0 3, R1 8, R2 16, R3 4, R4 4, R5 11, R6 9, R7 10, R8 11, R9 5, R10 18, R11 9: salud, cliente, compras/stock, caja, cotización→venta→factura, venta directa y cancelación, devoluciones y notas de crédito, configuración y documentación de crédito, cierre de caja, conciliación entre módulos y matriz de permisos |
+| **[NO VALIDADO] tramo crédito → contrato → cobros** | La conversión a crédito en un ambiente sin consulta BCRA/Veraz deja la venta **pendiente de autorización** (razón «No se pudo validar BCRA/Veraz») y **sin crédito**: es el fail-safe vigente (el crédito se crea al guardar la edición de la venta una vez autorizada), no un defecto. El recorrido original no modela ese paso, así que **no se ejecutaron** generación de contrato/pagaré con punitorio 0 %, plan de cuotas y cobros. **No hay evidencia de ejecución de la corrección A+B de #363 sobre un contrato real**; solo su prueba unitaria reportada (9209 OK en la PR). |
+| Las conciliaciones finales del recorrido (tras R11.9) no corrieron | El script aborta al depender del crédito |
+
+Acciones sobre el script de QA (local, **no incluidas en esta PR**): el recorrido necesita (a) autorizar la razón BCRA y (b) guardar la edición de la venta para materializar el crédito; luego revalidar contrato con punitorio 0 %.
 
 ## 12. Defectos reproducibles hallados en esta pasada
 
