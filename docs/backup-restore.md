@@ -391,6 +391,10 @@ Conserva dueños (uid 1654 de `app`). Verifica `sha256` y el tar antes de tocar 
 Servidor nuevo (Linux + Docker + Compose ≥ 2.24 + `git`). **No** arrancar todavía el stack completo: si `app` arranca antes de restaurar
 las claves, genera claves nuevas y las cookies/tokens viejos quedan invalidados.
 
+> **Si los respaldos vienen de la copia del disco extraíble (no de `BACKUP_DIR`)** (ensayado 2026-11-24, notebook Ubuntu): esa copia deja los `.bak/.trn` como `root:root` modo 640 y SQL Server (uid 10001) no puede leerlos:
+> `RESTORE VERIFYONLY` falla y, si se levanta el stack igual, `migrate` crea una base **vacía** (no es una recuperación). Tras copiar al `BACKUP_DIR` nuevo: `sudo chown -R 10001:10001 <BACKUP_DIR>/sql`.
+> Recuperar el `.env` con `recovery-package.sh extract` (ANTES de levantar nada) y verificar al final que la cookie de sesión de la instalación vieja siga siendo válida (prueba de que las claves de Data Protection se restauraron).
+
 ```bash
 # 1. Código y secretos
 git clone <repo> /opt/bury && cd /opt/bury
