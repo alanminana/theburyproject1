@@ -1,5 +1,7 @@
 # P-08: estado operativo, detección del backup diario, canal Telegram y observador externo (2026-11-20)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `main` 58592023 + #338 desplegado en la VM `tbp`. Complementa `monitoreo-alertas.md`, `monitoreo-validacion.md`, `p08-receptor-alertas-procedimiento.md` y `p08-check-erphealth.md`.
 Sin credenciales reales en este documento. **No se crearon bots, cuentas ni servicios externos, no se generaron credenciales, no se publicó el ERP en Internet y no se apagó ni reinició nada.**
 

@@ -331,7 +331,7 @@ coincide con su propio `.sha256` no se copia) y se renombra de forma atómica. E
 - Windows (host con WSL): montar el disco en Windows y usar la ruta de WSL (`/mnt/<letra>`); la letra la asigna Windows, por eso se configura en `.env` y no se asume.
   `docker compose run -v` monta esa ruta en el contenedor `backup-files`.
 
-**Copia local cifrada en un segundo disco de la misma VM (P-06, solo local).** `scripts/backup/setup-local-disk-copy.sh` crea un contenedor LUKS2 (archivo) dentro de un volumen ya montado
+**Copia local cifrada en un segundo disco del mismo servidor (P-06, solo local).** `scripts/backup/setup-local-disk-copy.sh` crea un contenedor LUKS2 (archivo) dentro de un volumen ya montado
 y lo deja en un punto de montaje propio para usarlo como `BACKUP_REMOVABLE_DIR` (+ `BACKUP_REMOVABLE_MAPPER`, `BACKUP_REMOVABLE_MAX_AGE_HOURS`). `verify-local-copy.sh` (diario)
 verifica montaje, cifrado, sha256, antigüedad y espacio y alimenta al monitor (`backup.removable-verify`, CRITICAL inmediato); `restore-test-local-copy.sh` restaura desde esa copia
 en un SQL Server descartable. **No es una copia externa.** Detalle y resultados: [`p06-respaldo-disco-local-vm.md`](p06-respaldo-disco-local-vm.md). Con `--name`/`--project` el mismo script crea una copia **independiente por instalacion** (clave, mapper y cron propios); produccion: [`p06-copia-cifrada-produccion.md`](p06-copia-cifrada-produccion.md).
@@ -512,7 +512,7 @@ Nunca se reporta éxito sin haber verificado. Ante cualquier fallo no se ejecuta
 - Cifrado `crypt`: **probado** (nombres y contenido cifrados; alteración detectada). Falta guardar las dos passwords fuera del servidor.
 - Programación cron: `--print` verificado; `--install` **no ejecutado** (no había un Linux con cron en el entorno de prueba). En Windows las tareas
   las crea `install-windows.ps1` (usan `.env`, así que la configuración del overlay de 6.2 también aplica).
-- Permisos verificados en Linux (VM de Docker), no en el disco definitivo del servidor.
+- Permisos verificados en Linux (host de pruebas), no en el disco definitivo del servidor.
 - **Retención por capacidad y disco extraíble (2026-11-15, §8.2)**: implementadas y ensayadas con cadenas sintéticas y con SQL Server real descartable. Pendiente: confirmar con cuántos discos contará el servidor (§8.2, tabla de escenarios); probarlas en el disco definitivo y con un extraíble físico; fijar `BACKUP_MAX_TOTAL_GB`/`BACKUP_MIN_FREE_GB` según el tamaño real; cifrar el extraíble si sale del servidor.
 - El aviso activo ante fallos depende del monitor (`docs/monitoreo-alertas.md`); sin él, un `exit 6` solo queda en `backup.log` y `monitor-status/`.
 - Sin retención "mensual/anual": si se necesita histórico largo, definirla (p. ej. conservar el full del día 1 de cada mes).

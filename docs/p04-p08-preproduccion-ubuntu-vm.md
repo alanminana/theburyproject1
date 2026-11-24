@@ -1,5 +1,7 @@
 # P-04 a P-08 — validación en la VM Ubuntu de preproducción (2026-11-19)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Entorno **descartable de ensayo**: VM Ubuntu 26.04 (VMware, 4 CPU, 7,8 GiB, disco 100 GB) con Docker Engine 29.10 y Compose 5.8
 (repositorio oficial de Docker), ERP instalado con `scripts/install/install.sh` sobre `main` (02c01635), SQL Server Express **nuevo** y datos
 **sintéticos** (un cliente creado por la propia app). No se tocó ninguna base histórica. Matriz por criterio y pruebas posteriores (corte de energía, disco lleno, drill en segunda máquina, Tailscale de ensayo, observador externo, D-05): [p04-p08-matriz-criterios-vm-simulada.md](p04-p08-matriz-criterios-vm-simulada.md). Este documento **no cierra** P-04..P-08: separa lo

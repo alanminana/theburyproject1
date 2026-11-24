@@ -1,5 +1,7 @@
 # P-06: copia local cifrada independiente de PRODUCCION (2026-11-23)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 > **Respaldo LOCAL, no offsite.** Ambos discos virtuales de la VM `tbp` (`sda` del sistema y `sdb` de 40 GB) son archivos VMDK del **mismo anfitrion**
 > (mismo PC, mismo volumen `C:`). **No protege contra la perdida total del equipo** (robo, incendio, falla del disco `C:`, ransomware, borrado de la VM).
 > El propietario **acepto temporalmente ese riesgo; esta aceptado, NO mitigado.** `BACKUP_REMOTE` sigue vacio y las alertas de copia externa de preprod

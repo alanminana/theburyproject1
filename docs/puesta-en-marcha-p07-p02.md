@@ -1,5 +1,7 @@
 # Puesta en marcha P-07 / P-02: qué está listo, qué falta y en qué orden (2026-11-21)
 
+> Nota (2026-11-24): la VM `tbp` quedó fuera del plan. Las menciones a la VM o a su preproducción son históricas; el destino es el servidor de pruebas (notebook Ubuntu) o el servidor definitivo (por definir). `theburyproject-prod` es un ejemplo de nombre de proyecto Compose.
+
 Complementa `instalacion-servidor.md`, `p02-procedimiento-activacion.md` §7 y `p03-ensayo-transicion-cuentas.md` §4; no los repite. Todo lo de esta página se validó en una base **nueva y descartable** (`scripts/qa/p02/validacion-base-nueva.sh`: 37 OK / 0 FALLA, 145 migraciones, V2 desde el primer arranque). **No se tocó ninguna base real ni la preproducción sintética de la VM.**
 
 ## 1. Estado
@@ -81,6 +83,6 @@ El servidor definitivo (P-04) y CSP Enforce (D-05) siguen diferidos; las respues
 - [ ] **Crédito cerrado (condición inicial obligatoria):** cupos $0 en los puntajes 0 al 5, los únicos con cupo (el 0 viene sembrado en $200.000: bajarlo por pantalla), montos financiables $0, sin planes de cuotas, ningún límite por cliente; solo SuperAdmin con `ventas.authorize` y `clientes.managecreditlimits`. Comprobar con `scripts/sql/p07-verificar-credito-cerrado.sql` (`@Operando = 0`) sin FALLA.
 - [ ] **Para abrir el crédito más adelante (decisión del propietario, por pantalla):** definir cupos por puntaje, planes de cuotas y permisos; volver a correr el control con `@Operando = 1` y dejar constancia.
 - [ ] Costos de envío/armado, medios de pago, origen de fondos y cajas cargados.
-- [ ] `backup.sh all` + `restore-test.sh` verdes; `.env` completo guardado fuera del servidor; clave y cabecera LUKS de la copia local custodiadas fuera de la VM.
+- [ ] `backup.sh all` + `restore-test.sh` verdes; `.env` completo guardado fuera del servidor; clave y cabecera LUKS de la copia local custodiadas fuera del servidor.
 - [ ] Primera venta acordada: versión fiscal 2, Subtotal + IVA = Total.
 - [ ] Reversión (§5) entendida: antes de operar, repetir instalación en otro proyecto; con operación, solo `rollback.sh` de imagen o restauración de backup. No borrar volúmenes con datos reales.

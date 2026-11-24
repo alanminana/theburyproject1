@@ -1,5 +1,7 @@
 # P-04: continuidad y recuperación ante reinicios y cortes: matriz (2026-11-23)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `origin/main` 647207c1. Alcance: auditoría **de solo lectura** del anfitrión Windows (SNOWDESKMSI) y de la VM Ubuntu `tbp` (VMware Workstation, bridge) que hoy aloja la
 instancia operativa temporal y, en paralelo, desarrollo y preproducción. No se reinició ni apagó nada, no se tocó Docker/VMware/red/BIOS/firewall/energía, no se instaló nada.
 Plan de la ventana de mantenimiento: `p04-plan-ventana-mantenimiento-20261123.md`. Complementa `p04-p06-estado-fisico-20261120.md` (no repite sus hallazgos 1-8, que siguen vigentes salvo lo indicado) y `p04-p08-matriz-criterios-vm-simulada.md`.

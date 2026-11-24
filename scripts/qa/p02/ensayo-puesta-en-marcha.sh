@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P-02: ENSAYO GENERAL de la puesta en marcha (P3 + CriterioFiscal V2) en un stack DESCARTABLE de Linux/Docker (p. ej. la VM tbp).
+# P-02: ENSAYO GENERAL de la puesta en marcha (P3 + CriterioFiscal V2) en un stack DESCARTABLE de Linux/Docker (p. ej. el servidor de pruebas: la notebook Ubuntu).
 #
 # Recorre, con las herramientas reales del repo (scripts/deploy, scripts/backup) y datos sintéticos, la secuencia que se aplica en la
 # puesta en marcha real:  instalación con la release anterior (A) -> verificación -> venta V1 -> deploy de la release nueva (B) con

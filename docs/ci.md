@@ -59,7 +59,7 @@ Evidencia: historial de `ci.yml` del 12 al 14-11-2026 (60 corridas; 59 y 54 con 
 
 Que cada job sea confiable tambien depende de que no necesite el host: `windows-scripts` solo usa dobles de prueba
 (sin Docker, WSL, Hyper-V, red ni credenciales) y corre en Windows PowerShell 5.1 y en `pwsh`. Lo que **si** depende del host
-(ruta `wsl.exe` -> `monitor-status`, `curl.exe --resolve`, SSH real a la VM, Hyper-V, SQL/Caddy reales) no esta en CI:
+(ruta `wsl.exe` -> `monitor-status`, `curl.exe --resolve`, SSH real a un servidor remoto, Hyper-V, SQL/Caddy reales) no esta en CI:
 queda en `docs/monitoreo-validacion.md` y en `docs/p08-check-erphealth.md` como validacion pendiente del servidor definitivo.
 
 La proteccion de `main` exige hoy `build-test`, `docker-build`, `compose-validate`, `secret-scan` y `test`. Quitar

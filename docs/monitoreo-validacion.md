@@ -1,5 +1,7 @@
 # Evidencia del bloque de monitoreo — 2026-09-22
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Implementación revisable; activación en servidor definitivo y entrega externa pendientes.
 Runbook, configuración, tablas y límites: [monitoreo-alertas.md](monitoreo-alertas.md).
 

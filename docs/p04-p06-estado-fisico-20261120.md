@@ -1,5 +1,7 @@
 # P-04 / P-06: estado real, matriz y recursos físicos que faltan (2026-11-20)
 
+> Histórico: la VM `tbp` quedó fuera del plan el 2026-11-24; este documento conserva la evidencia tal como se emitió.
+
 Base: `origin/main` 4ba63f57. Alcance: auditoría **de solo lectura** del anfitrión Windows y de la VM Ubuntu `tbp` (VMware Workstation) y preparación del mecanismo de copia externa.
 No se apagó ni reinició nada, no se borró ni modificó ningún respaldo, no se movieron secretos y no se contrató nada. No se repitieron los ensayos sintéticos ya aprobados
 (`p04-p08-matriz-criterios-vm-simulada.md`, `p06-*`). Sin credenciales en este documento.
