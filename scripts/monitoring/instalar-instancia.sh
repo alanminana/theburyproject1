@@ -4,16 +4,19 @@
 # Automatiza el procedimiento manual de docs/p06-cierre-tecnico-dos-instalaciones.md §8, sin tocar la instancia existente.
 #
 #   scripts/monitoring/instalar-instancia.sh --name prod --project theburyproject-prod --backup-dir /srv/bury-backups-prod \
-#       --base-url https://tbp-prod:8443 [--keep-offsite] [--out DIR]          (solo genera)
+#       --base-url https://tbp-prod:8443 [--keep-offsite] [--keep-heartbeat] [--ca-file CA.crt] [--out DIR]   (solo genera)
 #   sudo scripts/monitoring/instalar-instancia.sh ... --apply                                              (instala y habilita)
 #
 # Por defecto NO toca el sistema: escribe config.json, la unidad systemd y un resumen en --out (directorio temporal si se omite) y sale.
-# --apply (root): copia monitor.env de la instancia base (mismo relay/webhook; 0600), crea /etc/bury-monitor-<name>/, la unidad
+# --apply (root): copia monitor.env de la instancia base (mismo relay/webhook; 0600) SIN las lineas BURY_MONITOR_HEARTBEAT* (un heartbeat
+#   compartido haria que el latido de una instancia tape la caida de la otra; --keep-heartbeat lo conserva), crea /etc/bury-monitor-<name>/, la unidad
 #   bury-monitor-<name>.service y hace `systemctl enable --now`. No sobrescribe una instancia ya instalada (falla cerrado).
-# Nunca lee ni imprime el contenido de monitor.env.
+# --ca-file: CA publica de la instancia (p. ej. la raiz de Caddy de produccion); se instala en /etc/bury-monitor-<name>/ y la unidad recibe
+#   Environment=SSL_CERT_FILE=... (sin eso el monitor marca collector.tls CRITICAL si el sistema no confia en esa CA).
+# Nunca imprime el contenido de monitor.env (solo se filtran por nombre las lineas de heartbeat).
 set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAME="" PROJECT="" BACKUP_DIR="" BASE_URL="" KEEP_OFFSITE=0 OUT="" APPLY=0
+NAME="" PROJECT="" BACKUP_DIR="" BASE_URL="" KEEP_OFFSITE=0 KEEP_HEARTBEAT=0 CA_FILE="" OUT="" APPLY=0
 ETC_ROOT="${BURY_MONITOR_ETC_ROOT:-/etc}" UNIT_DIR="${BURY_MONITOR_UNIT_DIR:-/etc/systemd/system}" PY="${BURY_INSTALL_PYTHON:-python3}"
 BASE_ETC="${BURY_MONITOR_BASE_ETC:-$ETC_ROOT/bury-monitor}" BASE_UNIT="${BURY_MONITOR_BASE_UNIT:-$SRC/bury-monitor.service}"
 usage() { sed -n '2,13p' "${BASH_SOURCE[0]}" >&2; exit 2; }
@@ -21,7 +24,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="${2:-}"; shift 2;; --project) PROJECT="${2:-}"; shift 2;; --backup-dir) BACKUP_DIR="${2:-}"; shift 2;;
     --base-url) BASE_URL="${2:-}"; shift 2;; --out) OUT="${2:-}"; shift 2;;
-    --keep-offsite) KEEP_OFFSITE=1; shift;; --apply) APPLY=1; shift;; -h|--help) usage;; *) echo "argumento desconocido: $1" >&2; usage;;
+    --keep-offsite) KEEP_OFFSITE=1; shift;; --keep-heartbeat) KEEP_HEARTBEAT=1; shift;; --ca-file) CA_FILE="${2:-}"; shift 2;; --apply) APPLY=1; shift;; -h|--help) usage;; *) echo "argumento desconocido: $1" >&2; usage;;
   esac
 done
 [[ "$NAME" =~ ^[a-z][a-z0-9-]{0,20}$ ]] || { echo "FALLA: --name invalido (minusculas, digitos y guiones)" >&2; exit 2; }
@@ -30,6 +33,8 @@ done
 [[ "$BACKUP_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] && [[ "$BACKUP_DIR" != *..* ]] || { echo "FALLA: --backup-dir debe ser una ruta absoluta simple" >&2; exit 2; }
 [[ "$BASE_URL" =~ ^https?://[A-Za-z0-9._:-]+(/[A-Za-z0-9._~/-]*)?$ ]] || { echo "FALLA: --base-url invalido" >&2; exit 2; }
 [ -f "$SRC/config.example.json" ] && [ -f "$BASE_UNIT" ] || { echo "FALLA: arbol incompleto (config.example.json / bury-monitor.service)" >&2; exit 2; }
+
+[ -z "$CA_FILE" ] || grep -q 'BEGIN CERTIFICATE' "$CA_FILE" 2>/dev/null || { echo "FALLA: --ca-file no es un certificado PEM legible" >&2; exit 2; }
 
 ETC_DIR="$ETC_ROOT/bury-monitor-$NAME"; SVC="bury-monitor-$NAME"; STATE="bury-monitor-$NAME"
 if [ -z "$OUT" ]; then OUT="$(mktemp -d)"; else mkdir -p "$OUT"; fi
@@ -54,6 +59,9 @@ sed -e "s#/etc/bury-monitor/#/etc/bury-monitor-$NAME/#g" \
     -e "s#StateDirectory=bury-monitor#StateDirectory=$STATE#" \
     -e "s#/var/lib/bury-monitor#/var/lib/$STATE#g" \
     -e "s#TheBuryProject host monitoring#TheBuryProject $NAME host monitoring#" "$BASE_UNIT" > "$OUT/$SVC.service"
+if [ -n "$CA_FILE" ]; then
+  sed -i "s#^EnvironmentFile=.*#&\\nEnvironment=SSL_CERT_FILE=/etc/bury-monitor-$NAME/ca.crt#" "$OUT/$SVC.service"
+fi
 grep -q "bury-monitor-$NAME/config.json" "$OUT/$SVC.service" && grep -q "StateDirectory=$STATE" "$OUT/$SVC.service" \
   || { echo "FALLA: la unidad generada no quedo aislada de la instancia base" >&2; exit 1; }
 if grep -E '/etc/bury-monitor/|/var/lib/bury-monitor([^-]|$)' "$OUT/$SVC.service" >/dev/null; then
@@ -71,7 +79,9 @@ echo "Instancia: $NAME | proyecto: $PROJECT | respaldos: $BACKUP_DIR | estado: /
 "$PY" -c 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")' /opt/theburyproject/scripts/monitoring/monitor.py 2>/dev/null \
   || [ -n "${BURY_INSTALL_ANY_USER:-}" ] || { echo "FALLA: monitor.py no esta instalado en /opt/theburyproject/scripts/monitoring (correr instalar-agente.sh)" >&2; exit 2; }
 install -d -m 0750 "$ETC_DIR"
-install -m 0600 "$BASE_ETC/monitor.env" "$ETC_DIR/monitor.env"
+if [ "$KEEP_HEARTBEAT" = 1 ]; then install -m 0600 "$BASE_ETC/monitor.env" "$ETC_DIR/monitor.env"
+else ( umask 077; grep -v '^BURY_MONITOR_HEARTBEAT' "$BASE_ETC/monitor.env" > "$ETC_DIR/monitor.env" || true ); chmod 0600 "$ETC_DIR/monitor.env"; fi
+[ -z "$CA_FILE" ] || install -m 0644 "$CA_FILE" "$ETC_DIR/ca.crt"
 install -m 0644 "$OUT/config.json" "$ETC_DIR/config.json"
 install -m 0644 "$OUT/$SVC.service" "$UNIT_DIR/$SVC.service"
 if [ -z "${BURY_INSTALL_ANY_USER:-}" ]; then

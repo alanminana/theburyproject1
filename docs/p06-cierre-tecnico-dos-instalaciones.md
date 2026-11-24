@@ -101,10 +101,10 @@ Ejemplo seguro para las claves LUKS (desde la PC, sin escribirlas en el repo ni 
 1. **Sin copia independiente del equipo (aceptado temporalmente, NO mitigado).** `BACKUP_REMOTE` vacío en ambas instalaciones; la copia LUKS de preprod está en el mismo host físico (otro VMDK) y no es offsite.
 2. **Producción no tiene ni siquiera la copia local cifrada** (`BACKUP_REMOVABLE_DIR=` vacío). `setup-local-disk-copy.sh` usa nombres fijos (`tbp-respaldo`, `/etc/bury-backup/local-disk.key`) y **se niega** a duplicarse (falla cerrado, comprobado por lectura); dar copia local a producción exige parametrizarlo o decidir otro destino. Con D3, ambas instalaciones no pueden compartir el mismo destino por error.
 3. **Sin límites de capacidad:** `BACKUP_MAX_TOTAL_GB=0` y `BACKUP_MIN_FREE_GB=0` en ambas. Las dos instalaciones, las imágenes Docker y los volúmenes comparten `/` (99 GB; 72 GB libres hoy). La retención por días (14, mínimo 3) es lo único que acota. Si el disco se llena, `BACKUP DATABASE` falla con exit 2 y queda reflejado en el estado del monitor, pero no hay poda por capacidad.
-4. **Monitor de producción no instalado** (§8): hoy una falla de respaldo de producción solo deja `/var/log/bury-backup-prod-errors.log`.
+4. **Monitor de producción: instalado el 2026-11-23 (manualmente, §8).** `bury-monitor-prod.service` está activo; una falla de respaldo de producción alerta por el relay existente, además de dejar `/var/log/bury-backup-prod-errors.log`.
 5. **Identidad de respaldo:** ambas bases se llaman `TheBuryProjectDb`; un `.bak` copiado a mano entre directorios es indistinguible por nombre. D1/D3 impiden el cruce por configuración, no por copia manual de archivos. No se añadió validación del contenido (cambiaría el formato de respaldo).
 6. `restore-sql.sh` con `--overwrite --confirm-overwrite` sobre la base viva sigue siendo posible por diseño (exige `app` detenida); este cierre no la modificó.
-7. `.env` de producción sin `COMPOSE_PROJECT_NAME`: con D1 las ejecuciones manuales sin la variable abortan con un mensaje claro. Recomendado (decisión del coordinador): agregar `COMPOSE_PROJECT_NAME=theburyproject-prod` al `.env` de producción para que también funcione `docker compose` a mano.
+7. `.env` de producción sin `COMPOSE_PROJECT_NAME`: con D1 las ejecuciones manuales sin la variable abortan con un mensaje claro. **Resuelto el 2026-11-23:** `COMPOSE_PROJECT_NAME=theburyproject-prod` agregado al `.env` de producción (el resto del `.env` intacto); `docker compose` a mano ya apunta al proyecto correcto.
 
 **P-06: parcialmente cerrado.** Lo técnico del aislamiento entre instalaciones y la recuperación aislada quedan verificados; el criterio "respaldo independiente del equipo" **sigue pendiente**.
 
@@ -112,22 +112,27 @@ Ejemplo seguro para las claves LUKS (desde la PC, sin escribirlas en el repo ni 
 
 * Cada corrida escribe `$BACKUP_DIR/monitor-status/{full,log,files,run-*,restore-test,custody}.json`; un fallo lo pone en `exit != 0`/`verified false` y el monitor (`monitor.py`) alerta (CRITICAL) por fallo o antigüedad.
 * Preprod: `bury-monitor.service` (config en `/etc/bury-monitor/config.json`, `backup_dir=/srv/bury-backups`) → webhook/relay Telegram ya activos.
-> **Actualización 2026-11-23:** el procedimiento manual de abajo está automatizado en `scripts/monitoring/instalar-instancia.sh` (probado por `test-instalar-instancia.sh`, en CI). Por defecto solo genera `config.json` y la unidad en un directorio temporal; `--apply` (root, con ventana y autorización) instala `/etc/bury-monitor-prod/` y `bury-monitor-prod.service` sin tocar la instancia base ni leer `monitor.env`. Ejemplo: `sudo scripts/monitoring/instalar-instancia.sh --name prod --project theburyproject-prod --backup-dir /srv/bury-backups-prod --base-url https://tbp-prod:8443 --apply`. **No aplicado en la VM** (requiere autorización del propietario).
+* **Producción: `bury-monitor-prod.service` instalado y activo desde el 2026-11-23** (instalación manual equivalente al procedimiento de abajo; **no reinstalar ni reemplazar**). Vigila solo `/srv/bury-backups-prod` y el proyecto `theburyproject-prod`; reutiliza el relay existente sin destinos nuevos. Diferencias respecto del procedimiento original, descubiertas al instalar:
+  * **Sin heartbeat compartido:** el `monitor.env` copiado de preprod trae `BURY_MONITOR_HEARTBEAT*`; se eliminaron de la copia de producción para que el latido de un monitor no tape la caída del otro.
+  * **CA de Caddy de producción:** el monitor valida TLS con el almacén de CAs del sistema, que no confía en la CA propia de la instancia de producción (sin esto: `collector.tls` CRITICAL por `SSLCertVerificationError`). La unidad de producción lleva `Environment=SSL_CERT_FILE=/etc/bury-monitor-prod/caddy-root-ca.crt` (certificado público, huella verificada contra el Caddy en vivo).
+  * Las ventanas `offsite-*` y `offsite_restore_test` están retiradas mientras no haya copia externa.
+  * Las ventanas de antigüedad (`log` 30/45 min, `full` 26/30 h) no dependen del minuto del cron, así que el escalonado de producción no obliga a cambiarlas.
+  * El servicio corre como root (puede leer `sql/`, que es del usuario `mssql`).
+* **Instalador para futuras instancias:** `scripts/monitoring/instalar-instancia.sh` (probado por `test-instalar-instancia.sh`, en CI) automatiza el procedimiento y aplica las correcciones anteriores (`--ca-file` instala la CA y fija `SSL_CERT_FILE`; el heartbeat no se copia salvo `--keep-heartbeat`). Por defecto solo genera archivos en un directorio temporal; `--apply` (root) instala y **falla cerrado si la instancia ya existe**, por eso no sirve para producción, que ya está instalada. Prueba aislada realizada (falla y recuperación de respaldos con directorio temporal y receptor local) y `monitor.py --test-channel` entregado al relay.
 
-* **Producción: no hay monitor apuntando a `/srv/bury-backups-prod`.** El monitor soporta otra instancia (`--config`), probado hoy en seco (sin instalar nada) con una configuración temporal sobre el directorio real de producción: `monitor.py --once` leyó los seis estados de producción y los dejó en `INFO` (ok). Para activarlo (requiere ventana y autorización, reutiliza el relay existente, **sin crear destinos nuevos**):
+Procedimiento manual original (referencia histórica; ya aplicado en la VM):
 
 ```
 sudo mkdir -p /etc/bury-monitor-prod && sudo cp /etc/bury-monitor/{monitor.env,config.json} /etc/bury-monitor-prod/
+sudo sed -i '/^BURY_MONITOR_HEARTBEAT/d' /etc/bury-monitor-prod/monitor.env      # no compartir heartbeat
 # editar /etc/bury-monitor-prod/config.json: "project":"theburyproject-prod", "backup_dir":"/srv/bury-backups-prod",
 #   "state_dir":"/var/lib/bury-monitor-prod", "base_url":"https://tbp-prod:8443"; quitar "offsite-sql"/"offsite-files" de backup_windows
-#   mientras no haya copia externa; ajustar "log" a [<7 min>...] si se mantiene el escalonado
-sudo sed -e 's#/etc/bury-monitor/#/etc/bury-monitor-prod/#g' \
-         -e 's#StateDirectory=bury-monitor#StateDirectory=bury-monitor-prod#' -e 's#/var/lib/bury-monitor#/var/lib/bury-monitor-prod#' \
-         -e 's#TheBuryProject host monitoring#TheBuryProject PROD host monitoring#' /etc/systemd/system/bury-monitor.service \
-         | sudo tee /etc/systemd/system/bury-monitor-prod.service >/dev/null
+#   mientras no haya copia externa
+sudo install -m 644 <caddy-root-ca.crt de prod> /etc/bury-monitor-prod/caddy-root-ca.crt
+sudo sed -e 's#/etc/bury-monitor/#/etc/bury-monitor-prod/#g'          -e 's#StateDirectory=bury-monitor#StateDirectory=bury-monitor-prod#' -e 's#/var/lib/bury-monitor#/var/lib/bury-monitor-prod#'          -e 's#TheBuryProject host monitoring#TheBuryProject PROD host monitoring#'          -e 's#^EnvironmentFile=.*#&
+Environment=SSL_CERT_FILE=/etc/bury-monitor-prod/caddy-root-ca.crt#' /etc/systemd/system/bury-monitor.service          | sudo tee /etc/systemd/system/bury-monitor-prod.service >/dev/null
 sudo systemctl daemon-reload && sudo systemctl enable --now bury-monitor-prod
 ```
-  El servicio corre como root (puede leer `sql/`, que es del usuario `mssql`); ejecutado como usuario normal `monitor.py` marca CRITICAL el volumen por no poder leerlo (visto en la prueba en seco, no es un fallo real).
 * Verificar con una falla provocada **en un directorio de prueba** (no en producción) antes de dar la alerta por probada.
 
 ## 9. Archivos de este cierre

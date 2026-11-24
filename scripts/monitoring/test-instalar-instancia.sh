@@ -27,12 +27,22 @@ for bad in "--name Prod" "--name base" "--project A/B" "--backup-dir rel/dir" "-
 done
 
 # 3) --apply sobre un arbol sintetico; no pisa una instancia existente; no filtra el contenido de monitor.env
-mkdir -p "$T/etc/bury-monitor" "$T/units"; echo 'BURY_MONITOR_TOKEN=SECRETO-SINTETICO' > "$T/etc/bury-monitor/monitor.env"
+mkdir -p "$T/etc/bury-monitor" "$T/units"; printf 'BURY_MONITOR_TOKEN=SECRETO-SINTETICO
+BURY_MONITOR_HEARTBEAT=https://hb.invalid/push/HBSECRETO
+BURY_MONITOR_HEARTBEAT_STYLE=kuma
+' > "$T/etc/bury-monitor/monitor.env"
+printf -- '-----BEGIN CERTIFICATE-----
+QUJD
+-----END CERTIFICATE-----
+' > "$T/ca.crt"
 export BURY_INSTALL_ANY_USER=1 BURY_MONITOR_ETC_ROOT="$T/etc" BURY_MONITOR_UNIT_DIR="$T/units"
-OUTP="$("$S" "${A[@]}" --apply --out "$T/a1" 2>&1)"; rc=$?
+OUTP="$("$S" "${A[@]}" --ca-file "$T/ca.crt" --apply --out "$T/a1" 2>&1)"; rc=$?
 [ $rc = 0 ] && [ -f "$T/etc/bury-monitor-prod/config.json" ] && [ -f "$T/units/bury-monitor-prod.service" ] && ok apply || { ko "apply (rc=$rc)"; echo "$OUTP"; }
 [ "$(stat -c %a "$T/etc/bury-monitor-prod/monitor.env")" = 600 ] && ok "monitor.env 0600" || ko "monitor.env 0600"
-echo "$OUTP" | grep -q SECRETO && ko "no filtra secreto" || ok "no filtra secreto"
+! grep -q HEARTBEAT "$T/etc/bury-monitor-prod/monitor.env" && grep -q SECRETO "$T/etc/bury-monitor-prod/monitor.env" && ok "heartbeat no copiado, token si" || ko "heartbeat no copiado, token si"
+cmp -s "$T/ca.crt" "$T/etc/bury-monitor-prod/ca.crt" && grep -q 'Environment=SSL_CERT_FILE=/etc/bury-monitor-prod/ca.crt' "$T/units/bury-monitor-prod.service" && ok "CA y SSL_CERT_FILE" || ko "CA y SSL_CERT_FILE"
+echo "$OUTP" | grep -q -e SECRETO -e HBSECRETO && ko "no filtra secreto" || ok "no filtra secreto"
 "$S" "${A[@]}" --apply --out "$T/a2" >/dev/null 2>&1 && ko "no sobrescribe" || ok "no sobrescribe"
-[ -f "$T/etc/bury-monitor/monitor.env" ] && ok "base intacta" || ko "base intacta"
+grep -q HEARTBEAT "$T/etc/bury-monitor/monitor.env" && ok "base intacta" || ko "base intacta"
+"$S" "${A[@]}" --ca-file "$T/no-existe.crt" --out "$T/b2" >/dev/null 2>&1 && ko "rechaza CA invalida" || ok "rechaza CA invalida"
 exit $fail
