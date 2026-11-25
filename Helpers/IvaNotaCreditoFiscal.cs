@@ -28,14 +28,20 @@ public static class IvaNotaCreditoFiscal
         var pesoTotal = grupos.Sum(g => g.Peso);
         if (grupos.Count == 0 || pesoTotal <= 0m) return Array.Empty<Parte>();
 
+        // Reparto en centavos enteros por mayor resto: ninguna parte es negativa y la suma es exactamente el importe.
+        var centavos = (long)Math.Round(importe * 100m, 0, MidpointRounding.AwayFromZero);
+        var exactos = grupos.Select(g => (decimal)centavos * g.Peso / pesoTotal).ToList();
+        var piso = exactos.Select(x => (long)Math.Floor(x)).ToList();
+        var faltan = centavos - piso.Sum();
+        foreach (var idx in Enumerable.Range(0, grupos.Count)
+                     .OrderByDescending(k => exactos[k] - piso[k]).ThenBy(k => k)
+                     .Take((int)faltan))
+            piso[idx]++;
+
         var partes = new List<Parte>(grupos.Count);
-        var asignado = 0m;
         for (var i = 0; i < grupos.Count; i++)
         {
-            var total = i == grupos.Count - 1
-                ? Math.Round(importe - asignado, 2, MidpointRounding.AwayFromZero)
-                : Math.Round(importe * grupos[i].Peso / pesoTotal, 2, MidpointRounding.AwayFromZero);
-            asignado += total;
+            var total = piso[i] / 100m;
             var divisor = 1m + grupos[i].Porcentaje / 100m;
             var neto = grupos[i].Porcentaje > 0m ? Math.Round(total / divisor, 2, MidpointRounding.AwayFromZero) : total;
             partes.Add(new Parte(grupos[i].Porcentaje, neto, total - neto, total));

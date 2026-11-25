@@ -65,4 +65,14 @@ public class IvaNotaCreditoFiscalTests
         Assert.Empty(IvaNotaCreditoFiscal.Repartir(100m, new[] { (21m, 0m) }));
         Assert.Empty(IvaNotaCreditoFiscal.Repartir(100m, Array.Empty<(decimal, decimal)>()));
     }
+
+    [Fact]
+    public void ImporteChicoConMuchasAlicuotas_NingunaParteEsNegativa()
+    {
+        var partes = IvaNotaCreditoFiscal.Repartir(0.02m, new[] { (0m, 1m), (10.5m, 1m), (21m, 1m), (27m, 1m) });
+
+        Assert.Equal(0.02m, partes.Sum(p => p.Total));
+        Assert.All(partes, p => Assert.True(p.Total >= 0m && p.Neto >= 0m && p.Iva >= 0m));
+        Assert.All(partes, p => Assert.Equal(p.Total, p.Neto + p.Iva));
+    }
 }
