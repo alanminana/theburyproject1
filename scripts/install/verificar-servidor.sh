@@ -17,11 +17,12 @@
 set -uo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROJECT="" ENV_FILE="$REPO_DIR/.env" CA="$REPO_DIR/caddy-root-ca.crt" LAN_CIDR="" FW_CHAIN="BURY-ERP" CIERRE=0 SUDO="sudo -n"
+need() { [[ $# -ge 2 && -n "${2:-}" ]] || { echo "falta el valor de $1 (ver --help)" >&2; exit 2; }; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project) PROJECT="${2:-}"; shift 2 ;; --env-file) ENV_FILE="${2:-}"; shift 2 ;; --ca) CA="${2:-}"; shift 2 ;;
-    --lan-cidr) LAN_CIDR="${2:-}"; shift 2 ;; --fw-chain) FW_CHAIN="${2:-}"; shift 2 ;; --cierre) CIERRE=1; shift ;;
-    --sudo-cmd) SUDO="${2:-}"; shift 2 ;; -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --project) need "$@"; PROJECT="$2"; shift 2 ;; --env-file) need "$@"; ENV_FILE="$2"; shift 2 ;; --ca) need "$@"; CA="$2"; shift 2 ;;
+    --lan-cidr) need "$@"; LAN_CIDR="$2"; shift 2 ;; --fw-chain) need "$@"; FW_CHAIN="$2"; shift 2 ;; --cierre) CIERRE=1; shift ;;
+    --sudo-cmd) [[ $# -ge 2 ]] || { echo "falta el valor de --sudo-cmd (puede ser vacio: --sudo-cmd \"\")" >&2; exit 2; }; SUDO="$2"; shift 2 ;; -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "argumento desconocido: $1" >&2; exit 2 ;;
   esac
 done
@@ -59,8 +60,9 @@ if [[ -f "$CA" ]]; then
   [[ "$lg" = 200 ]] && pass "V04 pantalla de login por HTTPS = 200" || fail "V04 login por HTTPS = ${lg:-sin respuesta}"
 else skip "V02-V04 no existe la CA ($CA): ejecutar install.sh o pasar --ca"; fi
 # --- 3. migraciones y verificadores SQL
-SA="$(envv MSSQL_SA_PASSWORD)"; DBN="$(envv MSSQL_DATABASE)"; DBN="${DBN:-TheBuryProjectDb}"
-sqlq() { docker exec "${PROJECT}-db-1" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SA" -C -d "$DBN" -h -1 -W -Q "SET NOCOUNT ON; $1" 2>/dev/null | tr -d '\r' | head -1; }
+DBN="$(envv MSSQL_DATABASE)"; DBN="${DBN:-TheBuryProjectDb}"
+# La contrasena de SA NO viaja por argv del host: el shell DENTRO del contenedor la toma de su propio entorno (como scripts/backup/lib.sh).
+sqlq() { docker exec "${PROJECT}-db-1" bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -d "$1" -h -1 -W -Q "SET NOCOUNT ON; $0"' "$1" "$DBN" 2>/dev/null | tr -d '' | head -1; }
 mig="$(sqlq 'SELECT COUNT(*) FROM __EFMigrationsHistory')"; esperadas="$(ls "$REPO_DIR"/Migrations/20*.cs 2>/dev/null | grep -vc Designer)"
 [[ -n "$mig" && "$mig" = "$esperadas" ]] && pass "V05 migraciones aplicadas = $mig (las del repositorio)" || fail "V05 migraciones aplicadas '${mig:-?}' vs repositorio $esperadas"
 sqlfile() {  # sqlfile <archivo.sql> [cierre]: con "cierre" fija @Cierre = 1 en una copia temporal (el original no se modifica)
@@ -68,7 +70,7 @@ sqlfile() {  # sqlfile <archivo.sql> [cierre]: con "cierre" fija @Cierre = 1 en 
   if [[ "${2:-}" = cierre ]]; then sed 's/DECLARE @Cierre bit = 0/DECLARE @Cierre bit = 1/' "$src" >"$tmp"; else cp "$src" "$tmp"; fi
   chmod 644 "$tmp"   # mktemp crea 0600: el usuario del contenedor (mssql) debe poder leerlo
   docker cp "$tmp" "${PROJECT}-db-1:/tmp/v-$1" >/dev/null 2>&1; rm -f "$tmp"
-  docker exec "${PROJECT}-db-1" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$SA" -C -d "$DBN" -I -b -W -i "/tmp/v-$1" >/dev/null 2>&1
+  docker exec "${PROJECT}-db-1" bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -d "$1" -I -b -W -i "$0"' "/tmp/v-$1" "$DBN" >/dev/null 2>&1
 }
 sqlfile p02-verificar-instalacion.sql && pass "V06 p02-verificar-instalacion.sql (exit 0)" || fail "V06 p02-verificar-instalacion.sql (exit != 0)"
 sqlfile p07-verificar-credito-cerrado.sql && pass "V07 p07-verificar-credito-cerrado.sql (exit 0: credito cerrado)" || fail "V07 p07-verificar-credito-cerrado.sql (exit != 0)"

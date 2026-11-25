@@ -18,9 +18,11 @@ KEYDIR="${BURY_KEYDIR:-/etc/bury-backup}"
 MODE="${1:-}"; shift || true
 OUT="" PKG="" TO="" PASSFILE="" NAMES=() ENVF=""
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+need() { [[ $# -ge 2 && -n "${2:-}" ]] || { echo "falta el valor de $1 (ver --help)" >&2; exit 1; }; }
 while (( $# )); do
   case "$1" in
-    --out) OUT="${2:-}"; shift 2 ;; --to) TO="${2:-}"; shift 2 ;; --passphrase-file) PASSFILE="${2:-}"; shift 2 ;; --name) NAMES+=("${2:-}"); shift 2 ;; --env-file) ENVF="${2:-}"; shift 2 ;;
+    --out) need "$@"; OUT="$2"; shift 2 ;; --to) need "$@"; TO="$2"; shift 2 ;; --passphrase-file) need "$@"; PASSFILE="$2"; shift 2 ;;
+    --name) need "$@"; NAMES+=("$2"); shift 2 ;; --env-file) need "$@"; ENVF="$2"; shift 2 ;;
     -h|--help) sed -n '2,15p' "$0"; exit 0 ;; -*) echo "argumento desconocido: $1" >&2; exit 1 ;; *) PKG="$1"; shift ;;
   esac
 done

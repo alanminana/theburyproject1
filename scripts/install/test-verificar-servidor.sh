@@ -52,5 +52,11 @@ no "RETURN incondicional solo para tcp 8443 antes del DROP -> NO es OK" cadena_f
 si "RETURN incondicional de OTRO puerto (443) no afecta a 8443 -> OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -p tcp -m conntrack --ctstate DNAT --ctorigdstport 443 --ctdir ORIGINAL -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
 no "regla con opciones desconocidas (-i eth0) -> falla cerrado" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -i eth0 -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
 no "el origen permitido llega a un DROP antes que al RETURN -> NO es OK" cadena_firewall_ok "$(fx "$D_T" "$D_U" "$R_T" "$R_U" "$END")" 8443 192.168.50.0/24
+no "otro origen permitido (10.0.0.0/8 ACCEPT) ANTES de la LAN -> NO es OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -s 10.0.0.0/8 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j ACCEPT' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "otro origen permitido (10.0.0.0/8 RETURN) DESPUES del DROP (inalcanzable, pero la regla no es la esperada) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$D_T" "$D_U" "${R_T//192.168.50.0\/24/10.0.0.0/8}" "$END")" 8443 192.168.50.0/24
+si "dos origenes autorizados (LAN y tailnet) indicados con coma -> OK" cadena_firewall_ok "$(fx "$R_T" "${R_T//192.168.50.0\/24/100.64.0.0/10}" "$R_U" "${R_U//192.168.50.0\/24/100.64.0.0/10}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+no "...pero con solo la LAN indicada, el origen 100.64.0.0/10 NO esta autorizado -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "${R_T//192.168.50.0\/24/100.64.0.0/10}" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
 no "cadena vacia -> NO es OK" cadena_firewall_ok "$(fx '-N BURY-ERP-PROV')" 8443 192.168.50.0/24
+si "verificar-servidor.sh: opcion sin valor (--project al final) -> exit 2 sin colgarse" bash -c 'timeout 10 bash "$1" --project >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
+si "verificar-servidor.sh: --lan-cidr al final -> exit 2" bash -c 'timeout 10 bash "$1" --lan-cidr >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
 echo; echo "verificar-servidor tests: $PASS PASS, $FAIL FAIL"; (( FAIL == 0 ))

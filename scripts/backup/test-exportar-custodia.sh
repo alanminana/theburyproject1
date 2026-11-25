@@ -94,4 +94,5 @@ rm -f "$T/keys3/local-disk-b.luks-header"; head -c 64 /dev/urandom >"$T/keys3/lo
 rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "la copia 'c' tiene clave pero NO encabezado -> exit 8 y sin paquete" bash -c '[[ "$1" = 8 && -z "$(ls -A "$2")" ]]' _ "$rc" "$T/out6"
 rm -f "$T/keys3/local-disk-c.key"; rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "solo pares completos -> exit 0" test "$rc" = 0
 rc=$(TKD="$T/keys3" run create --out "$T/out6" --name zz --passphrase-file "$P1"); check "--name con copia inexistente -> exit 8" test "$rc" = 8
+for o in --out --passphrase-file --name --env-file --to; do rc=$(timeout 10 bash "$SUT" create "$o" >/dev/null 2>&1; echo $?); check "opcion $o sin valor -> exit 1 sin colgarse" test "$rc" = 1; done
 echo; echo "resultado: PASS=$PASS FAIL=$FAIL"; [ "$FAIL" = 0 ]
