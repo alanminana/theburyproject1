@@ -87,4 +87,11 @@ tar -C "$T/evil/stage" -czf "$T/evil/p.tgz" MANIFEST.txt enlace; GH="$T/evil/gh"
 GNUPGHOME="$GH" gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$P1" --symmetric --cipher-algo AES256 -o "$T/evil/malo.gpg" "$T/evil/p.tgz" 2>/dev/null
 rc=$(run extract "$T/evil/malo.gpg" --to "$T/rest3" --passphrase-file "$P1"); check "paquete con enlace simbolico -> exit 3 y sin directorio" bash -c '[[ "$1" = 3 && ! -e "$2" ]]' _ "$rc" "$T/rest3"
 check "no deja temporales en /dev/shm" bash -c '! ls /dev/shm | grep -q "^bury-xc\."'
+# pares completos: una clave sin su encabezado (o al reves) NO produce un paquete que parezca valido
+mkdir -p "$T/keys3" "$T/out6"; head -c 64 /dev/urandom >"$T/keys3/local-disk-a.key"; head -c 100 /dev/urandom >"$T/keys3/local-disk-a.luks-header"; head -c 100 /dev/urandom >"$T/keys3/local-disk-b.luks-header"
+rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "descubrimiento: la copia 'b' tiene encabezado pero NO clave -> exit 8 y sin paquete" bash -c '[[ "$1" = 8 && -z "$(ls -A "$2")" ]] && grep -q "incompleta" "$3"' _ "$rc" "$T/out6" "$T/o"
+rm -f "$T/keys3/local-disk-b.luks-header"; head -c 64 /dev/urandom >"$T/keys3/local-disk-c.key"
+rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "la copia 'c' tiene clave pero NO encabezado -> exit 8 y sin paquete" bash -c '[[ "$1" = 8 && -z "$(ls -A "$2")" ]]' _ "$rc" "$T/out6"
+rm -f "$T/keys3/local-disk-c.key"; rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "solo pares completos -> exit 0" test "$rc" = 0
+rc=$(TKD="$T/keys3" run create --out "$T/out6" --name zz --passphrase-file "$P1"); check "--name con copia inexistente -> exit 8" test "$rc" = 8
 echo; echo "resultado: PASS=$PASS FAIL=$FAIL"; [ "$FAIL" = 0 ]

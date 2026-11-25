@@ -45,5 +45,12 @@ no "DROP ANTES del RETURN (la LAN quedaria descartada) -> NO es OK" cadena_firew
 no "origen permitido distinto del esperado (10.0.0.0/8) -> NO es OK" cadena_firewall_ok "$(fx "${R_T//192.168.50.0\/24/10.0.0.0/8}" "${R_U//192.168.50.0\/24/10.0.0.0/8}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
 no "reglas de OTRO puerto (443) no cuentan para 8443 -> NO es OK" cadena_firewall_ok "$(fx "${R_T//8443/443}" "${R_U//8443/443}" "${D_T//8443/443}" "${D_U//8443/443}" "$END")" 8443 192.168.50.0/24
 no "un DROP con origen (no es el descarte final) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "${D_T/-A BURY-ERP-PROV/-A BURY-ERP-PROV -s 1.2.3.4/32}" "${D_U/-A BURY-ERP-PROV/-A BURY-ERP-PROV -s 1.2.3.4/32}" "$END")" 8443 192.168.50.0/24
+no "RETURN incondicional al inicio (el DROP quedaria anulado) -> NO es OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "ACCEPT incondicional al inicio -> NO es OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -j ACCEPT' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "RETURN con -s 0.0.0.0/0 antes del DROP (equivale a incondicional) -> NO es OK" cadena_firewall_ok "$(fx "${R_T/192.168.50.0\/24/0.0.0.0\/0}" "${R_U/192.168.50.0\/24/0.0.0.0\/0}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "RETURN incondicional solo para tcp 8443 antes del DROP -> NO es OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -p tcp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+si "RETURN incondicional de OTRO puerto (443) no afecta a 8443 -> OK" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -p tcp -m conntrack --ctstate DNAT --ctorigdstport 443 --ctdir ORIGINAL -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "regla con opciones desconocidas (-i eth0) -> falla cerrado" cadena_firewall_ok "$(fx '-A BURY-ERP-PROV -i eth0 -j RETURN' "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "el origen permitido llega a un DROP antes que al RETURN -> NO es OK" cadena_firewall_ok "$(fx "$D_T" "$D_U" "$R_T" "$R_U" "$END")" 8443 192.168.50.0/24
 no "cadena vacia -> NO es OK" cadena_firewall_ok "$(fx '-N BURY-ERP-PROV')" 8443 192.168.50.0/24
 echo; echo "verificar-servidor tests: $PASS PASS, $FAIL FAIL"; (( FAIL == 0 ))

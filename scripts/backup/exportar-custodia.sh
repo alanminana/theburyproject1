@@ -55,6 +55,13 @@ create)
   if ((${#NAMES[@]})); then files=(); for n in "${NAMES[@]}"; do files+=("$KEYDIR/local-disk-$n.key" "$KEYDIR/local-disk-$n.luks-header"); done
   else mapfile -t files < <(ls "$KEYDIR"/local-disk*.key "$KEYDIR"/local-disk*.luks-header 2>/dev/null); fi
   ((${#files[@]})) || die "no hay claves LUKS en $KEYDIR (setup-local-disk-copy.sh --apply las crea)" 8
+  # cada copia necesita el PAR completo: sin la clave o sin el encabezado el disco no se puede reabrir tras perder el servidor
+  declare -A __par=()
+  for f in "${files[@]}"; do b="$(basename "$f")"; b="${b%.luks-header}"; b="${b%.key}"; __par["$b"]=1; done
+  for b in "${!__par[@]}"; do for sfx in key luks-header; do
+    [[ -f "$KEYDIR/$b.$sfx" && ! -L "$KEYDIR/$b.$sfx" && -s "$KEYDIR/$b.$sfx" ]] || die "la copia '$b' esta incompleta: falta o esta vacio $KEYDIR/$b.$sfx (se necesitan la clave Y el encabezado)" 8
+  done; done
+  files=(); for b in "${!__par[@]}"; do files+=("$KEYDIR/$b.key" "$KEYDIR/$b.luks-header"); done
   { echo "bury-custodia-luks v1"; echo "fecha=$(date -u +%FT%TZ)"; echo "host=$(hostname)"; } >>"$WORK/stage/MANIFEST.txt"
   for f in "${files[@]}"; do [[ -f "$f" && ! -L "$f" ]] || die "falta o es un enlace: $f" 8; [[ -s "$f" ]] || die "esta vacio: $f" 8
     cp -p -- "$f" "$WORK/stage/$(basename "$f")" && cmp -s -- "$f" "$WORK/stage/$(basename "$f")" || die "no se pudo copiar completo: $f (el paquete quedaria incompleto: NO se crea)" 8
