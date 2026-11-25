@@ -80,16 +80,20 @@ const check = (c, msg) => { if (c) ok++; else { fallos++; console.log('  FALLO:'
       await page.emulateMedia({ media: null });
     }
   }
+  let pdfValidados = 0;
   for (const h of [...destinos.pdf].slice(0, 4)) {
     const resp = await ctx.request.get(new URL(h, BASE).toString());
     const buf = await resp.body();
     const ct = resp.headers()['content-type'] || '';
-    if (!/pdf/i.test(ct)) continue;
     n++;
+    check(resp.status() === 200 && /pdf/i.test(ct), `PDF ${h}: respuesta ${resp.status()} ${ct} (se esperaba 200 application/pdf; error, login o HTML no valido)`);
+    if (resp.status() !== 200 || !/pdf/i.test(ct)) continue;
+    pdfValidados++;
     const t = buf.toString('latin1');
     check(buf.slice(0, 5).toString() === '%PDF-' && /%%EOF\s*$/.test(t) && (t.match(/\/Type\s*\/Page[^s]/g) || []).length >= 1, `PDF ${h}: firma/EOF/paginas invalidos`);
     fs.writeFileSync(path.join(OUT, `pdf-${n}.pdf`), buf);
   }
+  check(pdfValidados >= 1, 'no se valido ningun PDF servido por la app (recibos/documentos): la cobertura de PDF desaparecio');
   check(errores.length === 0, `errores de pagina: ${errores.slice(0, 3).join(' | ')}`);
   await browser.close();
   console.log(`[${browserName}] impresion: ${ok} correctas, ${fallos} fallos`);

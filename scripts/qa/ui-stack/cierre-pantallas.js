@@ -69,7 +69,7 @@ async function medir(page, rol, ruta, etiqueta) {
     const page = await ctx.newPage();
     await login(page, rol, USERS[rol]);
     const rd = await page.goto(`${BASE}/Dashboard`, { waitUntil: 'networkidle' }).catch(() => null);
-    if (rd && rd.status() < 400) {
+    if (rd && rd.status() < 400 && !/AccessDenied/i.test(page.url())) {
       await medir(page, rol, '/Dashboard', 'dashboard');
       await page.setViewportSize({ width: 1440, height: 900 }); await page.goto(`${BASE}/Dashboard`, { waitUntil: 'networkidle' });
       const hrefs = await page.$$eval('main a[href]', (as) => as.filter((a) => a.getClientRects().length).map((a) => a.getAttribute('href')));
@@ -81,7 +81,12 @@ async function medir(page, rol, ruta, etiqueta) {
         if (denegado) { sin++; fallo(`dashboard ${rol}: el acceso ${d} lleva a un destino que ese rol no puede abrir (HTTP ${rr && rr.status()}, ${page.url()})`); }
       }
       res.filas.push({ rol, ruta: '/Dashboard (accesos)', destinosProbados: destinos.length, inaccesibles: sin });
-    } else res.filas.push({ rol, ruta: '/Dashboard', http: rd && rd.status(), nota: 'el rol no ve el Dashboard' });
+    } else {
+      // Solo una denegacion de permiso (401/403/redireccion a AccessDenied) es esperable; un 5xx o una navegacion fallida es un defecto.
+      const denegado = rd && (rd.status() === 401 || rd.status() === 403 || (rd.status() < 400 && /AccessDenied/i.test(page.url())));
+      if (!denegado) fallo(`dashboard ${rol}: /Dashboard fallo (HTTP ${rd ? rd.status() : 'sin respuesta'})`);
+      res.filas.push({ rol, ruta: '/Dashboard', http: rd && rd.status(), nota: 'el rol no ve el Dashboard', denegado });
+    }
     await ctx.close();
   }
   // --- Pantallas sin cierre de 4 capas: carga, desborde, axe y capturas en 5 viewports (reutiliza medir)
