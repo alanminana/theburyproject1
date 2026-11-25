@@ -1,0 +1,51 @@
+name: Regresion manual (P-07 / DR / interfaz)
+
+# Pruebas criticas que antes solo se corrian a mano. SOLO ejecucion manual (workflow_dispatch): no hay cron ni disparo por push/PR,
+# para no sumar suites pesadas al flujo normal. Cada una crea y destruye su propia pila Docker descartable con datos sinteticos.
+# Localmente: bash scripts/qa/p07/run-p07.sh | run-dr-datos.sh --image X | scripts/qa/ui-stack/run-ui-stack.sh
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Que correr"
+        type: choice
+        default: p07
+        options: [p07, dr-datos, ui-stack, todo]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regresion-manual-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regresion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la imagen del ERP
+        run: docker build -q -t theburyproject/erp:regresion .
+
+      - name: P-07 recorridos integrales (sin interfaz; la UI va en ui-stack)
+        if: inputs.suite == 'p07' || inputs.suite == 'todo'
+        run: bash scripts/qa/p07/run-p07.sh --image theburyproject/erp:regresion --no-ui --out regresion-out/p07
+
+      - name: Recuperacion con datos comerciales sinteticos conocidos
+        if: inputs.suite == 'dr-datos' || inputs.suite == 'todo'
+        run: bash scripts/qa/p07/run-dr-datos.sh --image theburyproject/erp:regresion
+
+      - name: Interfaz sobre Docker + Caddy + HTTPS (axe, teclado, modales, zoom, movil, impresion; 3 navegadores)
+        if: inputs.suite == 'ui-stack' || inputs.suite == 'todo'
+        run: bash scripts/qa/ui-stack/run-ui-stack.sh --image theburyproject/erp:regresion --out regresion-out/ui
+
+      - name: Resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regresion-${{ inputs.suite }}
+          path: regresion-out/
+          if-no-files-found: ignore
+          retention-days: 14

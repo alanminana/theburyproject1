@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # COPIA LOCAL CIFRADA EN UN SEGUNDO DISCO DE LA MISMA VM/SERVIDOR (P-06, solo respaldo LOCAL).
-# Prepara, SIN formatear ni tocar el disco anfitrion, un contenedor LUKS2 (archivo) dentro de un volumen ya montado (p. ej. /mnt/tbp-pruebas)
-# y lo deja montado en un punto propio (p. ej. /mnt/tbp-respaldo) para usarlo como BACKUP_REMOVABLE_DIR de scripts/backup/copy-removable.sh.
+# Prepara, SIN formatear ni tocar el disco anfitrion, un contenedor LUKS2 (archivo) dentro de un volumen ya montado (p. ej. /mnt/pruebas; default historico /mnt/tbp-pruebas)
+# y lo deja montado en un punto propio (p. ej. /mnt/respaldo; default historico /mnt/tbp-respaldo) para usarlo como BACKUP_REMOVABLE_DIR de scripts/backup/copy-removable.sh.
 #
 #   sudo scripts/backup/setup-local-disk-copy.sh --check   [opciones]   solo lectura: que haria y que falta
 #   sudo scripts/backup/setup-local-disk-copy.sh --apply   [opciones]   crea clave, contenedor, ext4 interno, crypttab/fstab, marca y cron
 #
 # Opciones (valores por defecto entre parentesis):
-#   --host-mount DIR   volumen ya montado que aloja el contenedor (/mnt/tbp-pruebas); DEBE ser un punto de montaje real distinto de /
+#   --host-mount DIR   volumen ya montado que aloja el contenedor (default /mnt/tbp-pruebas, o BURY_LOCAL_COPY_HOST_MOUNT); DEBE ser un punto de montaje real distinto de /
 #   --size-gb N        tamaño del contenedor en GB, TECHO DURO del uso real (3). Es un archivo disperso: no ocupa espacio hasta escribirse
-#   --mount DIR        punto de montaje del volumen descifrado (/mnt/tbp-respaldo)
+#   --mount DIR        punto de montaje del volumen descifrado (default /mnt/tbp-respaldo, o BURY_LOCAL_COPY_MOUNT)
 #   --owner USER       dueño del contenido (el usuario que corre el cron de backups; default: SUDO_USER)
 #   --repo DIR         clon del repo en el servidor, para el cron de verificacion (default: este repo)
 #   --verify-at HH:MM  hora local del verificador diario (03:15, despues del full de las 02:30)
-#   --name NOMBRE      identidad de ESTA copia (tbp-respaldo): fija el archivo <host-mount>/NOMBRE.luks, el mapper, la etiqueta, la clave
+#   --name NOMBRE      identidad de ESTA copia (default historico tbp-respaldo, o BURY_LOCAL_COPY_NAME): fija el archivo <host-mount>/NOMBRE.luks, el mapper, la etiqueta, la clave
 #                      (/etc/bury-backup/local-disk[-NOMBRE].key) y el cron (/etc/cron.d/bury-backup-localcopy[-NOMBRE]). Con otro NOMBRE se
 #                      puede tener UNA COPIA CIFRADA INDEPENDIENTE POR INSTALACION (preprod/prod) en el mismo disco, con claves distintas
 #   --project PROYECTO proyecto Compose de la instalacion servida (p. ej. theburyproject-prod): el cron lo exporta como COMPOSE_PROJECT_NAME
@@ -29,9 +29,9 @@
 # Codigos: 0 ok | 1 uso | 8 prerequisito/seguridad (no se cambio nada)
 set -Eeuo pipefail
 
-HOST_MOUNT=/mnt/tbp-pruebas SIZE_GB=3 MNT=/mnt/tbp-respaldo OWNER="${SUDO_USER:-}" ACTION="" VERIFY_AT="03:15"
+HOST_MOUNT=${BURY_LOCAL_COPY_HOST_MOUNT:-/mnt/tbp-pruebas} SIZE_GB=3 MNT=${BURY_LOCAL_COPY_MOUNT:-/mnt/tbp-respaldo} OWNER="${SUDO_USER:-}" ACTION="" VERIFY_AT="03:15"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-NAME=tbp-respaldo; PROJECT=""; KEYDIR=/etc/bury-backup; MARKER=.bury-backup-removable
+LEGACY_NAME=tbp-respaldo; NAME=${BURY_LOCAL_COPY_NAME:-$LEGACY_NAME}; PROJECT=""; KEYDIR=/etc/bury-backup; MARKER=.bury-backup-removable
 die() { echo "ERROR: $*" >&2; exit 8; }
 usage() { sed -n '2,34p' "$0"; }
 while (( $# )); do
@@ -56,7 +56,7 @@ for p in "$HOST_MOUNT" "$MNT" "$REPO_DIR"; do [[ "$p" =~ ^/[A-Za-z0-9_./-]+$ && 
 [[ "$NAME" =~ ^[a-z][a-z0-9-]{2,30}$ ]] || { echo "--name invalido (minusculas, digitos y '-', 3-31 caracteres, empieza con letra)" >&2; exit 1; }
 [[ -z "$PROJECT" || "$PROJECT" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]] || { echo "--project invalido (nombre de proyecto Compose)" >&2; exit 1; }
 # nombres derivados: con el NOMBRE por defecto se conservan EXACTAMENTE los de la copia ya instalada (compatibilidad)
-if [[ "$NAME" == tbp-respaldo ]]; then SUF=""; else SUF="-$NAME"; fi
+if [[ "$NAME" == "$LEGACY_NAME" ]]; then SUF=""; else SUF="-$NAME"; fi
 KEY=$KEYDIR/local-disk$SUF.key; HDR=$KEYDIR/local-disk$SUF.luks-header; LABEL=${NAME:0:16}; CRONF=/etc/cron.d/bury-backup-localcopy$SUF
 [[ -n "$OWNER" ]] && id -u "$OWNER" >/dev/null 2>&1 || { echo "--owner invalido (usar --owner <usuario del cron de backups>)" >&2; exit 1; }
 (( EUID == 0 )) || die "requiere root (sudo)"

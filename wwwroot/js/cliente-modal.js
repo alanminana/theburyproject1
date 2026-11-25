@@ -781,6 +781,17 @@
             }
         });
 
+        /* Foco confinado al dialogo modal (aria-modal="true"): Tab/Shift+Tab ciclan dentro. */
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab' || modal.classList.contains('hidden')) return;
+            var f = Array.prototype.filter.call(modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'), function (el) { return el.getClientRects().length > 0; });
+            if (!f.length) { e.preventDefault(); return; }
+            var first = f[0], last = f[f.length - 1], a = document.activeElement;
+            if (!modal.contains(a)) { e.preventDefault(); first.focus(); }
+            else if (e.shiftKey && a === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+        });
+
         /* Delegated open-create button */
         document.addEventListener('click', function (e) {
             var btn = e.target.closest('[data-cliente-modal-open]');

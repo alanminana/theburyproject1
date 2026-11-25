@@ -12,15 +12,22 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` + `CreditoPersonal` | ✅ Unificado en un solo módulo con pestañas (2026-09-25) | CONFIGPAGO-UNIFICACION-01 (ver resumen abajo) |
-| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; validado con roles restringidos (2026-09-24, cierre de módulo); datos financieros gateados por permiso de módulo |
+| Dashboard | `Index` | ✅ Cerrado (2026-11-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; validado con roles restringidos (2026-09-24, cierre de módulo); datos financieros gateados por permiso de módulo ; **cierre 2026-11-24**: roles restringidos y filas con datos validados sobre Docker+Caddy (7 roles × 5 viewports × 3 navegadores: 0 axe, 0 desbordes; todo acceso visible abre para su rol; corregido «Ver alertas»). Ver `docs/qa-ronda-interfaz-20261124.md` |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
 | Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
 | Proveedor | `Index`, `Details`, drawers Nuevo/Editar, eliminar | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module proveedores` (ver resumen abajo) |
-| Seguridad | `Index` (Usuarios, Roles, Permisos de Rol, Auditoría), `RolDetails`, `EditUsuario`, modales de usuarios/roles/permisos | ◐ Refactor aplicado y validado (2026-09-30); cierre formal pendiente | `/ui-module seguridad` (ver resumen abajo) |
+| Seguridad | `Index` (Usuarios, Roles, Permisos de Rol, Auditoría), `RolDetails`, `EditUsuario`, modales de usuarios/roles/permisos | ✅ Cerrado (2026-11-24) | `/ui-module seguridad` (ver resumen abajo) ; **cierre 2026-11-24**: pestañas, RolDetails, EditUsuario, errores (fechas invertidas, id inexistente) y acceso denegado por rol validados en 3 navegadores con axe 0; modales sin violaciones. Ver `docs/qa-ronda-interfaz-20261124.md` |
 | Caja | `Index`, `Create`/`Edit` (página + panel lateral), `Abrir`, `RegistrarMovimiento`, `Cerrar`, `DetallesApertura`, `DetallesCierre`, `Historial` | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module caja` (ver resumen abajo) |
+| Tesorería | `Index` (orígenes de fondos, egresos) | ✅ Cerrado técnico (2026-11-24) | PR #322 (D-03) + ronda de interfaz: 5 viewports, axe 0, 3 navegadores (`docs/qa-ronda-interfaz-20261124.md`) |
+| Mora | `Index`, `Alertas` | ✅ Cerrado técnico (2026-11-24) | mora lotes 1-2 + ronda de interfaz (idem) |
+| Reportes | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
+| Devolución | `Index` (Devoluciones y garantías) | ✅ Cerrado técnico (2026-11-24) | D-02/#320 (modal, axe móvil) + ronda de interfaz (idem) |
+| Cuentas por pagar | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
+| Listas de precio | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
+| Crédito | `Index` (Cartera / Moras) | ✅ Cerrado técnico (2026-11-24) | serie CREDITO-VISUAL + ronda de interfaz (idem); deuda conocida: título centrado en `Credito/Index` |
 
 Leyenda:
 

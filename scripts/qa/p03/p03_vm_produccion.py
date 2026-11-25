@@ -5,8 +5,8 @@ Equivale a scripts/qa/p03-ensayo-transicion-cuentas.ps1 (LocalDB/Development), q
 Acciones por HTTP real (Identity, antiforgery, Usuarios/*) con sesiones independientes; verificacion por SELECT con sqlcmd dentro del
 contenedor `db`. Sin dependencias externas. NO imprime contrasenas.
 
-  python3 p03_vm_produccion.py --env ~/theburyproject1/.env --base https://tbp --ca ~/theburyproject1/caddy-root-ca.crt \
-        [--project theburyproject] [--resolve tbp=127.0.0.1]
+  python3 p03_vm_produccion.py --env ~/theburyproject1/.env --base https://<host-ensayo> --ca ~/theburyproject1/caddy-root-ca.crt \
+        [--project theburyproject] [--resolve <host-ensayo>=127.0.0.1]
 
 GUARDAS (todas obligatorias, el script aborta con 2 si alguna falla):
   * `--confirmo-entorno-de-ensayo` explicito: solo contra un servidor de ENSAYO descartable con datos sinteticos, NUNCA un ERP real;
@@ -87,8 +87,8 @@ class Session:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--env", required=True); ap.add_argument("--base", default="https://tbp"); ap.add_argument("--ca", required=True)
-    ap.add_argument("--project", default="theburyproject"); ap.add_argument("--resolve", default="tbp=127.0.0.1")
+    ap.add_argument("--env", required=True); ap.add_argument("--base", default=os.environ.get("BURY_ENSAYO_BASE", "https://tbp")); ap.add_argument("--ca", required=True)
+    ap.add_argument("--project", default="theburyproject"); ap.add_argument("--resolve", default=os.environ.get("BURY_ENSAYO_RESOLVE", "tbp=127.0.0.1"))
     ap.add_argument("--confirmo-entorno-de-ensayo", action="store_true", dest="ensayo")
     a = ap.parse_args()
     if not a.ensayo:

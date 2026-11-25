@@ -7,7 +7,7 @@ codigo de los controladores: si un controlador dejara pasar a un rol sin permiso
 Ademas: sin sesion todo redirige al login; un rol sin permiso NO puede crear usuarios, cambiar la clave ni desactivar a otro usuario (intento
 de escalada contra una cuenta victima sintetica); un POST sin token antiforgery se rechaza.
 
-  python3 p05_roles_vm.py --env ~/theburyproject1/.env --base https://tbp --ca ~/theburyproject1/caddy-root-ca.crt --confirmo-entorno-de-ensayo
+  python3 p05_roles_vm.py --env ~/theburyproject1/.env --base https://<host-ensayo> --ca ~/theburyproject1/caddy-root-ca.crt --confirmo-entorno-de-ensayo
 
 GUARDAS (mismas que P-03): solo contra un servidor de ENSAYO, HTTP y SQL del mismo stack (--resolve a 127.0.0.1), <= 50 usuarios, sin cuentas
 p05.* activas previas. NO imprime contrasenas. Al terminar da de baja (y borra) las cuentas p05.* y verifica que `admin` conserve su clave original.
@@ -76,8 +76,8 @@ def post_with_token(sess, path, fields, pages=("/", "/Dashboard", "/Caja", "/Pro
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--env", required=True); ap.add_argument("--base", default="https://tbp"); ap.add_argument("--ca", required=True)
-    ap.add_argument("--project", default="theburyproject"); ap.add_argument("--resolve", default="tbp=127.0.0.1")
+    ap.add_argument("--env", required=True); ap.add_argument("--base", default=os.environ.get("BURY_ENSAYO_BASE", "https://tbp")); ap.add_argument("--ca", required=True)
+    ap.add_argument("--project", default="theburyproject"); ap.add_argument("--resolve", default=os.environ.get("BURY_ENSAYO_RESOLVE", "tbp=127.0.0.1"))
     ap.add_argument("--confirmo-entorno-de-ensayo", action="store_true", dest="ensayo")
     a = ap.parse_args()
     if not a.ensayo:

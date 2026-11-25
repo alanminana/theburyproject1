@@ -9,6 +9,23 @@ Instalación limpia y reinstalación (145 migraciones, identidad de imagen), `ru
 P-02 sobre base nueva 37/37, reinicio completo y corte brusco sin intervención, respaldos con verificación y fallo seguro, **recuperación con datos comerciales conocidos 47/47** (huella idéntica de las 141 tablas, documentos, 0 violaciones de FK, casos negativos que
 se detienen sin dejar una base vacía), D-05 activación/reversión y centinela por Caddy, smoke de interfaz en Chrome sobre el sistema recuperado (48/48), pruebas de backup existentes (108 + 102 + 23 sin fallos).
 
+## 1b. Estado de la Lista A tras la segunda etapa (2026-11-24, `main` d067f3e2 + PR de cierre)
+
+| # | Estado | Evidencia | PR | Pruebas |
+|---|---|---|---|---|
+| A1 | **Hecho** | #367, #368, #369, #370 fusionadas con revisión de Codex y CI verde | #367-#370 | CI + Codex |
+| A2 | **Hecho** | Pila Docker + Caddy `tls internal` + CSP Enforce; axe/desborde por HTTP (7 roles) y por HTTPS a través de Caddy; WSS de SignalR, en Chromium, Firefox y WebKit | esta PR | `docs/qa-ronda-interfaz-20261124.md`; 135+52 páginas × 3 viewports × 3 navegadores, 0 reglas axe |
+| A3 | **Hecho** | `a11y-global.js`: teclado, foco, zoom 200/400 %, 360×740 y 412×915 con toque, reduced-motion, forced-colors; 4 defectos reales corregidos | esta PR | 0 fallos en los 3 navegadores |
+| A4 | **Hecho** | Mismas suites en Firefox y WebKit | esta PR | idem |
+| A5 | **Hecho** | `impresion-render.js`: render `print` a A4 y PDF real (cotizaciones, facturas) + PDF servidos (recibos/documentos) | esta PR | 32/32 Chromium, 24/24 Firefox y WebKit |
+| A6 | **Hecho (cierre técnico por evidencia)** | Dashboard y Seguridad pasan a ✅; Tesorería, Mora, Reportes, Devolución, Cuentas por pagar, Listas de precio y Crédito se agregan a `UI-REFACTOR-STATUS.md`. Se reutilizaron los cierres previos y se agregó evidencia renderizada (5 viewports, axe, capturas). **No se ejecutó de nuevo el pipeline `/ui-module` (ux-heuristics + impeccable) en las 7 pantallas nuevas: no hubo rediseño** | esta PR | `cierre-pantallas.js` 0 fallos en los 3 navegadores |
+| A7 | **Hecho** | Workflow **solo manual** `regresion-manual.yml` (`p07`, `dr-datos`, `ui-stack`, `todo`); sin cron ni disparo por push | esta PR | validado por CI (sintaxis) y por ejecución local en la notebook |
+| A8 | **Hecho** | Modales y drawers con datos sembrados abiertos bajo axe (32 por navegador), estados 404/403/login inválido | esta PR | `a11y-global.js` |
+| A9 | **Hecho** | Defaults de la VM como *fallback* + variables de entorno; comentarios neutralizados; sin renombrar archivos | esta PR | `bash -n`, `py_compile`, `test-hardening` 108/0 |
+| A10 | **Hecho** | `CAP_DELETE_SH` propaga el fallo del `rm` (rc 4 → `capacity_run` rc 7, sin declarar éxito) | esta PR | `test-retention-capacity.sh` 105/0 (2 casos nuevos fallan con el código anterior) |
+
+El cierre técnico del software se declara **solo** cuando esta PR esté fusionada con la revisión de Codex y el CI verde.
+
 ## 2. LISTA A — Requisitos pendientes para finalizar completamente el software
 
 | # | Requisito | Qué falta exactamente | Cómo se cierra |

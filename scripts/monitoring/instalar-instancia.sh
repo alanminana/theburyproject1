@@ -4,7 +4,7 @@
 # Automatiza el procedimiento manual de docs/p06-cierre-tecnico-dos-instalaciones.md §8, sin tocar la instancia existente.
 #
 #   scripts/monitoring/instalar-instancia.sh --name prod --project theburyproject-prod --backup-dir /srv/bury-backups-prod \
-#       --base-url https://tbp-prod:8443 [--keep-offsite] [--keep-heartbeat] [--ca-file CA.crt] [--out DIR]   (solo genera)
+#       --base-url https://<host-prod>:8443 [--keep-offsite] [--keep-heartbeat] [--ca-file CA.crt] [--out DIR]   (solo genera)
 #   sudo scripts/monitoring/instalar-instancia.sh ... --apply                                              (instala y habilita)
 #
 # Por defecto NO toca el sistema: escribe config.json, la unidad systemd y un resumen en --out (directorio temporal si se omite) y sale.
