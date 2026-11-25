@@ -1,5 +1,7 @@
 # Qué falta para finalizar el ERP (2026-11-24)
 
+> **Histórico (2026-11-24):** foto previa a #371. La evidencia vigente y el estado final están en [`cierre-tecnico-software-20261125.md`](cierre-tecnico-software-20261125.md).
+
 > Las dos listas independientes (finalizar el software / comenzar la operación productiva) están en [`pendientes-software-vs-operacion-20261124.md`](pendientes-software-vs-operacion-20261124.md).
 
 Base: `main` `3c659f21` (#367 fusionado). **Decisiones del propietario vigentes:** la VM `tbp` queda fuera del plan (no se vuelve a usar); la notebook Ubuntu es el entorno independiente de pruebas hasta finalizar el ERP; no se usan datos comerciales reales.

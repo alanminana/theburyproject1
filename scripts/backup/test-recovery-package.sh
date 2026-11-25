@@ -42,10 +42,25 @@ rc=$(run extract "$PKG" --to "$T/rest" --passphrase-file "$P1"); check "extract 
 rc=$(run extract "$PKG" --to "$T/rest2" --passphrase-file "$P2"); check "extract con passphrase incorrecta -> exit 3 y no deja directorio" bash -c '[[ "$1" = 3 && ! -e "$2" ]]' _ "$rc" "$T/rest2"
 
 # autenticidad: un byte alterado se detecta por el MDC de GnuPG AUNQUE no exista (o se reemplace) el .sha256
-cp "$PKG" "$T/alt.gpg"; printf 'X' | dd of="$T/alt.gpg" bs=1 seek=120 conv=notrunc 2>/dev/null
+# La alteracion es DETERMINISTA: se invierte el byte (XOR 0xFF), asi que SIEMPRE cambia. Antes se escribia una 'X' fija en el offset 120:
+# el cifrado usa sal y clave de sesion aleatorias, y con probabilidad 1/256 ese byte ya valia 'X' => el archivo no cambiaba, GnuPG lo
+# descifraba bien y fallaban los dos casos (intermitente en CI).
+ALT_OFF=120
+cp "$PKG" "$T/alt.gpg"
+orig=$(od -An -tu1 -j"$ALT_OFF" -N1 "$T/alt.gpg" | tr -d ' ')
+printf "\x$(printf '%02x' $((orig ^ 255)))" | dd of="$T/alt.gpg" bs=1 seek="$ALT_OFF" conv=notrunc 2>/dev/null
+check "la alteracion cambio realmente el archivo (byte $orig invertido en el offset $ALT_OFF)" bash -c '! cmp -s "$1" "$2" && [[ "$(stat -c %s "$1")" = "$(stat -c %s "$2")" ]]' _ "$PKG" "$T/alt.gpg"
+# GnuPG por si solo (sin el script) rechaza el paquete alterado y acepta el original: la deteccion es del cifrado autenticado
+GH="$T/gh-direct"; mkdir -m 700 "$GH"
+gpgd() { GNUPGHOME="$GH" gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$P1" -d -o /dev/null "$1" >/dev/null 2>&1; }
+check "GnuPG descifra el paquete original" gpgd "$PKG"
+check "GnuPG RECHAZA el paquete alterado" bash -c '! "$@"' _ gpgd "$T/alt.gpg"
+rm -f "$T/alt.gpg.sha256"
 rc=$(run verify "$T/alt.gpg" --passphrase-file "$P1"); check "paquete alterado SIN sidecar -> exit 3 (autenticado, no solo sha256)" test "$rc" = 3
+check "...y el motivo es el descifrado/autenticacion de GnuPG (no otra causa)" grep -q "no se pudo descifrar/autenticar" "$T/o"
 sha256sum "$T/alt.gpg" | sed "s#$T/##" >"$T/alt.gpg.sha256"
 rc=$(run verify "$T/alt.gpg" --passphrase-file "$P1"); check "paquete alterado con sidecar REEMPLAZADO -> exit 3 (el MDC lo detecta)" test "$rc" = 3
+check "...con el sidecar coincidente, el rechazo tambien es de GnuPG (no del sha256)" grep -q "no se pudo descifrar/autenticar" "$T/o"
 cp "$PKG" "$T/copia.gpg"; cp "$PKG.sha256" "$T/copia.gpg.sha256"; sed -i "s/$(basename "$PKG")/copia.gpg/" "$T/copia.gpg.sha256"
 rc=$(run verify "$T/copia.gpg" --passphrase-file "$P1"); check "copia fiel con su sidecar -> exit 0" test "$rc" = 0
 
