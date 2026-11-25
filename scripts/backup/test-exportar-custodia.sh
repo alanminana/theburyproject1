@@ -100,4 +100,9 @@ mkdir -p "$T/keys4" "$T/out7"; head -c 64 /dev/urandom >"$T/keys4/local-disk.key
 rc=$(TKD="$T/keys4" run create --out "$T/out7" --name tbp-respaldo --passphrase-file "$P1"); check "--name tbp-respaldo (copia historica sin sufijo) -> exit 0" test "$rc" = 0
 rc=$(run verify "$(ls "$T/out7"/*.gpg | head -1)" --passphrase-file "$P1"); check "...contiene local-disk.key y local-disk.luks-header" bash -c '[[ "$1" = 0 ]] && grep -qx "  - local-disk.key" "$2" && grep -qx "  - local-disk.luks-header" "$2"' _ "$rc" "$T/o"
 rm -f "$T/out7"/*; rc=$(TKD="$T/keys4" run create --out "$T/out7" --passphrase-file "$P1"); check "descubrimiento automatico incluye la copia historica -> exit 0" test "$rc" = 0
+# separacion respecto de la passphrase: igual, subdirectorio, o la passphrase dentro del arbol de la salida
+mkdir -p "$T/pw/sub" "$T/tree/pwd"; printf 'frase-de-prueba-larga-1' >"$T/tree/pwd/p"; chmod 600 "$T/tree/pwd/p"
+rc=$(run create --out "$T/pw/sub" --passphrase-file "$P1"); check "salida en un SUBdirectorio del directorio de la passphrase -> rechazada (exit 1)" test "$rc" = 1
+check "...por la separacion A/B" grep -q "custodias A y B deben estar separadas" "$T/o"
+rc=$(run create --out "$T/tree" --passphrase-file "$T/tree/pwd/p"); check "la passphrase dentro del arbol de la salida -> rechazada (exit 1)" test "$rc" = 1
 echo; echo "resultado: PASS=$PASS FAIL=$FAIL"; [ "$FAIL" = 0 ]

@@ -20,16 +20,19 @@ puertos_publicados_ok() {
 #   Falla cerrado: una regla con opciones que este validador no entiende (-i, -d, --dport...) no se da por buena.
 cadena_firewall_ok() {
   local f="$1" port="$2" cidr="${3:-}" proto
-  local -a tk
+  local -a tk ALLOWED=()
   local allowed="${cidr%%,*}" line
+  [[ -n "$cidr" ]] && IFS=, read -ra ALLOWED <<<"$cidr"
   if [[ -z "$allowed" ]]; then   # origen permitido = el de la primera regla RETURN con -s
     while IFS= read -r line; do [[ "$line" == "-A "* && "$line" == *" -s "* && "$line" == *"-j RETURN"* ]] || continue
       read -ra tk <<<"$line"; local k; for ((k=0;k<${#tk[@]};k++)); do [[ "${tk[k]}" == -s ]] && { allowed="${tk[k+1]}"; break 2; }; done; done <"$f"
   fi
   [[ -n "$allowed" ]] || return 1
+  ((${#ALLOWED[@]})) || ALLOWED=("$allowed")
   for proto in tcp udp; do
     local who res
-    for who in outsider allowed; do
+    local who res al
+    for who in outsider "${ALLOWED[@]}"; do
       res=""
       while IFS= read -r line; do
         [[ "$line" == "-A "* ]] || continue
@@ -53,11 +56,11 @@ cadena_firewall_ok() {
         [[ "$src" == "0.0.0.0/0" ]] && src=""
         if [[ -n "$src" ]]; then
           if [[ "$who" == outsider ]]; then continue; fi                           # un origen externo no esta dentro de ningun -s
-          [[ "$src" == "$allowed" ]] || continue
+          [[ "$src" == "$who" ]] || continue
         fi
         res="$tg"; break
       done <"$f"
-      if [[ "$who" == outsider ]]; then [[ "$res" == DROP ]] || return 1; else [[ "$res" == RETURN || "$res" == ACCEPT ]] || return 1; fi
+      if [[ "$who" == outsider ]]; then [[ "$res" == DROP ]] || return 1; else [[ "$res" == RETURN || "$res" == ACCEPT ]] || return 1; fi   # cada origen autorizado debe poder entrar (tcp y udp)
     done
   done
   # reglas que PERMITEN a un origen distinto de los autorizados (en cualquier posicion) -> el aislamiento no es el esperado

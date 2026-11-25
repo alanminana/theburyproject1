@@ -45,7 +45,10 @@ unpack() { gpgx -d -o "$WORK/p.tgz" "$1" 2>/dev/null && [[ -s "$WORK/p.tgz" ]] |
 case "$MODE" in
 create)
   [[ -n "$OUT" && -d "$OUT" ]] || die "--out debe ser un directorio existente"
-  [[ "$(cd "$OUT" && pwd -P)" != "$(cd "$(dirname "$PASSFILE")" && pwd -P)" ]] || die "la salida no puede estar en el mismo directorio que la passphrase (custodias A y B separadas)"
+  OUTR0="$(cd "$OUT" && pwd -P)"; PWR0="$(cd "$(dirname "$PASSFILE")" && pwd -P)"
+  # mismo arbol en cualquier sentido: salida igual o DENTRO del directorio de la passphrase, o la passphrase dentro del arbol de la salida
+  case "$OUTR0/" in "$PWR0"/*) die "la salida esta en (o dentro de) el directorio de la passphrase: custodias A y B deben estar separadas" 1 ;; esac
+  case "$PWR0/" in "$OUTR0"/*) die "la passphrase esta dentro del arbol de la salida: custodias A y B deben estar separadas" 1 ;; esac
   envv() { grep -E "^$1=" "${ENVF:-$REPO_DIR/.env}" 2>/dev/null | tail -1 | cut -d= -f2-; }
   BD="${BACKUP_DIR:-$(envv BACKUP_DIR)}"; RD="${BACKUP_REMOVABLE_DIR:-$(envv BACKUP_REMOVABLE_DIR)}"
   [[ -n "$BD" ]] || die "no se pudo determinar BACKUP_DIR (ni en el entorno ni en ${ENVF:-$REPO_DIR/.env}): pasar --env-file; el control de separacion no se omite" 1

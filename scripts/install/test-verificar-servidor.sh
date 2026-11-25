@@ -56,6 +56,12 @@ no "otro origen permitido (10.0.0.0/8 ACCEPT) ANTES de la LAN -> NO es OK" caden
 no "otro origen permitido (10.0.0.0/8 RETURN) DESPUES del DROP (inalcanzable, pero la regla no es la esperada) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$D_T" "$D_U" "${R_T//192.168.50.0\/24/10.0.0.0/8}" "$END")" 8443 192.168.50.0/24
 si "dos origenes autorizados (LAN y tailnet) indicados con coma -> OK" cadena_firewall_ok "$(fx "$R_T" "${R_T//192.168.50.0\/24/100.64.0.0/10}" "$R_U" "${R_U//192.168.50.0\/24/100.64.0.0/10}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
 no "...pero con solo la LAN indicada, el origen 100.64.0.0/10 NO esta autorizado -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "${R_T//192.168.50.0\/24/100.64.0.0/10}" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+T6='-A BURY-ERP-PROV -s 100.64.0.0/10 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN'
+U6='-A BURY-ERP-PROV -s 100.64.0.0/10 -p udp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN'
+no "dos CIDR pedidos pero la cadena SOLO deja entrar al primero (tailnet bloqueada) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+no "el segundo CIDR solo tiene tcp (falta udp) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$T6" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+si "los dos CIDR con tcp y udp -> OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$T6" "$U6" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+no "el SEGUNDO CIDR queda tras un DROP (inalcanzable) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$D_T" "$D_U" "$T6" "$U6" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
 no "cadena vacia -> NO es OK" cadena_firewall_ok "$(fx '-N BURY-ERP-PROV')" 8443 192.168.50.0/24
 si "verificar-servidor.sh: opcion sin valor (--project al final) -> exit 2 sin colgarse" bash -c 'timeout 10 bash "$1" --project >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
 si "verificar-servidor.sh: --lan-cidr al final -> exit 2" bash -c 'timeout 10 bash "$1" --lan-cidr >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
