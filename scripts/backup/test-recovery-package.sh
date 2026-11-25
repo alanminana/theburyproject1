@@ -54,7 +54,9 @@ check "la alteracion cambio realmente el archivo (byte $orig invertido en el off
 GH="$T/gh-direct"; mkdir -m 700 "$GH"
 gpgd() { GNUPGHOME="$GH" gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$P1" -d -o /dev/null "$1" >/dev/null 2>&1; }
 check "GnuPG descifra el paquete original" gpgd "$PKG"
-check "GnuPG RECHAZA el paquete alterado" bash -c '! "$@"' _ gpgd "$T/alt.gpg"
+gpgd "$T/alt.gpg"; rcg=$?
+# rc 0 = lo acepto (mal); 127/126 = el comando no se ejecuto (falso positivo); lo esperado es un fallo real de GnuPG (rc 2)
+check "GnuPG RECHAZA el paquete alterado (rc=$rcg, fallo real de gpg)" bash -c '[[ "$1" -ne 0 && "$1" -lt 126 ]]' _ "$rcg"
 rm -f "$T/alt.gpg.sha256"
 rc=$(run verify "$T/alt.gpg" --passphrase-file "$P1"); check "paquete alterado SIN sidecar -> exit 3 (autenticado, no solo sha256)" test "$rc" = 3
 check "...y el motivo es el descifrado/autenticacion de GnuPG (no otra causa)" grep -q "no se pudo descifrar/autenticar" "$T/o"
