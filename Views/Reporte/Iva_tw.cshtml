@@ -246,7 +246,7 @@
         {
             <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
                 <span class="material-symbols-outlined text-sm align-middle mr-1">warning</span>
-                @Model.NotasCreditoSinDesglose nota(s) de crédito fiscal por $ @Model.NotasCreditoSinDesgloseTotal.ToString("N2") corresponden a ventas sin desglose histórico de IVA y no se restaron.
+                @Model.NotasCreditoSinDesglose nota(s) de crédito fiscal por $ @Model.NotasCreditoSinDesgloseTotal.ToString("N2") corresponden a ventas sin desglose histórico de IVA o con un criterio fiscal no reconocido (excluidas de los totales de ventas) y no se restaron.
             </div>
         }
 

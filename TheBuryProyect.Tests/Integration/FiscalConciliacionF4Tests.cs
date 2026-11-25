@@ -825,6 +825,26 @@ public class FiscalConciliacionF4Tests : IDisposable
     }
 
     [Fact]
+    public async Task NcFiscal_VentaConVersionFiscalNoRegistrada_NoNeta_PorqueSuDebitoQuedoFueraDelReporte()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        await VincularFiscalAsync(nc.Id, nc.MontoTotal, hoy);
+        var venta = await _context.Ventas.FirstAsync(v => v.Id == e.V2);
+        venta.CriterioFiscalVersion = 99;   // dato inválido: el reporte excluye la venta y lo informa aparte
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var r = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+
+        Assert.Equal(1, r.VentasVersionFiscalInvalida);
+        Assert.Equal(0, r.NotasCreditoCantidad);
+        Assert.Equal(0m, r.NotasCreditoIva);
+        Assert.Equal(1, r.NotasCreditoSinDesglose);
+    }
+
+    [Fact]
     public async Task NcFiscal_FiltroPorAlicuota_RestringeTambienElNeteo()
     {
         var e = await SeedEscenarioAsync();

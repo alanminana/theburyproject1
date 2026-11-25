@@ -522,6 +522,8 @@ namespace TheBuryProject.Services
                         n.Id,
                         n.DevolucionId,
                         VentaId = n.Devolucion.VentaId,
+                        n.Devolucion.Venta.CriterioFiscalVersion,
+                        n.Devolucion.Venta.AlicuotaServiciosSnapshot,
                         Importe = n.FiscalExternaImporte!.Value,
                         n.MontoTotal
                     })
@@ -546,6 +548,20 @@ namespace TheBuryProject.Services
             var filas = new List<(int NcId, IvaNotaCreditoFiscal.Parte Parte)>();
             foreach (var nc in ncs)
             {
+                // Misma exclusión que las ventas del reporte: con una versión de criterio fiscal no registrada el débito de la venta
+                // quedó fuera de los totales, así que su NC tampoco se resta (se informa aparte).
+                try
+                {
+                    CriterioFiscalRegistry.Resolver(nc.CriterioFiscalVersion, nc.AlicuotaServiciosSnapshot);
+                }
+                catch (CriterioFiscalDesconocidoException ex)
+                {
+                    _logger.LogError(ex, "Reporte de IVA: la NC fiscal {NcId} pertenece a una venta con criterio fiscal no registrado ({Version}); no se netea.", nc.Id, ex.Version);
+                    resultado.NotasCreditoSinDesglose++;
+                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
+                    continue;
+                }
+
                 var lineasVenta = lineas.Where(l => l.VentaId == nc.VentaId).ToList();
                 // Venta con líneas legacy sin desglose: sus líneas no están en los totales de ventas, así que no hay IVA que netear.
                 if (lineasVenta.Any(l => l.SubtotalFinalNeto == 0m && l.SubtotalFinalIVA == 0m && l.SubtotalFinal > 0m))

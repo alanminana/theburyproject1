@@ -80,7 +80,7 @@ namespace TheBuryProject.ViewModels
         public decimal NotasCreditoTotal { get; set; }
         public List<ReporteIvaAlicuotaItemViewModel> NotasCreditoPorAlicuota { get; set; } = new();
 
-        /// <summary>NC fiscales vinculadas cuyo IVA no se pudo repartir (venta con líneas sin desglose histórico): no se netean y se informan.</summary>
+        /// <summary>NC fiscales vinculadas cuyo IVA no se pudo repartir (venta con líneas sin desglose histórico o con criterio fiscal no reconocido, excluida de los totales de ventas): no se netean y se informan.</summary>
         public int NotasCreditoSinDesglose { get; set; }
         public decimal NotasCreditoSinDesgloseTotal { get; set; }
 
