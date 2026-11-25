@@ -59,4 +59,14 @@ no "...pero con solo la LAN indicada, el origen 100.64.0.0/10 NO esta autorizado
 no "cadena vacia -> NO es OK" cadena_firewall_ok "$(fx '-N BURY-ERP-PROV')" 8443 192.168.50.0/24
 si "verificar-servidor.sh: opcion sin valor (--project al final) -> exit 2 sin colgarse" bash -c 'timeout 10 bash "$1" --project >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
 si "verificar-servidor.sh: --lan-cidr al final -> exit 2" bash -c 'timeout 10 bash "$1" --lan-cidr >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
+# ---- DOCKER-USER: el trafico debe LLEGAR a la cadena de la instalacion
+J='-A DOCKER-USER -j BURY-ERP-PROV'
+si "DOCKER-USER: salto incondicional primero -> OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER' "$J" '-A DOCKER-USER -j BURY-ERP' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+si "...tras el salto a otra cadena BURY (no termina el recorrido) -> OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j BURY-ERP' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+no "RETURN incondicional ANTES del salto -> NO es OK (evita el filtro)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j RETURN' "$J")" BURY-ERP-PROV
+no "ACCEPT incondicional antes del salto -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j ACCEPT' "$J")" BURY-ERP-PROV
+no "RETURN condicional antes del salto (-s 10.0.0.0/8) -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -s 10.0.0.0/8 -j RETURN' "$J")" BURY-ERP-PROV
+no "salto CONDICIONAL (-p tcp) -> NO es OK (no alcanza a todo el trafico)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -p tcp -j BURY-ERP-PROV' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+no "el salto no existe (solo el RETURN final de Docker) -> NO es OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+no "DOCKER-USER vacia -> NO es OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER')" BURY-ERP-PROV
 echo; echo "verificar-servidor tests: $PASS PASS, $FAIL FAIL"; (( FAIL == 0 ))

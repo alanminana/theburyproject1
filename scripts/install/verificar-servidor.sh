@@ -93,7 +93,9 @@ perm="$(stat -c %a "$ENV_FILE" 2>/dev/null)"; [[ "$perm" = 600 ]] && pass "V12 .
 if $SUDO true >/dev/null 2>&1; then
   FWF="$(mktemp)"; $SUDO iptables -S "$FW_CHAIN" >"$FWF" 2>/dev/null
   [[ -s "$FWF" ]] && pass "V13 existe la cadena $FW_CHAIN" || fail "V13 no existe la cadena $FW_CHAIN en DOCKER-USER"
-  $SUDO iptables -S DOCKER-USER 2>/dev/null | grep -q -- "-j $FW_CHAIN" && pass "V14 $FW_CHAIN enganchada en DOCKER-USER" || fail "V14 $FW_CHAIN no esta enganchada en DOCKER-USER"
+  DUF="$(mktemp)"; $SUDO iptables -S DOCKER-USER >"$DUF" 2>/dev/null
+  docker_user_alcanza_cadena "$DUF" "$FW_CHAIN" && pass "V14 $FW_CHAIN esta enganchada en DOCKER-USER y el trafico LLEGA a ella (salto incondicional, sin RETURN/ACCEPT previo)" || fail "V14 $FW_CHAIN no esta enganchada en DOCKER-USER, el salto es condicional o una regla anterior (RETURN/ACCEPT/DROP) evita el filtro"
+  rm -f "$DUF"
   cadena_firewall_ok "$FWF" "$PORT" "$LAN_CIDR" && pass "V15 la cadena permite ${LAN_CIDR:-un origen concreto} y DESPUES descarta el resto en :$PORT (tcp y udp, en ese orden)" || fail "V15 la cadena $FW_CHAIN no restringe :$PORT a ${LAN_CIDR:-un origen concreto} (falta el RETURN permitido, el DROP final o su orden)"
   rm -f "$FWF"
   $SUDO python3 "$REPO_DIR/scripts/install/access-model-audit.py" >/dev/null 2>&1 && pass "V16 modelo de acceso (ufw activo, SSH solo desde equipos concretos, 1433/8080 no expuestos)" || fail "V16 access-model-audit.py incumple"

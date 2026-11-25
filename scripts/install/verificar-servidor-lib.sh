@@ -73,3 +73,18 @@ cadena_firewall_ok() {
   done <"$f"
   return 0
 }
+
+# docker_user_alcanza_cadena ARCHIVO CADENA: ARCHIVO = `iptables -S DOCKER-USER`. La cadena de la instalacion solo protege si el trafico LLEGA a ella:
+#   el salto debe ser INCONDICIONAL (`-A DOCKER-USER -j CADENA`) y ninguna regla anterior puede terminar el recorrido (RETURN/ACCEPT/DROP): un
+#   RETURN o ACCEPT previo dejaria pasar el trafico sin pasar por el filtro. (Docker agrega su propio `-j RETURN` al FINAL: eso es normal.)
+docker_user_alcanza_cadena() {
+  local f="$1" chain="$2" line tg
+  while IFS= read -r line; do
+    [[ "$line" == "-A DOCKER-USER "* ]] || continue
+    tg="${line##* -j }"
+    if [[ "$line" == "-A DOCKER-USER -j $chain" ]]; then return 0; fi
+    [[ "$line" == *" -j $chain" ]] && return 1                    # salto condicional: no alcanza a todo el trafico
+    case "$tg" in RETURN|ACCEPT|DROP|REJECT) return 1 ;; esac    # termina el recorrido antes de llegar al filtro
+  done <"$f"
+  return 1
+}
