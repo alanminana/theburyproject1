@@ -16,7 +16,7 @@ head -c 64 /dev/urandom >"$K/local-disk-bury-prov.key"; head -c 4096 /dev/urando
 head -c 64 /dev/urandom >"$K/local-disk-bury-notebook.key"; head -c 4096 /dev/urandom >"$K/local-disk-bury-notebook.luks-header"
 chmod 400 "$K"/*
 P1="$T/pw/pass1"; printf 'frase-de-prueba-larga-1' >"$P1"; chmod 600 "$P1"; P2="$T/pw/pass2"; printf 'otra-frase-distinta-22' >"$P2"; chmod 600 "$P2"
-run() { BACKUP_DIR="${TBK-$T/bk}" BURY_KEYDIR="$K" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
+run() { BACKUP_DIR="${TBK-$T/bk}" BURY_KEYDIR="${TKD-$K}" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
 # como bajo `sudo`: entorno vacio (sudo descarta BACKUP_DIR); las rutas solo pueden venir de --env-file
 runenv() { env -i PATH="$PATH" BURY_KEYDIR="$K" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
 
@@ -58,6 +58,14 @@ exit 1
 ' >"$T/fake/install"; chmod +x "$T/fake/install"
 rc=$(PATH="$T/fake:$PATH" run create --out "$T/out3" --passphrase-file "$P1"); check "install falla -> create falla (exit != 0)" test "$rc" != 0
 check "...sin mensaje de exito ni archivos parciales" bash -c '! grep -q "paquete creado" "$1" && [[ -z "$(ls -A "$2")" ]]' _ "$T/o" "$T/out3"
+# staging: si copiar una clave falla o la clave esta vacia, NO se crea un paquete incompleto
+mkdir -p "$T/out4"; printf '#!/bin/sh
+exit 1
+' >"$T/fake/cp"; chmod +x "$T/fake/cp"
+rc=$(PATH="$T/fake:$PATH" run create --out "$T/out4" --passphrase-file "$P1"); check "cp falla al copiar una clave -> create falla (exit 8)" test "$rc" = 8
+check "...sin paquete ni mensaje de exito" bash -c '! grep -q "paquete creado" "$1" && [[ -z "$(ls -A "$2")" ]] && grep -q "no se pudo copiar completo" "$1"' _ "$T/o" "$T/out4"
+rm -f "$T/fake/cp"; mkdir -p "$T/keys2" "$T/out5"; : >"$T/keys2/local-disk-x.key"; head -c 100 /dev/urandom >"$T/keys2/local-disk-x.luks-header"
+rc=$(TKD="$T/keys2" run create --out "$T/out5" --passphrase-file "$P1"); check "clave vacia -> create falla (exit 8) y no deja paquete" bash -c '[[ "$1" = 8 && -z "$(ls -A "$2")" ]]' _ "$rc" "$T/out5"
 
 chmod 644 "$P1"; rc=$(run verify "$PKG" --passphrase-file "$P1"); check "passphrase con modo 644 -> rechazada (exit 1)" test "$rc" = 1; chmod 600 "$P1"
 

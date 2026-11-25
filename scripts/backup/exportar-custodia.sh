@@ -56,7 +56,9 @@ create)
   else mapfile -t files < <(ls "$KEYDIR"/local-disk*.key "$KEYDIR"/local-disk*.luks-header 2>/dev/null); fi
   ((${#files[@]})) || die "no hay claves LUKS en $KEYDIR (setup-local-disk-copy.sh --apply las crea)" 8
   { echo "bury-custodia-luks v1"; echo "fecha=$(date -u +%FT%TZ)"; echo "host=$(hostname)"; } >>"$WORK/stage/MANIFEST.txt"
-  for f in "${files[@]}"; do [[ -f "$f" && ! -L "$f" ]] || die "falta o es un enlace: $f" 8; cp -p -- "$f" "$WORK/stage/$(basename "$f")"; echo "$(basename "$f") sha256=$(sha256sum "$f" | cut -c1-16)..." >>"$WORK/stage/MANIFEST.txt"; done
+  for f in "${files[@]}"; do [[ -f "$f" && ! -L "$f" ]] || die "falta o es un enlace: $f" 8; [[ -s "$f" ]] || die "esta vacio: $f" 8
+    cp -p -- "$f" "$WORK/stage/$(basename "$f")" && cmp -s -- "$f" "$WORK/stage/$(basename "$f")" || die "no se pudo copiar completo: $f (el paquete quedaria incompleto: NO se crea)" 8
+    echo "$(basename "$f") sha256=$(sha256sum "$f" | cut -c1-16)..." >>"$WORK/stage/MANIFEST.txt"; done
   ( cd "$WORK/stage" && tar -czf "$WORK/p.tgz" -- * ) 2>/dev/null || die "no se pudo empaquetar" 1
   NAME="bury-custodia-luks_$(date -u +%Y%m%d-%H%M%SZ)_$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n').gpg"
   gpgx --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$WORK/$NAME" "$WORK/p.tgz" || die "fallo el cifrado" 3

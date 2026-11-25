@@ -40,6 +40,9 @@ skip() { NS=$((NS+1)); echo "SKIP  $1"; }
 info() { echo "INFO  $1"; }
 check() { local n=$1; shift; if "$@" >/dev/null 2>&1; then pass "$n"; else fail "$n"; fi; }
 
+# funciones puras de validacion de puertos publicados y de la cadena de firewall (con su test: test-verificar-servidor.sh)
+source "$(dirname "${BASH_SOURCE[0]}")/verificar-servidor-lib.sh"
+
 echo "== verificar-servidor: proyecto=$PROJECT dominio=$DOMAIN https=$PORT respaldos=$BDIR =="
 # --- 1. contenedores y salud
 for s in db app caddy; do
@@ -74,15 +77,18 @@ if [[ $CIERRE = 1 ]]; then
 else info "V08 p07-verificar-cuentas.sql no se exige (sin --cierre): solo aplica a produccion"; fi
 fv="$(envv FISCAL_CRITERIO_V2_DESDE)"; [[ -n "$fv" ]] && info "V09 FISCAL_CRITERIO_V2_DESDE=$fv" || warn "V09 FISCAL_CRITERIO_V2_DESDE sin definir (criterio V1): el instante real lo decide el propietario (B9)"
 # --- 4. aislamiento de puertos publicados
-pub="$(docker ps --filter "name=${PROJECT}-" --format '{{.Names}} {{.Ports}}' 2>/dev/null)"
-if echo "$pub" | grep -Eq "(:1433->|:8080->|:2019->)"; then fail "V10 un puerto interno esta publicado: $(echo "$pub" | grep -E ':1433->|:8080->|:2019->' | cut -c1-80)"; else pass "V10 db (1433), app (8080) y la API de Caddy (2019) no estan publicados"; fi
-echo "$pub" | grep -q ":${PORT}->443" && pass "V11 solo se publica el HTTPS de Caddy (:$PORT)" || fail "V11 Caddy no publica :$PORT"
+PUBF="$(mktemp)"; for sv in db app caddy; do docker port "${PROJECT}-${sv}-1" 2>/dev/null | sed "s/^/$sv /"; done >"$PUBF"
+if [[ -n "$(puertos_internos_publicados "$PUBF")" ]]; then fail "V10 un puerto INTERNO esta publicado (aunque el puerto del host sea otro): $(puertos_internos_publicados "$PUBF" | head -2 | tr '\n' ';' | cut -c1-120)"; else pass "V10 db (1433), app (8080) y la API de Caddy (2019) no estan publicados (se mira el puerto del contenedor, no el del host)"; fi
+puertos_publicados_ok "$PUBF" "$PORT" && pass "V11 solo se publica el HTTPS de Caddy (443/tcp y 443/udp -> :$PORT)" || fail "V11 los puertos publicados no son solo caddy 443 -> :$PORT ($(tr '\n' ';' <"$PUBF" | cut -c1-140))"
+rm -f "$PUBF"
 perm="$(stat -c %a "$ENV_FILE" 2>/dev/null)"; [[ "$perm" = 600 ]] && pass "V12 .env con permisos 600" || fail "V12 .env con permisos $perm (debe ser 600)"
 # --- 5. firewall / acceso (requiere root)
 if $SUDO true >/dev/null 2>&1; then
-  $SUDO iptables -S "$FW_CHAIN" >/dev/null 2>&1 && pass "V13 existe la cadena $FW_CHAIN (limita :$PORT a la LAN)" || fail "V13 no existe la cadena $FW_CHAIN en DOCKER-USER"
+  FWF="$(mktemp)"; $SUDO iptables -S "$FW_CHAIN" >"$FWF" 2>/dev/null
+  [[ -s "$FWF" ]] && pass "V13 existe la cadena $FW_CHAIN" || fail "V13 no existe la cadena $FW_CHAIN en DOCKER-USER"
   $SUDO iptables -S DOCKER-USER 2>/dev/null | grep -q -- "-j $FW_CHAIN" && pass "V14 $FW_CHAIN enganchada en DOCKER-USER" || fail "V14 $FW_CHAIN no esta enganchada en DOCKER-USER"
-  if [[ -n "$LAN_CIDR" ]]; then $SUDO iptables -S "$FW_CHAIN" 2>/dev/null | grep -q "$LAN_CIDR" && pass "V15 la cadena permite $LAN_CIDR" || fail "V15 la cadena no menciona $LAN_CIDR"; fi
+  cadena_firewall_ok "$FWF" "$PORT" "$LAN_CIDR" && pass "V15 la cadena permite ${LAN_CIDR:-un origen concreto} y DESPUES descarta el resto en :$PORT (tcp y udp, en ese orden)" || fail "V15 la cadena $FW_CHAIN no restringe :$PORT a ${LAN_CIDR:-un origen concreto} (falta el RETURN permitido, el DROP final o su orden)"
+  rm -f "$FWF"
   $SUDO python3 "$REPO_DIR/scripts/install/access-model-audit.py" >/dev/null 2>&1 && pass "V16 modelo de acceso (ufw activo, SSH solo desde equipos concretos, 1433/8080 no expuestos)" || fail "V16 access-model-audit.py incumple"
   $SUDO systemctl is-enabled docker >/dev/null 2>&1 && pass "V17 Docker arranca con el sistema" || fail "V17 Docker no esta habilitado al arranque"
 else skip "V13-V17 sin root ($SUDO): firewall/ufw/arranque no verificados (reintentar con --sudo-cmd 'sudo')"; fi

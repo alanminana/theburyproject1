@@ -235,6 +235,8 @@ FAKE_REL_ID=aaaaaaaaaaaaaaaaaaaaaaaa FAKE_ID_app=aaaaaaaaaaaaaaaaaaaaaaaa run_fn
 check "verify_image_identity: contenedor ausente -> falla (no se da por bueno)" test "$rc" != 0
 run_fns start_caddy >/dev/null; check "start_caddy usa --no-deps (no recrea app/migrate)" grep -q '^dc up -d --no-deps caddy$' "$T/dc.log"
 
+check "test-verificar-servidor.sh: validacion de puertos publicados y de la cadena de firewall (21 casos)" bash "$HERE/test-verificar-servidor.sh" >/dev/null 2>&1
+
 echo
 echo "install tests: $PASS PASS, $FAIL FAIL"
 (( FAIL == 0 ))
