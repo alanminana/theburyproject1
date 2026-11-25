@@ -20,7 +20,7 @@ si "bash -n verificar-servidor.sh y su lib" check_bash
 # ---- puertos publicados (formato `docker port`, con el servicio delante)
 G1='caddy 443/tcp -> 0.0.0.0:8443'; G2='caddy 443/udp -> 0.0.0.0:8443'
 si "solo caddy 443 tcp+udp hacia el puerto configurado -> OK" puertos_publicados_ok "$(fx "$G1" "$G2")" 8443
-si "...tambien con IPv6 ([::]:8443)" puertos_publicados_ok "$(fx "$G1" 'caddy 443/tcp -> [::]:8443' "$G2")" 8443
+no "publicacion por IPv6 ([::]:8443) -> NO es OK (el firewall es solo IPv4: quedaria expuesto)" puertos_publicados_ok "$(fx "$G1" 'caddy 443/tcp -> [::]:8443' "$G2")" 8443
 si "nada publicado por db/app (archivo con solo caddy) -> OK" puertos_publicados_ok "$(fx "$G1")" 8443
 no "SQL remapeado (0.0.0.0:11433->1433) -> NO es OK (el puerto del host no engana)" puertos_publicados_ok "$(fx "$G1" "$G2" 'db 1433/tcp -> 0.0.0.0:11433')" 8443
 si "...y se detecta como puerto interno publicado" bash -c 'source "$1"; [[ -n "$(puertos_internos_publicados "$2")" ]]' _ "$HERE/verificar-servidor-lib.sh" "$(fx 'db 1433/tcp -> 0.0.0.0:11433')"
@@ -62,6 +62,14 @@ no "dos CIDR pedidos pero la cadena SOLO deja entrar al primero (tailnet bloquea
 no "el segundo CIDR solo tiene tcp (falta udp) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$T6" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
 si "los dos CIDR con tcp y udp -> OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$T6" "$U6" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
 no "el SEGUNDO CIDR queda tras un DROP (inalcanzable) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$D_T" "$D_U" "$T6" "$U6" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+# Tailscale: reglas tal como las genera bury-firewall.sh con ALLOW_FROM="192.168.50.0/24 100.64.0.0/10@tailscale0"
+TS_T='-A BURY-ERP-PROV -s 100.64.0.0/10 -i tailscale0 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN'
+TS_U='-A BURY-ERP-PROV -s 100.64.0.0/10 -i tailscale0 -p udp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN'
+si "Tailscale con -i tailscale0 y CIDR@iface indicado -> OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$TS_T" "$TS_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10@tailscale0
+no "...si se pide 100.64.0.0/10 SIN @tailscale0 pero la regla exige la interfaz -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "$TS_T" "$TS_U" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10
+no "regla de tailscale sin la interfaz esperada (-i eth0) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "${TS_T/tailscale0/eth0}" "${TS_U/tailscale0/eth0}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10@tailscale0
+no "RETURN que permite TODO lo que entra por tailscale0 (sin -s) -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" '-A BURY-ERP-PROV -i tailscale0 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 8443 --ctdir ORIGINAL -j RETURN' "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24
+no "un origen 100.64.0.0/10 SIN interfaz (spoofing desde la LAN) no autorizado -> NO es OK" cadena_firewall_ok "$(fx "$R_T" "$R_U" "${TS_T/ -i tailscale0/}" "${TS_U/ -i tailscale0/}" "$D_T" "$D_U" "$END")" 8443 192.168.50.0/24,100.64.0.0/10@tailscale0
 no "cadena vacia -> NO es OK" cadena_firewall_ok "$(fx '-N BURY-ERP-PROV')" 8443 192.168.50.0/24
 si "verificar-servidor.sh: opcion sin valor (--project al final) -> exit 2 sin colgarse" bash -c 'timeout 10 bash "$1" --project >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"
 si "verificar-servidor.sh: --lan-cidr al final -> exit 2" bash -c 'timeout 10 bash "$1" --lan-cidr >/dev/null 2>&1; [[ $? = 2 ]]' _ "$HERE/verificar-servidor.sh"

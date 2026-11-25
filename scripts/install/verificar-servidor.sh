@@ -8,6 +8,8 @@
 #
 #   --project    proyecto Compose de ESTA instalacion (default: COMPOSE_PROJECT_NAME o el de install.sh)
 #   --ca         CA publica de Caddy (default: ./caddy-root-ca.crt, la deja install.sh)
+#   --lan-cidr   origenes autorizados, separados por coma; admite CIDR@INTERFAZ como en firewall.conf (p. ej. 192.168.50.0/24,100.64.0.0/10@tailscale0): cada uno debe
+#                poder entrar por tcp y udp y NINGUN otro origen puede estar permitido. Solo IPv4 (si Caddy publica en IPv6, falla)
 #   --fw-chain   cadena de DOCKER-USER de esta instalacion (default BURY-ERP; una segunda instalacion usa otra)
 #   --cierre     exige ademas p07-verificar-cuentas.sql @Cierre=1 (>= 2 SuperAdmin reales, 0 cuentas sinteticas): SOLO para produccion
 #   --sudo-cmd   como obtener root para leer ufw/iptables (default "sudo -n"; si no hay permiso esas comprobaciones se marcan SKIP)

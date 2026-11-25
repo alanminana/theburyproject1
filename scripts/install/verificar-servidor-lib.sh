@@ -2,7 +2,8 @@
 # Funciones puras de verificar-servidor.sh (se hace `source`; no ejecutan nada ni tocan el sistema). Las prueba test-verificar-servidor.sh.
 
 # --- funciones puras de validacion (reciben archivos con la salida cruda; las prueba test-verificar-servidor.sh)
-# puertos_publicados_ok ARCHIVO PUERTO_HTTPS: ARCHIVO = lineas "<servicio> <puerto-contenedor>/<proto> -> <ip>:<puerto-host>" (docker port).
+# puertos_publicados_ok ARCHIVO PUERTO_HTTPS: (solo se admite publicacion IPv4: bury-firewall.sh filtra IPv4 y NO protege IPv6; un [::] se rechaza)
+#  ARCHIVO = lineas "<servicio> <puerto-contenedor>/<proto> -> <ip>:<puerto-host>" (docker port).
 #   Falla si ALGUN servicio publica un puerto INTERNO (1433, 8080, 2019) aunque el puerto del host sea otro (p. ej. 11433->1433), o si se publica
 #   algo distinto de caddy 443/tcp y 443/udp hacia PUERTO_HTTPS.
 puertos_internos_publicados() { grep -E '^[a-z]+ (1433|8080|2019)/' "$1"; }
@@ -10,7 +11,7 @@ puertos_publicados_ok() {
   local f="$1" port="$2"
   [[ -z "$(puertos_internos_publicados "$f")" ]] || return 1
   # solo se admite: caddy 443/tcp y 443/udp -> :PORT
-  ! grep -Ev "^caddy 443/(tcp|udp) -> [][0-9a-f.:*]+:${port}$" "$f" | grep -q .
+  ! grep -Ev "^caddy 443/(tcp|udp) -> [0-9.]+:${port}$" "$f" | grep -q .
 }
 # cadena_firewall_ok ARCHIVO PUERTO [CIDR[,CIDR...]]: ARCHIVO = `iptables -S <cadena>`. SIMULA el recorrido de la cadena, en orden, para el trafico DNAT al PUERTO:
 #   - un origen EXTERNO (fuera de cualquier -s) debe terminar en DROP: la PRIMERA regla que lo alcanza tiene que ser un DROP (una regla incondicional
@@ -25,7 +26,8 @@ cadena_firewall_ok() {
   [[ -n "$cidr" ]] && IFS=, read -ra ALLOWED <<<"$cidr"
   if [[ -z "$allowed" ]]; then   # origen permitido = el de la primera regla RETURN con -s
     while IFS= read -r line; do [[ "$line" == "-A "* && "$line" == *" -s "* && "$line" == *"-j RETURN"* ]] || continue
-      read -ra tk <<<"$line"; local k; for ((k=0;k<${#tk[@]};k++)); do [[ "${tk[k]}" == -s ]] && { allowed="${tk[k+1]}"; break 2; }; done; done <"$f"
+      read -ra tk <<<"$line"; local k ia=""; for ((k=0;k<${#tk[@]};k++)); do [[ "${tk[k]}" == -i ]] && ia="${tk[k+1]}"; done
+      for ((k=0;k<${#tk[@]};k++)); do [[ "${tk[k]}" == -s ]] && { allowed="${tk[k+1]}${ia:+@$ia}"; break 2; }; done; done <"$f"
   fi
   [[ -n "$allowed" ]] || return 1
   ((${#ALLOWED[@]})) || ALLOWED=("$allowed")
@@ -37,11 +39,12 @@ cadena_firewall_ok() {
       while IFS= read -r line; do
         [[ "$line" == "-A "* ]] || continue
         read -ra tk <<<"$line"
-        local src="" pr="" op="" tg="" i=2 unk=0
+        local src="" pr="" op="" tg="" ifc="" i=2 unk=0
         while ((i<${#tk[@]})); do
           case "${tk[i]}" in
             -s) src="${tk[i+1]}"; i=$((i+2)) ;;
             -p) pr="${tk[i+1]}"; i=$((i+2)) ;;
+            -i) ifc="${tk[i+1]}"; i=$((i+2)) ;;
             -m) [[ "${tk[i+1]}" == conntrack ]] || unk=1; i=$((i+2)) ;;
             --ctstate) [[ "${tk[i+1]}" == DNAT ]] || unk=1; i=$((i+2)) ;;
             --ctorigdstport) op="${tk[i+1]}"; i=$((i+2)) ;;
@@ -54,9 +57,13 @@ cadena_firewall_ok() {
         [[ -z "$pr" || "$pr" == "$proto" || "$pr" == all ]] || continue            # otro protocolo
         [[ -z "$op" || "$op" == "$port" ]] || continue                              # otro puerto
         [[ "$src" == "0.0.0.0/0" ]] && src=""
-        if [[ -n "$src" ]]; then
-          if [[ "$who" == outsider ]]; then continue; fi                           # un origen externo no esta dentro de ningun -s
-          [[ "$src" == "$who" ]] || continue
+        if [[ "$who" == outsider ]]; then
+          # un origen externo (p. ej. la LAN) no esta dentro de ningun -s ni entra por una interfaz especial (tailscale0): esas reglas no lo alcanzan
+          [[ -z "$src" && -z "$ifc" ]] || continue
+        else
+          # origen autorizado "CIDR" o "CIDR@IFAZ": la regla debe coincidir en origen e interfaz (sin -i para "CIDR")
+          [[ -z "$src" || "$src" == "${who%%@*}" ]] || continue
+          if [[ "$who" == *@* ]]; then [[ "$ifc" == "${who#*@}" ]] || continue; else [[ -z "$ifc" ]] || continue; fi
         fi
         res="$tg"; break
       done <"$f"
@@ -67,12 +74,14 @@ cadena_firewall_ok() {
   local lst=",${cidr:-$allowed},"
   while IFS= read -r line; do
     [[ "$line" == "-A "* && ( "$line" == *"-j RETURN"* || "$line" == *"-j ACCEPT"* ) ]] || continue
-    read -ra tk <<<"$line"; local sr="" pr2="" op2="" j
-    for ((j=2;j<${#tk[@]};j++)); do case "${tk[j]}" in -s) sr="${tk[j+1]}" ;; -p) pr2="${tk[j+1]}" ;; --ctorigdstport) op2="${tk[j+1]}" ;; esac; done
+    read -ra tk <<<"$line"; local sr="" pr2="" op2="" if2="" j
+    for ((j=2;j<${#tk[@]};j++)); do case "${tk[j]}" in -s) sr="${tk[j+1]}" ;; -p) pr2="${tk[j+1]}" ;; -i) if2="${tk[j+1]}" ;; --ctorigdstport) op2="${tk[j+1]}" ;; esac; done
     [[ -z "$op2" || "$op2" == "$port" ]] || continue
     [[ -z "$pr2" || "$pr2" == tcp || "$pr2" == udp || "$pr2" == all ]] || continue
-    [[ -z "$sr" || "$sr" == "0.0.0.0/0" ]] && continue   # incondicional: ya lo evalua la simulacion de arriba
-    [[ "$lst" == *",$sr,"* ]] || return 1
+    [[ "$sr" == "0.0.0.0/0" ]] && sr=""
+    [[ -z "$sr" && -z "$if2" ]] && continue   # incondicional: ya lo evalua la simulacion de arriba
+    [[ -n "$sr" ]] || return 1                  # permite TODO lo que entra por una interfaz, sin origen: no es el aislamiento esperado
+    [[ "$lst" == *",$sr${if2:+@$if2},"* ]] || return 1
   done <"$f"
   return 0
 }
