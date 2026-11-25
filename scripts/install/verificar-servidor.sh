@@ -54,8 +54,13 @@ done
 if [[ -f "$CA" ]]; then
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --cacert "$CA" --resolve "$DOMAIN:$PORT:127.0.0.1" "https://$DOMAIN:$PORT/health/ready" 2>/dev/null)"
   [[ "$code" = 200 ]] && pass "V02 HTTPS /health/ready = 200 validando con la CA propia" || fail "V02 HTTPS /health/ready = ${code:-sin respuesta} con la CA propia"
-  sc="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --resolve "$DOMAIN:$PORT:127.0.0.1" "https://$DOMAIN:$PORT/health/ready" 2>/dev/null)"
-  [[ "$sc" != 200 ]] && pass "V03 sin la CA el certificado se rechaza (no es una CA publica)" || fail "V03 el sistema acepta el certificado sin la CA propia"
+  # V03: con un almacen de confianza AISLADO (--cacert con una CA descartable ajena y --capath vacio: curl en Debian/Ubuntu consulta ademas /etc/ssl/certs), el certificado de Caddy debe rechazarse (curl exit 60): prueba que no es una CA publica.
+  # No depende del almacen del sistema (el servidor puede haber instalado la CA propia a proposito: eso es una configuracion valida).
+  if command -v openssl >/dev/null 2>&1; then
+    OTRA="$(mktemp -d)"; openssl req -x509 -newkey rsa:2048 -nodes -subj "/CN=ca-ajena-descartable" -days 1 -keyout "$OTRA/k.pem" -out "$OTRA/ca.pem" >/dev/null 2>&1
+    mkdir "$OTRA/vacio"; curl -s -o /dev/null --max-time 15 --cacert "$OTRA/ca.pem" --capath "$OTRA/vacio" --resolve "$DOMAIN:$PORT:127.0.0.1" "https://$DOMAIN:$PORT/health/ready" >/dev/null 2>&1; crc=$?; rm -rf "$OTRA"
+    [[ $crc -eq 60 ]] && pass "V03 con otra CA el certificado se rechaza (curl exit 60): no es una CA publica ni de confianza general" || fail "V03 el certificado NO fue rechazado por una CA ajena (curl exit $crc; se esperaba 60)"
+  else skip "V03 falta openssl para la prueba de rechazo con una CA ajena"; fi
   lg="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --cacert "$CA" --resolve "$DOMAIN:$PORT:127.0.0.1" "https://$DOMAIN:$PORT/Identity/Account/Login" 2>/dev/null)"
   [[ "$lg" = 200 ]] && pass "V04 pantalla de login por HTTPS = 200" || fail "V04 login por HTTPS = ${lg:-sin respuesta}"
 else skip "V02-V04 no existe la CA ($CA): ejecutar install.sh o pasar --ca"; fi

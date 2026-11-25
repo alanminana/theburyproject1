@@ -95,4 +95,9 @@ rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "
 rm -f "$T/keys3/local-disk-c.key"; rc=$(TKD="$T/keys3" run create --out "$T/out6" --passphrase-file "$P1"); check "solo pares completos -> exit 0" test "$rc" = 0
 rc=$(TKD="$T/keys3" run create --out "$T/out6" --name zz --passphrase-file "$P1"); check "--name con copia inexistente -> exit 8" test "$rc" = 8
 for o in --out --passphrase-file --name --env-file --to; do rc=$(timeout 10 bash "$SUT" create "$o" >/dev/null 2>&1; echo $?); check "opcion $o sin valor -> exit 1 sin colgarse" test "$rc" = 1; done
+# nombre historico (tbp-respaldo, el defecto de setup-local-disk-copy.sh): local-disk.key / local-disk.luks-header SIN sufijo
+mkdir -p "$T/keys4" "$T/out7"; head -c 64 /dev/urandom >"$T/keys4/local-disk.key"; head -c 100 /dev/urandom >"$T/keys4/local-disk.luks-header"
+rc=$(TKD="$T/keys4" run create --out "$T/out7" --name tbp-respaldo --passphrase-file "$P1"); check "--name tbp-respaldo (copia historica sin sufijo) -> exit 0" test "$rc" = 0
+rc=$(run verify "$(ls "$T/out7"/*.gpg | head -1)" --passphrase-file "$P1"); check "...contiene local-disk.key y local-disk.luks-header" bash -c '[[ "$1" = 0 ]] && grep -qx "  - local-disk.key" "$2" && grep -qx "  - local-disk.luks-header" "$2"' _ "$rc" "$T/o"
+rm -f "$T/out7"/*; rc=$(TKD="$T/keys4" run create --out "$T/out7" --passphrase-file "$P1"); check "descubrimiento automatico incluye la copia historica -> exit 0" test "$rc" = 0
 echo; echo "resultado: PASS=$PASS FAIL=$FAIL"; [ "$FAIL" = 0 ]

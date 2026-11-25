@@ -3,7 +3,7 @@
 # el paquete de recuperacion lleva .env y backup-offsite.env; este lleva lo que SOLO existe en /etc/bury-backup (root, 0400): la clave y el
 # encabezado LUKS de cada copia local (`setup-local-disk-copy.sh --name N`). Sin esa clave, el pendrive/disco de respaldos es ilegible.
 #
-#   sudo scripts/backup/exportar-custodia.sh create --out DIR --passphrase-file F [--name bury-prov]... [--env-file .env]   (sin --name: todas las copias)
+#   sudo scripts/backup/exportar-custodia.sh create --out DIR --passphrase-file F [--name bury-prov]... [--env-file .env]   (sin --name: todas las copias; la copia historica «tbp-respaldo» usa local-disk.key sin sufijo)
 #        scripts/backup/exportar-custodia.sh verify PAQUETE.gpg --passphrase-file F     descifra, valida y lista NOMBRES (nunca contenidos)
 #        scripts/backup/exportar-custodia.sh extract PAQUETE.gpg --to DIR --passphrase-file F   restaura (DIR nuevo, 0700; usar tmpfs)
 #
@@ -54,7 +54,9 @@ create)
   for d in "$BD" "$RD"; do [[ -z "$d" ]] && continue; DR="$(cd "$d" 2>/dev/null && pwd -P)" || continue
     case "$OUTR/" in "$DR"/*) die "la salida esta dentro de $d: la clave no puede vivir junto a los respaldos" 1 ;; esac; done
   mkdir -p "$WORK/stage"; : >"$WORK/stage/MANIFEST.txt"
-  if ((${#NAMES[@]})); then files=(); for n in "${NAMES[@]}"; do files+=("$KEYDIR/local-disk-$n.key" "$KEYDIR/local-disk-$n.luks-header"); done
+  # nombre -> archivos, igual que setup-local-disk-copy.sh: la copia con el nombre HISTORICO (tbp-respaldo, el defecto) usa local-disk.key sin sufijo
+  base_de() { if [[ "$1" == tbp-respaldo ]]; then echo local-disk; else echo "local-disk-$1"; fi; }
+  if ((${#NAMES[@]})); then files=(); for n in "${NAMES[@]}"; do bs="$(base_de "$n")"; files+=("$KEYDIR/$bs.key" "$KEYDIR/$bs.luks-header"); done
   else mapfile -t files < <(ls "$KEYDIR"/local-disk*.key "$KEYDIR"/local-disk*.luks-header 2>/dev/null); fi
   ((${#files[@]})) || die "no hay claves LUKS en $KEYDIR (setup-local-disk-copy.sh --apply las crea)" 8
   # cada copia necesita el PAR completo: sin la clave o sin el encabezado el disco no se puede reabrir tras perder el servidor
