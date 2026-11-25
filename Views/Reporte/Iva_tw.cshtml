@@ -99,6 +99,10 @@
                     <dl class="space-y-2 text-sm">
                         <div class="flex justify-between"><dt class="text-slate-400">Total neto vendido</dt><dd class="text-slate-100 font-medium">$ @Model.VentasNeto.ToString("N2")</dd></div>
                         <div class="flex justify-between"><dt class="text-slate-400">Total de IVA de venta</dt><dd class="text-slate-100 font-medium">$ @Model.VentasIva.ToString("N2")</dd></div>
+                        @if (Model.NotasCreditoCantidad > 0)
+                        {
+                            <div class="flex justify-between"><dt class="text-slate-400">IVA de notas de crédito fiscales (@Model.NotasCreditoCantidad)</dt><dd class="text-slate-100 font-medium">− $ @Model.NotasCreditoIva.ToString("N2")</dd></div>
+                        }
                         <div class="flex justify-between border-t border-slate-800 pt-2"><dt class="text-slate-300 font-semibold">Total vendido con IVA</dt><dd class="text-white font-bold">$ @Model.VentasTotal.ToString("N2")</dd></div>
                     </dl>
                     <p class="text-[11px] text-slate-500">Ventas facturadas o entregadas: las confirmadas sin facturar no discriminan IVA. Una venta cuenta una sola vez aunque tenga varios cobros en Caja.</p>
@@ -114,13 +118,14 @@
                     </h2>
                     <dl class="space-y-2 text-sm">
                         <div class="flex justify-between"><dt class="text-slate-400">IVA de ventas</dt><dd class="text-slate-100 font-medium">$ @Model.VentasIva.ToString("N2")</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">IVA de notas de crédito fiscales</dt><dd class="text-slate-100 font-medium">− $ @Model.NotasCreditoIva.ToString("N2")</dd></div>
                         <div class="flex justify-between"><dt class="text-slate-400">IVA de compras</dt><dd class="text-slate-100 font-medium">− $ @Model.ComprasIva.ToString("N2")</dd></div>
                         <div class="flex justify-between border-t border-slate-800 pt-2">
                             <dt class="text-slate-300 font-semibold">Diferencia de IVA</dt>
                             <dd class="font-bold @(Model.DiferenciaIva >= 0 ? "text-amber-400" : "text-emerald-400")">$ @Model.DiferenciaIva.ToString("N2")</dd>
                         </div>
                     </dl>
-                    <p class="text-[11px] text-slate-500">No es "IVA a pagar": no contempla percepciones, retenciones, saldos anteriores ni notas de crédito.</p>
+                    <p class="text-[11px] text-slate-500">No es "IVA a pagar": no contempla percepciones, retenciones ni saldos anteriores. Resta solo el IVA de las notas de crédito fiscales externas vinculadas (informativo, por la fecha de la nota fiscal).</p>
                 </section>
             }
         </div>
@@ -197,6 +202,52 @@
                     </table>
                 </div>
             </section>
+        }
+
+        @if (filtro.IncluyeVentas && Model.NotasCreditoPorAlicuota.Count > 0)
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">undo</span>
+                        Notas de crédito fiscales por alícuota
+                    </h2>
+                    <p class="mt-1 text-[11px] text-slate-500">Solo devoluciones con una nota de crédito fiscal externa vinculada, por la fecha de esa nota (no por la de la venta). Neteo informativo: no cambia las ventas originales.</p>
+                </div>
+                <div class="overflow-x-auto" tabindex="0">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-400">
+                                <th class="px-6 py-3">Alícuota</th>
+                                <th class="px-6 py-3 text-right">Notas</th>
+                                <th class="px-6 py-3 text-right">Neto</th>
+                                <th class="px-6 py-3 text-right">IVA</th>
+                                <th class="px-6 py-3 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.NotasCreditoPorAlicuota)
+                            {
+                                <tr class="border-b border-slate-800/60 hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-3 text-slate-100 font-medium">@item.Porcentaje.ToString("0.##") %</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">@item.Operaciones</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Neto.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Iva.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-100 font-medium">$ @item.Total.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        @if (Model.NotasCreditoSinDesglose > 0)
+        {
+            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">warning</span>
+                @Model.NotasCreditoSinDesglose nota(s) de crédito fiscal por $ @Model.NotasCreditoSinDesgloseTotal.ToString("N2") corresponden a ventas sin desglose histórico de IVA o con un criterio fiscal no reconocido (excluidas de los totales de ventas) y no se restaron.
+            </div>
         }
 
         @if (Model.VentasSinDesglose > 0)

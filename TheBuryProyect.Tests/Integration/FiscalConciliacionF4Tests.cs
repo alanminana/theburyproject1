@@ -364,9 +364,9 @@ public class FiscalConciliacionF4Tests : IDisposable
     }
 
     [Fact]
-    public async Task Caracteriza_ReporteIva_NoNeteaLaDevolucion_ElIvaDebitoDeLoDevueltoSigueEnElReporte()
+    public async Task ReporteIva_DevolucionSinNcFiscalVinculada_NoNetea_ElIvaDebitoSigueEnElReporte()
     {
-        // CRITERIO PENDIENTE (matriz 2.5 / contador resp. 5): el Reporte de IVA no netea devoluciones ni notas de crédito.
+        // Criterio interno del propietario (2026-11-25): el Reporte de IVA netea SOLO con una NC fiscal externa válida vinculada; una devolución sin ese vínculo no resta IVA.
         // V1: 3 × 1.000 con −5 % → se cobró 2.850 (IVA 494,63). Se devolvió 1 unidad = 950,00 cobrados.
         // IVA contenido en lo devuelto (950 / 1,21 = 785,12 neto → IVA 164,88): NO se resta del Reporte de IVA.
         var e = await SeedEscenarioAsync();
@@ -383,7 +383,9 @@ public class FiscalConciliacionF4Tests : IDisposable
         Assert.Equal(785.12m, ventas.TotalDevolucionesNeto);
         // ...y el de IVA no: sigue informando el IVA íntegro de V1 dentro de 1.260,35.
         Assert.Equal(1260.35m, iva.VentasIva);
-        // IVA que se restaría con el criterio de «período de la nota»: 164,88 → 1.095,47 (solo ilustrativo, NO implementado).
+        Assert.Equal(0, iva.NotasCreditoCantidad);
+        Assert.Equal(0m, iva.NotasCreditoIva);
+        // IVA contenido en lo devuelto (solo ilustrativo; se netearía únicamente con una NC fiscal vinculada): 164,88 → 1.095,47.
         Assert.Equal(164.88m, ventas.TotalDevoluciones - ventas.TotalDevolucionesNeto);
         Assert.Equal(1095.47m, iva.VentasIva - (ventas.TotalDevoluciones - ventas.TotalDevolucionesNeto));
     }
@@ -633,6 +635,253 @@ public class FiscalConciliacionF4Tests : IDisposable
         Assert.Equal(2, ventas.CantidadDevoluciones);
         // y la NC no es un comprobante fiscal: Factura no registra ninguna Nota de crédito (TipoFactura.NotaCredito)
         Assert.Empty(await _context.Facturas.AsNoTracking().Where(f => f.Tipo == TipoFactura.NotaCredito).ToListAsync());
+    }
+
+    // ───────────────────────── 7c-bis. neteo informativo del IVA por NC fiscal externa vinculada ─────────────────────────
+    // Criterio interno del propietario (2026-11-25; no es certificación del contador): el IVA de una devolución se resta en el período de la
+    // FECHA DE LA NC FISCAL externa vinculada; sin vínculo válido no se resta; la venta original no cambia.
+
+    private async Task<NotaCredito> DevolverConNcAsync(int ventaId, int clienteId, params (int ProductoId, int Cantidad)[] items)
+    {
+        var dev = await _devoluciones.CrearDevolucionAsync(
+            new Devolucion { VentaId = ventaId, ClienteId = clienteId, Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "QA NC fiscal", TipoResolucion = TipoResolucionDevolucion.NotaCredito },
+            items.Select(i => new DevolucionDetalle { ProductoId = i.ProductoId, Cantidad = i.Cantidad }).ToList());
+        _context.ChangeTracker.Clear();
+        var rv = (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).RowVersion;
+        await _devoluciones.AprobarDevolucionAsync(dev.Id, "testuser", rv);
+        _context.ChangeTracker.Clear();
+        return await _context.NotasCredito.AsNoTracking().SingleAsync(n => n.DevolucionId == dev.Id);
+    }
+
+    private async Task VincularFiscalAsync(int ncId, decimal importe, DateTime fecha, string numero = "00000001")
+    {
+        var nc = await _context.NotasCredito.FirstAsync(n => n.Id == ncId);
+        nc.FiscalExternaPuntoVenta = "00001"; nc.FiscalExternaTipo = "NCB"; nc.FiscalExternaNumero = numero;
+        nc.FiscalExternaFecha = fecha.Date; nc.FiscalExternaImporte = importe;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+    }
+
+    private ReporteIvaFiltroViewModel FiltroIva(DateTime desde, DateTime hasta) =>
+        new() { Tipo = "ventas", FechaDesde = desde, FechaHasta = hasta };
+
+    [Fact]
+    public async Task NcFiscal_AlicuotasMixtas_NetaElIvaPorAlicuota_Y_NoTocaLaVentaOriginal()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var filtro = FiltroIva(hoy.AddDays(-2), hoy.AddDays(2));
+        var antes = await _reportes.GenerarReporteIvaAsync(filtro);
+
+        // V2 = A (21 %) 1.000 + B (10,5 %) 500 con +3 % de transferencia = 1.545 (1.030 + 515). Se devuelve todo.
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1), (e.B.Id, 1));
+        Assert.Equal(1545.00m, nc.MontoTotal);
+        await VincularFiscalAsync(nc.Id, 1545.00m, hoy);
+
+        var r = await _reportes.GenerarReporteIvaAsync(filtro);
+        // La venta original NO cambia (ni importes ni IVA ni operaciones)
+        Assert.Equal(antes.VentasIva, r.VentasIva);
+        Assert.Equal(antes.VentasNeto, r.VentasNeto);
+        Assert.Equal(antes.VentasTotal, r.VentasTotal);
+        Assert.Equal(antes.VentasCantidad, r.VentasCantidad);
+        // NC fiscal: 21 % → 1.030,00 = 851,24 + 178,76 ; 10,5 % → 515,00 = 466,06 + 48,94
+        Assert.Equal(1, r.NotasCreditoCantidad);
+        var a21 = r.NotasCreditoPorAlicuota.Single(x => x.Porcentaje == 21m);
+        var a105 = r.NotasCreditoPorAlicuota.Single(x => x.Porcentaje == 10.5m);
+        Assert.Equal((851.24m, 178.76m, 1030.00m), (a21.Neto, a21.Iva, a21.Total));
+        Assert.Equal((466.06m, 48.94m, 515.00m), (a105.Neto, a105.Iva, a105.Total));
+        Assert.Equal(227.70m, r.NotasCreditoIva);
+        Assert.Equal(1545.00m, r.NotasCreditoTotal);
+        Assert.Equal(r.NotasCreditoTotal, r.NotasCreditoNeto + r.NotasCreditoIva);
+        Assert.Equal(antes.VentasIva - 227.70m, r.VentasIva - r.NotasCreditoIva);
+    }
+
+    [Fact]
+    public async Task NcFiscal_DevolucionParcial_SoloNetaLaAlicuotaDeLoDevuelto()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.B.Id, 1));   // solo el producto al 10,5 %: 500 × 1,03 = 515
+        await VincularFiscalAsync(nc.Id, nc.MontoTotal, hoy);
+
+        var r = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+
+        var unica = Assert.Single(r.NotasCreditoPorAlicuota);
+        Assert.Equal(10.5m, unica.Porcentaje);
+        Assert.Equal(nc.MontoTotal, unica.Total);
+        Assert.Equal(unica.Total, unica.Neto + unica.Iva);
+        Assert.Equal(unica.Iva, r.NotasCreditoIva);
+    }
+
+    [Fact]
+    public async Task NcFiscal_UnaNcParcialSobreLoDevuelto_UsaElImporteDeLaNcFiscal()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1), (e.B.Id, 1));
+        await VincularFiscalAsync(nc.Id, 772.50m, hoy);   // la NC fiscal acredita la mitad de la interna
+
+        var r = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+
+        Assert.Equal(772.50m, r.NotasCreditoTotal);
+        // mitad de cada alícuota: 515,00 (21 %) y 257,50 (10,5 %)
+        Assert.Equal(515.00m, r.NotasCreditoPorAlicuota.Single(x => x.Porcentaje == 21m).Total);
+        Assert.Equal(257.50m, r.NotasCreditoPorAlicuota.Single(x => x.Porcentaje == 10.5m).Total);
+    }
+
+    [Fact]
+    public async Task NcFiscal_SeImputaAlPeriodoDeLaFechaFiscal_NoAlDeLaVentaNiAlDeLaDevolucion()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        var fechaFiscal = hoy.AddMonths(1);   // otro mes (cambio de mes)
+        await VincularFiscalAsync(nc.Id, nc.MontoTotal, fechaFiscal);
+
+        var mesDeLaVenta = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+        var mesDeLaNc = await _reportes.GenerarReporteIvaAsync(FiltroIva(fechaFiscal, fechaFiscal));
+        var diaAnterior = await _reportes.GenerarReporteIvaAsync(FiltroIva(fechaFiscal.AddDays(-1), fechaFiscal.AddDays(-1)));
+
+        Assert.Equal(0, mesDeLaVenta.NotasCreditoCantidad);
+        Assert.Equal(0m, mesDeLaVenta.NotasCreditoIva);
+        Assert.Equal(1, mesDeLaNc.NotasCreditoCantidad);
+        Assert.True(mesDeLaNc.NotasCreditoIva > 0m);
+        Assert.Equal(0, mesDeLaNc.VentasCantidad);          // la venta sigue en su mes; el mes de la NC queda con IVA neto negativo
+        Assert.True(mesDeLaNc.DiferenciaIva < 0m);
+        Assert.Equal(0, diaAnterior.NotasCreditoCantidad);
+    }
+
+    [Fact]
+    public async Task NcFiscal_SinVinculo_NoNeta_Y_NcInternaNoAlcanza()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));   // NC interna aprobada, SIN comprobante fiscal externo
+
+        var r = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+
+        Assert.Equal(0, r.NotasCreditoCantidad);
+        Assert.Equal(0m, r.NotasCreditoIva);
+        Assert.Empty(r.NotasCreditoPorAlicuota);
+    }
+
+    [Fact]
+    public async Task NcFiscal_VinculoInvalido_NoNeta()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var filtro = FiltroIva(hoy.AddDays(-2), hoy.AddDays(2));
+
+        // importe de la NC fiscal mayor que el de la NC interna
+        var nc1 = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        await VincularFiscalAsync(nc1.Id, nc1.MontoTotal + 100m, hoy, "00000001");
+        Assert.Equal(0, (await _reportes.GenerarReporteIvaAsync(filtro)).NotasCreditoCantidad);
+
+        // importe cero
+        await VincularFiscalSobrescribirAsync(nc1.Id, 0m, hoy, "00000002");
+        Assert.Equal(0, (await _reportes.GenerarReporteIvaAsync(filtro)).NotasCreditoCantidad);
+
+        // vínculo válido pero NC cancelada
+        await VincularFiscalSobrescribirAsync(nc1.Id, nc1.MontoTotal, hoy, "00000003");
+        Assert.Equal(1, (await _reportes.GenerarReporteIvaAsync(filtro)).NotasCreditoCantidad);
+        var nc = await _context.NotasCredito.FirstAsync(n => n.Id == nc1.Id);
+        nc.Estado = EstadoNotaCredito.Cancelada;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        Assert.Equal(0, (await _reportes.GenerarReporteIvaAsync(filtro)).NotasCreditoCantidad);
+    }
+
+    private async Task VincularFiscalSobrescribirAsync(int ncId, decimal importe, DateTime fecha, string numero)
+    {
+        var nc = await _context.NotasCredito.FirstAsync(n => n.Id == ncId);
+        nc.FiscalExternaPuntoVenta = "00001"; nc.FiscalExternaTipo = "NCB"; nc.FiscalExternaNumero = numero;
+        nc.FiscalExternaFecha = fecha.Date; nc.FiscalExternaImporte = importe;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task NcFiscal_MultiplesDevolucionesDeLaMismaVenta_CadaNcCuentaUnaVez_YSumanSinDuplicar()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var ncA = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        var ncB = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.B.Id, 1));
+        await VincularFiscalAsync(ncA.Id, ncA.MontoTotal, hoy, "00000010");
+        await VincularFiscalAsync(ncB.Id, ncB.MontoTotal, hoy.AddDays(1), "00000011");
+
+        var filtro = FiltroIva(hoy.AddDays(-2), hoy.AddDays(3));
+        var todo = await _reportes.GenerarReporteIvaAsync(filtro);
+        var soloPrimera = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy, hoy));
+        var soloSegunda = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(1), hoy.AddDays(1)));
+
+        Assert.Equal(2, todo.NotasCreditoCantidad);
+        Assert.Equal(ncA.MontoTotal + ncB.MontoTotal, todo.NotasCreditoTotal);
+        Assert.Equal(soloPrimera.NotasCreditoIva + soloSegunda.NotasCreditoIva, todo.NotasCreditoIva);
+        Assert.Equal(1, soloPrimera.NotasCreditoCantidad);
+        Assert.Equal(1, soloSegunda.NotasCreditoCantidad);
+        // Cada NC es igual a la devolución completa de la venta: 227,70 de IVA en total, como la devolución total en un solo comprobante
+        Assert.Equal(227.70m, todo.NotasCreditoIva);
+    }
+
+    [Fact]
+    public async Task NcFiscal_VentaConVersionFiscalNoRegistrada_NoNeta_PorqueSuDebitoQuedoFueraDelReporte()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        await VincularFiscalAsync(nc.Id, nc.MontoTotal, hoy);
+        var venta = await _context.Ventas.FirstAsync(v => v.Id == e.V2);
+        venta.CriterioFiscalVersion = 99;   // dato inválido: el reporte excluye la venta y lo informa aparte
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var r = await _reportes.GenerarReporteIvaAsync(FiltroIva(hoy.AddDays(-2), hoy.AddDays(2)));
+
+        Assert.Equal(1, r.VentasVersionFiscalInvalida);
+        Assert.Equal(0, r.NotasCreditoCantidad);
+        Assert.Equal(0m, r.NotasCreditoIva);
+        Assert.Equal(1, r.NotasCreditoSinDesglose);
+    }
+
+    [Fact]
+    public async Task NcFiscal_VentaMixtaConLineaLegacySinDesglose_NetaLoDevueltoConDesglose_YOmiteLoDevueltoSinDesglose()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var filtro = FiltroIva(hoy.AddDays(-2), hoy.AddDays(2));
+        var ncB = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.B.Id, 1));
+        var ncA = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        await VincularFiscalAsync(ncB.Id, ncB.MontoTotal, hoy, "00000020");
+        await VincularFiscalAsync(ncA.Id, ncA.MontoTotal, hoy, "00000021");
+        // la línea de A pasa a ser legacy (sin desglose de IVA); la de B conserva su desglose
+        var lineaA = await _context.VentaDetalles.FirstAsync(d => d.VentaId == e.V2 && d.ProductoId == e.A.Id);
+        lineaA.SubtotalFinalNeto = 0m; lineaA.SubtotalFinalIVA = 0m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var r = await _reportes.GenerarReporteIvaAsync(filtro);
+
+        Assert.Equal(1, r.NotasCreditoCantidad);          // la de B (10,5 %): su débito sí está en el reporte
+        Assert.Equal(10.5m, Assert.Single(r.NotasCreditoPorAlicuota).Porcentaje);
+        Assert.Equal(1, r.NotasCreditoSinDesglose);       // la de A: su débito quedó fuera del reporte, no se resta
+        Assert.Equal(ncA.MontoTotal, r.NotasCreditoSinDesgloseTotal);
+    }
+
+    [Fact]
+    public async Task NcFiscal_FiltroPorAlicuota_RestringeTambienElNeteo()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var nc = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1), (e.B.Id, 1));
+        await VincularFiscalAsync(nc.Id, nc.MontoTotal, hoy);
+
+        var f = FiltroIva(hoy.AddDays(-2), hoy.AddDays(2));
+        f.Alicuota = 10.5m;
+        var r = await _reportes.GenerarReporteIvaAsync(f);
+
+        Assert.Equal(48.94m, r.NotasCreditoIva);
+        Assert.Equal(48.94m, Assert.Single(r.NotasCreditoPorAlicuota).Iva);
     }
 
     // ───────────────────────── 7d. envío y armado ─────────────────────────

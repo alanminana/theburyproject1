@@ -384,6 +384,8 @@ namespace TheBuryProject.Services
                     resultado.VentasIva = resultado.VentasPorAlicuota.Sum(x => x.Iva);
                     resultado.VentasTotal = resultado.VentasPorAlicuota.Sum(x => x.Total);
                     resultado.VentasCantidad = ventaRows.Select(r => r.VentaId).Distinct().Count();
+
+                    await AgregarNotasCreditoFiscalesAsync(resultado, filtro, desde, hastaExclusivo);
                 }
 
                 if (filtro.IncluyeCompras)
@@ -479,6 +481,154 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al generar reporte de IVA");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Neteo INFORMATIVO del IVA de las notas de crédito fiscales EXTERNAS vinculadas (criterio interno del propietario, 2026-11-25; no es
+        /// una certificación fiscal del contador). Reglas: (1) se imputa al período de la FECHA DE LA NC FISCAL (<c>FiscalExternaFecha</c>),
+        /// nunca al de la venta ni a la fecha de la devolución; (2) sin NC fiscal externa válida vinculada no se resta nada; (3) no modifica
+        /// importes ni período de la venta original (el IVA de ventas del reporte queda intacto: la NC se informa aparte y se resta en la
+        /// diferencia); (4) cada NC cuenta una sola vez (hay una por devolución y el comprobante fiscal es único); (5) el IVA sale del importe
+        /// de la NC FISCAL repartido entre las alícuotas históricas de lo efectivamente devuelto (alícuotas mixtas, devoluciones parciales).
+        /// Válida = vínculo completo, importe &gt; 0 y no superior a la NC interna, NC no cancelada, devolución aprobada/completada y venta
+        /// facturada/entregada (la única que declara IVA en este reporte).
+        /// </summary>
+        private async Task AgregarNotasCreditoFiscalesAsync(
+            ReporteIvaResultadoViewModel resultado, ReporteIvaFiltroViewModel filtro, DateTime? desde, DateTime? hastaExclusivo)
+        {
+            const decimal tolerancia = 0.01m;
+
+            var query = _context.NotasCredito
+                .AsNoTracking()
+                .Where(n => !n.IsDeleted &&
+                            n.Estado != EstadoNotaCredito.Cancelada &&
+                            n.FiscalExternaPuntoVenta != null && n.FiscalExternaTipo != null && n.FiscalExternaNumero != null &&
+                            n.FiscalExternaFecha != null && n.FiscalExternaImporte != null &&
+                            !n.Devolucion.IsDeleted &&
+                            VentasNetas.EstadosDevolucionQueRestan.Contains(n.Devolucion.Estado) &&
+                            !n.Devolucion.Venta.IsDeleted &&
+                            (n.Devolucion.Venta.Estado == EstadoVenta.Facturada || n.Devolucion.Venta.Estado == EstadoVenta.Entregada));
+
+            // La fecha fiscal es un día comercial sin hora (se guarda como .Date): se compara por día, sin conversión UTC.
+            if (desde.HasValue)
+                query = query.Where(n => n.FiscalExternaFecha!.Value >= desde.Value);
+            if (hastaExclusivo.HasValue)
+                query = query.Where(n => n.FiscalExternaFecha!.Value < hastaExclusivo.Value);
+
+            // Las comparaciones de importes se hacen en memoria (SQLite de las pruebas no traduce decimal).
+            var ncs = (await query
+                    .Select(n => new
+                    {
+                        n.Id,
+                        n.DevolucionId,
+                        VentaId = n.Devolucion.VentaId,
+                        n.Devolucion.Venta.CriterioFiscalVersion,
+                        n.Devolucion.Venta.AlicuotaServiciosSnapshot,
+                        Importe = n.FiscalExternaImporte!.Value,
+                        n.MontoTotal
+                    })
+                    .ToListAsync())
+                .Where(n => n.Importe > 0m && n.Importe <= n.MontoTotal + tolerancia)
+                .GroupBy(n => n.Id).Select(g => g.First())   // una NC cuenta una sola vez
+                .ToList();
+            if (ncs.Count == 0)
+                return;
+
+            var ventaIds = ncs.Select(n => n.VentaId).Distinct().ToList();
+            var devolucionIds = ncs.Select(n => n.DevolucionId).Distinct().ToList();
+            var lineas = await _context.VentaDetalles.AsNoTracking()
+                .Where(d => !d.IsDeleted && ventaIds.Contains(d.VentaId))
+                .Select(d => new { d.VentaId, d.ProductoId, d.PorcentajeIVA, d.SubtotalFinal, d.SubtotalFinalNeto, d.SubtotalFinalIVA })
+                .ToListAsync();
+            var devueltos = await _context.DevolucionDetalles.AsNoTracking()
+                .Where(d => !d.IsDeleted && devolucionIds.Contains(d.DevolucionId))
+                .Select(d => new { d.DevolucionId, d.ProductoId, d.Subtotal })
+                .ToListAsync();
+
+            var filas = new List<(int NcId, IvaNotaCreditoFiscal.Parte Parte)>();
+            foreach (var nc in ncs)
+            {
+                // Misma exclusión que las ventas del reporte: con una versión de criterio fiscal no registrada el débito de la venta
+                // quedó fuera de los totales, así que su NC tampoco se resta (se informa aparte).
+                try
+                {
+                    CriterioFiscalRegistry.Resolver(nc.CriterioFiscalVersion, nc.AlicuotaServiciosSnapshot);
+                }
+                catch (CriterioFiscalDesconocidoException ex)
+                {
+                    _logger.LogError(ex, "Reporte de IVA: la NC fiscal {NcId} pertenece a una venta con criterio fiscal no registrado ({Version}); no se netea.", nc.Id, ex.Version);
+                    resultado.NotasCreditoSinDesglose++;
+                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
+                    continue;
+                }
+
+                var lineasVenta = lineas.Where(l => l.VentaId == nc.VentaId).ToList();
+                // Líneas legacy sin desglose: no están en los totales de ventas (el reporte sí incluye las demás líneas de esa venta), así
+                // que solo se omite la NC cuando lo devuelto toca una de ellas; una devolución de líneas con desglose se netea normalmente.
+                static bool LineaSinDesglose(decimal neto, decimal iva, decimal bruto) => neto == 0m && iva == 0m && bruto > 0m;
+                var omitida = false;
+
+                // Peso por alícuota = bruto devuelto de cada producto repartido entre las líneas de ese producto (alícuota histórica de la línea).
+                var pesos = new List<(decimal Porcentaje, decimal Peso)>();
+                foreach (var dev in devueltos.Where(d => d.DevolucionId == nc.DevolucionId))
+                {
+                    var delProducto = lineasVenta.Where(l => l.ProductoId == dev.ProductoId).ToList();
+                    if (delProducto.Any(l => LineaSinDesglose(l.SubtotalFinalNeto, l.SubtotalFinalIVA, l.SubtotalFinal)))
+                    {
+                        omitida = true;
+                        break;
+                    }
+                    var base_ = delProducto.Sum(l => l.SubtotalFinal);
+                    if (base_ <= 0m) continue;
+                    pesos.AddRange(delProducto.Select(l => (l.PorcentajeIVA, dev.Subtotal * l.SubtotalFinal / base_)));
+                }
+                // Devolución sin detalle utilizable: se reparte como la venta (proporción de sus líneas), nunca con la alícuota actual del producto.
+                if (!omitida && pesos.Sum(p => p.Peso) <= 0m)
+                {
+                    if (lineasVenta.Any(l => LineaSinDesglose(l.SubtotalFinalNeto, l.SubtotalFinalIVA, l.SubtotalFinal)))
+                        omitida = true;
+                    else
+                        pesos = lineasVenta.Select(l => (l.PorcentajeIVA, l.SubtotalFinal)).ToList();
+                }
+
+                if (omitida)
+                {
+                    resultado.NotasCreditoSinDesglose++;
+                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
+                    continue;
+                }
+
+                var partes = IvaNotaCreditoFiscal.Repartir(nc.Importe, pesos);
+                if (partes.Count == 0)
+                {
+                    resultado.NotasCreditoSinDesglose++;
+                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
+                    continue;
+                }
+                foreach (var parte in partes)
+                {
+                    if (filtro.Alicuota.HasValue && parte.Porcentaje != filtro.Alicuota.Value)
+                        continue;
+                    filas.Add((nc.Id, parte));
+                }
+            }
+
+            resultado.NotasCreditoPorAlicuota = filas
+                .GroupBy(f => f.Parte.Porcentaje)
+                .Select(g => new ReporteIvaAlicuotaItemViewModel
+                {
+                    Porcentaje = g.Key,
+                    Operaciones = g.Select(f => f.NcId).Distinct().Count(),
+                    Neto = g.Sum(f => f.Parte.Neto),
+                    Iva = g.Sum(f => f.Parte.Iva),
+                    Total = g.Sum(f => f.Parte.Total)
+                })
+                .OrderByDescending(x => x.Total)
+                .ToList();
+            resultado.NotasCreditoNeto = resultado.NotasCreditoPorAlicuota.Sum(x => x.Neto);
+            resultado.NotasCreditoIva = resultado.NotasCreditoPorAlicuota.Sum(x => x.Iva);
+            resultado.NotasCreditoTotal = resultado.NotasCreditoPorAlicuota.Sum(x => x.Total);
+            resultado.NotasCreditoCantidad = filas.Select(f => f.NcId).Distinct().Count();
         }
 
         public async Task<ReporteMargenesViewModel> GenerarReporteMargenesAsync(int? categoriaId = null, int? marcaId = null)

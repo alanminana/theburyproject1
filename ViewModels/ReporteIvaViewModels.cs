@@ -72,6 +72,18 @@ namespace TheBuryProject.ViewModels
 
         public decimal VentasSinDesgloseTotal { get; set; }
 
+        // Notas de crédito FISCALES externas vinculadas (neteo INFORMATIVO del IVA, criterio interno del propietario): se imputan al
+        // período de la FECHA DE LA NC FISCAL, nunca al de la venta original, y solo existen si hay una NC fiscal válida vinculada.
+        public int NotasCreditoCantidad { get; set; }
+        public decimal NotasCreditoNeto { get; set; }
+        public decimal NotasCreditoIva { get; set; }
+        public decimal NotasCreditoTotal { get; set; }
+        public List<ReporteIvaAlicuotaItemViewModel> NotasCreditoPorAlicuota { get; set; } = new();
+
+        /// <summary>NC fiscales vinculadas cuyo IVA no se pudo repartir (venta con líneas sin desglose histórico o con criterio fiscal no reconocido, excluida de los totales de ventas): no se netean y se informan.</summary>
+        public int NotasCreditoSinDesglose { get; set; }
+        public decimal NotasCreditoSinDesgloseTotal { get; set; }
+
         /// <summary>
         /// P-02: ventas cuya versión de criterio fiscal no está registrada. No se recalculan con otra regla: quedan fuera
         /// de los totales y se informan aparte (el detalle técnico va solo al log).
@@ -82,9 +94,9 @@ namespace TheBuryProject.ViewModels
 
         /// <summary>
         /// IVA de ventas menos IVA de compras. Se denomina "Diferencia de IVA" porque
-        /// no contempla percepciones, retenciones, saldos anteriores ni notas de crédito.
+        /// no contempla percepciones, retenciones ni saldos anteriores; resta el IVA de las notas de crédito fiscales externas vinculadas.
         /// </summary>
-        public decimal DiferenciaIva => VentasIva - ComprasIva;
+        public decimal DiferenciaIva => VentasIva - NotasCreditoIva - ComprasIva;
     }
 
     /// <summary>
