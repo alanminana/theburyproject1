@@ -46,8 +46,13 @@ async function medir(page, rol, ruta, etiqueta) {
   const fila = { rol, ruta, etiqueta, vp: {} };
   for (const [w, hh] of VPS) {
     await page.setViewportSize({ width: w, height: hh });
-    const r = await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => null);
+    let navError = null;
+    const r = await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch((e) => { navError = String(e.message).slice(0, 80); return null; });
     const st = r ? r.status() : 0;
+    // Una navegacion fallida deja el documento anterior: no se mide nada sobre una pantalla que no cargo.
+    if (!r) { fallo(`${rol} ${ruta} @${w}: la navegacion fallo (${navError || 'sin respuesta'})`); fila.vp[`${w}x${hh}`] = { http: 0, navError }; continue; }
+    const esperaAbrir = !/acceso|403|404/i.test(etiqueta);
+    if (esperaAbrir && st < 400 && /\/(login|AccessDenied)/i.test(new URL(page.url()).pathname)) { fallo(`${rol} ${ruta} @${w}: redirigio a ${new URL(page.url()).pathname} (se esperaba que la pantalla abriera)`); fila.vp[`${w}x${hh}`] = { http: st, redirigido: page.url() }; continue; }
     const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     const v = st < 400 ? await axe(page).catch((e) => [`axe fallo: ${e.message.slice(0, 50)}`]) : [];
     fila.vp[`${w}x${hh}`] = { http: st, sobra, axe: v };
