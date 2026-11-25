@@ -75,6 +75,7 @@ Generados y verificados hoy (descifrado autenticado; alteración detectada; ver 
 # paquete de configuracion (.env) y paquete de claves LUKS (como root); passphrase en archivo 0600 FUERA de la carpeta de salida
 COMPOSE_PROJECT_NAME=theburyproject-prov COMPOSE_ENV_FILES=$PWD/.env scripts/backup/recovery-package.sh create --out /mnt/bury-pendrive/recovery-prov --passphrase-file ~/.bury-custodia-prov/passphrase
 sudo scripts/backup/exportar-custodia.sh create --out /mnt/bury-pendrive/recovery-prov --name bury-prov --passphrase-file ~/.bury-custodia-prov/passphrase
+#   (bajo sudo lee BACKUP_DIR/BACKUP_REMOVABLE_DIR del .env del repo; con otro .env: --env-file. Se NIEGA a guardar dentro de los respaldos)
 scripts/backup/recovery-package.sh verify <paquete>.gpg --passphrase-file ...        # idem exportar-custodia.sh verify
 ```
 **Qué debe hacer el propietario (no se puede hacer desde el servidor):**

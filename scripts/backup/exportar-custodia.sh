@@ -3,26 +3,28 @@
 # el paquete de recuperacion lleva .env y backup-offsite.env; este lleva lo que SOLO existe en /etc/bury-backup (root, 0400): la clave y el
 # encabezado LUKS de cada copia local (`setup-local-disk-copy.sh --name N`). Sin esa clave, el pendrive/disco de respaldos es ilegible.
 #
-#   sudo scripts/backup/exportar-custodia.sh create --out DIR --passphrase-file F [--name bury-prov]...   (sin --name: todas las copias)
+#   sudo scripts/backup/exportar-custodia.sh create --out DIR --passphrase-file F [--name bury-prov]... [--env-file .env]   (sin --name: todas las copias)
 #        scripts/backup/exportar-custodia.sh verify PAQUETE.gpg --passphrase-file F     descifra, valida y lista NOMBRES (nunca contenidos)
 #        scripts/backup/exportar-custodia.sh extract PAQUETE.gpg --to DIR --passphrase-file F   restaura (DIR nuevo, 0700; usar tmpfs)
 #
 # Reglas (mismo modelo que recovery-package.sh, ver docs/backup-custodia.md): GnuPG simetrico AES-256 con MDC (cualquier alteracion falla el
 # descifrado); passphrase solo desde archivo 0600 o terminal (nunca argv/entorno ni se imprime); temporales SOLO en tmpfs (/dev/shm), si no hay se
 # aborta; la salida no puede estar dentro del directorio de la passphrase ni del BACKUP_DIR/BACKUP_REMOVABLE_DIR (la clave no puede vivir junto a
-# los respaldos que descifra). Guardar la passphrase (custodia A) y este archivo (custodia B) en lugares DISTINTOS y FUERA del servidor.
+# los respaldos que descifra). BACKUP_DIR y BACKUP_REMOVABLE_DIR se leen del entorno o, si faltan (sudo los borra), de --env-file (default: .env del repo
+# donde vive este script); si no se pueden determinar, `create` SE NIEGA (falla cerrado: nunca omite el control). Guardar la passphrase (custodia A) y este archivo (custodia B) en lugares DISTINTOS y FUERA del servidor.
 # Codigos: 0 ok | 1 uso/configuracion | 3 integridad/descifrado | 8 falta gpg/tar o no hay tmpfs o no hay claves
 set -uo pipefail
 KEYDIR="${BURY_KEYDIR:-/etc/bury-backup}"
 MODE="${1:-}"; shift || true
-OUT="" PKG="" TO="" PASSFILE="" NAMES=()
+OUT="" PKG="" TO="" PASSFILE="" NAMES=() ENVF=""
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 while (( $# )); do
   case "$1" in
-    --out) OUT="${2:-}"; shift 2 ;; --to) TO="${2:-}"; shift 2 ;; --passphrase-file) PASSFILE="${2:-}"; shift 2 ;; --name) NAMES+=("${2:-}"); shift 2 ;;
+    --out) OUT="${2:-}"; shift 2 ;; --to) TO="${2:-}"; shift 2 ;; --passphrase-file) PASSFILE="${2:-}"; shift 2 ;; --name) NAMES+=("${2:-}"); shift 2 ;; --env-file) ENVF="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,15p' "$0"; exit 0 ;; -*) echo "argumento desconocido: $1" >&2; exit 1 ;; *) PKG="$1"; shift ;;
   esac
 done
-die() { echo "ERROR: $*" >&2; exit "${2:-1}"; }
+die() { echo "ERROR: $1" >&2; exit "${2:-1}"; }
 command -v gpg >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 || die "falta gpg (2.x) o tar" 8
 [[ "$(stat -f -c %T /dev/shm 2>/dev/null)" == tmpfs ]] || die "no hay /dev/shm en tmpfs: no se escriben claves en disco" 8
 [[ "$MODE" =~ ^(create|verify|extract)$ ]] || { sed -n '2,8p' "$0" >&2; exit 1; }
@@ -42,7 +44,13 @@ case "$MODE" in
 create)
   [[ -n "$OUT" && -d "$OUT" ]] || die "--out debe ser un directorio existente"
   [[ "$(cd "$OUT" && pwd -P)" != "$(cd "$(dirname "$PASSFILE")" && pwd -P)" ]] || die "la salida no puede estar en el mismo directorio que la passphrase (custodias A y B separadas)"
-  for d in "${BACKUP_DIR:-}" "${BACKUP_REMOVABLE_DIR:-}"; do [[ -z "$d" ]] || case "$(cd "$OUT" && pwd -P)/" in "$(cd "$d" 2>/dev/null && pwd -P)"/*) die "la salida esta dentro de $d: la clave no puede vivir junto a los respaldos";; esac; done
+  envv() { grep -E "^$1=" "${ENVF:-$REPO_DIR/.env}" 2>/dev/null | tail -1 | cut -d= -f2-; }
+  BD="${BACKUP_DIR:-$(envv BACKUP_DIR)}"; RD="${BACKUP_REMOVABLE_DIR:-$(envv BACKUP_REMOVABLE_DIR)}"
+  [[ -n "$BD" ]] || die "no se pudo determinar BACKUP_DIR (ni en el entorno ni en ${ENVF:-$REPO_DIR/.env}): pasar --env-file; el control de separacion no se omite" 1
+  [[ -d "$BD" ]] || die "BACKUP_DIR=$BD no existe o no es un directorio: no se puede aplicar el control de separacion" 1
+  OUTR="$(cd "$OUT" && pwd -P)"
+  for d in "$BD" "$RD"; do [[ -z "$d" ]] && continue; DR="$(cd "$d" 2>/dev/null && pwd -P)" || continue
+    case "$OUTR/" in "$DR"/*) die "la salida esta dentro de $d: la clave no puede vivir junto a los respaldos" 1 ;; esac; done
   mkdir -p "$WORK/stage"; : >"$WORK/stage/MANIFEST.txt"
   if ((${#NAMES[@]})); then files=(); for n in "${NAMES[@]}"; do files+=("$KEYDIR/local-disk-$n.key" "$KEYDIR/local-disk-$n.luks-header"); done
   else mapfile -t files < <(ls "$KEYDIR"/local-disk*.key "$KEYDIR"/local-disk*.luks-header 2>/dev/null); fi
@@ -52,7 +60,11 @@ create)
   ( cd "$WORK/stage" && tar -czf "$WORK/p.tgz" -- * ) 2>/dev/null || die "no se pudo empaquetar" 1
   NAME="bury-custodia-luks_$(date -u +%Y%m%d-%H%M%SZ)_$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n').gpg"
   gpgx --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$WORK/$NAME" "$WORK/p.tgz" || die "fallo el cifrado" 3
-  install -m 600 -o "${SUDO_UID:-$(id -u)}" -g "${SUDO_GID:-$(id -g)}" "$WORK/$NAME" "$OUT/$NAME"; ( cd "$OUT" && sha256sum "$NAME" >"$NAME.sha256" && chmod 600 "$NAME.sha256" && chown "${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}" "$NAME.sha256" 2>/dev/null || true )
+  UG="${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}"
+  install -m 600 -o "${UG%%:*}" -g "${UG##*:}" "$WORK/$NAME" "$OUT/$NAME" || { rm -f "$OUT/$NAME" "$OUT/$NAME.sha256"; die "no se pudo guardar el paquete en $OUT (disco lleno, solo lectura o sin permiso): NO se creo la custodia" 1; }
+  ( cd "$OUT" && sha256sum "$NAME" >"$NAME.sha256" && chmod 600 "$NAME.sha256" ) || { rm -f "$OUT/$NAME" "$OUT/$NAME.sha256"; die "no se pudo escribir el .sha256: NO se creo la custodia" 1; }
+  chown "$UG" "$OUT/$NAME.sha256" 2>/dev/null || true
+  [[ "$(stat -c %s "$OUT/$NAME")" = "$(stat -c %s "$WORK/$NAME")" ]] && ( cd "$OUT" && sha256sum -c "$NAME.sha256" >/dev/null 2>&1 ) || { rm -f "$OUT/$NAME" "$OUT/$NAME.sha256"; die "el paquete guardado no coincide con el generado: NO se creo la custodia" 1; }
   echo "paquete creado: $OUT/$NAME ($(stat -c %s "$OUT/$NAME") bytes; ${#files[@]} archivo(s) de clave + MANIFEST)"
   echo "SIGUIENTE: guardar este archivo (custodia B) y la passphrase (custodia A) en lugares DISTINTOS y fuera del servidor." ;;
 verify)

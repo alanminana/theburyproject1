@@ -16,7 +16,9 @@ head -c 64 /dev/urandom >"$K/local-disk-bury-prov.key"; head -c 4096 /dev/urando
 head -c 64 /dev/urandom >"$K/local-disk-bury-notebook.key"; head -c 4096 /dev/urandom >"$K/local-disk-bury-notebook.luks-header"
 chmod 400 "$K"/*
 P1="$T/pw/pass1"; printf 'frase-de-prueba-larga-1' >"$P1"; chmod 600 "$P1"; P2="$T/pw/pass2"; printf 'otra-frase-distinta-22' >"$P2"; chmod 600 "$P2"
-run() { BURY_KEYDIR="$K" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
+run() { BACKUP_DIR="${TBK-$T/bk}" BURY_KEYDIR="$K" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
+# como bajo `sudo`: entorno vacio (sudo descarta BACKUP_DIR); las rutas solo pueden venir de --env-file
+runenv() { env -i PATH="$PATH" BURY_KEYDIR="$K" bash "$SUT" "$@" >"$T/o" 2>&1; echo $?; }
 
 rc=$(run create --out "$T/out" --passphrase-file "$P1"); check "create (todas las copias) -> exit 0" test "$rc" = 0
 PKG=$(ls "$T/out"/bury-custodia-luks_*.gpg 2>/dev/null | head -1)
@@ -37,6 +39,26 @@ rc=$(run verify "$(ls "$T/out2"/*.gpg | head -1)" --passphrase-file "$P1"); chec
 rc=$(run create --out "$T/pw" --passphrase-file "$P1"); check "salida en el directorio de la passphrase -> rechazada (exit 1)" test "$rc" = 1
 rc=$(BACKUP_DIR="$T/bk" run create --out "$T/bk" --passphrase-file "$P1"); check "salida dentro de BACKUP_DIR -> rechazada (exit 1)" test "$rc" = 1
 rc=$(run create --out "$T/out" --name no-existe --passphrase-file "$P1"); check "clave inexistente -> exit 8" test "$rc" = 8
+# separacion de los respaldos bajo sudo (entorno vacio): rutas desde --env-file, fallando CERRADO si no se pueden determinar
+printf 'BACKUP_DIR=%s
+BACKUP_REMOVABLE_DIR=%s
+' "$T/bk" "$T/rem" >"$T/envf"; mkdir -p "$T/rem/sub"
+rc=$(runenv create --out "$T/bk" --passphrase-file "$P1" --env-file "$T/envf"); check "sudo (sin entorno) + --env-file: salida dentro de BACKUP_DIR -> rechazada (exit 1)" test "$rc" = 1
+check "...por estar dentro de BACKUP_DIR (no por otra causa)" grep -q "la clave no puede vivir junto a los respaldos" "$T/o"
+rc=$(runenv create --out "$T/rem/sub" --passphrase-file "$P1" --env-file "$T/envf"); check "sudo + --env-file: salida dentro de BACKUP_REMOVABLE_DIR -> rechazada (exit 1)" test "$rc" = 1
+check "...por estar dentro de BACKUP_REMOVABLE_DIR (no por otra causa)" grep -q "la clave no puede vivir junto a los respaldos" "$T/o"
+rc=$(runenv create --out "$T/out" --passphrase-file "$P1" --env-file "$T/envf"); check "sudo + --env-file: salida valida -> exit 0" test "$rc" = 0
+rc=$(runenv create --out "$T/out" --passphrase-file "$P1" --env-file "$T/no-existe.env"); check "rutas indeterminables (sin entorno ni .env) -> SE NIEGA (exit 1), no omite el control" test "$rc" = 1
+check "...y el motivo es que no se pudo determinar BACKUP_DIR" grep -q "no se pudo determinar BACKUP_DIR" "$T/o"
+printf 'BACKUP_DIR=%s
+' "$T/no-existe" >"$T/envf2"; rc=$(runenv create --out "$T/out" --passphrase-file "$P1" --env-file "$T/envf2"); check "BACKUP_DIR inexistente -> SE NIEGA (exit 1)" test "$rc" = 1
+# publicacion: si install falla (disco lleno / solo lectura), create NO puede terminar en exito ni dejar restos
+mkdir -p "$T/fake" "$T/out3"; printf '#!/bin/sh
+exit 1
+' >"$T/fake/install"; chmod +x "$T/fake/install"
+rc=$(PATH="$T/fake:$PATH" run create --out "$T/out3" --passphrase-file "$P1"); check "install falla -> create falla (exit != 0)" test "$rc" != 0
+check "...sin mensaje de exito ni archivos parciales" bash -c '! grep -q "paquete creado" "$1" && [[ -z "$(ls -A "$2")" ]]' _ "$T/o" "$T/out3"
+
 chmod 644 "$P1"; rc=$(run verify "$PKG" --passphrase-file "$P1"); check "passphrase con modo 644 -> rechazada (exit 1)" test "$rc" = 1; chmod 600 "$P1"
 
 # extract
