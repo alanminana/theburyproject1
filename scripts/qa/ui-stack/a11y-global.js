@@ -47,6 +47,15 @@ async function axe(page) {
   return page.evaluate(async (tags) => (await axe.run(document, { runOnly: { type: 'tag', values: tags } })).violations
     .map((v) => `${v.id}(${v.impact}) x${v.nodes.length}: ${((v.nodes[0] && v.nodes[0].html) || '').slice(0, 90)}`), AXE_TAGS);
 }
+// Navega y verifica que la pantalla pedida realmente cargo (no un error ni el documento anterior ni Login/AccessDenied).
+async function ir(page, ruta) {
+  let err = null;
+  const r = await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch((e) => { err = String(e.message).slice(0, 70); return null; });
+  if (!r) { fallo(`${ruta}: la navegacion fallo (${err || 'sin respuesta'})`); return false; }
+  if (r.status() >= 400) { fallo(`${ruta}: HTTP ${r.status()}`); return false; }
+  if (/\/(login|AccessDenied)/i.test(new URL(page.url()).pathname)) { fallo(`${ruta}: redirigio a ${new URL(page.url()).pathname}`); return false; }
+  return true;
+}
 async function menu(page) {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
   const hs = await page.$$eval('a[href]', (as) => as.map((a) => a.getAttribute('href')));
@@ -72,7 +81,7 @@ const soloLectura = (ctx) => ctx.route('**/*', (route) => {
 });
 
 async function teclado(page, ruta) {
-  await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => {});
+  if (!(await ir(page, ruta))) return;
   await page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); });
   const total = await page.evaluate(() => document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])').length);
   const seq = []; let sinFoco = 0, invisibles = 0, sinIndicador = 0; const ejemplos = []; const sinEj = [];
@@ -100,12 +109,12 @@ async function teclado(page, ruta) {
 }
 
 async function modales(page, ruta) {
-  await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => {});
+  if (!(await ir(page, ruta))) return;
   const SEL = '[data-open-modal],[aria-haspopup="dialog"],[data-open-ticket-modal],[data-open-devolucion-modal],[data-modal-target],[data-bs-toggle="modal"],[data-open-drawer],[data-drawer-target]';
   const SEL2 = 'button[type="button"]:not([aria-expanded]):not([data-sidebar-toggle])';
   const n = await page.locator(SEL).count();
   for (let i = 0; i < Math.min(n, 6); i++) {
-    await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => {});
+    if (!(await ir(page, ruta))) continue;
     const t = page.locator(SEL).nth(i);
     if (!(await t.isVisible().catch(() => false))) continue;
     const desc = (await t.evaluate((e) => (e.getAttribute('aria-label') || e.textContent || e.id || e.tagName).trim().replace(/\s+/g, ' ').slice(0, 40))).replace(/[^\wáéíóúñ ¿?.-]/gi, '');
@@ -136,12 +145,12 @@ async function modales(page, ruta) {
 }
 
 async function modalesAccion(page, ruta) {
-  await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => {});
+  if (!(await ir(page, ruta))) return;
   const RX = /^(nuev[oa]|crear|agregar|editar|ajustar|registrar|devol|pagar|cobrar|adelant|filtr|configurar|asignar|cargar)/i;
   const cands = await page.$$eval('button[type="button"],a[role="button"]', (bs) => bs.filter((b) => b.getClientRects().length && !b.closest('form[method="post" i] [type=submit]')).map((b, i) => ({ i, t: (b.getAttribute('aria-label') || b.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40) })));
   const usar = cands.filter((c) => RX.test(c.t.replace(/^[a-z_]+\s+(?=[A-Z])/, ''))).slice(0, 4);
   for (const c of usar) {
-    await page.goto(BASE + ruta, { waitUntil: 'networkidle' }).catch(() => {});
+    if (!(await ir(page, ruta))) continue;
     const t = page.locator('button[type="button"],a[role="button"]').filter({ hasText: c.t.slice(0, 20) }).first();
     if (!(await t.isVisible().catch(() => false))) continue;
     await t.click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(900);
@@ -214,7 +223,7 @@ async function modalesAccion(page, ruta) {
   for (const [nom, vp] of [['zoom200', { width: 640, height: 512 }], ['zoom400', { width: 320, height: 256 }]]) {
     await pr.setViewportSize(vp);
     for (const r of rutas.slice(0, 14)) {
-      await pr.goto(BASE + r, { waitUntil: 'networkidle' }).catch(() => {});
+      if (!(await ir(pr, r))) continue;
       const sobra = await pr.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       R.reflow.push({ nom, ruta: r, sobra });
       if (sobra > 1) fallo(`reflow ${nom} ${r}: desborde horizontal +${sobra}px`);
@@ -230,7 +239,7 @@ async function modalesAccion(page, ruta) {
     const pm = await cm.newPage();
     await login(pm, 'administrador', 'Admin123!');
     for (const r of rutas.slice(0, 20)) {
-      await pm.goto(BASE + r, { waitUntil: 'networkidle' }).catch(() => {});
+      if (!(await ir(pm, r))) continue;
       const m = await pm.evaluate(() => {
         const pequenos = [...document.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab]')].filter((e) => {
           const b = e.getBoundingClientRect(); const cs = getComputedStyle(e);
@@ -260,7 +269,7 @@ async function modalesAccion(page, ruta) {
     const p2 = await c2.newPage();
     await login(p2, 'administrador', 'Admin123!');
     for (const r of rutas.slice(0, 12)) {
-      await p2.goto(BASE + r, { waitUntil: 'networkidle' }).catch(() => {});
+      if (!(await ir(p2, r))) continue;
       if (nom === 'reduced-motion') {
         const inf = await p2.evaluate(() => [...document.querySelectorAll('*')].filter((e) => { const cs = getComputedStyle(e); return cs.animationName !== 'none' && cs.animationIterationCount === 'infinite' && parseFloat(cs.animationDuration) > 0.01 && e.getClientRects().length; }).map((e) => e.tagName + '.' + String(e.className).slice(0, 30)));
         R.reducedMotion.push({ ruta: r, animacionesInfinitas: inf });
