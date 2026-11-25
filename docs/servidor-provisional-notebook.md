@@ -1,13 +1,13 @@
 # Servidor provisional (notebook Ubuntu) — instancia operativa, custodia, respaldo independiente y traslado (2026-11-25)
 
 Decisión del propietario: hasta tener el servidor físico definitivo, la notebook Ubuntu `192.168.50.223` hace de **servidor provisional** que simula las condiciones de producción. La VM `tbp` queda descartada. **No hay datos comerciales reales** y esta instancia **no inicia la operación comercial ni la ventana CSP productiva** (`CSP_MODE=Off`).
-Código instalado: tag `cierre-tecnico-software-20261125` (= `main` 41775ca5, CI verde). Matriz de requisitos: [`matriz-lista-b-20261125.md`](matriz-lista-b-20261125.md).
+Código de la **aplicación**: tag `cierre-tecnico-software-20261125` (= `main` 41775ca5, CI verde). Los procedimientos y scripts de este documento (`verificar-servidor.sh`, `cerrar-credito-inicial.py`, `exportar-custodia.sh`) se agregaron después, solo como scripts y documentación (el código de la aplicación no cambió): para reproducirlos usar el tag **`servidor-provisional-20261125`** (el `main` que incluye la PR #373). Matriz de requisitos: [`matriz-lista-b-20261125.md`](matriz-lista-b-20261125.md).
 
 ## 1. Dos instalaciones independientes en la misma notebook
 
 | | Laboratorio (`theburyproject-notebook`) | **Provisional** (`theburyproject-prov`) |
 |---|---|---|
-| Clon | `~/theburyproject1` | `~/theburyproject-prov` (tag de cierre) |
+| Clon | `~/theburyproject1` | `~/theburyproject-prov` (tag `servidor-provisional-20261125`; imagen de la app = la del cierre técnico) |
 | Dominio / puerto | `tbp-nb` : 443 | `tbp-prov` : **8443** |
 | Volúmenes, red, subred | `theburyproject-notebook_*`, `172.29.88.0/24` | `theburyproject-prov_*`, `172.29.89.0/24` |
 | Firewall (DOCKER-USER) | cadena `BURY-ERP` (`bury-firewall.service`) | cadena `BURY-ERP-PROV` (`bury-firewall-prov.service`, `/etc/bury/firewall-prov.conf`) |
@@ -24,7 +24,7 @@ Ninguna toca a la otra (guardia proyecto Compose ↔ `BACKUP_DIR`, #362). El lab
 ```bash
 # Servidor nuevo (Ubuntu): una vez
 sudo scripts/install/server-linux-bootstrap.sh
-git clone https://github.com/alanminana/theburyproject1 ~/theburyproject-prov && cd ~/theburyproject-prov && git checkout cierre-tecnico-software-20261125
+git clone https://github.com/alanminana/theburyproject1 ~/theburyproject-prov && cd ~/theburyproject-prov && git checkout servidor-provisional-20261125   # contiene los scripts de este documento; la app es la del tag cierre-tecnico-software-20261125
 sudo install -d -m 700 -o $USER -g $USER /srv/bury-backups-prov
 
 scripts/install/install.sh --env-only --yes --project theburyproject-prov --domain tbp-prov \
@@ -104,7 +104,7 @@ Ensayo ejecutado el 2026-11-25 en la notebook (proyecto descartable `theburyproj
 ```bash
 # En el servidor definitivo (Ubuntu limpio)
 sudo scripts/install/server-linux-bootstrap.sh
-git clone https://github.com/alanminana/theburyproject1 ~/theburyproject && cd ~/theburyproject && git checkout cierre-tecnico-software-20261125   # o el tag vigente
+git clone https://github.com/alanminana/theburyproject1 ~/theburyproject && cd ~/theburyproject && git checkout servidor-provisional-20261125   # o el tag vigente
 scripts/backup/recovery-package.sh extract bury-recovery_<ts>.gpg --to /dev/shm/env --passphrase-file <passphrase> && cp /dev/shm/env/.env .env && chmod 600 .env && rm -rf /dev/shm/env
 #   ajustar en .env solo lo propio del host: ERP_BIND_ADDRESS, BACKUP_DIR, BACKUP_REMOVABLE_DIR, (ERP_HTTPS_PORT/BURY_NET_SUBNET si comparte host)
 scripts/install/install.sh --no-deploy --yes --project theburyproject ...            # construye la imagen con tag inmutable
