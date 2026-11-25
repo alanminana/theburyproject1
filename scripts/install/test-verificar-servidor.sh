@@ -76,11 +76,37 @@ si "verificar-servidor.sh: --lan-cidr al final -> exit 2" bash -c 'timeout 10 ba
 # ---- DOCKER-USER: el trafico debe LLEGAR a la cadena de la instalacion
 J='-A DOCKER-USER -j BURY-ERP-PROV'
 si "DOCKER-USER: salto incondicional primero -> OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER' "$J" '-A DOCKER-USER -j BURY-ERP' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
-si "...tras el salto a otra cadena BURY (no termina el recorrido) -> OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j BURY-ERP' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+fw_dump_chain() { printf '%s
+' "-N $1" "-A $1 -j RETURN"; }
+si "...tras el salto a otra cadena BURY inocua (solo RETURN) -> OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j BURY-ERP' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+unset -f fw_dump_chain
 no "RETURN incondicional ANTES del salto -> NO es OK (evita el filtro)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j RETURN' "$J")" BURY-ERP-PROV
 no "ACCEPT incondicional antes del salto -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j ACCEPT' "$J")" BURY-ERP-PROV
 no "RETURN condicional antes del salto (-s 10.0.0.0/8) -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -s 10.0.0.0/8 -j RETURN' "$J")" BURY-ERP-PROV
 no "salto CONDICIONAL (-p tcp) -> NO es OK (no alcanza a todo el trafico)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -p tcp -j BURY-ERP-PROV' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
 no "el salto no existe (solo el RETURN final de Docker) -> NO es OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER' '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
 no "DOCKER-USER vacia -> NO es OK" docker_user_alcanza_cadena "$(fx '-N DOCKER-USER')" BURY-ERP-PROV
+# ---- saltos previos a OTRAS cadenas (p. ej. la de otra instalacion): se inspeccionan, no se suponen inocuos
+mkdir -p "$T/ch"; fw_dump_chain() { [[ -f "$T/ch/$1" ]] && cat "$T/ch/$1"; }
+printf '%s
+' '-N EARLY' '-A EARLY -j ACCEPT' >"$T/ch/EARLY"
+no "salto previo a una cadena con ACCEPT incondicional -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+printf '%s
+' '-N EARLY' '-A EARLY -s 10.0.0.0/8 -p tcp -j ACCEPT' '-A EARLY -j RETURN' >"$T/ch/EARLY"
+no "...o con ACCEPT condicional -> NO es OK (permite a un origen sin pasar por el filtro)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+printf '%s
+' '-N EARLY' '-A EARLY -p tcp --dport 80 -j DROP' '-A EARLY -j RETURN' >"$T/ch/EARLY"
+si "salto previo a una cadena que solo hace DROP/RETURN -> OK (no deja pasar nada)" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J" '-A DOCKER-USER -j RETURN')" BURY-ERP-PROV
+printf '%s
+' '-N EARLY' '-A EARLY -j NESTED' '-A EARLY -j RETURN' >"$T/ch/EARLY"; printf '%s
+' '-N NESTED' '-A NESTED -j ACCEPT' >"$T/ch/NESTED"
+no "ACCEPT en una cadena anidada (EARLY -> NESTED) -> NO es OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J")" BURY-ERP-PROV
+printf '%s
+' '-N EARLY' '-A EARLY -j NESTED' '-A EARLY -j RETURN' >"$T/ch/EARLY"; printf '%s
+' '-N NESTED' '-A NESTED -j RETURN' >"$T/ch/NESTED"
+si "cadena anidada sin ACCEPT -> OK" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J")" BURY-ERP-PROV
+no "salto previo a una cadena que NO se puede leer -> falla cerrado" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j DESCONOCIDA' "$J")" BURY-ERP-PROV
+unset -f fw_dump_chain
+no "sin funcion de lectura de cadenas, un salto previo a otra cadena -> falla cerrado" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -j EARLY' "$J")" BURY-ERP-PROV
+no "salto previo CONDICIONAL a otra cadena -> falla cerrado" docker_user_alcanza_cadena "$(fx '-A DOCKER-USER -s 10.0.0.0/8 -j EARLY' "$J")" BURY-ERP-PROV
 echo; echo "verificar-servidor tests: $PASS PASS, $FAIL FAIL"; (( FAIL == 0 ))

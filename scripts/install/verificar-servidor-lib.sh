@@ -86,9 +86,31 @@ cadena_firewall_ok() {
   return 0
 }
 
+# cadena_sin_aceptar CADENA [PROFUNDIDAD]: ninguna regla de CADENA (ni de las cadenas a las que salta, hasta 4 niveles) hace ACCEPT. Lee las reglas con la
+#   funcion fw_dump_chain NOMBRE (la define quien llama: en el servidor es `iptables -S NOMBRE`). Si no esta definida, o una cadena no se puede leer, FALLA
+#   CERRADO: no se puede asegurar que no deje pasar el trafico sin llegar al filtro.
+cadena_sin_aceptar() {
+  local c="$1" depth="${2:-0}" line tg rules
+  ((depth <= 4)) || return 1
+  declare -F fw_dump_chain >/dev/null || return 1
+  rules="$(fw_dump_chain "$c")" || return 1
+  [[ -n "$rules" ]] || return 1
+  while IFS= read -r line; do
+    [[ "$line" == "-A $c "* ]] || continue
+    tg="${line##* -j }"
+    case "$tg" in
+      ACCEPT) return 1 ;;
+      RETURN|DROP|REJECT|LOG|QUEUE|NFQUEUE) ;;
+      *) cadena_sin_aceptar "$tg" $((depth+1)) || return 1 ;;     # salto a otra cadena de usuario: se inspecciona
+    esac
+  done <<<"$rules"
+  return 0
+}
+
 # docker_user_alcanza_cadena ARCHIVO CADENA: ARCHIVO = `iptables -S DOCKER-USER`. La cadena de la instalacion solo protege si el trafico LLEGA a ella:
-#   el salto debe ser INCONDICIONAL (`-A DOCKER-USER -j CADENA`) y ninguna regla anterior puede terminar el recorrido (RETURN/ACCEPT/DROP): un
-#   RETURN o ACCEPT previo dejaria pasar el trafico sin pasar por el filtro. (Docker agrega su propio `-j RETURN` al FINAL: eso es normal.)
+#   el salto debe ser INCONDICIONAL (`-A DOCKER-USER -j CADENA`) y ninguna regla anterior puede terminar el recorrido (RETURN/ACCEPT/DROP). Los saltos
+#   previos a OTRAS cadenas (p. ej. la de otra instalacion) se permiten solo si esas cadenas no hacen ACCEPT (cadena_sin_aceptar, recursivo; falla cerrado).
+#   (Docker agrega su propio `-j RETURN` al FINAL: eso es normal.)
 docker_user_alcanza_cadena() {
   local f="$1" chain="$2" line tg
   while IFS= read -r line; do
@@ -96,7 +118,11 @@ docker_user_alcanza_cadena() {
     tg="${line##* -j }"
     if [[ "$line" == "-A DOCKER-USER -j $chain" ]]; then return 0; fi
     [[ "$line" == *" -j $chain" ]] && return 1                    # salto condicional: no alcanza a todo el trafico
-    case "$tg" in RETURN|ACCEPT|DROP|REJECT) return 1 ;; esac    # termina el recorrido antes de llegar al filtro
+    case "$tg" in
+      RETURN|ACCEPT|DROP|REJECT) return 1 ;;                       # termina el recorrido antes de llegar al filtro
+      *) [[ "$line" == "-A DOCKER-USER -j $tg" ]] || return 1       # salto condicional a otra cadena: no se puede asegurar
+         cadena_sin_aceptar "$tg" || return 1 ;;
+    esac
   done <"$f"
   return 1
 }
