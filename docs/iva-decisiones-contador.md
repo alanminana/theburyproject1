@@ -53,7 +53,8 @@ Estado: **PENDIENTE** (sin criterio fiscal) o **PENDIENTE DE VALIDACIÓN** (crit
 - **Podría cambiar:** emisión de comprobante o línea por cada cobro con recargo, Reporte de IVA, recibo.
 
 ### 2.5 IVA de devoluciones y notas de crédito — PENDIENTE
-- **Qué hace hoy:** Reportes/Dashboard restan la devolución por su fecha. El Reporte de IVA y "IVA a depositar" **no** netean aún (lo avisan en su nota).
+- **Actualización 2026-11-25:** criterio interno del propietario implementado (no es certificación del contador): el Reporte de IVA netea, de forma informativa, el IVA de las devoluciones **con NC fiscal externa válida vinculada**, en el período de la fecha de esa NC; ver `docs/iva-neteo-nc-fiscal.md`. La confirmación del contador sigue pendiente.
+- **Qué hacía antes:** Reportes/Dashboard restan la devolución por su fecha. El Reporte de IVA y "IVA a depositar" no neteaban.
 - **Falta saber:** período en que se computa la nota de crédito y si hay que emitir NC fiscal electrónica por cada devolución.
 - **Pregunta:** ¿en qué período se resta el débito fiscal de una devolución (fecha de emisión de la NC)? ¿Se emite NC fiscal por cada devolución?
 - **Podría cambiar:** Reporte de IVA (netear NC), emisión de NC electrónica, circuito de Devolución.
