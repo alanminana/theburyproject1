@@ -65,11 +65,11 @@ docker compose -p theburyproject-prov logs app | grep -i '\[FISCAL\]'           
 
 Procedimiento completo y criterios GO/NO-GO: `docs/csp-enforce-activacion.md` (§2, §3, §5). Particularidades de esta instalación (Docker + Caddy, notebook Linux):
 
-* **Activar (solo con autorización expresa):** `sed -i 's/^CSP_MODE=.*/CSP_MODE=ReportOnly/' .env && docker compose -p theburyproject-prov up -d --no-deps app` (no `restart`: no aplica el cambio). Verificar la cabecera `Content-Security-Policy-Report-Only` con `curl -ks -D - -o /dev/null https://tbp-prov:8443/Identity/Account/Login`. Un valor mal escrito deja `app` en bucle de reinicio: revertir con `CSP_MODE=Off`.
+* **Activar (solo con autorización expresa):** `sed -i 's/^CSP_MODE=.*/CSP_MODE=ReportOnly/' .env && ERP_IMAGE=theburyproject/erp:20261125-1ba62e7a docker compose -p theburyproject-prov up -d --no-deps app` (no `restart`: no aplica el cambio). **`ERP_IMAGE` es obligatorio** en una shell nueva: `install.sh`/`deploy.sh` lo exportan solo dentro de su proceso y `docker-compose.yml` cae a `erp:local`, que recrearía `app` con otra imagen (comprobar después con `docker inspect theburyproject-prov-app-1 --format '{{.Config.Image}}'`). Verificar la cabecera `Content-Security-Policy-Report-Only` con `curl -ks -D - -o /dev/null https://tbp-prov:8443/Identity/Account/Login`. Un valor mal escrito deja `app` en bucle de reinicio: revertir con `CSP_MODE=Off`.
 * **Línea base de hoy:** `csp-humo-lectura.js --esperar off` = OK (7 pantallas, 0 violaciones). Se corre en el contenedor `mcr.microsoft.com/playwright:v1.59.1-noble` con `--network host`, montando `scripts/ops` en solo lectura y las credenciales por variable de entorno; la notebook no tiene Node ni PowerShell. Con la ventana activa se repite con `--esperar reportonly`.
 * **Archivo diario del log** (Docker lo rota a 10 MB × 3 y lo pierde al recrear el contenedor): `docker compose -p theburyproject-prov logs --no-color -t --since 24h app > ~/csp-obs/app-$(date +%F).log`, por cron diario. Antes de cada reinicio archivar a mano. El análisis (`scripts/ops/csp-observacion.ps1`) se corre en la PC de Windows sobre los logs copiados con `scp`.
 * **Centinela** el primer y el último día (consola del navegador, ver §2 del documento de CSP). Duración mínima: 10 días hábiles con un cierre/inicio de mes dentro de los 30 días del piloto.
-* Reversión: `CSP_MODE=Off` + `up -d --no-deps app` (≤ 5 min).
+* Reversión: `CSP_MODE=Off` + `ERP_IMAGE=theburyproject/erp:20261125-1ba62e7a docker compose -p theburyproject-prov up -d --no-deps app` (≤ 5 min).
 
 ## 6. Pendientes exclusivos del propietario
 
