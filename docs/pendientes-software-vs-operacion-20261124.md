@@ -3,6 +3,8 @@
 Dos listas **independientes**. La primera es lo que falta para dar por **terminado el software** (se puede cerrar sin datos reales, sin contador y sin el servidor definitivo). La segunda es lo que **solo** hace falta para empezar a operar en producción: nada de ella bloquea el cierre técnico del software.
 Decisiones vigentes: la notebook Ubuntu es exclusivamente el servidor de pruebas; el servidor productivo definitivo se define después; la VM `tbp` no se usa; no hay datos comerciales reales. Evidencia: [`notebook-laboratorio-independiente.md`](notebook-laboratorio-independiente.md); detalle por hito: [`estado-finalizacion-20261124.md`](estado-finalizacion-20261124.md).
 
+> **Vigente:** el estado actual y el índice de evidencia vigente/histórica están en [`cierre-tecnico-software-20261125.md`](cierre-tecnico-software-20261125.md). Este documento conserva la lista original; el estado de la Lista A está en §1b.
+
 ## 1. Cierre técnico del software: lo ya demostrado (no se repite)
 
 Instalación limpia y reinstalación (145 migraciones, identidad de imagen), `run-p07` 131/131 (compras, stock, caja, cotización→venta→factura, devoluciones y NC, crédito→contrato→cuotas→cobros, cierre de caja, reportes, permisos),
