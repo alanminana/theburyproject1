@@ -69,7 +69,7 @@ else skip "V02-V04 no existe la CA ($CA): ejecutar install.sh o pasar --ca"; fi
 # --- 3. migraciones y verificadores SQL
 DBN="$(envv MSSQL_DATABASE)"; DBN="${DBN:-TheBuryProjectDb}"
 # La contrasena de SA NO viaja por argv del host: el shell DENTRO del contenedor la toma de su propio entorno (como scripts/backup/lib.sh).
-sqlq() { docker exec "${PROJECT}-db-1" bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -d "$1" -h -1 -W -Q "SET NOCOUNT ON; $0"' "$1" "$DBN" 2>/dev/null | tr -d '' | head -1; }
+sqlq() { docker exec "${PROJECT}-db-1" bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -d "$1" -h -1 -W -Q "SET NOCOUNT ON; $0"' "$1" "$DBN" 2>/dev/null | tr -d '\r' | head -1; }
 mig="$(sqlq 'SELECT COUNT(*) FROM __EFMigrationsHistory')"; esperadas="$(ls "$REPO_DIR"/Migrations/20*.cs 2>/dev/null | grep -vc Designer)"
 [[ -n "$mig" && "$mig" = "$esperadas" ]] && pass "V05 migraciones aplicadas = $mig (las del repositorio)" || fail "V05 migraciones aplicadas '${mig:-?}' vs repositorio $esperadas"
 sqlfile() {  # sqlfile <archivo.sql> [cierre]: con "cierre" fija @Cierre = 1 en una copia temporal (el original no se modifica)
