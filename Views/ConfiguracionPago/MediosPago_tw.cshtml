@@ -698,8 +698,15 @@
             border-color: color-mix(in srgb, var(--pal-accent) 50%, transparent);
             background: color-mix(in srgb, var(--pal-accent) 15%, transparent);
             color: var(--pay-text);
-            outline: none;
             transform: translateY(-1px);
+        }
+
+        /* Foco de teclado visible (WCAG 2.4.7 / 1.4.11): el cambio de borde/fondo por si solo no alcanza el contraste 3:1. */
+        .pay-mini-button:focus-visible,
+        .pay-field:focus-visible,
+        .pay-select:focus-visible {
+            outline: 2px solid var(--pal-accent);
+            outline-offset: 2px;
         }
 
         .pay-mini-button.primary {

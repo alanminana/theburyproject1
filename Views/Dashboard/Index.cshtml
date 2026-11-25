@@ -417,17 +417,21 @@
                         <h2 class="text-base font-semibold text-slate-100 section-header-erp">Alertas de stock</h2>
                     </div>
                     @{
-                        // Si el usuario puede entrar a Catálogo, "Ver alertas" lleva directo a la
-                        // pestaña Alertas (Fase 7); si no, cae a la pantalla standalone para no
-                        // regresionar a nadie que tenga stock.viewalerts sin cotizaciones.view.
-                        var alertasEnCatalogo = User.TienePermiso("cotizaciones", "view");
+                        // "Ver alertas" solo se ofrece si el destino es abrible por este rol: Catálogo exige productos.view y su
+                        // pestaña Alertas stock.viewalerts; la pantalla standalone exige stock.viewalerts. Sin ese permiso no hay enlace
+                        // (antes se decidía con cotizaciones.view y llevaba a "Acceso denegado" a gerente, cajero, técnico y contador).
+                        var puedeVerAlertasStock = User.TienePermiso("stock", "viewalerts");
+                        var alertasEnCatalogo = puedeVerAlertasStock && User.TienePermiso("productos", "view");
                     }
+                    @if (puedeVerAlertasStock)
+                    {
                     <a asp-controller="@(alertasEnCatalogo ? "Catalogo" : "AlertaStock")" asp-action="Index"
                        asp-route-tab="@(alertasEnCatalogo ? "alertas" : null)"
                        class="btn-erp-ghost btn-erp-sm no-underline">
                         <span class="material-symbols-outlined text-[14px]">open_in_new</span>
                         Ver alertas
                     </a>
+                    }
                 </div>
                 <div data-oc-scroll style="--oc-scroll-min-width: 30rem;" class="dashboard-table-wrap">
                     <div class="border-b border-slate-800 px-4 py-3">

@@ -9,10 +9,10 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('playwright');
+const { chromium, firefox, webkit } = require('playwright');
 
 const BASE = process.env.E2E_BASE_URL || 'http://127.0.0.1:18080';
-if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE)) { console.error('Solo se recorre un stack local aislado.'); process.exit(2); }
+if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE)) { console.error('Solo se recorre un stack local aislado.'); process.exit(2); }
 const AXE = process.env.AXE_PATH;
 if (!AXE || !fs.existsSync(AXE)) { console.error('Definir AXE_PATH con la ruta de axe.min.js.'); process.exit(2); }
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
@@ -20,6 +20,7 @@ const USERS = {
   administrador: 'Admin123!', gerente: 'Gerente123!', vendedor: 'Vendedor123!', cajero: 'Cajero123!',
   repositor: 'Repositor123!', tecnico: 'Tecnico123!', contador: 'Contador123!',
 };
+const BROWSER = arg('--browser', 'chromium'); // chromium | firefox | webkit
 const roles = arg('--roles', 'administrador').split(',');
 const viewports = arg('--viewports', '1366x768,768x1024,390x844').split(',').map((v) => { const [w, h] = v.split('x').map(Number); return { width: w, height: h }; });
 const AXE_SRC = fs.readFileSync(AXE, 'utf8');
@@ -60,10 +61,10 @@ async function enlaces(page, soloDetalle) {
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await { chromium, firefox, webkit }[BROWSER].launch();
   const resultado = [];
   for (const rol of roles) {
-    const ctx = await browser.newContext({ viewport: viewports[0], locale: 'es-AR' });
+    const ctx = await browser.newContext({ viewport: viewports[0], locale: 'es-AR', ignoreHTTPSErrors: true });
     const page = await ctx.newPage();
     const r = { rol, paginas: 0, http4xx: [], http5xx: [], errores: [], desborde: [], axe: {}, csp: [], axeCompletadas: 0, axeFallidas: [] };
     await ctx.addInitScript(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} | ${(e.blockedURI || '').slice(0, 80)}`)); });
