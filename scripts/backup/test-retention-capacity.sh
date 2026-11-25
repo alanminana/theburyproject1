@@ -339,9 +339,11 @@ check "desconectado tras una copia al dia: rc 0, estado 'atrasada' (exit 1, veri
 mv "$T/rem1-desconectado" "$REM"
 cfgrun "$S" BACKUP_REMOVABLE_DIR="$REM" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply >/dev/null 2>&1; rc=$?
 check "reconectado: se pone al dia (el log nuevo se copia) y vuelve a verified true" bash -c '[[ "$1" == 0 && -f "$2/bury-backup/sql/'"${DB}_log_$(stamp 60)"'.trn" ]] && grep -q "\"verified\":true" "$3/monitor-status/removable-copy.json"' _ "$rc" "$REM" "$S"
+# Alteracion DETERMINISTA: invierte el byte (XOR 0xFF), asi que SIEMPRE cambia (escribir una 'Z' fija coincide con el byte original 1 de cada 256 veces y el caso se vuelve intermitente).
+flipbyte() { local f="$1" off="$2" b; b=$(od -An -tu1 -j"$off" -N1 "$f" | tr -d ' '); printf "\\x$(printf '%02x' $((b ^ 255)))" | dd of="$f" bs=1 seek="$off" conv=notrunc 2>/dev/null; }
 # integridad: el origen del full mas nuevo esta CORRUPTO respecto de su .sha256 -> no se copia como valido
 S2=$(newbk src2); mkchain "$S2" $((2*D)) 1 1000 0; mkchain "$S2" $((1*D)) 1 1000 0
-nf="$S2/sql/${DB}_full_$(stamp $((1*D))).bak"; printf 'Z' | dd of="$nf" bs=1 seek=10 conv=notrunc 2>/dev/null
+nf="$S2/sql/${DB}_full_$(stamp $((1*D))).bak"; flipbyte "$nf" 10
 REM2=$(newrem rem2); touch "$REM2/.bury-backup-removable"
 out=$(cfgrun "$S2" BACKUP_REMOVABLE_DIR="$REM2" BACKUP_REMOVABLE_REQUIRE_MOUNT=false -- copy-removable.sh --apply 2>&1); rc=$?
 check "integridad: full de origen corrupto (no coincide con su sha256) -> NO queda copiado (ni .partial) y estado 'atrasada'" bash -c '[[ "$1" == 0 && ! -f "$2/bury-backup/sql/'"${DB}_full_$(stamp $((1*D)))"'.bak" ]] && ! find "$2" -name "*.partial" | grep -q . && grep -q "\"exit\":1" "$3/monitor-status/removable-copy.json"' _ "$rc" "$REM2" "$S2"
