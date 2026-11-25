@@ -845,6 +845,30 @@ public class FiscalConciliacionF4Tests : IDisposable
     }
 
     [Fact]
+    public async Task NcFiscal_VentaMixtaConLineaLegacySinDesglose_NetaLoDevueltoConDesglose_YOmiteLoDevueltoSinDesglose()
+    {
+        var e = await SeedEscenarioAsync();
+        var hoy = _reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        var filtro = FiltroIva(hoy.AddDays(-2), hoy.AddDays(2));
+        var ncB = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.B.Id, 1));
+        var ncA = await DevolverConNcAsync(e.V2, e.Cliente.Id, (e.A.Id, 1));
+        await VincularFiscalAsync(ncB.Id, ncB.MontoTotal, hoy, "00000020");
+        await VincularFiscalAsync(ncA.Id, ncA.MontoTotal, hoy, "00000021");
+        // la línea de A pasa a ser legacy (sin desglose de IVA); la de B conserva su desglose
+        var lineaA = await _context.VentaDetalles.FirstAsync(d => d.VentaId == e.V2 && d.ProductoId == e.A.Id);
+        lineaA.SubtotalFinalNeto = 0m; lineaA.SubtotalFinalIVA = 0m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var r = await _reportes.GenerarReporteIvaAsync(filtro);
+
+        Assert.Equal(1, r.NotasCreditoCantidad);          // la de B (10,5 %): su débito sí está en el reporte
+        Assert.Equal(10.5m, Assert.Single(r.NotasCreditoPorAlicuota).Porcentaje);
+        Assert.Equal(1, r.NotasCreditoSinDesglose);       // la de A: su débito quedó fuera del reporte, no se resta
+        Assert.Equal(ncA.MontoTotal, r.NotasCreditoSinDesgloseTotal);
+    }
+
+    [Fact]
     public async Task NcFiscal_FiltroPorAlicuota_RestringeTambienElNeteo()
     {
         var e = await SeedEscenarioAsync();

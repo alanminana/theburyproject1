@@ -563,26 +563,40 @@ namespace TheBuryProject.Services
                 }
 
                 var lineasVenta = lineas.Where(l => l.VentaId == nc.VentaId).ToList();
-                // Venta con líneas legacy sin desglose: sus líneas no están en los totales de ventas, así que no hay IVA que netear.
-                if (lineasVenta.Any(l => l.SubtotalFinalNeto == 0m && l.SubtotalFinalIVA == 0m && l.SubtotalFinal > 0m))
-                {
-                    resultado.NotasCreditoSinDesglose++;
-                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
-                    continue;
-                }
+                // Líneas legacy sin desglose: no están en los totales de ventas (el reporte sí incluye las demás líneas de esa venta), así
+                // que solo se omite la NC cuando lo devuelto toca una de ellas; una devolución de líneas con desglose se netea normalmente.
+                static bool LineaSinDesglose(decimal neto, decimal iva, decimal bruto) => neto == 0m && iva == 0m && bruto > 0m;
+                var omitida = false;
 
                 // Peso por alícuota = bruto devuelto de cada producto repartido entre las líneas de ese producto (alícuota histórica de la línea).
                 var pesos = new List<(decimal Porcentaje, decimal Peso)>();
                 foreach (var dev in devueltos.Where(d => d.DevolucionId == nc.DevolucionId))
                 {
                     var delProducto = lineasVenta.Where(l => l.ProductoId == dev.ProductoId).ToList();
+                    if (delProducto.Any(l => LineaSinDesglose(l.SubtotalFinalNeto, l.SubtotalFinalIVA, l.SubtotalFinal)))
+                    {
+                        omitida = true;
+                        break;
+                    }
                     var base_ = delProducto.Sum(l => l.SubtotalFinal);
                     if (base_ <= 0m) continue;
                     pesos.AddRange(delProducto.Select(l => (l.PorcentajeIVA, dev.Subtotal * l.SubtotalFinal / base_)));
                 }
                 // Devolución sin detalle utilizable: se reparte como la venta (proporción de sus líneas), nunca con la alícuota actual del producto.
-                if (pesos.Sum(p => p.Peso) <= 0m)
-                    pesos = lineasVenta.Select(l => (l.PorcentajeIVA, l.SubtotalFinal)).ToList();
+                if (!omitida && pesos.Sum(p => p.Peso) <= 0m)
+                {
+                    if (lineasVenta.Any(l => LineaSinDesglose(l.SubtotalFinalNeto, l.SubtotalFinalIVA, l.SubtotalFinal)))
+                        omitida = true;
+                    else
+                        pesos = lineasVenta.Select(l => (l.PorcentajeIVA, l.SubtotalFinal)).ToList();
+                }
+
+                if (omitida)
+                {
+                    resultado.NotasCreditoSinDesglose++;
+                    resultado.NotasCreditoSinDesgloseTotal += nc.Importe;
+                    continue;
+                }
 
                 var partes = IvaNotaCreditoFiscal.Repartir(nc.Importe, pesos);
                 if (partes.Count == 0)
