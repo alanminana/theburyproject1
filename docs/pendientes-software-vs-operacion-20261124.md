@@ -47,6 +47,8 @@ No hay defectos reproducibles abiertos en módulos cerrados. Los defectos hallad
 
 ## 3. LISTA B — Requisitos pendientes exclusivamente para comenzar la operación productiva
 
+> **Estado actual y clasificación individual (E/S/P/C-L/D): [`matriz-lista-b-20261125.md`](matriz-lista-b-20261125.md).** La tabla de abajo es la lista original.
+
 No bloquean el cierre técnico del software. Clasificación: **H** = hardware/servidor definitivo, **O** = operación comercial real, **C** = contador, **L** = legal, **P** = decisión del propietario.
 
 | # | Requisito | Tipo |

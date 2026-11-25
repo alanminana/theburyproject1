@@ -19,6 +19,9 @@ Decisiones vigentes: la notebook Ubuntu `192.168.50.223` es **exclusivamente** e
 | Regresión de lo anterior bajo demanda | workflow **manual** `.github/workflows/regresion-manual.yml` (`p07`, `dr-datos`, `ui-stack`, `todo`) | Actions → *Regresion manual* |
 | CI de cada PR | `ci.yml` / `playwright.yml` (21 checks) | automático |
 
+| Servidor provisional (notebook) y requisitos para operar | [`servidor-provisional-notebook.md`](servidor-provisional-notebook.md); [`matriz-lista-b-20261125.md`](matriz-lista-b-20261125.md) (B1–B15 clasificados, evidencia y datos que debe aportar el propietario) | `scripts/install/verificar-servidor.sh` (solo lectura) |
+| Custodia de claves LUKS exportable | `scripts/backup/exportar-custodia.sh` (test 24/24, en `test-hardening`) | idem |
+
 ## 2. Estado final de la Lista A
 
 | # | Estado | PR |

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# EXPORTA LAS CLAVES DE LA COPIA LOCAL CIFRADA (LUKS) A UN ARCHIVO CIFRADO PARA LA CUSTODIA EXTERNA (B5). Complementa recovery-package.sh:
+# el paquete de recuperacion lleva .env y backup-offsite.env; este lleva lo que SOLO existe en /etc/bury-backup (root, 0400): la clave y el
+# encabezado LUKS de cada copia local (`setup-local-disk-copy.sh --name N`). Sin esa clave, el pendrive/disco de respaldos es ilegible.
+#
+#   sudo scripts/backup/exportar-custodia.sh create --out DIR --passphrase-file F [--name bury-prov]...   (sin --name: todas las copias)
+#        scripts/backup/exportar-custodia.sh verify PAQUETE.gpg --passphrase-file F     descifra, valida y lista NOMBRES (nunca contenidos)
+#        scripts/backup/exportar-custodia.sh extract PAQUETE.gpg --to DIR --passphrase-file F   restaura (DIR nuevo, 0700; usar tmpfs)
+#
+# Reglas (mismo modelo que recovery-package.sh, ver docs/backup-custodia.md): GnuPG simetrico AES-256 con MDC (cualquier alteracion falla el
+# descifrado); passphrase solo desde archivo 0600 o terminal (nunca argv/entorno ni se imprime); temporales SOLO en tmpfs (/dev/shm), si no hay se
+# aborta; la salida no puede estar dentro del directorio de la passphrase ni del BACKUP_DIR/BACKUP_REMOVABLE_DIR (la clave no puede vivir junto a
+# los respaldos que descifra). Guardar la passphrase (custodia A) y este archivo (custodia B) en lugares DISTINTOS y FUERA del servidor.
+# Codigos: 0 ok | 1 uso/configuracion | 3 integridad/descifrado | 8 falta gpg/tar o no hay tmpfs o no hay claves
+set -uo pipefail
+KEYDIR="${BURY_KEYDIR:-/etc/bury-backup}"
+MODE="${1:-}"; shift || true
+OUT="" PKG="" TO="" PASSFILE="" NAMES=()
+while (( $# )); do
+  case "$1" in
+    --out) OUT="${2:-}"; shift 2 ;; --to) TO="${2:-}"; shift 2 ;; --passphrase-file) PASSFILE="${2:-}"; shift 2 ;; --name) NAMES+=("${2:-}"); shift 2 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;; -*) echo "argumento desconocido: $1" >&2; exit 1 ;; *) PKG="$1"; shift ;;
+  esac
+done
+die() { echo "ERROR: $*" >&2; exit "${2:-1}"; }
+command -v gpg >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 || die "falta gpg (2.x) o tar" 8
+[[ "$(stat -f -c %T /dev/shm 2>/dev/null)" == tmpfs ]] || die "no hay /dev/shm en tmpfs: no se escriben claves en disco" 8
+[[ "$MODE" =~ ^(create|verify|extract)$ ]] || { sed -n '2,8p' "$0" >&2; exit 1; }
+if [[ -n "$PASSFILE" ]]; then
+  [[ -f "$PASSFILE" && ! -L "$PASSFILE" && "$(stat -c %a "$PASSFILE")" = 600 && -s "$PASSFILE" ]] || die "--passphrase-file debe ser un archivo regular, no vacio, modo 600"
+else die "falta --passphrase-file (modo 600)"; fi
+WORK="$(mktemp -d /dev/shm/bury-xc.XXXXXX)" || die "no se pudo crear el temporal en tmpfs" 8
+chmod 700 "$WORK"; export GNUPGHOME="$WORK/gh"; mkdir -m 700 "$GNUPGHOME"
+trap 'gpgconf --kill gpg-agent >/dev/null 2>&1; rm -rf "$WORK"' EXIT
+gpgx() { gpg --batch --yes --quiet --no-tty --pinentry-mode loopback --passphrase-file "$PASSFILE" "$@"; }
+unpack() { gpgx -d -o "$WORK/p.tgz" "$1" 2>/dev/null && [[ -s "$WORK/p.tgz" ]] || die "no se pudo descifrar/autenticar (passphrase incorrecta o paquete alterado)" 3
+  # solo archivos regulares de nombre simple (sin enlaces, rutas ni dispositivos)
+  tar -tzvf "$WORK/p.tgz" 2>/dev/null | awk '{print substr($1,1,1), $NF}' | while read -r t n; do [[ "$t" = "-" && "$n" != */* && "$n" != .* ]] || exit 1; done \
+    || die "el paquete contiene entradas no permitidas (enlaces, rutas o dispositivos)" 3; }
+
+case "$MODE" in
+create)
+  [[ -n "$OUT" && -d "$OUT" ]] || die "--out debe ser un directorio existente"
+  [[ "$(cd "$OUT" && pwd -P)" != "$(cd "$(dirname "$PASSFILE")" && pwd -P)" ]] || die "la salida no puede estar en el mismo directorio que la passphrase (custodias A y B separadas)"
+  for d in "${BACKUP_DIR:-}" "${BACKUP_REMOVABLE_DIR:-}"; do [[ -z "$d" ]] || case "$(cd "$OUT" && pwd -P)/" in "$(cd "$d" 2>/dev/null && pwd -P)"/*) die "la salida esta dentro de $d: la clave no puede vivir junto a los respaldos";; esac; done
+  mkdir -p "$WORK/stage"; : >"$WORK/stage/MANIFEST.txt"
+  if ((${#NAMES[@]})); then files=(); for n in "${NAMES[@]}"; do files+=("$KEYDIR/local-disk-$n.key" "$KEYDIR/local-disk-$n.luks-header"); done
+  else mapfile -t files < <(ls "$KEYDIR"/local-disk*.key "$KEYDIR"/local-disk*.luks-header 2>/dev/null); fi
+  ((${#files[@]})) || die "no hay claves LUKS en $KEYDIR (setup-local-disk-copy.sh --apply las crea)" 8
+  { echo "bury-custodia-luks v1"; echo "fecha=$(date -u +%FT%TZ)"; echo "host=$(hostname)"; } >>"$WORK/stage/MANIFEST.txt"
+  for f in "${files[@]}"; do [[ -f "$f" && ! -L "$f" ]] || die "falta o es un enlace: $f" 8; cp -p -- "$f" "$WORK/stage/$(basename "$f")"; echo "$(basename "$f") sha256=$(sha256sum "$f" | cut -c1-16)..." >>"$WORK/stage/MANIFEST.txt"; done
+  ( cd "$WORK/stage" && tar -czf "$WORK/p.tgz" -- * ) 2>/dev/null || die "no se pudo empaquetar" 1
+  NAME="bury-custodia-luks_$(date -u +%Y%m%d-%H%M%SZ)_$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n').gpg"
+  gpgx --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$WORK/$NAME" "$WORK/p.tgz" || die "fallo el cifrado" 3
+  install -m 600 -o "${SUDO_UID:-$(id -u)}" -g "${SUDO_GID:-$(id -g)}" "$WORK/$NAME" "$OUT/$NAME"; ( cd "$OUT" && sha256sum "$NAME" >"$NAME.sha256" && chmod 600 "$NAME.sha256" && chown "${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}" "$NAME.sha256" 2>/dev/null || true )
+  echo "paquete creado: $OUT/$NAME ($(stat -c %s "$OUT/$NAME") bytes; ${#files[@]} archivo(s) de clave + MANIFEST)"
+  echo "SIGUIENTE: guardar este archivo (custodia B) y la passphrase (custodia A) en lugares DISTINTOS y fuera del servidor." ;;
+verify)
+  [[ -f "$PKG" ]] || die "falta PAQUETE.gpg"; unpack "$PKG"
+  echo "paquete valido (descifrado autenticado); contenido (solo nombres):"; tar -tzf "$WORK/p.tgz" | sed 's/^/  - /' ;;
+extract)
+  [[ -f "$PKG" && -n "$TO" ]] || die "uso: extract PAQUETE.gpg --to DIR"; [[ ! -e "$TO" ]] || die "$TO ya existe (no se sobrescribe)"
+  unpack "$PKG"; mkdir -m 700 "$TO" && tar -C "$TO" -xzf "$WORK/p.tgz" --no-same-owner && chmod 600 "$TO"/* && echo "restaurado en $TO (0700); copiar las claves a /etc/bury-backup (root, 0400) solo para reabrir el disco" ;;
+esac
