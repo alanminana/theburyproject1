@@ -127,7 +127,8 @@ try {
     if (-not (Test-Path -LiteralPath $hostKey)) { Invoke-Native (Join-Path $SshBin 'ssh-keygen.exe') @('-A') | Out-Null }
     $keys = Join-Path $SshData "${Usuario}_authorized_keys"
     Set-Content -LiteralPath $keys -Value "from=`"$ClienteIp`",restrict $pub" -Encoding ASCII
-    Invoke-Native 'icacls.exe' @($keys, '/inheritance:r', '/grant:r', "${SidSystem}:F", "${SidAdmins}:F") | Out-Null
+    # el usuario NO administrador necesita LEER su archivo (sshd lo abre con su identidad); solo administradores pueden modificarlo
+    Invoke-Native 'icacls.exe' @($keys, '/inheritance:r', '/grant:r', "${SidSystem}:F", "${SidAdmins}:F", "$env:COMPUTERNAME\${Usuario}:R") | Out-Null
     $config = Join-Path $SshData 'sshd_config'
     if ((Test-Path -LiteralPath $config) -and -not ((Get-Content -LiteralPath $config -TotalCount 1) -eq $Marca)) {
         $backup = "$config.antes-bury-$(Get-Date -Format yyyyMMddHHmmss)"
