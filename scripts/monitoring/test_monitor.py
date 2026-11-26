@@ -61,6 +61,102 @@ class MonitoringTests(unittest.TestCase):
         self.alerts.update({}, 1180)
         self.assertEqual([e["status"] for e in self.events], ["firing", "resolved"])
 
+    # ----- alimentacion y bateria (sysfs sintetico) -----
+    def power_sample(self, now, ac="1", capacity=80, status="Charging", mains=True, battery=True):
+        root = Path(self.tmp.name) / "power_supply"
+        shutil.rmtree(root, ignore_errors=True)
+        entries = {}
+        if mains:
+            entries["AC"] = {"type": "Mains", "online": ac}
+        if battery:
+            entries["BAT0"] = {"type": "Battery", "capacity": str(capacity), "status": status}
+        entries["hid-mouse"] = {"type": "Battery", "scope": "Device", "capacity": "3", "status": "Discharging"}
+        entries["ucsi"] = {"type": "USB", "online": "0"}
+        for name, values in entries.items():
+            (root / name).mkdir(parents=True)
+            for key, value in values.items():
+                (root / name / key).write_text(value + "\n")
+        self.collector.cfg["power"] = {**self.cfg.get("power", {}), "sysfs": str(root)}
+        self.collector.signals = {}
+        self.collector.safe("power", self.collector.power)
+        self.alerts.update(self.collector.signals, now)
+        return self.collector.signals
+
+    def power_events(self):
+        return [(e["key"], e["status"], e["severity"]) for e in self.events if e["key"].startswith("power.")]
+
+    def test_power_loss_30_15_and_restore_emit_one_event_each(self):
+        self.power_sample(1000)
+        self.assertEqual(self.power_events(), [])
+        timeline = [(1060, 90), (1120, 89), (1180, 60), (1240, 30), (1300, 29), (1360, 16), (1420, 15), (1480, 9)]
+        for now, capacity in timeline:
+            self.power_sample(now, ac="0", capacity=capacity, status="Discharging")
+        # horas despues: ninguna repeticion por tiempo
+        for now in range(1540, 1540 + 5 * 3600, 60):
+            self.power_sample(now, ac="0", capacity=9, status="Discharging")
+        self.assertEqual(self.power_events(), [
+            ("power.ac", "firing", "WARNING"),
+            ("power.battery", "firing", "WARNING"),
+            ("power.battery", "firing", "CRITICAL"),
+        ])
+        end = 1540 + 5 * 3600
+        for offset in (0, 60, 120):
+            self.power_sample(end + offset, ac="1", capacity=9, status="Charging")
+        self.assertEqual(self.power_events()[3:], [
+            ("power.ac", "resolved", "INFO"), ("power.battery", "resolved", "INFO")])
+
+    def test_power_microcut_is_ignored_and_state_survives_restart(self):
+        self.power_sample(1000)
+        self.power_sample(1060, ac="0", capacity=80, status="Discharging")  # una sola muestra
+        self.power_sample(1120)
+        self.assertEqual(self.power_events(), [])
+        for now in (2000, 2060):
+            self.power_sample(now, ac="0", capacity=25, status="Discharging")
+        self.assertEqual(len(self.power_events()), 2)
+        # el equipo se apaga y vuelve con corriente: mismo estado persistido -> restablecimiento, sin duplicar el corte
+        self.alerts = monitor.Alerts(self.store, deliver=lambda e: self.events.append(e) or True)
+        self.power_sample(90000, ac="1", capacity=5, status="Charging")
+        self.power_sample(90060, ac="1", capacity=6, status="Charging")
+        self.assertEqual([x[1] for x in self.power_events()], ["firing", "firing", "resolved", "resolved"])
+
+    def test_power_charger_connected_but_discharging_counts_as_loss(self):
+        for now in (1000, 1060):
+            self.power_sample(now, ac="1", capacity=70, status="Discharging")
+        self.assertEqual(self.power_events(), [("power.ac", "firing", "WARNING")])
+
+    def test_power_low_battery_while_charging_does_not_alert(self):
+        for now in (1000, 1060):
+            signals = self.power_sample(now, ac="1", capacity=3, status="Charging")
+        self.assertEqual(signals["power.battery"]["severity"], "INFO")
+        self.assertEqual(self.power_events(), [])
+
+    def test_power_without_mains_entry_uses_battery_status(self):
+        signals = self.power_sample(1000, mains=False, capacity=14, status="Discharging")
+        self.assertEqual(signals["power.battery"]["severity"], "CRITICAL")
+
+    def test_power_indeterminate_reading_never_resolves_an_open_incident(self):
+        for now in (1000, 1060):
+            self.power_sample(now, mains=False, capacity=12, status="Discharging")
+        before = self.power_events()
+        for now in (1120, 1180, 1240):
+            signals = self.power_sample(now, mains=False, capacity=12, status="Unknown")
+        self.assertNotIn("power.ac", signals)
+        self.assertEqual(signals["collector.power"]["severity"], "CRITICAL")
+        self.assertEqual(self.power_events(), before)
+        self.assertEqual(self.store.get("alert:power.battery")["active"], "CRITICAL")
+        # con una fuente en linea el estado Unknown si es concluyente
+        self.assertEqual(self.power_sample(1300, ac="1", capacity=12, status="Unknown")["power.ac"]["severity"], "INFO")
+
+    def test_power_auto_without_battery_is_silent_and_required_mode_fails_closed(self):
+        signals = self.power_sample(1000, mains=False, battery=False)
+        self.assertNotIn("power.ac", signals)
+        self.assertEqual(signals["collector.power"]["severity"], "INFO")
+        self.cfg["power"] = {"enabled": True}
+        signals = self.power_sample(1060, mains=False, battery=False)
+        self.assertEqual(signals["collector.power"]["severity"], "CRITICAL")
+        self.cfg["power"] = {"enabled": False}
+        self.assertEqual(set(self.power_sample(1120, ac="0", status="Discharging")), {"collector.power"})
+
     def test_channel_check_delivers_firing_then_resolved_and_never_prints_secrets(self):
         received, headers = [], []
         class Handler(BaseHTTPRequestHandler):

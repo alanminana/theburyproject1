@@ -288,3 +288,34 @@ Ver `docs/monitoreo-validacion.md` para resultados, consumo, límites y archivos
 ## Nota de operación: disco y claves retiradas
 
 Una señal de disco se emite **por filesystem** (no por ruta): `/`, `DockerRootDir`, `BACKUP_DIR` y los volúmenes en el mismo dispositivo se agrupan en la primera ruta, con el detalle «same filesystem as N other monitored path(s)». Una clave retirada de `config.json` no resuelve sus alertas abiertas (una muestra ausente nunca resuelve): ciérrelas en el receptor. Evidencia: [p04-p08-matriz-criterios-vm-simulada.md](p04-p08-matriz-criterios-vm-simulada.md).
+
+## Alimentación eléctrica y batería (2026-11-26)
+
+Motivo: el 25/11/2026 el servidor provisional (notebook) quedó 17 h sin corriente, llegó al 2 % y se apagó sin ningún aviso.
+
+**En el servidor** (`monitor.py`, colector `power`; solo `sysfs`, no depende de Docker ni del ERP):
+
+| Señal | Condición | Severidad |
+|---|---|---|
+| `power.ac` | funciona a batería (sin fuente en línea, o batería `Discharging` aunque la fuente figure conectada) durante `ac_hold_seconds` (60 s) | WARNING; el evento `resolved` es el **restablecimiento** |
+| `power.battery` | a batería y carga ≤ `battery_warning` (30 %) | WARNING |
+| `power.battery` | a batería y carga ≤ `battery_critical` (15 %) | CRITICAL |
+
+Un evento por cada cambio de estado: estas dos señales **no se repiten** cada `cooldown_seconds`. El estado persiste en SQLite, así que un apagado y reencendido no duplica el corte y emite el restablecimiento al volver. `power.enabled` = `auto` (defecto; sin batería no emite nada), `true` (exige datos) o `false`. La entrega fuera del equipo sigue dependiendo de `BURY_MONITOR_WEBHOOK`: sin canal, las alertas quedan en el historial del agente.
+
+**Observador externo en la PC administradora** (`scripts/monitoring/observador-pc/`): es lo que detecta la caída completa del servidor. Cada 60 s comprueba la red de la PC (si falla, no culpa al servidor), el puerto SSH/HTTPS del equipo, `/health/ready` con la CA propia y la energía. Avisa con una ventana en pantalla y registra en `eventos.log`: equipo caído o recuperado (3 fallos), ERP caído o recuperado, corriente perdida o restablecida, batería 30 % y 15 %, sin lectura de energía y monitor detenido.
+
+La energía se lee con una clave SSH **dedicada** que solo puede ejecutar `bury-estado-energia.sh`:
+
+```
+# en el servidor
+sudo install -m 755 scripts/monitoring/bury-estado-energia.sh /usr/local/bin/bury-estado-energia
+# ~/.ssh/authorized_keys del usuario:
+restrict,from="<IP de la PC>",command="/usr/local/bin/bury-estado-energia" ssh-ed25519 AAAA... bury-observador-pc
+# huella del servidor, leida EN el servidor (no por la red):  ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+# en la PC
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\monitoring\observador-pc\instalar-observador.ps1 -Dir D:\bury-observador -Ip <IP> -CaCert <caddy-root-ca.crt> -HostKeyFingerprint SHA256:<huella> -RegistrarTarea
+powershell -NoProfile -File D:\bury-observador\observador-pc.ps1 -Dir D:\bury-observador -Once
+```
+
+Límites: la PC tiene que estar encendida, con la sesión iniciada y sin suspenderse; no reemplaza un canal externo ni avisa fuera de esa PC. Pruebas: `test_monitor.py` (casos `power_*`) y `observador-pc/test-observador.ps1`.

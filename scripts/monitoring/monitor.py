@@ -151,7 +151,8 @@ class Alerts:
                     state["since"].pop(level, None)
             eligible = severity == "INFO" or now - state["since"][severity] >= hold
             changed = eligible and severity != state["active"]
-            repeat = eligible and severity != "INFO" and not state.get("pending") and now - state.get("emitted", 0) >= self.cooldown
+            repeat = (signal.get("repeat", True) and eligible and severity != "INFO" and not state.get("pending")
+                      and now - state.get("emitted", 0) >= self.cooldown)
             if changed or repeat:
                 event = {"event_id": str(uuid.uuid4()), "key": key, "severity": severity,
                          "status": "resolved" if severity == "INFO" else "firing",
@@ -199,8 +200,8 @@ class Collector:
         self.cfg, self.store = config, store
         self.signals = {}
 
-    def emit(self, key, severity, detail, hold=0):
-        self.signals[key] = dict(severity=severity, detail=detail, hold=hold)
+    def emit(self, key, severity, detail, hold=0, repeat=True):
+        self.signals[key] = dict(severity=severity, detail=detail, hold=hold, repeat=repeat)
 
     def threshold(self, key, value, warning, critical, hold=0):
         self.emit(key, "CRITICAL" if value >= critical else "WARNING" if value >= warning else "INFO",
@@ -485,6 +486,60 @@ class Collector:
         if path.exists() and flag(self.cfg.get("removable_verify", {}).get("enabled", True)) is not False:
             self.restore_test("removable-verify", "removable_verify", (2 * 86400, 4 * 86400))
 
+    def power(self):
+        """Alimentacion electrica y bateria del host (sysfs, solo lectura; no depende de Docker ni del ERP).
+
+        power.ac: WARNING si el equipo funciona a bateria (sin fuente externa en linea, o bateria "Discharging" aunque la fuente figure
+        conectada: cargador que no entrega) durante al menos `ac_hold_seconds` (filtra microcortes). Al volver la corriente se emite el
+        evento "resolved" (= restablecimiento). power.battery: solo mientras funciona a bateria, WARNING <= `battery_warning` (30 %) y
+        CRITICAL <= `battery_critical` (15 %). Ninguna de las dos se repite por tiempo: un evento por cada cambio de estado.
+        `enabled` = "auto" (defecto): un equipo sin bateria ni fuente medible no emite nada; true lo exige (si no hay datos, el colector
+        queda CRITICAL)."""
+        cfg = self.cfg.get("power", {})
+        mode = flag(cfg.get("enabled", "auto"), "auto")
+        if mode is False:
+            return
+        root = Path(cfg.get("sysfs", "/sys/class/power_supply"))
+
+        def read(path):
+            try:
+                return path.read_text().strip()
+            except OSError:
+                return ""
+
+        mains, batteries = [], []
+        for item in sorted(root.glob("*")) if root.is_dir() else []:
+            kind = read(item / "type")
+            if kind == "Mains":
+                online = read(item / "online")
+                if online not in ("0", "1"):
+                    raise ValueError("mains supply without readable online state")
+                mains.append(online == "1")
+            elif kind == "Battery" and read(item / "scope") != "Device":  # excluye baterias de perifericos
+                capacity = read(item / "capacity")
+                if not capacity.isdigit():
+                    raise ValueError("battery without readable capacity")
+                batteries.append((int(capacity), read(item / "status") or "Unknown"))
+        if not batteries:
+            if mode == "auto":
+                return  # sin bateria (servidor/VM): no hay nada que vigilar aca
+            raise ValueError("no system battery found")
+        on_battery = (bool(mains) and not any(mains)) or any(status == "Discharging" for _, status in batteries)
+        # "Sin corriente externa" no se descarta por ausencia de datos: para dar la corriente por presente hace falta una fuente en
+        # linea o un estado de bateria que lo confirme. Si no, la muestra falla (los incidentes abiertos se conservan).
+        if not on_battery and not any(mains) and not all(status in ("Charging", "Full", "Not charging") for _, status in batteries):
+            raise ValueError("indeterminate power state")
+        capacity = min(value for value, _ in batteries)
+        status = ",".join(status for _, status in batteries)
+        source = "none" if not mains else "online" if any(mains) else "offline"
+        detail = f"on_battery={on_battery}; battery={capacity}%; status={status}; mains={source}"
+        self.emit("power.ac", "WARNING" if on_battery else "INFO", detail, cfg.get("ac_hold_seconds", 60), repeat=False)
+        warning, critical = cfg.get("battery_warning", 30), cfg.get("battery_critical", 15)
+        level = "INFO"
+        if on_battery:
+            level = "CRITICAL" if capacity <= critical else "WARNING" if capacity <= warning else "INFO"
+        self.emit("power.battery", level, detail + f"; warning<={warning}%; critical<={critical}%", repeat=False)
+
     def collect(self):
         self.signals = {}
         now = time.time()
@@ -496,6 +551,7 @@ class Collector:
         for key, ok in zip(("http.erp", "http.live", "http.ready"), results):
             self.emit(key, "INFO" if ok else "CRITICAL", f"HTTP 200={ok}; live={results[1]}; ready={results[2]}", 120)
         self.containers_by_service = {}
+        self.safe("power", self.power)
         self.safe("docker", self.containers)
         self.safe("resources", self.resources)
         self.safe("host", self.host_resources)
