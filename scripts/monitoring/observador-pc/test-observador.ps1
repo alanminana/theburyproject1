@@ -60,5 +60,13 @@ $mon = New-S -line 'ac=1 cap=90 status=Charging monitor=failed uptime_s=10'
 Assert-Eq 'monitor detenido avisa una vez' (Invoke-Seq $st @($mon, $mon, $mon, $mon)) 'MONITOR_DETENIDO'
 Assert-Eq 'linea de energia invalida se descarta' ($null -eq (ConvertFrom-PowerLine 'ac=2 cap=x')) 'True'
 
+Assert-Eq 'lectura sin datos se descarta' ($null -eq (ConvertFrom-PowerLine 'ac=na cap=na status=na monitor=active uptime_s=1')) 'True'
+Assert-Eq 'sin fuente ni estado conocido se descarta' ($null -eq (ConvertFrom-PowerLine 'ac=na cap=50 status=Unknown monitor=active uptime_s=1')) 'True'
+$st = New-ObsState
+[void](Invoke-Seq $st @((Bat 25), (Bat 25)))
+$na = New-S -line 'ac=na cap=na status=na monitor=active uptime_s=1'
+Assert-Eq 'lectura vacia no "restablece" un corte' (Invoke-Seq $st @($na, $na, $na, $na, $na)) 'ENERGIA_SIN_LECTURA'
+Assert-Eq 'el corte sigue abierto' $st.ac 'lost'
+
 if ($script:fails) { Write-Output "$($script:fails) FALLA(S)"; exit 1 }
 Write-Output 'OK'

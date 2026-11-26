@@ -312,8 +312,9 @@ La energía se lee con una clave SSH **dedicada** que solo puede ejecutar `bury-
 sudo install -m 755 scripts/monitoring/bury-estado-energia.sh /usr/local/bin/bury-estado-energia
 # ~/.ssh/authorized_keys del usuario:
 restrict,from="<IP de la PC>",command="/usr/local/bin/bury-estado-energia" ssh-ed25519 AAAA... bury-observador-pc
+# huella del servidor, leida EN el servidor (no por la red):  ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 # en la PC
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\monitoring\observador-pc\instalar-observador.ps1 -Dir D:\bury-observador -Ip <IP> -CaCert <caddy-root-ca.crt> -RegistrarTarea
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\monitoring\observador-pc\instalar-observador.ps1 -Dir D:\bury-observador -Ip <IP> -CaCert <caddy-root-ca.crt> -HostKeyFingerprint SHA256:<huella> -RegistrarTarea
 powershell -NoProfile -File D:\bury-observador\observador-pc.ps1 -Dir D:\bury-observador -Once
 ```
 

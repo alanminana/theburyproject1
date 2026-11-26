@@ -39,6 +39,30 @@ function Test-ObsTcp([string]$ip, [int]$port) {
     } catch { return $false } finally { $c.Close() }
 }
 
+# Ejecuta un programa con un limite de tiempo TOTAL (una sesion colgada no puede frenar al observador). Devuelve la 1a linea o ''.
+function Invoke-ObsBounded([string]$exe, [string[]]$arguments, [int]$timeoutSeconds) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exe
+    $psi.Arguments = ($arguments | ForEach-Object { '"' + ($_ -replace '"', '') + '"' }) -join ' '
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.RedirectStandardInput = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    try {
+        $proc.StandardInput.Close()
+        $out = $proc.StandardOutput.ReadToEndAsync()
+        $null = $proc.StandardError.ReadToEndAsync()
+        if (-not $proc.WaitForExit($timeoutSeconds * 1000)) {
+            try { $proc.Kill() } catch {}
+            return ''
+        }
+        if (-not $out.Wait(2000)) { return '' }
+        return ("$($out.Result)" -split "`r?`n")[0]
+    } finally { $proc.Dispose() }
+}
+
 function Get-ObsSample {
     $s = @{ netOk = $false; hostOk = $false; erpOk = $false; power = $null }
     $s.netOk = [bool](Test-Connection -ComputerName $cfg.gateway -Count 2 -Quiet -ErrorAction SilentlyContinue)
@@ -46,13 +70,13 @@ function Get-ObsSample {
     if (-not $s.hostOk) { $s.hostOk = Test-ObsTcp $cfg.ip ([int]$cfg.httpsPort) }
     if ($s.hostOk) { $s.netOk = $true }   # si la notebook responde, hay red aunque el router no conteste ping
     if ($s.hostOk) {
-        $ErrorActionPreference = 'Continue'
         $url = "https://$($cfg.domain):$($cfg.httpsPort)/health/ready"
-        $code = & curl.exe -s -o NUL -w '%{http_code}' --max-time 10 --ssl-no-revoke --cacert (Join-Path $Dir 'ca.crt') --resolve "$($cfg.domain):$($cfg.httpsPort):$($cfg.ip)" $url 2>$null
+        $code = Invoke-ObsBounded 'curl.exe' @('-s', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '10', '--ssl-no-revoke', '--cacert', (Join-Path $Dir 'ca.crt'), '--resolve', "$($cfg.domain):$($cfg.httpsPort):$($cfg.ip)", $url) 15
         $s.erpOk = ("$code" -eq '200')
-        $line = & ssh.exe -i (Join-Path $Dir 'obs_ed25519') -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$($cfg.sshUser)@$($cfg.ip)" estado 2>$null | Select-Object -First 1
+        $line = Invoke-ObsBounded 'ssh.exe' @('-F', 'NUL', '-i', (Join-Path $Dir 'obs_ed25519'), '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
+            '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2', '-o', 'StrictHostKeyChecking=yes',
+            '-o', "UserKnownHostsFile=$(Join-Path $Dir 'known_hosts')", "$($cfg.sshUser)@$($cfg.ip)", 'estado') 20
         $s.power = ConvertFrom-PowerLine "$line"
-        $ErrorActionPreference = 'Stop'
     }
     return $s
 }

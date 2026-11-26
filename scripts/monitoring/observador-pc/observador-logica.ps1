@@ -22,6 +22,8 @@ function ConvertFrom-PowerLine([string]$line) {
     if ($line -notmatch '^ac=(1|0|na) cap=(\d{1,3}|na) status=(\S+) monitor=(\S+)') { return $null }
     $cap = $null
     if ($Matches[2] -ne 'na') { $cap = [int]$Matches[2] }
+    # Sin carga legible, o sin saber ni la fuente ni el estado, NO es una lectura: nunca debe parecer "volvio la corriente".
+    if ($null -eq $cap -or $cap -gt 100 -or ($Matches[1] -eq 'na' -and ($Matches[3] -eq 'na' -or $Matches[3] -eq 'Unknown'))) { return $null }
     [pscustomobject]@{ ac = $Matches[1]; cap = $cap; status = $Matches[3]; monitor = $Matches[4] }
 }
 
