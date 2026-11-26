@@ -198,6 +198,8 @@ a las dos máquinas se lleva todo. El servidor sube cifrado (`crypt`) y la PC so
    `BACKUP_REMOTE=secure:erp`, `BACKUP_REQUIRE_OFFSITE=true`, `BACKUP_OFFSITE_MARKER=.bury-offsite-ok`, `BACKUP_REMOTE_RETENTION_DAYS=14`; `backup-offsite.env`
    (0600) con `OFFSITE_TYPE=sftp`, `PORT=2022`, `SHELL_TYPE=none`, `SECURE_REMOTE=offsite:/datos`, dos passwords crypt y `SECURE_DIRECTORY_NAME_ENCRYPTION=false`
    (solo quedan legibles los nombres de carpeta `sql/` y `files/`, que el observador usa para saber qué dejó de llegar).
+   **Antes de activar la copia programada, crear el centinela una vez** (sin él cada copia externa falla con exit 6 sin subir nada):
+   `docker compose run --rm -T --no-deps backup-offsite touch secure:erp/.bury-offsite-ok`.
 4. **Regenerar el paquete de recuperación** (`recovery-package.sh create`) y llevar copia fuera del servidor: sin las passwords crypt las copias no se leen.
 5. Programar `restore-test.sh --offsite` mensual (basta el crontab del usuario del servidor).
 6. Alertas: el observador de la PC (`instalar-observador.ps1 -DestinoRuta E:ury-respaldo-pc\datos\erp`) avisa si el servicio cae, si dejan de llegar los logs
