@@ -37,8 +37,10 @@ run; rc=$?
 check "copia sana y al dia -> rc 0" test "$rc" = 0
 check "estado del monitor: exit 0, verified true" bash -c 'grep -q "\"exit\":0" "$1" && grep -q "\"verified\":true" "$1"' _ "$BK/monitor-status/removable-verify.json"
 
+# Alteracion DETERMINISTA: invierte el byte (XOR 0xFF), asi que SIEMPRE cambia (escribir una 'Z' fija coincide con el byte original 1 de cada 256 veces y el caso se vuelve intermitente).
+flipbyte() { local f="$1" off="$2" b; b=$(od -An -tu1 -j"$off" -N1 "$f" | tr -d ' '); printf "\\x$(printf '%02x' $((b ^ 255)))" | dd of="$f" bs=1 seek="$off" conv=notrunc 2>/dev/null; }
 setup corrupt 3600
-f=$(ls "$RM"/bury-backup/sql/*_full_*.bak); printf 'Z' | dd of="$f" bs=1 seek=100 conv=notrunc 2>/dev/null
+f=$(ls "$RM"/bury-backup/sql/*_full_*.bak); flipbyte "$f" 100
 run; rc=$?
 check "1 byte alterado en el .bak -> rc 13" test "$rc" = 13
 check "estado: exit 13, verified false, menciona integridad y el archivo" bash -c 'grep -q "\"exit\":13" "$1" && grep -q "\"verified\":false" "$1" && grep -q "integridad" "$1" && grep -q "_full_" "$1"' _ "$BK/monitor-status/removable-verify.json"
@@ -78,7 +80,7 @@ rm -f "$RM"/bury-backup/sql/* "$RM"/bury-backup/files/*
 run; rc=$?; check "copia sin ningun backup -> rc 13" test "$rc" = 13
 
 setup recov 3600
-f=$(ls "$RM"/bury-backup/sql/*_full_*.bak); cp "$f" "$T/good.bak"; printf 'Z' | dd of="$f" bs=1 seek=7 conv=notrunc 2>/dev/null
+f=$(ls "$RM"/bury-backup/sql/*_full_*.bak); cp "$f" "$T/good.bak"; flipbyte "$f" 7
 run; r1=$?; cp "$T/good.bak" "$f"; run; r2=$?
 check "tras corregir la copia, la siguiente verificacion vuelve a rc 0 y conserva last_success" bash -c '[[ "$1" == 13 && "$2" == 0 ]] && grep -q "\"verified\":true" "$3"' _ "$r1" "$r2" "$BK/monitor-status/removable-verify.json"
 
