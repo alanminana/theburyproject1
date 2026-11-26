@@ -28,7 +28,21 @@ function Show-ObsAlert($ev) {
         "if ('$icon' -eq 'Error') { [console]::beep(900,600); [console]::beep(900,600) }; " +
         "[System.Windows.Forms.MessageBox]::Show(`$f, `$env:BURY_OBS_TEXT, `$env:BURY_OBS_TITLE, 'OK', '$icon') | Out-Null"
     $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
-    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-EncodedCommand', $enc | Out-Null
+    # SIN ventana de consola (CreateNoWindow), NO con "-WindowStyle Hidden": ese estado oculto se aplica tambien a la primera ventana
+    # del proceso y el aviso nunca aparece (medido en Windows 11: el proceso terminaba sin mostrar nada).
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = Join-Path $PSHOME 'powershell.exe'
+    $psi.Arguments = "-NoProfile -STA -EncodedCommand $enc"
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    # La ventana queda abierta hasta que alguien la cierre: si el proceso ya termino, no se mostro. Se usa msg.exe y se deja registro.
+    if ($proc.WaitForExit(4000)) {
+        Write-ObsLog "AVISO NO MOSTRADO en ventana ($($ev.code)): se intenta con msg.exe"
+        try { & (Join-Path $env:SystemRoot 'System32\msg.exe') $env:USERNAME '/TIME:86400' "$($ev.code): $($ev.text)" } catch { Write-ObsLog 'msg.exe tampoco pudo mostrar el aviso' }
+        return $false
+    }
+    return $true
 }
 
 function Test-ObsTcp([string]$ip, [int]$port) {
@@ -71,9 +85,9 @@ function Get-ObsSample {
     if ($s.hostOk) { $s.netOk = $true }   # si la notebook responde, hay red aunque el router no conteste ping
     if ($s.hostOk) {
         $url = "https://$($cfg.domain):$($cfg.httpsPort)/health/ready"
-        $code = Invoke-ObsBounded 'curl.exe' @('-s', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '10', '--ssl-no-revoke', '--cacert', (Join-Path $Dir 'ca.crt'), '--resolve', "$($cfg.domain):$($cfg.httpsPort):$($cfg.ip)", $url) 15
+        $code = Invoke-ObsBounded (Join-Path $env:SystemRoot 'System32\curl.exe') @('-s', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '10', '--ssl-no-revoke', '--cacert', (Join-Path $Dir 'ca.crt'), '--resolve', "$($cfg.domain):$($cfg.httpsPort):$($cfg.ip)", $url) 15
         $s.erpOk = ("$code" -eq '200')
-        $line = Invoke-ObsBounded 'ssh.exe' @('-F', 'NUL', '-i', (Join-Path $Dir 'obs_ed25519'), '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
+        $line = Invoke-ObsBounded (Join-Path $env:SystemRoot 'System32\OpenSSH\ssh.exe') @('-F', 'NUL', '-i', (Join-Path $Dir 'obs_ed25519'), '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
             '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2', '-o', 'StrictHostKeyChecking=yes',
             '-o', "UserKnownHostsFile=$(Join-Path $Dir 'known_hosts')", "$($cfg.sshUser)@$($cfg.ip)", 'estado') 20
         $s.power = ConvertFrom-PowerLine "$line"
@@ -92,7 +106,10 @@ function Read-ObsState {
     return $st
 }
 
-if ($ProbarAviso) { Show-ObsAlert (New-ObsEvent 'PRUEBA' 'aviso' 'Aviso de prueba del observador. No hay ningun incidente.'); return }
+if ($ProbarAviso) {
+    if (Show-ObsAlert (New-ObsEvent 'PRUEBA' 'aviso' 'Aviso de prueba del observador. No hay ningun incidente.')) { Write-Output 'Aviso mostrado en una ventana.'; exit 0 }
+    Write-Output 'El aviso NO se mostro en una ventana.'; exit 1
+}
 
 if ($Once) {
     $sample = Get-ObsSample
@@ -114,7 +131,7 @@ try {
             foreach ($ev in @(Update-ObsState $state $sample)) {
                 if ($null -eq $ev) { continue }
                 Write-ObsLog "[$($ev.level)] $($ev.code) - $($ev.text)"
-                Show-ObsAlert $ev
+                $null = Show-ObsAlert $ev
             }
             $out = [ordered]@{}
             foreach ($k in $state.Keys) { $out[$k] = $state[$k] }
