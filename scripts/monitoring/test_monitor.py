@@ -334,6 +334,29 @@ class MonitoringTests(unittest.TestCase):
             self.collector.disks()
         self.assertEqual(self.collector.signals["disk./"]["severity"], "CRITICAL")
 
+    def disk_severity(self, total, used, free):
+        gib = monitor.GIB
+        usage = monitor.shutil._ntuple_diskusage(int(total * gib), int(used * gib), int(free * gib))
+        self.collector.cfg.update(disk_paths=["/"], backup_dir="/"); self.collector.slow = False
+        with patch.object(monitor, "command", side_effect=["/docker", ""]), patch.object(monitor.shutil, "disk_usage", return_value=usage):
+            self.collector.disks()
+        return self.collector.signals["disk./"]["severity"]
+
+    def test_disk_small_volume_thresholds_scale_with_capacity(self):
+        # pendrive de 15 GB casi vacio: menos de 20 GiB libres es imposible de cumplir y NO es una alerta
+        self.assertEqual(self.disk_severity(14.6, 0.4, 13.5), "INFO")
+
+    def test_disk_small_volume_still_alerts_when_really_filling(self):
+        self.assertEqual(self.disk_severity(14.6, 10.5, 3.4), "WARNING")    # 72 % de uso
+        self.assertEqual(self.disk_severity(14.6, 9.0, 2.5), "WARNING")     # libre < 20 % aunque el uso informado sea 62 %
+        self.assertEqual(self.disk_severity(14.6, 13.4, 0.7), "CRITICAL")
+        self.assertEqual(self.disk_severity(14.6, 9.0, 1.2), "CRITICAL")    # libre < 10 %
+
+    def test_disk_large_volume_keeps_absolute_minimums(self):
+        self.assertEqual(self.disk_severity(233, 150, 19), "WARNING")
+        self.assertEqual(self.disk_severity(233, 150, 9), "CRITICAL")
+        self.assertEqual(self.disk_severity(233, 34, 188), "INFO")
+
     def test_disk_paths_on_same_filesystem_emit_one_signal(self):
         """Rutas del mismo dispositivo (/, DockerRootDir, BACKUP_DIR, volumenes) = una sola alerta de disco, no una por ruta."""
         usage = monitor.shutil._ntuple_diskusage(100*monitor.GIB, 95*monitor.GIB, 5*monitor.GIB)

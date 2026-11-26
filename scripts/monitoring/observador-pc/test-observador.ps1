@@ -68,5 +68,45 @@ $na = New-S -line 'ac=na cap=na status=na monitor=active uptime_s=1'
 Assert-Eq 'lectura vacia no "restablece" un corte' (Invoke-Seq $st @($na, $na, $na, $na, $na)) 'ENERGIA_SIN_LECTURA'
 Assert-Eq 'el corte sigue abierto' $st.ac 'lost'
 
+# ---- destino de respaldos en la PC
+$lim = @{ maxMinutosLogs = 45; maxHorasArchivos = 27; muestrasAtraso = 3 }
+function New-D([bool]$ok = $true, $log = 10, $file = 5, [double]$used = 1, [double]$free = 700) {
+    [pscustomobject]@{ ok = $ok; reason = 'prueba'; logAgeMin = $log; fileAgeHours = $file; usedGB = $used; capGB = 50.0; freeGB = $free }
+}
+function Invoke-Dest($state, [object[]]$list, [bool]$expect = $true) {
+    $codes = @()
+    foreach ($x in $list) { foreach ($e in @(Update-ObsDestState $state $x $expect $lim)) { if ($e) { $codes += $e.code } } }
+    return ($codes -join ',')
+}
+$st = New-ObsState
+Assert-Eq 'destino sano: sin eventos' (Invoke-Dest $st @((New-D), (New-D), (New-D))) ''
+$off = New-D -ok $false
+Assert-Eq 'servicio caido avisa una sola vez' (Invoke-Dest $st @($off, $off, $off, $off)) 'DESTINO_CAIDO'
+Assert-Eq 'vuelta del destino' (Invoke-Dest $st @((New-D), (New-D))) 'DESTINO_DISPONIBLE'
+$st = New-ObsState
+Assert-Eq 'un fallo aislado del destino se ignora' (Invoke-Dest $st @($off, (New-D), $off, (New-D))) ''
+$st = New-ObsState
+$late = New-D -log 50
+Assert-Eq 'copias de base atrasadas, una vez' (Invoke-Dest $st @($late, $late, $late, $late, $late)) 'COPIAS_ATRASADAS'
+Assert-Eq 'copias de base al dia' (Invoke-Dest $st @((New-D), (New-D))) 'COPIAS_AL_DIA'
+$st = New-ObsState
+$none = New-D -log $null -file $null
+Assert-Eq 'sin ninguna copia avisa de ambas' (Invoke-Dest $st @($none, $none, $none, $none)) 'COPIAS_ATRASADAS,COPIA_DIARIA_ATRASADA'
+$st = New-ObsState
+$daily = New-D -file 30
+Assert-Eq 'falta la copia diaria' (Invoke-Dest $st @($daily, $daily, $daily)) 'COPIA_DIARIA_ATRASADA'
+$st = New-ObsState
+Assert-Eq 'notebook caida: no suma avisos de atraso' (Invoke-Dest $st @($late, $late, $late, $late) $false) ''
+$st = New-ObsState
+Assert-Eq 'destino caido aun con la notebook caida' (Invoke-Dest $st @($off, $off) $false) 'DESTINO_CAIDO'
+$st = New-ObsState
+Assert-Eq 'espacio 80 % avisa una vez' (Invoke-Dest $st @((New-D -used 41), (New-D -used 42), (New-D -used 39))) 'ESPACIO_ALTO'
+Assert-Eq 'espacio 95 % es critico' (Invoke-Dest $st @((New-D -used 48), (New-D -used 48))) 'ESPACIO_CRITICO'
+Assert-Eq 'vuelve a ok solo bajo 75 %' (Invoke-Dest $st @((New-D -used 38), (New-D -used 30))) 'ESPACIO_OK'
+$st = New-ObsState
+Assert-Eq 'disco casi lleno es critico' (Invoke-Dest $st @((New-D -free 3))) 'ESPACIO_CRITICO'
+$st = New-ObsState
+Assert-Eq 'sin destino configurado no hay eventos' (@(Update-ObsDestState $st $null $true $lim).Count) 0
+
 if ($script:fails) { Write-Output "$($script:fails) FALLA(S)"; exit 1 }
 Write-Output 'OK'

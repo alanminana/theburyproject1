@@ -324,7 +324,12 @@ class Collector:
             def check(path=path):
                 usage = shutil.disk_usage(path)
                 pct, free = usage.used / usage.total * 100, usage.free / GIB
-                severity = "CRITICAL" if pct >= 90 or free < self.cfg["disk_free_critical_gib"] else "WARNING" if pct >= 70 or free < self.cfg["disk_free_warning_gib"] else "INFO"
+                # Los minimos libres en GiB estan pensados para discos grandes: en un volumen chico (un pendrive de 15 GB frente a un minimo de
+                # 20 GiB) alertarian SIEMPRE. Se acotan al 20 % / 10 % de la capacidad; los umbrales por porcentaje de uso (70/90) no cambian.
+                total_gib = usage.total / GIB
+                low_warning = min(self.cfg["disk_free_warning_gib"], total_gib * 0.20)
+                low_critical = min(self.cfg["disk_free_critical_gib"], total_gib * 0.10)
+                severity = "CRITICAL" if pct >= 90 or free < low_critical else "WARNING" if pct >= 70 or free < low_warning else "INFO"
                 shared = len(covered.get(path, []))
                 self.emit("disk." + path, severity, f"used={pct:.1f}%; free={free:.1f} GiB; action={pct >= 85}" + (f"; same filesystem as {shared} other monitored path(s)" if shared else ""))
                 self.emit("disk.action." + path, "WARNING" if pct >= 85 else "INFO",
