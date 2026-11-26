@@ -525,6 +525,10 @@ class Collector:
                 return  # sin bateria (servidor/VM): no hay nada que vigilar aca
             raise ValueError("no system battery found")
         on_battery = (bool(mains) and not any(mains)) or any(status == "Discharging" for _, status in batteries)
+        # "Sin corriente externa" no se descarta por ausencia de datos: para dar la corriente por presente hace falta una fuente en
+        # linea o un estado de bateria que lo confirme. Si no, la muestra falla (los incidentes abiertos se conservan).
+        if not on_battery and not any(mains) and not all(status in ("Charging", "Full", "Not charging") for _, status in batteries):
+            raise ValueError("indeterminate power state")
         capacity = min(value for value, _ in batteries)
         status = ",".join(status for _, status in batteries)
         source = "none" if not mains else "online" if any(mains) else "offline"

@@ -134,6 +134,19 @@ class MonitoringTests(unittest.TestCase):
         signals = self.power_sample(1000, mains=False, capacity=14, status="Discharging")
         self.assertEqual(signals["power.battery"]["severity"], "CRITICAL")
 
+    def test_power_indeterminate_reading_never_resolves_an_open_incident(self):
+        for now in (1000, 1060):
+            self.power_sample(now, mains=False, capacity=12, status="Discharging")
+        before = self.power_events()
+        for now in (1120, 1180, 1240):
+            signals = self.power_sample(now, mains=False, capacity=12, status="Unknown")
+        self.assertNotIn("power.ac", signals)
+        self.assertEqual(signals["collector.power"]["severity"], "CRITICAL")
+        self.assertEqual(self.power_events(), before)
+        self.assertEqual(self.store.get("alert:power.battery")["active"], "CRITICAL")
+        # con una fuente en linea el estado Unknown si es concluyente
+        self.assertEqual(self.power_sample(1300, ac="1", capacity=12, status="Unknown")["power.ac"]["severity"], "INFO")
+
     def test_power_auto_without_battery_is_silent_and_required_mode_fails_closed(self):
         signals = self.power_sample(1000, mains=False, battery=False)
         self.assertNotIn("power.ac", signals)
