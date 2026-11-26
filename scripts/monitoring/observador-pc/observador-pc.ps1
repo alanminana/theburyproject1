@@ -17,6 +17,25 @@ function Write-ObsLog([string]$text) {
     Add-Content -LiteralPath $logPath -Value ("{0:yyyy-MM-dd HH:mm:ss} {1}" -f (Get-Date), $text) -Encoding UTF8
 }
 
+Add-Type -Namespace BuryObs -Name Win -UsingNamespace System.Text -MemberDefinition @'
+private delegate bool EnumProc(IntPtr h, IntPtr l);
+[DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc p, IntPtr l);
+[DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+[DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr h);
+[DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+public static bool HasVisibleWindow(uint processId, string title) {
+    bool found = false;
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+        uint pid; GetWindowThreadProcessId(h, out pid);
+        if (pid != processId || !IsWindowVisible(h)) return true;
+        var s = new StringBuilder(512); GetWindowText(h, s, 512);
+        if (s.ToString() == title) { found = true; return false; }
+        return true;
+    }, IntPtr.Zero);
+    return found;
+}
+'@
+
 function Show-ObsAlert($ev) {
     # Ventana siempre visible en un proceso aparte: queda hasta que alguien la cierre y no frena el bucle.
     $env:BURY_OBS_TITLE = "TheBury - $($ev.code)"
@@ -36,8 +55,18 @@ function Show-ObsAlert($ev) {
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $proc = [System.Diagnostics.Process]::Start($psi)
-    # La ventana queda abierta hasta que alguien la cierre: si el proceso ya termino, no se mostro. Se usa msg.exe y se deja registro.
-    if ($proc.WaitForExit(4000)) {
+    # La prueba de que se mostro es HABER VISTO la ventana visible (cerrarla rapido sigue siendo un aviso entregado). Si el proceso
+    # termina, o pasan 20 s, sin que se la haya visto, se usa msg.exe y se deja registro.
+    $deadline = (Get-Date).AddSeconds(20)
+    $seen = $false
+    while (-not $seen -and (Get-Date) -lt $deadline) {
+        $ended = $proc.HasExited
+        $seen = [BuryObs.Win]::HasVisibleWindow([uint32]$proc.Id, [string]$env:BURY_OBS_TITLE)
+        if ($ended) { break }
+        if (-not $seen) { Start-Sleep -Milliseconds 100 }
+    }
+    if (-not $seen) {
+        if (-not $proc.HasExited) { try { $proc.Kill() } catch {} }
         Write-ObsLog "AVISO NO MOSTRADO en ventana ($($ev.code)): se intenta con msg.exe"
         try { & (Join-Path $env:SystemRoot 'System32\msg.exe') $env:USERNAME '/TIME:86400' "$($ev.code): $($ev.text)" } catch { Write-ObsLog 'msg.exe tampoco pudo mostrar el aviso' }
         return $false
