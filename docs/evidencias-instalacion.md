@@ -17,7 +17,7 @@ Actualizado: 2026-11-27. Base de referencia: `main` `43dc7bcf` (145 migraciones)
 | Segunda instalación y ensayo de traslado desde paquete + extraíble | Notebook, tag `servidor-provisional-20261125` | 2026-11-25 | [servidor-provisional-notebook.md](servidor-provisional-notebook.md) §3 y §6 (ver la corrección de `--no-deploy`) |
 | 8 migraciones entre 137 y 145 sobre una copia de una base de desarrollo; datos previos conservados | LocalDB en Windows, `ea7229d8` | 2026-11-27 | Validación de la regularización del entorno local |
 | Base local nueva: con la base inexistente `--migrate` falla; con una vacía aplica 145 migraciones (8 usuarios de prueba en Development) | LocalDB, `43dc7bcf` | 2026-11-27 | [desarrollo-local.md](desarrollo-local.md) |
-| `iniciar-erp-local.ps1`: 14/14 en repositorios temporales; verificación contra LocalDB real | Windows | 2026-11-27 | `scripts/test-iniciar-erp-local.ps1` |
+| `iniciar-erp-local.ps1`: 28/28 en repositorios temporales; verificación contra LocalDB real y arranque completo sobre una copia (login y `/health/ready` 200, sesiones en la base validada) | Windows, `43dc7bcf` | 2026-11-27 | `scripts/test-iniciar-erp-local.ps1` |
 | `compose config`: sin `ERP_IMAGE`, `app` y `migrate` resuelven `:local` | Windows, solo configuración | 2026-11-27 | [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §0 |
 
 ## Históricas

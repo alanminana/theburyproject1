@@ -49,17 +49,20 @@ Usarlo en lugar de `dotnet run` o F5. **No inicia** si:
 | No se puede consultar `origin` | No se puede asegurar la versión (no hay modo sin conexión) |
 | `HEAD` difiere de `origin/main` | Código viejo o commits sin publicar |
 | Hay cambios de código sin commit | Se ejecutaría algo que no está en GitHub |
+| MSBuild incluye archivos no versionados (aunque Git los ignore, p. ej. en `tmp/`) | Se compilaría código local |
+| La terminal define `ConnectionStrings__DefaultConnection`, `SQLCONNSTR_DefaultConnection` u otra variante | La aplicación usaría otra base que la validada |
 | A la base le faltan migraciones | La aplicación fallaría |
 | La base tiene migraciones desconocidas | Código más viejo que la base |
 | El puerto está ocupado | Ya hay otra instancia |
 | El servidor de base no es local | Es una herramienta de desarrollo |
 
 No bloquean: `.claude/settings.local.json`, las carpetas `.agents/`, `.claude/` y `.codex/`, ni archivos sueltos sin versionar que no se compilen ni se sirvan.
-Nunca aplica migraciones, descarta cambios ni cambia de rama.
+Nunca aplica migraciones, descarta cambios ni cambia de rama. La aplicación recibe exactamente la conexión validada.
+La comprobación de archivos evalúa el proyecto: no detecta archivos que un *target* de MSBuild agregue durante la compilación.
 
 Opciones: `-SoloVerificar`, `-Actualizar` (fast-forward), `-Base <nombre>` (otra base local), `-Servidor`, `-Puerto`.
 
-Pruebas del lanzador (repositorios temporales y `sqlcmd` simulado): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-iniciar-erp-local.ps1`.
+Pruebas del lanzador (repositorios temporales; `sqlcmd` y `dotnet run` simulados, evaluación de MSBuild real): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-iniciar-erp-local.ps1`.
 Todavía **no** corren en CI.
 
 ## Si el puerto está ocupado

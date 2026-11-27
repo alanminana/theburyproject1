@@ -55,7 +55,24 @@ if ($head -ne "$(git rev-parse origin/main)") {
     Stop-Arranque "version desactualizada o distinta: $($d[0]) commits detras y $($d[1]) delante de origin/main. Usar -Actualizar."
 }
 
+# Lo que la compilacion incluye de verdad: un archivo ignorado por Git (p. ej. en tmp/) no aparece en git status
+# pero MSBuild lo compila. Se evalua el proyecto y se compara con lo versionado. wwwroot/uploads son datos del usuario.
+$evaluacion = dotnet msbuild TheBuryProyect.csproj -nologo -getItem:Compile -getItem:Content -getItem:EmbeddedResource
+if ($LASTEXITCODE -ne 0) { Stop-Arranque "no se pudo evaluar el proyecto con MSBuild para comprobar que se compila." }
+try { $items = ($evaluacion -join "`n" | ConvertFrom-Json -ErrorAction Stop).Items } catch { Stop-Arranque "no se pudo interpretar la evaluacion de MSBuild." }
+$versionados = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+git -c core.quotepath=off ls-files | ForEach-Object { [void]$versionados.Add($_) }
+$candidatos = @($items.Compile | ForEach-Object { $_.Identity }) + @($items.EmbeddedResource | ForEach-Object { $_.Identity }) +
+    @($items.Content | ForEach-Object { $_.Identity } | Where-Object { $_ -match '\.(cshtml|razor)$' -or ($_ -match '^wwwroot[\\/].+\.(js|css)$' -and $_ -notmatch '^wwwroot[\\/]uploads[\\/]') }) +
+    @('Directory.Build.props', 'Directory.Build.targets', 'Directory.Build.rsp', 'Directory.Packages.props' | Where-Object { Test-Path (Join-Path $raiz $_) })
+$extra = @($candidatos | Where-Object { $_ } | ForEach-Object { $_ -replace '\\', '/' } | Where-Object { $_ -notmatch '^(bin|obj)/' -and -not $versionados.Contains($_) } | Sort-Object -Unique)
+if ($extra.Count -gt 0) { $extra | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" }; Stop-Arranque "hay $($extra.Count) archivo(s) no versionados que entran en la compilacion (aunque Git los ignore). Moverlos fuera del proyecto." }
+
 # 2. Base de datos de destino
+# Ninguna variable heredada puede decidir la conexion: .NET lee tambien SQLCONNSTR_/CUSTOMCONNSTR_/... y les daria
+# prioridad sobre user-secrets, y la aplicacion usaria una base distinta de la validada.
+$heredadas = @(Get-ChildItem Env: | Where-Object { $_.Name -match '(?i)(CONNSTR_|ConnectionStrings(__|:))DefaultConnection$' } | ForEach-Object { $_.Name })
+if ($heredadas.Count -gt 0) { Stop-Arranque "hay variable de entorno que reemplaza la conexion: $($heredadas -join ', '). Quitarla de la terminal (para otra base local usar -Base)." }
 $cadena = ''
 if ($Base) {
     if ($Base -notmatch '^[A-Za-z0-9_]+$') { Stop-Arranque "nombre de base invalido." }
@@ -63,7 +80,6 @@ if ($Base) {
     $cadena = "Server=$Servidor;Database=$Base;Trusted_Connection=True;TrustServerCertificate=True"
 }
 else {
-    if ($env:ConnectionStrings__DefaultConnection) { Stop-Arranque "la terminal tiene ConnectionStrings__DefaultConnection definida; quitarla o usar -Base." }
     $id = [regex]::Match((Get-Content (Join-Path $raiz 'TheBuryProyect.csproj') -Raw), '<UserSecretsId>(.*?)</UserSecretsId>').Groups[1].Value
     if (-not $id) { Stop-Arranque "el proyecto no declara UserSecretsId." }
     $secretos = Join-Path $env:APPDATA "Microsoft\UserSecrets\$id\secrets.json"
@@ -73,6 +89,7 @@ else {
     try { $b = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $cs } catch { Stop-Arranque "la cadena de user-secrets no se pudo interpretar." }
     if (-not $b.IntegratedSecurity) { Stop-Arranque "este lanzador solo admite autenticacion de Windows contra un SQL Server local." }
     $servidorDb = $b.DataSource; $baseDb = $b.InitialCatalog
+    $cadena = $cs   # se fija en el proceso de la aplicacion: la misma conexion que se valida abajo
     if (-not $baseDb) { Stop-Arranque "la cadena de user-secrets no indica la base." }
 }
 if (-not (Test-ServidorLocal $servidorDb)) { Stop-Arranque "el servidor de la base no es local. Este lanzador es solo para desarrollo." }
@@ -95,15 +112,16 @@ if ($pendientes.Count -gt 0) { $pendientes | ForEach-Object { Write-Host "  pend
 if (Get-NetTCPConnection -State Listen -LocalPort $Puerto -ErrorAction SilentlyContinue) { Stop-Arranque "el puerto $Puerto ya esta en uso: hay otra instancia. Ver docs/desarrollo-local.md." }
 if ($SoloVerificar) { Write-Host "VERIFICACION OK (no se inicio nada)." -ForegroundColor Green; exit 0 }
 
-$previo = @{ A = $env:ASPNETCORE_ENVIRONMENT; I = $env:Database__InitializeOnStartup; C = $env:ConnectionStrings__DefaultConnection }
+$previo = @{ A = $env:ASPNETCORE_ENVIRONMENT; I = $env:Database__InitializeOnStartup }
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:Database__InitializeOnStartup = 'false'
-if ($cadena) { $env:ConnectionStrings__DefaultConnection = $cadena }
+$env:ConnectionStrings__DefaultConnection = $cadena
 try {
     Write-Host "Iniciando en http://127.0.0.1:$Puerto  (Ctrl+C para detener)" -ForegroundColor Green
     dotnet run --project TheBuryProyect.csproj --no-launch-profile -- --urls "http://127.0.0.1:$Puerto"
     exit $LASTEXITCODE
 }
 finally {
-    $env:ASPNETCORE_ENVIRONMENT = $previo.A; $env:Database__InitializeOnStartup = $previo.I; $env:ConnectionStrings__DefaultConnection = $previo.C
+    $env:ASPNETCORE_ENVIRONMENT = $previo.A; $env:Database__InitializeOnStartup = $previo.I
+    Remove-Item Env:ConnectionStrings__DefaultConnection -ErrorAction SilentlyContinue
 }
