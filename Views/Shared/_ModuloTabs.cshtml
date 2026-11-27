@@ -2,7 +2,7 @@
 @* Pestañas de módulo (ERP-UI-STANDARD §5, navegación real: una URL por pestaña, aria-current, siempre en la
    misma posición). Mismo aspecto que las pestañas de Inventario. modulo-tabs.js conserva los filtros de cada
    pestaña y deja visible la activa cuando hay scroll horizontal. *@
-<div class="modulo-barra" data-modulo-barra="@Model.ModuloClave">
+<div class="modulo-barra card-erp-panel" data-modulo-barra="@Model.ModuloClave">
     @if (Model.Pestanas.Count > 0)
     {
         <nav class="modulo-tabs" aria-label="Secciones de @Model.ModuloTitulo" data-modulo-tabs>

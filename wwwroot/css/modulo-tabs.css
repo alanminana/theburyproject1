@@ -1,10 +1,12 @@
-/* Barra de pestañas de módulo. Toma el aspecto de .catalogo-tab (Inventario), la referencia del ERP. */
+/* Barra de pestañas de módulo. Misma tarjeta y mismas pestañas que Inventario (.catalogo-tab), la referencia del
+   ERP: activa en acento sólido. */
 .modulo-barra {
     display: flex;
     flex-direction: column;
-    gap: .5rem;
+    gap: .75rem;
     margin-bottom: 1rem;
     min-width: 0;
+    padding: 1rem;
 }
 
 .modulo-tabs,
@@ -21,9 +23,15 @@
     display: none;
 }
 
-.modulo-tabs {
-    border-bottom: 1px solid var(--pal-neutral-800);
-    padding-bottom: .5rem;
+.modulo-subtabs {
+    border-top: 1px solid var(--pal-neutral-800);
+    padding-top: .75rem;
+}
+
+/* Cuando solo hay sub-pestañas no va el separador. */
+.modulo-subtabs:first-child {
+    border-top: 0;
+    padding-top: 0;
 }
 
 .modulo-tab,
@@ -31,41 +39,51 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    gap: .4rem;
+    gap: .5rem;
+    min-height: 2.5rem;
     white-space: nowrap;
     text-decoration: none;
-    color: var(--pal-neutral-300);
-    border-radius: .55rem;
-    font-weight: 600;
+    border-radius: .5rem;
+    font-size: .875rem;
+    font-weight: 700;
+    color: var(--pal-neutral-400);
+    transition: background-color .15s ease, color .15s ease;
 }
 
 .modulo-tab {
-    min-height: 2.75rem;
-    padding: .5rem .9rem;
-    font-size: .875rem;
+    padding: .625rem 1rem;
 }
 
 .modulo-subtab {
     min-height: 2.25rem;
-    padding: .3rem .8rem;
+    padding: .35rem .85rem;
     font-size: .8125rem;
-    border: 1px solid var(--pal-neutral-800);
 }
 
 .modulo-tab .material-symbols-outlined {
-    font-size: 1.125rem;
+    font-size: 1rem;
+    color: var(--pal-neutral-500);
 }
 
 .modulo-tab:hover,
 .modulo-subtab:hover {
     color: #fff;
-    background: color-mix(in srgb, var(--pal-neutral-800) 60%, transparent);
+    background-color: color-mix(in srgb, white 5%, transparent);
 }
 
-.modulo-tab[aria-current="page"],
+.modulo-tab[aria-current="page"] {
+    background-color: var(--pal-accent);
+    color: var(--pal-neutral-950);
+}
+
+.modulo-tab[aria-current="page"] .material-symbols-outlined {
+    color: color-mix(in srgb, var(--pal-neutral-950) 78%, transparent);
+}
+
+/* Segundo nivel: se distingue del primero con un tono suave, no con otro bloque sólido. */
 .modulo-subtab[aria-current="page"] {
     color: var(--pal-accent);
-    background: color-mix(in srgb, var(--pal-accent) 12%, transparent);
+    background-color: color-mix(in srgb, var(--pal-accent) 12%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pal-accent) 35%, transparent);
 }
 
@@ -73,6 +91,40 @@
 .modulo-subtab:focus-visible {
     outline: 2px solid var(--pal-accent);
     outline-offset: -2px;
+}
+
+/* La ficha del proveedor ya es una tarjeta: sus pestañas solo se separan con una línea. */
+.proveedor-contexto .modulo-tabs {
+    border-top: 1px solid var(--pal-neutral-800);
+    padding: .75rem 0;
+}
+
+@media (max-width: 639px) {
+    .proveedor-contexto [data-proveedor-acciones] {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .proveedor-contexto [data-proveedor-acciones] > a,
+    .proveedor-contexto [data-proveedor-acciones] > button,
+    .proveedor-contexto [data-proveedor-acciones] summary {
+        width: 100%;
+        min-height: 2.75rem;
+        justify-content: center;
+    }
+}
+
+/* Botón «¿Cómo funciona?» del encabezado: el texto se muestra desde tablet (tailwind.css está precompilado). */
+.btn-ayuda__texto {
+    display: none;
+    font-size: .875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .btn-ayuda__texto { display: inline; }
 }
 
 /* Menú de acciones secundarias. */

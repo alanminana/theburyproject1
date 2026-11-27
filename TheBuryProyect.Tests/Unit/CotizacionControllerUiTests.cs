@@ -365,8 +365,9 @@ public sealed class CotizacionControllerUiTests
     {
         var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Shared", "_Layout.cshtml"));
 
-        Assert.Contains("var canViewCotizaciones = User.TienePermiso(\"cotizaciones\", \"view\")", layout);
-        Assert.Contains("var canViewInventario = User.TienePermiso(\"productos\", \"view\")", layout);
+        // El menú sale de NavegacionModulos: Cotización se alcanza desde las pestañas de Ventas, sin entrada propia.
+        Assert.Contains("NavegacionModulos.Menu(User", layout);
+        Assert.DoesNotContain("asp-controller=\"Cotizacion\"", layout);
         Assert.DoesNotContain("venta-create", layout, StringComparison.OrdinalIgnoreCase);
     }
 

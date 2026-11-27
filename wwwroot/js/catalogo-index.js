@@ -200,12 +200,14 @@
         function scrollActiveTabIntoView() {
             var activeBtn = tabContainer.querySelector('[data-catalogo-tab][aria-selected="true"]');
             if (!activeBtn) return;
-            var wrapperRect = tabContainer.getBoundingClientRect();
+            // El que se desplaza es el contenedor que incluye el tablist y el enlace a Precios.
+            var scroller = tabContainer.parentElement;
+            var wrapperRect = scroller.getBoundingClientRect();
             var btnRect = activeBtn.getBoundingClientRect();
             if (btnRect.left < wrapperRect.left) {
-                tabContainer.scrollLeft += (btnRect.left - wrapperRect.left);
+                scroller.scrollLeft += (btnRect.left - wrapperRect.left);
             } else if (btnRect.right > wrapperRect.right) {
-                tabContainer.scrollLeft += (btnRect.right - wrapperRect.right);
+                scroller.scrollLeft += (btnRect.right - wrapperRect.right);
             }
         }
 

@@ -93,8 +93,12 @@ public class ProveedorModuloContractTests
                     < index.IndexOf("data-proveedor-modal=\"edit\"", StringComparison.Ordinal));
         Assert.True(index.IndexOf("@if (puedeEliminar)", StringComparison.Ordinal)
                     < index.IndexOf("data-proveedor-delete-form", StringComparison.Ordinal));
-        Assert.True(details.IndexOf("@if (puedeEditar)", StringComparison.Ordinal)
-                    < details.IndexOf("data-proveedor-modal=\"edit\"", StringComparison.Ordinal));
+        // El botón Editar de la ficha vive en el encabezado común del proveedor, con el mismo permiso.
+        Assert.DoesNotContain("data-proveedor-modal=\"edit\"", details);
+        var contexto = Leer("Views", "Shared", "_ProveedorContexto.cshtml");
+        Assert.Contains("Model.MostrarEditar && User.TienePermiso(\"proveedores\", \"update\")", contexto);
+        Assert.True(contexto.IndexOf("@if (puedeEditar)", StringComparison.Ordinal)
+                    < contexto.IndexOf("data-proveedor-modal=\"edit\"", StringComparison.Ordinal));
     }
 
     [Fact]

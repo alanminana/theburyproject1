@@ -220,6 +220,28 @@ namespace TheBuryProject.Services
 
         #region Cambios de precios
 
+        /// <summary>
+        /// Completa en cada fila el precio de la lista predeterminada, si el producto lo tiene. Es solo informativo
+        /// (avisa que cambiar el precio base no mueve lo que se cobra); usa el mismo resolvedor que Venta.
+        /// </summary>
+        private async Task InformarPreciosDeListaAsync(List<FilaSimulacionPrecio> filas)
+        {
+            var vigentes = await _precioVigenteResolver.ResolverBatchAsync(filas.Select(f => f.ProductoId));
+            var deLista = filas
+                .Select(f => (Fila: f, Precio: vigentes.GetValueOrDefault(f.ProductoId)))
+                .Where(x => x.Precio is { FuentePrecio: FuentePrecioVigente.ProductoPrecioLista, ListaId: not null })
+                .ToList();
+            if (deLista.Count == 0)
+                return;
+
+            var nombre = (await _precioService.GetListaPredeterminadaAsync())?.Nombre;
+            foreach (var (fila, precio) in deLista)
+            {
+                fila.PrecioListaVigente = precio!.PrecioFinalConIva;
+                fila.ListaVigenteNombre = nombre;
+            }
+        }
+
         /// <inheritdoc />
         public async Task<ResultadoSimulacionPrecios> SimularCambioPreciosAsync(SolicitudSimulacionPrecios solicitud)
         {
@@ -239,6 +261,8 @@ namespace TheBuryProject.Services
                     solicitud.CategoriasIds?.ToList(),
                     solicitud.MarcasIds?.ToList(),
                     solicitud.ProductosIds?.ToList());
+
+                await InformarPreciosDeListaAsync(filasBase);
 
                 return new ResultadoSimulacionPrecios
                 {

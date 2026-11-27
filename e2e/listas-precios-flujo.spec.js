@@ -102,8 +102,9 @@ test.describe.serial('Listas de precios (D-01)', () => {
 
     test('el menu lleva a Listas de precios y se crean dos listas con sus validaciones', async ({ page }) => {
         const failures = trackFailures(page);
+        // Precios es una pestaña de Inventario (ya no tiene entrada propia en el menú lateral).
         await page.goto('/Catalogo', { waitUntil: 'domcontentloaded' });
-        await page.getByRole('link', { name: 'Listas de precios' }).first().click();
+        await page.locator('#catalogo-topbar a[data-modulo-tab="precios"]').click();
         await expect(page).toHaveURL(/\/ListaPrecio$/);
         await expect(page.getByRole('heading', { name: 'Listas de precios', level: 2 })).toBeVisible();
 

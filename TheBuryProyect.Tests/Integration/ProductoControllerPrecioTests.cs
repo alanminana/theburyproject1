@@ -978,7 +978,7 @@ public class ProductoControllerPrecioTests : IDisposable
             inventarioAccessEnd + "</a>".Length - inventarioAccessStart);
 
         Assert.Contains("asp-controller=\"Producto\"", inventarioAccess);
-        Assert.Contains("Inventario", inventarioAccess);
+        Assert.Contains("Unidades físicas", inventarioAccess);
         Assert.DoesNotContain("asp-action=\"Unidades\"", html);
         Assert.DoesNotContain("row-action__label\">Unidades</span>", html);
         Assert.DoesNotContain("btn-inventario-dropdown", html);

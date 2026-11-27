@@ -318,6 +318,20 @@ solo el happy path. No ejecutar acciones destructivas.
 No afirmar que una pantalla quedó responsive o accesible sin haberla probado en
 navegador real. No hacer push sin autorización explícita.
 
+## 15 bis. Navegación por módulos y ayuda contextual
+
+- El menú lateral y las pestañas salen de `Helpers/NavegacionModulos.cs`. Una función nueva se agrega como pestaña o
+  sub-pestaña de un módulo existente, no como entrada nueva del menú.
+- Cada pestaña declara el mismo permiso que exige su controller; el módulo aparece si el usuario puede abrir al menos una
+  y enlaza la primera permitida. La autorización real sigue en el servidor.
+- La barra la dibuja `_Layout` en las pantallas principales. Esas pantallas no repiten título, miga ni botones que
+  lleven a otra pestaña. Formularios y detalles usan miga.
+- Las pantallas de un mismo proveedor usan `_ProveedorContexto` (ocultan la barra con `ViewData["SinBarraModulo"]`).
+- Acciones frecuentes visibles; las secundarias en un menú «Más» (`details[data-modulo-mas]`).
+- Ayuda: incluir un `<dialog data-erp-ayuda>` en la vista; el botón «¿Cómo funciona?» del encabezado aparece solo. No
+  agregar otro botón por pantalla ni textos explicativos permanentes. Los ejemplos con importes necesitan una prueba que
+  los verifique contra el servicio real, y los simuladores no leen ni guardan datos.
+
 ## 16. Implementaciones de referencia
 
 | Referencia | Cubre |

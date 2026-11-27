@@ -469,6 +469,8 @@ const PrecioModal = (() => {
         var maxRows = 50;
         var visibleRows = filas.slice(0, maxRows);
 
+        avisarPreciosDeLista(filas);
+
         tbody.innerHTML = '';
         visibleRows.forEach(function (fila) {
             var precioNuevo = applyRounding(fila.precioNuevo, redondeoVal);
@@ -481,6 +483,7 @@ const PrecioModal = (() => {
                 '<td class="px-4 py-3">' +
                     '<div class="font-semibold text-slate-900 dark:text-white text-sm">' + escapeHtml(fila.nombre) + '</div>' +
                     '<div class="text-xs text-slate-500 dark:text-slate-400">' + escapeHtml(fila.codigo) + '</div>' +
+                    notaPrecioLista(fila) +
                 '</td>' +
                 '<td class="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-300 font-medium">$' + formatMoney(fila.precioActual) + '</td>' +
                 '<td class="px-4 py-3 text-right">' +
@@ -501,6 +504,30 @@ const PrecioModal = (() => {
         }
 
         dispatchScrollRefresh();
+    }
+
+    function tienePrecioDeLista(fila) {
+        return fila.precioListaVigente !== null && fila.precioListaVigente !== undefined;
+    }
+
+    function notaPrecioLista(fila) {
+        if (!tienePrecioDeLista(fila)) return '';
+        return '<div class="mt-1 text-xs font-semibold text-rose-300" data-precio-sigue-en-lista>Se sigue vendiendo a $' +
+            formatMoney(fila.precioListaVigente) + ' (lista «' + escapeHtml(fila.listaVigenteNombre || '') + '»)</div>';
+    }
+
+    // Cambiar el precio base no mueve el precio de venta de un producto con precio en la lista predeterminada.
+    function avisarPreciosDeLista(filas) {
+        var aviso = document.getElementById('precio-preview-aviso-lista');
+        if (!aviso) return;
+        var conLista = filas.filter(tienePrecioDeLista);
+        aviso.classList.toggle('hidden', conLista.length === 0);
+        aviso.classList.toggle('flex', conLista.length > 0);
+        if (!conLista.length) return;
+        document.getElementById('precio-preview-aviso-lista-texto').textContent =
+            conLista.length + ' de ' + filas.length + (filas.length === 1 ? ' producto' : ' productos') +
+            (conLista.length === 1 ? ' tiene' : ' tienen') + ' precio fijado en la lista «' + (conLista[0].listaVigenteNombre || '') +
+            '»: Venta y Cotización van a seguir cobrando ese precio.';
     }
 
     function getRedondeo() {

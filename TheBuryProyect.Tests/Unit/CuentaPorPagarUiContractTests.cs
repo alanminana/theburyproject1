@@ -180,11 +180,11 @@ public class CuentaPorPagarUiContractTests
     [Fact]
     public void ElMenuLateralYLosEnlacesExigenElPermisoCorrespondiente()
     {
-        var layout = Leer("Views", "Shared", "_Layout.cshtml");
-        Assert.Contains("User.TienePermiso(\"cuentasporpagar\", \"view\")", layout);
-        Assert.Contains("asp-controller=\"CuentaPorPagar\"", layout);
+        // El menú y las pestañas salen de NavegacionModulos (los permisos por entrada: NavegacionModulosTests).
+        Assert.Contains("NavegacionModulos.Menu(User", Leer("Views", "Shared", "_Layout.cshtml"));
+        Assert.Contains("Permiso(\"cuentasporpagar\", \"view\")", Leer("Helpers", "NavegacionModulos.cs"));
 
-        var proveedor = Leer("Views", "Proveedor", "Details_tw.cshtml");
+        var proveedor = Leer("Views", "Shared", "_ProveedorContexto.cshtml");
         Assert.Contains("User.TienePermiso(\"cuentasporpagar\", \"view\")", proveedor);
 
         var orden = Leer("Views", "OrdenCompra", "Details_tw.cshtml");

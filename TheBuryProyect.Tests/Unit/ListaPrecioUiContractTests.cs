@@ -138,12 +138,11 @@ public class ListaPrecioUiContractTests
     [Fact]
     public void ElMenuYLasPantallasDeLotesSeEnlazan()
     {
-        var layout = Leer("Views", "Shared", "_Layout.cshtml");
-        Assert.Contains("User.TienePermiso(\"precios\", \"view\")", layout);
-        Assert.Contains("asp-controller=\"ListaPrecio\"", layout);
-
-        Assert.Contains("asp-controller=\"CambiosPrecios\" asp-action=\"Index\"", Leer("Views", "ListaPrecio", "Index_tw.cshtml"));
-        Assert.Contains("asp-controller=\"ListaPrecio\" asp-action=\"Index\"", Leer("Views", "CambiosPrecios", "Index.cshtml"));
+        // Listas y Cambios por lotes se enlazan por las pestañas de Precios (NavegacionModulos), no con botones sueltos.
+        var navegacion = Leer("Helpers", "NavegacionModulos.cs");
+        Assert.Contains("Permiso(\"precios\", \"view\"), new(\"ListaPrecio\")", navegacion);
+        Assert.Contains("Permiso(\"precios\", \"view\"), new(\"CambiosPrecios\")", navegacion);
+        Assert.Contains("asp-controller=\"ListaPrecio\"", Leer("Views", "Catalogo", "Index_tw.cshtml"));
         Assert.Contains("User.TienePermiso(\"precios\", \"history\")", Leer("Views", "CambiosPrecios", "Historial.cshtml"));
     }
 

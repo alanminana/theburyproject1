@@ -100,10 +100,10 @@ public static class NavegacionModulos
             [
                 DelCatalogo("productos", "Productos", "grid_view", "productos", _ => true),
                 DelCatalogo("categorias", "Categorías", "category", "categorias", _ => true),
-                DelCatalogo("marcas", "Marcas", "branding_watermark", "marcas", _ => true),
+                DelCatalogo("marcas", "Marcas", "sell", "marcas", _ => true),
                 DelCatalogo("alertas", "Alertas", "notifications", "alertas", Permiso("stock", "viewalerts"), "AlertaStock"),
                 DelCatalogo("movimientos", "Movimientos", "sync_alt", "movimientos", Permiso("movimientos", "view"), "MovimientoStock"),
-                Fija("precios", "Precios", "sell", Permiso("precios", "view"), new("ListaPrecio"),
+                Fija("precios", "Precios", "price_change", Permiso("precios", "view"), new("ListaPrecio"),
                     ["ListaPrecio/Index", "CambiosPrecios/Index"],
                     [
                         Fija("precios-listas", "Listas de precios", "sell", Permiso("precios", "view"), new("ListaPrecio"), ["ListaPrecio/Index"]),

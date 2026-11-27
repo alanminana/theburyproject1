@@ -415,6 +415,13 @@ namespace TheBuryProject.ViewModels
         public int ProductoId { get; set; }
 
         /// <summary>
+        /// Solo informativo, en la vista previa sobre precio base: precio fijado en la lista predeterminada, que es el
+        /// que Venta y Cotización siguen cobrando. Null si el producto no tiene precio en esa lista.
+        /// </summary>
+        public decimal? PrecioListaVigente { get; set; }
+        public string? ListaVigenteNombre { get; set; }
+
+        /// <summary>
         /// Código del producto
         /// </summary>
         public string Codigo { get; set; } = string.Empty;
