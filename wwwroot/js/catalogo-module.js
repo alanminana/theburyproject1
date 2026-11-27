@@ -27,6 +27,8 @@
     };
     window.CatalogoModule.trapFocus = function (modal, e) {
         if (e.key !== 'Tab') return;
+        // Un <dialog> nativo abierto encima ya contiene el foco.
+        if (window.InvUI && window.InvUI.hayDialogoNativoAbierto()) return;
         var focusable = Array.prototype.filter.call(
             modal.querySelectorAll(
                 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'

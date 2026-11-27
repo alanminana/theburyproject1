@@ -1,0 +1,241 @@
+/* inventario-ui.css — componentes compartidos de las pantallas de Inventario. Colores solo desde tokens. */
+
+/* ---------- Diálogos ---------------------------------------------------- */
+.inv-dialog {
+    margin: auto;
+    padding: 0;
+    width: min(32rem, calc(100vw - 1.5rem));
+    max-height: min(90dvh, 48rem);
+    color: var(--erp-text);
+    background: var(--erp-surface-raised);
+    border: 1px solid var(--pal-neutral-750);
+    border-radius: .75rem;
+    box-shadow: 0 24px 64px color-mix(in srgb, var(--pal-black) 55%, transparent);
+    overscroll-behavior: contain;
+}
+
+.inv-dialog::backdrop {
+    background: color-mix(in srgb, var(--pal-black) 62%, transparent);
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+.inv-dialog__panel {
+    display: flex;
+    flex-direction: column;
+    max-height: inherit;
+}
+
+.inv-dialog__header,
+.inv-dialog__footer {
+    padding: 1rem 1.25rem;
+}
+
+.inv-dialog__header {
+    border-bottom: 1px solid var(--pal-neutral-800);
+}
+
+.inv-dialog__title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-wrap: balance;
+}
+
+.inv-dialog__body {
+    display: flex;
+    flex-direction: column;
+    gap: .875rem;
+    padding: 1.25rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    font-size: .875rem;
+}
+
+.inv-dialog__lead {
+    color: var(--erp-fg-1);
+}
+
+.inv-dialog__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    border-top: 1px solid var(--pal-neutral-800);
+}
+
+.inv-datos {
+    display: grid;
+    border: 1px solid var(--pal-neutral-800);
+    border-radius: .5rem;
+}
+
+.inv-datos__fila {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem .75rem;
+}
+
+.inv-datos__fila + .inv-datos__fila {
+    border-top: 1px solid var(--pal-neutral-800);
+}
+
+.inv-datos dt {
+    color: var(--erp-fg-3);
+}
+
+.inv-datos dd {
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.inv-dialog__elementos {
+    max-height: 9rem;
+    overflow-y: auto;
+    color: var(--erp-fg-2);
+    font-size: .8125rem;
+}
+
+.inv-dialog__elementos li + li {
+    margin-top: .25rem;
+}
+
+.inv-dialog__consecuencias {
+    list-style: disc;
+    padding-left: 1.125rem;
+    color: var(--erp-fg-1);
+}
+
+.inv-dialog__consecuencias li + li {
+    margin-top: .25rem;
+}
+
+/* ---------- Avisos ------------------------------------------------------ */
+.inv-aviso {
+    border: 1px solid;
+    border-radius: .5rem;
+    padding: .625rem .75rem;
+    font-size: .8125rem;
+    line-height: 1.45;
+}
+
+.inv-aviso--atencion {
+    color: var(--pal-warning-200, var(--pal-warning));
+    border-color: color-mix(in srgb, var(--pal-warning) 40%, transparent);
+    background: color-mix(in srgb, var(--pal-warning) 12%, transparent);
+}
+
+.inv-aviso--error {
+    color: var(--pal-danger-200, var(--pal-danger));
+    border-color: color-mix(in srgb, var(--pal-danger) 40%, transparent);
+    background: color-mix(in srgb, var(--pal-danger) 12%, transparent);
+}
+
+/* ---------- Campos y botones -------------------------------------------- */
+.inv-campo {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    min-width: 0;
+}
+
+.inv-campo__etiqueta {
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--erp-fg-2);
+}
+
+.inv-campo__requerido {
+    font-weight: 400;
+    color: var(--erp-fg-3);
+}
+
+.inv-campo__error {
+    font-size: .8125rem;
+    color: var(--pal-danger-300, var(--pal-danger));
+}
+
+.inv-control {
+    width: 100%;
+    min-height: 2.5rem;
+    padding: .5rem .75rem;
+    font-size: .875rem;
+    color: var(--erp-text);
+    background: var(--erp-bg);
+    border: 1px solid var(--pal-neutral-700);
+    border-radius: .5rem;
+}
+
+.inv-control[aria-invalid="true"] {
+    border-color: var(--pal-danger);
+}
+
+.inv-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    min-height: 2.5rem;
+    padding: .5rem 1rem;
+    font-size: .875rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    border-radius: .5rem;
+    cursor: pointer;
+}
+
+.inv-btn:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+.inv-btn--ghost {
+    color: var(--erp-fg-1);
+    border-color: var(--pal-neutral-700);
+}
+
+.inv-btn--ghost:hover {
+    background: var(--erp-surface-high);
+}
+
+.inv-btn--primary {
+    color: var(--pal-on-accent);
+    background: var(--erp-primary);
+}
+
+.inv-btn--primary:hover {
+    background: var(--erp-primary-hover);
+}
+
+.inv-btn--danger {
+    color: var(--pal-white);
+    background: var(--pal-danger-700, var(--pal-danger));
+}
+
+.inv-btn--danger:hover {
+    background: var(--pal-danger-800, var(--pal-danger));
+}
+
+:is(.inv-btn, .inv-control):focus-visible {
+    outline: 2px solid var(--erp-primary);
+    outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+    .inv-btn,
+    .inv-control {
+        min-height: 2.75rem;
+    }
+}
+
+@media (max-width: 479px) {
+    .inv-dialog__footer {
+        flex-direction: column-reverse;
+    }
+
+    .inv-dialog__footer .inv-btn {
+        width: 100%;
+    }
+}

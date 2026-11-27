@@ -132,6 +132,10 @@ public static class NavegacionModulos
 
     private static bool Es(string? a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Indica si el controller pertenece a un módulo (para cargar sus assets compartidos).</summary>
+    public static bool PerteneceA(string moduloClave, string? controlador) =>
+        Modulos.Any(m => Es(m.Clave, moduloClave) && m.Controladores.Any(c => Es(controlador, c)));
+
     public static IReadOnlyList<ModuloVisible> Menu(ClaimsPrincipal user, string? controlador)
     {
         var menu = new List<ModuloVisible>();

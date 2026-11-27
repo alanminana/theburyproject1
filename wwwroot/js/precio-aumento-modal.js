@@ -458,7 +458,7 @@ const PrecioModal = (() => {
 
         // Summary info
         if (summaryEl) {
-            summaryEl.textContent = filas.length + ' producto' + (filas.length !== 1 ? 's' : '') + ' serán afectados';
+            summaryEl.textContent = filas.length === 1 ? '1 producto será afectado' : filas.length + ' productos serán afectados';
         }
         if (detailEl) {
             var tipoLabel = tipoCambio === 'porcentaje' ? data.valor + '%' : '$' + formatMoney(data.valor);
@@ -576,6 +576,54 @@ const PrecioModal = (() => {
         }
 
         hideError();
+        window.InvUI.confirmar(resumenParaConfirmar(simulationResult)).then(function (respuesta) {
+            if (respuesta.ok) ejecutarCambio(esPrecioBase);
+        });
+    }
+
+    // Todo lo que la confirmación muestra sale de la misma vista previa que se va a aplicar.
+    function resumenParaConfirmar(data) {
+        var filas = data.filas || [];
+        var total = filas.length;
+        var redondeo = document.querySelector('input[name="precio-redondeo"]:checked');
+        var redondeoVal = data.esPrecioBase ? 'none' : (redondeo ? redondeo.value : 'none');
+        var textoRedondeo = { entero: 'Al entero', '99': 'Terminado en ,99' }[getRedondeo()] || 'Sin redondeo';
+        var conLista = filas.filter(tienePrecioDeLista).length;
+        var selectionApi = getProductSelectionApi();
+        var ocultos = getScope() === 'seleccionados' && selectionApi && typeof selectionApi.getHiddenCount === 'function'
+            ? selectionApi.getHiddenCount() : 0;
+        var cantidad = total === 1 ? '1 producto' : total + ' productos';
+
+        return {
+            titulo: total === 1 ? '¿Cambiar el precio de 1 producto?' : '¿Cambiar el precio de ' + total + ' productos?',
+            datos: [
+                ['Alcance', describeScope()],
+                ['Ajuste', tipoCambio === 'porcentaje' ? formatNumber(data.valor) + ' %' : '$' + formatMoney(data.valor) + ' por producto'],
+                ['Redondeo', textoRedondeo],
+                ['Motivo', document.getElementById('precio-motivo').value]
+            ],
+            elementos: filas.map(function (f) {
+                return f.nombre + ': $' + formatMoney(f.precioActual) + ' → $' + formatMoney(applyRounding(f.precioNuevo, redondeoVal));
+            }),
+            avisos: [
+                ocultos > 0 ? (ocultos === 1 ? '1 de los seleccionados está oculto' : ocultos + ' de los seleccionados están ocultos') +
+                    ' por la búsqueda actual y también se modifica.' : '',
+                conLista > 0 ? conLista + ' de ' + total + (conLista === 1 ? ' tiene' : ' tienen') + ' precio fijado en una lista: Venta y Cotización van a seguir cobrando ese precio.' : ''
+            ],
+            consecuencias: [
+                (data.esPrecioBase ? 'El precio base de ' : 'El precio de ') + cantidad + ' cambia de inmediato.',
+                'El cambio queda en el historial de precios, desde donde se puede revertir.'
+            ],
+            etiquetaConfirmar: total === 1 ? 'Cambiar 1 precio' : 'Cambiar ' + total + ' precios',
+            tono: 'primario'
+        };
+    }
+
+    function formatNumber(val) {
+        return Number(val).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+    }
+
+    function ejecutarCambio(esPrecioBase) {
         var applyBtn = btnApply();
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Aplicando...';
@@ -662,7 +710,7 @@ const PrecioModal = (() => {
         if (btnMonto) btnMonto.addEventListener('click', function () { setTipoCambio('monto'); });
 
         document.addEventListener('keydown', function (e) {
-            if (modal().classList.contains('hidden')) return;
+            if (modal().classList.contains('hidden') || window.InvUI.hayDialogoNativoAbierto()) return;
             if (e.key === 'Escape') { close(); return; }
             if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal(), e);
         });

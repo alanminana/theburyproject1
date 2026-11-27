@@ -41,6 +41,10 @@
 
     <!-- Tema Mercado Libre global (override de tokens; debe ir último) -->
     <link rel="stylesheet" href="~/css/theme-ml.css" asp-append-version="true" />
+    @if (NavegacionModulos.PerteneceA("inventario", ViewContext.RouteData.Values["controller"]?.ToString()))
+    {
+        <link rel="stylesheet" href="~/css/inventario-ui.css" asp-append-version="true" />
+    }
 
     @RenderSection("Styles", required: false)
 
@@ -377,6 +381,10 @@
     <script src="~/js/csp-actions.js" asp-append-version="true"></script>
     <script src="~/js/fecha-defaults.js" asp-append-version="true"></script>
     <script src="~/js/shared-ui.js" asp-append-version="true"></script>
+    @if (NavegacionModulos.PerteneceA("inventario", ViewContext.RouteData.Values["controller"]?.ToString()))
+    {
+        <script src="~/js/inventario-ui.js" asp-append-version="true"></script>
+    }
     <script src="~/js/validation-motion.js" asp-append-version="true"></script>
     <script src="~/js/input-rules.js" asp-append-version="true"></script>
     <script src="~/js/erp-table-cards.js" asp-append-version="true"></script>

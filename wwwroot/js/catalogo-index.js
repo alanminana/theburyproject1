@@ -34,6 +34,7 @@
         if (termSpan)    termSpan.textContent       = input.value.trim();
         if (countBadge)  countBadge.textContent     = visible;
         if (footerCount) footerCount.textContent    = visible;
+        document.dispatchEvent(new CustomEvent('catalogo:filas-filtradas'));
     }
 
     input.addEventListener('input', function () {
@@ -575,6 +576,7 @@ var ProductSelection = (function () {
     var selectAll = document.getElementById('chk-select-all');
     var selectionBar = document.getElementById('selection-bar');
     var countEl = document.getElementById('selection-count');
+    var hiddenNoteEl = document.getElementById('selection-hidden-note');
     var countBtnEl = document.getElementById('selection-count-btn');
     var actionButtonBadge = document.getElementById('btn-ajuste-masivo-badge');
     var actionButtonBadgeCount = document.getElementById('btn-ajuste-masivo-count');
@@ -593,6 +595,20 @@ var ProductSelection = (function () {
 
     function getCheckboxes() {
         return document.querySelectorAll('.chk-producto');
+    }
+
+    // La búsqueda instantánea oculta filas con display:none sin sacarlas del DOM.
+    function esVisible(checkbox) {
+        var row = checkbox.closest('tr');
+        return !row || row.style.display !== 'none';
+    }
+
+    function getVisibleCheckboxes() {
+        return Array.prototype.filter.call(getCheckboxes(), esVisible);
+    }
+
+    function getHiddenSelectedCount() {
+        return Array.prototype.filter.call(getCheckboxes(), function (c) { return c.checked && !esVisible(c); }).length;
     }
 
     function isProductosTabActive() {
@@ -656,10 +672,19 @@ var ProductSelection = (function () {
 
         updateActionAffordances(count);
 
-        var boxes = getCheckboxes();
-        var total = boxes.length;
-        selectAll.checked = count > 0 && count === total;
-        selectAll.indeterminate = count > 0 && count < total;
+        var visibles = getVisibleCheckboxes();
+        var marcadasVisibles = visibles.filter(function (c) { return c.checked; }).length;
+        selectAll.disabled = visibles.length === 0;
+        selectAll.checked = marcadasVisibles > 0 && marcadasVisibles === visibles.length;
+        selectAll.indeterminate = marcadasVisibles > 0 && marcadasVisibles < visibles.length;
+
+        var ocultas = getHiddenSelectedCount();
+        if (hiddenNoteEl) {
+            hiddenNoteEl.hidden = ocultas === 0;
+            hiddenNoteEl.textContent = ocultas === 1
+                ? '1 seleccionado está oculto por la búsqueda'
+                : ocultas + ' seleccionados están ocultos por la búsqueda';
+        }
     }
 
     function clearAll() {
@@ -674,12 +699,15 @@ var ProductSelection = (function () {
 
     selectAll.addEventListener('change', function () {
         var checked = selectAll.checked;
-        getCheckboxes().forEach(function (checkbox) {
+        // Solo lo que se ve: un ajuste masivo nunca puede incluir filas que el usuario no tiene a la vista.
+        getVisibleCheckboxes().forEach(function (checkbox) {
             checkbox.checked = checked;
             updateRowState(checkbox);
         });
         updateBar();
     });
+
+    document.addEventListener('catalogo:filas-filtradas', updateBar);
 
     document.addEventListener('change', function (event) {
         if (event.target.classList.contains('chk-producto')) {
@@ -695,6 +723,7 @@ var ProductSelection = (function () {
         getIds: getIds,
         clearAll: clearAll,
         getCount: getCount,
+        getHiddenCount: getHiddenSelectedCount,
         refreshUi: updateBar
     };
 })();
