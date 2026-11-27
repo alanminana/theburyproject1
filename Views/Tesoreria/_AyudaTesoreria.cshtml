@@ -1,0 +1,83 @@
+@* Ayuda «¿Cómo funciona?» de Tesorería. Describe TesoreriaService. El ejemplo usa importes fijos ficticios (los
+   verifica AyudaProveedoresEjemplosTests contra el servicio real); no lee ni guarda datos. *@
+<dialog id="ayuda-tesoreria" class="lp-ayuda" data-erp-ayuda aria-labelledby="ayuda-tesoreria-titulo">
+    <div class="lp-ayuda__panel">
+        <div class="lp-ayuda__cabecera">
+            <h2 id="ayuda-tesoreria-titulo">¿Cómo funciona Tesorería?</h2>
+            <button type="button" class="lp-ayuda__cerrar" data-erp-ayuda-cerrar aria-label="Cerrar ayuda">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+
+        <div class="lp-tabs" role="tablist" aria-label="Secciones de la ayuda">
+            <button type="button" role="tab" id="at-tab-basico" aria-controls="at-pane-basico" aria-selected="true">Lo básico</button>
+            <button type="button" role="tab" id="at-tab-ejemplo" aria-controls="at-pane-ejemplo" aria-selected="false" tabindex="-1">Ejemplo paso a paso</button>
+        </div>
+
+        <div class="lp-ayuda__cuerpo">
+            <section id="at-pane-basico" role="tabpanel" aria-labelledby="at-tab-basico" tabindex="0">
+                <p class="lp-lead">Responde <strong>de dónde salió la plata con la que pagaste a tus proveedores</strong> en un período.</p>
+
+                <div class="lp-tarjetas">
+                    <article><h4>Qué hace el ERP solo</h4><p>Suma por origen los pagos y anticipos a proveedores no anulados del período elegido.</p></article>
+                    <article><h4>Qué hacés vos</h4><p>Crear los orígenes de fondos y elegir uno al registrar cada pago o anticipo en Cuentas por pagar.</p></article>
+                    <article><h4>Dónde se ve</h4><p>En «Egresos por origen de fondos». Los pagos anteriores a Tesorería aparecen como «Sin origen».</p></article>
+                </div>
+
+                <h3>No es la Caja ni un banco</h3>
+                <div class="lp-scroll">
+                    <table class="lp-tabla">
+                        <thead><tr><th scope="col"></th><th scope="col">Tesorería</th><th scope="col">Caja de ventas</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Para qué</th><td>Pagos a proveedores</td><td>Cobros y movimientos de la venta diaria</td></tr>
+                            <tr><th scope="row">Se abre y se cierra</th><td>No</td><td>Sí, por turno</td></tr>
+                            <tr><th scope="row">Muestra saldo disponible</th><td><strong>No</strong>: solo egresos</td><td>Sí, del turno</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="lp-aviso">
+                    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                    <span>Elegir el origen «Efectivo» <strong>no descuenta nada de la Caja de ventas</strong>.</span>
+                </p>
+            </section>
+
+            <section id="at-pane-ejemplo" role="tabpanel" aria-labelledby="at-tab-ejemplo" tabindex="0" hidden>
+                <p class="lp-nota">Ejemplo ficticio con dos orígenes: «Banco – cuenta corriente» y «Efectivo administración».</p>
+                <div data-ayuda-pasos>
+                    <div class="lp-paso" data-ayuda-paso>
+                        <h4>1. Pagás $500.000 a Electro Norte desde el banco</h4>
+                        <p>El egreso aparece en el origen que elegiste.</p>
+                        <div class="lp-precios">
+                            <p><span>Banco – cuenta corriente</span><strong>$500.000</strong></p>
+                            <p><span>Efectivo administración</span><strong>$0</strong></p>
+                            <p><span>Total del período</span><strong>$500.000</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-paso" data-ayuda-paso hidden>
+                        <h4>2. Entregás un anticipo de $80.000 en efectivo</h4>
+                        <p>Los anticipos también son egresos, aunque todavía no estén aplicados a una factura.</p>
+                        <div class="lp-precios">
+                            <p><span>Banco – cuenta corriente</span><strong>$500.000</strong></p>
+                            <p><span>Efectivo administración</span><strong>$80.000</strong></p>
+                            <p><span>Total del período</span><strong>$580.000</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-paso" data-ayuda-paso hidden>
+                        <h4>3. Anulás el anticipo</h4>
+                        <p>Lo anulado deja de sumar en el resumen. La Caja de ventas no cambió en ningún paso.</p>
+                        <div class="lp-precios">
+                            <p><span>Banco – cuenta corriente</span><strong>$500.000</strong></p>
+                            <p><span>Efectivo administración</span><strong>$0</strong></p>
+                            <p><span>Total del período</span><strong>$500.000</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-pasador">
+                        <button type="button" class="btn-erp-secondary btn-sm" data-ayuda-anterior>Anterior</button>
+                        <output data-ayuda-contador>Paso 1 de 3</output>
+                        <button type="button" class="btn-erp-primary btn-sm" data-ayuda-siguiente>Siguiente</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</dialog>

@@ -1,20 +1,34 @@
 @{
     ViewData["Title"] = "Reportes";
 
-    // Movimientos valorizados exige reportes.stock en el controller; sin ese permiso la tarjeta llevaría a un 403.
+    // Movimientos valorizados exige reportes.stock y Valoración exige valoracionstock.view en sus controllers;
+    // sin el permiso la tarjeta llevaría a un 403.
     var puedeVerStock = User.TienePermiso("reportes", "stock");
+    var puedeVerValoracion = User.TienePermiso("valoracionstock", "view");
 
-    var reportes = new List<(string Action, string Icon, string Titulo, string Descripcion)>
+    var grupos = new List<(string Titulo, List<(string Controlador, string Accion, string Icono, string Titulo, string Descripcion)> Reportes)>
     {
-        ("Ventas", "bar_chart", "Ventas", "Resumen de ventas por período, tipo de pago y vendedor."),
-        ("Margenes", "trending_up", "Márgenes", "Análisis de márgenes por producto y categoría."),
-        ("Morosidad", "account_balance_wallet", "Morosidad", "Estado de cuotas vencidas y créditos en mora."),
-        ("ComisionesVendedores", "payments", "Comisiones", "Detalle de comisiones por vendedor, producto y período."),
-        ("Iva", "receipt_long", "IVA de compras y ventas", "Neto, IVA y totales por rango de fechas. Diferencia de IVA."),
+        ("Comercial", new()
+        {
+            ("Reporte", "Ventas", "bar_chart", "Ventas", "Resumen de ventas por período, tipo de pago y vendedor."),
+            ("Reporte", "Margenes", "trending_up", "Márgenes", "Análisis de márgenes por producto y categoría."),
+            ("Reporte", "ComisionesVendedores", "payments", "Comisiones", "Detalle de comisiones por vendedor, producto y período.")
+        }),
+        ("Cobranza e impuestos", new()
+        {
+            ("Reporte", "Morosidad", "account_balance_wallet", "Morosidad", "Estado de cuotas vencidas y créditos en mora."),
+            ("Reporte", "Iva", "receipt_long", "IVA de compras y ventas", "Neto, IVA y totales por rango de fechas. Diferencia de IVA.")
+        }),
+        ("Stock", new())
     };
+    var stock = grupos[^1].Reportes;
+    if (puedeVerValoracion)
+    {
+        stock.Add(("ValoracionStock", "Index", "monetization_on", "Valoración de stock", "Cuánto vale hoy el stock a costo promedio. Uso gerencial, solo lectura."));
+    }
     if (puedeVerStock)
     {
-        reportes.Add(("MovimientosValorizados", "swap_vert", "Movimientos valorizados", "Costos históricos por movimiento. No representa valor de inventario actual."));
+        stock.Add(("Reporte", "MovimientosValorizados", "swap_vert", "Movimientos valorizados", "Costos históricos por movimiento. No representa valor de inventario actual."));
     }
 }
 
@@ -23,22 +37,28 @@
     <h1 class="sr-only">Reportes</h1>
 
     @* Grid auto-fill: tailwind.css está precompilado y su regla sm:grid-cols-2 posterior pisa a lg:grid-cols-3. *@
-    <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));" role="list">
-        @foreach (var r in reportes)
-        {
-            <li class="flex">
-                <a asp-action="@r.Action"
-                   class="card-erp group flex w-full items-start gap-4 hover:border-primary/50 transition-colors no-underline focus-visible:ring-2 focus-visible:ring-primary">
-                    <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10" aria-hidden="true">
-                        <span class="material-symbols-outlined text-primary text-2xl">@r.Icon</span>
-                    </span>
-                    <span class="min-w-0 flex-1">
-                        <span class="block font-semibold text-slate-100">@r.Titulo</span>
-                        <span class="mt-1 block text-sm leading-snug text-slate-400">@r.Descripcion</span>
-                    </span>
-                    <span class="material-symbols-outlined shrink-0 text-xl text-slate-500 group-hover:text-primary transition-colors" aria-hidden="true">arrow_forward</span>
-                </a>
-            </li>
-        }
-    </ul>
+    @foreach (var grupo in grupos.Where(g => g.Reportes.Count > 0))
+    {
+        <section aria-label="Reportes: @grupo.Titulo">
+            <h2 class="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">@grupo.Titulo</h2>
+            <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));" role="list">
+                @foreach (var r in grupo.Reportes)
+                {
+                    <li class="flex">
+                        <a asp-controller="@r.Controlador" asp-action="@r.Accion"
+                           class="card-erp group flex w-full items-start gap-4 hover:border-primary/50 transition-colors no-underline focus-visible:ring-2 focus-visible:ring-primary">
+                            <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10" aria-hidden="true">
+                                <span class="material-symbols-outlined text-primary text-2xl">@r.Icono</span>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-semibold text-slate-100">@r.Titulo</span>
+                                <span class="mt-1 block text-sm leading-snug text-slate-400">@r.Descripcion</span>
+                            </span>
+                            <span class="material-symbols-outlined shrink-0 text-xl text-slate-500 group-hover:text-primary transition-colors" aria-hidden="true">arrow_forward</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
 </div>

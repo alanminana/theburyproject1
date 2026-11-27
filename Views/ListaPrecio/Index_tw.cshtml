@@ -11,14 +11,10 @@
 <section class="card-erp-panel mb-4 p-4" aria-labelledby="lp-resumen-titulo">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h2 id="lp-resumen-titulo" class="text-lg font-bold text-white">Listas de precios</h2>
-            <p class="text-sm text-slate-400">La lista predeterminada define el precio que usan Venta y Cotización; sin ella se usa el precio base del producto.</p>
+            <h2 id="lp-resumen-titulo" class="sr-only">Listas de precios</h2>
+            <p class="text-sm text-slate-400">Venta y Cotización usan el precio fijado en la lista predeterminada; si el producto no tiene uno, usan su precio base.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a asp-controller="CambiosPrecios" asp-action="Index" class="btn-erp-secondary btn-sm no-underline">
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">price_change</span>
-                Cambios de precios por lotes
-            </a>
             @if (Model.PuedeCrear)
             {
                 <a asp-action="Crear" class="btn-erp-primary btn-sm no-underline">
@@ -114,6 +110,10 @@
     }
 </section>
 
+<partial name="_ListaPrecioAyuda" />
+
+
 @section Scripts {
     <script src="~/js/lista-precio.js" asp-append-version="true"></script>
+    <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>
 }

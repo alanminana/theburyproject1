@@ -234,39 +234,11 @@ else
                     </button>
                 }
 
-                @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
-                   pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
-                   visualmente con "Nuevo cliente". *@
-                <details class="cliente-more-menu relative" data-cliente-row-menu>
-                    <summary class="btn-erp-ghost btn-sm cursor-pointer w-full sm:w-auto" aria-label="Más acciones de clientes"
-                             title="Más acciones de clientes">
-                        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
-                        Más
-                    </summary>
-
-                    <div class="cliente-more-menu__content cliente-row-menu__content">
-                        @if (puedeVerDocumentos)
-                        {
-                            <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
-                                <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
-                                Documentos
-                            </a>
-                        }
-
-                        @if (puedeVerCreditos)
-                        {
-                            <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
-                                <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
-                                Créditos
-                            </a>
-                        }
-
-                        <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
-                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                            Límites por puntaje
-                        </button>
-                    </div>
-                </details>
+                @* Créditos y Documentación son pestañas del módulo (barra superior); acá queda solo la acción propia. *@
+                <button type="button" class="btn-erp-ghost btn-sm w-full sm:w-auto" data-cliente-open-limites>
+                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                    Límites por puntaje
+                </button>
             </div>
 
             @* ============================================================

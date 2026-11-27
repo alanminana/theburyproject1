@@ -99,14 +99,6 @@
                 </p>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
-                @if (puedeVerOrdenes)
-                {
-                    <a asp-controller="OrdenCompra" asp-action="Index"
-                       class="btn-erp-ghost btn-sm prov-touch no-underline sm:w-auto">
-                        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
-                        Órdenes de compra
-                    </a>
-                }
                 @* Sin proveedores cargados el estado vacío ya ofrece la acción: un solo CTA primario por pantalla. *@
                 @if (puedeCrear && (proveedores.Any() || filtroProvActivo))
                 {

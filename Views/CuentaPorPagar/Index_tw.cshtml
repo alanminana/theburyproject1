@@ -26,11 +26,9 @@
 <partial name="_CxpAlertas" />
 
 <section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-resumen-titulo">
+    <h2 id="cxp-resumen-titulo" class="sr-only">Resumen de cuentas por pagar</h2>
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h2 id="cxp-resumen-titulo" class="text-lg font-bold text-white">Cuentas por pagar</h2>
-            <p class="text-sm text-slate-400">Registro administrativo de lo que informan los proveedores. No mueve Caja, stock ni costos.</p>
-        </div>
+        <p class="text-sm text-slate-400">Registro administrativo: no mueve Caja, stock ni costos.</p>
         <div class="flex flex-wrap items-center gap-2">
             <a asp-action="Antiguedad" asp-route-proveedorId="@f.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
                 <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
@@ -232,3 +230,5 @@
         </nav>
     }
 </section>
+
+<partial name="~/Views/CuentaPorPagar/_AyudaCuentasPorPagar.cshtml" />

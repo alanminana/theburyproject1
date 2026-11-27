@@ -61,13 +61,8 @@
 
 
 
-<div class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
-    <div class="page-head credito-index-head">
-        <div class="min-w-0">
-            <h1 class="page-title">Cartera de créditos</h1>
-            <p class="page-sub">Gestión por cliente: cuotas, saldos, moras y registro de pagos desde una sola vista.</p>
-        </div>
-    </div>
+<div class="shell" style="padding:0 0 3rem">
+    <h1 class="sr-only">Cartera de créditos</h1>
 
     @if (TempData["Success"] != null)
     {
@@ -109,7 +104,7 @@
             </div>
             <button class="btn btn-danger btn-sm" type="button" data-credito-tab-target="moras">
                 <span class="material-symbols-outlined">arrow_forward</span>
-                Ver moras
+                Ver cuotas en mora
             </button>
         </div>
     }
@@ -207,7 +202,7 @@
                 <button class="tab" type="button" role="tab" aria-selected="false"
                         data-credito-tab="moras">
                     <span class="material-symbols-outlined">running_with_errors</span>
-                    Moras
+                    En mora
                     <span class="tab-count"
                           style="background:color-mix(in srgb, var(--pal-danger-500) 20%, transparent);color:var(--pal-danger-400)">@resumenMoras.Count</span>
                 </button>

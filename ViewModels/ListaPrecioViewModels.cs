@@ -106,6 +106,25 @@ public class ListaPrecioFormViewModel
     public bool EsNueva => Id == 0;
 }
 
+/// <summary>Resultado del simulador de la ayuda (solo cálculo, no se guarda nada).</summary>
+public class ListaPrecioSimulacion
+{
+    public decimal Costo { get; set; }
+    public decimal MargenImporte { get; set; }
+    public decimal Subtotal { get; set; }
+    public decimal RecargoImporte { get; set; }
+    public decimal AntesDeRedondeo { get; set; }
+    public decimal AjusteRedondeo { get; set; }
+    public decimal Sugerido { get; set; }
+    public decimal? MargenSugerido { get; set; }
+    public decimal? PrecioMinimo { get; set; }
+    public bool SugeridoBajoMinimo { get; set; }
+    public decimal? PrecioPrueba { get; set; }
+    public decimal? MargenPrueba { get; set; }
+    public bool PruebaRechazada { get; set; }
+    public bool PruebaConDecimalesDeMas { get; set; }
+}
+
 /// <summary>Pantalla para fijar el precio manual de un producto en una lista.</summary>
 public class FijarPrecioViewModel
 {
@@ -113,6 +132,9 @@ public class FijarPrecioViewModel
     public string ListaNombre { get; set; } = string.Empty;
     public string ListaCodigo { get; set; } = string.Empty;
     public decimal? MargenMinimoPorcentaje { get; set; }
+    public decimal? MargenPorcentaje { get; set; }
+    public decimal? RecargoPorcentaje { get; set; }
+    public string? ReglaRedondeo { get; set; }
 
     public int ProductoId { get; set; }
     public string ProductoCodigo { get; set; } = string.Empty;

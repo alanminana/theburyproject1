@@ -2,7 +2,7 @@
 @using System.Globalization
 @model ConfiguracionPagoGlobalAdminViewModel
 @{
-    ViewData["Title"] = "Configuración de pagos";
+    ViewData["Title"] = "Configuración";
     var puedeEditar = User.TienePermiso("configuracion", "update");
 
     static string TipoPagoDisplay(TipoPago tipoPago) => tipoPago switch
@@ -897,7 +897,7 @@
     <section class="payments-shell-card" aria-labelledby="payments-title">
         <header class="payments-topbar">
             <div>
-                <h1 id="payments-title" class="cfgpago-title">Configuración de pagos</h1>
+                <h1 id="payments-title" class="cfgpago-title">Configuración</h1>
                 <p class="cfgpago-sub">
                     Administra medios, tarjetas y planes reutilizables. El ajuste se aplica una sola vez sobre el total.
                     Ajuste positivo = recargo, ajuste negativo = descuento. Cuotas indica la cantidad total de pagos.

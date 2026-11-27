@@ -1,0 +1,189 @@
+/* Barra de pestañas de módulo. Misma tarjeta y mismas pestañas que Inventario (.catalogo-tab), la referencia del
+   ERP: activa en acento sólido. */
+.modulo-barra {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    margin-bottom: 1rem;
+    min-width: 0;
+    padding: 1rem;
+}
+
+.modulo-tabs,
+.modulo-subtabs {
+    display: flex;
+    gap: .25rem;
+    min-width: 0;
+    overflow-x: auto;
+    /* Solo desplazamiento horizontal: sin esto overflow-y se calcula como auto y la barra cuenta como contenedor
+       desplazable de la página. */
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.modulo-tabs::-webkit-scrollbar,
+.modulo-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+.modulo-subtabs {
+    border-top: 1px solid var(--pal-neutral-800);
+    padding-top: .75rem;
+}
+
+/* Cuando solo hay sub-pestañas no va el separador. */
+.modulo-subtabs:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.modulo-tab,
+.modulo-subtab {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: .5rem;
+    min-height: 2.5rem;
+    white-space: nowrap;
+    text-decoration: none;
+    border-radius: .5rem;
+    font-size: .875rem;
+    font-weight: 700;
+    color: var(--pal-neutral-400);
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.modulo-tab {
+    padding: .625rem 1rem;
+}
+
+.modulo-subtab {
+    min-height: 2.25rem;
+    padding: .35rem .85rem;
+    font-size: .8125rem;
+}
+
+.modulo-tab .material-symbols-outlined {
+    font-size: 1rem;
+    color: var(--pal-neutral-500);
+}
+
+.modulo-tab:hover,
+.modulo-subtab:hover {
+    color: #fff;
+    background-color: color-mix(in srgb, white 5%, transparent);
+}
+
+.modulo-tab[aria-current="page"] {
+    background-color: var(--pal-accent);
+    color: var(--pal-neutral-950);
+}
+
+.modulo-tab[aria-current="page"] .material-symbols-outlined {
+    color: color-mix(in srgb, var(--pal-neutral-950) 78%, transparent);
+}
+
+/* Segundo nivel: se distingue del primero con un tono suave, no con otro bloque sólido. */
+.modulo-subtab[aria-current="page"] {
+    color: var(--pal-accent);
+    background-color: color-mix(in srgb, var(--pal-accent) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pal-accent) 35%, transparent);
+}
+
+.modulo-tab:focus-visible,
+.modulo-subtab:focus-visible {
+    outline: 2px solid var(--pal-accent);
+    outline-offset: -2px;
+}
+
+/* La ficha del proveedor ya es una tarjeta: sus pestañas solo se separan con una línea. */
+.proveedor-contexto .modulo-tabs {
+    border-top: 1px solid var(--pal-neutral-800);
+    padding: .75rem 0;
+}
+
+@media (max-width: 639px) {
+    .proveedor-contexto [data-proveedor-acciones] {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .proveedor-contexto [data-proveedor-acciones] > a,
+    .proveedor-contexto [data-proveedor-acciones] > button,
+    .proveedor-contexto [data-proveedor-acciones] summary {
+        width: 100%;
+        min-height: 2.75rem;
+        justify-content: center;
+    }
+}
+
+/* Botón «¿Cómo funciona?» del encabezado: el texto se muestra desde tablet (tailwind.css está precompilado). */
+.btn-ayuda__texto {
+    display: none;
+    font-size: .875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .btn-ayuda__texto { display: inline; }
+}
+
+/* Menú de acciones secundarias. */
+.modulo-mas { position: relative; }
+.modulo-mas > summary { list-style: none; }
+.modulo-mas > summary::-webkit-details-marker { display: none; }
+
+.modulo-mas__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + .25rem);
+    z-index: 30;
+    min-width: 13rem;
+    padding: .25rem;
+    border: 1px solid var(--pal-neutral-700);
+    border-radius: .6rem;
+    background: var(--pal-neutral-900);
+    box-shadow: 0 12px 28px rgb(0 0 0 / .45);
+}
+
+.modulo-mas__item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 2.5rem;
+    padding: .4rem .7rem;
+    border-radius: .45rem;
+    font-size: .875rem;
+    color: var(--pal-neutral-200);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.modulo-mas__item .material-symbols-outlined { font-size: 1.125rem; }
+.modulo-mas__item:hover { background: var(--pal-neutral-800); color: #fff; }
+.modulo-mas__item:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: -2px; }
+
+@media (max-width: 639px) {
+    .modulo-mas__menu { left: 0; right: auto; }
+}
+
+/* Degradado en el borde que todavía tiene pestañas ocultas. */
+.modulo-tabs[data-oculto="derecha"],
+.modulo-subtabs[data-oculto="derecha"] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+.modulo-tabs[data-oculto="izquierda"],
+.modulo-subtabs[data-oculto="izquierda"] {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+}
+
+.modulo-tabs[data-oculto="ambos"],
+.modulo-subtabs[data-oculto="ambos"] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}

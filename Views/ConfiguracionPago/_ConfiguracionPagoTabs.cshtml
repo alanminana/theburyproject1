@@ -1,45 +1,75 @@
-@* Navegación única del módulo "Configuración de pagos": Medios de pago y Crédito personal son
-   dos pestañas del mismo lugar (cada una conserva su URL y su formulario propio). *@
+@* Navegación única de Configuración. Cada pantalla conserva su URL y su formulario; cada pestaña se muestra
+   solo con el permiso que ya exige su controller. Las plantillas de contrato no se exponen acá. *@
 @{
     var activa = ViewData["ConfigPagoTab"] as string ?? "medios";
     var returnUrlTabs = ViewData["ReturnUrl"] as string;
+    var veConfiguracion = User.TienePermiso("configuracion", "view");
+    // MoraController exige cobranzas.viewarrears además de mora.config.
+    var veMora = User.TienePermiso("mora", "config") && User.TienePermiso("cobranzas", "viewarrears");
 }
 <style>
     .cfgpago-title { margin: 0; font-size: clamp(1.35rem, 2.2vw, 1.75rem); line-height: 1.15; font-weight: 800; color: #fff; letter-spacing: 0; text-wrap: balance; }
     .cfgpago-sub { max-width: 58rem; margin: .3rem 0 0; color: var(--pal-neutral-400); font-size: .875rem; line-height: 1.5; }
-    .cfgpago-tabs { display: flex; gap: .25rem; padding: .25rem; border: 1px solid var(--pal-neutral-800); border-radius: .75rem; background: color-mix(in srgb, var(--pal-neutral-925) 70%, transparent); width: fit-content; max-width: 100%; }
+    .cfgpago-tabs { display: flex; gap: .25rem; padding: .25rem; border: 1px solid var(--pal-neutral-800); border-radius: .75rem; background: color-mix(in srgb, var(--pal-neutral-925) 70%, transparent); width: fit-content; max-width: 100%; flex-wrap: wrap; }
     .cfgpago-tab { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: .55rem; font-size: .8125rem; font-weight: 600; color: var(--pal-neutral-300); text-decoration: none; white-space: nowrap; min-height: 2.75rem; }
     .cfgpago-tab:hover { color: #fff; background: color-mix(in srgb, var(--pal-neutral-800) 60%, transparent); }
     .cfgpago-tab[aria-current="page"] { color: var(--pal-accent); background: color-mix(in srgb, var(--pal-accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pal-accent) 35%, transparent); }
     .cfgpago-tab:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
     @@media (max-width: 640px) { .cfgpago-tabs { width: 100%; flex-wrap: wrap; } .cfgpago-tab { flex: 1 1 auto; justify-content: center; padding: .5rem .75rem; } }
 </style>
-<nav class="cfgpago-tabs" aria-label="Configuración de pagos">
-    <a asp-controller="ConfiguracionPago" asp-action="MediosPago"
-       class="cfgpago-tab" aria-current="@(activa == "medios" ? "page" : null)">
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
-        Medios de pago
-    </a>
-    <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" asp-route-returnUrl="@returnUrlTabs"
-       class="cfgpago-tab" aria-current="@(activa == "credito" ? "page" : null)">
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">request_quote</span>
-        Crédito personal
-    </a>
-    <a asp-controller="ServiciosVenta" asp-action="Index"
-       class="cfgpago-tab" aria-current="@(activa == "servicios" ? "page" : null)">
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
-        Envíos y armados
-    </a>
-    <a asp-controller="ConfiguracionCliente" asp-action="Index"
-       class="cfgpago-tab" aria-current="@(activa == "cliente" ? "page" : null)">
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">contact_phone</span>
-        Datos de cliente
-    </a>
-    <a asp-controller="PrefijosNumeracion" asp-action="Index"
-       class="cfgpago-tab" aria-current="@(activa == "prefijos" ? "page" : null)">
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">tag</span>
-        Prefijos
-    </a>
+<nav class="cfgpago-tabs" aria-label="Configuración">
+    @if (veConfiguracion)
+    {
+        <a asp-controller="ConfiguracionPago" asp-action="MediosPago"
+           class="cfgpago-tab" aria-current="@(activa == "medios" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+            Medios de pago
+        </a>
+        <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" asp-route-returnUrl="@returnUrlTabs"
+           class="cfgpago-tab" aria-current="@(activa == "credito" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">request_quote</span>
+            Crédito personal
+        </a>
+    }
+    @if (veMora)
+    {
+        <a asp-controller="Mora" asp-action="ConfiguracionExpandida"
+           class="cfgpago-tab" aria-current="@(activa == "mora" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">running_with_errors</span>
+            Mora
+        </a>
+    }
+    @if (veConfiguracion)
+    {
+        <a asp-controller="ServiciosVenta" asp-action="Index"
+           class="cfgpago-tab" aria-current="@(activa == "servicios" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
+            Envíos y armados
+        </a>
+        <a asp-controller="ConfiguracionRentabilidad" asp-action="Index"
+           class="cfgpago-tab" aria-current="@(activa == "rentabilidad" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">trending_up</span>
+            Rentabilidad
+        </a>
+        <a asp-controller="PrefijosNumeracion" asp-action="Index"
+           class="cfgpago-tab" aria-current="@(activa == "prefijos" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">tag</span>
+            Prefijos
+        </a>
+        <a asp-controller="ConfiguracionCliente" asp-action="Index"
+           class="cfgpago-tab" aria-current="@(activa == "cliente" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">contact_phone</span>
+            Datos de cliente
+        </a>
+    }
+    @if (User.TienePermiso("configuracion", "recalcularscoringglobal"))
+    {
+        <a asp-controller="Mantenimiento" asp-action="ScoringGlobal"
+           class="cfgpago-tab" aria-current="@(activa == "puntajes" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">sync</span>
+            Recálculo de puntajes
+        </a>
+    }
     @if (User.TieneCualquierPermiso(("documentos", "managetemplates"), ("documentos", "managerules"), ("documentos", "managetypes")))
     {
         <a asp-controller="DocumentosConfig" asp-action="Index"

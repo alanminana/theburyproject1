@@ -1,0 +1,112 @@
+@model ProveedorContextoViewModel
+@* Ficha de proveedor integrada: mismas pestañas y acciones en Resumen, Órdenes de compra y Cuenta corriente.
+   Todas las acciones llevan el proveedor ya elegido. *@
+@{
+    var veProveedores = User.TienePermiso("proveedores", "view");
+    var veOrdenes = User.TienePermiso("ordenescompra", "view");
+    var veCuenta = User.TienePermiso("cuentasporpagar", "view");
+    var creaOrdenes = veOrdenes && User.TienePermiso("ordenescompra", "create");
+    var registraPagos = veCuenta && User.TienePermiso("cuentasporpagar", "pay");
+    var registraComprobantes = veCuenta && User.TienePermiso("cuentasporpagar", "createinvoice");
+    var puedeEditar = Model.MostrarEditar && User.TienePermiso("proveedores", "update");
+    string? Actual(PestanaProveedor p) => Model.Activa == p ? "page" : null;
+}
+
+<section class="proveedor-contexto card-erp-panel mb-4 p-4 pb-0" aria-labelledby="proveedor-contexto-titulo" data-proveedor-contexto>
+    @if (veProveedores)
+    {
+        <nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+            <a asp-controller="Proveedor" asp-action="Index" class="no-underline hover:text-primary">Proveedores</a>
+            <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+            <span class="text-primary">@Model.Nombre</span>
+        </nav>
+    }
+
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+                <h1 id="proveedor-contexto-titulo" class="text-xl font-black tracking-tight text-white sm:text-2xl">@Model.Nombre</h1>
+                @if (Model.Vigente.HasValue)
+                {
+                    <span class="@(Model.Vigente.Value ? "chip-erp chip-erp-success" : "chip-erp")">@(Model.Vigente.Value ? "Activo" : "Inactivo")</span>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.Detalle))
+            {
+                <p class="text-sm text-slate-400">@Model.Detalle</p>
+            }
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2" data-proveedor-acciones>
+            @if (creaOrdenes)
+            {
+                <a asp-controller="OrdenCompra" asp-action="Create" asp-route-proveedorId="@Model.ProveedorId" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_shopping_cart</span>
+                    Nueva orden
+                </a>
+            }
+            @if (registraComprobantes)
+            {
+                <a asp-controller="CuentaPorPagar" asp-action="Crear" asp-route-proveedorId="@Model.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
+                    Nuevo comprobante
+                </a>
+            }
+            @if (registraPagos)
+            {
+                <a asp-controller="CuentaPorPagar" asp-action="Pagar" asp-route-proveedorId="@Model.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                    Registrar pago
+                </a>
+            }
+            @if (puedeEditar)
+            {
+                <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="edit" data-proveedor-id="@Model.ProveedorId"
+                        class="btn-erp-ghost btn-sm">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
+                    Editar proveedor
+                </button>
+            }
+            @if (veCuenta)
+            {
+                <details class="modulo-mas" data-modulo-mas>
+                    <summary class="btn-erp-ghost btn-sm cursor-pointer">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">more_horiz</span>
+                        Más
+                    </summary>
+                    <div class="modulo-mas__menu">
+                        @if (registraPagos)
+                        {
+                            <a asp-controller="CuentaPorPagar" asp-action="Anticipar" asp-route-proveedorId="@Model.ProveedorId" class="modulo-mas__item">
+                                <span class="material-symbols-outlined" aria-hidden="true">savings</span>
+                                Registrar anticipo
+                            </a>
+                        }
+                        <a asp-controller="CuentaPorPagar" asp-action="Antiguedad" asp-route-proveedorId="@Model.ProveedorId" class="modulo-mas__item">
+                            <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                            Antigüedad de deuda
+                        </a>
+                    </div>
+                </details>
+            }
+        </div>
+    </div>
+
+    <nav class="modulo-tabs mt-3" aria-label="Secciones del proveedor" data-modulo-tabs>
+        @if (veProveedores)
+        {
+            <a class="modulo-tab" aria-current="@Actual(PestanaProveedor.Resumen)"
+               asp-controller="Proveedor" asp-action="Details" asp-route-id="@Model.ProveedorId">Resumen</a>
+        }
+        @if (veOrdenes)
+        {
+            <a class="modulo-tab" aria-current="@Actual(PestanaProveedor.Ordenes)"
+               asp-controller="OrdenCompra" asp-action="Index" asp-route-ProveedorId="@Model.ProveedorId">Órdenes de compra</a>
+        }
+        @if (veCuenta)
+        {
+            <a class="modulo-tab" aria-current="@Actual(PestanaProveedor.Cuenta)"
+               asp-controller="CuentaPorPagar" asp-action="EstadoCuenta" asp-route-proveedorId="@Model.ProveedorId">Cuenta corriente</a>
+        }
+    </nav>
+</section>

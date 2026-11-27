@@ -277,6 +277,10 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public string ListaPrecioNombre { get; set; } = "Predeterminada";
 
+        /// <summary>Lista predeterminada activa (la que usan Venta y Cotización); null si no hay ninguna.</summary>
+        public int? ListaPredeterminadaId { get; set; }
+        public string? ListaPredeterminadaNombre { get; set; }
+
         // ============================================
         // OPCIONES PARA DROPDOWNS
         // ============================================
@@ -409,6 +413,13 @@ namespace TheBuryProject.ViewModels
         /// ID del producto
         /// </summary>
         public int ProductoId { get; set; }
+
+        /// <summary>
+        /// Solo informativo, en la vista previa sobre precio base: precio fijado en la lista predeterminada, que es el
+        /// que Venta y Cotización siguen cobrando. Null si el producto no tiene precio en esa lista.
+        /// </summary>
+        public decimal? PrecioListaVigente { get; set; }
+        public string? ListaVigenteNombre { get; set; }
 
         /// <summary>
         /// Código del producto

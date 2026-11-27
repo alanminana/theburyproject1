@@ -200,12 +200,14 @@
         function scrollActiveTabIntoView() {
             var activeBtn = tabContainer.querySelector('[data-catalogo-tab][aria-selected="true"]');
             if (!activeBtn) return;
-            var wrapperRect = tabContainer.getBoundingClientRect();
+            // El que se desplaza es el contenedor que incluye el tablist y el enlace a Precios.
+            var scroller = tabContainer.parentElement;
+            var wrapperRect = scroller.getBoundingClientRect();
             var btnRect = activeBtn.getBoundingClientRect();
             if (btnRect.left < wrapperRect.left) {
-                tabContainer.scrollLeft += (btnRect.left - wrapperRect.left);
+                scroller.scrollLeft += (btnRect.left - wrapperRect.left);
             } else if (btnRect.right > wrapperRect.right) {
-                tabContainer.scrollLeft += (btnRect.right - wrapperRect.right);
+                scroller.scrollLeft += (btnRect.right - wrapperRect.right);
             }
         }
 
@@ -358,6 +360,7 @@
     var btnHistorial    = document.getElementById('catalogo-menu-historial');
     var btnMovimientos  = document.getElementById('catalogo-menu-movimientos');
     var linkCompra      = document.getElementById('catalogo-menu-compra');
+    var linkPrecioLista = document.getElementById('catalogo-menu-precio-lista');
     var btnMercadoLibre = document.getElementById('catalogo-menu-mercadolibre');
     var btnEliminar     = document.getElementById('catalogo-menu-eliminar');
     var mlForm            = document.getElementById('catalogo-mercadolibre-form');
@@ -422,6 +425,9 @@
                 linkCompra.setAttribute('href', '#');
                 linkCompra.classList.add('hidden');
             }
+        }
+        if (linkPrecioLista) {
+            linkPrecioLista.setAttribute('href', trigger.getAttribute('data-precio-lista-url') || '#');
         }
         if (btnMercadoLibre) btnMercadoLibre.setAttribute('data-producto-id', productoId || '');
         if (btnEliminar) {

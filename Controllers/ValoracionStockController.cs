@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Filters;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -56,6 +57,25 @@ namespace TheBuryProject.Controllers
                     .Select(m => new { m.Id, m.Nombre }).ToListAsync(cancellationToken)).Select(m => (m.Id, m.Nombre)).ToList()
             };
             return View("Index_tw", vm);
+        }
+
+        /// <summary>Simulador de la ayuda «¿Cómo funciona?»: calcula con la regla real y no lee ni guarda datos.</summary>
+        [HttpGet]
+        public IActionResult Simular(int cantidad1, decimal costo1, int vendidas, int cantidad2, decimal costo2)
+        {
+            static bool CantidadInvalida(int c) => c < 1 || c > ValoracionStockSimulador.CantidadMaxima;
+            static bool CostoInvalido(decimal c) => c <= 0 || c > Validation.MontoArgentinoAttribute.Maximo;
+
+            if (!ModelState.IsValid || CantidadInvalida(cantidad1) || CantidadInvalida(cantidad2)
+                || CostoInvalido(costo1) || CostoInvalido(costo2) || vendidas < 0 || vendidas > cantidad1)
+            {
+                return BadRequest(new
+                {
+                    error = "Revisá los datos: cantidades de 1 a 100.000, costos de más de 0 a 20.000.000 y no vender más de lo comprado."
+                });
+            }
+
+            return Json(ValoracionStockSimulador.Simular(cantidad1, costo1, vendidas, cantidad2, costo2));
         }
 
         [HttpGet]

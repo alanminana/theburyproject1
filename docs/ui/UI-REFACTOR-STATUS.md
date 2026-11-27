@@ -26,8 +26,14 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Reportes | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
 | Devolución | `Index` (Devoluciones y garantías) | ✅ Cerrado técnico (2026-11-24) | D-02/#320 (modal, axe móvil) + ronda de interfaz (idem) |
 | Cuentas por pagar | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
-| Listas de precio | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
+| Listas de precio | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem)  ; **2026-11-27**: ayuda «¿Cómo funciona?» en Index, Create, Edit, Precios y Fijar precio (modal con pestañas, iconos de información y simulador que calcula en el servidor sin guardar). Textos de campos en `Helpers/ListaPrecioAyudaCampos.cs`: actualizarlos si cambia una regla de precios. Validado en 1366/1024/390, axe 0 en el modal, e2e `listas-precios-flujo` 9/9 con CSP Enforce |
 | Crédito | `Index` (Cartera / Moras) | ✅ Cerrado técnico (2026-11-24) | serie CREDITO-VISUAL + ronda de interfaz (idem); deuda conocida: título centrado en `Credito/Index` |
+
+Reorganización de navegación (2026-11-27, aprobada por el propietario): se reabrieron solo para la navegación,
+los encabezados duplicados y la ayuda: `_Layout`, Inventario, Listas de precios, Cambios por lotes, Alertas y Movimientos
+de stock, Cliente/Index, Crédito/Index, Mora, Proveedor (Index y Details), Órdenes de compra/Index, Cuentas por pagar,
+Tesorería, Reportes, Valoración de stock y Configuración. Reglas en `ERP-UI-STANDARD.md` §15 bis. No cambia el estado de
+cierre de las demás pantallas.
 
 Leyenda:
 

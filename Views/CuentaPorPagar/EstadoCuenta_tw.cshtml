@@ -8,43 +8,12 @@
 
 <partial name="_CxpAlertas" />
 
-<section class="card-erp-panel mb-4 p-4" aria-labelledby="cxp-ec-titulo">
-    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
-        <a asp-action="Index" class="no-underline hover:text-primary">Cuentas por pagar</a>
-        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
-        <span class="text-primary">Estado de cuenta</span>
-    </nav>
-    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h1 id="cxp-ec-titulo" class="text-lg font-bold tracking-tight text-white">@cuenta.ProveedorNombre</h1>
-            @if (!string.IsNullOrWhiteSpace(cuit)) { <p class="text-sm text-slate-400">CUIT @cuit</p> }
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a asp-action="Antiguedad" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
-                Antigüedad
-            </a>
-            @if (Model.PuedeRegistrarPagos)
-            {
-                <a asp-action="Pagar" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
-                    Registrar pago
-                </a>
-                <a asp-action="Anticipar" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-secondary btn-sm no-underline">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">savings</span>
-                    Registrar anticipo
-                </a>
-            }
-            @if (Model.PuedeRegistrarComprobantes)
-            {
-                <a asp-action="Crear" asp-route-proveedorId="@cuenta.ProveedorId" class="btn-erp-primary btn-sm no-underline">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
-                    Nuevo comprobante
-                </a>
-            }
-        </div>
-    </div>
-    <dl class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+<partial name="_ProveedorContexto"
+         model='new ProveedorContextoViewModel(cuenta.ProveedorId, cuenta.ProveedorNombre, PestanaProveedor.Cuenta,
+             string.IsNullOrWhiteSpace(cuit) ? null : $"CUIT {cuit}")' />
+
+<section class="card-erp-panel mb-4 p-4" aria-label="Saldos del proveedor">
+    <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div class="card-erp-metric">
             <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Saldo neto con el proveedor</dt>
             <dd class="mt-2 whitespace-nowrap text-xl font-black text-white sm:text-2xl">@CuentaPorPagarUiHelper.Moneda(cuenta.SaldoNeto)</dd>
@@ -180,3 +149,5 @@
         </div>
     </section>
 }
+
+<partial name="~/Views/CuentaPorPagar/_AyudaCuentasPorPagar.cshtml" />

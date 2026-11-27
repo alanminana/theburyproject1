@@ -52,6 +52,10 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public int? ListaPrecioId { get; set; }
 
+        /// <summary>Lista predeterminada activa (la que usan Venta y Cotización); null si no hay ninguna.</summary>
+        public int? ListaPredeterminadaId { get; set; }
+        public string? ListaPredeterminadaNombre { get; set; }
+
         // ============================================
         // DATOS (del servicio)
         // ============================================
@@ -234,6 +238,8 @@ namespace TheBuryProject.ViewModels
                 MarcasFiltro = new SelectList(resultado.Marcas, "Id", "Nombre", filtros.MarcaId),
                 ListasPreciosFiltro = new SelectList(resultado.ListasPrecios, "Id", "Nombre", resultado.ListaPrecioId),
                 ListaPrecioActualNombre = resultado.ListaPrecioNombre,
+                ListaPredeterminadaId = resultado.ListaPredeterminadaId,
+                ListaPredeterminadaNombre = resultado.ListaPredeterminadaNombre,
 
                 // Listas para JS de acciones masivas
                 Categorias = resultado.Categorias,

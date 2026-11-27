@@ -115,11 +115,11 @@ namespace TheBuryProject.Controllers
 
         // GET: OrdenCompra/Create
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionCrear)]
-        public async Task<IActionResult> Create(int? productoId = null)
+        public async Task<IActionResult> Create(int? productoId = null, int? proveedorId = null)
         {
             try
             {
-                await CargarDatosSelectListsAsync();
+                await CargarDatosSelectListsAsync(proveedorId);
 
                 // Generar número de orden automáticamente
                 var numeroOrden = await _ordenCompraService.GenerarNumeroOrdenAsync();
@@ -130,6 +130,11 @@ namespace TheBuryProject.Controllers
                     FechaEmision = RelojComercial.Sistema.InicioDiaComercial,
                     Estado = EstadoOrdenCompra.Borrador
                 };
+
+                // Pre-selecciona el proveedor cuando se llega desde su ficha. Es solo un valor inicial del
+                // formulario: el alta valida el proveedor igual que siempre.
+                if (proveedorId.HasValue)
+                    viewModel.ProveedorId = proveedorId.Value;
 
                 // Pre-cargar un detalle cuando se llega desde "Reponer" (dashboard / alertas de stock)
                 if (productoId.HasValue)

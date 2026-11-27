@@ -1,0 +1,89 @@
+@* Ayuda «¿Cómo funciona?» de Cuentas por pagar. Describe CuentaPorPagarService. El ejemplo usa importes fijos
+   ficticios (los verifica AyudaProveedoresEjemplosTests contra el servicio real); no lee ni guarda datos. *@
+<dialog id="ayuda-cxp" class="lp-ayuda" data-erp-ayuda aria-labelledby="ayuda-cxp-titulo">
+    <div class="lp-ayuda__panel">
+        <div class="lp-ayuda__cabecera">
+            <h2 id="ayuda-cxp-titulo">¿Cómo funcionan las cuentas por pagar?</h2>
+            <button type="button" class="lp-ayuda__cerrar" data-erp-ayuda-cerrar aria-label="Cerrar ayuda">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+
+        <div class="lp-tabs" role="tablist" aria-label="Secciones de la ayuda">
+            <button type="button" role="tab" id="acp-tab-basico" aria-controls="acp-pane-basico" aria-selected="true">Lo básico</button>
+            <button type="button" role="tab" id="acp-tab-ejemplo" aria-controls="acp-pane-ejemplo" aria-selected="false" tabindex="-1">Ejemplo paso a paso</button>
+        </div>
+
+        <div class="lp-ayuda__cuerpo">
+            <section id="acp-pane-basico" role="tabpanel" aria-labelledby="acp-tab-basico" tabindex="0">
+                <p class="lp-lead">Es el registro de <strong>lo que les debés a tus proveedores</strong> y de cómo lo vas pagando.</p>
+
+                <ol class="lp-flujo" aria-label="Circuito de una compra">
+                    <li><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span><strong>Comprobante</strong><span>Cargás la factura, nota de débito o de crédito tal como la emitió el proveedor.</span></li>
+                    <li><span class="material-symbols-outlined" aria-hidden="true">payments</span><strong>Pago o anticipo</strong><span>Registrás con qué fondos pagaste y a qué comprobantes se aplica.</span></li>
+                    <li><span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span><strong>Cuenta corriente</strong><span>En la ficha del proveedor ves los movimientos y el saldo.</span></li>
+                </ol>
+
+                <h3>Reparto de tareas</h3>
+                <div class="lp-tarjetas">
+                    <article><h4>Qué hace el ERP solo</h4><p>Recalcula el saldo y el estado de cada comprobante, y marca los vencidos y la antigüedad de la deuda.</p></article>
+                    <article><h4>Qué hacés vos</h4><p>Cargar cada comprobante, imputar cada pago por su importe completo y <strong>aplicar los anticipos y las notas de crédito</strong> a las facturas.</p></article>
+                    <article><h4>Dónde se ve</h4><p>En esta lista, en la cuenta corriente de cada proveedor y, los pagos y anticipos, en Tesorería según su origen de fondos.</p></article>
+                </div>
+
+                <p class="lp-aviso">
+                    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                    <span><strong>Es un registro administrativo:</strong> no mueve la Caja, el stock ni los costos, no calcula IVA y no cambia el estado de un cheque.</span>
+                </p>
+            </section>
+
+            <section id="acp-pane-ejemplo" role="tabpanel" aria-labelledby="acp-tab-ejemplo" tabindex="0" hidden>
+                <p class="lp-nota">Ejemplo ficticio: heladeras compradas a «Electro Norte». Avanzá para ver cómo cambian los saldos.</p>
+                <div data-ayuda-pasos>
+                    <div class="lp-paso" data-ayuda-paso>
+                        <h4>1. Cargás la factura por $1.210.000</h4>
+                        <p>La factura queda pendiente por su importe completo.</p>
+                        <div class="lp-precios">
+                            <p><span>Saldo de la factura</span><strong>$1.210.000</strong></p>
+                            <p><span>Saldo neto con el proveedor</span><strong>$1.210.000</strong></p>
+                            <p><span>Anticipos sin aplicar</span><strong>$0</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-paso" data-ayuda-paso hidden>
+                        <h4>2. Registrás un anticipo de $200.000</h4>
+                        <p>El saldo neto baja enseguida, pero <strong>la factura todavía no cambia</strong>: el anticipo está sin aplicar.</p>
+                        <div class="lp-precios">
+                            <p><span>Saldo de la factura</span><strong>$1.210.000</strong></p>
+                            <p><span>Saldo neto con el proveedor</span><strong>$1.010.000</strong></p>
+                            <p><span>Anticipos sin aplicar</span><strong>$200.000</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-paso" data-ayuda-paso hidden>
+                        <h4>3. Aplicás el anticipo a la factura</h4>
+                        <p>Este paso lo hacés vos. Ahora la factura baja; el saldo neto no vuelve a cambiar.</p>
+                        <div class="lp-precios">
+                            <p><span>Saldo de la factura</span><strong>$1.010.000</strong></p>
+                            <p><span>Saldo neto con el proveedor</span><strong>$1.010.000</strong></p>
+                            <p><span>Anticipos sin aplicar</span><strong>$0</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-paso" data-ayuda-paso hidden>
+                        <h4>4. Pagás $500.000 y los imputás a la factura</h4>
+                        <p>El pago elige un origen de fondos (por ejemplo, la cuenta bancaria). Quedan $510.000 por pagar.</p>
+                        <div class="lp-precios">
+                            <p><span>Saldo de la factura</span><strong>$510.000</strong></p>
+                            <p><span>Saldo neto con el proveedor</span><strong>$510.000</strong></p>
+                            <p><span>Anticipos sin aplicar</span><strong>$0</strong></p>
+                        </div>
+                    </div>
+                    <div class="lp-pasador">
+                        <button type="button" class="btn-erp-secondary btn-sm" data-ayuda-anterior>Anterior</button>
+                        <output data-ayuda-contador>Paso 1 de 4</output>
+                        <button type="button" class="btn-erp-primary btn-sm" data-ayuda-siguiente>Siguiente</button>
+                    </div>
+                </div>
+                <p class="lp-nota">Si te equivocás, el pago o el anticipo se <strong>anula</strong> con un motivo: no se borra y la anulación queda en la cuenta corriente.</p>
+            </section>
+        </div>
+    </div>
+</dialog>

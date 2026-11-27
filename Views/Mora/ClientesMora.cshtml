@@ -101,44 +101,7 @@
 }
 
 <div class="space-y-6" data-mora-clientes-page>
-    <section class="card-erp-panel-padded">
-        <header class="flex flex-col gap-6">
-            <div class="space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Clientes en mora</li>
-                    </ol>
-                </nav>
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">groups</span>
-                        Cobranzas
-                    </span>
-                    <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Clientes en mora</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                            Bandeja de cobranza: un renglón por cliente con alertas sin resolver, ordenada por prioridad y atraso.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mc-actions">
-                <a asp-controller="Mora" asp-action="Index" class="btn-erp-secondary sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    Volver a Mora
-                </a>
-                <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-ghost sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">notifications_active</span>
-                    Alertas
-                </a>
-            </div>
-        </header>
-    </section>
+    <h1 class="sr-only">Clientes en mora</h1>
 
     @if (TempData["Success"] != null)
     {

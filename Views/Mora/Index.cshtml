@@ -27,43 +27,11 @@
 }
 
 <div class="space-y-6" data-mora-index>
-    <section class="card-erp-panel-padded">
-        <header class="flex flex-col gap-6">
-            <div class="space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Mora</li>
-                    </ol>
-                </nav>
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">alarm</span>
-                        Cobranzas
-                    </span>
-                    <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Mora y cobranzas</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                            Estado de la cartera vencida, alertas activas y últimas ejecuciones del proceso automático.
-                        </p>
-                    </div>
-                </div>
-            </div>
+    <h1 class="sr-only">Mora y cobranzas</h1>
 
-            <div class="mora-actions">
-                <a asp-controller="Mora" asp-action="ClientesMora" class="btn-erp-secondary sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">groups</span>
-                    Clientes en mora
-                </a>
-                <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-secondary sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">notifications_active</span>
-                    Alertas
-                </a>
-                <a asp-controller="Mora" asp-action="Logs" class="btn-erp-secondary sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">history</span>
-                    Historial
-                </a>
+    @if (puedeConfigurar || puedeGestionar)
+    {
+        <div class="mora-actions justify-end">
                 @if (puedeConfigurar)
                 {
                     <a asp-controller="Mora" asp-action="ConfiguracionExpandida" class="btn-erp-ghost sm:py-2.5 no-underline">
@@ -85,9 +53,8 @@
                         </button>
                     </form>
                 }
-            </div>
-        </header>
-    </section>
+        </div>
+    }
 
     @if (TempData["Success"] != null)
     {

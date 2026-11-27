@@ -1,7 +1,7 @@
 @model CreditoPersonalConfigViewModel
 @using TheBuryProject.ViewModels.Punitorio
 @{
-    ViewData["Title"] = "Configuración de pagos";
+    ViewData["Title"] = "Configuración";
     var returnUrl = ViewData["ReturnUrl"] as string;
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
@@ -12,7 +12,6 @@
     var limiteClienteNuevo = limites.FirstOrDefault(l => l.Puntaje == 0)?.LimiteMonto ?? 0m;
     var puedeEditar = User.TienePermiso("configuracion", "update");
     var puedeEditarCupos = puedeEditar && User.TienePermiso("clientes", "managecreditlimits");
-    var puedeConfigMora = User.TienePermiso("mora", "config");
     var dg = Model.DefaultsGlobales ?? new DefaultsGlobalesViewModel();
     var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
     // Micro-lote 4: la disponibilidad de cuotas sale SOLO de los planes activos. No hay rango.
@@ -185,7 +184,7 @@
 <header class="cfgpago-head">
     <div class="cfgpago-head-row">
         <div class="cfgpago-head-main">
-            <h1 class="cfgpago-title">Configuración de pagos</h1>
+            <h1 class="cfgpago-title">Configuración</h1>
             <p class="cfgpago-sub">Crédito personal: recargos por cuotas, límites por puntaje, perfiles y punitorios.</p>
         </div>
         <div class="cp-hero-actions flex items-center gap-2 flex-wrap max-w-full">
@@ -195,15 +194,6 @@
                 <span class="material-symbols-outlined text-[17px]">contract</span>
                 Plantilla contrato
             </a>
-            @if (puedeConfigMora)
-            {
-                <a asp-controller="Mora" asp-action="ConfiguracionExpandida"
-                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
-                   class="btn-erp-secondary py-2 text-sm no-underline">
-                    <span class="material-symbols-outlined text-[17px]">tune</span>
-                    Configuración de mora
-                </a>
-            }
             <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">
                 <span class="material-symbols-outlined text-[17px]">arrow_back</span>
                 Volver

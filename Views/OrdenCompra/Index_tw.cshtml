@@ -10,6 +10,9 @@
     int totalOrdenes = ViewBag.TotalOrdenes ?? 0;
     decimal totalValorizado = ViewBag.TotalValorizado ?? 0m;
     var permCrearOC = User.TienePermiso("ordenescompra", "create");
+    var proveedorEnContexto = Model.ProveedorId.HasValue
+        ? proveedores?.FirstOrDefault(p => p.Value == Model.ProveedorId.Value.ToString())?.Text
+        : null;
     var permActualizarOC = User.TienePermiso("ordenescompra", "update");
     var permRecibirOC = User.TienePermiso("ordenescompra", "receive");
     var permCancelarOC = User.TienePermiso("ordenescompra", "cancel");
@@ -31,7 +34,17 @@
     var filtroOCHidden   = filtroOCActivo ? "false" : "true";
 }
 
-<h1 class="sr-only">Órdenes de Compra</h1>
+@if (proveedorEnContexto is not null)
+{
+    @* Órdenes de UN proveedor: es una pestaña de su ficha; reemplaza la barra del módulo y el título propio. *@
+    ViewData["SinBarraModulo"] = true;
+    <partial name="_ProveedorContexto"
+             model='new ProveedorContextoViewModel(Model.ProveedorId!.Value, proveedorEnContexto, PestanaProveedor.Ordenes)' />
+}
+else
+{
+    <h1 class="sr-only">Órdenes de Compra</h1>
+}
 
 <!-- Filters -->
 <form asp-action="Index" method="get" id="form-filtros">
@@ -55,13 +68,7 @@
                     <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
                 </div>
             </button>
-            <a asp-controller="Proveedor" asp-action="Index"
-               class="oc-touch btn-erp-secondary btn-sm no-underline shrink-0"
-               title="Volver a Gestión de proveedores">
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-                Proveedores
-            </a>
-            @if (permCrearOC)
+            @if (permCrearOC && proveedorEnContexto is null)
             {
                 <a asp-action="Create" class="oc-touch btn-erp-primary btn-sm no-underline shrink-0">
                     <span class="material-symbols-outlined text-[18px]">add_circle</span>
