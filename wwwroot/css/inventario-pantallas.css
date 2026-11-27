@@ -574,6 +574,16 @@
     text-decoration: none;
 }
 
+/* layout.css fija `header > div:last-child { flex-shrink: 0 }` para la barra superior; alcanzaba también a
+   estos encabezados y en celular cortaba el último botón. */
+/* Dos clases: tiene que ganarle en especificidad a esa regla. */
+.inv-head > .inv-head__titulo,
+.inv-head > .inv-head__acciones {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+}
+
 .inv-crumb {
     display: inline-flex;
     align-items: center;

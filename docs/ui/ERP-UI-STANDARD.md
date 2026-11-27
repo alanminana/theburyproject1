@@ -156,6 +156,19 @@ centra la pestaña activa y se atenúa el borde que todavía tiene pestañas ocu
 - Footer de acciones: en mobile las acciones se apilan (`column-reverse`, ancho completo);
   en desktop van en fila alineadas a la derecha.
 
+Con `<dialog>` nativo (`showModal`):
+
+- una confirmación que pueda abrirse **sobre** un `<dialog>` modal tiene que ser otro `<dialog>` modal
+  (en Inventario, `InvUI.confirmar`). El confirmador global (`#confirmModal`, un `div`) queda debajo de
+  la capa superior: se ve tapado y no se puede pulsar ni enfocar;
+- el foco inicial de una confirmación destructiva va a la opción segura; no se agrega trampa de foco ni
+  `role="dialog"` a un modal nativo;
+- el descarte de un panel con cambios se pregunta desde el evento `cancel`.
+
+CSS de componentes fuera de `@layer` y la utilidad `.hidden` de Tailwind: la clase del componente le gana
+a `.hidden`. Un elemento que se oculta por script no lleva en el mismo nodo una clase con `display`
+(envolverlo, usar el atributo `hidden` o declarar `.componente.hidden`).
+
 ## 11. Accesibilidad
 
 Mínimo exigible en toda pantalla:

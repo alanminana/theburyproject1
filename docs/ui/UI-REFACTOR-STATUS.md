@@ -2422,6 +2422,26 @@ usuario…", recargar y guardar funciona). Nota: registrar `UltimoAcceso` en el 
 SuperAdmin o un rol propio del usuario actual; la pestaña Permisos de Rol contiene WIP ajeno ("Comparar
 roles", sin tests ni commit) que se preservó sin tocar su lógica.
 
+## Inventario — modernización integral (2026-11-27, rama `task/inventario-modernizacion-20261127`, sin PR)
+
+Reabre las pantallas de Inventario y reemplaza el cierre "Stock" del 2026-09-25 en lo visual.
+
+- **Alcance:** Catálogo (productos, categorías, marcas, alertas, movimientos) con una sección por URL;
+  diálogos de producto, categoría, marca, comisión, historial, ajuste masivo y movimientos; ficha de
+  inventario; unidades por producto, global e historial de unidad; movimientos, alta y Kardex (con
+  impresión); alertas; lotes de precios; listas de precios.
+- **Componentes:** `wwwroot/js/inventario-ui.js`, `wwwroot/css/inventario-ui.css`,
+  `wwwroot/css/inventario-pantallas.css` (solo tokens). Reglas nuevas en `ERP-UI-STANDARD.md` §10.
+- **Validado:** axe (WCAG 2.1 AA) sin violaciones en 21 pantallas y 9 diálogos; sin desborde a 1440, 1024,
+  768, 683 y 390 px; foco visible con Tab; escenarios CSP Enforce del Catálogo y recorrido por 7 roles en
+  Chromium, Firefox y WebKit; `e2e/listas-precios-flujo.spec.js`; PDF del Kardex.
+- **NO VALIDADA:** lector de pantalla real; dispositivo táctil físico; venta y devolución de una unidad
+  serializada desde el navegador (solo pruebas automatizadas); publicación efectiva en Mercado Libre
+  (solo la apertura del borrador).
+- **Pendientes de decisión (sin cambiar reglas de negocio):** aplicar un lote con vigencia futura cierra
+  el precio actual en el momento; los filtros por fecha de movimientos y alertas pueden comparar contra
+  la fecha UTC.
+
 ## Regla para mantener estos documentos
 
 Al cerrar una pantalla:
