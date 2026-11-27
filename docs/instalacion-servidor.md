@@ -1,10 +1,14 @@
-# Instalación del servidor (Windows o Linux)
+# Instalación del servidor
 
-> **Plataforma (actualizado 2026-11-14): sin decidir entre Windows 11 + Docker Desktop (WSL2) y Ubuntu + Docker Engine; Windows Server (Hyper-V + VM) NO es la plataforma elegida.** Esta guía cubre las dos opciones; qué es común, qué cambia y qué se probó en cada una: [p04-plataforma-matriz-automatizacion.md](p04-plataforma-matriz-automatizacion.md). La alternativa Windows Server queda archivada en [`instalacion-windows-server.md`](instalacion-windows-server.md).
+> **Plataforma de referencia (decisión del propietario, 2026-11-27): Ubuntu con Docker Engine. Seguir la [§4](#4-ubuntu-con-docker-engine-referencia).**
+> Windows es el entorno principal de **desarrollo** ([desarrollo-local.md](desarrollo-local.md)). La [§3](#3-windows-1011-con-docker-desktop-alternativa) (Windows 10/11 con
+> Docker Desktop) queda como alternativa; [Windows Server](instalacion-windows-server.md) está archivada.
 
-Guía para instalar TheBuryProject en un servidor propio, accesible solo por LAN/VPN. Es **una sola versión** para los dos sistemas: el ERP corre
-en contenedores Docker (Linux) y solo cambia cómo se prepara la máquina anfitriona. Windows 10/11 con Docker Desktop (WSL2) es el camino
-principal; Linux (Ubuntu Server) funciona con el mismo instalador.
+Relacionado: [operación, rollback y recuperación](operacion-servidor-ubuntu.md) · [red y firewall](red-privada-lan-vpn.md) ·
+[sincronización de entornos](sincronizacion-entornos.md) · [evidencias y límites](evidencias-instalacion.md).
+
+Guía para instalar TheBuryProject en un servidor propio, accesible solo por LAN/VPN. El ERP corre en contenedores Docker (Linux) detrás de Caddy; el
+mismo instalador (`install.sh`) sirve para las dos opciones y solo cambia cómo se prepara el anfitrión.
 
 ```text
 Clientes LAN/VPN ── https://tbp ──> Caddy (443) ──> app:8080 ──> db:1433 (SQL Server Express)
@@ -29,7 +33,7 @@ Todo es **idempotente**: se puede volver a ejecutar sin romper nada. Un `.env` e
 - Salida a Internet del **servidor** (descargar imágenes de Docker y el código). El ERP en sí no necesita Internet.
 - Licencia de AutoMapper: por defecto **Community** (gratuita, sin clave). Ver [despliegue-produccion.md](despliegue-produccion.md) §9.
 
-## 3. Windows 10/11 (camino principal)
+## 3. Windows 10/11 con Docker Desktop (alternativa)
 
 ### 3.1 Preparar la máquina (una vez)
 
@@ -93,28 +97,99 @@ Los contenedores tienen `restart: unless-stopped`: vuelven con Docker. Probarlo 
   Por eso, **tras cada reinicio** (o como tarea al iniciar sesión / unidad systemd `After=docker.service`) conviene ejecutar `docker compose up -d` y comprobar:
 
   ```bash
-  cd <repo> && docker compose up -d --wait && docker compose ps && curl -fsS https://tbp/health/ready
+  cd <repo> && export ERP_IMAGE="$(cat .deploy-state/theburyproject/current-image)" \
+    && docker compose up -d --wait && docker compose ps && curl --cacert caddy-root-ca.crt --resolve tbp:443:127.0.0.1 -fsS https://tbp/health/ready
   ```
 
+  **Nunca ejecutar `docker compose up` sin `ERP_IMAGE`**: resolvería `theburyproject/erp:local` ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §0).
+
   Windows: agregar esa orden a la tarea `TheBury Docker Start`, después de que Docker Desktop esté listo
-  (con WSL integrado: `wsl.exe -d <distro> -- bash -lc "cd ~/theburyproject1 && docker compose up -d"`).
+  (con WSL integrado: `wsl.exe -d <distro> -- bash -lc 'cd ~/theburyproject1 && ERP_IMAGE=$(cat .deploy-state/theburyproject/current-image) docker compose up -d'`).
   **Esta ampliación de la tarea no está automatizada ni probada en Windows**; es un paso manual hasta validarlo en el servidor definitivo.
 - No se reinició el daemon de Docker/Docker Desktop (afectaría a otros contenedores del equipo de pruebas): el ciclo completo
   «apagar el equipo → encender → inicio de sesión automático → Docker Desktop → contenedores» queda **pendiente de ensayo en el servidor real**.
 
-## 4. Linux (Ubuntu Server)
+## 4. Ubuntu con Docker Engine (referencia)
+
+Ubuntu 22.04 y 24.04 son las versiones para las que está escrito el bootstrap; la instalación física más reciente se midió en 26.04
+([evidencias](evidencias-instalacion.md)). Antes de empezar: IP fija o reservada, salida a Internet y una cuenta de administración con `sudo`.
+
+| Dato a decidir | Ejemplo | Nota |
+|---|---|---|
+| Redes que usan el ERP (`--allow-from`) | `192.168.1.0/24` | LAN y/o VPN. Para Tailscale, `100.64.0.0/10` |
+| Equipo que administra por SSH (`--admin-from`) | `192.168.1.10/32` | Un equipo concreto, nunca la LAN entera |
+| Nombre del ERP | `tbp` | Lo resuelven los clientes |
+| Carpeta de respaldos | `/srv/bury-backups` | Idealmente en otro disco; no basta como única copia |
+| Criterio fiscal V2 (`--fiscal-v2-desde`) | sin indicar | Solo con la fecha decidida por el propietario: [puesta-en-marcha-p07-p02.md](puesta-en-marcha-p07-p02.md) |
+
+### 4.1 Descargar el código
 
 ```bash
-# Docker Engine + plugin compose según la guía oficial de Docker; luego:
-sudo usermod -aG docker $USER   # volver a iniciar sesión
-sudo systemctl enable docker
+sudo apt-get update && sudo apt-get install -y git
 git clone https://github.com/alanminana/theburyproject1.git ~/theburyproject1 && cd ~/theburyproject1
-sudo mkdir -p /srv/bury-backups && sudo chown $USER: /srv/bury-backups && chmod 700 /srv/bury-backups
-bash scripts/install/install.sh --admin-email correo@dominio.com --schedule
-sudo ufw allow from 192.168.0.0/24 to any port 443    # LAN; agregar la subred de la VPN
 ```
 
-`--schedule` instala el cron de backups (`/etc/cron.d/bury-backup`, ver [offsite-monitoring-activacion.md](offsite-monitoring-activacion.md) §3).
+### 4.2 Preparar el anfitrión: Docker y firewall
+
+```bash
+sudo scripts/install/server-linux-bootstrap.sh --user "$USER" --allow-from 192.168.1.0/24 \
+     --admin-from 192.168.1.10/32 --backup-dir /srv/bury-backups --dry-run
+```
+
+Revisar la salida y repetir **sin** `--dry-run`. El script instala Docker Engine y Compose del repositorio oficial, crea la carpeta de respaldos, instala
+`bury-firewall` (filtro del 443 en `DOCKER-USER`, con servicio de systemd) y, **solo si se indicó `--admin-from`**, activa `ufw` para limitar SSH.
+Agregar `--tailscale` instala Tailscale sin autenticarlo ([p05-tailscale-acceso-remoto.md](p05-tailscale-acceso-remoto.md)).
+
+> **`ufw` no protege el 443 del ERP.** Docker publica puertos con reglas propias que las de `ufw` no filtran. El filtro es `bury-firewall`. Si se omite el
+> bootstrap o se instala Docker a mano sin él, el 443 queda abierto a toda red que alcance el servidor.
+
+Cerrar la sesión y abrir otra, para tomar el grupo `docker` (**equivale a root**: usarlo solo en la cuenta de administración).
+
+### 4.3 Instalar el ERP
+
+```bash
+cd ~/theburyproject1
+bash scripts/install/install.sh --admin-email correo@dominio.com --domain tbp \
+     --backup-dir /srv/bury-backups --schedule
+```
+
+Genera `.env` con secretos aleatorios (no pisa uno existente), construye la imagen `AAAAMMDD-<commit>`, despliega, levanta Caddy, deja
+`caddy-root-ca.crt` en la raíz del repositorio y, con `--schedule`, programa los respaldos. La contraseña inicial del administrador se muestra
+**una sola vez**. `install.sh --no-deploy` solo deja listos `.env` y la carpeta de respaldos: **no** construye la imagen.
+
+Si el proyecto Compose ya tiene volúmenes y no hay `.env`, el instalador se niega: para recuperar una instalación, seguir
+[operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §6.
+
+### 4.4 Comprobar el firewall y el aislamiento
+
+En el servidor:
+
+```bash
+systemctl is-active bury-firewall && sudo bury-firewall status     # cadena BURY-ERP: orígenes autorizados y DROP final
+ss -ltn                                                            # del ERP solo 443; nada en 1433 ni 8080
+```
+
+Desde un equipo **autorizado**, el 443 responde. Desde uno **no autorizado** (otra red) no debe responder: esa prueba externa es la que demuestra
+el filtro en esta red. Si el ERP usa otro puerto, `--https-port` del bootstrap debe coincidir con `ERP_HTTPS_PORT`.
+
+### 4.5 Verificar la instalación
+
+```bash
+scripts/install/verificar-servidor.sh --project theburyproject --lan-cidr 192.168.1.0/24 --sudo-cmd "sudo"
+scripts/backup/backup.sh all && scripts/backup/restore-test.sh
+```
+
+Esperado: ningún `FAIL`. Los `WARN` son pendientes del propietario (por ejemplo, sin copia externa).
+
+### 4.6 Resguardar fuera del servidor
+
+Hacerlo **el mismo día**: paquete de recuperación, passphrase en otro lugar y un destino de respaldos fuera del equipo
+([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §3). Sin esto, perder el servidor es perder los datos.
+
+### 4.7 Reinicio
+
+Reiniciar el equipo y comprobar, sin tocar nada, que `https://tbp` abre desde un cliente, que los tres servicios están sanos y que
+`bury-firewall` sigue activo ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7).
 
 ## 5. Clientes (cada PC)
 
@@ -133,24 +208,18 @@ sudo ufw allow from 192.168.0.0/24 to any port 443    # LAN; agregar la subred d
 
 1. **Guardar el `.env` completo en el gestor de contraseñas** (nota segura de Bitwarden). Contiene todos los secretos y **no está en los backups**: sin él no se puede recuperar el sistema en otro servidor.
 2. Entrar con el usuario inicial, **cambiar la contraseña** y comprobar un segundo login. Luego quitar `ADMIN_PASSWORD` del `.env` y ejecutar `docker compose -p theburyproject rm -f migrate`.
-3. Copiar la carpeta de backups a un disco/pendrive externo con regularidad (ver §8: hoy las copias son solo locales).
+3. Dejar fuera del servidor los respaldos, el paquete de recuperación y su passphrase: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §3.
 4. Crear la cuenta de soporte propia (SuperAdmin nominal) desde la pantalla de usuarios; no compartir la del cliente.
 
 ## 7. Actualizar a una versión nueva
 
-En el servidor (WSL en Windows), dentro del repositorio:
-
-```bash
-git pull --ff-only
-bash scripts/install/install.sh --yes
-```
-
-Construye una imagen con tag nuevo (`AAAAMMDD-<commit>`), hace backup, aplica migraciones, reemplaza la app y verifica salud. Los datos viven en volúmenes y no se tocan. Si algo falla,
-la imagen anterior sigue disponible: `bash scripts/deploy/rollback.sh --to-image theburyproject/erp:<tag-anterior> --confirm-compatible`. Detalle y garantías: [deploy-rollback.md](deploy-rollback.md).
+Procedimiento completo, con respaldo previo, revisión de migraciones y vuelta atrás: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §2 y §5
+(en Windows con Docker Desktop, los mismos pasos dentro de WSL). La actualización **aplica las migraciones nuevas**, y `rollback.sh` vuelve la
+imagen, **no** la base. Detalle del despliegue: [deploy-rollback.md](deploy-rollback.md).
 
 ## 8. Backups: decisión actual
 
-La instalación usa **solo backups locales** (`BACKUP_REQUIRE_OFFSITE=false`): full diario, log de transacciones cada 15 min y prueba de restauración semanal, en `BACKUP_DIR`.
+Por defecto la instalación usa **solo backups locales** (`BACKUP_REQUIRE_OFFSITE=false`): full diario, log de transacciones cada 15 min y prueba de restauración semanal, en `BACKUP_DIR`.
 Esto cubre errores de aplicación y borrados accidentales, **no** la pérdida del servidor. Para reducir el riesgo:
 
 - Dejar `BACKUP_DIR` dentro de WSL (en Linux, `/srv/bury-backups`). **No usar `/mnt/c` ni `/mnt/d`:** la subcarpeta `sql` debe pertenecer al usuario del contenedor de SQL Server (uid 10001) y los discos de Windows (NTFS) no lo permiten. Esa subcarpeta no se puede listar con el usuario normal del host: es lo esperado.
@@ -158,7 +227,7 @@ Esto cubre errores de aplicación y borrados accidentales, **no** la pérdida de
 - En Linux, si hay un segundo disco físico, montarlo y usarlo como `BACKUP_DIR`.
 - Para activar copia externa más adelante: [offsite-monitoring-activacion.md](offsite-monitoring-activacion.md) (definir `BACKUP_REMOTE=secure:erp` y `BACKUP_REQUIRE_OFFSITE=true`).
 
-Restauración: [backup-restore.md](backup-restore.md) §10.
+Restauración y recuperación en una máquina nueva: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §4 y §6; detalle en [backup-restore.md](backup-restore.md).
 
 ## 9. Verificación rápida
 
@@ -173,6 +242,8 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 
 | Síntoma | Causa y solución |
 |---|---|
+| (Ubuntu) El 443 responde desde redes que no deberían | `bury-firewall` no está aplicado o `--allow-from` es demasiado amplio. `ufw` no filtra este puerto. Ver §4.4 |
+| (Ubuntu) Otra PC de la LAN no llega a `https://tbp` | Su red no está en `ALLOW_FROM` (`/etc/bury/firewall.conf`; repetir el bootstrap), o no resuelve `tbp` |
 | `bad interpreter` / `\r` en un `.sh` | El repositorio se clonó desde Windows. Volver a clonarlo **dentro de WSL** |
 | El instalador dice que Docker no responde | Abrir Docker Desktop y activar la integración WSL con la distro (Settings > Resources > WSL integration) |
 | Otras PCs no llegan a `https://tbp` | Firewall (regla `TheBury ERP 443` y `-AllowFrom`), resolución de `tbp` (`nslookup`/`hosts`), o reenvío del puerto desde WSL2 |
@@ -185,6 +256,8 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 
 ## 11. Alcance y pendientes
 
-- **Validación (2026-10-03):** `install.sh` se ejecutó de punta a punta en WSL2 (Ubuntu) con Docker Desktop: instalación nueva (115 migraciones, health y smoke OK), actualización a una imagen nueva con backup previo verificado, Caddy con HTTPS y CA (verificación TLS correcta con la CA y rechazada sin ella), y 8080/1433 sin publicar. El generador de `.env` tiene 40 comprobaciones (corren en CI).
-  `install-windows.ps1` está probado con `-DryRun`, validaciones de parámetros y `-Uninstall -DryRun`; **sus efectos reales (firewall, tareas programadas, energía) se ejecutan por primera vez en la instalación del equipo de destino.**
-- **No incluido todavía:** alertas por Telegram, observador externo de caídas, copia externa de backups y el planificador de backups dentro de Docker (hoy corre en el anfitrión, con cron en Linux y Programador de tareas en Windows).
+- **Qué está probado, sobre qué commit y qué no:** [evidencias-instalacion.md](evidencias-instalacion.md). En particular, **no** se ejecutó esta guía
+  reorganizada de punta a punta en una máquina nueva.
+- `install-windows.ps1` (alternativa Windows) está probado con `-DryRun`, validaciones de parámetros y `-Uninstall -DryRun`; sus efectos reales
+  (firewall, tareas programadas, energía) no se validaron en un servidor de destino.
+- **No incluido en el instalador:** alertas y observador externo (hay scripts aparte en `scripts/monitoring/`, ver [monitoreo-alertas.md](monitoreo-alertas.md)), activación de la copia externa de backups y planificador de backups dentro de Docker (corre en el anfitrión: cron en Linux, Programador de tareas en Windows).

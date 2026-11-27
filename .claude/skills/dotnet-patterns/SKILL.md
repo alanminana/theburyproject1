@@ -1,6 +1,6 @@
 ---
 name: dotnet-patterns
-description: Referencia consultiva de patrones idiomáticos C# / .NET 8 / ASP.NET Core / EF Core para TheBuryProject. Consultiva manual (`user-invocable-only`), invocar con `/dotnet-patterns`. No reemplaza la arquitectura real del ERP ni justifica por sí sola un refactor.
+description: Referencia consultiva de patrones idiomáticos C# / .NET 10 / ASP.NET Core / EF Core para TheBuryProject. Consultiva manual (`user-invocable-only`), invocar con `/dotnet-patterns`. No reemplaza la arquitectura real del ERP ni justifica por sí sola un refactor.
 metadata:
   origin: adaptado de affaan-m/ECC (skills/dotnet-patterns/SKILL.md)
   upstream-commit: 5eddf1a3ffd311423be2d4ba7d26f7209c91b033
@@ -162,5 +162,5 @@ public async Task<ProcessResult> ProcesarPagoAsync(PagoRequest request, Cancella
 ## Cuándo usar Context7
 
 Antes de aplicar una recomendación que dependa de comportamiento específico de la versión instalada
-(.NET 8, ASP.NET Core 8, EF Core 8.0.11 — ver `TheBuryProyect.csproj`), confirmar con Context7
+(.NET 10, ASP.NET Core 10, EF Core 10.0.13 — ver `TheBuryProyect.csproj`), confirmar con Context7
 según el protocolo del proyecto en vez de asumir por esta skill.

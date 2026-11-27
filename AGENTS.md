@@ -2,7 +2,17 @@
 
 ## Proyecto
 
-ERP en ASP.NET MVC .NET 8 con C#, EF Core, Razor, Tailwind/CSS, JavaScript y Playwright.
+ERP en ASP.NET MVC .NET 10 con C#, EF Core 10, Razor, Tailwind/CSS, JavaScript y Playwright (versiones exactas: `global.json` y los `.csproj`).
+
+Plataforma de referencia del servidor: Ubuntu con Docker Engine. Entorno principal de desarrollo: Windows.
+
+## Entornos
+
+- El checkout principal queda en `main` y sin cambios de código. Todo cambio va en un worktree propio con su rama.
+- Arrancar el ERP local con `scripts/iniciar-erp-local.ps1`, no con `dotnet run` (`docs/desarrollo-local.md`).
+- No aplicar migraciones a bases con datos sin autorización y respaldo probado.
+- En el servidor no se edita código y no se ejecuta `docker compose up` sin `ERP_IMAGE` (`docs/operacion-servidor-ubuntu.md` §0).
+- Sincronización: `docs/sincronizacion-entornos.md`.
 
 Actuar como desarrollador senior. Priorizar mantenibilidad, estabilidad, accesibilidad y mejoras incrementales seguras.
 

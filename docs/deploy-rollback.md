@@ -1,5 +1,8 @@
 # Deploy, versionado, migraciones y rollback — TheBuryProject
 
+> Procedimiento operativo paso a paso: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §2 y §5. Este documento conserva el diseño y la
+> evidencia del 2026-09-22 (106 migraciones, Docker Desktop). Fuera de `deploy.sh`/`rollback.sh`, **no ejecutar `docker compose up` sin `ERP_IMAGE`**.
+
 Runbook operativo para llevar una imagen ya construida a producción de forma controlada, y para
 volver atrás de forma segura si algo falla. Complementa (no reemplaza) [`docs/docker-produccion.md`](docker-produccion.md),
 [`docs/despliegue-produccion.md`](despliegue-produccion.md) y [`docs/backup-restore.md`](backup-restore.md).

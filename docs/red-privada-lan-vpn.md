@@ -3,6 +3,9 @@
 Instalación para ~6 clientes en LAN o VPN. **El ERP no recibe conexiones desde Internet**: sin DNS público,
 sin port-forwarding, sin Let's Encrypt/ACME. La VPN se instala y configura aparte.
 
+**Servidor de referencia: Ubuntu con Docker Engine.** El 443 se filtra con `bury-firewall` (§6), **no** con `ufw`. VPN elegida: Tailscale
+([p05-tailscale-acceso-remoto.md](p05-tailscale-acceso-remoto.md)); permisos por perfil: [p05-permisos-acceso-remoto.md](p05-permisos-acceso-remoto.md).
+
 ```text
 Clientes LAN/VPN ── https://tbp ──> Caddy (443) ──> app:8080 ──> db:1433
 ```
@@ -77,12 +80,10 @@ Desde un navegador que confía en la CA: `https://tbp/health/live` y `https://tb
 | | Programador de tareas (cron / Task Scheduler) |
 | | Red LAN/VPN, IP fija del servidor |
 
-**A. Linux + Docker Engine.** Docker Engine + plugin compose; `systemctl enable docker`; firewall `ufw allow from <LAN/VPN> to any port 443`;
-backups programados con `scripts/backup/install-schedule.sh --install` (cron) o timer systemd.
-**Importante:** Docker publica los puertos con sus propias reglas de iptables, que se evalúan antes que las de `ufw` (INPUT): una regla
-`ufw allow from ...` no restringe el 443 publicado por Caddy. Para limitarlo a la VPN/LAN definir `ERP_BIND_ADDRESS=<IP de la interfaz
-VPN/LAN del servidor>` en `.env` (por defecto `0.0.0.0`) y/o filtrar en la cadena `DOCKER-USER`. Verificar con `ss -ltn | grep <puerto>` y
-desde un equipo fuera de la VPN.
+**A. Ubuntu + Docker Engine (referencia).** `scripts/install/server-linux-bootstrap.sh` instala Docker, el filtro del 443 y, con `--admin-from`,
+`ufw` para SSH; backups con `scripts/backup/install-schedule.sh --install` (cron). Pasos: [instalacion-servidor.md](instalacion-servidor.md) §4.
+**Importante:** Docker publica los puertos con sus propias reglas de iptables: una regla `ufw allow from ...` **no** restringe el 443 publicado por
+Caddy, y `ufw default deny incoming` tampoco lo cierra.
 
 **B. Windows 10/11 + Docker Desktop/WSL2.** Docker Desktop con backend WSL2, "Start Docker Desktop when you sign in" (o servicio equivalente)
 y ejecutar los scripts `.sh` desde WSL2 o Git Bash sobre el mismo repo; regla de Windows Defender Firewall solo para 443 entrante desde la
@@ -120,21 +121,38 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
    - LAN y VPN a la vez: `ERP_BIND_ADDRESS` admite **una sola** IP. Opciones: `0.0.0.0` + filtro de firewall (punto 3), o publicar solo en la IP de la VPN
      y que también los equipos del local entren por la VPN.
    - Si el cliente VPN llega a la IP LAN del servidor mediante una ruta (servidor en la LAN, VPN en el router), usar la IP LAN.
-2. **Fijarla** en `.env`: `ERP_BIND_ADDRESS=<IP>` y recrear Caddy: `docker compose up -d caddy`. Comprobar:
+2. **Fijarla** en `.env`: `ERP_BIND_ADDRESS=<IP>` y recrear Caddy: `docker compose up -d --no-deps caddy`. Comprobar:
    Windows `Get-NetTCPConnection -LocalPort 443 -State Listen | ft LocalAddress`; Linux `ss -ltn 'sport = :443'` (debe mostrar `<IP>:443`, no `0.0.0.0`).
    **Trampa verificada**: si esa IP no existe en el momento de arrancar (interfaz VPN todavía caída, IP del DHCP que cambió) Caddy **no arranca**
    (`can't bind on the specified endpoint`; el contenedor queda en `Created` y `restart: unless-stopped` no lo reintenta). Por eso: IP reservada/estática y,
-   si es la de una VPN, ejecutar `docker compose up -d` después de levantar la VPN (ver «Qué hace cada servicio al reiniciar» en `docs/instalacion-servidor.md` §3.3).
-3. **Firewall del host** (defensa adicional; el control principal es `ERP_BIND_ADDRESS`):
-   - **Linux**: `ufw`/INPUT **no** filtran puertos publicados por Docker; usar la cadena `DOCKER-USER`. Ejemplo (permitir solo la VPN `10.8.0.0/24` y la LAN
-     `192.168.1.0/24`, descartar el resto; **no probado en este entorno**, validar desde un equipo externo antes de darlo por bueno):
+   si es la de una VPN, levantar los servicios con `ERP_IMAGE` definida ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §0) después de levantar la VPN (ver «Qué hace cada servicio al reiniciar» en `docs/instalacion-servidor.md` §3.3).
+3. **Firewall del host.** En Ubuntu es el control que limita **qué redes** llegan al 443; `ERP_BIND_ADDRESS` solo elige **en qué IP** escucha:
+   - **Ubuntu**: `ufw`/INPUT **no** filtran puertos publicados por Docker. El filtro es `scripts/install/bury-firewall.sh`, que
+     `server-linux-bootstrap.sh` instala como `/usr/local/sbin/bury-firewall` con un servicio de systemd.
 
-     ```bash
-     sudo iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 443 --ctdir ORIGINAL ! -s 10.8.0.0/24 ! -s 192.168.1.0/24 -j DROP
-     sudo iptables -I DOCKER-USER -p udp -m conntrack --ctorigdstport 443 --ctdir ORIGINAL ! -s 10.8.0.0/24 ! -s 192.168.1.0/24 -j DROP
-     ```
+     | Qué hace | Detalle |
+     |---|---|
+     | Configuración | `/etc/bury/firewall.conf`: `ALLOW_FROM` (IPv4/CIDR, con `@interfaz` opcional) y `HTTPS_PORT` (igual a `ERP_HTTPS_PORT`) |
+     | Reglas | Cadena `BURY-ERP` en `DOCKER-USER`: permite los orígenes listados y descarta el resto, TCP y UDP |
+     | Alcance | Solo conexiones **entrantes** redirigidas a un contenedor (`--ctstate DNAT`); no afecta el HTTPS saliente |
+     | Tailscale | El bootstrap ata los orígenes `100.64.0.0/10` a `tailscale0`, para que no se suplanten desde la LAN |
+     | Persistencia | `bury-firewall.service` y un `ExecStartPost` de Docker |
 
-     Persistir con `netfilter-persistent` o una unidad systemd; repetir con `ip6tables` si el host tiene IPv6.
+     Cambiar orígenes: repetir el bootstrap con el `--allow-from` completo (reescribe `firewall.conf`), o editar el archivo y ejecutar
+     `sudo bury-firewall apply`. Comprobar: `systemctl is-active bury-firewall && sudo bury-firewall status`. Vista previa sin cambios:
+     `bury-firewall.sh print`.
+
+     **Límites:** (1) si aplicar las reglas falla durante el arranque, Docker arranca igual y **el 443 queda abierto**: comprobar el estado tras cada
+     reinicio o actualización de Docker; (2) entre el arranque de los contenedores y la aplicación de las reglas puede haber una ventana corta;
+     (3) solo IPv4: `ERP_BIND_ADDRESS` debe ser IPv4 (el valor `0.0.0.0` no publica en IPv6; verificar con `ss -ltn`);
+     (4) `bury-firewall remove` deja el 443 abierto. Una segunda instalación en el mismo equipo necesita otra cadena y otro puerto
+     ([servidor-provisional-notebook.md](servidor-provisional-notebook.md) §2).
+
+     No escribir reglas manuales de `iptables` en su lugar: una versión anterior de esta guía proponía reglas sin `--ctstate DNAT`, que también
+     descartarían el tráfico HTTPS saliente de los contenedores.
+
+     **Evidencia:** la prueba `scripts/install/test-firewall-isolation.sh` (Docker real y clientes en redes distintas) pasa 18/18 en CI. Cubre
+     `bury-firewall.sh`, no la instalación del servicio por el bootstrap. [evidencias-instalacion.md](evidencias-instalacion.md).
    - **Windows + Docker Desktop**: el puerto lo abre un proceso de Windows (`com.docker.backend.exe`), así que Windows Defender Firewall sí aplica. Pero **una regla
      «Allow» de puerto desde la LAN (la que crea `install-windows.ps1`) no restringe nada si ya existe una regla Allow del programa `com.docker.backend.exe` sin
      límite de puerto/dirección** — en el equipo de prueba existía (perfil Público, cualquier puerto). Revisar:
