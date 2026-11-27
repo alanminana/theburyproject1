@@ -10,6 +10,10 @@ function New-ObsState {
         lastCap = $null; lastOnBattery = $false
         powerReadFails = 0; powerReadAlerted = $false
         monitorFails = 0; monitorAlerted = $false
+        destDownFails = 0; destDown = $false
+        destLogFails = 0; destLogLate = $false
+        destFileFails = 0; destFileLate = $false
+        destSpace = 'ok'
     }
 }
 
@@ -25,6 +29,89 @@ function ConvertFrom-PowerLine([string]$line) {
     # Sin carga legible, o sin saber ni la fuente ni el estado, NO es una lectura: nunca debe parecer "volvio la corriente".
     if ($null -eq $cap -or $cap -gt 100 -or ($Matches[1] -eq 'na' -and ($Matches[3] -eq 'na' -or $Matches[3] -eq 'Unknown'))) { return $null }
     [pscustomobject]@{ ac = $Matches[1]; cap = $cap; status = $Matches[3]; monitor = $Matches[4] }
+}
+
+# Antiguedad en minutos de la marca de "ultima copia verificada" (<destino>\_ok-<tipo>\), que backup.sh actualiza SOLO despues de verificar la
+# subida. $null = no hay marca. Los archivos de sql\ y files\ no sirven para esto: una subida fallida puede dejar solo un .sha256 reciente.
+function Get-ObsMarkerAge([string]$root, [string]$kind, [DateTime]$nowUtc) {
+    $dir = Join-Path $root "_ok-$kind"
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    $newest = @(Get-ChildItem -LiteralPath $dir -File -Force -ErrorAction Stop | Sort-Object LastWriteTimeUtc -Descending) | Select-Object -First 1
+    if (-not $newest) { return $null }
+    return ($nowUtc - $newest.LastWriteTimeUtc).TotalMinutes
+}
+
+# Destino de respaldos EN ESTA PC (solo si config.json define "destino"). Se evalua aparte de la notebook: el servicio y el espacio son
+# locales. $dest: ok (servicio activo y carpeta legible), logAgeMin / fileAgeHours (antiguedad de la copia mas nueva; $null = no hay
+# ninguna), usedGB, capGB, freeGB. $expectCopies = $false cuando la notebook no responde: el atraso ya esta explicado por ese aviso.
+function Update-ObsDestState($state, $dest, [bool]$expectCopies, $limits) {
+    $events = @()
+    if ($null -eq $dest) { return $events }
+
+    if (-not $dest.ok) {
+        $state.destDownFails++
+        if (-not $state.destDown -and $state.destDownFails -ge 2) {
+            $state.destDown = $true
+            $events += New-ObsEvent 'DESTINO_CAIDO' 'critico' "El destino de respaldos en esta PC NO esta disponible ($($dest.reason)). La notebook no puede enviar copias."
+        }
+        return $events
+    }
+    $state.destDownFails = 0
+    if ($state.destDown) {
+        $state.destDown = $false
+        $events += New-ObsEvent 'DESTINO_DISPONIBLE' 'info' 'El destino de respaldos en esta PC volvio a estar disponible.'
+    }
+
+    if ($expectCopies) {
+        $lateLog = ($null -eq $dest.logAgeMin) -or ($dest.logAgeMin -gt $limits.maxMinutosLogs)
+        if ($lateLog) {
+            $state.destLogFails++
+            if (-not $state.destLogLate -and $state.destLogFails -ge $limits.muestrasAtraso) {
+                $state.destLogLate = $true
+                $age = 'no hay ninguna copia'
+                if ($null -ne $dest.logAgeMin) { $age = "la mas nueva tiene $([int]$dest.logAgeMin) minutos" }
+                $events += New-ObsEvent 'COPIAS_ATRASADAS' 'critico' "No estan llegando respaldos de la base a esta PC: $age (se esperan cada 15 minutos)."
+            }
+        } else {
+            $state.destLogFails = 0
+            if ($state.destLogLate) {
+                $state.destLogLate = $false
+                $events += New-ObsEvent 'COPIAS_AL_DIA' 'info' 'Volvieron a llegar respaldos de la base a esta PC.'
+            }
+        }
+        $lateFile = ($null -eq $dest.fileAgeHours) -or ($dest.fileAgeHours -gt $limits.maxHorasArchivos)
+        if ($lateFile) {
+            $state.destFileFails++
+            if (-not $state.destFileLate -and $state.destFileFails -ge $limits.muestrasAtraso) {
+                $state.destFileLate = $true
+                $events += New-ObsEvent 'COPIA_DIARIA_ATRASADA' 'critico' "La copia diaria completa (03:00) no llego a esta PC en las ultimas $($limits.maxHorasArchivos) horas."
+            }
+        } else {
+            $state.destFileFails = 0
+            if ($state.destFileLate) {
+                $state.destFileLate = $false
+                $events += New-ObsEvent 'COPIA_DIARIA_AL_DIA' 'info' 'La copia diaria volvio a llegar a esta PC.'
+            }
+        }
+    } else {
+        $state.destLogFails = 0
+        $state.destFileFails = 0
+    }
+
+    # espacio: porcentaje del tope y disco libre; para volver a "ok" hace falta bajar del 75 % (sin avisos que oscilan)
+    $pct = 100.0 * $dest.usedGB / $dest.capGB
+    $level = 'ok'
+    if ($pct -ge 95 -or $dest.freeGB -lt 5) { $level = 'critico' }
+    elseif ($pct -ge 80 -or $dest.freeGB -lt 20) { $level = 'aviso' }
+    elseif ($state.destSpace -ne 'ok' -and $pct -ge 75) { $level = $state.destSpace }
+    if ($level -ne $state.destSpace) {
+        $detail = "usado $([math]::Round($dest.usedGB, 1)) de $($dest.capGB) GB; libres en el disco $([int]$dest.freeGB) GB"
+        if ($level -eq 'critico') { $events += New-ObsEvent 'ESPACIO_CRITICO' 'critico' "Destino de respaldos casi sin espacio: $detail." }
+        elseif ($level -eq 'aviso' -and $state.destSpace -eq 'ok') { $events += New-ObsEvent 'ESPACIO_ALTO' 'aviso' "Destino de respaldos llenandose: $detail." }
+        elseif ($level -eq 'ok') { $events += New-ObsEvent 'ESPACIO_OK' 'info' "Espacio del destino de respaldos normalizado: $detail." }
+        $state.destSpace = $level
+    }
+    return $events
 }
 
 # $sample: netOk, hostOk, erpOk (bool) y power (resultado de ConvertFrom-PowerLine o $null)

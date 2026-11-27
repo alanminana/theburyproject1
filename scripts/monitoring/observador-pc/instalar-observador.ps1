@@ -9,6 +9,8 @@ param(
     [string]$Ip, [string]$CaCert, [string]$Domain = 'tbp-prov', [int]$HttpsPort = 8443,
     [string]$SshUser = 'snowsh', [string]$Gateway = '192.168.50.1', [int]$IntervalSeconds = 60,
     [string]$HostKeyFingerprint,
+    # destino de respaldos en esta PC (opcional): carpeta que contiene sql\ y files\
+    [string]$DestinoRuta, [string]$DestinoServicio = 'sshd', [int]$DestinoPuerto = 2022, [int]$DestinoTopeGB = 50,
     [switch]$RegistrarTarea
 )
 $ErrorActionPreference = 'Stop'
@@ -19,6 +21,14 @@ foreach ($f in 'observador-pc.ps1', 'observador-logica.ps1', 'test-observador.ps
 if ($Ip) {
     [ordered]@{ ip = $Ip; domain = $Domain; httpsPort = $HttpsPort; sshUser = $SshUser; gateway = $Gateway; intervalSeconds = $IntervalSeconds } |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Dir 'config.json') -Encoding ASCII
+}
+if ($DestinoRuta) {
+    $cfgPath = Join-Path $Dir 'config.json'
+    if (-not (Test-Path -LiteralPath $cfgPath)) { throw '-DestinoRuta necesita un config.json existente (o -Ip)' }
+    $json = Get-Content -LiteralPath $cfgPath -Raw | ConvertFrom-Json
+    $dest = [pscustomobject]@{ ruta = $DestinoRuta; servicio = $DestinoServicio; puerto = $DestinoPuerto; topeGB = $DestinoTopeGB; maxMinutosLogs = 45; maxHorasArchivos = 27 }
+    $json | Add-Member -NotePropertyName destino -NotePropertyValue $dest -Force
+    $json | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $cfgPath -Encoding ASCII
 }
 if ($CaCert) { Copy-Item -LiteralPath $CaCert -Destination (Join-Path $Dir 'ca.crt') -Force }
 $key = Join-Path $Dir 'obs_ed25519'

@@ -289,6 +289,15 @@ Ver `docs/monitoreo-validacion.md` para resultados, consumo, límites y archivos
 
 Una señal de disco se emite **por filesystem** (no por ruta): `/`, `DockerRootDir`, `BACKUP_DIR` y los volúmenes en el mismo dispositivo se agrupan en la primera ruta, con el detalle «same filesystem as N other monitored path(s)». Una clave retirada de `config.json` no resuelve sus alertas abiertas (una muestra ausente nunca resuelve): ciérrelas en el receptor. Evidencia: [p04-p08-matriz-criterios-vm-simulada.md](p04-p08-matriz-criterios-vm-simulada.md).
 
+## Espacio en volúmenes chicos y destino de respaldos en la PC (2026-11-26)
+
+* Los mínimos libres `disk_free_warning_gib` / `disk_free_critical_gib` se acotan al **20 % / 10 % de la capacidad** de cada volumen: un pendrive de 15 GB ya no queda
+  en advertencia permanente por no poder tener 20 GiB libres, y sigue alertando al llenarse (además de 70 % / 90 % de uso). En discos grandes no cambia nada.
+* Destino de respaldos en la PC (bloque `destino` en `config.json` del observador, ver `backup-restore.md` §6.7): `DESTINO_CAIDO`, `COPIAS_ATRASADAS`,
+  `COPIA_DIARIA_ATRASADA`, `ESPACIO_ALTO` / `ESPACIO_CRITICO` y su aviso de recuperación, una vez por cambio. Con la notebook caída no se suman avisos de atraso.
+  El atraso se mide con la marca `_ok-sql` / `_ok-files` que `backup.sh` actualiza **solo tras verificar la subida** (no con la fecha de cualquier archivo).
+  Límite: lo ve esta PC; con la PC apagada no hay aviso en pantalla (el servidor igual registra el fallo).
+
 ## Alimentación eléctrica y batería (2026-11-26)
 
 Motivo: el 25/11/2026 el servidor provisional (notebook) quedó 17 h sin corriente, llegó al 2 % y se apagó sin ningún aviso.

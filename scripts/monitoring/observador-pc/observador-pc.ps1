@@ -106,6 +106,29 @@ function Invoke-ObsBounded([string]$exe, [string[]]$arguments, [int]$timeoutSeco
     } finally { $proc.Dispose() }
 }
 
+# Mide el destino de respaldos local. Solo lee fechas y tamanos (el contenido esta cifrado y no se abre).
+function Get-ObsDestino {
+    $c = $cfg.destino
+    $r = [pscustomobject]@{ ok = $false; reason = ''; logAgeMin = $null; fileAgeHours = $null; usedGB = 0.0; capGB = [double]$c.topeGB; freeGB = 0.0 }
+    $svc = Get-Service -Name $c.servicio -ErrorAction SilentlyContinue
+    if (-not $svc -or $svc.Status -ne 'Running') { $r.reason = "servicio $($c.servicio) detenido"; return $r }
+    if (-not (Test-ObsTcp '127.0.0.1' ([int]$c.puerto))) { $r.reason = "el puerto $($c.puerto) no responde"; return $r }
+    try {
+        if (-not (Test-Path -LiteralPath $c.ruta)) { $r.reason = 'carpeta de destino inexistente o unidad desconectada'; return $r }
+        $all = @(Get-ChildItem -LiteralPath $c.ruta -Recurse -File -Force -ErrorAction Stop)
+        $r.usedGB = ($all | Measure-Object -Property Length -Sum).Sum / 1GB
+        $r.freeGB = ([System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($c.ruta))).AvailableFreeSpace / 1GB
+    } catch { $r.reason = 'carpeta de destino ilegible'; return $r }
+    try {
+        $now = [DateTime]::UtcNow
+        $r.logAgeMin = Get-ObsMarkerAge $c.ruta 'sql' $now
+        $files = Get-ObsMarkerAge $c.ruta 'files' $now
+        if ($null -ne $files) { $r.fileAgeHours = $files / 60 }
+    } catch { $r.reason = 'carpeta de destino ilegible'; return $r }
+    $r.ok = $true
+    return $r
+}
+
 function Get-ObsSample {
     $s = @{ netOk = $false; hostOk = $false; erpOk = $false; power = $null }
     $s.netOk = [bool](Test-Connection -ComputerName $cfg.gateway -Count 2 -Quiet -ErrorAction SilentlyContinue)
@@ -146,6 +169,12 @@ if ($Once) {
     $detalle = 'sin lectura'
     if ($p) { $detalle = "ac=$($p.ac) bateria=$($p.cap)% $($p.status) monitor=$($p.monitor)" }
     Write-Output "red=$($sample.netOk) equipo=$($sample.hostOk) erp=$($sample.erpOk) energia: $detalle"
+    if ($cfg.destino) {
+        $dd = Get-ObsDestino
+        Write-Output ("destino: disponible={0} {1} copiaBaseMin={2} copiaDiariaHoras={3} usadoGB={4} topeGB={5} libreGB={6}" -f $dd.ok, $dd.reason,
+            $(if ($null -ne $dd.logAgeMin) { [int]$dd.logAgeMin } else { 'ninguna' }), $(if ($null -ne $dd.fileAgeHours) { [math]::Round($dd.fileAgeHours, 1) } else { 'ninguna' }),
+            [math]::Round($dd.usedGB, 2), $dd.capGB, [int]$dd.freeGB)
+    }
     return
 }
 
@@ -157,7 +186,14 @@ try {
     while ($true) {
         try {
             $sample = Get-ObsSample
-            foreach ($ev in @(Update-ObsState $state $sample)) {
+            $found = @(Update-ObsState $state $sample)
+            if ($cfg.destino) {
+                try {
+                    $limits = @{ maxMinutosLogs = [int]$cfg.destino.maxMinutosLogs; maxHorasArchivos = [int]$cfg.destino.maxHorasArchivos; muestrasAtraso = 3 }
+                    $found += @(Update-ObsDestState $state (Get-ObsDestino) ([bool]$sample.hostOk) $limits)
+                } catch { Write-ObsLog "error al revisar el destino de respaldos: $($_.Exception.Message)" }
+            }
+            foreach ($ev in $found) {
                 if ($null -eq $ev) { continue }
                 Write-ObsLog "[$($ev.level)] $($ev.code) - $($ev.text)"
                 $null = Show-ObsAlert $ev

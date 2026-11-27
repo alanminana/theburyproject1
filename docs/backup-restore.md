@@ -185,6 +185,33 @@ clave en `BACKUP_DIR`/destino offsite, secretos en logs, passwords crypt distint
 `monitor-status/custody.json`. `restore-test.sh --offsite` baja el último full desde el remoto (pasando por crypt) y lo restaura en una base aislada
 `<db>_OffsiteRestoreTest`. `monitor.py` alerta `backup.custody` (8/15 d) y `backup.offsite-restore-test` (35/45 d; sin cron automático: programarlo mensual).
 
+### 6.7 PC Windows como destino SFTP temporal (2026-11-26)
+
+Decisión del propietario para el piloto: la PC administradora recibe las copias (sin nube). **No es una copia fuera del local**: un robo o siniestro que alcance
+a las dos máquinas se lleva todo. El servidor sube cifrado (`crypt`) y la PC solo guarda datos ilegibles.
+
+1. En el servidor, clave dedicada en un directorio 700 fuera del repo (`~/.bury-offsite-sftp/id_ed25519`); pasar a la PC solo la parte pública.
+2. En la PC, como administrador: `scripts/backup/destino-pc-windows.ps1 -ClienteIp <ip del servidor> -ClavePublica <.pub> -Raiz E:ury-respaldo-pc -TopeGB 50`.
+   Usuario sin privilegios, SFTP encerrado en la carpeta, solo clave y solo desde esa IP, puerto 2022 (el 22 puede estar tomado por WSL), cuota NTFS como tope.
+   El informe imprime la clave de host: es la que va en `known_hosts` del servidor (nunca `ssh-keyscan` sin comparar). `-Quitar` cierra el acceso sin borrar copias.
+3. En el servidor: `.env` con `COMPOSE_PATH_SEPARATOR=,`, `COMPOSE_FILE=docker-compose.yml,docker-compose.offsite-sftp.yml`, `BACKUP_OFFSITE_SSH_DIR`,
+   `BACKUP_REMOTE=secure:erp`, `BACKUP_REQUIRE_OFFSITE=true`, `BACKUP_OFFSITE_MARKER=.bury-offsite-ok`, `BACKUP_REMOTE_RETENTION_DAYS=14`; `backup-offsite.env`
+   (0600) con `OFFSITE_TYPE=sftp`, `PORT=2022`, `SHELL_TYPE=none`, `SECURE_REMOTE=offsite:/datos`, dos passwords crypt y `SECURE_DIRECTORY_NAME_ENCRYPTION=false`
+   (solo quedan legibles los nombres de carpeta `sql/` y `files/`, que el observador usa para saber qué dejó de llegar).
+   **Antes de activar la copia programada, crear el centinela una vez** (sin él cada copia externa falla con exit 6 sin subir nada):
+   `docker compose run --rm -T --no-deps backup-offsite touch secure:erp/.bury-offsite-ok`.
+   **Obligatorio en `backup-offsite.env`** si el destino puede apagarse: `RCLONE_CONTIMEOUT=10s`, `RCLONE_TIMEOUT=60s`, `RCLONE_RETRIES=1`,
+   `RCLONE_LOW_LEVEL_RETRIES=2`. Con los valores por defecto `rclone` **no se rindió en 15 minutos** contra un destino que no responde: la corrida retiene el
+   bloqueo, las siguientes se omiten y la diaria (que espera 180 s) tampoco corre, es decir, se pierden también las copias **locales**. Con los límites falla
+   con exit 6 en ~40 s (medido el 2026-11-26). Si la PC estaba apagada a las 03:00, la base pendiente se repone con la siguiente copia de logs, pero el tar de
+   archivos espera a la próxima corrida `all`/`files` (o ejecutarla a mano).
+4. **Regenerar el paquete de recuperación** (`recovery-package.sh create`) y llevar copia fuera del servidor: sin las passwords crypt las copias no se leen.
+5. Programar `restore-test.sh --offsite` mensual (basta el crontab del usuario del servidor).
+6. Alertas: el observador de la PC (`instalar-observador.ps1 -DestinoRuta E:ury-respaldo-pc\datos\erp`) avisa si el servicio cae, si dejan de llegar los logs
+   (45 min), si falta la copia diaria (27 h) y por espacio (80 % / 95 % del tope). El monitor del servidor marca además `backup.offsite-*` y `backup.run-*`.
+
+Límite de tamaño: la retención remota es por días; el tope real es la cuota. Si se llena, la subida falla (exit 6), se avisa y las copias locales siguen.
+
 ## 7. Consistencia de los archivos
 
 Solo `app` escribe en `keys`, `uploads` y `App_Data`. Se eligió la opción más simple y segura: **detener `app` ~10–15 s** durante
