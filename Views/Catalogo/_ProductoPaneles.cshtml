@@ -3,9 +3,8 @@
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Asignar Comisión Vendedor
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-comision-vendedor" role="dialog" aria-modal="true" aria-labelledby="comision-modal-nombre" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-comision-modal-close></div>
-    <div class="relative w-full max-w-md flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+<dialog id="modal-comision-vendedor" class="inv-dialog" aria-labelledby="comision-modal-nombre">
+    <div class="inv-dialog__panel">
 
         <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
             <div>
@@ -60,17 +59,15 @@
             </footer>
         </form>
     </div>
-</div>
+</dialog>
 
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Historial de Cambios de Precio (por producto)
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-historial-precio" role="dialog" aria-modal="true" aria-labelledby="modal-historial-precio-title" class="fixed inset-0 z-50 hidden">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="historial-precio"></div>
+<dialog id="modal-historial-precio" class="inv-drawer" aria-labelledby="modal-historial-precio-title">
 
     <!-- Panel -->
-    <div class="absolute right-0 top-0 flex h-full w-full max-w-5xl flex-col bg-slate-900 shadow-2xl animate-slide-in-right">
+    <div class="inv-drawer__panel">
         <!-- Header -->
         <header class="border-b border-slate-800 px-6 py-5 sm:px-8">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -155,40 +152,28 @@
             </div>
         </footer>
     </div>
-</div>
+</dialog>
 
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Aumento de Precios (3 pasos: Alcance → Configuración → Vista previa)
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-aumento-precios" role="dialog" aria-modal="true" aria-labelledby="modal-aumento-precios-title" class="fixed inset-0 z-50 hidden">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="precio"></div>
+<dialog id="modal-aumento-precios" class="inv-drawer inv-drawer--angosto" aria-labelledby="modal-aumento-precios-title">
 
     <!-- Panel -->
-    <div class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col shadow-2xl animate-slide-in-right bg-slate-950">
+    <div class="inv-drawer__panel">
         <!-- Header -->
-        <header class="border-b border-slate-800 px-6 py-5">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div class="flex items-start gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
-                        <span class="material-symbols-outlined text-amber-500">trending_up</span>
-                    </div>
-                    <div>
-                        <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                            Ajuste masivo
-                        </div>
-                        <h2 id="modal-aumento-precios-title" class="mt-3 text-xl font-bold text-white sm:text-2xl">Actualizar precios por alcance</h2>
-                        <p class="mt-1 max-w-xl text-sm text-slate-400">Cambia el <strong class="text-slate-200">precio base</strong> de los productos. No modifica los precios fijados en listas: esos se cambian en Precios.</p>
-                    </div>
-                </div>
-            <button type="button" data-catalogo-modal-close="precio" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
-                <span class="material-symbols-outlined">close</span>
-            </button>
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-aumento-precios-title">Ajustar precio base</h2>
+                <p>No cambia los precios fijados en listas: esos se ajustan en Precios.</p>
             </div>
+            <button type="button" data-catalogo-modal-close="precio" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
         </header>
 
         <!-- Step Indicator -->
-        <div class="grid grid-cols-3 items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-6 py-4">
+        <div class="inv-pasos">
             <div id="step-ind-1" class="flex min-w-0 items-center gap-2">
                 <span class="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
                 <span class="text-xs font-bold text-primary">Alcance</span>
@@ -500,13 +485,13 @@
             </div>
         </footer>
     </div>
-</div>
+</dialog>
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <!-- Modal: Movimientos de Inventario                                 -->
 <!-- ══════════════════════════════════════════════════════════════════ -->
-<div id="modal-movimientos" role="dialog" aria-modal="true" aria-labelledby="modal-movimientos-title" class="hidden fixed inset-0 z-60 items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
-    <div class="rounded-2xl w-full shadow-2xl border border-slate-800 animate-fade-in" style="background-color:var(--pal-neutral-925);max-width:1280px;">
+<dialog id="modal-movimientos" class="inv-dialog inv-dialog--tabla" aria-labelledby="modal-movimientos-title">
+    <div class="inv-dialog__panel inv-dialog__panel--scroll">
 
         <!-- Modal Header -->
         <div class="flex flex-wrap justify-between items-start gap-4 p-6 pb-0">
@@ -623,12 +608,6 @@
             <div class="flex justify-between items-center px-2">
                 <p class="text-sm text-slate-400">Mostrando <span class="font-bold text-white" id="mov-count-showing">0</span> de <span class="font-bold text-white" id="mov-count-total">0</span> movimientos<span id="mov-count-context" class="hidden text-slate-500"></span></p>
                 <div class="flex gap-2">
-                    <button type="button" disabled aria-disabled="true" title="Exportación PDF no disponible todavía" class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-bold text-slate-500 opacity-70">
-                        <span class="material-symbols-outlined text-sm">picture_as_pdf</span> PDF
-                    </button>
-                    <button type="button" disabled aria-disabled="true" title="Exportación Excel no disponible todavía" class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-bold text-slate-500 opacity-70">
-                        <span class="material-symbols-outlined text-sm">description</span> Excel
-                    </button>
                 </div>
             </div>
 
@@ -684,4 +663,4 @@
             </div>
         </div>
     </div>
-</div>
+</dialog>

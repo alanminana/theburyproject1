@@ -25,8 +25,7 @@
         if (pctEl) pctEl.value = porcentaje;
 
         hideMessages();
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        panel().abrir();
 
         setTimeout(function () {
             var inp = el('comision-modal-porcentaje');
@@ -34,13 +33,19 @@
         }, 50);
     }
 
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(document.getElementById('modal-comision-vendedor'), {
+                cierres: '[data-comision-modal-close]'
+            });
+        }
+        return _panel;
+    }
+
     function closeModal() {
-        if (!modal) return;
-        modal.classList.remove('flex');
-        modal.classList.add('hidden');
-        var btn = currentBtn;
         currentBtn = null;
-        if (btn) btn.focus();
+        panel().cerrar();
     }
 
     function hideMessages() {
@@ -110,14 +115,6 @@
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-comision-producto-id]');
         if (btn) { openModal(btn); return; }
-
-        if (e.target.closest('[data-comision-modal-close]')) { closeModal(); }
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (!modal || modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') { closeModal(); return; }
-        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
     });
 
     document.addEventListener('submit', function (e) {

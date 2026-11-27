@@ -334,3 +334,41 @@
         width: 100%;
     }
 }
+
+.inv-drawer--angosto {
+    width: min(48rem, 100vw);
+}
+
+.inv-drawer__panel > header + div + div,
+.inv-drawer__panel > .modal-scroll-90-200 {
+    min-height: 0;
+}
+
+.inv-pasos {
+    display: grid;
+    flex-shrink: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem 1.5rem;
+    border-bottom: 1px solid var(--pal-neutral-800);
+}
+
+.inv-dialog--tabla {
+    width: min(80rem, calc(100vw - 1.5rem));
+    max-height: 92dvh;
+}
+
+.inv-dialog__panel--scroll {
+    overflow-y: auto;
+}
+
+@media (max-width: 639px) {
+    #modal-aumento-precios .inv-drawer__header p {
+        display: none;
+    }
+
+    #modal-aumento-precios .modal-scroll-90-200 {
+        padding: 1rem;
+    }
+}

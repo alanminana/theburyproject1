@@ -228,7 +228,8 @@
         var preguntando = false;
         var presionAfuera = false;
 
-        function marcar(e) { if (e.isTrusted) cambios = true; }
+        // soloLectura: filtros y consultas no son datos que se puedan perder.
+        function marcar(e) { if (e.isTrusted && !o.soloLectura) cambios = true; }
         dialogo.addEventListener('input', marcar);
         dialogo.addEventListener('change', marcar);
 

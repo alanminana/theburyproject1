@@ -15,7 +15,6 @@ const HistorialPrecioModal = (() => {
     const count = () => document.getElementById('historial-precio-count');
 
     let productoIdActual = null;
-    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -261,39 +260,37 @@ const HistorialPrecioModal = (() => {
         }
     }
 
-    function open(productoId, trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(document.getElementById('modal-historial-precio'), {
+                soloLectura: true,
+                cierres: '[data-catalogo-modal-close="historial-precio"]',
+                alCerrar: limpiar
+            });
+        }
+        return _panel;
+    }
+
+    function open(productoId) {
         productoIdActual = productoId;
         clearFeedback();
         nombre().textContent = '';
         codigo().textContent = '';
         updateCount(0);
-        modal().classList.remove('hidden');
+        panel().abrir();
         dispatchScrollRefresh();
         fetchHistorial(productoId);
-        setTimeout(function () {
-            var closeBtn = document.querySelector('[data-catalogo-modal-close="historial-precio"]');
-            if (closeBtn) closeBtn.focus();
-        }, 50);
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        modal().classList.add('hidden');
+    function limpiar() {
         tbody().innerHTML = '';
         clearFeedback();
         productoIdActual = null;
         updateCount(0);
-        if (trigger) trigger.focus();
     }
 
-    document.addEventListener('keydown', function (event) {
-        var m = modal();
-        if (!m || m.classList.contains('hidden')) return;
-        if (event.key === 'Escape') { close(); return; }
-        if (event.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(m, event);
-    });
+    function close() { panel().cerrar(); }
 
     document.addEventListener('click', function (event) {
         const revertButton = event.target.closest('[data-catalogo-action="historial-revert"]');

@@ -59,18 +59,6 @@
         });
     }
 
-    btnClose.addEventListener('click', closeModal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') { closeModal(); return; }
-        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
-    });
-
     // Apertura desde fila de catálogo (delegación sobre el documento)
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-movimientos-producto-id]');
@@ -91,9 +79,7 @@
         productoIdFiltro = productoId;
         productoNombreFiltro = productoNombre;
         actualizarBannerProducto();
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
+        panel().abrir();
         fetchMovimientos();
         setTimeout(function () {
             var closeBtn = document.getElementById('btn-cerrar-movimientos');
@@ -113,12 +99,19 @@
         }
     }
 
-    function closeModal() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(modal, {
+                soloLectura: true,
+                cierres: '#btn-cerrar-movimientos',
+                alCerrar: limpiar
+            });
+        }
+        return _panel;
+    }
+
+    function limpiar() {
         productoIdFiltro = null;
         productoNombreFiltro = null;
         if (productoContexto) {

@@ -8,7 +8,6 @@ const PrecioModal = (() => {
     let simulationResult = null;
     let selectedProductIds = []; // IDs pre-selected from table checkboxes
     let selectedScopeSnapshot = [];
-    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -50,39 +49,30 @@ const PrecioModal = (() => {
     const selectedSummaryCount = () => document.getElementById('precio-selection-summary-count');
 
     // ─── Open / Close ──────────────────────────────────────────
-    function open(trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        reset();
-        syncSelectionState(readCurrentSelection(), true);
-        modal().classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        dispatchScrollRefresh();
-        setTimeout(function () {
-            var h2 = document.getElementById('modal-aumento-precios-title');
-            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(modal(), {
+                cierres: '[data-catalogo-modal-close="precio"]',
+                cuentaComoCambio: '#precio-tipo-porcentaje, #precio-tipo-monto'
+            });
+        }
+        return _panel;
     }
 
-    function openWithSelection(ids, trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
+    function abrirCon(ids) {
         reset();
         syncSelectionState(ids, true);
-        modal().classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        panel().abrir();
         dispatchScrollRefresh();
-        setTimeout(function () {
-            var h2 = document.getElementById('modal-aumento-precios-title');
-            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
-        }, 50);
+        var titulo = document.getElementById('modal-aumento-precios-title');
+        titulo.setAttribute('tabindex', '-1');
+        titulo.focus();
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        modal().classList.add('hidden');
-        document.body.style.overflow = '';
-        if (trigger) trigger.focus();
-    }
+    function open() { abrirCon(readCurrentSelection()); }
+    function openWithSelection(ids) { abrirCon(ids); }
+    function close() { panel().cerrar(); }
 
     function reset() {
         currentStep = 1;
@@ -709,11 +699,7 @@ const PrecioModal = (() => {
         if (btnPct) btnPct.addEventListener('click', function () { setTipoCambio('porcentaje'); });
         if (btnMonto) btnMonto.addEventListener('click', function () { setTipoCambio('monto'); });
 
-        document.addEventListener('keydown', function (e) {
-            if (modal().classList.contains('hidden') || window.InvUI.hayDialogoNativoAbierto()) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal(), e);
-        });
+        if (modal()) panel();
 
         // Initialize scope card visuals
         updateScopeCards();
