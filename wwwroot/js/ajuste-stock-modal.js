@@ -42,11 +42,17 @@ window.InvAjusteStock = (() => {
 
     // Formulario en página (ficha de inventario): <form data-ajuste-inline data-producto data-stock-actual>.
     document.querySelectorAll('form[data-ajuste-inline]').forEach((formulario) => {
+        const texto = (nombre) => {
+            const campo = formulario.elements.namedItem(nombre);
+            if (!campo || campo.tagName !== 'SELECT') return campo ? campo.value : '';
+            return campo.value && campo.selectedIndex >= 0 ? campo.options[campo.selectedIndex].text : '';
+        };
         const actualizar = () => configurar(formulario, {
-            producto: formulario.dataset.producto,
-            tipo: formulario.elements.namedItem('Tipo').value,
+            producto: texto('ProductoId') && formulario.elements.namedItem('ProductoId').tagName === 'SELECT' ? texto('ProductoId') : formulario.dataset.producto,
+            tipo: texto('Tipo'),
             cantidad: formulario.elements.namedItem('Cantidad').value,
-            actual: Number(formulario.dataset.stockActual)
+            // Sin dato de stock, la confirmación omite el resultado: nunca se supone cero.
+            actual: formulario.dataset.stockActual ? Number(formulario.dataset.stockActual) : null
         });
         formulario.addEventListener('input', actualizar);
         formulario.addEventListener('change', actualizar);

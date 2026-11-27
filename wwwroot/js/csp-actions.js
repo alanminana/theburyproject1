@@ -25,7 +25,7 @@
     // Lista cerrada: solo estas funciones globales pueden invocarse por data-*. Evita que HTML inyectado llame a
     // cualquier global (fetch, eval, ...). Al migrar un handler nuevo hay que agregar su función aquí (lo exige un test).
     var PERMITIDAS = [
-        'activateTab', 'closeModal', 'documentoClienteAbrirModal', 'documentoClienteCerrarModal', 'kdxApplyFilters', 'kdxClearFilters', 'puDispoChange', 'puOpenManage',
+        'activateTab', 'closeModal', 'documentoClienteAbrirModal', 'documentoClienteCerrarModal', 'puDispoChange', 'puOpenManage',
         'setMonto', 'toggleVendorDetail', 'stepRow'
     ];
 
