@@ -212,7 +212,10 @@ check "a: SQL subido y VERIFICADO" out_has "copia externa sql: subida y VERIFICA
 check "a: archivos subidos y VERIFICADOS" out_has "copia externa files: subida y VERIFICADA"
 check "a: la verificacion uso lectura byte a byte (SFTP sin hash comun)" out_has "verificacion byte a byte"
 NF=$(srv_files)
-check "a: el servidor tiene los 6 objetos esperados (bak, sha, tar, sha, set, centinela) -> $NF" test "$NF" = 6
+check "a: el servidor tiene los 8 objetos esperados (bak, sha, tar, sha, set, centinela y las 2 marcas de copia verificada) -> $NF" test "$NF" = 8
+for sub in sql files; do
+  check "a: marca de copia verificada _ok-$sub presente" test "$(rc lsf "secure:erp/_ok-$sub" 2>/dev/null | tr -d '\r\n')" = ultima-verificada
+done
 BADN=$(srv 'find /home/burytest/upload | sed "s#^/home/burytest/upload/\?##" | tr "/" "\n" | grep -v "^$" | grep -cvE "^[0-9a-v]+$"' | tr -d '\r\n')
 check "a: en el servidor SOLO hay nombres opacos (base32 de crypt), 0 nombres legibles -> $BADN" test "$BADN" = 0
 check "a: el servidor no contiene el nombre de la base ni texto de metadatos en claro" bash -c '[[ $(docker exec "$1" sh -c "grep -rlE \"$2|TAPE|BuryP06|sintetico|SQL Server\" /home/burytest/upload | wc -l" | tr -d "\r\n") == 0 ]]' _ "$SFTP_C" "$DB"
@@ -304,6 +307,8 @@ fi
 if want g; then
 section "g. password de cifrado (crypt) incorrecta -> falla clara, sin escribir nada"
 G0=$(srv_files)
+mark_sql() { rc lsf secure:erp/_ok-sql --format tp 2>/dev/null | tr -d '\r'; }
+G_MARK=$(mark_sql)
 P1_ENV="$(obscure "otra-$(rnd 6)")" write_offsite_env pass
 run_backup full
 expect_rc "g: backup con password crypt incorrecta" 6
@@ -314,6 +319,7 @@ BACKUP_DIR="$T/restore-g" run_script fetch-offsite.sh
 expect_rc "g: fetch-offsite con password crypt incorrecta" 6
 check "g: fetch-offsite informa la causa (no solo 'descarga fallo')" bash -c 'grep -E "\[ERROR\].*descarga fallo \(sql\):" "$1" | grep -qE ": .{8,}"' _ "$OUT"
 reset_offsite_env
+check "g: una copia que falla NO avanza la marca de copia verificada" test "$(mark_sql)" = "$G_MARK"
 fi
 
 # ---------------------------------------------------------------------------------------------------------- h
