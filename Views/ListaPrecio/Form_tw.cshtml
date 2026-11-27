@@ -14,185 +14,175 @@
     };
 }
 
-<partial name="_ListaPrecioAlertas" />
+<div class="inv-screen inv-screen--medio inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Listas de precios</a>
+            <h1>@titulo</h1>
+            <p>El margen, el recargo y el redondeo se usan para sugerir precios. Cambiar la lista no modifica los precios ya cargados.</p>
+        </div>
+    </header>
 
-<section class="card-erp-panel mb-4 p-4">
-    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
-        <a asp-action="Index" class="no-underline hover:text-primary">Listas de precios</a>
-        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
-        <span class="text-primary">@(Model.EsNueva ? "Nueva" : "Editar")</span>
-    </nav>
-    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-lg font-bold tracking-tight text-white">@titulo</h1>
-    </div>
-    <p class="mt-1 text-sm text-slate-400">El margen, el recargo y el redondeo se usan para sugerir precios. Cambiar la lista no modifica los precios ya cargados.</p>
-</section>
+    <partial name="_ListaPrecioAlertas" />
 
-<form asp-action="@accion" asp-route-id="@(Model.EsNueva ? null : Model.Id.ToString())" method="post" class="card-erp-panel space-y-4 p-4" aria-label="@titulo" novalidate>
-    <input type="hidden" asp-for="Id" />
-    @if (Model.RowVersion is { Length: > 0 })
-    {
-        <input type="hidden" name="RowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-    }
-    <input type="hidden" asp-for="EraPredeterminada" />
-
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <div class="md:col-span-5">
-            <div class="lp-label-row">
-                <label class="@ListaPrecioUiHelper.LabelClass" for="Nombre">Nombre</label>
-                <partial name="_ListaPrecioInfo" model='"nombre"' />
-            </div>
-            <input id="Nombre" name="Nombre" type="text" maxlength="100" required autocomplete="off"
-                   value="@Model.Nombre" class="@ListaPrecioUiHelper.InputClass" placeholder="Ej.: Contado" />
-            <span asp-validation-for="Nombre" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <div class="md:col-span-3">
-            <div class="lp-label-row">
-                <label class="@ListaPrecioUiHelper.LabelClass" for="Codigo">Código</label>
-                <partial name="_ListaPrecioInfo" model='"codigo"' />
-            </div>
-            <input id="Codigo" name="Codigo" type="text" maxlength="20" required autocomplete="off"
-                   value="@Model.Codigo" class="@ListaPrecioUiHelper.InputClass uppercase" placeholder="Ej.: CONTADO" />
-            <span asp-validation-for="Codigo" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <div class="md:col-span-4">
-            <div class="lp-label-row">
-                <label class="@ListaPrecioUiHelper.LabelClass" for="Tipo">Tipo</label>
-                <partial name="_ListaPrecioInfo" model='"tipo"' />
-            </div>
-            <select id="Tipo" name="Tipo" class="@ListaPrecioUiHelper.InputClass">
-                @foreach (var t in Enum.GetValues<TipoListaPrecio>())
-                {
-                    <option value="@t" selected="@(Model.Tipo == t)">@ListaPrecioUiHelper.NombreTipo(t)</option>
-                }
-            </select>
-        </div>
-    </div>
-
-    <fieldset class="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <legend class="@ListaPrecioUiHelper.LabelClass">Reglas de cálculo</legend>
-        <div class="md:col-span-3">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="MargenPorcentaje">Margen sobre costo (%)</label>
-                <partial name="_ListaPrecioInfo" model='"margen"' />
-            </div>
-            <input id="MargenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal"
-                   value="@ListaPrecioUiHelper.Numero(Model.MargenPorcentaje)" class="@ListaPrecioUiHelper.InputClass" />
-            <span asp-validation-for="MargenPorcentaje" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <div class="md:col-span-3">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="MargenMinimoPorcentaje">Margen mínimo (%)</label>
-                <partial name="_ListaPrecioInfo" model='"margen-minimo"' />
-            </div>
-            <input id="MargenMinimoPorcentaje" name="MargenMinimoPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal"
-                   value="@ListaPrecioUiHelper.Numero(Model.MargenMinimoPorcentaje)" class="@ListaPrecioUiHelper.InputClass" aria-describedby="lp-ayuda-minimo" />
-            <span asp-validation-for="MargenMinimoPorcentaje" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <div class="md:col-span-3">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="RecargoPorcentaje">Recargo (%)</label>
-                <partial name="_ListaPrecioInfo" model='"recargo"' />
-            </div>
-            <input id="RecargoPorcentaje" name="RecargoPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal"
-                   value="@ListaPrecioUiHelper.Numero(Model.RecargoPorcentaje)" class="@ListaPrecioUiHelper.InputClass" />
-            <span asp-validation-for="RecargoPorcentaje" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <div class="md:col-span-3">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="CantidadCuotas">Cantidad de cuotas</label>
-                <partial name="_ListaPrecioInfo" model='"cuotas"' />
-            </div>
-            <input id="CantidadCuotas" name="CantidadCuotas" type="number" step="1" min="1" max="60" inputmode="numeric"
-                   value="@Model.CantidadCuotas" class="@ListaPrecioUiHelper.InputClass" />
-            <span asp-validation-for="CantidadCuotas" class="mt-1 block text-xs text-rose-300"></span>
-        </div>
-        <p id="lp-ayuda-minimo" class="text-xs text-slate-400 md:col-span-12">
-            El margen mínimo no puede superar al margen. Al fijar un precio manual, la lista rechaza los que queden por debajo de su margen mínimo.
-        </p>
-        <div class="md:col-span-4">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="ReglaRedondeo">Redondeo</label>
-                <partial name="_ListaPrecioInfo" model='"redondeo"' />
-            </div>
-            <select id="ReglaRedondeo" name="ReglaRedondeo" class="@ListaPrecioUiHelper.InputClass">
-                @foreach (var (valor, texto) in redondeos)
-                {
-                    <option value="@valor" selected="@((Model.ReglaRedondeo ?? "") == valor)">@texto</option>
-                }
-            </select>
-        </div>
-        <div class="md:col-span-2">
-            <div class="lp-label-row">
-                <label class="text-sm text-slate-300" for="Orden">Orden</label>
-                <partial name="_ListaPrecioInfo" model='"orden"' />
-            </div>
-            <input id="Orden" name="Orden" type="number" step="1" min="0" max="9999" inputmode="numeric"
-                   value="@Model.Orden" class="@ListaPrecioUiHelper.InputClass" />
-        </div>
-    </fieldset>
-
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <div class="md:col-span-6">
-            <div class="lp-label-row">
-                <label class="@ListaPrecioUiHelper.LabelClass" for="Descripcion">Descripción (opcional)</label>
-                <partial name="_ListaPrecioInfo" model='"descripcion"' />
-            </div>
-            <textarea id="Descripcion" name="Descripcion" rows="2" maxlength="500" class="@ListaPrecioUiHelper.InputClass">@Model.Descripcion</textarea>
-        </div>
-        <div class="md:col-span-6">
-            <div class="lp-label-row">
-                <label class="@ListaPrecioUiHelper.LabelClass" for="Notas">Notas (opcional)</label>
-                <partial name="_ListaPrecioInfo" model='"notas"' />
-            </div>
-            <textarea id="Notas" name="Notas" rows="2" maxlength="1000" class="@ListaPrecioUiHelper.InputClass">@Model.Notas</textarea>
-        </div>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-6">
-        <div class="lp-label-row">
-            <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input type="checkbox" name="Activa" value="true" checked="@Model.Activa" class="h-4 w-4 rounded border-slate-600 bg-slate-900" />
-                <input type="hidden" name="Activa" value="false" />
-                Activa
-            </label>
-            <partial name="_ListaPrecioInfo" model='"activa"' />
-        </div>
-        @if (Model.EraPredeterminada)
+    <form asp-action="@accion" asp-route-id="@(Model.EsNueva ? null : Model.Id.ToString())" method="post" class="inv-screen" aria-label="@titulo" novalidate data-prevent-double-submit>
+        <input type="hidden" asp-for="Id" />
+        @if (Model.RowVersion is { Length: > 0 })
         {
-            <input type="hidden" name="EsPredeterminada" value="true" />
-            <div class="lp-label-row text-sm text-slate-300">
-                <p>
-                    <span class="badge-erp badge-erp-primary">Predeterminada</span>
-                    Para cambiarla, marcá otra lista como predeterminada.
-                </p>
-                <partial name="_ListaPrecioInfo" model='"predeterminada"' />
-            </div>
+            <input type="hidden" name="RowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
         }
-        else
-        {
-            <div class="lp-label-row">
-                <label class="flex items-center gap-2 text-sm text-slate-300">
-                    <input type="checkbox" name="EsPredeterminada" value="true" checked="@Model.EsPredeterminada" class="h-4 w-4 rounded border-slate-600 bg-slate-900" />
-                    <input type="hidden" name="EsPredeterminada" value="false" />
-                    Lista predeterminada (la usan Venta y Cotización)
-                </label>
-                <partial name="_ListaPrecioInfo" model='"predeterminada"' />
-            </div>
-        }
-    </div>
+        <input type="hidden" asp-for="EraPredeterminada" />
 
-    <div class="flex flex-wrap justify-end gap-2">
-        <a asp-action="Index" class="btn-erp-ghost btn-sm no-underline">Cancelar</a>
-        <button type="submit" class="btn-erp-primary btn-sm">
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
-            @(Model.EsNueva ? "Crear lista" : "Guardar cambios")
-        </button>
-    </div>
-</form>
+        <section class="inv-panel" aria-labelledby="lp-datos">
+            <h2 id="lp-datos" class="inv-panel__titulo">Datos</h2>
+            <div class="inv-campos">
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Nombre">Nombre</label>
+                        <partial name="_ListaPrecioInfo" model='"nombre"' />
+                    </div>
+                    <input id="Nombre" name="Nombre" type="text" maxlength="100" required autocomplete="off" value="@Model.Nombre" class="inv-control" placeholder="Ej.: Contado" />
+                    <span asp-validation-for="Nombre" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Codigo">Código</label>
+                        <partial name="_ListaPrecioInfo" model='"codigo"' />
+                    </div>
+                    <input id="Codigo" name="Codigo" type="text" maxlength="20" required autocomplete="off" value="@Model.Codigo" class="inv-control inv-control--mayusculas" placeholder="Ej.: CONTADO" />
+                    <span asp-validation-for="Codigo" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Tipo">Tipo</label>
+                        <partial name="_ListaPrecioInfo" model='"tipo"' />
+                    </div>
+                    <select id="Tipo" name="Tipo" class="inv-control">
+                        @foreach (var t in Enum.GetValues<TipoListaPrecio>())
+                        {
+                            <option value="@t" selected="@(Model.Tipo == t)">@ListaPrecioUiHelper.NombreTipo(t)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <fieldset class="inv-panel">
+            <legend class="sr-only">Reglas de cálculo</legend>
+            <p class="inv-panel__titulo" aria-hidden="true">Reglas de cálculo</p>
+            <div class="inv-campos">
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="MargenPorcentaje">Margen sobre costo (%)</label>
+                        <partial name="_ListaPrecioInfo" model='"margen"' />
+                    </div>
+                    <input id="MargenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal" value="@ListaPrecioUiHelper.Numero(Model.MargenPorcentaje)" class="inv-control" />
+                    <span asp-validation-for="MargenPorcentaje" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="MargenMinimoPorcentaje">Margen mínimo (%)</label>
+                        <partial name="_ListaPrecioInfo" model='"margen-minimo"' />
+                    </div>
+                    <input id="MargenMinimoPorcentaje" name="MargenMinimoPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal" value="@ListaPrecioUiHelper.Numero(Model.MargenMinimoPorcentaje)" class="inv-control" aria-describedby="lp-ayuda-minimo" />
+                    <span asp-validation-for="MargenMinimoPorcentaje" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="RecargoPorcentaje">Recargo (%)</label>
+                        <partial name="_ListaPrecioInfo" model='"recargo"' />
+                    </div>
+                    <input id="RecargoPorcentaje" name="RecargoPorcentaje" type="number" step="0.01" min="0" max="999.99" inputmode="decimal" value="@ListaPrecioUiHelper.Numero(Model.RecargoPorcentaje)" class="inv-control" />
+                    <span asp-validation-for="RecargoPorcentaje" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="CantidadCuotas">Cantidad de cuotas</label>
+                        <partial name="_ListaPrecioInfo" model='"cuotas"' />
+                    </div>
+                    <input id="CantidadCuotas" name="CantidadCuotas" type="number" step="1" min="1" max="60" inputmode="numeric" value="@Model.CantidadCuotas" class="inv-control" />
+                    <span asp-validation-for="CantidadCuotas" class="inv-campo__error"></span>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="ReglaRedondeo">Redondeo</label>
+                        <partial name="_ListaPrecioInfo" model='"redondeo"' />
+                    </div>
+                    <select id="ReglaRedondeo" name="ReglaRedondeo" class="inv-control">
+                        @foreach (var (valor, texto) in redondeos)
+                        {
+                            <option value="@valor" selected="@((Model.ReglaRedondeo ?? "") == valor)">@texto</option>
+                        }
+                    </select>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Orden">Orden</label>
+                        <partial name="_ListaPrecioInfo" model='"orden"' />
+                    </div>
+                    <input id="Orden" name="Orden" type="number" step="1" min="0" max="9999" inputmode="numeric" value="@Model.Orden" class="inv-control" />
+                </div>
+            </div>
+            <p id="lp-ayuda-minimo" class="inv-ayuda-texto">El margen mínimo no puede superar al margen. Al fijar un precio manual, la lista rechaza los que queden por debajo de su margen mínimo.</p>
+        </fieldset>
+
+        <section class="inv-panel" aria-labelledby="lp-uso">
+            <h2 id="lp-uso" class="inv-panel__titulo">Uso y notas</h2>
+            <div class="inv-checks inv-checks--columna">
+                <div class="lp-label-row">
+                    <label>
+                        <input type="checkbox" name="Activa" value="true" checked="@Model.Activa" class="inv-check" />
+                        <input type="hidden" name="Activa" value="false" />
+                        Activa
+                    </label>
+                    <partial name="_ListaPrecioInfo" model='"activa"' />
+                </div>
+                @if (Model.EraPredeterminada)
+                {
+                    <input type="hidden" name="EsPredeterminada" value="true" />
+                    <div class="lp-label-row">
+                        <p><span class="inv-pill inv-pill--accent">Predeterminada</span> Para cambiarla, marcá otra lista como predeterminada.</p>
+                        <partial name="_ListaPrecioInfo" model='"predeterminada"' />
+                    </div>
+                }
+                else
+                {
+                    <div class="lp-label-row">
+                        <label>
+                            <input type="checkbox" name="EsPredeterminada" value="true" checked="@Model.EsPredeterminada" class="inv-check" />
+                            <input type="hidden" name="EsPredeterminada" value="false" />
+                            Lista predeterminada (la usan Venta y Cotización)
+                        </label>
+                        <partial name="_ListaPrecioInfo" model='"predeterminada"' />
+                    </div>
+                }
+            </div>
+            <div class="inv-grid-2">
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Descripcion">Descripción (opcional)</label>
+                        <partial name="_ListaPrecioInfo" model='"descripcion"' />
+                    </div>
+                    <textarea id="Descripcion" name="Descripcion" rows="2" maxlength="500" class="inv-control">@Model.Descripcion</textarea>
+                </div>
+                <div class="inv-campo">
+                    <div class="lp-label-row">
+                        <label class="inv-campo__etiqueta" for="Notas">Notas (opcional)</label>
+                        <partial name="_ListaPrecioInfo" model='"notas"' />
+                    </div>
+                    <textarea id="Notas" name="Notas" rows="2" maxlength="1000" class="inv-control">@Model.Notas</textarea>
+                </div>
+            </div>
+        </section>
+
+        <div class="inv-actions">
+            <a asp-action="Index" class="inv-btn inv-btn--ghost">Cancelar</a>
+            <button type="submit" class="inv-btn inv-btn--primary">@(Model.EsNueva ? "Crear lista" : "Guardar cambios")</button>
+        </div>
+    </form>
+</div>
 
 <partial name="_ListaPrecioAyuda" />
-
 
 @section Scripts {
     <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>

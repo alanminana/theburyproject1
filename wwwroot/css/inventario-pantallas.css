@@ -1051,3 +1051,34 @@ fieldset.inv-panel {
     min-height: 0;
     overflow-y: auto;
 }
+
+/* ---------- Formularios de varias columnas ------------------------------ */
+.inv-screen--medio {
+    max-width: 62rem;
+}
+
+.inv-campos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+    gap: .875rem;
+    align-items: start;
+}
+
+@media (min-width: 768px) {
+    .inv-campo--doble {
+        grid-column: span 2;
+    }
+}
+
+.inv-control--mayusculas {
+    text-transform: uppercase;
+}
+
+.inv-checks--columna {
+    grid-template-columns: 1fr;
+}
+
+.inv-panel .lp-glosario {
+    margin: 0;
+    padding: 0 1rem .75rem;
+}

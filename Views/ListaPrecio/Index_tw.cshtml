@@ -4,118 +4,108 @@
     ViewData["MetaDescription"] = "Listas de precios del catálogo, lista predeterminada y precios por producto.";
 }
 
-<h1 class="sr-only">Listas de precios</h1>
+<div class="inv-screen inv-page">
+    <h1 class="sr-only">Listas de precios</h1>
 
-<partial name="_ListaPrecioAlertas" />
+    <partial name="_ListaPrecioAlertas" />
 
-<section class="card-erp-panel mb-4 p-4" aria-labelledby="lp-resumen-titulo">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h2 id="lp-resumen-titulo" class="sr-only">Listas de precios</h2>
-            <p class="text-sm text-slate-400">Venta y Cotización usan el precio fijado en la lista predeterminada; si el producto no tiene uno, usan su precio base.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
+    <section class="inv-panel inv-panel--tabla" aria-labelledby="lp-resumen-titulo">
+        <div class="inv-panel__cabecera">
+            <div>
+                <h2 id="lp-resumen-titulo" class="inv-panel__titulo">Listas de precios</h2>
+                <p class="inv-ayuda-texto">Venta y Cotización usan el precio fijado en la lista predeterminada; si el producto no tiene uno, usan su precio base.</p>
+            </div>
             @if (Model.PuedeCrear)
             {
-                <a asp-action="Crear" class="btn-erp-primary btn-sm no-underline">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_circle</span>
+                <a asp-action="Crear" class="inv-btn inv-btn--primary">
+                    <span class="material-symbols-outlined" aria-hidden="true">add</span>
                     Nueva lista
                 </a>
             }
         </div>
-    </div>
-</section>
 
-<section class="card-erp-panel mb-4" aria-label="Listado de listas de precios">
-    <div class="table-erp-wrapper" role="region" aria-label="Tabla de listas de precios" tabindex="0">
-        <table data-erp-cards class="w-full border-collapse text-left">
-            <thead>
-                <tr class="border-b border-slate-800">
-                    <th scope="col" data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Lista</th>
-                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Margen / recargo</th>
-                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Con precio</th>
-                    <th scope="col" data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
-                    <th scope="col" data-card="actions" class="pl-3 pr-2 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800">
-                @foreach (var r in Model.Listas)
+        @if (Model.Listas.Any())
+        {
+            <div class="inv-table-wrap" role="region" aria-label="Tabla de listas de precios" tabindex="0">
+                <table class="inv-table inv-table--apilable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Lista</th>
+                            <th scope="col" class="inv-col-num">Margen / recargo</th>
+                            <th scope="col" class="inv-col-num">Con precio</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Listas)
+                        {
+                            var l = r.Lista;
+                            <tr>
+                                <th scope="row" class="inv-celda-principal">
+                                    <a class="inv-link" asp-action="Precios" asp-route-id="@l.Id">@l.Nombre</a>
+                                    <p class="inv-ayuda-texto">@l.Codigo · @ListaPrecioUiHelper.NombreTipo(l.Tipo)@(l.CantidadCuotas.HasValue ? $" · {l.CantidadCuotas} cuotas" : "")</p>
+                                </th>
+                                <td data-label="Margen / recargo" class="inv-col-num">
+                                    @(l.MargenPorcentaje.HasValue ? ListaPrecioUiHelper.Porcentaje(l.MargenPorcentaje) + " margen" : "Sin margen")
+                                    <p class="inv-sub">@(l.RecargoPorcentaje.HasValue ? ListaPrecioUiHelper.Porcentaje(l.RecargoPorcentaje) + " recargo" : "Sin recargo")</p>
+                                </td>
+                                <td data-label="Con precio" class="inv-col-num">@r.PreciosVigentes</td>
+                                <td data-label="Estado">
+                                    @if (l.EsPredeterminada)
+                                    {
+                                        <span class="inv-pill inv-pill--accent">Predeterminada</span>
+                                    }
+                                    <span class="@(l.Activa ? "inv-pill inv-pill--ok" : "inv-pill inv-pill--muted")">@(l.Activa ? "Activa" : "Inactiva")</span>
+                                </td>
+                                <td class="inv-col-actions">
+                                    <div class="inv-row-actions">
+                                        <a asp-action="Precios" asp-route-id="@l.Id" class="inv-btn inv-btn--ghost inv-btn--sm"
+                                           aria-label="Ver los precios de la lista @l.Nombre">Precios</a>
+                                        @if (Model.PuedeEditar)
+                                        {
+                                            <a asp-action="Editar" asp-route-id="@l.Id" class="inv-icon-btn" aria-label="Editar la lista @l.Nombre" title="Editar">
+                                                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                            </a>
+                                        }
+                                        @if (Model.PuedeEliminar && !l.EsPredeterminada)
+                                        {
+                                            <form asp-action="Baja" asp-route-id="@l.Id" method="post"
+                                                  data-lp-baja data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
+                                                      titulo = "¿Dar de baja esta lista de precios?",
+                                                      datos = new[] { new[] { "Lista", l.Nombre }, new[] { "Productos con precio vigente", r.PreciosVigentes.ToString() } },
+                                                      consecuencias = new[] { "La lista deja de poder usarse.", "Sus precios y su historial se conservan." },
+                                                      etiquetaConfirmar = "Dar de baja la lista" })">
+                                                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(l.RowVersion)" />
+                                                <button type="submit" class="inv-icon-btn inv-icon-btn--danger" aria-label="Dar de baja la lista @l.Nombre" title="Dar de baja">
+                                                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="inv-empty" data-lp-vacio>
+                <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+                <p class="inv-empty__title">Todavía no hay listas de precios.</p>
+                <p>Sin listas, Venta y Cotización usan el precio base de cada producto.</p>
+                @if (Model.PuedeCrear)
                 {
-                    var l = r.Lista;
-                    <tr class="transition-colors hover:bg-slate-800/50">
-                        <td class="px-3 py-2.5">
-                            <span class="block font-bold text-primary">@l.Nombre</span>
-                            <span class="block text-xs text-slate-400">@l.Codigo · @ListaPrecioUiHelper.NombreTipo(l.Tipo)@(l.CantidadCuotas.HasValue ? $" · {l.CantidadCuotas} cuotas" : "")</span>
-                        </td>
-                        <td class="px-3 py-2.5 text-right whitespace-nowrap">
-                            <span class="block">@(l.MargenPorcentaje.HasValue ? ListaPrecioUiHelper.Porcentaje(l.MargenPorcentaje) + " margen" : "Sin margen")</span>
-                            <span class="block text-xs text-slate-400">@(l.RecargoPorcentaje.HasValue ? ListaPrecioUiHelper.Porcentaje(l.RecargoPorcentaje) + " recargo" : "Sin recargo")</span>
-                        </td>
-                        <td class="px-3 py-2.5 text-right font-medium whitespace-nowrap">@r.PreciosVigentes</td>
-                        <td class="px-3 py-2.5">
-                            <div class="flex flex-wrap gap-1">
-                                @if (l.EsPredeterminada)
-                                {
-                                    <span class="badge-erp badge-erp-primary whitespace-nowrap">Predeterminada</span>
-                                }
-                                <span class="@(l.Activa ? "badge-erp badge-erp-success" : "badge-erp badge-erp-neutral") whitespace-nowrap">@(l.Activa ? "Activa" : "Inactiva")</span>
-                            </div>
-                        </td>
-                        <td class="pl-3 pr-2 py-2.5 text-right whitespace-nowrap">
-                            <div class="flex flex-nowrap justify-end gap-1">
-                                <a asp-action="Precios" asp-route-id="@l.Id" class="row-action row-action--primary no-underline"
-                                   aria-label="Ver los precios de la lista @l.Nombre" title="Precios por producto">
-                                    <span class="material-symbols-outlined" aria-hidden="true">sell</span>
-                                    <span class="row-action__label">Precios</span>
-                                </a>
-                                @if (Model.PuedeEditar)
-                                {
-                                    <a asp-action="Editar" asp-route-id="@l.Id" class="row-action row-action--primary no-underline"
-                                       aria-label="Editar la lista @l.Nombre" title="Editar">
-                                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                        <span class="row-action__label">Editar</span>
-                                    </a>
-                                }
-                                @if (Model.PuedeEliminar && !l.EsPredeterminada)
-                                {
-                                    <form asp-action="Baja" asp-route-id="@l.Id" method="post" class="inline"
-                                          data-lp-baja data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
-                                              titulo = "¿Dar de baja esta lista de precios?",
-                                              datos = new[] { new[] { "Lista", l.Nombre }, new[] { "Productos con precio vigente", r.PreciosVigentes.ToString() } },
-                                              consecuencias = new[] { "La lista deja de poder usarse.", "Sus precios y su historial se conservan." },
-                                              etiquetaConfirmar = "Dar de baja la lista" })">
-                                        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(l.RowVersion)" />
-                                        <button type="submit" class="row-action row-action--danger"
-                                                aria-label="Dar de baja la lista @l.Nombre" title="Dar de baja">
-                                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                                            <span class="row-action__label">Baja</span>
-                                        </button>
-                                    </form>
-                                }
-                            </div>
-                        </td>
-                    </tr>
+                    <a asp-action="Crear" class="inv-btn inv-btn--primary">Crear la primera lista</a>
                 }
-            </tbody>
-        </table>
-    </div>
-
-    @if (!Model.Listas.Any())
-    {
-        <div class="px-6 py-12 text-center" data-lp-vacio>
-            <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">sell</span>
-            <p class="mt-2 text-base font-semibold text-slate-200">Todavía no hay listas de precios.</p>
-            <p class="mt-1 text-sm text-slate-400">Sin listas, Venta y Cotización usan el precio base de cada producto.</p>
-            @if (Model.PuedeCrear)
-            {
-                <a asp-action="Crear" class="btn-erp-primary btn-sm mt-3 inline-flex no-underline">Crear la primera lista</a>
-            }
-        </div>
-    }
-</section>
+            </div>
+        }
+    </section>
+</div>
 
 <partial name="_ListaPrecioAyuda" />
-
 
 @section Scripts {
     <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>

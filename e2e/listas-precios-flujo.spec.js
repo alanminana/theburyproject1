@@ -104,7 +104,7 @@ test.describe.serial('Listas de precios (D-01)', () => {
         const failures = trackFailures(page);
         // Precios es una pestaña de Inventario (ya no tiene entrada propia en el menú lateral).
         await page.goto('/Catalogo', { waitUntil: 'domcontentloaded' });
-        await page.locator('#catalogo-topbar a[data-modulo-tab="precios"]').click();
+        await page.locator('nav[aria-label="Secciones de Inventario"] a[data-modulo-tab="precios"]').click();
         await expect(page).toHaveURL(/\/ListaPrecio$/);
         await expect(page.getByRole('heading', { name: 'Listas de precios', level: 2 })).toBeVisible();
 
@@ -196,8 +196,12 @@ test.describe.serial('Listas de precios (D-01)', () => {
     test('baja de una lista no predeterminada con confirmacion; el historial se conserva', async ({ page }) => {
         const failures = trackFailures(page);
         await page.goto('/ListaPrecio', { waitUntil: 'domcontentloaded' });
-        page.once('dialog', dialog => dialog.accept());
         await page.locator('tr', { hasText: codigoA }).getByRole('button', { name: /dar de baja/i }).click();
+        // Confirmación compartida de Inventario: nombra la lista y enfoca la opción segura.
+        const confirmacion = page.getByRole('dialog', { name: /dar de baja esta lista/i });
+        await expect(confirmacion).toContainText(`Contado ${SUFIJO}`);
+        await expect(confirmacion.getByRole('button', { name: 'Cancelar' })).toBeFocused();
+        await confirmacion.getByRole('button', { name: 'Dar de baja la lista' }).click();
         await page.waitForLoadState('domcontentloaded');
         await expect(page.locator('.alert-erp-success')).toContainText('Lista dada de baja');
         await expect(page.locator('tr', { hasText: codigoA })).toHaveCount(0);
