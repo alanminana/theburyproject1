@@ -57,6 +57,7 @@ window.ProductoModalFormUtils = (function () {
     function handleServerErrors(errors, showValidationFn, scopeSelector) {
         var prefix = scopeSelector ? scopeSelector + ' ' : '';
         var messages = [];
+        var primero = null;
         Object.keys(errors).forEach(function (field) {
             var msgs = errors[field];
             msgs.forEach(function (m) { messages.push(m); });
@@ -64,11 +65,28 @@ window.ProductoModalFormUtils = (function () {
                 var span = document.querySelector(prefix + '[data-valmsg-for="' + field + '"]');
                 if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
                 var input = document.querySelector(prefix + '[name="' + field + '"]');
-                if (input) input.classList.add('border-red-500');
+                if (input) {
+                    input.classList.add('border-red-500');
+                    input.setAttribute('aria-invalid', 'true');
+                    if (span) {
+                        if (!span.id) span.id = 'error-' + (scopeSelector ? 'edicion-' : 'alta-') + field.replace(/[^A-Za-z0-9_-]/g, '-');
+                        input.setAttribute('aria-describedby', span.id);
+                    }
+                    if (!primero && input.type !== 'hidden') primero = input;
+                }
             }
         });
         if (messages.length) showValidationFn(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
+        return primero;
     }
 
-    return { bindValidation: bindValidation, handleServerErrors: handleServerErrors };
+    /** Quita la marca de error de los campos de un formulario. */
+    function limpiarMarcas(formulario) {
+        formulario.querySelectorAll('[aria-invalid]').forEach(function (campo) {
+            campo.removeAttribute('aria-invalid');
+            campo.removeAttribute('aria-describedby');
+        });
+    }
+
+    return { bindValidation: bindValidation, handleServerErrors: handleServerErrors, limpiarMarcas: limpiarMarcas };
 })();

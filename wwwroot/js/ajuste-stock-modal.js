@@ -71,6 +71,7 @@
         form.setAttribute('data-inv-confirm', JSON.stringify({
             titulo: '¿Registrar este ajuste de stock?',
             datos: datos,
+            avisos: [resultante !== null && resultante < 0 ? 'No hay stock suficiente: el servidor va a rechazar este movimiento.' : ''],
             consecuencias: [
                 nombreTipo() === 'Ajuste' ? 'El stock queda fijado en la cantidad indicada, sin sumar ni restar.' : 'El stock del producto cambia de inmediato.',
                 'Queda un movimiento registrado con tu usuario. No modifica unidades con número de serie.'

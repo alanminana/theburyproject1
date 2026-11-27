@@ -388,10 +388,12 @@
         }
     }
 
+    var _validacion = ProductoModalFormUtils.bindValidation(VAL_BOX_ID, VAL_TXT_ID, {});
     function showValidation(text) { _validacion.showValidation(text); }
     function hideValidation() { _validacion.hideValidation(); }
 
     function clearErrors() {
+        ProductoModalFormUtils.limpiarMarcas(el(FORM_ID));
         document.querySelectorAll('#' + FORM_ID + ' [data-valmsg-for]').forEach(function (s) {
             s.textContent = ''; s.classList.add('hidden');
         });
@@ -401,8 +403,9 @@
     }
 
     function handleServerErrors(errors) {
-        ProductoModalFormUtils.handleServerErrors(errors, showValidation, '#' + FORM_ID);
+        const primero = ProductoModalFormUtils.handleServerErrors(errors, showValidation, '#' + FORM_ID);
         jumpToFirstErrorTab(errors);
+        if (primero) primero.focus();
     }
 
     function jumpToFirstErrorTab(errors) {

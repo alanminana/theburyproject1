@@ -496,8 +496,9 @@ const ProductoModal = (() => {
     }
 
     function handleServerErrors(errors) {
-        ProductoModalFormUtils.handleServerErrors(errors, showValidation, null);
+        const primero = ProductoModalFormUtils.handleServerErrors(errors, showValidation, null);
         jumpToFirstErrorTab(errors);
+        if (primero) primero.focus();
     }
 
     function jumpToFirstErrorTab(errors) {
@@ -521,6 +522,7 @@ const ProductoModal = (() => {
     function hideValidation() { _validacion.hideValidation(); }
 
     function clearFieldErrors() {
+        ProductoModalFormUtils.limpiarMarcas(el('form-nuevo-producto'));
         document.querySelectorAll('#form-nuevo-producto [data-valmsg-for]').forEach(span => {
             span.textContent = '';
             span.classList.add('hidden');

@@ -795,7 +795,10 @@
     <section id="conciliar" role="tabpanel" data-tab-panel="conciliar" aria-labelledby="tab-conciliar" class="space-y-5" hidden>
         <div>
             <h2 class="text-lg font-semibold text-white">Conciliar stock</h2>
-            <p class="text-sm text-slate-400">Comparacion entre stock del producto y unidades fisicas disponibles (estado En Stock).</p>
+            @if (comparaUnidades)
+            {
+                <p class="text-sm text-slate-400">Comparacion entre stock del producto y unidades fisicas disponibles (estado En Stock).</p>
+            }
         </div>
 
         @if (!comparaUnidades)
@@ -916,7 +919,7 @@
                 @if (puedeAjustarStock && puedeAjustarStockAgregado)
                 {
                     var accionAjuste = diferenciaPositiva ? "AjustarStockAgregadoHaciaAbajo" : "AjustarStockAgregadoAUnidadesFisicas";
-                    var confirmacionAjuste = Json.Serialize(new
+                    var confirmacionAjuste = System.Text.Json.JsonSerializer.Serialize(new
                     {
                         titulo = "¿Ajustar el stock del producto?",
                         datos = new object[]
@@ -1008,7 +1011,7 @@
                     @if (puedeGestionarUnidades)
                     {
                         <form method="post" asp-controller="Producto" asp-action="DesactivarTrazabilidad" asp-route-productoId="@Model.ProductoId"
-                              data-prevent-double-submit data-inv-confirm="@Json.Serialize(new {
+                              data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
                                   titulo = "¿Desactivar la trazabilidad individual?",
                                   datos = new[] { new[] { "Producto", Model.Nombre } },
                                   consecuencias = new[] { "Las ventas dejan de pedir la unidad física.", "El stock deja de compararse con las unidades registradas.", "Las unidades y su historial se conservan." },
@@ -1043,7 +1046,7 @@
                     @if (puedeGestionarUnidades)
                     {
                     <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId"
-                          data-prevent-double-submit data-inv-confirm="@Json.Serialize(new {
+                          data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
                               titulo = "¿Activar la trazabilidad individual?",
                               datos = new[] { new[] { "Producto", Model.Nombre }, new[] { "Unidades disponibles hoy", conciliacion.UnidadesEnStock.ToString() }, new[] { "Stock del producto", Model.StockActual.ToString("G29") } },
                               consecuencias = new[] { "Desde ahora, cada venta de este producto exige elegir una unidad física." },
