@@ -169,28 +169,17 @@ run install -m 0755 "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin
 run install -d -m 0755 /etc/bury
 if (( ! DRY )); then
   printf 'ALLOW_FROM="%s"\nHTTPS_PORT=%s\n' "$FW_ALLOW" "$HTTPS_PORT" >/etc/bury/firewall.conf
-  cat >/etc/systemd/system/bury-firewall.service <<'UNIT'
-[Unit]
-Description=TheBury: firewall de los puertos publicados por Docker (DOCKER-USER)
-Requires=docker.service
-After=docker.service network-online.target
-PartOf=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/sbin/bury-firewall apply
-ExecStop=/usr/local/sbin/bury-firewall remove
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-  # Drop-in: la regla se aplica como parte del arranque de dockerd (ExecStartPost, el '-' tolera fallos para no impedir que Docker arranque),
-  # lo que acorta al minimo la ventana en que los contenedores `unless-stopped` publican 443 antes del filtro y cubre la activacion por socket.
-  install -d -m 0755 /etc/systemd/system/docker.service.d
-  printf '[Service]\nExecStartPost=-/usr/local/sbin/bury-firewall apply\n' >/etc/systemd/system/docker.service.d/bury-firewall.conf
+  # Falla cerrado (ver bury-firewall.sh): 'guard' corre antes de dockerd y 'verify' despues; si fallan, Docker no queda en marcha.
+  /usr/local/sbin/bury-firewall install-systemd
   systemctl daemon-reload
-  systemctl enable --now bury-firewall.service
+  # Aplica YA la configuracion nueva ('enable --now' no reaplica una unidad que ya esta activa) y aborta aqui si es invalida,
+  # no en el proximo reinicio. No reinicia Docker ni los contenedores.
+  /usr/local/sbin/bury-firewall guard
+  systemctl enable bury-firewall.service
+  systemctl restart bury-firewall.service
+  /usr/local/sbin/bury-firewall verify
+else
+  log "[dry-run] bury-firewall install-systemd (ExecStartPre=guard y ExecStartPost=verify en docker.service: falla cerrado), guard, restart y verify"
 fi
 
 # ---------------------------------------------------------------- 5. ufw (SSH)
