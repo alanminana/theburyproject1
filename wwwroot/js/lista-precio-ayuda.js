@@ -89,6 +89,8 @@
         var resultado = $('lp-sim-prueba-resultado');
         if (r.precioPrueba === null) {
             aviso(resultado, '', 'Ingresá un precio mayor a cero para probarlo.');
+        } else if (r.pruebaConDecimalesDeMas) {
+            aviso(resultado, 'error', 'Rechazado: el precio admite hasta dos decimales.');
         } else if (r.costo <= 0) {
             aviso(resultado, 'ok', 'Sin costo cargado, el margen mínimo no se controla.');
         } else if (r.pruebaRechazada) {

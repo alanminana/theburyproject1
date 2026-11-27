@@ -57,7 +57,10 @@ public static class ListaPrecioSimulador
         {
             resultado.PrecioPrueba = precioPrueba;
             resultado.MargenPrueba = costo > 0 ? precios.CalcularMargen(precioPrueba.Value, costo) : null;
-            resultado.PruebaRechazada = RechazaPorMinimo(precios, precioPrueba.Value, costo, margenMinimo);
+            // SetPrecioManualAsync tampoco guarda importes con más de dos decimales.
+            resultado.PruebaConDecimalesDeMas = decimal.Round(precioPrueba.Value, 2) != precioPrueba.Value;
+            resultado.PruebaRechazada = resultado.PruebaConDecimalesDeMas
+                || RechazaPorMinimo(precios, precioPrueba.Value, costo, margenMinimo);
         }
 
         return resultado;

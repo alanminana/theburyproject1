@@ -122,6 +122,7 @@ public class ListaPrecioSimulacion
     public decimal? PrecioPrueba { get; set; }
     public decimal? MargenPrueba { get; set; }
     public bool PruebaRechazada { get; set; }
+    public bool PruebaConDecimalesDeMas { get; set; }
 }
 
 /// <summary>Pantalla para fijar el precio manual de un producto en una lista.</summary>

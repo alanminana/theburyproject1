@@ -90,6 +90,8 @@ public class ListaPrecioAyudaTests : IDisposable
     [InlineData(33.33, 20, 39.99)]
     [InlineData(33.33, 20, 40)]
     [InlineData(0, 20, 1)]
+    [InlineData(100000, 20, 120000.001)]
+    [InlineData(0, 20, 1.005)]
     public async Task ElRechazoDelSimulador_CoincideConElDeFijarPrecio(double costo, int minimo, double precio)
     {
         var categoria = new Categoria { Codigo = "C", Nombre = "C", Activo = true };
@@ -107,7 +109,7 @@ public class ListaPrecioAyudaTests : IDisposable
         var error = await Record.ExceptionAsync(() => _service.SetPrecioManualAsync(producto.Id, lista.Id, (decimal)precio, (decimal)costo));
 
         Assert.Equal(simulado.PruebaRechazada, error is InvalidOperationException);
-        if (simulado.PrecioMinimo.HasValue)
+        if (simulado.PrecioMinimo.HasValue && !simulado.PruebaConDecimalesDeMas)
             Assert.Equal((decimal)precio < simulado.PrecioMinimo.Value, simulado.PruebaRechazada);
     }
 
