@@ -31,6 +31,16 @@ function ConvertFrom-PowerLine([string]$line) {
     [pscustomobject]@{ ac = $Matches[1]; cap = $cap; status = $Matches[3]; monitor = $Matches[4] }
 }
 
+# Antiguedad en minutos de la marca de "ultima copia verificada" (<destino>\_ok-<tipo>\), que backup.sh actualiza SOLO despues de verificar la
+# subida. $null = no hay marca. Los archivos de sql\ y files\ no sirven para esto: una subida fallida puede dejar solo un .sha256 reciente.
+function Get-ObsMarkerAge([string]$root, [string]$kind, [DateTime]$nowUtc) {
+    $dir = Join-Path $root "_ok-$kind"
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    $newest = @(Get-ChildItem -LiteralPath $dir -File -Force -ErrorAction Stop | Sort-Object LastWriteTimeUtc -Descending) | Select-Object -First 1
+    if (-not $newest) { return $null }
+    return ($nowUtc - $newest.LastWriteTimeUtc).TotalMinutes
+}
+
 # Destino de respaldos EN ESTA PC (solo si config.json define "destino"). Se evalua aparte de la notebook: el servicio y el espacio son
 # locales. $dest: ok (servicio activo y carpeta legible), logAgeMin / fileAgeHours (antiguedad de la copia mas nueva; $null = no hay
 # ninguna), usedGB, capGB, freeGB. $expectCopies = $false cuando la notebook no responde: el atraso ya esta explicado por ese aviso.

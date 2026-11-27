@@ -108,5 +108,20 @@ Assert-Eq 'disco casi lleno es critico' (Invoke-Dest $st @((New-D -free 3))) 'ES
 $st = New-ObsState
 Assert-Eq 'sin destino configurado no hay eventos' (@(Update-ObsDestState $st $null $true $lim).Count) 0
 
+# ---- antiguedad medida sobre archivos reales: solo cuenta la marca de copia verificada
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("bury-obs-" + [guid]::NewGuid().ToString('N'))
+try {
+    $now = [DateTime]::UtcNow
+    New-Item -ItemType Directory -Force (Join-Path $tmp 'sql') | Out-Null
+    $aux = Join-Path $tmp 'sql\recien-subido.sha256'; Set-Content -LiteralPath $aux -Value 'x'
+    Assert-Eq 'un archivo reciente sin marca NO es una copia' ($null -eq (Get-ObsMarkerAge $tmp 'sql' $now)) 'True'
+    New-Item -ItemType Directory -Force (Join-Path $tmp '_ok-sql') | Out-Null
+    Assert-Eq 'carpeta de marca vacia: sin copia' ($null -eq (Get-ObsMarkerAge $tmp 'sql' $now)) 'True'
+    $mark = Join-Path $tmp '_ok-sql\marca'; Set-Content -LiteralPath $mark -Value ''
+    (Get-Item -LiteralPath $mark).LastWriteTimeUtc = $now.AddMinutes(-90)
+    Assert-Eq 'manda la marca (90 min), no el archivo nuevo' ([int](Get-ObsMarkerAge $tmp 'sql' $now)) 90
+    Assert-Eq 'los tipos son independientes' ($null -eq (Get-ObsMarkerAge $tmp 'files' $now)) 'True'
+} finally { if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Recurse -Force } }
+
 if ($script:fails) { Write-Output "$($script:fails) FALLA(S)"; exit 1 }
 Write-Output 'OK'

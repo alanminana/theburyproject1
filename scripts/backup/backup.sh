@@ -302,6 +302,11 @@ offsite() {
       fail $EX_OFFSITE "copia externa: la verificacion FALLO ($sub): $RCLONE_ERR"; return 1
     fi
     log INFO "copia externa $sub: subida y VERIFICADA"
+    # Marca de "ultima copia VERIFICADA" en el destino (carpeta aparte, fuera de sql/ y files/): quien mire el destino desde fuera no puede
+    # distinguir por la fecha de cualquier archivo una subida completa de una que solo dejo un .sha256 o un manifiesto. Nunca hace fallar la copia.
+    if ! dc run --rm -T --no-deps --quiet-pull backup-offsite touch "$BACKUP_REMOTE/_ok-$sub/ultima-verificada" >/dev/null 2>&1; then
+      log WARN "copia externa $sub: no se pudo actualizar la marca _ok-$sub (la copia SI quedo verificada)"
+    fi
     if [[ $sub == sql ]]; then for n in "${names[@]}"; do [[ "$n" == *_full_* ]] && OFF_FULL_OK=1; done; else OFF_FILES_OK=1; fi
     monitor_status "offsite-$sub" 0 true
   done
