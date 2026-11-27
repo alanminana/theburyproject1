@@ -4,6 +4,58 @@
  * abre y cierra el diálogo, explica el efecto del tipo elegido, arma la confirmación (stock actual → resultante) y,
  * si el servidor rechazó el envío, lo reabre con lo escrito.
  */
+
+/** Confirmación de un movimiento de stock (qué cambia y cómo queda). La usan el diálogo y el formulario de la ficha. */
+window.InvAjusteStock = (() => {
+    const numero = (valor) => Number(valor).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
+    function resultante(tipo, cantidad, actual) {
+        const valor = Number(cantidad);
+        if (actual === null || cantidad === '' || Number.isNaN(valor)) return null;
+        if (tipo === 'Entrada') return actual + valor;
+        if (tipo === 'Salida') return actual - valor;
+        return valor;
+    }
+
+    /** datos: { producto, tipo: 'Entrada'|'Salida'|'Ajuste', cantidad: string, actual: number|null } */
+    function configurar(formulario, datos) {
+        const nuevo = resultante(datos.tipo, datos.cantidad, datos.actual);
+        const filas = [
+            ['Producto', datos.producto || '—'],
+            ['Movimiento', datos.tipo],
+            ['Cantidad', datos.cantidad === '' ? '—' : numero(datos.cantidad)]
+        ];
+        if (nuevo !== null) filas.push(['Stock', numero(datos.actual) + ' → ' + numero(nuevo)]);
+        filas.push({ etiqueta: 'Motivo', campo: 'Motivo' });
+        formulario.setAttribute('data-inv-confirm', JSON.stringify({
+            titulo: '¿Registrar este movimiento de stock?',
+            datos: filas,
+            avisos: [nuevo !== null && nuevo < 0 ? 'No hay stock suficiente: el servidor va a rechazar este movimiento.' : ''],
+            consecuencias: [
+                datos.tipo === 'Ajuste' ? 'El stock queda fijado en la cantidad indicada, sin sumar ni restar.' : 'El stock del producto cambia de inmediato.',
+                'Queda un movimiento registrado con tu usuario. No modifica unidades con número de serie.'
+            ],
+            etiquetaConfirmar: 'Registrar movimiento',
+            tono: 'primario'
+        }));
+    }
+
+    // Formulario en página (ficha de inventario): <form data-ajuste-inline data-producto data-stock-actual>.
+    document.querySelectorAll('form[data-ajuste-inline]').forEach((formulario) => {
+        const actualizar = () => configurar(formulario, {
+            producto: formulario.dataset.producto,
+            tipo: formulario.elements.namedItem('Tipo').value,
+            cantidad: formulario.elements.namedItem('Cantidad').value,
+            actual: Number(formulario.dataset.stockActual)
+        });
+        formulario.addEventListener('input', actualizar);
+        formulario.addEventListener('change', actualizar);
+        actualizar();
+    });
+
+    return { configurar };
+})();
+
 (() => {
     const dialogo = document.getElementById('modal-ajuste-stock');
     if (!dialogo) return;
@@ -49,36 +101,12 @@
         return dialogo.querySelector('[data-ajuste-producto-nombre]')?.textContent.trim() || '';
     }
 
-    function stockResultante() {
-        const valor = Number(cantidad.value);
-        if (stockActual === null || cantidad.value === '' || Number.isNaN(valor)) return null;
-        if (nombreTipo() === 'Entrada') return stockActual + valor;
-        if (nombreTipo() === 'Salida') return stockActual - valor;
-        return valor;
-    }
-
     // La confirmación compartida lee data-inv-confirm al enviar: se mantiene al día con lo que está en el formulario.
     function actualizar() {
         ayudaTipo.textContent = AYUDAS[nombreTipo()] || '';
-        const resultante = stockResultante();
-        const datos = [
-            ['Producto', nombreProducto() || '—'],
-            ['Movimiento', nombreTipo()],
-            ['Cantidad', cantidad.value === '' ? '—' : numero(cantidad.value)]
-        ];
-        if (resultante !== null) datos.push(['Stock', numero(stockActual) + ' → ' + numero(resultante)]);
-        datos.push({ etiqueta: 'Motivo', campo: 'Motivo' });
-        form.setAttribute('data-inv-confirm', JSON.stringify({
-            titulo: '¿Registrar este ajuste de stock?',
-            datos: datos,
-            avisos: [resultante !== null && resultante < 0 ? 'No hay stock suficiente: el servidor va a rechazar este movimiento.' : ''],
-            consecuencias: [
-                nombreTipo() === 'Ajuste' ? 'El stock queda fijado en la cantidad indicada, sin sumar ni restar.' : 'El stock del producto cambia de inmediato.',
-                'Queda un movimiento registrado con tu usuario. No modifica unidades con número de serie.'
-            ],
-            etiquetaConfirmar: 'Registrar ajuste',
-            tono: 'primario'
-        }));
+        window.InvAjusteStock.configurar(form, {
+            producto: nombreProducto(), tipo: nombreTipo(), cantidad: cantidad.value, actual: stockActual
+        });
     }
 
     function cargarStock() {

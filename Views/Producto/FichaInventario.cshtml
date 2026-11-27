@@ -172,11 +172,14 @@
                         Gestionar unidades
                     </a>
                 }
-                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="fi-btn fi-btn-ghost fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
-                    Kardex completo
-                </a>
+                @if (User.TienePermiso("movimientos", "view"))
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
+                       class="fi-btn fi-btn-ghost fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
+                        Kardex completo
+                    </a>
+                }
                 @if (puedeRegistrarMovimientos)
                 {
                     <button type="button" data-ajuste-stock-open class="fi-btn fi-btn-soft fi-btn-sm">
@@ -297,7 +300,7 @@
                 <div class="flex items-start gap-3">
                     <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">add_box</span>
                     <div class="min-w-0">
-                        <h3 class="text-base font-semibold text-white">Agregar stock</h3>
+                        <h3 class="text-base font-semibold text-white">Registrar un movimiento de stock</h3>
                         <p class="mt-0.5 text-xs text-slate-400">
                             Este producto no usa número de serie: el stock se gestiona por cantidad.
                             Cargá el movimiento acá mismo, sin pasar por la gestión de unidades.
@@ -306,7 +309,8 @@
                 </div>
 
                 <form method="post" asp-controller="MovimientoStock" asp-action="Create"
-                      class="mt-4 space-y-4">
+                      class="mt-4 space-y-4" data-ajuste-inline data-prevent-double-submit
+                      data-producto="@Model.Nombre" data-stock-actual="@Model.StockActual.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="RequestId" value="@(TheBuryProject.Controllers.MovimientoStockController.RequestIdParaFormulario(TempData))" />
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
@@ -349,8 +353,8 @@
                                 Ver movimientos
                             </button>
                             <button type="submit" class="fi-btn fi-btn-primary fi-btn-sm">
-                                <span class="material-symbols-outlined" style="font-size:16px">add</span>
-                                Agregar stock
+                                <span class="material-symbols-outlined" style="font-size:16px">save</span>
+                                Registrar movimiento
                             </button>
                         </div>
                     </div>
@@ -494,7 +498,7 @@
                 </div>
 
                 <form method="post" asp-controller="Producto" asp-action="AgregarUnidadesFisicasInline"
-                      class="mt-4 space-y-4" data-submit-fn="fiUfConfirm">
+                      class="mt-4 space-y-4" data-uf-form data-producto="@Model.Nombre" data-prevent-double-submit>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
                     <input type="hidden" name="ReturnUrl"
@@ -762,11 +766,14 @@
                     @movs.Count movimiento@(movs.Count != 1 ? "s" : "") registrado@(movs.Count != 1 ? "s" : "").
                     Kardex completo incluye gráfico, filtros y valorización.
                 </p>
-                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="fi-btn fi-btn-ghost fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
-                    Kardex completo
-                </a>
+                @if (User.TienePermiso("movimientos", "view"))
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
+                       class="fi-btn fi-btn-ghost fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
+                        Kardex completo
+                    </a>
+                }
             </div>
         </div>
     </section>
@@ -823,13 +830,22 @@
     });
 })();
 
-// Guard de creación en lote: confirmación solo cuando se crean 2+ unidades
-// (1 unidad = sin fricción). Las unidades no se borran en lote desde esta pantalla.
-function fiUfConfirm(form) {
-    var input = form.querySelector('#fi-uf-cantidad');
-    var n = parseInt(input && input.value, 10);
-    if (!n || n < 2) return true; // 1 unidad o inválido: deja actuar a la validación nativa/servidor
-    return window.confirm('Vas a crear ' + n + ' unidades físicas individuales. No se pueden borrar en lote desde esta pantalla. ¿Continuar?');
-}
+// Alta de unidades en lote: se confirma solo a partir de 2 (una unidad no agrega fricción).
+document.querySelectorAll('form[data-uf-form]').forEach(function (formulario) {
+    var cantidad = formulario.querySelector('#fi-uf-cantidad');
+    function actualizar() {
+        var n = parseInt(cantidad.value, 10);
+        if (!n || n < 2) { formulario.removeAttribute('data-inv-confirm'); return; }
+        formulario.setAttribute('data-inv-confirm', JSON.stringify({
+            titulo: '¿Crear ' + n + ' unidades físicas?',
+            datos: [['Producto', formulario.dataset.producto], ['Unidades a crear', String(n)]],
+            consecuencias: ['Cada una queda con su código interno.', 'No se pueden borrar en lote desde esta pantalla.', 'El stock del producto no cambia.'],
+            etiquetaConfirmar: 'Crear ' + n + ' unidades',
+            tono: 'primario'
+        }));
+    }
+    cantidad.addEventListener('input', actualizar);
+    actualizar();
+});
 </script>
 }

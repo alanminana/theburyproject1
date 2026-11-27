@@ -199,8 +199,11 @@
             <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
             @if (producto != null)
             {
-                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                   class="hover:text-slate-300 transition-colors">@producto.Nombre</a>
+                @if (User.TienePermiso("productos", "view"))
+                {
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                       class="hover:text-slate-300 transition-colors">@producto.Nombre</a>
+                }
                 <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
             }
             <span class="text-slate-300">Kardex</span>
@@ -210,11 +213,14 @@
             <div class="min-w-0">
                 @if (producto != null)
                 {
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                       class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-                        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
-                        Volver a unidades del producto
-                    </a>
+                    @if (User.TienePermiso("productos", "view"))
+                    {
+                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                           class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+                            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+                            Volver a unidades del producto
+                        </a>
+                    }
                 }
                 else
                 {
@@ -248,11 +254,14 @@
             <div class="flex flex-wrap gap-2 shrink-0 kdx-no-print">
                 @if (producto != null)
                 {
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                       class="kdx-btn kdx-btn-soft kdx-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:18px">inventory_2</span>
-                        Ver unidades físicas
-                    </a>
+                    @if (User.TienePermiso("productos", "view"))
+                    {
+                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                           class="kdx-btn kdx-btn-soft kdx-btn-sm">
+                            <span class="material-symbols-outlined" style="font-size:18px">inventory_2</span>
+                            Ver unidades físicas
+                        </a>
+                    }
                 }
                 <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" data-action="print">
                     <span class="material-symbols-outlined" style="font-size:18px">print</span>

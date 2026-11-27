@@ -77,11 +77,14 @@
             </div>
             <div class="erp-page-actions">
                 @* Fallback sin JS: con JS la pestaña "Movimientos" cumple esta función. *@
-                <a asp-controller="MovimientoStock" asp-action="Index" data-invg-nojs
-                   class="btn-erp-secondary btn-sm w-full sm:w-auto">
-                    <span class="material-symbols-outlined text-sm">swap_vert</span>
-                    Movimientos de inventario
-                </a>
+                @if (User.TienePermiso("movimientos", "view"))
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Index" data-invg-nojs
+                       class="btn-erp-secondary btn-sm w-full sm:w-auto">
+                        <span class="material-symbols-outlined text-sm">swap_vert</span>
+                        Movimientos de inventario
+                    </a>
+                }
             </div>
         </div>
     </section>
@@ -354,11 +357,14 @@
                     <h2 class="text-sm font-bold text-slate-300">Movimientos de inventario</h2>
                     <p id="invg-mov-summary" class="mt-0.5 text-xs text-slate-500">Abrí la pestaña para ver los movimientos más recientes.</p>
                 </div>
-                <a asp-controller="MovimientoStock" asp-action="Index"
-                   class="btn-erp-secondary btn-sm w-full sm:w-auto">
-                    <span class="material-symbols-outlined text-sm">open_in_new</span>
-                    Historial completo
-                </a>
+                @if (User.TienePermiso("movimientos", "view"))
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Index"
+                       class="btn-erp-secondary btn-sm w-full sm:w-auto">
+                        <span class="material-symbols-outlined text-sm">open_in_new</span>
+                        Historial completo
+                    </a>
+                }
             </div>
             <div class="overflow-x-auto">
                 <table class="invg-mov-table">
