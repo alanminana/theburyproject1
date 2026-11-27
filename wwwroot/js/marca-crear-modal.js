@@ -43,8 +43,8 @@ const MarcaModal = (() => {
             clearFieldErrors();
 
             const errors = validateForm(form);
-            if (errors.length > 0) {
-                showValidation(errors.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
+            if (Object.keys(errors).length > 0) {
+                handleServerErrors(errors);
                 return;
             }
 
@@ -80,25 +80,31 @@ const MarcaModal = (() => {
     }
 
     function validateForm(form) {
-        const errors = [];
+        const errors = {};
         const fd = new FormData(form);
-        if (!fd.get('Codigo')?.trim()) errors.push('El código es obligatorio');
-        if (!fd.get('Nombre')?.trim()) errors.push('El nombre es obligatorio');
+        if (!fd.get('Codigo')?.trim()) errors.Codigo = ['El código es obligatorio'];
+        if (!fd.get('Nombre')?.trim()) errors.Nombre = ['El nombre es obligatorio'];
         return errors;
     }
 
     function handleServerErrors(errors) {
         const messages = [];
+        let primero = null;
         for (const [field, msgs] of Object.entries(errors)) {
             msgs.forEach(msg => messages.push(msg));
             if (field) {
                 const span = document.querySelector(`#form-nueva-marca [data-valmsg-for="${field}"]`);
                 if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
                 const input = document.querySelector(`#form-nueva-marca [name="${field}"]`);
-                if (input) input.classList.add('border-red-500');
+                if (input) {
+                    input.classList.add('border-red-500');
+                    input.setAttribute('aria-invalid', 'true');
+                    if (!primero) primero = input;
+                }
             }
         }
         if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
+        if (primero) primero.focus();
     }
 
     function showValidation(text) {
@@ -118,7 +124,10 @@ const MarcaModal = (() => {
 
     function clearFieldErrors() {
         document.querySelectorAll('#form-nueva-marca [data-valmsg-for]').forEach(s => { s.textContent = ''; s.classList.add('hidden'); });
-        document.querySelectorAll('#form-nueva-marca .border-red-500').forEach(i => i.classList.remove('border-red-500'));
+        document.querySelectorAll('#form-nueva-marca .border-red-500').forEach(i => {
+            i.classList.remove('border-red-500');
+            i.removeAttribute('aria-invalid');
+        });
     }
 
     function init() {

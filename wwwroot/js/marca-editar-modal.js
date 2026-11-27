@@ -79,11 +79,13 @@
         });
         document.querySelectorAll('#' + FORM_ID + ' .border-red-500').forEach(function (i) {
             i.classList.remove('border-red-500');
+            i.removeAttribute('aria-invalid');
         });
     }
 
     function handleServerErrors(errors) {
         var messages = [];
+        var primero = null;
         Object.keys(errors).forEach(function (field) {
             var msgs = errors[field];
             msgs.forEach(function (m) { messages.push(m); });
@@ -91,10 +93,15 @@
                 var span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + field + '"]');
                 if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
                 var input = document.querySelector('#' + FORM_ID + ' [name="' + field + '"]');
-                if (input) input.classList.add('border-red-500');
+                if (input) {
+                    input.classList.add('border-red-500');
+                    input.setAttribute('aria-invalid', 'true');
+                    if (!primero) primero = input;
+                }
             }
         });
         if (messages.length) showValidation(messages.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
+        if (primero) primero.focus();
     }
 
     function initSubmit() {

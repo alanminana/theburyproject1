@@ -1211,6 +1211,63 @@ fieldset.inv-panel {
     }
 }
 
+/* ---------- Contenido de los diálogos de alta y edición ----------------- */
+.inv-seccion {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--pal-neutral-800);
+}
+
+.inv-tablist--panel {
+    flex-shrink: 0;
+    padding: 0 .625rem;
+    overflow-x: auto;
+}
+
+.inv-control--prefijo {
+    padding-left: 1.75rem;
+}
+
+.inv-control--icono {
+    padding-left: 2.5rem;
+    padding-right: 2rem;
+}
+
+.inv-control--sufijo {
+    padding-right: 2rem;
+}
+
+.inv-control--corto {
+    max-width: 20rem;
+}
+
+.inv-control--destacado {
+    font-weight: 700;
+    border-color: color-mix(in srgb, var(--pal-accent) 45%, transparent);
+}
+
+.inv-control--solo-lectura {
+    color: var(--erp-fg-2);
+    border-style: dashed;
+}
+
+/* El script de validación marca el campo con esta utilidad; el componente debe respetarla. */
+.inv-control.border-red-500 {
+    border-color: var(--pal-danger);
+}
+
+/* inventario-*.css no usa capas: sin esto, `display` de un componente le ganaría a la utilidad .hidden. */
+.inv-campo.hidden,
+.inv-control.hidden,
+.inv-seccion.hidden,
+.inv-icon-btn.hidden,
+.inv-btn.hidden {
+    display: none;
+}
+
 /* ---------- Kardex ------------------------------------------------------ */
 .inv-grafico {
     width: 100%;

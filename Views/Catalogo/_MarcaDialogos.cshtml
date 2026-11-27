@@ -8,7 +8,7 @@
                 <h2 id="modal-nueva-marca-title" class="text-xl font-bold text-white">Nueva Marca</h2>
                 <p class="text-sm text-slate-400">Registra una nueva marca o submarca en el sistema.</p>
             </div>
-            <button type="button" data-catalogo-modal-close="marca" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-catalogo-modal-close="marca" class="inv-icon-btn">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </header>
@@ -38,9 +38,9 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-modal")
                         <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="marca-modal-parentId" class="text-sm font-semibold text-slate-300">Marca Padre (Submarca de)</label>
+                            <label for="marca-modal-parentId" class="inv-campo__etiqueta">Marca Padre (Submarca de)</label>
                             <select name="ParentId" id="marca-modal-parentId"
-                                    class="catalogo-input">
+                                    class="inv-control">
                                 <option value="">Ninguna (Marca Principal)</option>
                                 @if (Model.MarcasFiltro != null)
                                 {
@@ -53,13 +53,13 @@
                             <p class="text-xs text-slate-400 italic">Selecciona una marca superior si esta es una submarca</p>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label for="marca-modal-paisOrigen" class="text-sm font-semibold text-slate-300">País de origen <span class="font-normal text-slate-400">(opcional)</span></label>
-                            <input name="PaisOrigen" id="marca-modal-paisOrigen" type="text" class="catalogo-input" placeholder="Ej: Argentina" />
+                            <label for="marca-modal-paisOrigen" class="inv-campo__etiqueta">País de origen <span class="font-normal text-slate-400">(opcional)</span></label>
+                            <input name="PaisOrigen" id="marca-modal-paisOrigen" type="text" class="inv-control" placeholder="Ej: Argentina" />
                             <span data-valmsg-for="PaisOrigen" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="marca-modal-descripcion" class="text-sm font-semibold text-slate-300">Descripción <span class="font-normal text-slate-400">(opcional)</span></label>
-                            <textarea name="Descripcion" id="marca-modal-descripcion" rows="2" class="catalogo-input"></textarea>
+                            <label for="marca-modal-descripcion" class="inv-campo__etiqueta">Descripción <span class="font-normal text-slate-400">(opcional)</span></label>
+                            <textarea name="Descripcion" id="marca-modal-descripcion" rows="2" class="inv-control"></textarea>
                             <span data-valmsg-for="Descripcion" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <label class="flex items-center gap-2 text-sm font-semibold text-slate-300 md:col-span-2">
@@ -73,11 +73,11 @@
             <!-- Footer -->
             <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
                 <button type="button" data-catalogo-modal-close="marca"
-                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                        class="inv-btn inv-btn--ghost">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-marca"
-                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                        class="inv-btn inv-btn--primary">
                     <span class="material-symbols-outlined text-[18px]">save</span>
                     Guardar Marca
                 </button>
@@ -93,7 +93,7 @@
             <div class="flex flex-col">
                 <h2 id="modal-editar-marca-title" class="text-xl font-bold text-white">Editar Marca</h2>
             </div>
-            <button type="button" data-marca-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-marca-edit-modal-close class="inv-icon-btn">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </header>
@@ -117,16 +117,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-edit")
                         <div class="flex flex-col gap-2 md:col-span-2">
-                            <label for="marca-edit-descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
-                            <textarea name="Descripcion" id="marca-edit-descripcion" rows="2" class="catalogo-input"></textarea>
+                            <label for="marca-edit-descripcion" class="inv-campo__etiqueta">Descripción</label>
+                            <textarea name="Descripcion" id="marca-edit-descripcion" rows="2" class="inv-control"></textarea>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label for="marca-edit-paisOrigen" class="text-sm font-semibold text-slate-300">País de Origen</label>
-                            <input name="PaisOrigen" id="marca-edit-paisOrigen" type="text" class="catalogo-input" placeholder="Ej: Argentina" />
+                            <label for="marca-edit-paisOrigen" class="inv-campo__etiqueta">País de Origen</label>
+                            <input name="PaisOrigen" id="marca-edit-paisOrigen" type="text" class="inv-control" placeholder="Ej: Argentina" />
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label for="marca-edit-parentId" class="text-sm font-semibold text-slate-300">Marca Padre</label>
-                            <select name="ParentId" id="marca-edit-parentId" class="catalogo-input">
+                            <label for="marca-edit-parentId" class="inv-campo__etiqueta">Marca Padre</label>
+                            <select name="ParentId" id="marca-edit-parentId" class="inv-control">
                                 <option value="">Ninguna (Marca Principal)</option>
                             </select>
                         </div>
@@ -147,11 +147,11 @@
             </div>
             <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
                 <button type="button" data-marca-edit-modal-close
-                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                        class="inv-btn inv-btn--ghost">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-marca-edit"
-                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                        class="inv-btn inv-btn--primary">
                     <span class="material-symbols-outlined text-[18px]">save</span>
                     Guardar Cambios
                 </button>

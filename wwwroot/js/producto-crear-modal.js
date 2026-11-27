@@ -433,8 +433,8 @@ const ProductoModal = (() => {
 
             // Validación básica client-side
             const errors = validateForm(form);
-            if (errors.length > 0) {
-                showValidation(errors.map(function (m) { return String(m).replace(/[.\s]+$/, ''); }).join('. '));
+            if (Object.keys(errors).length > 0) {
+                handleServerErrors(errors);
                 return;
             }
 
@@ -478,19 +478,19 @@ const ProductoModal = (() => {
     }
 
     function validateForm(form) {
-        const errors = [];
+        const errors = {};
         const fd = new FormData(form);
 
-        if (!fd.get('Codigo')?.trim()) errors.push('El código es obligatorio');
-        if (!fd.get('Nombre')?.trim()) errors.push('El nombre es obligatorio');
-        if (!fd.get('CategoriaId')) errors.push('La categoría es obligatoria');
-        if (!fd.get('MarcaId')) errors.push('La marca es obligatoria');
+        if (!fd.get('Codigo')?.trim()) errors.Codigo = ['El código es obligatorio'];
+        if (!fd.get('Nombre')?.trim()) errors.Nombre = ['El nombre es obligatorio'];
+        if (!fd.get('CategoriaId')) errors.CategoriaId = ['La categoría es obligatoria'];
+        if (!fd.get('MarcaId')) errors.MarcaId = ['La marca es obligatoria'];
 
         const costo = parseFloat(fd.get('PrecioCompra'));
-        if (isNaN(costo) || costo < 0) errors.push('El precio de costo es obligatorio');
+        if (isNaN(costo) || costo < 0) errors.PrecioCompra = ['El precio de costo es obligatorio'];
 
         const venta = parseFloat(fd.get('PrecioVenta'));
-        if (isNaN(venta) || venta < 0) errors.push('El precio de venta es obligatorio');
+        if (isNaN(venta) || venta < 0) errors.PrecioVenta = ['El precio de venta es obligatorio'];
 
         return errors;
     }

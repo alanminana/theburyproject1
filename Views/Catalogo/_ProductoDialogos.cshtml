@@ -34,13 +34,13 @@
             </div>
 
             <!-- Solapas -->
-            <div class="shrink-0 border-b border-slate-800 px-6 pt-3 overflow-x-auto prod-tabs-scroll" role="tablist" aria-label="Secciones del producto">
-                <div role="presentation" class="flex flex-nowrap gap-1 -mb-px min-w-max">
-                    <button type="button" role="tab" data-prod-create-tab="datos" aria-selected="true" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-primary text-white">Datos</button>
-                    <button type="button" role="tab" data-prod-create-tab="precios" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Precios</button>
-                    <button type="button" role="tab" data-prod-create-tab="credito" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Crédito personal</button>
-                    <button type="button" role="tab" data-prod-create-tab="caracteristicas" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Características</button>
-                    <button type="button" role="tab" data-prod-create-tab="stock" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Stock</button>
+            <div class="inv-tablist inv-tablist--panel prod-tabs-scroll" role="tablist" aria-label="Secciones del producto">
+                <div role="presentation" class="flex flex-nowrap min-w-max">
+                    <button type="button" role="tab" data-prod-create-tab="datos" aria-selected="true" class="inv-tab prod-create-tab">Datos</button>
+                    <button type="button" role="tab" data-prod-create-tab="precios" aria-selected="false" class="inv-tab prod-create-tab">Precios</button>
+                    <button type="button" role="tab" data-prod-create-tab="credito" aria-selected="false" class="inv-tab prod-create-tab">Crédito personal</button>
+                    <button type="button" role="tab" data-prod-create-tab="caracteristicas" aria-selected="false" class="inv-tab prod-create-tab">Características</button>
+                    <button type="button" role="tab" data-prod-create-tab="stock" aria-selected="false" class="inv-tab prod-create-tab">Stock</button>
                 </div>
             </div>
 
@@ -51,37 +51,37 @@
                 <div data-prod-create-panel="datos" role="tabpanel">
                 <!-- Section 1: Información Básica -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Información Básica</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Información Básica</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-1">
-                            <label for="prod-create-Codigo" class="text-sm font-medium text-slate-300">Código</label>
+                        <div class="inv-campo">
+                            <label for="prod-create-Codigo" class="inv-campo__etiqueta">Código</label>
                             <input id="prod-create-Codigo" name="Codigo" type="text"
-                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
+                                   class="inv-control"
                                    placeholder="Ej: PROD-001" />
                             <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-create-Nombre" class="text-sm font-medium text-slate-300">Nombre</label>
+                        <div class="inv-campo">
+                            <label for="prod-create-Nombre" class="inv-campo__etiqueta">Nombre</label>
                             <input id="prod-create-Nombre" name="Nombre" type="text"
-                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
+                                   class="inv-control"
                                    placeholder="Nombre comercial del producto" />
                             <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="md:col-span-2 space-y-1">
-                            <label for="prod-create-Descripcion" class="text-sm font-medium text-slate-300">Descripción</label>
+                        <div class="md:col-span-2 inv-campo">
+                            <label for="prod-create-Descripcion" class="inv-campo__etiqueta">Descripción</label>
                             <textarea id="prod-create-Descripcion" name="Descripcion" rows="3"
-                                      class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
+                                      class="inv-control"
                                       placeholder="Detalles técnicos o comerciales..."></textarea>
                         </div>
-                        <div class="space-y-1">
-                            <label for="ac-categoria-input" class="text-sm font-medium text-slate-300">Categoría</label>
+                        <div class="inv-campo">
+                            <label for="ac-categoria-input" class="inv-campo__etiqueta">Categoría</label>
                             <div class="autocomplete-erp" id="ac-categoria">
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">search</span>
                                     <input type="text" id="ac-categoria-input" autocomplete="off"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white placeholder:text-slate-500"
+                                           class="inv-control inv-control--icono"
                                            placeholder="Buscar categoría..." />
                                     <button type="button" id="ac-categoria-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white hidden transition-colors">
                                         <span class="material-symbols-outlined text-base">close</span>
@@ -92,20 +92,20 @@
                             </div>
                             <span data-valmsg-for="CategoriaId" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="modal-subcategoriaId" class="text-sm font-medium text-slate-300">Subcategoría</label>
+                        <div class="inv-campo">
+                            <label for="modal-subcategoriaId" class="inv-campo__etiqueta">Subcategoría</label>
                             <select name="SubcategoriaId" id="modal-subcategoriaId"
-                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors">
+                                    class="inv-control">
                                 <option value="">Seleccionar subcategoría</option>
                             </select>
                         </div>
-                        <div class="space-y-1">
-                            <label for="ac-marca-input" class="text-sm font-medium text-slate-300">Marca</label>
+                        <div class="inv-campo">
+                            <label for="ac-marca-input" class="inv-campo__etiqueta">Marca</label>
                             <div class="autocomplete-erp" id="ac-marca">
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">search</span>
                                     <input type="text" id="ac-marca-input" autocomplete="off"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white placeholder:text-slate-500"
+                                           class="inv-control inv-control--icono"
                                            placeholder="Buscar marca..." />
                                     <button type="button" id="ac-marca-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white hidden transition-colors">
                                         <span class="material-symbols-outlined text-base">close</span>
@@ -116,10 +116,10 @@
                             </div>
                             <span data-valmsg-for="MarcaId" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="modal-submarcaId" class="text-sm font-medium text-slate-300">Submarca</label>
+                        <div class="inv-campo">
+                            <label for="modal-submarcaId" class="inv-campo__etiqueta">Submarca</label>
                             <select name="SubmarcaId" id="modal-submarcaId"
-                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors">
+                                    class="inv-control">
                                 <option value="">Seleccionar submarca</option>
                             </select>
                         </div>
@@ -131,8 +131,8 @@
                 <div data-prod-create-panel="precios" role="tabpanel" class="hidden">
                 <!-- Section 2: Precios -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Precios</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Precios</h3>
                     </div>
                     <div class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3 mb-6">
                         <span class="material-symbols-outlined text-primary">info</span>
@@ -149,21 +149,21 @@
                                 <p class="text-xs text-slate-400">Datos que vienen del proveedor.</p>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="modal-precioCompra" class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
+                            <div class="inv-campo">
+                                <label for="modal-precioCompra" class="inv-campo__etiqueta">Precio compra total con IVA</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-slate-500">$</span>
                                     <input name="PrecioCompraTotalConIva" id="modal-precioCompra" type="number" step="0.01" min="0"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none"
+                                           class="inv-control inv-control--prefijo"
                                            placeholder="Ej: 121000" />
                                 </div>
                                 <span data-valmsg-for="PrecioCompra" class="text-xs text-red-500 hidden"></span>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="modal-porcentajeIVACompra" class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
+                            <div class="inv-campo">
+                                <label for="modal-porcentajeIVACompra" class="inv-campo__etiqueta">IVA del precio de compra</label>
                                 <select name="PorcentajeIVACompra" id="modal-porcentajeIVACompra"
-                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
+                                        class="inv-control">
                                     <option value="21" selected>21%</option>
                                     <option value="10.5">10.5%</option>
                                     <option value="27">27%</option>
@@ -172,20 +172,20 @@
                             </div>
 
                             <div class="space-y-3">
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="modal-precioCompraSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-precioCompraSinIva" type="text" readonly value="0.00"
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="modal-ivaCompraImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-ivaCompraImporte" type="text" readonly value="0.00"
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
                             </div>
@@ -199,33 +199,33 @@
                             </div>
 
                             <div class="catalogo-costos-grid">
-                                <div class="space-y-1">
-                                    <label for="modal-costoEnvio" class="text-sm font-medium text-slate-300">Envío</label>
+                                <div class="inv-campo">
+                                    <label for="modal-costoEnvio" class="inv-campo__etiqueta">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input name="CostoEnvio" id="modal-costoEnvio" type="number" step="0.01" min="0" value="0"
                                                readonly="@(!puedeEditarCostoEnvio)" title="@(puedeEditarCostoEnvio ? null : "Requiere el permiso «Editar costo de envío»")"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
+                                               class="inv-control inv-control--prefijo @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
                                     </div>
                                     @if (!puedeEditarCostoEnvio)
                                     {
                                         <p class="text-xs text-slate-500" data-costo-envio-solo-lectura title="Requiere el permiso «Editar costo de envío»">Fijo · solo lectura</p>
                                     }
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="modal-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
+                                <div class="inv-campo">
+                                    <label for="modal-percepcionesCompra" class="inv-campo__etiqueta">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" name="PercepcionesCompra" id="modal-percepcionesCompra" type="number" step="0.01" min="0" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="modal-otrosCostosCompra" class="text-sm font-medium text-slate-300">Otros gastos</label>
+                                <div class="inv-campo">
+                                    <label for="modal-otrosCostosCompra" class="inv-campo__etiqueta">Otros gastos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input name="OtrosCostosCompra" id="modal-otrosCostosCompra" type="number" step="0.01" min="0" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
                             </div>
@@ -235,7 +235,7 @@
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input data-rule="monto" id="modal-costoRealFinal" type="text" readonly value="0.00"
-                                           class="w-full bg-slate-950/60 border border-amber-500/30 text-amber-400 font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                           class="inv-control inv-control--prefijo inv-control--destacado inv-control--solo-lectura" />
                                 </div>
                                 <input type="hidden" name="PrecioCompra" id="modal-precioCompraRealFinal" value="0" />
                                 <p class="mt-2 text-[11px] text-slate-400">Este valor se guarda como precio de costo del producto.</p>
@@ -250,39 +250,39 @@
                             </div>
 
                             <div class="catalogo-ganancia-grid">
-                                <div class="space-y-1">
-                                    <label for="modal-margenPorcentaje" class="text-sm font-medium text-slate-300">Ganancia %</label>
+                                <div class="inv-campo">
+                                    <label for="modal-margenPorcentaje" class="inv-campo__etiqueta">Ganancia %</label>
                                     <div class="relative">
                                         <input name="MargenPorcentaje" id="modal-margenPorcentaje" type="number" step="0.01" min="0" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 pr-8 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                               class="inv-control inv-control--sufijo" />
                                         <span class="absolute right-3 top-2 text-slate-500">%</span>
                                     </div>
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="modal-montoGanancia" class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
+                                <div class="inv-campo">
+                                    <label for="modal-montoGanancia" class="inv-campo__etiqueta">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="none" id="modal-montoGanancia" type="number" step="0.01" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="space-y-1 catalogo-precio-final">
-                                <label for="modal-precioFinal" class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                            <div class="inv-campo catalogo-precio-final">
+                                <label for="modal-precioFinal" class="catalogo-precio-final-label inv-campo__etiqueta">Precio final de venta con IVA</label>
                                 <div class="relative">
                                     <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input name="PrecioVenta" id="modal-precioFinal" type="number" step="0.01" min="0"
-                                           class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                           class="inv-control inv-control--prefijo inv-control--destacado" />
                                 </div>
                                 <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
                                 <p class="text-[11px] text-slate-500">Se calcula con la ganancia; si lo ajustás a mano, la ganancia se recalcula.</p>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="modal-alicuotaIVAId" class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
+                            <div class="inv-campo">
+                                <label for="modal-alicuotaIVAId" class="inv-campo__etiqueta">Alícuota utilizada para el desglose</label>
                                 <select name="AlicuotaIVAId" id="modal-alicuotaIVAId"
-                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
+                                        class="inv-control">
                                     <option value="">— Alícuota general (21%) —</option>
                                     @if (ViewBag.AlicuotasIVADatos != null)
                                     {
@@ -297,20 +297,20 @@
                             </div>
 
                             <div class="space-y-3">
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="modal-ventaSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="modal-ventaSinIva" type="text" readonly value="0.00"
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="modal-ivaVentaImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="modal-ivaVentaImporte" type="text" readonly value="0.00"
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
                             </div>
@@ -318,10 +318,10 @@
                     </div>
 
                     <div class="mt-4">
-                        <div class="space-y-1 max-w-xs">
-                            <label for="modal-maxCuotasSinInteres" class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
+                        <div class="inv-campo max-w-xs">
+                            <label for="modal-maxCuotasSinInteres" class="inv-campo__etiqueta">Máx. cuotas sin interés</label>
                             <input name="MaxCuotasSinInteresPermitidas" id="modal-maxCuotasSinInteres" type="number" min="1" max="60"
-                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
+                                   class="inv-control"
                                    placeholder="Sin restricción" />
                             <span data-valmsg-for="MaxCuotasSinInteresPermitidas" class="text-xs text-red-500 hidden"></span>
                             <p class="text-xs text-slate-500">Vacío = usa el máximo de la tarjeta. Solo aplica a tarjetas sin interés.</p>
@@ -334,8 +334,8 @@
                 <div data-prod-create-panel="credito" role="tabpanel" class="hidden">
                 <!-- Section 3: Crédito personal -->
                 <section data-producto-credito-personal>
-                    <div class="flex items-center gap-2 mb-2 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Crédito personal</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Crédito personal</h3>
                     </div>
                     <p class="text-xs text-slate-400 mb-4">
                         <strong class="text-slate-300">Recargo total:</strong> este porcentaje se agrega
@@ -365,16 +365,16 @@
                             </span>
                         </label>
                     </div>
-                    <div class="space-y-1" data-cp-maxcuotas-wrap>
-                        <label for="prod-create-CreditoPersonal-MaxCuotasCredito" class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
+                    <div class="inv-campo" data-cp-maxcuotas-wrap>
+                        <label for="prod-create-CreditoPersonal-MaxCuotasCredito" class="inv-campo__etiqueta">Máx. cuotas crédito personal</label>
                         <input id="prod-create-CreditoPersonal-MaxCuotasCredito" name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
-                               class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
+                               class="inv-control inv-control--corto"
                                placeholder="Sin restricción" />
                         <span data-valmsg-for="CreditoPersonal.MaxCuotasCredito" class="text-xs text-red-500 hidden"></span>
                         <p class="text-xs text-slate-500">Vacío = sin límite propio; aplica el rango global o del plan.</p>
                     </div>
                     <div class="mt-6 space-y-2" data-cp-cards-wrap>
-                        <p class="text-sm font-semibold text-slate-300">Planes de cuotas propios</p>
+                        <p class="inv-campo__etiqueta">Planes de cuotas propios</p>
                         <p class="text-xs text-slate-400">
                             Activá las cantidades permitidas para este producto. El recargo de cada una es el
                             del plan global vigente (no editable acá); las filas inactivas no se aplican y si
@@ -389,8 +389,8 @@
                 <div data-prod-create-panel="caracteristicas" role="tabpanel" class="hidden">
                 <!-- Section 4: Características -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Características</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Características</h3>
                     </div>
                     <div class="flex flex-col gap-3">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -452,20 +452,20 @@
                 <div data-prod-create-panel="stock" role="tabpanel" class="hidden">
                 <!-- Section 5: Stock & Configuración -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Stock &amp; Configuración</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Stock &amp; Configuración</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label for="prod-create-StockActual" class="text-sm font-medium text-slate-300">Stock Actual</label>
+                            <div class="inv-campo">
+                                <label for="prod-create-StockActual" class="inv-campo__etiqueta">Stock Actual</label>
                                 <input id="prod-create-StockActual" name="StockActual" type="number" min="0" step="1" value="0"
-                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                       class="inv-control" />
                             </div>
-                            <div class="space-y-1">
-                                <label for="prod-create-StockMinimo" class="text-sm font-medium text-slate-300">Stock Mínimo</label>
+                            <div class="inv-campo">
+                                <label for="prod-create-StockMinimo" class="inv-campo__etiqueta">Stock Mínimo</label>
                                 <input id="prod-create-StockMinimo" name="StockMinimo" type="number" min="0" step="1" value="0"
-                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                       class="inv-control" />
                             </div>
                         </div>
                         <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800">
@@ -488,11 +488,11 @@
             <!-- Footer -->
             <footer class="grid gap-3 border-t border-slate-800 bg-slate-900/50 px-6 py-4 sm:flex sm:items-center sm:justify-end">
                 <button type="button" data-catalogo-modal-close="producto"
-                        class="inline-flex w-full items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white sm:w-auto">
+                        class="inv-btn inv-btn--ghost">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-producto"
-                        class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto">
+                        class="inv-btn inv-btn--primary">
                     Guardar Producto
                 </button>
             </footer>
@@ -529,13 +529,13 @@
             </div>
 
             <!-- Solapas -->
-            <div class="shrink-0 border-b border-slate-800 px-6 pt-3 overflow-x-auto prod-tabs-scroll" role="tablist" aria-label="Secciones del producto">
-                <div role="presentation" class="flex flex-nowrap gap-1 -mb-px min-w-max">
-                    <button type="button" role="tab" data-prod-edit-tab="datos" aria-selected="true" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-primary text-white">Datos</button>
-                    <button type="button" role="tab" data-prod-edit-tab="precios" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Precios</button>
-                    <button type="button" role="tab" data-prod-edit-tab="credito" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Crédito personal</button>
-                    <button type="button" role="tab" data-prod-edit-tab="caracteristicas" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Características</button>
-                    <button type="button" role="tab" data-prod-edit-tab="stock" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Stock</button>
+            <div class="inv-tablist inv-tablist--panel prod-tabs-scroll" role="tablist" aria-label="Secciones del producto">
+                <div role="presentation" class="flex flex-nowrap min-w-max">
+                    <button type="button" role="tab" data-prod-edit-tab="datos" aria-selected="true" class="inv-tab prod-edit-tab">Datos</button>
+                    <button type="button" role="tab" data-prod-edit-tab="precios" aria-selected="false" class="inv-tab prod-edit-tab">Precios</button>
+                    <button type="button" role="tab" data-prod-edit-tab="credito" aria-selected="false" class="inv-tab prod-edit-tab">Crédito personal</button>
+                    <button type="button" role="tab" data-prod-edit-tab="caracteristicas" aria-selected="false" class="inv-tab prod-edit-tab">Características</button>
+                    <button type="button" role="tab" data-prod-edit-tab="stock" aria-selected="false" class="inv-tab prod-edit-tab">Stock</button>
                 </div>
             </div>
 
@@ -545,47 +545,47 @@
                 <div data-prod-edit-panel="datos" role="tabpanel">
                 <!-- Información Básica -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Información Básica</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Información Básica</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-1">
-                            <label for="prod-edit-codigo" class="text-sm font-medium text-slate-300">Código</label>
-                            <input id="prod-edit-codigo" name="Codigo" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white" />
+                        <div class="inv-campo">
+                            <label for="prod-edit-codigo" class="inv-campo__etiqueta">Código</label>
+                            <input id="prod-edit-codigo" name="Codigo" type="text" class="inv-control" />
                             <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-edit-nombre" class="text-sm font-medium text-slate-300">Nombre</label>
-                            <input id="prod-edit-nombre" name="Nombre" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white" />
+                        <div class="inv-campo">
+                            <label for="prod-edit-nombre" class="inv-campo__etiqueta">Nombre</label>
+                            <input id="prod-edit-nombre" name="Nombre" type="text" class="inv-control" />
                             <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="md:col-span-2 space-y-1">
-                            <label for="prod-edit-descripcion" class="text-sm font-medium text-slate-300">Descripción</label>
-                            <textarea id="prod-edit-descripcion" name="Descripcion" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white"></textarea>
+                        <div class="md:col-span-2 inv-campo">
+                            <label for="prod-edit-descripcion" class="inv-campo__etiqueta">Descripción</label>
+                            <textarea id="prod-edit-descripcion" name="Descripcion" rows="2" class="inv-control"></textarea>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-edit-categoriaId" class="text-sm font-medium text-slate-300">Categoría</label>
-                            <select id="prod-edit-categoriaId" name="CategoriaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                        <div class="inv-campo">
+                            <label for="prod-edit-categoriaId" class="inv-campo__etiqueta">Categoría</label>
+                            <select id="prod-edit-categoriaId" name="CategoriaId" class="inv-control">
                                 <option value="">Seleccionar categoría</option>
                             </select>
                             <span data-valmsg-for="CategoriaId" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-edit-subcategoriaId" class="text-sm font-medium text-slate-300">Subcategoría</label>
-                            <select id="prod-edit-subcategoriaId" name="SubcategoriaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                        <div class="inv-campo">
+                            <label for="prod-edit-subcategoriaId" class="inv-campo__etiqueta">Subcategoría</label>
+                            <select id="prod-edit-subcategoriaId" name="SubcategoriaId" class="inv-control">
                                 <option value="">Sin subcategoría</option>
                             </select>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-edit-marcaId" class="text-sm font-medium text-slate-300">Marca</label>
-                            <select id="prod-edit-marcaId" name="MarcaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                        <div class="inv-campo">
+                            <label for="prod-edit-marcaId" class="inv-campo__etiqueta">Marca</label>
+                            <select id="prod-edit-marcaId" name="MarcaId" class="inv-control">
                                 <option value="">Seleccionar marca</option>
                             </select>
                             <span data-valmsg-for="MarcaId" class="text-xs text-red-500 hidden"></span>
                         </div>
-                        <div class="space-y-1">
-                            <label for="prod-edit-submarcaId" class="text-sm font-medium text-slate-300">Submarca</label>
-                            <select id="prod-edit-submarcaId" name="SubmarcaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                        <div class="inv-campo">
+                            <label for="prod-edit-submarcaId" class="inv-campo__etiqueta">Submarca</label>
+                            <select id="prod-edit-submarcaId" name="SubmarcaId" class="inv-control">
                                 <option value="">Sin submarca</option>
                             </select>
                         </div>
@@ -597,8 +597,8 @@
                 <div data-prod-edit-panel="precios" role="tabpanel" class="hidden">
                 <!-- Precios -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Precios</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Precios</h3>
                     </div>
                     <div id="prod-edit-precio-contexto" class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3 mb-4">
                         <span class="material-symbols-outlined text-primary">info</span>
@@ -615,20 +615,20 @@
                                 <p class="text-xs text-slate-400">Datos que vienen del proveedor.</p>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="prod-edit-precioCompra" class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
+                            <div class="inv-campo">
+                                <label for="prod-edit-precioCompra" class="inv-campo__etiqueta">Precio compra total con IVA</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-slate-500">$</span>
                                     <input id="prod-edit-precioCompra" name="PrecioCompraTotalConIva" type="number" step="0.01" min="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                           class="inv-control inv-control--prefijo" />
                                 </div>
                                 <span data-valmsg-for="PrecioCompra" class="text-xs text-red-500 hidden"></span>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="prod-edit-porcentajeIVACompra" class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
+                            <div class="inv-campo">
+                                <label for="prod-edit-porcentajeIVACompra" class="inv-campo__etiqueta">IVA del precio de compra</label>
                                 <select id="prod-edit-porcentajeIVACompra" name="PorcentajeIVACompra" disabled="@(!puedeModificarImportes)"
-                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                                        class="inv-control">
                                     <option value="21">21%</option>
                                     <option value="10.5">10.5%</option>
                                     <option value="27">27%</option>
@@ -638,20 +638,20 @@
                             </div>
 
                             <div class="space-y-3">
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="prod-edit-precioCompraSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="prod-edit-precioCompraSinIva" type="text" readonly
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="prod-edit-ivaCompraImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="prod-edit-ivaCompraImporte" type="text" readonly
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
                             </div>
@@ -665,33 +665,33 @@
                             </div>
 
                             <div class="catalogo-costos-grid">
-                                <div class="space-y-1">
-                                    <label for="prod-edit-costoEnvio" class="text-sm font-medium text-slate-300">Envío</label>
+                                <div class="inv-campo">
+                                    <label for="prod-edit-costoEnvio" class="inv-campo__etiqueta">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-costoEnvio" name="CostoEnvio" type="number" step="0.01" min="0" value="0"
                                                readonly="@(!puedeEditarCostoEnvio)" title="@(puedeEditarCostoEnvio ? null : "Requiere el permiso «Editar costo de envío»")"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
+                                               class="inv-control inv-control--prefijo @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
                                     </div>
                                     @if (!puedeEditarCostoEnvio)
                                     {
                                         <p class="text-xs text-slate-500" data-costo-envio-solo-lectura title="Requiere el permiso «Editar costo de envío»">Fijo · solo lectura</p>
                                     }
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="prod-edit-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
+                                <div class="inv-campo">
+                                    <label for="prod-edit-percepcionesCompra" class="inv-campo__etiqueta">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="prod-edit-otrosCostosCompra" class="text-sm font-medium text-slate-300">Otros gastos</label>
+                                <div class="inv-campo">
+                                    <label for="prod-edit-otrosCostosCompra" class="inv-campo__etiqueta">Otros gastos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-otrosCostosCompra" name="OtrosCostosCompra" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
                             </div>
@@ -701,7 +701,7 @@
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input data-rule="monto" id="prod-edit-costoRealFinal" type="text" readonly
-                                           class="w-full bg-slate-950/60 border border-amber-500/30 text-amber-400 font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                           class="inv-control inv-control--prefijo inv-control--destacado inv-control--solo-lectura" />
                                 </div>
                                 <input type="hidden" id="prod-edit-precioCompraRealFinal" name="PrecioCompra" value="0" />
                                 <p class="mt-2 text-[11px] text-slate-400">Este valor se guarda como precio de costo del producto.</p>
@@ -716,38 +716,38 @@
                             </div>
 
                             <div class="catalogo-ganancia-grid">
-                                <div class="space-y-1">
-                                    <label for="prod-edit-margenPorcentaje" class="text-sm font-medium text-slate-300">Ganancia %</label>
+                                <div class="inv-campo">
+                                    <label for="prod-edit-margenPorcentaje" class="inv-campo__etiqueta">Ganancia %</label>
                                     <div class="relative">
                                         <input id="prod-edit-margenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 pr-8 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                               class="inv-control inv-control--sufijo" />
                                         <span class="absolute right-3 top-2 text-slate-500">%</span>
                                     </div>
                                 </div>
-                                <div class="space-y-1">
-                                    <label for="prod-edit-montoGanancia" class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
+                                <div class="inv-campo">
+                                    <label for="prod-edit-montoGanancia" class="inv-campo__etiqueta">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="none" id="prod-edit-montoGanancia" type="number" step="0.01" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                               class="inv-control inv-control--prefijo" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="space-y-1 catalogo-precio-final">
-                                <label for="prod-edit-precioFinal" class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                            <div class="inv-campo catalogo-precio-final">
+                                <label for="prod-edit-precioFinal" class="catalogo-precio-final-label inv-campo__etiqueta">Precio final de venta con IVA</label>
                                 <div class="relative">
                                     <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
-                                           class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                           class="inv-control inv-control--prefijo inv-control--destacado" />
                                 </div>
                                 <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
                                 <p class="text-[11px] text-slate-500">Se calcula con la ganancia; si lo ajustás a mano, la ganancia se recalcula.</p>
                             </div>
 
-                            <div class="space-y-1">
-                                <label for="prod-edit-alicuotaIVAId" class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
-                                <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                            <div class="inv-campo">
+                                <label for="prod-edit-alicuotaIVAId" class="inv-campo__etiqueta">Alícuota utilizada para el desglose</label>
+                                <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="inv-control">
                                     <option value="">— Alícuota general (21%) —</option>
                                     @if (ViewBag.AlicuotasIVADatos != null)
                                     {
@@ -764,20 +764,20 @@
                             <input type="hidden" id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" value="0" />
 
                             <div class="space-y-3">
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="prod-edit-ventaSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-ventaSinIva" type="text" readonly
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
-                                <div class="space-y-1 catalogo-valor-calculado p-2">
+                                <div class="inv-campo catalogo-valor-calculado p-2">
                                     <label for="prod-edit-ivaVentaImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input data-rule="monto" id="prod-edit-ivaVentaImporte" type="text" readonly
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                               class="inv-control inv-control--prefijo inv-control--solo-lectura" />
                                     </div>
                                 </div>
                             </div>
@@ -785,10 +785,10 @@
                     </div>
 
                     <div class="mt-4">
-                        <div class="space-y-1 max-w-xs">
-                            <label for="prod-edit-maxCuotasSinInteres" class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
+                        <div class="inv-campo max-w-xs">
+                            <label for="prod-edit-maxCuotasSinInteres" class="inv-campo__etiqueta">Máx. cuotas sin interés</label>
                             <input id="prod-edit-maxCuotasSinInteres" name="MaxCuotasSinInteresPermitidas" type="number" min="1" max="60"
-                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
+                                   class="inv-control"
                                    placeholder="Sin restricción" />
                             <span data-valmsg-for="MaxCuotasSinInteresPermitidas" class="text-xs text-red-500 hidden"></span>
                             <p class="text-xs text-slate-500">Vacío = usa el máximo de la tarjeta. Solo aplica a tarjetas sin interés.</p>
@@ -800,8 +800,8 @@
                 <!-- Panel: Crédito personal -->
                 <div data-prod-edit-panel="credito" role="tabpanel" class="hidden">
                 <section>
-                    <div class="flex items-center gap-2 mb-2 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Crédito personal</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Crédito personal</h3>
                     </div>
                     <p class="text-xs text-slate-400 mb-4">
                         <strong class="text-slate-300">Recargo total:</strong> este porcentaje se agrega
@@ -831,16 +831,16 @@
                             </span>
                         </label>
                     </div>
-                    <div class="space-y-1" data-cp-maxcuotas-wrap>
-                        <label for="prod-edit-credito-maxcuotas" class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
+                    <div class="inv-campo" data-cp-maxcuotas-wrap>
+                        <label for="prod-edit-credito-maxcuotas" class="inv-campo__etiqueta">Máx. cuotas crédito personal</label>
                         <input id="prod-edit-credito-maxcuotas" name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
-                               class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
+                               class="inv-control inv-control--corto"
                                placeholder="Sin restricción" />
                         <span data-valmsg-for="CreditoPersonal.MaxCuotasCredito" class="text-xs text-red-500 hidden"></span>
                         <p class="text-xs text-slate-500">Vacío = sin límite propio; aplica el rango global o del plan.</p>
                     </div>
                     <div class="mt-6 space-y-2" data-cp-cards-wrap>
-                        <p class="text-sm font-semibold text-slate-300">Planes de cuotas propios</p>
+                        <p class="inv-campo__etiqueta">Planes de cuotas propios</p>
                         <p class="text-xs text-slate-400">
                             Activá las cantidades permitidas para este producto. El recargo de cada una es el
                             del plan global vigente (no editable acá); las filas inactivas no se aplican y si
@@ -856,8 +856,8 @@
                 <!-- Características -->
                 <section>
                     <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-2 border-l-4 border-primary pl-3">
-                            <h3 class="text-lg font-semibold text-white">Características</h3>
+                        <div class="flex items-center gap-2">
+                            <h3 class="inv-panel__titulo">Características</h3>
                         </div>
                         <span id="prod-edit-caracteristicas-count" class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">0 cargadas</span>
                     </div>
@@ -895,19 +895,19 @@
                 <div data-prod-edit-panel="stock" role="tabpanel" class="hidden">
                 <!-- Stock & Estado -->
                 <section>
-                    <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Stock &amp; Estado</h3>
+                    <div class="inv-seccion">
+                        <h3 class="inv-panel__titulo">Stock &amp; Estado</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label for="prod-edit-stockActual" class="text-sm font-medium text-slate-300">Stock Actual</label>
-                                <input id="prod-edit-stockActual" name="StockActual" type="number" min="0" step="1" readonly tabindex="-1" aria-describedby="prod-edit-stockActual-hint" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-400 cursor-not-allowed" />
+                            <div class="inv-campo">
+                                <label for="prod-edit-stockActual" class="inv-campo__etiqueta">Stock Actual</label>
+                                <input id="prod-edit-stockActual" name="StockActual" type="number" min="0" step="1" readonly tabindex="-1" aria-describedby="prod-edit-stockActual-hint" class="inv-control inv-control--solo-lectura" />
                                 <p id="prod-edit-stockActual-hint" class="text-[11px] text-slate-500">Solo lectura. Se modifica desde Movimientos de stock.</p>
                             </div>
-                            <div class="space-y-1">
-                                <label for="prod-edit-stockMinimo" class="text-sm font-medium text-slate-300">Stock Mínimo</label>
-                                <input id="prod-edit-stockMinimo" name="StockMinimo" type="number" min="0" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                            <div class="inv-campo">
+                                <label for="prod-edit-stockMinimo" class="inv-campo__etiqueta">Stock Mínimo</label>
+                                <input id="prod-edit-stockMinimo" name="StockMinimo" type="number" min="0" step="1" class="inv-control" />
                             </div>
                         </div>
                         <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800">
@@ -929,10 +929,10 @@
             </div>
 
             <footer class="grid gap-3 border-t border-slate-800 bg-slate-900/50 px-6 py-4 sm:flex sm:items-center sm:justify-end">
-                <button type="button" data-prod-edit-modal-close class="inline-flex w-full items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white sm:w-auto">
+                <button type="button" data-prod-edit-modal-close class="inv-btn inv-btn--ghost">
                     Cancelar
                 </button>
-                <button type="submit" id="btn-guardar-producto-edit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto">
+                <button type="submit" id="btn-guardar-producto-edit" class="inv-btn inv-btn--primary">
                     <span class="material-symbols-outlined text-base">save</span>
                     Guardar Cambios
                 </button>

@@ -65,6 +65,10 @@ window.ProductoModalFormUtils = (function () {
                 var span = document.querySelector(prefix + '[data-valmsg-for="' + field + '"]');
                 if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
                 var input = document.querySelector(prefix + '[name="' + field + '"]');
+                if (input && input.type === 'hidden') {
+                    var buscador = input.parentElement && input.parentElement.querySelector('input:not([type="hidden"])');
+                    if (buscador) input = buscador;
+                }
                 if (input) {
                     input.classList.add('border-red-500');
                     input.setAttribute('aria-invalid', 'true');
