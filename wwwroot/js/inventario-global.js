@@ -93,7 +93,7 @@
       var signo = m.tipo === "Entrada" ? "+" : m.tipo === "Salida" ? "−" : "";
       var tono = m.tipo === "Entrada" ? "inv-text-ok" : m.tipo === "Salida" ? "inv-text-danger" : "";
       return "<tr>" +
-        '<th scope="row">' + esc(m.fecha) + '<p class="inv-ayuda-texto">' + esc(m.hora) + "</p></th>" +
+        '<th scope="row"><span class="inv-nowrap">' + esc(m.fecha) + '</span><p class="inv-ayuda-texto">' + esc(m.hora) + "</p></th>" +
         '<td data-label="Movimiento" class="inv-celda-detalle"><strong>' + esc(m.tipoNombre || m.tipo) + "</strong>" +
           (detalle ? '<p class="inv-ayuda-texto">' + esc(detalle) + "</p>" : "") + "</td>" +
         '<td data-label="Producto">' + esc(m.productoNombre || "—") + '<p class="inv-ayuda-texto">' + esc(m.productoCodigo || "") + "</p></td>" +
