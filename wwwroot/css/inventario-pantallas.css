@@ -1003,8 +1003,9 @@
     display: none;
 }
 
+/* Los formularios de carga se apilan; las barras de filtros siguen en línea. */
 .inv-panel__form,
-.inv-panel form {
+.inv-panel form:not(.inv-filters) {
     display: flex;
     flex-direction: column;
     gap: .75rem;

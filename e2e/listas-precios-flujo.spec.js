@@ -179,12 +179,20 @@ test.describe.serial('Listas de precios (D-01)', () => {
         await enviar(page, 'Fijar precio');
         await expect(page).toHaveURL(/\/ListaPrecio\/Precios\//);
         await expect(page.locator('.alert-erp-success')).toContainText('actualizado');
+        // La vuelta a la lista no conserva la busqueda: con muchos productos hay que volver a buscarlo.
+        const buscar = async () => {
+            await page.getByLabel('Producto', { exact: true }).fill(`PRD${SUFIJO}`);
+            await page.getByRole('button', { name: 'Buscar' }).click();
+        };
+        await buscar();
         await expect(page.locator('tr', { hasText: `PRD${SUFIJO}` })).toContainText('1.450,50');
 
         // Segundo precio: el anterior queda en el historial.
         await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
         await page.locator('#precio').fill('1600');
         await enviar(page, 'Fijar precio');
+        await expect(page).toHaveURL(/\/ListaPrecio\/Precios\//);
+        await buscar();
         await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
         const historial = page.getByRole('region', { name: 'Historial de precios del producto en la lista' });
         await expect(historial.locator('tbody tr')).toHaveCount(2);
@@ -227,6 +235,8 @@ test.describe.serial('Listas de precios (D-01)', () => {
             await expectSinDesbordeHorizontal(page);
             await captura(page, `${vp.nombre}-3-precios`);
 
+            await page.getByLabel('Producto', { exact: true }).fill(`PRD${SUFIJO}`);
+            await page.getByRole('button', { name: 'Buscar' }).click();
             await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
             await expectSinDesbordeHorizontal(page);
             await captura(page, `${vp.nombre}-4-fijar`);
