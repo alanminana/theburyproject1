@@ -505,7 +505,7 @@
                                     <span class="block text-xs text-slate-500">@m.Fecha.AHoraComercial().ToString("HH:mm")</span>
                                 </td>
                                 <td><span class="@ChipCls(m.Tipo)">@ChipLbl(m.Tipo)</span></td>
-                                <td class="font-mono text-slate-400">@(m.Referencia ?? "—")</td>
+                                <td class="text-slate-400">@(ReferenciaStockUi.Legible(m.Referencia) ?? "—")</td>
                                 <td>
                                     @if (!string.IsNullOrWhiteSpace(m.Motivo))
                                     {

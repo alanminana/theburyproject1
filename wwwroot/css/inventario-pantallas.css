@@ -770,6 +770,62 @@
     }
 }
 
+.inv-filtros-linea {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.inv-filtros-linea .inv-control {
+    width: auto;
+    min-width: 10rem;
+}
+
+@media (max-width: 639px) {
+    .inv-filtros-linea {
+        width: 100%;
+    }
+
+    .inv-filtros-linea .inv-control {
+        flex: 1 1 100%;
+    }
+}
+
+.inv-row-actions form {
+    display: contents;
+}
+
+.inv-lista li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .5rem 0;
+    font-size: .875rem;
+}
+
+.inv-lista li + li {
+    border-top: 1px solid var(--pal-neutral-800);
+}
+
+.inv-barra {
+    display: grid;
+    grid-template-columns: 5rem 1fr 2.5rem;
+    align-items: center;
+    gap: .75rem;
+    font-size: .875rem;
+}
+
+.inv-barra meter {
+    width: 100%;
+    height: .75rem;
+}
+
+.inv-barra strong {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Estados vacíos y paginado ----------------------------------- */
 .inv-empty {
     display: flex;

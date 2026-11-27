@@ -1,197 +1,98 @@
 @model TheBuryProject.ViewModels.AlertaStockEstadisticasViewModel
-@using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Estadísticas de Alertas de Stock";
+    var porPrioridad = new[] { ("Crítica", Model.AlertasCriticas), ("Alta", Model.AlertasAltas), ("Media", Model.AlertasMedias) };
+    var porTipo = new[]
+    {
+        ("Stock agotado", Model.AlertasStockAgotado), ("Stock crítico", Model.AlertasStockCritico),
+        ("Stock bajo", Model.AlertasStockBajo), ("Sin movimiento", Model.AlertasSinMovimiento)
+    };
 }
 
-<div class="max-w-7xl mx-auto space-y-6">
-
-    <div class="hero-erp sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div class="flex-1 min-w-0">
-                <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
-                    <a asp-action="Index" class="hover:text-slate-200 transition-colors">Alertas de Stock</a>
-                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-                    <span class="text-slate-200">Estadísticas</span>
-                </nav>
-                <h1 class="text-2xl sm:text-3xl font-bold text-slate-100">Estadísticas</h1>
-                <p class="mt-1 text-sm text-slate-400">Resumen general del estado de alertas de stock.</p>
-            </div>
-            <div class="flex flex-wrap gap-2 shrink-0">
-                <a asp-action="Index" class="btn-erp-ghost">
-                    <span class="material-symbols-outlined text-base">arrow_back</span>
-                    Volver
-                </a>
-                <a asp-action="Criticos" class="btn-erp-danger">
-                    <span class="material-symbols-outlined text-base">crisis_alert</span>
-                    Ver críticos
-                </a>
-            </div>
+<div class="inv-screen inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-controller="Catalogo" asp-action="Index" asp-route-tab="alertas" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Alertas</a>
+            <h1>Estadísticas de alertas</h1>
         </div>
+        <div class="inv-head__acciones">
+            <a asp-action="Criticos" class="inv-btn inv-btn--ghost">Productos críticos</a>
+        </div>
+    </header>
+
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    <dl class="inv-panel inv-resumen">
+        <div><dt>Pendientes</dt><dd>@Model.AlertasPendientes de @Model.TotalAlertas</dd></div>
+        <div><dt>Urgentes</dt><dd>@Model.AlertasUrgentes</dd></div>
+        <div><dt>Vencidas</dt><dd>@Model.AlertasVencidas</dd></div>
+        <div><dt>Resueltas</dt><dd>@Model.AlertasResueltas (@Model.TasaResolucionPorcentaje.ToString("N0") %)</dd></div>
+        <div><dt>Tiempo promedio de resolución</dt><dd>@Model.PromedioResolucionDias.ToString("N1") días</dd></div>
+        <div><dt>Productos afectados</dt><dd>@Model.ProductosAfectados</dd></div>
+        @* Mismo cálculo que «Valor en riesgo» de Productos críticos (crítico + agotado). *@
+        <div><dt>Valor en riesgo</dt><dd>$ @Model.ValorTotalStockCritico.ToString("N0")</dd></div>
+    </dl>
+
+    <div class="inv-grid-2">
+        <section class="inv-panel" aria-labelledby="est-prioridad">
+            <h2 id="est-prioridad" class="inv-panel__titulo">Por prioridad</h2>
+            @foreach (var (texto, cantidad) in porPrioridad)
+            {
+                <label class="inv-barra">
+                    <span>@texto</span>
+                    <meter min="0" max="@Math.Max(1, Model.TotalAlertas)" value="@cantidad">@cantidad</meter>
+                    <strong>@cantidad</strong>
+                </label>
+            }
+        </section>
+        <section class="inv-panel" aria-labelledby="est-tipo">
+            <h2 id="est-tipo" class="inv-panel__titulo">Por tipo</h2>
+            <dl class="inv-datos">
+                @foreach (var (texto, cantidad) in porTipo)
+                {
+                    <div class="inv-datos__fila"><dt>@texto</dt><dd>@cantidad</dd></div>
+                }
+            </dl>
+        </section>
     </div>
 
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
-        </div>
-    }
-
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="card-erp-metric card-erp-metric-warning">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Pendientes</p>
-            <p class="mt-1 text-2xl font-bold text-amber-400">@Model.AlertasPendientes</p>
-            <p class="text-xs text-slate-500 mt-1">de @Model.TotalAlertas totales</p>
-        </div>
-        <div class="card-erp-metric card-erp-metric-danger">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Urgentes</p>
-            <p class="mt-1 text-2xl font-bold text-red-400">@Model.AlertasUrgentes</p>
-        </div>
-        <div class="card-erp-metric card-erp-metric-danger">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Vencidas</p>
-            <p class="mt-1 text-2xl font-bold text-red-400">@Model.AlertasVencidas</p>
-        </div>
-        <div class="card-erp-metric card-erp-metric-success">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Tasa de resolución</p>
-            <p class="mt-1 text-2xl font-bold text-emerald-400">@Model.TasaResolucionPorcentaje.ToString("N0")%</p>
-            <p class="text-xs text-slate-500 mt-1">@Model.AlertasResueltas resueltas</p>
-        </div>
-    </div>
-
-    <div class="grid gap-6 lg:grid-cols-2">
-
-        <section class="card-erp-panel">
-            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">priority_high</span>
-                    Por prioridad
-                </h2>
-            </div>
-            <div class="px-6 py-4 space-y-3">
-                @{
-                    var prios = new[]
+    <div class="inv-grid-2">
+        @if (Model.UltimasAlertas.Any())
+        {
+            <section class="inv-panel" aria-labelledby="est-ultimas">
+                <h2 id="est-ultimas" class="inv-panel__titulo">Últimas alertas</h2>
+                <ul class="inv-lista">
+                    @foreach (var a in Model.UltimasAlertas.Take(10))
                     {
-                        ("Crítica",  Model.AlertasCriticas, "badge-erp badge-erp-danger"),
-                        ("Alta",     Model.AlertasAltas,    "badge-erp badge-erp-warning"),
-                        ("Media",    Model.AlertasMedias,   "badge-erp badge-erp-info"),
-                    };
-                }
-                @foreach (var (label, count, cls) in prios)
-                {
-                    var pct = Model.TotalAlertas > 0 ? (count * 100.0 / Model.TotalAlertas) : 0;
-                    <div class="flex items-center gap-3">
-                        <span class="@cls w-16 text-center shrink-0">@label</span>
-                        <div class="flex-1 bg-slate-800 rounded-full h-2">
-                            <div class="h-2 rounded-full bg-current opacity-70 transition-all" style="width: @(pct.ToString("N0"))%"></div>
-                        </div>
-                        <span class="text-sm font-semibold text-slate-100 w-8 text-right shrink-0">@count</span>
-                    </div>
-                }
-            </div>
-        </section>
-
-        <section class="card-erp-panel">
-            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">inventory_2</span>
-                    Por tipo de stock
-                </h2>
-            </div>
-            <div class="px-6 py-4 grid gap-3 sm:grid-cols-2">
-                <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3">
-                    <p class="text-xs text-red-400 font-medium">Agotado</p>
-                    <p class="text-2xl font-bold text-red-400 mt-1">@Model.AlertasStockAgotado</p>
-                </div>
-                <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3">
-                    <p class="text-xs text-amber-400 font-medium">Stock crítico</p>
-                    <p class="text-2xl font-bold text-amber-400 mt-1">@Model.AlertasStockCritico</p>
-                </div>
-                <div class="rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3">
-                    <p class="text-xs text-slate-400 font-medium">Stock bajo</p>
-                    <p class="text-2xl font-bold text-slate-100 mt-1">@Model.AlertasStockBajo</p>
-                </div>
-                <div class="rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3">
-                    <p class="text-xs text-slate-400 font-medium">Sin movimiento</p>
-                    <p class="text-2xl font-bold text-slate-100 mt-1">@Model.AlertasSinMovimiento</p>
-                </div>
-            </div>
-        </section>
-
-    </div>
-
-    <div class="grid gap-6 lg:grid-cols-3">
-        <div class="card-erp-metric">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Productos afectados</p>
-            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.ProductosAfectados</p>
-        </div>
-        <div class="card-erp-metric">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Promedio resolución</p>
-            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.PromedioResolucionDias.ToString("N1") días</p>
-        </div>
-        @* "Valor en riesgo", no "Valor stock crítico": mismo cálculo que la tarjeta homónima de
-           Criticos_tw (Tipo StockCritico + StockAgotado, homogeneizado). Reusar el nombre evita que
-           este monto — que sí incluye Agotado — se lea como el valor de la tarjeta "Stock crítico"
-           de arriba, que NO lo incluye. *@
-        <div class="card-erp-metric card-erp-metric-danger">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Valor en riesgo</p>
-            <p class="mt-1 text-2xl font-bold text-red-400">$@Model.ValorTotalStockCritico.ToString("N0")</p>
-        </div>
-    </div>
-
-    @if (Model.UltimasAlertas.Any())
-    {
-        <section class="card-erp-panel">
-            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">schedule</span>
-                    Últimas alertas
-                </h2>
-            </div>
-            <div class="divide-y divide-slate-800">
-                @foreach (var a in Model.UltimasAlertas.Take(10))
-                {
-                    var abadge = a.Tipo switch
+                        var tipo = AlertaStockUi.Tipo(a.Tipo);
+                        <li>
+                            <div>
+                                <a class="inv-link" asp-action="Details" asp-route-id="@a.Id">@a.ProductoNombre</a>
+                                <p class="inv-ayuda-texto">@a.FechaAlerta.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
+                            </div>
+                            <span class="@tipo.Clase">@tipo.Texto</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+        @if (Model.ProductosMasAlertas.Any())
+        {
+            <section class="inv-panel" aria-labelledby="est-productos">
+                <h2 id="est-productos" class="inv-panel__titulo">Productos con más alertas</h2>
+                <ul class="inv-lista">
+                    @foreach (var p in Model.ProductosMasAlertas.Take(10))
                     {
-                        TipoAlertaStock.StockAgotado  => "badge-erp badge-erp-danger",
-                        TipoAlertaStock.StockCritico  => "badge-erp badge-erp-warning",
-                        _                             => "badge-erp badge-erp-info"
-                    };
-                    <div class="px-6 py-3 flex items-center gap-3">
-                        <div class="flex-1 min-w-0">
-                            <a asp-action="Details" asp-route-id="@a.Id"
-                               class="text-sm font-medium text-slate-100 hover:text-primary transition-colors truncate block">@a.ProductoNombre</a>
-                            <p class="text-xs text-slate-500">@a.FechaAlerta.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
-                        </div>
-                        <span class="@abadge shrink-0">@a.TipoDescripcion</span>
-                    </div>
-                }
-            </div>
-        </section>
-    }
-
-    @if (Model.ProductosMasAlertas.Any())
-    {
-        <section class="card-erp-panel">
-            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">trending_down</span>
-                    Productos con más alertas
-                </h2>
-            </div>
-            <div class="divide-y divide-slate-800">
-                @foreach (var p in Model.ProductosMasAlertas.Take(10))
-                {
-                    <div class="px-6 py-3 flex items-center gap-3">
-                        <div class="flex-1 min-w-0">
-                            <a asp-action="PorProducto" asp-route-id="@p.ProductoId"
-                               class="text-sm font-medium text-slate-100 hover:text-primary transition-colors truncate block">@p.ProductoNombre</a>
-                            <p class="text-xs text-slate-500">@p.CategoriaNombre · stock: @p.StockActual.ToString("N0") / mín: @p.StockMinimo.ToString("N0")</p>
-                        </div>
-                        <span class="text-sm font-semibold text-amber-400 shrink-0">@p.TotalAlertas alertas</span>
-                    </div>
-                }
-            </div>
-        </section>
-    }
-
+                        <li>
+                            <div>
+                                <a class="inv-link" asp-action="PorProducto" asp-route-id="@p.ProductoId">@p.ProductoNombre</a>
+                                <p class="inv-ayuda-texto">@p.CategoriaNombre · stock @p.StockActual.ToString("N0") de un mínimo de @p.StockMinimo.ToString("N0")</p>
+                            </div>
+                            <strong>@p.TotalAlertas @(p.TotalAlertas == 1 ? "alerta" : "alertas")</strong>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
 </div>

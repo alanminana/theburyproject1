@@ -76,7 +76,7 @@
                             <tr>
                                 <th scope="row">
                                     <a class="inv-link" asp-action="Preview" asp-route-id="@b.Id">@b.Nombre</a>
-                                    <p class="inv-ayuda-texto">@b.TipoCambioDisplay</p>
+                                    <p class="inv-ayuda-texto">@LoteDePreciosUi.Tipo(b.TipoCambio)</p>
                                 </th>
                                 <td data-label="Estado"><span class="@clase">@texto</span></td>
                                 <td data-label="Cambio" class="inv-col-num">@LoteDePreciosUi.Cambio(b.TipoCambio, b.TipoAplicacion, b.ValorCambio)</td>

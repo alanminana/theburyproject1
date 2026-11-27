@@ -11,7 +11,13 @@
     ],
     "rolesRequeridos": [],
     "consumes": "",
-    "parametros": [],
+    "parametros": [
+      {
+        "nombre": "returnUrl",
+        "tipo": "String",
+        "fuente": "Auto"
+      }
+    ],
     "excluidaPorDiseno": false
   },
   {

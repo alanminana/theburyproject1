@@ -679,7 +679,7 @@
                             @if (m.Referencia != null || m.Motivo != null)
                             {
                                 <div class="text-xs text-slate-400 leading-snug">
-                                    @if (m.Referencia != null) { <span class="text-slate-300">@m.Referencia</span> }
+                                    @if (m.Referencia != null) { <span class="text-slate-300">@ReferenciaStockUi.Legible(m.Referencia)</span> }
                                     @if (m.Motivo != null) { <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span> }
                                     @if (m.VentaCliente != null)
                                     {
@@ -727,7 +727,7 @@
                                     <td class="text-xs text-slate-400 max-w-70">
                                         @if (m.Referencia != null)
                                         {
-                                            <span class="text-slate-300">@m.Referencia</span>
+                                            <span class="text-slate-300">@ReferenciaStockUi.Legible(m.Referencia)</span>
                                         }
                                         @if (m.Motivo != null)
                                         {
