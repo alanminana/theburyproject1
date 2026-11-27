@@ -248,8 +248,8 @@
                     <tfoot>
                         <tr>
                             <th scope="row" colspan="2" id="kdx-foot-label">Totales del historial</th>
-                            <td data-label="Entradas" class="inv-col-num inv-text-ok" id="kdx-foot-ent">+@footEnt.ToString("G29")</td>
-                            <td data-label="Salidas" class="inv-col-num inv-text-danger" id="kdx-foot-sal">−@footSal.ToString("G29")</td>
+                            <td data-label="Entradas" class="inv-col-num inv-text-ok" id="kdx-foot-ent">@(footEnt > 0 ? "+" + footEnt.ToString("G29") : "—")</td>
+                            <td data-label="Salidas" class="inv-col-num inv-text-danger" id="kdx-foot-sal">@(footSal > 0 ? "−" + footSal.ToString("G29") : "—")</td>
                             <td data-label="Saldo" class="inv-col-num">@ultimoStock.ToString("G29")</td>
                             <td data-label="Saldo valorizado" class="inv-col-num">@FormatMoney(ultimoValor)</td>
                             <td class="inv-celda-vacia"></td>
