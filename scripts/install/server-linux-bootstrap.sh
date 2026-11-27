@@ -165,6 +165,16 @@ else log "3/6 sin --backup-dir: nada que crear"; fi
 
 # ---------------------------------------------------------------- 4. firewall de puertos publicados (DOCKER-USER)
 log "4/6 firewall de HTTPS ($HTTPS_PORT) para: $FW_ALLOW"
+# Falla cerrado tambien AQUI: el drop-in no actua sobre un dockerd que ya esta en marcha. Si algo falla antes de terminar esta etapa,
+# se detiene Docker (y su socket) para no dejar un puerto publicado sin filtro comprobado.
+FW_PENDIENTE=0
+cerrar_si_fallo() {
+  (( FW_PENDIENTE )) || return 0
+  echo "ERROR: no se pudo instalar y comprobar el firewall: se DETIENE Docker para no dejar puertos publicados sin filtro (el ERP queda caido)." >&2
+  echo "       Corregir la causa y repetir el bootstrap; recuperacion: docs/operacion-servidor-ubuntu.md 7" >&2
+  systemctl stop docker.socket docker.service || echo "ERROR: NO se pudo detener Docker: verificar a mano si el puerto $HTTPS_PORT esta expuesto" >&2
+}
+if (( ! DRY )); then FW_PENDIENTE=1; trap cerrar_si_fallo EXIT; fi
 run install -m 0755 "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin/bury-firewall
 run install -d -m 0755 /etc/bury
 if (( ! DRY )); then
@@ -178,6 +188,7 @@ if (( ! DRY )); then
   systemctl enable bury-firewall.service
   systemctl restart bury-firewall.service
   /usr/local/sbin/bury-firewall verify
+  FW_PENDIENTE=0
 else
   log "[dry-run] bury-firewall install-systemd (ExecStartPre=guard y ExecStartPost=verify en docker.service: falla cerrado), guard, restart y verify"
 fi

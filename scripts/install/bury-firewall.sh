@@ -156,6 +156,17 @@ do_verify() {
     $IPT ${r/#-A /-C } 2>/dev/null || die "verify: falta la regla: $r"
   done < <(rules "$CHAIN")
   [[ "$($IPT -S "$CHAIN" | grep -c "^-A ")" == "$total" ]] || die "verify: la cadena $CHAIN tiene reglas de mas o de menos (se esperaban $total)"
+  # El ORDEN decide si filtra: primero los RETURN de los origenes (A), despues los DROP (D) y recien al final el RETURN sin condiciones (E).
+  local orden=""
+  while IFS= read -r line; do
+    case "$line" in
+      "-A $CHAIN -j RETURN") orden+=E ;;
+      "-A $CHAIN "*" -j RETURN") orden+=A ;;
+      "-A $CHAIN "*" -j DROP") orden+=D ;;
+      "-A $CHAIN "*) orden+=X ;;
+    esac
+  done < <($IPT -S "$CHAIN")
+  [[ "$orden" =~ ^A+D+E$ ]] || die "verify: las reglas de $CHAIN estan en un orden que no filtra ($orden)"
   echo "bury-firewall: verificado ($CHAIN, puerto $HTTPS_PORT)"
 }
 

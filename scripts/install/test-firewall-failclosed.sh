@@ -97,6 +97,28 @@ check "la unidad no define ExecStop (detenerla no abre el puerto)" bash -c '! gr
 check "AUTORIZADO llega" wait_ok
 check "AJENO denegado" denied_no
 
+echo "== Bootstrap que falla con Docker en marcha y sin filtro: no debe dejar el puerto publicado =="
+BURY_FW_CONF="$CONF" bash "$HERE/bury-firewall.sh" remove >/dev/null 2>&1
+check "linea base: sin la cadena el ajeno llega" reach_no
+cp -a $DJ "$TMP/daemon.previo" 2>/dev/null
+printf '{ "iptables": false }\n' >$DJ     # dockerd NO se reinicia: sigue en marcha y publicando
+bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-falla.log" 2>&1; rc=$?
+check "el bootstrap termina con error" test "$rc" != 0
+check "CERRADO tras el bootstrap fallido" closed
+if [[ -f "$TMP/daemon.previo" ]]; then cp -a "$TMP/daemon.previo" $DJ; else rm -f $DJ; fi
+bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-ok.log" 2>&1; rc=$?
+check "corregida la causa, el bootstrap termina bien" test "$rc" = 0
+check "y el servicio vuelve" wait_ok
+check "AJENO denegado" denied_no
+
+echo "== verify detecta reglas en un orden que no filtra =="
+iptables -w 5 -D BURY-ERP -j RETURN && iptables -w 5 -I BURY-ERP 1 -j RETURN
+check "con el RETURN final movido al principio, el ajeno llega (el filtro quedo anulado)" reach_no
+check "verify lo rechaza" bash -c '! bury-firewall verify >/dev/null 2>&1'
+bury-firewall apply >/dev/null 2>&1
+check "reaplicado: verify OK y ajeno denegado" bash -c 'bury-firewall verify >/dev/null'
+check "AJENO denegado tras reaplicar" denied_no
+
 echo "== Operaciones normales: sin ventana abierta =="
 check "reinicio de Docker: el contenedor vuelve y el ajeno NUNCA conecta" no_window restart_docker
 check "tras reiniciar Docker: autorizado llega, ajeno denegado, verify OK" bash -c 'bury-firewall verify >/dev/null'

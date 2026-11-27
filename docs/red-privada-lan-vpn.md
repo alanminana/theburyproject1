@@ -145,6 +145,9 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      | `bury-firewall guard` (`ExecStartPre`) | **Antes** de `dockerd`: crea `DOCKER-USER` si falta y aplica las reglas | Docker no arranca: no se publica ningún puerto |
      | `bury-firewall verify` (`ExecStartPost`) | Después: comprueba `FORWARD` → `DOCKER-USER` → cadena con sus reglas exactas | systemd detiene Docker |
 
+     El **bootstrap** sigue la misma regla: si la etapa del firewall falla con Docker ya en marcha, **detiene Docker** y su socket, porque el
+     drop-in no actúa sobre un proceso que ya está corriendo. En un servidor en operación eso es una caída: ejecutarlo en una ventana acordada.
+
      Detener o reiniciar `bury-firewall.service` **no** quita las reglas. También se rechaza arrancar si `/etc/docker/daemon.json` define
      `"iptables": false` o `"firewall-backend": "nftables"`, porque `DOCKER-USER` dejaría de filtrar.
 
@@ -183,7 +186,7 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      descartarían el tráfico HTTPS saliente de los contenedores.
 
      **Evidencia:** `test-firewall-isolation.sh` (reglas, 18 casos) y `test-firewall-failclosed.sh` (bootstrap, systemd y Docker reales con fallos
-     inducidos, 52 casos) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
+     inducidos, 62 casos) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
      [evidencias-instalacion.md](evidencias-instalacion.md).
    - **Windows + Docker Desktop**: el puerto lo abre un proceso de Windows (`com.docker.backend.exe`), así que Windows Defender Firewall sí aplica. Pero **una regla
      «Allow» de puerto desde la LAN (la que crea `install-windows.ps1`) no restringe nada si ya existe una regla Allow del programa `com.docker.backend.exe` sin
