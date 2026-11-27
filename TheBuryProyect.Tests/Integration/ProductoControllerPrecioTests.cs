@@ -1070,15 +1070,16 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("Baja", html);
         Assert.Contains("Devueltas", html);
         Assert.Contains("Reservadas", html);
-        Assert.Contains("En reparacion", html);
+        Assert.Contains("En reparación", html);
         Assert.Contains("Conciliado", html);
         // Solo se compara cuando el producto exige identificar cada unidad.
         Assert.Contains("comparaUnidades && conciliacion.HayDiferencia", html);
-        Assert.Contains("Comparacion entre stock del producto y unidades fisicas disponibles", html);
+        Assert.Contains("Comparación entre stock del producto y unidades físicas disponibles", html);
         Assert.Contains("su stock no se compara con las unidades cargadas", html);
         // Sin recomendación automática; con más unidades que stock nunca se sugiere crear más.
         Assert.DoesNotContain("Recomendado", html);
         Assert.DoesNotContain("Crear unidades fisicas faltantes", html);
+        Assert.DoesNotContain("Crear unidades físicas faltantes", html);
         Assert.Contains("No corresponde crear más unidades", html);
         Assert.Contains("puedeGestionarUnidades && diferenciaPositiva", html);
         Assert.DoesNotContain("Total unidades activas", html);

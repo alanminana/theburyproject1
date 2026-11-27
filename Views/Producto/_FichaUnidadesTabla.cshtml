@@ -1,0 +1,49 @@
+﻿@model TheBuryProject.ViewModels.ProductoUnidadesViewModel
+@using TheBuryProject.Models.Enums
+
+<div class="inv-panel__cabecera">
+    <p class="inv-estados">
+        <span>@Model.Unidades.Count @(Model.Unidades.Count == 1 ? "unidad" : "unidades")</span>
+        @foreach (var r in Model.ResumenEstados)
+        {
+            <span class="inv-estados__item"><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)r.Estado" /> @r.Cantidad</span>
+        }
+    </p>
+    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId" class="inv-link">Gestión completa</a>
+</div>
+<div class="inv-table-wrap" tabindex="0" role="region" aria-label="Unidades registradas">
+    <table class="inv-table inv-table--apilable">
+        <thead>
+            <tr>
+                <th scope="col">Código interno</th>
+                <th scope="col">Estado</th>
+                @if (Model.RequiereNumeroSerie)
+                {
+                    <th scope="col">N.º de serie</th>
+                }
+                <th scope="col">Ubicación</th>
+                <th scope="col">Ingreso</th>
+                <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model.Unidades)
+            {
+                <tr>
+                    <th scope="row" class="inv-control--mono">@u.CodigoInternoUnidad</th>
+                    <td data-label="Estado"><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)u.Estado" /></td>
+                    @if (Model.RequiereNumeroSerie)
+                    {
+                        <td data-label="N.º de serie" class="inv-control--mono">@(u.NumeroSerie ?? "—")</td>
+                    }
+                    <td data-label="Ubicación">@(u.UbicacionActual ?? "—")</td>
+                    <td data-label="Ingreso">@u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
+                    <td class="inv-col-actions">
+                        <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id" class="inv-btn inv-btn--ghost inv-btn--sm"
+                           aria-label="Historial de la unidad @u.CodigoInternoUnidad">Historial</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

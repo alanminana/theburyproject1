@@ -632,8 +632,8 @@
 
 .inv-resumen {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-    gap: .75rem 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(8.25rem, 100%), 1fr));
+    gap: .75rem 1.25rem;
 }
 
 .inv-resumen dt {
@@ -1108,6 +1108,10 @@ fieldset.inv-panel {
     align-items: center;
 }
 
+.inv-filtros-unidades .inv-control--ancho {
+    flex: 1 1 16rem;
+}
+
 .inv-opciones {
     display: inline-flex;
     flex-wrap: wrap;
@@ -1127,6 +1131,23 @@ fieldset.inv-panel {
 .inv-control--mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .8125rem;
+}
+
+.inv-pila {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.inv-pila[hidden] {
+    display: none;
+}
+
+.inv-estados__item {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Kardex ------------------------------------------------------ */

@@ -43,26 +43,26 @@
         _                         => "inv-pill"
     };
     Func<EstadoUnidad, string> BChipLabel = e => e switch {
-        EstadoUnidad.EnStock      => "En Stock",
+        EstadoUnidad.EnStock      => "En stock",
         EstadoUnidad.Vendida      => "Vendida",
         EstadoUnidad.Entregada    => "Entregada",
         EstadoUnidad.Faltante     => "Faltante",
         EstadoUnidad.Baja         => "Baja",
         EstadoUnidad.Anulada      => "Anulada",
         EstadoUnidad.Reservada    => "Reservada",
-        EstadoUnidad.EnReparacion => "En Reparacion",
+        EstadoUnidad.EnReparacion => "En reparación",
         EstadoUnidad.Devuelta     => "Devuelta",
         _                         => e.ToString()
     };
     Func<EstadoUnidad, string> EstadoOpcionLabel = e => e switch {
-        EstadoUnidad.EnStock      => "En Stock",
+        EstadoUnidad.EnStock      => "En stock",
         EstadoUnidad.Vendida      => "Vendida",
         EstadoUnidad.Entregada    => "Entregada",
         EstadoUnidad.Faltante     => "Faltante",
         EstadoUnidad.Baja         => "Baja",
         EstadoUnidad.Anulada      => "Anulada",
         EstadoUnidad.Reservada    => "Reservada",
-        EstadoUnidad.EnReparacion => "En Reparacion",
+        EstadoUnidad.EnReparacion => "En reparación",
         EstadoUnidad.Devuelta     => "Devuelta",
         _                         => e.ToString()
     };
@@ -163,13 +163,12 @@
                         <option value="@estado" selected="@(Model.Filtros.Estado == estado)">@EstadoOpcionLabel(estado)</option>
                     }
                 </select>
-                <fieldset class="inv-opciones">
-                    <legend class="sr-only">Disponibilidad</legend>
+                <div class="inv-opciones" role="group" aria-label="Disponibilidad">
                     @foreach (var (valor, texto) in new[] { ("todas", "Todas"), ("disponibles", "Disponibles"), ("vendidas", "Vendidas") })
                     {
                         <label><input type="radio" name="disponibilidadVista" class="inv-check" value="@valor" checked="@(dispoFilter == valor)" data-change-fn="puDispoChange" data-args='["@valor"]' /> @texto</label>
                     }
-                </fieldset>
+                </div>
                 <label class="inv-opciones"><input type="checkbox" name="soloSinNumeroSerie" value="true" checked="@Model.Filtros.SoloSinNumeroSerie" class="inv-check" /> Sin número de serie</label>
                 <button type="submit" class="inv-btn inv-btn--ghost">Filtrar</button>
                 <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId" class="inv-link">Limpiar</a>
@@ -270,7 +269,7 @@
     <section id="agregar" role="tabpanel" data-tab-panel="agregar" aria-labelledby="tab-agregar" class="space-y-5" hidden>
         <div>
             <h2 class="text-lg font-semibold text-white">Agregar unidades</h2>
-            <p class="text-sm text-slate-400">Registrar identificadores fisicos para unidades ya existentes en el inventario.</p>
+            <p class="text-sm text-slate-400">Registrar identificadores físicos para unidades ya existentes en el inventario.</p>
         </div>
 
         @if (altaComunBloqueada)
@@ -303,19 +302,20 @@
             <div class="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex gap-3">
                 <span class="material-symbols-outlined text-blue-300 shrink-0">info</span>
                 <p class="text-sm text-blue-100/90">
-                    Crear unidades fisicas no modifica el stock del producto ni genera movimientos de Kardex. Esta accion solo registra identificadores para el seguimiento de unidades ya existentes en el inventario.
+                    Crear unidades físicas no modifica el stock del producto ni genera movimientos de Kardex. Esta acción solo registra identificadores para el seguimiento de unidades ya existentes en el inventario.
                 </p>
             </div>
         }
 
-        <div class="grid gap-4 lg:grid-cols-2" style="@(altaComunBloqueada ? "opacity:0.45;pointer-events:none" : "")">
+        @* Con el alta bloqueada no se muestran formularios inertes; si el servidor devolvió errores o una vista previa, siguen visibles. *@
+        <div class="grid gap-4 lg:grid-cols-2" hidden="@(altaComunBloqueada && ViewData.ModelState.IsValid && !Model.CargaMasiva.PreviewListo)">
             @* Alta individual *@
             <div class="inv-panel">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="material-symbols-outlined text-slate-400">person_add</span>
                     <h3 class="font-semibold text-white">Alta individual</h3>
                 </div>
-                <p class="text-xs text-slate-400 mb-4">Cargar una unidad fisica a la vez. El codigo interno se genera automaticamente. La unidad se creara en estado EnStock.</p>
+                <p class="text-xs text-slate-400 mb-4">Cargar una unidad física a la vez. El código interno se genera automáticamente y la unidad queda En stock.</p>
 
                 <form method="post" asp-controller="Producto" asp-action="CrearUnidad" asp-fragment="agregar">
                     @Html.AntiForgeryToken()
@@ -323,14 +323,14 @@
                     <div asp-validation-summary="ModelOnly" class="mb-3 text-sm font-semibold text-red-300"></div>
                     <div class="space-y-3">
                         <div>
-                            <label class="inv-campo__etiqueta" for="ind-serie">Numero de serie <span class="font-normal text-slate-600">(Opcional)</span></label>
+                            <label class="inv-campo__etiqueta" for="ind-serie">Número de serie <span class="font-normal text-slate-600">(Opcional)</span></label>
                             <input id="ind-serie" asp-for="CrearUnidad.NumeroSerie" maxlength="100"
                                    class="inv-control"
                                    placeholder="Ej. SN-9988234B" />
                             <span asp-validation-for="CrearUnidad.NumeroSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
                         </div>
                         <div>
-                            <label class="inv-campo__etiqueta" for="ind-ubic">Ubicacion actual</label>
+                            <label class="inv-campo__etiqueta" for="ind-ubic">Ubicación actual</label>
                             <input id="ind-ubic" asp-for="CrearUnidad.UbicacionActual" maxlength="200"
                                    class="inv-control"
                                    placeholder="Opcional" />
@@ -340,7 +340,7 @@
                             <label class="inv-campo__etiqueta" for="ind-obs">Observaciones</label>
                             <textarea id="ind-obs" asp-for="CrearUnidad.Observaciones" maxlength="500" rows="3"
                                       class="inv-control"
-                                      placeholder="Notas internas, condicion, etc."></textarea>
+                                      placeholder="Notas internas, condición, etc."></textarea>
                             <span asp-validation-for="CrearUnidad.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
                         </div>
                     </div>
@@ -359,7 +359,7 @@
                     <span class="material-symbols-outlined text-slate-400">stacks</span>
                     <h3 class="font-semibold text-white">Carga masiva</h3>
                 </div>
-                <p class="text-xs text-slate-400 mb-4">Cargar varias unidades a la vez. Funciona en dos pasos: prepara y previsualizas antes de confirmar.</p>
+                <p class="text-xs text-slate-400 mb-4">Cargar varias unidades a la vez. Funciona en dos pasos: primero la vista previa y después la confirmación.</p>
 
                 <form id="form-carga-masiva-unidades" method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas" asp-fragment="form-carga-masiva-unidades">
                     @Html.AntiForgeryToken()
@@ -374,7 +374,7 @@
                                 <span asp-validation-for="CargaMasiva.CantidadSinSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
                             </div>
                             <div>
-                                <label class="inv-campo__etiqueta" for="bulk-ubic">Ubicacion global</label>
+                                <label class="inv-campo__etiqueta" for="bulk-ubic">Ubicación global</label>
                                 <input id="bulk-ubic" asp-for="CargaMasiva.UbicacionActual" maxlength="200"
                                        class="inv-control"
                                        placeholder="Opcional" />
@@ -382,11 +382,11 @@
                             </div>
                         </div>
                         <div>
-                            <label class="inv-campo__etiqueta" for="bulk-series">Series multiples (una por linea)</label>
+                            <label class="inv-campo__etiqueta" for="bulk-series">Series múltiples (una por línea)</label>
                             <textarea id="bulk-series" asp-for="CargaMasiva.NumerosSerieTexto" rows="5" maxlength="12000"
                                       class="inv-control inv-control--mono"
-                                      placeholder="Una serie por linea"></textarea>
-                            <p class="mt-1 text-xs text-slate-500">Las unidades sin serie se cargaran como "Sin serie".</p>
+                                      placeholder="Una serie por línea"></textarea>
+                            <p class="mt-1 text-xs text-slate-500">Las unidades sin serie se cargarán como "Sin serie".</p>
                             <span asp-validation-for="CargaMasiva.NumerosSerieTexto" class="mt-1 block text-xs font-semibold text-red-300"></span>
                         </div>
                         <div>
@@ -409,8 +409,8 @@
                     {
                         <div class="mt-5 space-y-3">
                             <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
-                                <p class="text-xs font-bold uppercase tracking-wider text-emerald-300">Preview listo</p>
-                                <p class="mt-0.5 text-sm font-semibold text-white">@Model.CargaMasiva.TotalUnidades unidades &mdash; todas en estado EnStock</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-emerald-300">Vista previa lista</p>
+                                <p class="mt-0.5 text-sm font-semibold text-white">@Model.CargaMasiva.TotalUnidades unidades &mdash; todas quedan En stock</p>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
                                 <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5 text-center">
@@ -444,7 +444,7 @@
                                                     @(item.NumeroSerie ?? "(Sin serie)")
                                                 </td>
                                                 <td class="px-3 py-2">
-                                                    <span class="inv-pill inv-pill--ok">En Stock</span>
+                                                    <span class="inv-pill inv-pill--ok">En stock</span>
                                                 </td>
                                             </tr>
                                         }
@@ -480,7 +480,7 @@
             <h2 class="text-lg font-semibold text-white">Conciliar stock</h2>
             @if (comparaUnidades)
             {
-                <p class="text-sm text-slate-400">Comparacion entre stock del producto y unidades fisicas disponibles (estado En Stock).</p>
+                <p class="text-sm text-slate-400">Comparación entre stock del producto y unidades físicas disponibles (estado En stock).</p>
             }
         </div>
 
@@ -529,14 +529,14 @@
                     <div><dt>Baja</dt><dd>@conciliacion.UnidadesBaja</dd></div>
                     <div><dt>Devueltas</dt><dd>@conciliacion.UnidadesDevueltas</dd></div>
                     <div><dt>Reservadas</dt><dd>@conciliacion.UnidadesReservadas</dd></div>
-                    <div><dt>En reparacion</dt><dd>@conciliacion.UnidadesEnReparacion</dd></div>
+                    <div><dt>En reparación</dt><dd>@conciliacion.UnidadesEnReparacion</dd></div>
                 </dl>
             </section>
         }
 
         <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
-            <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
-            <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
+            <span>Último movimiento de stock: @(conciliacion.UltimoMovimientoStockFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
+            <span>Último movimiento de unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
         </div>
 
         }
@@ -613,7 +613,7 @@
     <section id="trazabilidad" role="tabpanel" data-tab-panel="trazabilidad" aria-labelledby="tab-trazabilidad" class="space-y-5" hidden>
         <div>
             <h2 class="text-lg font-semibold text-white">Trazabilidad</h2>
-            <p class="text-sm text-slate-400">Configura si este producto requiere identificar una unidad fisica especifica al vender.</p>
+            <p class="text-sm text-slate-400">Configurá si este producto requiere identificar una unidad física específica al vender.</p>
         </div>
 
         @{
@@ -633,7 +633,7 @@
                             <h3 class="text-lg font-semibold text-white">Trazabilidad Activada</h3>
                             <span class="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">ON</span>
                         </div>
-                        <p class="text-sm text-slate-300 mt-1">Este producto requiere seleccionar una unidad fisica al vender.</p>
+                        <p class="text-sm text-slate-300 mt-1">Este producto requiere seleccionar una unidad física al vender.</p>
                     </div>
                 </div>
 
@@ -642,8 +642,8 @@
                     <div class="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 flex gap-2.5">
                         <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:20px">warning</span>
                         <div class="text-sm text-amber-100/90">
-                            No se puede desactivar todavia. Existen <strong>@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")</strong>.
-                            Primero tenes que revisar, vender, dar de baja o resolver esas unidades.
+                            No se puede desactivar todavía. Existen <strong>@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")</strong>.
+                            Primero tenés que revisar, vender, dar de baja o resolver esas unidades.
                             <div class="mt-1.5">
                                 <button type="button" data-action="call" data-fn="activateTab" data-args='["ver"]' class="text-amber-300 underline underline-offset-2 hover:text-amber-200 text-sm">
                                     Ver unidades activas &rarr;
@@ -692,7 +692,7 @@
                             <h3 class="text-lg font-semibold text-white">Trazabilidad Desactivada</h3>
                             <span class="text-xs px-2 py-0.5 rounded-md bg-slate-700/40 text-slate-300 border border-slate-700">OFF</span>
                         </div>
-                        <p class="text-sm text-slate-300 mt-1">Este producto no requiere seleccionar una unidad fisica al vender.</p>
+                        <p class="text-sm text-slate-300 mt-1">Este producto no requiere seleccionar una unidad física al vender.</p>
                     </div>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2 items-center">
