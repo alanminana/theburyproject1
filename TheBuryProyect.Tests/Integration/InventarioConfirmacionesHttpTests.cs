@@ -37,6 +37,23 @@ public class InventarioConfirmacionesHttpTests : IClassFixture<CustomWebApplicat
         Assert.NotEmpty(confirmacion.GetProperty("datos").EnumerateArray());
     }
 
+    [Fact]
+    public async Task Productos_LosEnlacesDelMenuDeFila_ExistenEnElServidor()
+    {
+        var productoId = await SembrarProductoAsync(requiereSerie: false);
+        using var client = _factory.CreateAuthenticatedClient();
+        var html = await (await client.GetAsync("/Catalogo?searchTerm=de%20prueba")).Content.ReadAsStringAsync();
+        var fila = Regex.Match(html, "data-row-actions-open[^>]*data-producto-id=\"" + productoId + "\"[^>]*>", RegexOptions.Singleline).Value;
+        Assert.NotEmpty(fila);
+
+        foreach (var atributo in new[] { "data-inventario-url", "data-kardex-url" })
+        {
+            var url = WebUtility.HtmlDecode(Regex.Match(fila, atributo + "=\"([^\"]+)\"").Groups[1].Value);
+            Assert.NotEmpty(url);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(url)).StatusCode);
+        }
+    }
+
     private static List<JsonElement> Confirmaciones(string html) =>
         Regex.Matches(html, "data-inv-confirm=\"([^\"]*)\"")
             .Select(m => JsonDocument.Parse(WebUtility.HtmlDecode(m.Groups[1].Value)).RootElement.Clone())

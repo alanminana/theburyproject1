@@ -237,8 +237,9 @@
         var id = boton.getAttribute('data-producto-id');
         var nombre = boton.getAttribute('data-producto-nombre') || 'este producto';
         document.getElementById('catalogo-row-actions-title').textContent = nombre;
-        enlace('catalogo-menu-inventario', '/Producto/Inventario?productoId=' + encodeURIComponent(id));
-        enlace('catalogo-menu-movimientos', '/MovimientoStock/Kardex/' + encodeURIComponent(id));
+        // Las rutas las genera el servidor (Url.Action): armarlas aquí ya produjo un enlace roto.
+        enlace('catalogo-menu-inventario', boton.getAttribute('data-inventario-url'));
+        enlace('catalogo-menu-movimientos', boton.getAttribute('data-kardex-url'));
         enlace('catalogo-menu-precio-lista', boton.getAttribute('data-precio-lista-url'));
         enlace('catalogo-menu-compra', boton.getAttribute('data-compra-url'));
         dato('catalogo-menu-historial', { 'data-catalogo-producto-id': id });

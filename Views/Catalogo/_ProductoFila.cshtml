@@ -107,6 +107,8 @@
             <button type="button" class="inv-icon-btn" popovertarget="catalogo-row-actions-menu" data-row-actions-open
                     data-producto-id="@Model.ProductoId" data-producto-nombre="@Model.Nombre"
                     data-compra-url="@compraUrl" data-precio-lista-url="@precioListaUrl"
+                    data-inventario-url="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId })"
+                    data-kardex-url="@Url.Action("Kardex", "MovimientoStock", new { id = Model.ProductoId })"
                     aria-label="Más acciones para @Model.Nombre" title="Más acciones">
                 <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
             </button>
