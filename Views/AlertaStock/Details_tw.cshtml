@@ -118,13 +118,13 @@
                 <div class="grid gap-3 sm:grid-cols-2 text-sm">
                     <div>
                         <p class="text-xs text-slate-400 mb-0.5">Fecha de alerta</p>
-                        <p class="text-slate-100">@Model.FechaAlerta.ToString("dd/MM/yyyy HH:mm")</p>
+                        <p class="text-slate-100">@Model.FechaAlerta.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                     </div>
                     @if (Model.FechaResolucion.HasValue)
                     {
                         <div>
                             <p class="text-xs text-slate-400 mb-0.5">Fecha resolución</p>
-                            <p class="text-slate-100">@Model.FechaResolucion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                            <p class="text-slate-100">@Model.FechaResolucion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                         </div>
                         <div>
                             <p class="text-xs text-slate-400 mb-0.5">Resuelto por</p>

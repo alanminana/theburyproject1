@@ -112,10 +112,6 @@ select.catalogo-input option {
    a 1440px, "sm:grid-cols-3 xl:grid-cols-1" rendereaba 3 columnas, no 1). Mismo
    criterio ya usado en credito-module.css: CSS explícito en vez de depender de
    las utilidades responsivas precompiladas para estos casos. */
-.catalogo-producto-modal-shell {
-    max-width: 1100px; /* entre max-w-5xl (1024px, insuficiente para 3 columnas de Precios) y max-w-6xl (1152px); no fullscreen */
-}
-
 .catalogo-costos-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

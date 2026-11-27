@@ -214,7 +214,82 @@
         return !!document.querySelector('dialog:modal');
     }
 
+    /**
+     * Panel con formulario sobre un <dialog> nativo. Escape, clic afuera y los botones de cierre piden confirmar
+     * solo si el usuario cambió algo. opciones:
+     *   alCerrar()            limpieza tras un cierre decidido (no corre si el navegador cierra sin preguntar: así
+     *                         un Escape repetido no borra lo escrito; la próxima apertura lo vuelve a preparar).
+     *   cierres               selector de los botones que cierran.
+     *   cuentaComoCambio      selector de botones que modifican el formulario sin evento input (agregar/quitar filas).
+     */
+    function panelFormulario(dialogo, opciones) {
+        var o = opciones || {};
+        var cambios = false;
+        var preguntando = false;
+        var presionAfuera = false;
+
+        function marcar(e) { if (e.isTrusted) cambios = true; }
+        dialogo.addEventListener('input', marcar);
+        dialogo.addEventListener('change', marcar);
+
+        function cerrar() {
+            cambios = false;
+            if (dialogo.open) dialogo.close();
+            if (o.alCerrar) o.alCerrar();
+        }
+
+        function intentarCerrar() {
+            if (!cambios) { cerrar(); return; }
+            if (preguntando) return;
+            preguntando = true;
+            confirmar({
+                titulo: '¿Descartar los cambios?',
+                descripcion: 'Lo que escribiste en este formulario no se guardó.',
+                etiquetaCancelar: 'Seguir editando',
+                etiquetaConfirmar: 'Descartar'
+            }).then(function (r) {
+                preguntando = false;
+                if (r.ok) cerrar();
+            });
+        }
+
+        dialogo.addEventListener('cancel', function (e) {
+            e.preventDefault();
+            intentarCerrar();
+        });
+
+        function afuera(e) {
+            var r = dialogo.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        }
+        dialogo.addEventListener('pointerdown', function (e) { presionAfuera = e.target === dialogo && afuera(e); });
+        dialogo.addEventListener('pointerup', function (e) {
+            if (presionAfuera && e.target === dialogo && afuera(e)) intentarCerrar();
+            presionAfuera = false;
+        });
+
+        dialogo.addEventListener('click', function (e) {
+            if (o.cuentaComoCambio && e.isTrusted && e.target.closest(o.cuentaComoCambio)) cambios = true;
+            if (o.cierres && e.target.closest(o.cierres)) {
+                e.preventDefault();
+                e.stopPropagation();
+                intentarCerrar();
+            }
+        });
+
+        return {
+            abrir: function () {
+                cambios = false;
+                if (!dialogo.open) dialogo.showModal();
+            },
+            cerrar: cerrar,
+            intentarCerrar: intentarCerrar,
+            estaAbierto: function () { return dialogo.open; }
+        };
+    }
+
     window.InvUI = Object.assign(window.InvUI || {}, {
+        panelFormulario: panelFormulario,
         confirmar: confirmar,
         hayDialogoNativoAbierto: hayDialogoNativoAbierto
     });

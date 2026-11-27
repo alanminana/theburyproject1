@@ -28,13 +28,13 @@ public class ProductoGetJsonPermisoContractTests
     [Fact]
     public void ElCatalogoSoloOfreceEditarConProductosView()
     {
-        var catalogo = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var catalogo = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
         var detalleProveedor = Leer("Views", "Proveedor", "Details_tw.cshtml");
 
-        var botonEditar = catalogo.IndexOf("data-prod-edit-id=\"@p.ProductoId\"", StringComparison.Ordinal);
+        var botonEditar = catalogo.IndexOf("data-prod-edit-id=\"@Model.ProductoId\"", StringComparison.Ordinal);
         Assert.True(botonEditar > 0);
-        var guarda = catalogo.LastIndexOf("@if (puedeVerProducto && puedeEditarProducto)", botonEditar, StringComparison.Ordinal);
-        Assert.True(guarda > 0 && botonEditar - guarda < 260, "El botón Editar debe estar dentro de @if (puedeVerProducto && puedeEditarProducto).");
+        var guarda = catalogo.LastIndexOf("@if (puedeVerProducto && puedeEditar)", botonEditar, StringComparison.Ordinal);
+        Assert.True(guarda > 0 && botonEditar - guarda < 260, "El botón Editar debe estar dentro de @if (puedeVerProducto && puedeEditar).");
 
         Assert.Contains("User.TienePermiso(\"productos\", \"view\") && User.TienePermiso(\"productos\", \"edit\")", detalleProveedor);
     }

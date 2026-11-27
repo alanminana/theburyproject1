@@ -39,7 +39,7 @@
                     <span class="@estadoBadge">@Model.Estado</span>
                 </div>
                 <p class="mt-1 text-sm text-slate-400">
-                    @Model.TipoCambio · @signo@Model.ValorCambio.ToString("N2")@sufijo · @Model.CantidadProductos productos · Solicitado por @Model.SolicitadoPor el @Model.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")
+                    @Model.TipoCambio · @signo@Model.ValorCambio.ToString("N2")@sufijo · @Model.CantidadProductos productos · Solicitado por @Model.SolicitadoPor el @Model.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm")
                 </p>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">

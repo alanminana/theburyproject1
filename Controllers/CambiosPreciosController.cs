@@ -312,7 +312,7 @@ public class CambiosPreciosController : Controller
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
             var sufijo = tipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
-            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -414,7 +414,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Crear simulación usando el servicio existente
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -539,7 +539,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Paso 1: Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -619,8 +619,8 @@ public class CambiosPreciosController : Controller
             {
                 id = b.Id,
                 nombre = b.Nombre,
-                fecha = b.FechaSolicitud.ToString("dd/MM/yyyy HH:mm"),
-                fechaIso = b.FechaSolicitud.ToString("o"),
+                fecha = b.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
+                fechaIso = DateTime.SpecifyKind(b.FechaSolicitud, DateTimeKind.Utc).ToString("o"),
                 usuario = b.SolicitadoPor,
                 tipoCambio = b.TipoCambio.ToString(),
                 tipoAplicacion = b.TipoAplicacion.ToString(),
@@ -632,7 +632,7 @@ public class CambiosPreciosController : Controller
                 puedeRevertir = b.Estado == EstadoBatch.Aplicado,
                 puedeVer = true,
                 previewUrl = $"/CambiosPrecios/Preview/{b.Id}",
-                fechaAplicacion = b.FechaAplicacion?.ToString("dd/MM/yyyy HH:mm"),
+                fechaAplicacion = b.FechaAplicacion?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                 aplicadoPor = b.AplicadoPor
             }).ToList();
 
@@ -674,7 +674,7 @@ public class CambiosPreciosController : Controller
                     nombre = batch.Nombre,
                     cantidadProductos = batch.CantidadProductos,
                     aplicadoPor = batch.AplicadoPor,
-                    fechaAplicacion = batch.FechaAplicacion?.ToString("dd/MM/yyyy HH:mm"),
+                    fechaAplicacion = batch.FechaAplicacion?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                     fechaVigencia = batch.FechaVigencia?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                     rowVersion = Convert.ToBase64String(batch.RowVersion),
                     cambioDisplay = $"{(batch.TipoAplicacion == TipoAplicacion.Aumento ? "+" : "-")}{batch.ValorCambio}{(batch.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%")}"

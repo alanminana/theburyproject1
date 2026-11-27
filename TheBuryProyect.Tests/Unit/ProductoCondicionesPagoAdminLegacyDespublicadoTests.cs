@@ -20,7 +20,7 @@ public class ProductoCondicionesPagoAdminLegacyDespublicadoTests
     [Fact]
     public void LegacyAdmin_NoPresente_EnVistaYAsset()
     {
-        var view = File.ReadAllText(RepoFile("Views", "Catalogo", "Index_tw.cshtml"));
+        var view = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.DoesNotContain("data-condiciones-pago-producto-id", view);
         Assert.DoesNotContain("data-condiciones-pago-producto-nombre", view);

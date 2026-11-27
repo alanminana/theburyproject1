@@ -1,0 +1,164 @@
+@model CatalogoUnificadoViewModel
+
+<!-- Modal: Nueva Marca -->
+<div id="modal-nueva-marca" role="dialog" aria-modal="true" aria-labelledby="modal-nueva-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="marca"></div>
+
+    <!-- Modal Container -->
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
+
+        <!-- Header -->
+        <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
+                    <span>Inventario</span>
+                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    <span class="text-primary">Marcas</span>
+                </div>
+                <h2 id="modal-nueva-marca-title" class="text-xl font-bold text-white">Nueva Marca</h2>
+                <p class="text-sm text-slate-400">Registra una nueva marca o submarca en el sistema.</p>
+            </div>
+            <button type="button" data-catalogo-modal-close="marca" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+
+        <!-- Form -->
+        <form id="form-nueva-marca" method="post" asp-controller="Marca" asp-action="CreateAjax">
+            @Html.AntiForgeryToken()
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
+
+                <!-- Validation Summary -->
+                <div id="marca-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
+                    <span class="material-symbols-outlined text-red-500">error</span>
+                    <div>
+                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                        <p id="marca-modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
+                    </div>
+                </div>
+
+                <!-- Section: Datos de la marca -->
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
+                        <span class="material-symbols-outlined text-primary">branding_watermark</span>
+                        <h3 class="text-white text-xl font-bold">Datos de la marca</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-modal")
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <label for="marca-modal-parentId" class="text-sm font-semibold text-slate-300">Marca Padre (Submarca de)</label>
+                            <select name="ParentId" id="marca-modal-parentId"
+                                    class="catalogo-input">
+                                <option value="">Ninguna (Marca Principal)</option>
+                                @if (Model.MarcasFiltro != null)
+                                {
+                                    @foreach (var m in Model.MarcasFiltro)
+                                    {
+                                        <option value="@m.Value">@m.Text</option>
+                                    }
+                                }
+                            </select>
+                            <p class="text-xs text-slate-400 italic">Selecciona una marca superior si esta es una submarca</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+                <button type="button" data-catalogo-modal-close="marca"
+                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-guardar-marca"
+                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar Marca
+                </button>
+            </footer>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Editar Marca -->
+<div id="modal-editar-marca" role="dialog" aria-modal="true" aria-labelledby="modal-editar-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-marca-edit-modal-close></div>
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
+        <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
+                    <span>Inventario</span>
+                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    <span class="text-primary">Marcas</span>
+                </div>
+                <h2 id="modal-editar-marca-title" class="text-xl font-bold text-white">Editar Marca</h2>
+            </div>
+            <button type="button" data-marca-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+        <form id="form-editar-marca" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="Id" id="marca-edit-id" />
+            <input type="hidden" name="RowVersion" id="marca-edit-rowversion" />
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
+                <div id="marca-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
+                    <span class="material-symbols-outlined text-red-500">error</span>
+                    <div>
+                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                        <p id="marca-edit-validation-text" class="text-xs text-red-400/80 mt-1"></p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
+                        <span class="material-symbols-outlined text-primary">branding_watermark</span>
+                        <h3 class="text-white text-xl font-bold">Datos de la marca</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-edit")
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <label for="marca-edit-descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
+                            <textarea name="Descripcion" id="marca-edit-descripcion" rows="2" class="catalogo-input"></textarea>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="marca-edit-paisOrigen" class="text-sm font-semibold text-slate-300">País de Origen</label>
+                            <input name="PaisOrigen" id="marca-edit-paisOrigen" type="text" class="catalogo-input" placeholder="Ej: Argentina" />
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="marca-edit-parentId" class="text-sm font-semibold text-slate-300">Marca Padre</label>
+                            <select name="ParentId" id="marca-edit-parentId" class="catalogo-input">
+                                <option value="">Ninguna (Marca Principal)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
+                            <div>
+                                <p class="text-sm font-bold text-white">Activo</p>
+                                <p class="text-xs text-slate-400">Habilitar esta marca en el sistema</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input name="Activo" id="marca-edit-activo" type="checkbox" value="true" class="sr-only peer" />
+                                @* H-34: un checkbox desmarcado no se envía y el modelo asume Activo=true; el hidden va DESPUÉS (el binder toma el primer valor). *@
+                                <input type="hidden" name="Activo" value="false" />
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+                <button type="button" data-marca-edit-modal-close
+                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-guardar-marca-edit"
+                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar Cambios
+                </button>
+            </footer>
+        </form>
+    </div>
+</div>

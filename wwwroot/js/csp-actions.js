@@ -26,8 +26,8 @@
     // cualquier global (fetch, eval, ...). Al migrar un handler nuevo hay que agregar su función aquí (lo exige un test).
     var PERMITIDAS = [
         'activateTab', 'closeModal', 'documentoClienteAbrirModal', 'documentoClienteCerrarModal', 'fiUfConfirm',
-        'kdxApplyFilters', 'kdxClearFilters', 'puCloseModal', 'puConfirmManage', 'puDispoChange', 'puOpenManage',
-        'puSelectResolution', 'puUpdateManageAction', 'setMonto', 'toggleVendorDetail', 'stepRow'
+        'kdxApplyFilters', 'kdxClearFilters', 'puDispoChange', 'puOpenManage',
+        'setMonto', 'toggleVendorDetail', 'stepRow'
     ];
 
     function callFn(el, name, extra) {

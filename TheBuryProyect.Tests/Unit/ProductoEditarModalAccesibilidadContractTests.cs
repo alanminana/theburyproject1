@@ -12,7 +12,7 @@ public class ProductoEditarModalAccesibilidadContractTests
     [Fact]
     public void ElModalDeEdicionAsociaCadaEtiquetaConSuControl()
     {
-        var vista = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var vista = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
         var inicio = vista.IndexOf("<form id=\"form-editar-producto\"", StringComparison.Ordinal);
         var fin = vista.IndexOf("</form>", inicio, StringComparison.Ordinal);
         Assert.True(inicio > 0 && fin > inicio);

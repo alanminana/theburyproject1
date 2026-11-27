@@ -74,7 +74,9 @@ namespace TheBuryProject.Controllers
             int? listaPrecioId = null,
             string tab = "productos",
             [Bind(Prefix = "alerta")] AlertaStockFiltroViewModel? alertaFiltro = null,
-            [Bind(Prefix = "mov")] MovimientoStockFilterViewModel? movFiltro = null)
+            [Bind(Prefix = "mov")] MovimientoStockFilterViewModel? movFiltro = null,
+            int pagina = 1,
+            bool parcial = false)
         {
             try
             {
@@ -96,6 +98,13 @@ namespace TheBuryProject.Controllers
 
                 // Convertir a ViewModel para la vista
                 var viewModel = CatalogoUnificadoViewModel.Desde(resultado, filtros);
+                viewModel.Paginar(pagina);
+
+                // Búsqueda, orden y paginado sin recarga: solo se devuelve la región de resultados.
+                if (parcial)
+                {
+                    return PartialView("_ProductosResultados", viewModel);
+                }
 
                 // Cargar listados completos para las pestañas de Categorías y Marcas
                 var (categorias, marcas) = await _catalogLookupService.GetCategoriasYMarcasAsync();
@@ -122,7 +131,21 @@ namespace TheBuryProject.Controllers
                 }
                 viewModel.TabActiva = tabSolicitada;
 
-                if (viewModel.MostrarTabAlertas)
+                // El contador de la pestaña se muestra en todas las secciones; el listado, solo en la propia.
+                if (viewModel.MostrarTabAlertas && tabSolicitada != "alertas")
+                {
+                    try
+                    {
+                        viewModel.AlertasPendientes = (await _alertaStockService.ContarPorEstadoAsync(
+                            new AlertaStockFiltroViewModel { Estado = EstadoAlerta.Pendiente })).Pendientes;
+                    }
+                    catch (Exception exContador)
+                    {
+                        _logger.LogError(exContador, "Error al contar las alertas pendientes para la pestaña de Inventario");
+                    }
+                }
+
+                if (viewModel.MostrarTabAlertas && tabSolicitada == "alertas")
                 {
                     try
                     {
@@ -146,6 +169,7 @@ namespace TheBuryProject.Controllers
                             TotalCriticas = totalCriticas,
                             Embed = true
                         };
+                        viewModel.AlertasPendientes = totalPendientes;
                     }
                     catch (Exception exAlertas)
                     {
@@ -154,7 +178,7 @@ namespace TheBuryProject.Controllers
                     }
                 }
 
-                if (viewModel.MostrarTabMovimientos)
+                if (viewModel.MostrarTabMovimientos && tabSolicitada == "movimientos")
                 {
                     try
                     {
@@ -179,6 +203,9 @@ namespace TheBuryProject.Controllers
                         filtroMovimientos.TotalAjustes = totalAjustes;
 
                         var productosParaFiltro = await _productoService.GetAllAsync();
+                        // El diálogo «Registrar ajuste» solo ofrece productos activos; el filtro incluye los dados de baja.
+                        ViewBag.ProductosActivosParaAjuste = new SelectList(
+                            productosParaFiltro.Where(p => p.Activo).OrderBy(p => p.Nombre), "Id", "Nombre");
 
                         viewModel.MovimientosPartial = new MovimientoStockListadoPartialViewModel
                         {
@@ -466,7 +493,7 @@ namespace TheBuryProject.Controllers
                     items = historial.Select(h => new
                     {
                         eventoId = h.EventoId,
-                        fecha = h.Fecha.ToString("dd MMM, yyyy · HH:mm"),
+                        fecha = h.Fecha.AHoraComercial().ToString("dd MMM, yyyy · HH:mm"),
                         usuario = h.Usuario,
                         motivo = h.Motivo ?? "Sin motivo",
                         precioAnterior = h.PrecioAnterior,

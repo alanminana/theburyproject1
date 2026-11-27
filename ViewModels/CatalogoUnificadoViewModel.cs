@@ -65,6 +65,44 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public IEnumerable<FilaCatalogo> Productos { get; set; } = new List<FilaCatalogo>();
 
+        // ============================================
+        // PAGINACIÓN DEL LISTADO DE PRODUCTOS
+        // ============================================
+
+        public const int ProductosPorPagina = 25;
+
+        public int Pagina { get; private set; } = 1;
+        public int TotalPaginas { get; private set; } = 1;
+
+        /// <summary>Ids de todos los productos que cumplen los filtros (para «seleccionar los N resultados»).</summary>
+        public IReadOnlyList<int> IdsFiltrados { get; private set; } = Array.Empty<int>();
+
+        /// <summary>
+        /// Ordena (precio vigente y comisión se resuelven después de la consulta) y deja en <see cref="Productos"/> solo la
+        /// página pedida. Una página fuera de rango se ajusta al límite válido.
+        /// </summary>
+        public void Paginar(int pagina)
+        {
+            var filas = Productos.ToList();
+            var ascendente = !string.Equals(OrderDirection, "desc", StringComparison.OrdinalIgnoreCase);
+            Func<FilaCatalogo, decimal>? clave = OrderBy?.ToLowerInvariant() switch
+            {
+                "precio" => f => f.PrecioActual,
+                "comision" => f => f.ComisionPorcentaje,
+                _ => null
+            };
+            if (clave is not null)
+                filas = (ascendente ? filas.OrderBy(clave) : filas.OrderByDescending(clave)).ThenBy(f => f.Nombre).ToList();
+
+            IdsFiltrados = filas.Select(f => f.ProductoId).ToList();
+            TotalPaginas = Math.Max(1, (int)Math.Ceiling(filas.Count / (double)ProductosPorPagina));
+            Pagina = Math.Clamp(pagina, 1, TotalPaginas);
+            Productos = filas.Skip((Pagina - 1) * ProductosPorPagina).Take(ProductosPorPagina).ToList();
+        }
+
+        /// <summary>Alertas de stock pendientes (contador de la pestaña).</summary>
+        public int AlertasPendientes { get; set; }
+
         /// <summary>
         /// Total de resultados encontrados
         /// </summary>

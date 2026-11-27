@@ -1,0 +1,687 @@
+@model CatalogoUnificadoViewModel
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Asignar Comisión Vendedor
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-comision-vendedor" role="dialog" aria-modal="true" aria-labelledby="comision-modal-nombre" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-comision-modal-close></div>
+    <div class="relative w-full max-w-md flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+
+        <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
+            <div>
+                <div class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300 mb-2">
+                    <span class="material-symbols-outlined text-sm">percent</span>
+                    Comisión vendedor
+                </div>
+                <h2 class="text-lg font-bold text-white" id="comision-modal-nombre">—</h2>
+            </div>
+            <button type="button" data-comision-modal-close
+                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+
+        <form id="form-comision-vendedor" method="post" action="@Url.Action("ActualizarComisionVendedor", "Producto")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="comision-modal-productoId" name="productoId" value="" />
+
+            <div class="p-6 space-y-4">
+                <div id="comision-modal-validation" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
+                    <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
+                    <p id="comision-modal-validation-text" class="text-xs text-red-400/80 self-center"></p>
+                </div>
+                <div id="comision-modal-success" aria-live="polite" aria-atomic="true" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 gap-3">
+                    <span class="material-symbols-outlined text-emerald-500 shrink-0">check_circle</span>
+                    <p id="comision-modal-success-text" class="text-xs text-emerald-400/80 self-center"></p>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="comision-modal-porcentaje" class="text-sm font-medium text-slate-300">Porcentaje de comisión</label>
+                    <div class="relative">
+                        <input id="comision-modal-porcentaje" name="porcentajeComision" type="number"
+                               min="0" max="100" step="0.01"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-primary outline-none text-white" />
+                        <span class="absolute right-3 top-2 text-slate-400 font-bold select-none">%</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Ingresá 0 para sin comisión. Máximo 100.</p>
+                </div>
+            </div>
+
+            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+                <button type="button" data-comision-modal-close
+                        class="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-guardar-comision"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar
+                </button>
+            </footer>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Historial de Cambios de Precio (por producto)
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-historial-precio" role="dialog" aria-modal="true" aria-labelledby="modal-historial-precio-title" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="historial-precio"></div>
+
+    <!-- Panel -->
+    <div class="absolute right-0 top-0 flex h-full w-full max-w-5xl flex-col bg-slate-900 shadow-2xl animate-slide-in-right">
+        <!-- Header -->
+        <header class="border-b border-slate-800 px-6 py-5 sm:px-8">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start gap-4">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span class="material-symbols-outlined text-2xl">history</span>
+                </div>
+                <div>
+                    <div class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">
+                        Historial de precios
+                    </div>
+                    <h2 id="modal-historial-precio-title" class="mt-3 text-xl font-bold tracking-tight text-white sm:text-2xl">Cambios aplicados al producto</h2>
+                    <p class="mt-1 text-sm text-slate-400">Revisá fecha, usuario, variación y, si corresponde, revertí el ajuste desde el mismo panel.</p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span id="historial-producto-nombre" class="text-sm font-medium text-slate-300"></span>
+                        <span id="historial-producto-codigo" class="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono text-slate-400"></span>
+                        <span id="historial-precio-count" class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">0 eventos</span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" data-catalogo-modal-close="historial-precio" class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-800">
+                <span class="material-symbols-outlined text-slate-500 group-group-hover:text-white">close</span>
+            </button>
+            </div>
+        </header>
+
+        <div id="historial-precio-feedback" aria-live="polite" aria-atomic="true" class="hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8"></div>
+
+        <!-- Table Content -->
+        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-4 sm:px-8">
+            <p class="mb-3 text-xs text-slate-400">Deslizá la tabla para comparar valores anteriores, nuevos y la variación aplicada.</p>
+            <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 860px;">
+                <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-400">
+                    <span class="material-symbols-outlined text-sm">swipe</span>
+                    Deslizá para ver todas las columnas del historial.
+                </div>
+                <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800">
+                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Historial de cambios de precio" class="overflow-x-auto">
+                        <table data-erp-cards data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
+                            <thead>
+                                <tr class="bg-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    <th data-card="title" class="px-8 py-4">Fecha y Hora</th>
+                                    <th data-card="half" class="px-6 py-4">Usuario</th>
+                                    <th class="px-6 py-4">Motivo</th>
+                                    <th data-card="third" class="px-6 py-4 text-right">Precio Ant.</th>
+                                    <th data-card="third" class="px-6 py-4 text-right">Precio Nuevo</th>
+                                    <th data-card="third" class="px-6 py-4 text-center">Variación</th>
+                                    <th class="px-8 py-4 text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historial-precio-tbody" class="divide-y divide-slate-800">
+                                <!-- Rows populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="historial-precio-loading" aria-live="polite" aria-atomic="true" class="hidden py-16 text-center">
+                <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                <span class="text-sm text-slate-400">Cargando historial...</span>
+            </div>
+
+            <!-- Empty state -->
+            <div id="historial-precio-empty" class="hidden py-16 text-center">
+                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">info</span>
+                <p class="text-sm font-bold text-slate-400">No hay cambios de precio registrados</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t border-slate-800 bg-slate-900 px-6 py-5 sm:px-8">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs text-slate-400">Revisá el contexto antes de revertir para evitar inconsistencias en el catálogo.</p>
+            <button type="button" data-catalogo-modal-close="historial-precio"
+                    class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-8 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:brightness-110 active:scale-95 sm:w-auto">
+                Cerrar
+            </button>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Aumento de Precios (3 pasos: Alcance → Configuración → Vista previa)
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-aumento-precios" role="dialog" aria-modal="true" aria-labelledby="modal-aumento-precios-title" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="precio"></div>
+
+    <!-- Panel -->
+    <div class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col shadow-2xl animate-slide-in-right bg-slate-950">
+        <!-- Header -->
+        <header class="border-b border-slate-800 px-6 py-5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+                        <span class="material-symbols-outlined text-amber-500">trending_up</span>
+                    </div>
+                    <div>
+                        <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
+                            Ajuste masivo
+                        </div>
+                        <h2 id="modal-aumento-precios-title" class="mt-3 text-xl font-bold text-white sm:text-2xl">Actualizar precios por alcance</h2>
+                        <p class="mt-1 max-w-xl text-sm text-slate-400">Cambia el <strong class="text-slate-200">precio base</strong> de los productos. No modifica los precios fijados en listas: esos se cambian en Precios.</p>
+                    </div>
+                </div>
+            <button type="button" data-catalogo-modal-close="precio" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            </div>
+        </header>
+
+        <!-- Step Indicator -->
+        <div class="grid grid-cols-3 items-center gap-3 border-b border-slate-800 bg-slate-900/50 px-6 py-4">
+            <div id="step-ind-1" class="flex min-w-0 items-center gap-2">
+                <span class="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+                <span class="text-xs font-bold text-primary">Alcance</span>
+            </div>
+            <div id="step-ind-2" class="flex min-w-0 items-center justify-center gap-2">
+                <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
+                <span class="text-xs font-medium text-slate-500">Configuración</span>
+            </div>
+            <div id="step-ind-3" class="flex min-w-0 items-center justify-end gap-2">
+                <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
+                <span class="text-xs font-medium text-slate-500">Vista previa</span>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-6 modal-scroll-90-200">
+
+            <!-- Validation Summary -->
+            <div id="precio-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3 mb-6">
+                <span class="material-symbols-outlined text-red-500">error</span>
+                <div>
+                    <h4 class="text-sm font-bold text-red-500">Error</h4>
+                    <p id="precio-modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
+                </div>
+            </div>
+
+            <!-- ════ PASO 1: Alcance ════ -->
+            <div id="precio-step-1" class="space-y-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 1</p>
+                        <p class="mt-2 text-sm font-semibold text-white">Elegí el alcance</p>
+                        <p class="mt-1 text-xs text-slate-400">Todos, categoría, marca o la selección que ya hiciste en la grilla.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 2</p>
+                        <p class="mt-2 text-sm font-semibold text-white">Configurá el ajuste</p>
+                        <p class="mt-1 text-xs text-slate-400">Definí motivo, tipo de cambio, valor y redondeo final.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 3</p>
+                        <p class="mt-2 text-sm font-semibold text-white">Revisá la vista previa</p>
+                        <p class="mt-1 text-xs text-slate-400">Validá el impacto antes de aplicar el aumento al catálogo.</p>
+                    </div>
+                </div>
+                <h3 class="text-white text-base font-bold">¿A qué productos aplicar el ajuste?</h3>
+                <div id="precio-selection-summary" class="hidden items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                    <span class="material-symbols-outlined text-amber-500">playlist_add_check</span>
+                    <div>
+                        <span class="block text-sm font-bold text-amber-400">Hay <span id="precio-selection-summary-count">0</span> productos seleccionados</span>
+                        <p class="text-xs text-amber-400/80 mt-0.5">Se va a sugerir esa selección como alcance inicial, pero podés cambiarlo antes de aplicar el ajuste.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3">
+                    <!-- Radio Card: Seleccionados -->
+                    <label id="precio-scope-seleccionados" class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/50 cursor-not-allowed opacity-60 transition-colors">
+                        <input type="radio" name="precio-scope" value="seleccionados" class="hidden" disabled />
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-amber-500">checklist</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-bold text-white">Productos seleccionados (<span id="precio-scope-sel-count">0</span>)</span>
+                                <span id="precio-scope-sel-badge" class="hidden rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">Recomendado</span>
+                            </div>
+                            <p id="precio-scope-sel-helper" class="text-xs text-slate-400 mt-0.5">Seleccioná productos en la tabla para habilitar esta opción</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+
+                    <!-- Radio Card: Todos -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="todos" class="hidden" checked />
+                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-blue-500">select_all</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Todos los productos</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a todo el catálogo activo</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+
+                    <!-- Radio Card: Categoría -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="categoria" class="hidden" />
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-emerald-500">category</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Categoría específica</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a una categoría</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+                    <!-- Category Dropdown (hidden by default) -->
+                    <div id="precio-cat-select-wrapper" class="hidden pl-14">
+                        <select id="precio-categoria-id" aria-label="Categoría a ajustar"
+                                class="w-full catalogo-input text-sm">
+                            <option value="">Seleccionar categoría...</option>
+                            @if (Model.CategoriasFiltro != null)
+                            {
+                                @foreach (var c in Model.CategoriasFiltro)
+                                {
+                                    <option value="@c.Value">@c.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Radio Card: Marca -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="marca" class="hidden" />
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-purple-500">branding_watermark</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Marca específica</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a una marca</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+                    <!-- Brand Dropdown (hidden by default) -->
+                    <div id="precio-marca-select-wrapper" class="hidden pl-14">
+                        <select id="precio-marca-id" aria-label="Marca a ajustar"
+                                class="w-full catalogo-input text-sm">
+                            <option value="">Seleccionar marca...</option>
+                            @if (Model.MarcasFiltro != null)
+                            {
+                                @foreach (var m in Model.MarcasFiltro)
+                                {
+                                    <option value="@m.Value">@m.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ PASO 2: Configuración ════ -->
+            <div id="precio-step-2" class="hidden space-y-6">
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6 space-y-5">
+                    <div class="flex items-center gap-2 mb-2 border-b border-slate-800 pb-4">
+                        <span class="material-symbols-outlined text-primary">tune</span>
+                        <h3 class="text-white text-base font-bold">Configuración del ajuste</h3>
+                    </div>
+
+                    <!-- Motivo -->
+                    <div class="flex flex-col gap-2">
+                        <label for="precio-motivo" class="text-sm font-semibold text-slate-300">Motivo del ajuste</label>
+                        <select id="precio-motivo"
+                                class="catalogo-input text-sm">
+                            <option value="Ajuste por inflación">Ajuste por inflación</option>
+                            <option value="Aumento de costos">Aumento de costos</option>
+                            <option value="Ajuste estacional">Ajuste estacional</option>
+                            <option value="Promoción">Promoción</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo de ajuste + Valor -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-sm font-semibold text-slate-300">Tipo de ajuste</label>
+                            <div class="flex rounded-lg overflow-hidden border border-slate-700">
+                                <button type="button" id="precio-tipo-porcentaje"
+                                        class="flex-1 py-2.5 text-sm font-bold bg-primary text-white transition-colors">
+                                    % Porcentaje
+                                </button>
+                                <button type="button" id="precio-tipo-monto"
+                                        class="flex-1 py-2.5 text-sm font-bold bg-slate-800 text-slate-400 transition-colors">
+                                    $ Monto fijo
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="precio-valor" class="text-sm font-semibold text-slate-300">Valor</label>
+                            <div class="relative">
+                                <span id="precio-valor-prefix" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                                <input type="number" id="precio-valor" step="0.01" min="0" style="padding-left:2rem"
+                                       class="w-full pl-8 catalogo-input text-sm"
+                                       placeholder="0.00" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Redondeo -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-semibold text-slate-300">Redondeo</label>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="none" checked
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Sin redondeo</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="entero"
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Sin decimales</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="99"
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Redondear al .99</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ PASO 3: Vista previa ════ -->
+            <div id="precio-step-3" class="hidden space-y-4">
+                <!-- Summary bar -->
+                <div class="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-amber-500">info</span>
+                        <div>
+                            <span id="precio-preview-summary" class="text-sm font-bold text-amber-400"></span>
+                            <p id="precio-preview-detail" class="text-xs text-amber-400/70 mt-0.5"></p>
+                        </div>
+                    </div>
+                </div>
+
+                @* Productos cuyo precio de venta no cambia porque tienen precio fijado en la lista predeterminada. *@
+                <div id="precio-preview-aviso-lista" class="hidden items-start gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4" role="alert">
+                    <span class="material-symbols-outlined text-rose-300" aria-hidden="true">warning</span>
+                    <div class="text-sm text-rose-100">
+                        <p id="precio-preview-aviso-lista-texto" class="font-semibold"></p>
+                        <p class="mt-1 text-xs text-rose-200">
+                            Para cambiar lo que se cobra en esos productos usá
+                            <a asp-controller="CambiosPrecios" asp-action="Index" class="font-bold underline">Precios › Cambios por lotes</a>
+                            o fijá su precio en la lista.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Preview table -->
+                <p class="text-xs text-slate-400">Deslizá la tabla para revisar los valores actuales, el ajuste aplicado y el precio final calculado.</p>
+                <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 640px;">
+                    <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-400">
+                        <span class="material-symbols-outlined text-sm">swipe</span>
+                        Deslizá para ver toda la vista previa.
+                    </div>
+                    <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
+                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Vista previa del ajuste de precios" class="overflow-x-auto">
+                            <table data-oc-scroll-table class="w-full text-sm" style="min-width: var(--oc-scroll-min-width);">
+                                <thead>
+                                    <tr class="bg-slate-900 border-b border-slate-800">
+                                        <th class="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Producto</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Precio base actual</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Ajuste</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Precio base nuevo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="precio-preview-tbody">
+                                    <!-- Rows populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="precio-preview-more" class="hidden px-4 py-3 text-center border-t border-slate-800">
+                        <span class="text-xs text-slate-400"></span>
+                    </div>
+                </div>
+
+                <!-- Loading overlay for preview -->
+                <div id="precio-preview-loading" aria-live="polite" aria-atomic="true" class="hidden items-center justify-center py-12">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-sm text-slate-400">Calculando precios...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t border-slate-800 bg-slate-900/50 px-6 py-4">
+            <div class="grid gap-3 sm:flex sm:items-center sm:justify-between">
+            <button type="button" id="precio-btn-back" data-catalogo-action="price-prev" class="hidden w-full items-center justify-center gap-2 rounded-lg border border-slate-800 px-5 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 sm:w-auto">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                Anterior
+            </button>
+            <div class="grid gap-3 sm:flex sm:items-center">
+                <button type="button" data-catalogo-modal-close="precio"
+                        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-800 px-5 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 sm:w-auto">
+                    Cancelar
+                </button>
+                <button type="button" id="precio-btn-next" data-catalogo-action="price-next"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto">
+                    Siguiente
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+                <button type="button" id="precio-btn-apply" data-catalogo-action="price-apply"
+                        class="hidden w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-600 sm:w-auto">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    Aplicar Aumento
+                </button>
+            </div>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- Modal: Movimientos de Inventario                                 -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div id="modal-movimientos" role="dialog" aria-modal="true" aria-labelledby="modal-movimientos-title" class="hidden fixed inset-0 z-60 items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
+    <div class="rounded-2xl w-full shadow-2xl border border-slate-800 animate-fade-in" style="background-color:var(--pal-neutral-925);max-width:1280px;">
+
+        <!-- Modal Header -->
+        <div class="flex flex-wrap justify-between items-start gap-4 p-6 pb-0">
+            <div class="flex flex-col gap-1">
+                <h2 id="modal-movimientos-title" class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h2>
+                <p class="text-slate-400 text-base font-normal">Historial completo de entradas, salidas y ajustes de stock.</p>
+            </div>
+            <button type="button" id="btn-cerrar-movimientos"
+                    class="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-slate-800 text-white text-sm font-bold transition-colors hover:bg-slate-700">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                <span>Cerrar</span>
+            </button>
+        </div>
+
+        <!-- Banner: contexto de producto (visible solo al abrir desde fila) -->
+        <div id="mov-producto-contexto" class="hidden mx-6 mt-4 items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">inventory_2</span>
+                <div>
+                    <p class="text-sm font-bold text-white">Filtrando por: <span id="mov-producto-nombre-label" class="text-primary"></span></p>
+                    <p class="text-xs text-slate-400">Historial por producto/SKU. No identifica unidades físicas individuales.</p>
+                </div>
+            </div>
+            <button type="button" id="btn-mov-ver-todos"
+                    class="text-xs font-bold text-primary hover:text-primary/80 transition-colors whitespace-nowrap flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">list</span>
+                Ver todos los movimientos
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex flex-col gap-6 p-6">
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
+                    <p class="text-slate-400 text-sm font-medium">Total movimientos</p>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-white text-2xl font-bold" id="mov-stat-total">0</p>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
+                    <p class="text-slate-400 text-sm font-medium">Entradas (Unidades)</p>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-white text-2xl font-bold" id="mov-stat-entradas">0</p>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
+                    <p class="text-slate-400 text-sm font-medium">Salidas (Unidades)</p>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-white text-2xl font-bold" id="mov-stat-salidas">0</p>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
+                    <p class="text-slate-400 text-sm font-medium">Ajustes</p>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-white text-2xl font-bold" id="mov-stat-ajustes">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+                <h3 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined">filter_list</span>
+                    Filtros de Búsqueda
+                    <span id="mov-filtros-badge" class="hidden items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white"></span>
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="mov-fecha-desde" class="text-sm font-medium text-slate-400">Rango de Fechas</label>
+                        <div class="flex items-center gap-2">
+                            <input id="mov-fecha-desde" aria-label="Fecha desde" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
+                            <span class="text-slate-400">-</span>
+                            <input id="mov-fecha-hasta" aria-label="Fecha hasta" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="mov-tipo" class="text-sm font-medium text-slate-400">Tipo de Movimiento</label>
+                        <select id="mov-tipo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
+                            <option value="">Todos los tipos</option>
+                            <option value="Entrada">Entrada</option>
+                            <option value="Salida">Salida</option>
+                            <option value="Ajuste">Ajuste</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="mov-producto" class="text-sm font-medium text-slate-400">Producto (SKU/Nombre)</label>
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                            <input id="mov-producto" type="text" class="w-full pl-10 rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" placeholder="Ej: CPU-001..." />
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="mov-fuente-costo" class="text-sm font-medium text-slate-400">Fuente de Costo</label>
+                        <select id="mov-fuente-costo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
+                            <option value="">Todas las fuentes</option>
+                            <option value="VentaDetalleSnapshot">Venta</option>
+                            <option value="OrdenCompraDetalle">Orden de compra</option>
+                            <option value="ProductoActual">Costo actual del producto</option>
+                            <option value="AjusteManual">Ajuste manual</option>
+                            <option value="Legacy">Histórico migrado</option>
+                            <option value="NoInformado">No informado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
+                    <button type="button" id="btn-mov-limpiar" class="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white transition-colors">Limpiar</button>
+                    <button type="button" id="btn-mov-buscar" class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">Buscar Movimientos</button>
+                </div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="flex justify-between items-center px-2">
+                <p class="text-sm text-slate-400">Mostrando <span class="font-bold text-white" id="mov-count-showing">0</span> de <span class="font-bold text-white" id="mov-count-total">0</span> movimientos<span id="mov-count-context" class="hidden text-slate-500"></span></p>
+                <div class="flex gap-2">
+                    <button type="button" disabled aria-disabled="true" title="Exportación PDF no disponible todavía" class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-bold text-slate-500 opacity-70">
+                        <span class="material-symbols-outlined text-sm">picture_as_pdf</span> PDF
+                    </button>
+                    <button type="button" disabled aria-disabled="true" title="Exportación Excel no disponible todavía" class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-bold text-slate-500 opacity-70">
+                        <span class="material-symbols-outlined text-sm">description</span> Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Movements Table -->
+            <div data-oc-scroll class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 rounded-l-xl" style="background:linear-gradient(to right,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 rounded-r-xl" style="background:linear-gradient(to left,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
+                <div data-oc-scroll-region class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50" tabindex="0" role="region" aria-label="Tabla de movimientos de inventario">
+                <table data-erp-cards class="w-full text-left border-collapse" style="min-width:1180px;">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/30">
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
+                            <th data-card="title" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 text-right">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mov-tbody" class="divide-y divide-slate-800">
+                        <!-- Rows populated by JS or empty state -->
+                        <tr id="mov-empty-state">
+                            <td colspan="11" class="py-16 text-center">
+                                <div class="flex flex-col items-center gap-2 opacity-40">
+                                    <span class="material-symbols-outlined text-4xl">swap_vert</span>
+                                    <p class="text-slate-400 text-base">No hay movimientos para mostrar</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div><!-- /data-oc-scroll-region -->
+            </div><!-- /data-oc-scroll -->
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-between border-t border-slate-800 pt-6">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-slate-400">Filas por página:</span>
+                    <select id="mov-page-size" aria-label="Filas por página" class="bg-transparent border-none text-sm font-bold focus:ring-0 text-white">
+                        <option>25</option>
+                        <option>50</option>
+                        <option>100</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1" id="mov-pagination">
+                    <!-- Pagination rendered by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

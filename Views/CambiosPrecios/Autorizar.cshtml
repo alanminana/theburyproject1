@@ -52,7 +52,7 @@
             </div>
             <div>
                 <p class="text-xs text-slate-400 mb-0.5">Fecha solicitud</p>
-                <p class="text-slate-100">@Model.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</p>
+                <p class="text-slate-100">@Model.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
             </div>
         </div>
     </section>

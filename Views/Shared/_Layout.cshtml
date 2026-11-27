@@ -44,6 +44,7 @@
     @if (NavegacionModulos.PerteneceA("inventario", ViewContext.RouteData.Values["controller"]?.ToString()))
     {
         <link rel="stylesheet" href="~/css/inventario-ui.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/inventario-pantallas.css" asp-append-version="true" />
     }
 
     @RenderSection("Styles", required: false)

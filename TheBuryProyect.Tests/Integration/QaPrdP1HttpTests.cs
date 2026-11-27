@@ -252,18 +252,18 @@ public class QaPrdP1HttpTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public void B9_ElScriptQueArmaLaFilaNueva_NoAgregaEditarEliminarYComisionSinPermiso()
+    public void B9_LaFilaDeProductoSeDefineSoloEnElServidor_ConSusPermisos()
     {
-        var js = LeerRepo("wwwroot", "js", "producto-crear-modal.js");
-
-        foreach (var control in new[] { "data-prod-edit-id", "data-prod-delete-id", "data-comision-producto-id" })
+        // Antes el alta y la edición armaban una copia de la fila en JS, con sus propios permisos y columnas.
+        foreach (var archivo in new[] { "producto-crear-modal.js", "producto-editar-modal.js" })
         {
-            var idx = js.IndexOf(control, StringComparison.Ordinal);
-            Assert.True(idx > 0, $"No se encontró {control} en la fila dinámica.");
-            var contexto = js.Substring(Math.Max(0, idx - 400), Math.Min(400, idx));
-            Assert.True(Regex.IsMatch(contexto, @"\bcan(Edit|Delete|Comision)\b|dataset\.can|data-can-"),
-                $"{control} se agrega a la fila sin consultar un permiso efectivo.");
+            var js = LeerRepo("wwwroot", "js", archivo);
+            Assert.DoesNotContain("data-comision-producto-id", js);
+            Assert.DoesNotContain("createElement('td')", js);
+            Assert.Contains("InvProductos.refrescar", js);
         }
+        var fila = LeerRepo("Views", "Catalogo", "_ProductoFila.cshtml");
+        Assert.Contains("User.TienePermiso(\"productos\", \"update\")", fila);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

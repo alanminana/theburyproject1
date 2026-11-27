@@ -1,0 +1,143 @@
+@model CatalogoUnificadoViewModel
+@{
+    // Sección Productos de Inventario: filtros, resultados, selección y acciones por fila.
+    var listaElegida = Context.Request.Query["listaPrecioId"].ToString();
+    var filtrosAplicados = (Model.CategoriaId.HasValue ? 1 : 0) + (Model.MarcaId.HasValue ? 1 : 0)
+        + (Model.StockBajo ? 1 : 0) + (listaElegida.Length > 0 ? 1 : 0);
+    var puedeAjustarPrecios = User.TienePermiso("precios", "simulate");
+}
+
+<form id="filterForm" class="inv-filters" method="get" asp-controller="Catalogo" asp-action="Index" role="search" aria-label="Buscar y filtrar productos">
+    <input type="hidden" name="orderBy" value="@Model.OrderBy" disabled="@(string.IsNullOrEmpty(Model.OrderBy))" />
+    <input type="hidden" name="orderDirection" value="@Model.OrderDirection" disabled="@(string.IsNullOrEmpty(Model.OrderBy))" />
+
+    <div class="inv-search">
+        <label class="sr-only" for="catalogo-search-input">Buscar producto</label>
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <input id="catalogo-search-input" name="searchTerm" value="@Model.SearchTerm" type="search" class="inv-control"
+               placeholder="Nombre, código, categoría o marca" autocomplete="off" />
+    </div>
+
+    <details class="inv-filters__more" data-filtros>
+        <summary class="inv-btn inv-btn--ghost">
+            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+            Filtros@(filtrosAplicados > 0 ? $" ({filtrosAplicados})" : string.Empty)
+        </summary>
+        <div class="inv-filters__fields">
+            <label class="sr-only" for="catalogo-select-categoria">Categoría</label>
+            <select id="catalogo-select-categoria" name="categoriaId" class="inv-control">
+                <option value="">Todas las categorías</option>
+                @foreach (var cat in Model.CategoriasFiltro ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                {
+                    <option value="@cat.Value" selected="@cat.Selected">@cat.Text</option>
+                }
+            </select>
+
+            <label class="sr-only" for="catalogo-select-marca">Marca</label>
+            <select id="catalogo-select-marca" name="marcaId" class="inv-control">
+                <option value="">Todas las marcas</option>
+                @foreach (var marca in Model.MarcasFiltro ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                {
+                    <option value="@marca.Value" selected="@marca.Selected">@marca.Text</option>
+                }
+            </select>
+
+            <label class="sr-only" for="catalogo-select-stock">Estado del stock</label>
+            <select id="catalogo-select-stock" name="stockBajo" class="inv-control">
+                <option value="">Cualquier stock</option>
+                <option value="true" selected="@Model.StockBajo">Stock bajo</option>
+            </select>
+
+            @if (Model.ListasPreciosFiltro != null && Model.ListasPreciosFiltro.Any())
+            {
+                <label class="sr-only" for="catalogo-select-listaprecio">Lista de precios a mostrar</label>
+                <select id="catalogo-select-listaprecio" name="listaPrecioId" class="inv-control">
+                    <option value="">Precio predeterminado</option>
+                    @foreach (var lista in Model.ListasPreciosFiltro)
+                    {
+                        <option value="@lista.Value" selected="@(listaElegida == lista.Value)">@lista.Text</option>
+                    }
+                </select>
+            }
+        </div>
+    </details>
+    <noscript><button type="submit" class="inv-btn inv-btn--ghost">Filtrar</button></noscript>
+</form>
+
+<partial name="_ProductosResultados" model="Model" />
+
+<div id="selection-bar" class="inv-selection" hidden>
+    <div class="inv-selection__texto" role="status">
+        <p><strong><span id="selection-count">0</span> <span id="selection-product-label">productos seleccionados</span></strong></p>
+        <p id="selection-hidden-note" class="inv-selection__nota" hidden></p>
+    </div>
+    <div class="inv-selection__acciones">
+        <button type="button" data-catalogo-action="clear-selection" class="inv-btn inv-btn--ghost">Quitar selección</button>
+        @if (puedeAjustarPrecios)
+        {
+            <button type="button" data-catalogo-modal-open="precio-selection" class="inv-btn inv-btn--primary">
+                <span>Ajustar precio base (<span id="selection-count-btn">0</span>)</span>
+            </button>
+        }
+    </div>
+</div>
+
+@* Menú único de acciones de fila. popover="auto": Escape, clic afuera y retorno de foco los resuelve el navegador. *@
+<div id="catalogo-row-actions-menu" class="inv-menu" popover="auto" aria-labelledby="catalogo-row-actions-title">
+    <p id="catalogo-row-actions-title" class="inv-menu__titulo"></p>
+    @if (User.TienePermiso("productos", "view"))
+    {
+        <a id="catalogo-menu-inventario" href="#" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span> Ficha de inventario
+        </a>
+    }
+    <button type="button" id="catalogo-menu-historial" data-catalogo-modal-open="historial-precio" class="inv-menu__item">
+        <span class="material-symbols-outlined" aria-hidden="true">history</span> Historial de precios
+    </button>
+    @if (User.TienePermiso("movimientos", "view"))
+    {
+        <a id="catalogo-menu-movimientos" href="#" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">swap_vert</span> Kardex de stock
+        </a>
+        <button type="button" id="catalogo-menu-costos" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Movimientos y costos
+        </button>
+    }
+    @if (User.TienePermiso("precios", "view") && Model.ListaPredeterminadaId.HasValue)
+    {
+        <a id="catalogo-menu-precio-lista" href="#" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">sell</span> Precio en «@Model.ListaPredeterminadaNombre»
+        </a>
+    }
+    @if (User.TienePermiso("ordenescompra", "create"))
+    {
+        <a id="catalogo-menu-compra" href="#" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span> Generar orden de compra
+        </a>
+    }
+    @if (User.TienePermiso("mercadolibre", "sync"))
+    {
+        <button type="button" id="catalogo-menu-mercadolibre" class="inv-menu__item">
+            <span class="material-symbols-outlined" aria-hidden="true">storefront</span> Publicar en Mercado Libre
+        </button>
+    }
+    @if (User.TienePermiso("productos", "delete"))
+    {
+        <hr />
+        <button type="button" id="catalogo-menu-eliminar" class="inv-menu__item inv-menu__item--danger">
+            <span class="material-symbols-outlined" aria-hidden="true">delete</span> Eliminar producto
+        </button>
+    }
+</div>
+
+@if (User.TienePermiso("mercadolibre", "sync"))
+{
+    <form id="catalogo-mercadolibre-form" asp-controller="MercadoLibre" asp-action="BorradorCrear" method="post" class="hidden">
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="catalogo-mercadolibre-producto-id" name="productoId" value="" />
+    </form>
+}
+
+<form id="form-delete-produto" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+</form>

@@ -10,7 +10,6 @@ const ProductoModal = (() => {
     const catalogoModule = typeof CatalogoModule !== 'undefined' ? CatalogoModule : null;
 
     let caracteristicaIndex = 0;
-    let _openTrigger = null;
     let _tabs = null;
 
     function dispatchScrollRefresh() {
@@ -45,19 +44,26 @@ const ProductoModal = (() => {
     }
 
     // ── Abrir / Cerrar ──────────────────────────────────────
-    function open(trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        const modal = el('modal-nuevo-producto');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(el('modal-nuevo-producto'), {
+                cierres: '[data-catalogo-modal-close="producto"]',
+                cuentaComoCambio: '[data-catalogo-action="product-add-caracteristica"], [data-catalogo-action="product-remove-caracteristica"]',
+                alCerrar: resetForm
+            });
+        }
+        return _panel;
+    }
+
+    function open() {
+        resetForm();
+        panel().abrir();
         if (_tabs) _tabs.activate('datos');
         updateCaracteristicasUi();
         cargarCreditoPersonalCandidatos();
-        setTimeout(function () {
-            var firstInput = document.querySelector('#form-nuevo-producto input[name="Codigo"]');
-            if (firstInput) firstInput.focus();
-        }, 50);
+        const firstInput = document.querySelector('#form-nuevo-producto input[name="Codigo"]');
+        if (firstInput) firstInput.focus();
     }
 
     // ── Crédito personal ─────────────────────────────────────
@@ -95,16 +101,8 @@ const ProductoModal = (() => {
             .catch(function () { window.ProductoCreditoPersonalUI.renderCards(cont, [], 'CreditoPersonal.Cuotas', CP_PREVIEW_URL); });
     }
 
-    function close() {
-        const trigger = _openTrigger;
-        _openTrigger = null;
-        const modal = el('modal-nuevo-producto');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-        resetForm();
-        if (trigger) trigger.focus();
-    }
+    // El navegador devuelve el foco al disparador al cerrar el <dialog>.
+    function close() { panel().cerrar(); }
 
     function resetForm() {
         const form = el('form-nuevo-producto');
@@ -277,6 +275,8 @@ const ProductoModal = (() => {
                     selectItem(r.dataset.acValue, r.dataset.acLabel);
                 }
             } else if (e.key === 'Escape') {
+                // Cierra solo la lista de sugerencias, no el panel.
+                e.preventDefault();
                 closeDropdown();
             }
         });
@@ -415,229 +415,10 @@ const ProductoModal = (() => {
         return el;
     }
 
+    // La fila se renderiza en el servidor: se vuelve a pedir el listado y se resalta el alta si quedó en la página.
     function onProductoCreado(entity) {
-        if (!entity) return;
-
-        var tbody = document.getElementById('productos-tbody');
-        if (!tbody) return;
-
-        var emptyRow = tbody.querySelector('tr td[colspan]');
-        if (emptyRow) emptyRow.closest('tr').remove();
-
-        var precio = parseFloat(entity.precioVenta || 0)
-            .toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        var searchData = [
-            entity.codigo || '', entity.nombre || '',
-            entity.descripcion || '', entity.categoriaNombre || '', entity.marcaNombre || ''
-        ].join(' ').toLowerCase().trim();
-
-        var tr = document.createElement('tr');
-        tr.className = 'hover:bg-white/5 transition-colors';
-        tr.setAttribute('data-catalogo-producto-id', entity.id);
-        tr.setAttribute('data-producto-codigo', entity.codigo || '');
-        tr.setAttribute('data-producto-nombre', entity.nombre || '');
-        tr.setAttribute('data-search', searchData);
-        tr.setAttribute('data-sort-nombre', (entity.nombre || '').toLowerCase());
-        tr.setAttribute('data-sort-precio', String(parseFloat(entity.precioVenta || 0)));
-        tr.setAttribute('data-sort-comision', '0');
-
-        // td: checkbox
-        var tdChk = mkEl('td', 'w-10 px-3 py-4');
-        var chk = document.createElement('input');
-        chk.type = 'checkbox';
-        chk.className = 'chk-producto rounded border-slate-600 text-primary focus:ring-primary cursor-pointer';
-        chk.value = entity.id;
-        chk.setAttribute('aria-label', 'Seleccionar ' + (entity.nombre || ''));
-        tdChk.appendChild(chk);
-
-        // td: destacado (estrella) — producto nuevo nunca destacado
-        var tdStar = mkEl('td', 'w-10 px-3 py-4 text-center');
-        var starBtn = mkEl('button', 'btn-star-destacado inline-flex items-center justify-center w-8 h-8 rounded transition-colors hover:bg-white/5');
-        starBtn.type = 'button';
-        starBtn.setAttribute('data-producto-id', entity.id);
-        starBtn.setAttribute('data-es-destacado', 'false');
-        starBtn.setAttribute('aria-label', 'Marcar como destacado ' + (entity.nombre || ''));
-        starBtn.title = 'Marcar como destacado';
-        var starIcon = mkEl('span', 'material-symbols-outlined text-xl leading-none text-slate-600');
-        starIcon.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
-        starIcon.textContent = 'star';
-        starBtn.appendChild(starIcon);
-        tdStar.appendChild(starBtn);
-
-        // td: codigo
-        var tdCodigo = mkEl('td', 'px-6 py-4 text-sm font-mono text-slate-400');
-        tdCodigo.textContent = entity.codigo || '';
-
-        // td: nombre + descripcion
-        var tdNombre = mkEl('td', 'px-6 py-4');
-        var divFlex = mkEl('div', 'flex items-center gap-3');
-        var divIcon = mkEl('div', 'w-10 h-10 rounded bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0');
-        var iconSpan = mkEl('span', 'material-symbols-outlined text-slate-400 text-lg');
-        iconSpan.textContent = 'package_2';
-        divIcon.appendChild(iconSpan);
-        var divText = mkEl('div');
-        var spanNombre = mkEl('span', 'text-sm font-semibold text-white');
-        spanNombre.setAttribute('data-prod-nombre', '');
-        spanNombre.textContent = entity.nombre || '';
-        // Un producto creado inactivo (switch desmarcado) debe verse inactivo en el listado, y el editor puede alternar este
-        // indicador sin recargar (mismo atributo que la fila renderizada por el servidor).
-        var inactivo = entity.activo === false;
-        var badgeInactivo = mkEl('span', 'shrink-0 rounded-full border border-red-500/20 bg-red-500/5 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-400/90 ml-2 ' + (inactivo ? 'inline-flex' : 'hidden'));
-        badgeInactivo.setAttribute('data-prod-inactivo-badge', '');
-        badgeInactivo.textContent = 'Inactivo';
-        var lineaNombre = mkEl('div', 'flex min-w-0 items-center');
-        lineaNombre.appendChild(spanNombre);
-        lineaNombre.appendChild(badgeInactivo);
-        divText.appendChild(lineaNombre);
-        if (inactivo) tr.classList.add('bg-slate-950/40');
-        if (entity.descripcion) {
-            var pDesc = mkEl('p', 'text-[10px] text-slate-400 truncate max-w-[200px]');
-            pDesc.textContent = entity.descripcion;
-            divText.appendChild(pDesc);
-        }
-        divFlex.appendChild(divIcon);
-        divFlex.appendChild(divText);
-        tdNombre.appendChild(divFlex);
-
-        // td: categoria
-        var tdCat = mkEl('td', 'px-6 py-4 text-sm text-slate-300');
-        tdCat.textContent = entity.categoriaNombre || '—';
-
-        // td: marca
-        var tdMarca = mkEl('td', 'px-6 py-4 text-sm text-slate-300');
-        tdMarca.textContent = entity.marcaNombre || '—';
-
-        // td: stock — refleja el stock inicial cargado en el modal (antes quedaba
-        // hardcodeado a "Agotado" porque CreateAjax no devolvía stockActual/estadoStock).
-        var tdStock = mkEl('td', 'px-6 py-4 text-center');
-        var stockClass;
-        var stockLabel;
-        var stockActualNum = parseFloat(entity.stockActual || 0);
-        switch (entity.estadoStock) {
-            case 'Sin Stock':
-                stockClass = 'bg-red-500/20 text-red-400 border-red-500/30';
-                stockLabel = 'Agotado';
-                break;
-            case 'Stock Bajo':
-                stockClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-                stockLabel = stockActualNum + ' disponibles';
-                break;
-            default:
-                stockClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-                stockLabel = stockActualNum + ' disponibles';
-                break;
-        }
-        var spanStock = mkEl('span', 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ' + stockClass);
-        spanStock.textContent = stockLabel;
-        tdStock.appendChild(spanStock);
-
-        // td: precio
-        var tdPrecio = mkEl('td', 'px-6 py-4');
-        var pPrecio = mkEl('p', 'text-sm font-bold text-white');
-        pPrecio.textContent = '$ ' + precio;
-        var pPrecioLabel = mkEl('p', 'text-[10px] text-slate-400');
-        pPrecioLabel.setAttribute('data-prod-precio-label', '');
-        pPrecioLabel.textContent = 'Base/fallback';
-        tdPrecio.appendChild(pPrecio);
-        tdPrecio.appendChild(pPrecioLabel);
-
-        // td: comisión (producto nuevo: sin comisión)
-        var tdComision = mkEl('td', 'px-6 py-4 text-sm text-right');
-        var spanComision = mkEl('span', 'text-slate-500');
-        spanComision.setAttribute('data-producto-comision', '');
-        spanComision.textContent = '—';
-        tdComision.appendChild(spanComision);
-
-        // td: acciones — paridad estructural con el row del servidor
-        var tdAcc = mkEl('td', 'px-6 py-4 text-right');
-        tdAcc.style.minWidth = '240px';
-        var divBtns = mkEl('div', 'flex flex-wrap justify-end gap-2');
-
-        // Crea un botón/enlace de acción. Los .row-action ocultan su label en desktop
-        // via .row-action__label; Editar/Eliminar lo muestran siempre (plainLabel).
-        function mkAction(opts) {
-            var tag = opts.tag || 'button';
-            var node = mkEl(tag, opts.cls);
-            if (tag === 'button') node.type = 'button';
-            if (opts.href) node.setAttribute('href', opts.href);
-            if (opts.title) node.title = opts.title;
-            var attrs = opts.attrs || {};
-            for (var k in attrs) node.setAttribute(k, attrs[k]);
-            var ico = mkEl('span', opts.iconCls || 'material-symbols-outlined');
-            ico.textContent = opts.icon;
-            node.appendChild(ico);
-            if (opts.label) {
-                var lbl = mkEl('span', opts.plainLabel ? null : 'row-action__label');
-                lbl.textContent = opts.label;
-                node.appendChild(lbl);
-            }
-            return node;
-        }
-
-        divBtns.appendChild(mkAction({
-            cls: 'row-action row-action--primary', title: 'Historial de precio',
-            attrs: { 'data-catalogo-modal-open': 'historial-precio', 'data-catalogo-producto-id': entity.id },
-            icon: 'history', label: 'Historial'
-        }));
-        // B9: la fila nueva solo ofrece lo que el servidor va a aceptar. El permiso efectivo lo publica
-        // el tbody (data-can-*); sin el atributo se asume que NO hay permiso. El servidor igual lo exige.
-        var canComision = tbody.dataset.canComision === 'true';
-        var canEdit = tbody.dataset.canEdit === 'true';
-        var canDelete = tbody.dataset.canDelete === 'true';
-
-        if (canComision) divBtns.appendChild(mkAction({
-            cls: 'row-action row-action--primary', title: 'Comisión vendedor: 0.00%',
-            attrs: { 'data-comision-producto-id': entity.id, 'data-comision-producto-nombre': entity.nombre || '', 'data-comision-porcentaje': '0' },
-            icon: 'percent', label: 'Comisión'
-        }));
-        divBtns.appendChild(mkAction({
-            cls: 'row-action row-action--primary', title: 'Historial de movimientos de stock',
-            attrs: { 'data-movimientos-producto-id': entity.id, 'data-movimientos-producto-nombre': entity.nombre || '' },
-            icon: 'swap_vert', label: 'Movimientos'
-        }));
-        divBtns.appendChild(mkAction({
-            tag: 'a', cls: 'row-action row-action--primary', title: 'Ficha de inventario del producto',
-            href: '/Producto/Inventario?productoId=' + encodeURIComponent(entity.id),
-            icon: 'inventory_2', label: 'Ver inventario'
-        }));
-        if (canEdit) divBtns.appendChild(mkAction({
-            cls: 'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white',
-            title: 'Editar', attrs: { 'data-prod-edit-id': entity.id },
-            icon: 'edit', iconCls: 'material-symbols-outlined text-base', label: 'Editar', plainLabel: true
-        }));
-        if (canDelete) divBtns.appendChild(mkAction({
-            cls: 'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400',
-            title: 'Eliminar', attrs: { 'data-prod-delete-id': entity.id, 'data-prod-delete-nombre': entity.nombre || '' },
-            icon: 'delete', iconCls: 'material-symbols-outlined text-base', label: 'Eliminar', plainLabel: true
-        }));
-
-        tdAcc.appendChild(divBtns);
-
-        tr.appendChild(tdChk);
-        tr.appendChild(tdStar);
-        tr.appendChild(tdCodigo);
-        tr.appendChild(tdNombre);
-        tr.appendChild(tdCat);
-        tr.appendChild(tdMarca);
-        tr.appendChild(tdStock);
-        tr.appendChild(tdPrecio);
-        tr.appendChild(tdComision);
-        tr.appendChild(tdAcc);
-        tbody.appendChild(tr);
-
-        var countBadge  = document.getElementById('productos-visible-count');
-        var footerCount = document.getElementById('productos-footer-count');
-        var footerTotal = document.getElementById('productos-footer-total');
-        if (countBadge)  countBadge.textContent  = parseInt(countBadge.textContent  || '0', 10) + 1;
-        if (footerCount) footerCount.textContent = parseInt(footerCount.textContent || '0', 10) + 1;
-        if (footerTotal) footerTotal.textContent = parseInt(footerTotal.textContent || '0', 10) + 1;
-
-        if (typeof CatalogoModule !== 'undefined') {
-            var selApi = CatalogoModule.getProductSelectionApi();
-            if (selApi && typeof selApi.refreshUi === 'function') selApi.refreshUi();
-            CatalogoModule.requestScrollRefresh();
-        }
+        if (!entity || !window.InvProductos) return;
+        window.InvProductos.refrescar({ resaltar: entity.id });
     }
 
     // ── Envío AJAX ──────────────────────────────────────────
@@ -760,13 +541,17 @@ const ProductoModal = (() => {
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // ── Esc para cerrar ─────────────────────────────────────
-    function initEscKey() {
-        document.addEventListener('keydown', (e) => {
-            const modal = el('modal-nuevo-producto');
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
+    // ── Enter en características ────────────────────────────
+    // Enter agrega la característica; nunca envía ni valida el formulario completo.
+    function initEnterCaracteristicas() {
+        ['modal-caract-nombre', 'modal-caract-valor'].forEach(function (id) {
+            const campo = el(id);
+            if (!campo) return;
+            campo.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                addCaracteristica();
+            });
         });
     }
 
@@ -775,7 +560,8 @@ const ProductoModal = (() => {
         initTabs();
         initCascadingDropdowns();
         initSubmit();
-        initEscKey();
+        initEnterCaracteristicas();
+        panel();
         initCreditoPersonalModo();
         updateCaracteristicasUi();
         const tbody = el('modal-caracteristicas-body');

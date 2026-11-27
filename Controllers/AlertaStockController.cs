@@ -196,7 +196,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "stock", Accion = "adjust")]
-        public async Task<IActionResult> GenerarAlertas()
+        public async Task<IActionResult> GenerarAlertas(string? returnUrl = null)
         {
             try
             {
@@ -215,6 +215,11 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al generar alertas manualmente");
                 TempData["Error"] = "Error al generar alertas de stock";
+            }
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
             }
 
             return RedirectToAction(nameof(Index));

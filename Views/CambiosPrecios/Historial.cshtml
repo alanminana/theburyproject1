@@ -82,8 +82,8 @@
                                 <td class="px-4 py-3 text-right @(p.MargenPorcentaje < 10 ? "text-red-400" : p.MargenPorcentaje < 20 ? "text-amber-400" : "text-emerald-400")">
                                     @p.MargenPorcentaje.ToString("N1")%
                                 </td>
-                                <td class="px-4 py-3 text-slate-400 text-xs">@p.VigenciaDesde.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td class="px-4 py-3 text-slate-400 text-xs">@(p.VigenciaHasta.HasValue ? p.VigenciaHasta.Value.ToString("dd/MM/yyyy HH:mm") : "—")</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@p.VigenciaDesde.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@(p.VigenciaHasta.HasValue ? p.VigenciaHasta.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") : "—")</td>
                                 <td class="px-4 py-3 text-center">
                                     @if (p.EsVigente)
                                     {

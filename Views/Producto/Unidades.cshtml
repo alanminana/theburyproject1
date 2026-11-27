@@ -18,6 +18,13 @@
     var textoAjuste = diferenciaPositiva
         ? $"Reducir stock agregado en {ajusteAbsoluto:G29}"
         : $"Aumentar stock agregado en {ajusteAbsoluto:G29}";
+    // La comparación stock ↔ unidades solo tiene sentido si el producto exige identificar cada unidad.
+    var comparaUnidades = conciliacion.RequiereNumeroSerie;
+    var hayDiferenciaRelevante = comparaUnidades && conciliacion.HayDiferencia;
+    // Cada acción visible refleja el permiso que exige su POST (ProductoController); el servidor sigue siendo el control.
+    var puedeGestionarUnidades = User.TienePermiso("productos", "edit");
+    var puedeAjustarStock = puedeGestionarUnidades && User.TienePermiso("movimientos", "create");
+    var puedeVerKardex = User.TienePermiso("movimientos", "view");
     var hayDesgloseVisible = conciliacion.UnidadesVendidas > 0
         || conciliacion.UnidadesFaltantes > 0
         || conciliacion.UnidadesBaja > 0
@@ -160,7 +167,7 @@
                         <span class="material-symbols-outlined" style="font-size:14px">@(Model.RequiereNumeroSerie ? "verified" : "warning")</span>
                         @(Model.RequiereNumeroSerie ? "Requiere seleccion de unidad en venta" : "No requiere seleccion de unidad")
                     </span>
-                    @if (conciliacion.HayDiferencia)
+                    @if (hayDiferenciaRelevante)
                     {
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30">
                             <span class="material-symbols-outlined" style="font-size:14px">warning</span>
@@ -170,29 +177,17 @@
                 </div>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">
-                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="pu-btn pu-btn-ghost">
-                    <span class="material-symbols-outlined" style="font-size:18px">receipt_long</span>
-                    Ver Kardex
-                </a>
-                <button type="button" data-action="call" data-fn="activateTab" data-args='["conciliar"]'
-                        class="pu-btn pu-btn-soft">
-                    <span class="material-symbols-outlined" style="font-size:18px">balance</span>
-                    Conciliar stock
-                </button>
-                @if (altaComunBloqueada)
+                @if (puedeVerKardex)
                 {
-                    <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
-                            class="pu-btn pu-btn-soft" title="Stock completo — usá Conciliación para agregar unidades adicionales">
-                        <span class="material-symbols-outlined" style="font-size:18px">block</span>
-                        Stock completo
-                    </button>
+                    <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId" class="inv-btn inv-btn--ghost">
+                        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                        Kardex
+                    </a>
                 }
-                else
+                @if (puedeGestionarUnidades && !altaComunBloqueada)
                 {
-                    <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]'
-                            class="pu-btn pu-btn-primary">
-                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                    <button type="button" data-action="call" data-fn="activateTab" data-args='["agregar"]' class="inv-btn inv-btn--primary">
+                        <span class="material-symbols-outlined" aria-hidden="true">add</span>
                         Agregar unidades
                     </button>
                 }
@@ -211,6 +206,8 @@
                 <div class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</div>
                 <div class="mt-0.5 text-xs text-slate-500">En estado "En Stock"</div>
             </div>
+            @if (comparaUnidades)
+            {
             <div class="pu-card p-4 @(stockNoTrazado > 0 ? "!border-blue-500/40 !bg-blue-500/5" : diferenciaNegativa ? "!border-amber-500/40 !bg-amber-500/5" : "")">
                 <div class="text-xs uppercase tracking-wide @(stockNoTrazado > 0 ? "text-blue-300/80" : diferenciaNegativa ? "text-amber-300/80" : "text-slate-500") font-medium">Stock no trazado</div>
                 <div class="mt-1 text-2xl font-semibold @(stockNoTrazado > 0 ? "text-blue-300" : diferenciaNegativa ? "text-amber-300" : "text-emerald-400")">@stockNoTrazado.ToString("G29")</div>
@@ -218,6 +215,7 @@
                     @(stockNoTrazado > 0 ? "Sin identificar individualmente" : diferenciaNegativa ? "Fisicas > stock" : "Trazabilidad completa")
                 </div>
             </div>
+            }
             <div class="pu-card p-4">
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Unidades registradas</div>
                 <div class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</div>
@@ -233,10 +231,13 @@
                     class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-white border-b-2 border-blue-500 transition-colors whitespace-nowrap">
                 Ver unidades
             </button>
+            @if (puedeGestionarUnidades)
+            {
             <button type="button" id="tab-agregar" role="tab" data-tab-target="agregar" aria-controls="agregar" aria-selected="false" tabindex="-1"
                     class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap">
                 Agregar unidades
             </button>
+            }
             <button type="button" id="tab-conciliar" role="tab" data-tab-target="conciliar" aria-controls="conciliar" aria-selected="false" tabindex="-1"
                     class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap">
                 Conciliar stock
@@ -363,7 +364,7 @@
                 {
                     @foreach (var unidad in Model.Unidades)
                     {
-                        var _hasMobileActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
+                        var _hasMobileActions = puedeGestionarUnidades && (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion);
                         var _mCode = unidad.CodigoInternoUnidad;
                         var _mSerial = (unidad.NumeroSerie ?? "—");
                         var _mLabel = BChipLabel(unidad.Estado);
@@ -484,7 +485,7 @@
                         <tbody class="divide-y divide-slate-800">
                             @foreach (var unidad in Model.Unidades)
                             {
-                                var _hasActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
+                                var _hasActions = puedeGestionarUnidades && (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion);
                                 var _dCode = unidad.CodigoInternoUnidad;
                                 var _dSerial = (unidad.NumeroSerie ?? "—");
                                 var _dLabel = BChipLabel(unidad.Estado);
@@ -578,6 +579,8 @@
         </div>
     </section>
 
+    @if (puedeGestionarUnidades)
+    {
     @* ================================================================
        PANEL: AGREGAR UNIDADES
        ================================================================ *@
@@ -631,7 +634,7 @@
                 </div>
                 <p class="text-xs text-slate-400 mb-4">Cargar una unidad fisica a la vez. El codigo interno se genera automaticamente. La unidad se creara en estado EnStock.</p>
 
-                <form method="post" asp-controller="Producto" asp-action="CrearUnidad">
+                <form method="post" asp-controller="Producto" asp-action="CrearUnidad" asp-fragment="agregar">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="CrearUnidad.ProductoId" value="@Model.ProductoId" />
                     <div asp-validation-summary="ModelOnly" class="mb-3 text-sm font-semibold text-red-300"></div>
@@ -675,7 +678,7 @@
                 </div>
                 <p class="text-xs text-slate-400 mb-4">Cargar varias unidades a la vez. Funciona en dos pasos: prepara y previsualizas antes de confirmar.</p>
 
-                <form id="form-carga-masiva-unidades" method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas">
+                <form id="form-carga-masiva-unidades" method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas" asp-fragment="form-carga-masiva-unidades">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="CargaMasiva.ProductoId" value="@Model.ProductoId" />
 
@@ -784,6 +787,8 @@
         </div>
     </section>
 
+    }
+
     @* ================================================================
        PANEL: CONCILIAR STOCK
        ================================================================ *@
@@ -793,37 +798,34 @@
             <p class="text-sm text-slate-400">Comparacion entre stock del producto y unidades fisicas disponibles (estado En Stock).</p>
         </div>
 
-        @if (conciliacion.HayDiferencia)
+        @if (!comparaUnidades)
         {
-            <div class="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex gap-3">
-                <span class="material-symbols-outlined text-amber-300 shrink-0">warning</span>
-                <p class="text-sm text-amber-100/90">
-                    @if (diferenciaPositiva)
-                    {
-                        <text>El stock del producto es mayor que las unidades fisicas disponibles. Puede representar stock sin identificar o stock inflado. No se realizo ningun ajuste automatico.</text>
-                    }
-                    else
-                    {
-                        <text>Hay mas unidades fisicas disponibles que stock registrado. Conviene revisar el recuento antes de ajustar. No se realizo ningun ajuste automatico.</text>
-                    }
-                </p>
+            <p class="inv-aviso inv-aviso--info">
+                Este producto no requiere identificar cada unidad, así que su stock no se compara con las unidades cargadas.
+                Las unidades que registres son seguimiento opcional.
+            </p>
+        }
+        else if (diferenciaPositiva)
+        {
+            <div class="inv-aviso inv-aviso--atencion">
+                <p><strong>Hay @ajusteAbsoluto.ToString("G29") @(ajusteAbsoluto == 1 ? "unidad de stock" : "unidades de stock") sin una unidad física que la respalde.</strong></p>
+                <p>Antes de cargar o ajustar nada, revisá los movimientos de stock y el listado de unidades (vendidas, faltantes, dadas de baja o en reparación) para encontrar de dónde sale la diferencia.</p>
             </div>
         }
-        else if (!Model.RequiereNumeroSerie)
+        else if (diferenciaNegativa)
         {
-            <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex gap-3">
-                <span class="material-symbols-outlined text-amber-300 shrink-0">info</span>
-                <p class="text-sm text-amber-100/90">Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.</p>
+            <div class="inv-aviso inv-aviso--atencion">
+                <p><strong>Hay @ajusteAbsoluto.ToString("G29") @(ajusteAbsoluto == 1 ? "unidad física" : "unidades físicas") más que el stock registrado.</strong></p>
+                <p>Revisá los movimientos de stock y el registro de cada unidad: puede haber una salida mal cargada o una unidad que ya no está. No corresponde crear más unidades.</p>
             </div>
         }
         else
         {
-            <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 flex gap-3">
-                <span class="material-symbols-outlined text-emerald-300 shrink-0">check_circle</span>
-                <p class="text-sm text-emerald-100/90">Conciliado: el stock del producto coincide con las unidades fisicas disponibles.</p>
-            </div>
+            <p class="inv-aviso inv-aviso--ok">Conciliado: el stock del producto coincide con las unidades físicas disponibles.</p>
         }
 
+        @if (comparaUnidades)
+        {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="pu-card p-4">
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Stock del producto</div>
@@ -881,117 +883,72 @@
             <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.AHoraComercial().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
         </div>
 
-        @* Opciones de Resolucion — estructura visual del standalone *@
-        <div class="pu-card p-5">
-            <h3 class="font-semibold text-white">Opciones de Resolucion</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Elegí como queres tratar la diferencia detectada.</p>
+        }
 
-            <div class="mt-4 space-y-2.5">
-
-                @* Opcion 1 *@
-                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
-                       data-action="call" data-fn="puSelectResolution" data-args='[1]'>
-                    <input type="radio" name="reso" value="1" class="mt-1 accent-blue-500" checked />
-                    <div class="flex-1">
-                        <div class="font-medium text-white">Mantener diferencia visible</div>
-                        <p class="text-sm text-slate-400 mt-0.5">No realizar cambios en stock ni en unidades fisicas por ahora.</p>
-                    </div>
-                </label>
-
-                @* Opcion 2 *@
-                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
-                       data-action="call" data-fn="puSelectResolution" data-args='[2]'>
-                    <input type="radio" name="reso" value="2" class="mt-1 accent-blue-500" />
-                    <div class="flex-1">
-                        <div class="font-medium text-white flex items-center gap-2">
-                            Crear unidades fisicas faltantes
-                            <span class="text-xs px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/30">Recomendado</span>
-                        </div>
-                        <p class="text-sm text-slate-400 mt-0.5">Ir a la pestana de agregar unidades para registrar fisicamente el stock no identificado.</p>
-                        <button type="button" class="mt-2 pu-btn pu-btn-primary pu-btn-sm"
-                                data-action="call" data-fn="activateTab" data-args='["agregar"]' data-stop>
-                            <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
-                            Ir a Agregar unidades
+        @if (hayDiferenciaRelevante)
+        {
+            <div class="pu-card p-5 space-y-4">
+                <div>
+                    <h3 class="font-semibold text-white">Revisar la diferencia</h3>
+                    <p class="text-sm text-slate-400">Nada se modifica automáticamente.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    @if (puedeVerKardex)
+                    {
+                        <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId" class="inv-btn inv-btn--ghost">
+                            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                            Revisar movimientos
+                        </a>
+                    }
+                    <button type="button" class="inv-btn inv-btn--ghost" data-action="call" data-fn="activateTab" data-args='["ver"]'>
+                        <span class="material-symbols-outlined" aria-hidden="true">list</span>
+                        Revisar unidades
+                    </button>
+                    @if (puedeGestionarUnidades && diferenciaPositiva)
+                    {
+                        <button type="button" class="inv-btn inv-btn--ghost" data-action="call" data-fn="activateTab" data-args='["agregar"]'>
+                            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                            Cargar unidades no registradas
                         </button>
-                    </div>
-                </label>
+                    }
+                </div>
 
-                @* Opcion 3 — ajuste de stock (puede estar disabled) *@
-                @{
-                    var opt3Disabled = !puedeAjustarStockAgregado;
-                    var opt3Label = diferenciaNegativa ? "Ajustar stock a unidades fisicas" : "Ajustar stock hacia abajo";
-                    var opt3Desc  = diferenciaNegativa
-                        ? $"Aumentar el stock al nivel de las {conciliacion.UnidadesEnStock} unidades fisicas disponibles. Generara movimiento en Kardex."
-                        : $"Igualar el stock del producto a las {conciliacion.UnidadesEnStock} unidades fisicas disponibles. Generara movimiento en Kardex.";
-                }
-                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 @(opt3Disabled ? "opacity-50" : "cursor-pointer")"
-                       @(opt3Disabled ? Html.Raw("") : Html.Raw("data-action=\"call\" data-fn=\"puSelectResolution\" data-args='[3]'"))>
-                    <input type="radio" name="reso" value="3" class="mt-1 accent-blue-500" @(opt3Disabled ? "disabled" : "") />
-                    <div class="flex-1">
-                        <div class="font-medium text-white">@opt3Label</div>
-                        <p class="text-sm text-slate-400 mt-0.5">@opt3Desc</p>
-                        @if (opt3Disabled)
-                        {
-                            <p class="mt-1 text-xs text-slate-500">
-                                @(!conciliacion.RequiereNumeroSerie ? "No disponible: el producto no usa trazabilidad individual." : "No disponible: no hay diferencia activa.")
-                            </p>
-                        }
-                    </div>
-                </label>
-            </div>
-
-            @* Panel de ajuste — visible cuando se selecciona opcion 3 *@
-            <div id="adjust-panel" class="hidden mt-5 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
-                <h4 class="font-semibold text-amber-200 flex items-center gap-2">
-                    <span class="material-symbols-outlined" style="font-size:20px">play_arrow</span>
-                    Ejecutar Ajuste
-                </h4>
-                <p class="text-xs text-amber-100/80 mt-1">
-                    Stock @conciliacion.StockActual.ToString("G29") &rarr; @conciliacion.UnidadesEnStock. Esta accion quedara registrada en Kardex.
-                </p>
-                @if (puedeAjustarStockAgregado)
+                @if (puedeAjustarStock && puedeAjustarStockAgregado)
                 {
-                    @if (diferenciaPositiva)
+                    var accionAjuste = diferenciaPositiva ? "AjustarStockAgregadoHaciaAbajo" : "AjustarStockAgregadoAUnidadesFisicas";
+                    var confirmacionAjuste = Json.Serialize(new
                     {
-                        <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoHaciaAbajo" class="mt-3">
-                            @Html.AntiForgeryToken()
+                        titulo = "¿Ajustar el stock del producto?",
+                        datos = new object[]
+                        {
+                            new[] { "Producto", Model.Nombre },
+                            new[] { "Stock", $"{conciliacion.StockActual:G29} → {conciliacion.UnidadesEnStock}" },
+                            new { etiqueta = "Motivo", campo = "Motivo" }
+                        },
+                        consecuencias = new[]
+                        {
+                            "Se registra un movimiento en el Kardex con tu usuario.",
+                            "Las unidades físicas no se modifican."
+                        },
+                        etiquetaConfirmar = "Ajustar stock",
+                        tono = "primario"
+                    });
+                    <details id="adjust-panel" class="rounded-lg border border-slate-800 p-4">
+                        <summary class="cursor-pointer text-sm font-semibold text-slate-200">Ajustar el stock a las unidades físicas (@conciliacion.StockActual.ToString("G29") → @conciliacion.UnidadesEnStock)</summary>
+                        <form method="post" asp-controller="Producto" asp-action="@accionAjuste" asp-fragment="conciliar"
+                              class="mt-3 space-y-3" data-inv-confirm="@confirmacionAjuste" data-prevent-double-submit>
                             <input type="hidden" name="ProductoId" value="@conciliacion.ProductoId" />
-                            <div>
-                                <label class="pu-label" style="color:color-mix(in srgb, var(--pal-warning-400) 80%, transparent);">Motivo <span class="text-red-400">*</span></label>
-                                <textarea name="Motivo" maxlength="500" required rows="2"
-                                          class="pu-field" style="border-color:color-mix(in srgb, var(--pal-warning-500) 40%, transparent);"
-                                          placeholder="Ej. Recuento fisico confirma stock inflado"></textarea>
+                            <div class="inv-campo">
+                                <label class="inv-campo__etiqueta" for="ajuste-conciliacion-motivo">Motivo del ajuste</label>
+                                <textarea id="ajuste-conciliacion-motivo" name="Motivo" maxlength="500" required rows="2" class="inv-control"
+                                          placeholder="Ej.: el recuento físico confirma las unidades disponibles"></textarea>
                             </div>
-                            <div class="mt-3 flex justify-end">
-                                <button type="submit" class="pu-btn pu-btn-amber">
-                                    <span class="material-symbols-outlined" style="font-size:18px">south</span>
-                                    Ajustar stock hacia abajo
-                                </button>
-                            </div>
+                            <button type="submit" class="inv-btn inv-btn--primary">Ajustar stock</button>
                         </form>
-                    }
-                    else if (diferenciaNegativa)
-                    {
-                        <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoAUnidadesFisicas" class="mt-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="ProductoId" value="@conciliacion.ProductoId" />
-                            <div>
-                                <label class="pu-label" style="color:color-mix(in srgb, var(--pal-warning-400) 80%, transparent);">Motivo <span class="text-red-400">*</span></label>
-                                <textarea name="Motivo" maxlength="500" required rows="2"
-                                          class="pu-field" style="border-color:color-mix(in srgb, var(--pal-warning-500) 40%, transparent);"
-                                          placeholder="Ej. Recuento fisico confirma unidades disponibles"></textarea>
-                            </div>
-                            <div class="mt-3 flex justify-end">
-                                <button type="submit" class="pu-btn pu-btn-amber">
-                                    <span class="material-symbols-outlined" style="font-size:18px">north</span>
-                                    Ajustar stock a unidades fisicas
-                                </button>
-                            </div>
-                        </form>
-                    }
+                    </details>
                 }
             </div>
-        </div>
+        }
     </section>
 
     @* ================================================================
@@ -1048,13 +1005,21 @@
                 else if (puedeDesactivar)
                 {
                     <div class="mt-4 flex flex-wrap gap-2 items-center">
-                        <form method="post" asp-controller="Producto" asp-action="DesactivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
+                    @if (puedeGestionarUnidades)
+                    {
+                        <form method="post" asp-controller="Producto" asp-action="DesactivarTrazabilidad" asp-route-productoId="@Model.ProductoId"
+                              data-prevent-double-submit data-inv-confirm="@Json.Serialize(new {
+                                  titulo = "¿Desactivar la trazabilidad individual?",
+                                  datos = new[] { new[] { "Producto", Model.Nombre } },
+                                  consecuencias = new[] { "Las ventas dejan de pedir la unidad física.", "El stock deja de compararse con las unidades registradas.", "Las unidades y su historial se conservan." },
+                                  etiquetaConfirmar = "Desactivar trazabilidad" })">
                             @Html.AntiForgeryToken()
                             <button type="submit" class="pu-btn pu-btn-ghost">
                                 <span class="material-symbols-outlined" style="font-size:18px">power_off</span>
                                 Desactivar trazabilidad
                             </button>
                         </form>
+                    }
                     </div>
                 }
             </div>
@@ -1075,13 +1040,22 @@
                     </div>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2 items-center">
-                    <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
+                    @if (puedeGestionarUnidades)
+                    {
+                    <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId"
+                          data-prevent-double-submit data-inv-confirm="@Json.Serialize(new {
+                              titulo = "¿Activar la trazabilidad individual?",
+                              datos = new[] { new[] { "Producto", Model.Nombre }, new[] { "Unidades disponibles hoy", conciliacion.UnidadesEnStock.ToString() }, new[] { "Stock del producto", Model.StockActual.ToString("G29") } },
+                              consecuencias = new[] { "Desde ahora, cada venta de este producto exige elegir una unidad física." },
+                              etiquetaConfirmar = "Activar trazabilidad",
+                              tono = "primario" })">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="pu-btn pu-btn-primary">
                             <span class="material-symbols-outlined" style="font-size:18px">power_settings_new</span>
                             Activar trazabilidad
                         </button>
                     </form>
+                    }
                 </div>
             </div>
         }
@@ -1130,78 +1104,47 @@
         }
     </div>
 
-    @* ================================================================
-       MODAL: GESTIONAR UNIDAD — replica estructura standalone
-       Un solo overlay, JS conecta con formularios reales ocultos
-       ================================================================ *@
-    <div id="modal-manage"
-         class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
-         data-action="call-self" data-fn="puCloseModal" data-args='["modal-manage"]'
-         role="dialog" aria-modal="true" aria-labelledby="manage-title">
-        <div class="min-h-full flex items-center justify-center p-4"
-             data-action="call-self" data-fn="puCloseModal" data-args='["modal-manage"]'>
-            <div class="pu-modal-card pu-card w-full max-w-md p-5">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <h3 id="manage-title" class="text-lg font-semibold text-white">Gestionar Unidad</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Aplicar cambio de estado a esta unidad.</p>
-                    </div>
-                    <button type="button" data-action="call" data-fn="puCloseModal" data-args='["modal-manage"]' aria-label="Cerrar modal"
-                            class="p-1.5 rounded hover:bg-slate-800">
-                        <span class="material-symbols-outlined text-slate-400">close</span>
-                    </button>
-                </div>
-
-                <dl class="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-slate-900/60 border border-slate-800 p-3 text-xs">
-                    <div>
-                        <dt class="text-slate-500">Codigo</dt>
-                        <dd class="font-mono text-white mt-0.5" id="manage-code">&mdash;</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-500">Serie</dt>
-                        <dd class="font-mono text-slate-200 mt-0.5" id="manage-serial">&mdash;</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-500">Estado actual</dt>
-                        <dd class="mt-0.5"><span id="manage-current-state" class="pu-chip pu-chip-neutral">&mdash;</span></dd>
-                    </div>
+    @* Gestionar unidad: el propio diálogo es la confirmación (estado actual → resultante y consecuencias).
+       No trae ninguna acción elegida: el operador decide antes de poder confirmar. *@
+    <dialog id="modal-manage" class="inv-dialog" aria-labelledby="manage-title">
+        <form id="manage-form" class="inv-dialog__panel" novalidate>
+            <header class="inv-dialog__header">
+                <h2 id="manage-title" class="inv-dialog__title">Gestionar unidad</h2>
+            </header>
+            <div class="inv-dialog__body">
+                <dl class="inv-datos">
+                    <div class="inv-datos__fila"><dt>Código</dt><dd id="manage-code"></dd></div>
+                    <div class="inv-datos__fila"><dt>Serie</dt><dd id="manage-serial"></dd></div>
+                    <div class="inv-datos__fila"><dt>Estado actual</dt><dd id="manage-current-state"></dd></div>
                 </dl>
-
-                <div class="mt-4 space-y-3">
-                    <div>
-                        <label for="manage-action" class="pu-label">Accion a ejecutar</label>
-                        <select id="manage-action" class="pu-field" data-change-fn="puUpdateManageAction"></select>
-                    </div>
-                    <div id="manage-destino-wrap" class="hidden">
-                        <label for="manage-destino" class="pu-label">Destino de la reparacion</label>
-                        <select id="manage-destino" class="pu-field">
-                            <option value="EnStock">Reintegrar a stock</option>
-                            <option value="Baja">Dar de baja (no reparable)</option>
-                            <option value="Devuelta">Marcar como devuelta</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="manage-motivo" class="pu-label">Motivo <span class="text-red-400">*</span></label>
-                        <textarea id="manage-motivo" rows="3" class="pu-field"
-                                  placeholder="Detalle de la accion, evidencia, contexto..."></textarea>
-                        <p id="manage-motivo-error" class="hidden mt-1 text-xs text-red-300">Motivo obligatorio.</p>
-                    </div>
-                    <div id="manage-aviso-kardex" class="hidden rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 flex items-start gap-2">
-                        <span class="material-symbols-outlined text-amber-400 shrink-0 mt-0.5" style="font-size:18px">info</span>
-                        <p class="text-[11px] text-amber-200">Esta acción cambia el estado físico de la unidad, pero <strong>no ajusta el stock lógico ni genera Kardex</strong>. Si corresponde, usá la sección Conciliación para alinear el stock.</p>
-                    </div>
+                <div class="inv-campo">
+                    <label class="inv-campo__etiqueta" for="manage-action">Qué querés hacer</label>
+                    <select id="manage-action" class="inv-control" required autofocus></select>
+                    <p id="manage-action-error" class="inv-campo__error" hidden>Elegí una acción.</p>
                 </div>
-
-                <div class="mt-5 flex flex-col-reverse sm:flex-row justify-end gap-2">
-                    <button type="button" class="pu-btn pu-btn-ghost" data-action="call" data-fn="puCloseModal" data-args='["modal-manage"]'>Cancelar</button>
-                    <button type="button" id="manage-confirm-btn" class="pu-btn pu-btn-success" data-action="call" data-fn="puConfirmManage">
-                        <span class="material-symbols-outlined" style="font-size:18px" id="manage-confirm-icon">undo</span>
-                        <span id="manage-confirm-label">Reintegrar a stock</span>
-                    </button>
+                <div class="inv-campo" id="manage-destino-wrap" hidden>
+                    <label class="inv-campo__etiqueta" for="manage-destino">Destino de la reparación</label>
+                    <select id="manage-destino" class="inv-control">
+                        <option value="">Elegí el destino</option>
+                        <option value="EnStock">Reintegrar a stock</option>
+                        <option value="Baja">Dar de baja (no reparable)</option>
+                        <option value="Devuelta">Marcar como devuelta</option>
+                    </select>
+                    <p id="manage-destino-error" class="inv-campo__error" hidden>Elegí el destino de la unidad.</p>
                 </div>
+                <div class="inv-campo">
+                    <label class="inv-campo__etiqueta" for="manage-motivo">Motivo</label>
+                    <textarea id="manage-motivo" rows="3" maxlength="500" required class="inv-control" placeholder="Detalle, evidencia, contexto"></textarea>
+                    <p id="manage-motivo-error" class="inv-campo__error" hidden>Escribí el motivo.</p>
+                </div>
+                <ul id="manage-consecuencias" class="inv-dialog__consecuencias" aria-live="polite" hidden></ul>
             </div>
-        </div>
-    </div>
+            <footer class="inv-dialog__footer">
+                <button type="button" class="inv-btn inv-btn--ghost" data-manage-close>Cancelar</button>
+                <button type="submit" id="manage-confirm-btn" class="inv-btn inv-btn--primary">Confirmar</button>
+            </footer>
+        </form>
+    </dialog>
 
 </div>
 
@@ -1299,101 +1242,95 @@
     };
 
     // ============================================================
-    // MODAL HELPERS
+    // GESTIONAR UNIDAD
     // ============================================================
-    window.puOpenModal = function (id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    };
-    window.puCloseModal = function (id) {
-        document.getElementById(id).classList.add('hidden');
-        document.body.style.overflow = '';
+    var dialogo = document.getElementById('modal-manage');
+    var formulario = document.getElementById('manage-form');
+    var accion = document.getElementById('manage-action');
+    var destino = document.getElementById('manage-destino');
+    var motivo = document.getElementById('manage-motivo');
+    var confirmar = document.getElementById('manage-confirm-btn');
+    var unidadActual = null;
+
+    var SIN_KARDEX = 'No ajusta el stock del producto ni genera Kardex: si corresponde, conciliá el stock después.';
+    var ACCIONES = {
+        reintegrar: { boton: 'Reintegrar a stock', tono: 'inv-btn--primary', efectos: ['La unidad vuelve a estado «En stock».'] },
+        baja: { boton: 'Dar de baja', tono: 'inv-btn--danger', efectos: ['La unidad queda dada de baja y no se puede vender.', SIN_KARDEX] },
+        faltante: { boton: 'Marcar faltante', tono: 'inv-btn--danger', efectos: ['La unidad queda como faltante y no se puede vender.', SIN_KARDEX] },
+        reparacion: { boton: 'Finalizar reparación', tono: 'inv-btn--primary', efectos: ['La reparación se cierra y la unidad pasa al destino elegido.'] }
     };
 
-    // Escape cierra modal-manage
-    document.addEventListener('keydown', function (e) {
-        if (e.key !== 'Escape') return;
-        var m = document.getElementById('modal-manage');
-        if (m && !m.classList.contains('hidden')) puCloseModal('modal-manage');
-    });
+    function pintarAccion() {
+        var cfg = ACCIONES[accion.value];
+        document.getElementById('manage-destino-wrap').hidden = accion.value !== 'reparacion';
+        var lista = document.getElementById('manage-consecuencias');
+        lista.innerHTML = '';
+        lista.hidden = !cfg;
+        (cfg ? cfg.efectos : []).forEach(function (texto) {
+            var li = document.createElement('li');
+            li.textContent = texto;
+            lista.appendChild(li);
+        });
+        confirmar.textContent = cfg ? cfg.boton : 'Confirmar';
+        confirmar.className = 'inv-btn ' + (cfg ? cfg.tono : 'inv-btn--primary');
+    }
 
-    // ============================================================
-    // MODAL: GESTIONAR UNIDAD
-    // ============================================================
-    var _manageUnidadId = null;
+    function marcar(campo, idError, invalido) {
+        var error = document.getElementById(idError);
+        error.hidden = !invalido;
+        if (invalido) {
+            campo.setAttribute('aria-invalid', 'true');
+            campo.setAttribute('aria-describedby', idError);
+        } else {
+            campo.removeAttribute('aria-invalid');
+            campo.removeAttribute('aria-describedby');
+        }
+        return invalido;
+    }
 
-    var ACTION_CFG = {
-        reintegrar: { label: 'Reintegrar a stock',   icon: 'undo',         cls: 'pu-btn pu-btn-success' },
-        baja:       { label: 'Dar de baja',           icon: 'block',        cls: 'pu-btn pu-btn-danger'  },
-        faltante:   { label: 'Marcar faltante',       icon: 'help',         cls: 'pu-btn pu-btn-amber'   },
-        reparacion: { label: 'Finalizar reparacion',  icon: 'build_circle', cls: 'pu-btn pu-btn-primary'  }
-    };
+    var panel = window.InvUI.panelFormulario(dialogo, { cierres: '[data-manage-close]' });
 
     window.puOpenManage = function (unidadId, code, serial, stateLabel, chipClass, actions) {
-        _manageUnidadId = unidadId;
-        document.getElementById('manage-code').textContent   = code;
+        unidadActual = unidadId;
+        formulario.reset();
+        document.getElementById('manage-code').textContent = code;
         document.getElementById('manage-serial').textContent = serial;
-
-        var stChip = document.getElementById('manage-current-state');
-        stChip.textContent = stateLabel;
-        stChip.className   = chipClass;
-
-        var select = document.getElementById('manage-action');
-        select.innerHTML = '';
-        actions.forEach(function (a) {
-            var opt = document.createElement('option');
-            opt.value = a.value; opt.textContent = a.label;
-            select.appendChild(opt);
+        document.getElementById('manage-current-state').textContent = stateLabel;
+        accion.innerHTML = '';
+        [{ value: '', label: 'Elegí una acción' }].concat(actions).forEach(function (a) {
+            var opcion = document.createElement('option');
+            opcion.value = a.value;
+            opcion.textContent = a.label;
+            accion.appendChild(opcion);
         });
-
-        document.getElementById('manage-motivo').value = '';
-        document.getElementById('manage-motivo-error').classList.add('hidden');
-
-        puUpdateManageAction();
-        puOpenModal('modal-manage');
+        marcar(accion, 'manage-action-error', false);
+        marcar(destino, 'manage-destino-error', false);
+        marcar(motivo, 'manage-motivo-error', false);
+        pintarAccion();
+        panel.abrir();
+        accion.focus();
     };
 
-    window.puUpdateManageAction = function () {
-        var v   = document.getElementById('manage-action').value;
-        var cfg = ACTION_CFG[v] || { label: 'Confirmar', icon: 'check', cls: 'pu-btn pu-btn-primary' };
-        document.getElementById('manage-confirm-btn').className     = cfg.cls;
-        document.getElementById('manage-confirm-label').textContent = cfg.label;
-        document.getElementById('manage-confirm-icon').textContent  = cfg.icon;
-        document.getElementById('manage-destino-wrap').classList.toggle('hidden', v !== 'reparacion');
-        var avisoKardex = document.getElementById('manage-aviso-kardex');
-        if (avisoKardex) avisoKardex.classList.toggle('hidden', v !== 'faltante' && v !== 'baja');
-    };
+    accion.addEventListener('change', function () { marcar(accion, 'manage-action-error', false); pintarAccion(); });
+    destino.addEventListener('change', function () { marcar(destino, 'manage-destino-error', false); });
+    motivo.addEventListener('input', function () { if (motivo.value.trim()) marcar(motivo, 'manage-motivo-error', false); });
 
-    window.puConfirmManage = function () {
-        var motivo = (document.getElementById('manage-motivo').value || '').trim();
-        if (!motivo) {
-            document.getElementById('manage-motivo-error').classList.remove('hidden');
-            return;
-        }
-        document.getElementById('manage-motivo-error').classList.add('hidden');
+    formulario.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var invalidos = [
+            marcar(accion, 'manage-action-error', !accion.value) && accion,
+            marcar(destino, 'manage-destino-error', accion.value === 'reparacion' && !destino.value) && destino,
+            marcar(motivo, 'manage-motivo-error', !motivo.value.trim()) && motivo
+        ].filter(Boolean);
+        if (invalidos.length) { invalidos[0].focus(); return; }
 
-        var action = document.getElementById('manage-action').value;
-        var form   = document.getElementById('rmf-' + action + '-' + _manageUnidadId);
-        if (!form) return;
-
-        form.querySelector('[name="Motivo"]').value = motivo;
-        if (action === 'reparacion') {
-            form.querySelector('[name="EstadoDestino"]').value =
-                document.getElementById('manage-destino').value;
-        }
-        form.submit();
-    };
-
-    // ============================================================
-    // CONCILIAR: seleccion de opciones
-    // ============================================================
-    window.puSelectResolution = function (n) {
-        document.querySelectorAll('input[name="reso"]').forEach(function (r) {
-            if (!r.disabled) r.checked = (parseInt(r.value, 10) === n);
-        });
-        var panel = document.getElementById('adjust-panel');
-        if (panel) panel.classList.toggle('hidden', n !== 3);
-    };
+        var real = document.getElementById('rmf-' + accion.value + '-' + unidadActual);
+        if (!real) return;
+        real.querySelector('[name="Motivo"]').value = motivo.value.trim();
+        if (accion.value === 'reparacion') real.querySelector('[name="EstadoDestino"]').value = destino.value;
+        confirmar.disabled = true;
+        real.submit();
+    });
 
     // ============================================================
     // FILTROS: radio disponibilidad <-> checkboxes backend

@@ -151,7 +151,7 @@
                         </span>
                         @(Model.RequiereNumeroSerie ? "Serializado" : "No serializado")
                     </span>
-                    @if (conciliacion.HayDiferencia)
+                    @if (Model.RequiereNumeroSerie && conciliacion.HayDiferencia)
                     {
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30">
                             <span class="material-symbols-outlined" style="font-size:14px">warning</span>
@@ -360,7 +360,7 @@
         }
         else
         {
-            @if (conciliacion.HayDiferencia)
+            @if (Model.RequiereNumeroSerie && conciliacion.HayDiferencia)
             {
                 <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
                     <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
@@ -477,36 +477,8 @@
     @* ── TAB: UNIDADES FÍSICAS (solo no serializado) ── *@
     @if (!Model.RequiereNumeroSerie)
     {
-        var difStock = conciliacion.DiferenciaStockVsUnidadesEnStock;
-        var faltanUnidades = difStock > 0 ? (int)Math.Floor(difStock) : 0;
-
         <section id="fi-panel-fisicas" data-fi-panel="fisicas" role="tabpanel"
                  class="space-y-4 @(tabInicial != "fisicas" ? "hidden" : "")">
-
-            @if (conciliacion.HayDiferencia)
-            {
-                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-                    <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-amber-300">Diferencia entre stock lógico y unidades físicas</p>
-                        <p class="mt-0.5 text-xs text-amber-200/70">
-                            Stock lógico: <strong>@Model.StockActual.ToString("G29")</strong> —
-                            Unidades físicas en stock: <strong>@conciliacion.UnidadesEnStock</strong> —
-                            Diferencia: <strong>@(difStock > 0 ? "+" : "")@difStock.ToString("G29")</strong>.
-                        </p>
-                        @if (faltanUnidades > 0)
-                        {
-                            @* Quick-fill explícito: setea la cantidad sugerida en el form, sin prellenarlo
-                               automáticamente (evita crear N unidades de un click accidental). *@
-                            <button type="button" data-fi-uf-fill="@faltanUnidades"
-                                    class="fi-btn fi-btn-sm mt-2" style="background:color-mix(in srgb, var(--pal-warning-500) 15%, transparent);color:var(--pal-warning-400);border-color:color-mix(in srgb, var(--pal-warning-500) 40%, transparent);">
-                                <span class="material-symbols-outlined" style="font-size:16px">balance</span>
-                                Conciliar: cargar @faltanUnidades unidad@(faltanUnidades != 1 ? "es" : "")
-                            </button>
-                        }
-                    </div>
-                </div>
-            }
 
             @* Alta directa de unidades físicas sin serie (reusa CrearUnidadesAsync vía endpoint inline). *@
             <div class="fi-card p-5 sm:p-6">
@@ -847,17 +819,6 @@
     document.querySelectorAll('[data-fi-tab-goto]').forEach(function (el) {
         el.addEventListener('click', function () {
             activateTab(el.getAttribute('data-fi-tab-goto'));
-        });
-    });
-
-    // Quick-fill de conciliación: setea la cantidad sugerida sin enviar el form.
-    document.querySelectorAll('[data-fi-uf-fill]').forEach(function (el) {
-        el.addEventListener('click', function () {
-            var input = document.getElementById('fi-uf-cantidad');
-            if (!input) return;
-            input.value = el.getAttribute('data-fi-uf-fill');
-            input.focus();
-            input.scrollIntoView({ block: 'center' });
         });
     });
 })();

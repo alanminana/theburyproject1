@@ -6,9 +6,7 @@
     var VAL_BOX_ID = 'prod-edit-validation-summary';
     var VAL_TXT_ID = 'prod-edit-validation-text';
 
-    var currentRow = null;
     var caractIndex = 0;
-    var _openTrigger = null;
     var _tabs = null;
     // Cada apertura del modal tiene un número de secuencia: toda respuesta asíncrona (GetJson, subcategorías,
     // submarcas) que llega con una secuencia vieja se descarta.
@@ -26,34 +24,34 @@
 
     // ── Abrir / Cerrar ──────────────────────────────────────────
 
-    function open(row, trigger) {
-        currentRow = row;
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        var modal = el(MODAL_ID);
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-        activateTab('datos');
-        setTimeout(function () {
-            var firstInput = el('prod-edit-codigo');
-            if (firstInput) firstInput.focus();
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(el(MODAL_ID), {
+                cierres: '[data-prod-edit-modal-close]',
+                cuentaComoCambio: '[data-prod-edit-add-caract], .prod-edit-remove-caract',
+                alCerrar: limpiar
+            });
+        }
+        return _panel;
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        var modal = el(MODAL_ID);
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-        currentRow = null;
+    function open() {
+        panel().abrir();
+        activateTab('datos');
+        var firstInput = el('prod-edit-codigo');
+        if (firstInput) firstInput.focus();
+    }
+
+    function limpiar() {
         openSeq++;
         invalidarCargasDependientes();
         clearErrors();
         hideValidation();
-        if (trigger) trigger.focus();
     }
+
+    // El navegador devuelve el foco al disparador al cerrar el <dialog>.
+    function close() { panel().cerrar(); }
 
     // ── Populate ────────────────────────────────────────────────
 
@@ -390,142 +388,6 @@
         }
     }
 
-    // ── Actualizar fila en tabla ────────────────────────────────
-
-    // Selectores por data-attribute (no por posición de <td>): la celda "producto"
-    // combina nombre/código/categoría/marca en un único td y el orden de columnas
-    // cambió con el rediseño del index, así que indexar tds[] quedó desalineado y
-    // corrompía la fila entera al guardar.
-    function updateRow(entity) {
-        if (!currentRow) return;
-
-        var nameEl = currentRow.querySelector('[data-prod-nombre]');
-        if (nameEl) { nameEl.textContent = entity.nombre; nameEl.title = entity.nombre || ''; }
-
-        var inactivoBadge = currentRow.querySelector('[data-prod-inactivo-badge]');
-        // hidden e inline-flex son utilidades de display en la misma capa de Tailwind y
-        // gana la que va después en tailwind.css (inline-flex), así que se alternan juntas.
-        if (inactivoBadge) {
-            inactivoBadge.classList.toggle('hidden', !!entity.activo);
-            inactivoBadge.classList.toggle('inline-flex', !entity.activo);
-        }
-        currentRow.classList.toggle('bg-slate-950/40', !entity.activo);
-
-        var codigoEl = currentRow.querySelector('[data-prod-codigo]');
-        if (codigoEl) {
-            var codigoTexto = entity.codigo || 'Sin código';
-            codigoEl.textContent = codigoTexto;
-            codigoEl.title = entity.codigo || '';
-        }
-
-        var categoriaEl = currentRow.querySelector('[data-prod-categoria]');
-        if (categoriaEl) {
-            var categoriaTexto = entity.categoriaNombre || 'Sin categoría';
-            categoriaEl.textContent = categoriaTexto;
-            categoriaEl.title = categoriaTexto;
-        }
-
-        var marcaEl = currentRow.querySelector('[data-prod-marca]');
-        if (marcaEl) {
-            var marcaTexto = entity.marcaNombre || 'Sin marca';
-            marcaEl.textContent = marcaTexto;
-            marcaEl.title = marcaTexto;
-        }
-
-        // Badge de stock: el estado depende de StockMinimo, que sí se edita en este modal.
-        var stockEl = currentRow.querySelector('[data-prod-stock]');
-        if (stockEl && entity.estadoStock) {
-            var stockNum = Number(entity.stockActual || 0);
-            var estilos = {
-                'Sin Stock':  ['border-red-500/30 bg-red-500/15 text-red-300', 'Agotado'],
-                'Stock Bajo': ['border-amber-500/30 bg-amber-500/15 text-amber-300', stockNum + ' disponibles'],
-                'Normal':     ['border-emerald-500/30 bg-emerald-500/15 text-emerald-300', stockNum + ' disponibles']
-            };
-            var estilo = estilos[entity.estadoStock] || estilos['Normal'];
-            stockEl.className = 'inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold ' + estilo[0];
-            stockEl.textContent = estilo[1];
-        }
-
-        var priceEl = currentRow.querySelector('[data-prod-precio-actual]');
-        if (priceEl) {
-            priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-        var labelEl = currentRow.querySelector('[data-prod-precio-label]');
-        var baseLabelEl = currentRow.querySelector('[data-prod-precio-base-label]');
-        if (entity.tienePrecioLista) {
-            var baseFormatted = Number(entity.precioBase || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            var listaNombre = entity.listaPrecioActualNombre || '';
-            if (labelEl) {
-                labelEl.textContent = 'Vigente por lista: ' + listaNombre;
-            }
-            if (baseLabelEl) {
-                baseLabelEl.textContent = 'Base/fallback: $ ' + baseFormatted;
-            } else if (labelEl) {
-                var newBase = document.createElement('p');
-                newBase.setAttribute('data-prod-precio-base-label', '');
-                newBase.className = 'text-[10px] text-slate-500';
-                newBase.textContent = 'Base/fallback: $ ' + baseFormatted;
-                labelEl.insertAdjacentElement('afterend', newBase);
-            }
-        } else {
-            if (labelEl) labelEl.textContent = 'Base/fallback';
-            if (baseLabelEl) baseLabelEl.remove();
-        }
-        var margenEl = currentRow.querySelector('[data-prod-margen]');
-        var margen = Number(entity.margenPorcentaje || 0);
-        if (margen > 0) {
-            var margenText = '+' + margen.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '% margen';
-            if (margenEl) {
-                margenEl.textContent = margenText;
-            } else {
-                var newMargen = document.createElement('span');
-                newMargen.setAttribute('data-prod-margen', '');
-                newMargen.className = 'shrink-0 font-semibold text-emerald-400';
-                newMargen.textContent = margenText;
-                var precioTd = priceEl ? priceEl.closest('td') : null;
-                if (precioTd) precioTd.querySelector('div')?.appendChild(newMargen);
-            }
-        } else if (margenEl) {
-            margenEl.remove();
-        }
-
-        var commissionBtn = currentRow.querySelector('[data-comision-producto-id]');
-        var commissionValue = Number(entity.comisionPorcentaje || 0);
-        if (commissionBtn) {
-            commissionBtn.setAttribute('data-comision-porcentaje', String(commissionValue));
-            commissionBtn.setAttribute('data-comision-producto-nombre', entity.nombre || '');
-            if (commissionBtn.hasAttribute('title')) {
-                commissionBtn.title = 'Comisión vendedor: ' + commissionValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
-            }
-            var commissionEl = commissionBtn.querySelector('[data-producto-comision]');
-            if (commissionEl) {
-                commissionEl.textContent = commissionValue > 0
-                    ? commissionValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'
-                    : 'Sin comisión';
-            }
-        }
-
-        // data attributes en el tr (búsqueda y orden de columnas)
-        currentRow.setAttribute('data-producto-codigo', entity.codigo);
-        currentRow.setAttribute('data-producto-nombre', entity.nombre);
-        currentRow.setAttribute('data-sort-nombre', (entity.nombre || '').toLowerCase());
-        currentRow.setAttribute('data-sort-precio', String(entity.precioActual || 0));
-        currentRow.setAttribute('data-sort-comision', String(commissionValue));
-        currentRow.setAttribute('data-search', [
-            entity.codigo || '',
-            entity.nombre || '',
-            entity.descripcion || '',
-            entity.categoriaNombre || '',
-            entity.marcaNombre || ''
-        ].join(' ').toLowerCase().trim());
-    }
-
-    // ── Validación ──────────────────────────────────────────────
-
-    // Compartido con producto-crear-modal.js vía producto-modal-validacion.js;
-    // acá se preserva el comportamiento previo: box y msg se actualizan de
-    // forma independiente (sin requireBoth) y sin scroll automático.
-    var _validacion = ProductoModalFormUtils.bindValidation(VAL_BOX_ID, VAL_TXT_ID, {});
     function showValidation(text) { _validacion.showValidation(text); }
     function hideValidation() { _validacion.hideValidation(); }
 
@@ -589,8 +451,9 @@
                 });
                 var result = await resp.json();
                 if (result.success) {
-                    updateRow(result.entity);
+                    var editado = result.entity && result.entity.id;
                     close();
+                    if (window.InvProductos) window.InvProductos.refrescar({ resaltar: editado });
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
                         detail: { message: result.message || 'Producto actualizado', type: 'success' }
                     }));
@@ -613,6 +476,26 @@
         });
     }
 
+    // ── Apertura ────────────────────────────────────────────────
+    function abrirPorId(id, trigger) {
+        var seqClick = ++clickSeq;
+        return fetch('/Producto/GetJson/' + encodeURIComponent(id), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error();
+                return resp.json();
+            })
+            .then(function (data) {
+                if (seqClick !== clickSeq) return; // se pidió otro producto después: esta respuesta ya no aplica
+                populate(data);
+                open();
+            })
+            .catch(function () {
+                document.dispatchEvent(new CustomEvent('catalogo:toast', {
+                    detail: { message: 'Error al cargar el producto.', type: 'error' }
+                }));
+            });
+    }
+
     // ── Event delegation ────────────────────────────────────────
 
     function initDelegatedEvents() {
@@ -620,29 +503,7 @@
             // Abrir modal edit
             var editBtn = e.target.closest('[data-prod-edit-id]');
             if (editBtn) {
-                var id = editBtn.getAttribute('data-prod-edit-id');
-                var row = editBtn.closest('tr');
-                var seqClick = ++clickSeq;
-                try {
-                    var resp = await fetch('/Producto/GetJson/' + id, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    });
-                    if (!resp.ok) throw new Error();
-                    var data = await resp.json();
-                    if (seqClick !== clickSeq) return; // se pidió otro producto después: esta respuesta ya no aplica
-                    populate(data);
-                    open(row, editBtn);
-                } catch (_) {
-                    document.dispatchEvent(new CustomEvent('catalogo:toast', {
-                        detail: { message: 'Error al cargar el producto.', type: 'error' }
-                    }));
-                }
-                return;
-            }
-
-            // Cerrar modal
-            if (e.target.closest('[data-prod-edit-modal-close]')) {
-                close();
+                abrirPorId(editBtn.getAttribute('data-prod-edit-id'), editBtn);
                 return;
             }
 
@@ -675,11 +536,18 @@
             });
         }
 
-        document.addEventListener('keydown', function (e) {
-            var modal = el(MODAL_ID);
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
+        // Enter agrega la característica; antes enviaba el formulario, guardaba, cerraba y la perdía.
+        ['prod-edit-caract-nombre', 'prod-edit-caract-valor'].forEach(function (id) {
+            var campo = el(id);
+            if (!campo) return;
+            campo.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                var boton = document.querySelector('[data-prod-edit-add-caract]');
+                if (boton) boton.click();
+                var nombre = el('prod-edit-caract-nombre');
+                if (nombre && !nombre.value) nombre.focus();
+            });
         });
     }
 
@@ -689,8 +557,9 @@
         var id;
         try { id = new URLSearchParams(window.location.search).get('editarProducto'); } catch (_) { return; }
         if (!id || !/^\d+$/.test(id)) return;
-        var btn = document.querySelector('[data-prod-edit-id="' + id + '"]');
-        if (btn) btn.click();
+        // El producto puede no estar en la página visible; sin permiso de edición el servidor rechaza la carga.
+        var tbody = document.getElementById('productos-tbody');
+        if (tbody && tbody.getAttribute('data-can-edit') === 'true') abrirPorId(id, null);
         // Evita reabrir el modal al recargar o volver con "atrás".
         try {
             var url = new URL(window.location.href);
@@ -704,6 +573,7 @@
         initSubmit();
         initDelegatedEvents();
         initCreditoPersonalModo();
+        panel();
         abrirDesdeQueryString();
     });
 })();

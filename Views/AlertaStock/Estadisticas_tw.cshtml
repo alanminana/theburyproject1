@@ -160,7 +160,7 @@
                         <div class="flex-1 min-w-0">
                             <a asp-action="Details" asp-route-id="@a.Id"
                                class="text-sm font-medium text-slate-100 hover:text-primary transition-colors truncate block">@a.ProductoNombre</a>
-                            <p class="text-xs text-slate-500">@a.FechaAlerta.ToString("dd/MM/yyyy HH:mm")</p>
+                            <p class="text-xs text-slate-500">@a.FechaAlerta.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                         </div>
                         <span class="@abadge shrink-0">@a.TipoDescripcion</span>
                     </div>

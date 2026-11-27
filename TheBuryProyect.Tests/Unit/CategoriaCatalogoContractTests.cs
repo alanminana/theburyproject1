@@ -83,7 +83,7 @@ public class CategoriaCatalogoContractTests
     [Fact]
     public void LosBotonesDeCategoriaRespetanLosPermisosDeLaVista()
     {
-        var vista = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var vista = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.Contains("User.TienePermiso(\"categorias\", \"create\")", vista);
         Assert.Contains("User.TienePermiso(\"categorias\", \"update\")", vista);
@@ -99,17 +99,16 @@ public class CategoriaCatalogoContractTests
     }
 
     [Fact]
-    public void LasPestanasExponenSuEstadoActivoConAriaSelected()
+    public void LasSeccionesSonNavegacionConLaActualMarcadaPorElServidor()
     {
-        // El estado activo lo define aria-selected (server-side y JS): antes el JS y Razor usaban juegos de
-        // clases distintos y, al cambiar de pestaña con un clic, Productos quedaba resaltada junto a la nueva.
+        // Una URL por sección: enlaces con aria-current resuelto en el servidor; ningún script mantiene un segundo estado.
         var vista = Leer("Views", "Catalogo", "Index_tw.cshtml");
         var js = Leer("wwwroot", "js", "catalogo-index.js");
 
-        Assert.Contains("role=\"tab\"", vista);
-        Assert.Contains("aria-selected=\"@TabSelected(\"categorias\")\"", vista);
-        Assert.Contains("setAttribute('aria-selected'", js);
-        Assert.DoesNotContain("'bg-primary/10'", js);
+        Assert.Contains("aria-current=\"@(s.Clave == seccion ? \"page\" : null)\"", vista);
+        Assert.Contains("asp-route-tab=\"@s.Clave\"", vista);
+        Assert.DoesNotContain("role=\"tab\"", vista);
+        Assert.DoesNotContain("aria-selected", js);
     }
 
     private static string Leer(params string[] segmentos)
