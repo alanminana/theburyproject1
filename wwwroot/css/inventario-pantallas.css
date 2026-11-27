@@ -520,6 +520,256 @@
     }
 }
 
+/* ---------- Pantallas de detalle y formulario --------------------------- */
+.inv-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+}
+
+.inv-screen--form {
+    max-width: 46rem;
+}
+
+.inv-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem 1rem;
+}
+
+.inv-head__titulo {
+    min-width: 0;
+    flex: 1 1 18rem;
+}
+
+.inv-head h1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .625rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.inv-head p {
+    font-size: .875rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-head__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.inv-head__acciones .inv-btn,
+.inv-actions .inv-btn {
+    text-decoration: none;
+}
+
+.inv-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    margin-bottom: .25rem;
+    font-size: .8125rem;
+    color: var(--erp-fg-3);
+    text-decoration: none;
+}
+
+.inv-crumb:hover {
+    color: var(--erp-text);
+}
+
+.inv-crumb .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+.inv-panel {
+    display: flex;
+    flex-direction: column;
+    gap: .875rem;
+    padding: 1rem 1.25rem;
+    background: var(--pal-neutral-875);
+    border: 1px solid var(--pal-neutral-800);
+    border-radius: .75rem;
+}
+
+.inv-panel--tabla {
+    gap: 0;
+    padding: 0;
+}
+
+.inv-panel--tabla > .inv-table-wrap:first-child {
+    border-top: 0;
+}
+
+.inv-panel__titulo {
+    font-size: .9375rem;
+    font-weight: 700;
+}
+
+.inv-panel--tabla > .inv-panel__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    padding: .75rem 1rem;
+}
+
+.inv-ayuda-texto {
+    font-size: .8125rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: .75rem 1.5rem;
+}
+
+.inv-resumen dt {
+    font-size: .75rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-resumen dd {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.inv-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+    gap: .875rem;
+}
+
+.inv-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+
+.inv-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: .25rem .75rem;
+}
+
+.inv-checks label {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 2.25rem;
+    font-size: .875rem;
+    cursor: pointer;
+}
+
+.inv-pill--ok {
+    color: var(--pal-success-300, var(--erp-text));
+    border-color: color-mix(in srgb, var(--pal-success) 45%, transparent);
+    background: color-mix(in srgb, var(--pal-success) 12%, transparent);
+}
+
+.inv-pill--accent {
+    color: var(--erp-primary);
+    border-color: color-mix(in srgb, var(--pal-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--pal-accent) 10%, transparent);
+}
+
+.inv-segmentos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+}
+
+.inv-segmentos a {
+    min-height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    padding: .25rem .75rem;
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--erp-fg-2);
+    text-decoration: none;
+    border: 1px solid var(--pal-neutral-750);
+    border-radius: 999px;
+}
+
+.inv-segmentos a[aria-current="page"] {
+    color: var(--erp-primary);
+    border-color: var(--erp-primary);
+}
+
+.inv-segmentos a:focus-visible {
+    outline: 2px solid var(--erp-primary);
+    outline-offset: 2px;
+}
+
+.inv-btn--sm {
+    min-height: 2.25rem;
+    padding: .25rem .75rem;
+    font-size: .8125rem;
+}
+
+/* Tabla genérica que se apila en contenedores angostos: cada celda lleva su rótulo en data-label;
+   la primera celda (th) titula la tarjeta. */
+@container (width < 760px) {
+    .inv-table--apilable,
+    .inv-table--apilable tbody {
+        display: block;
+    }
+
+    .inv-table--apilable thead {
+        display: none;
+    }
+
+    .inv-table--apilable tbody tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem .75rem;
+        padding: .75rem 1rem;
+    }
+
+    .inv-table.inv-table--apilable tbody :is(td, th) {
+        display: block;
+        min-width: 0;
+        width: auto;
+        max-width: none;
+        padding: 0;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .inv-table--apilable tbody th,
+    .inv-table.inv-table--apilable tbody td.inv-col-actions {
+        grid-column: 1 / -1;
+    }
+
+    .inv-table--apilable td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: .75rem;
+        color: var(--erp-fg-3);
+    }
+
+    .inv-table--apilable .inv-row-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
 /* ---------- Estados vacíos y paginado ----------------------------------- */
 .inv-empty {
     display: flex;
@@ -656,4 +906,21 @@
     margin: .25rem 0;
     border: 0;
     border-top: 1px solid var(--pal-neutral-800);
+}
+
+/* El resumen de validación vacío no ocupa lugar (la «caja de error en blanco»). */
+.inv-resumen-errores.validation-summary-valid {
+    display: none;
+}
+
+.inv-panel__form,
+.inv-panel form {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+fieldset.inv-panel {
+    min-width: 0;
+    margin: 0;
 }

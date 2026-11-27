@@ -1,230 +1,161 @@
 @model TheBuryProject.ViewModels.SimulacionViewModel
 @using TheBuryProject.Models.Enums
 @{
-    ViewData["Title"] = "Preview — " + Model.Nombre;
+    ViewData["Title"] = "Lote — " + Model.Nombre;
     var origenCatalogo = TempData["OrigenCatalogo"] != null;
-    var signo = Model.TipoAplicacion == TipoAplicacion.Aumento ? "+" : "-";
-    var sufijo = Model.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
-    var estadoBadge = Model.Estado switch
+    var (claseEstado, textoEstado) = LoteDePreciosUi.Estado(Model.Estado);
+    var cambio = LoteDePreciosUi.Cambio(Model.TipoCambio, Model.TipoAplicacion, Model.ValorCambio);
+    var puedeAprobar = User.TienePermiso("precios", "approve");
+    var puedeAplicar = User.TienePermiso("precios", "apply");
+    var puedeRevertir = User.TienePermiso("precios", "revert");
+    var paginas = Math.Max(1, (int)Math.Ceiling((double)Model.CantidadProductos / Math.Max(1, Model.TamanioPagina)));
+    var conAvisos = Model.Items.Count(i => i.TieneAdvertencia);
+    var motivo = Model.Estado switch
     {
-        EstadoBatch.Simulado  => "badge-erp badge-erp-info",
-        EstadoBatch.Aprobado  => "badge-erp badge-erp-success",
-        EstadoBatch.Aplicado  => "badge-erp badge-erp-primary",
-        EstadoBatch.Revertido => "badge-erp",
-        EstadoBatch.Rechazado => "badge-erp badge-erp-danger",
-        EstadoBatch.Cancelado => "badge-erp",
-        _                     => "badge-erp"
+        EstadoBatch.Rechazado => ("Motivo del rechazo", Model.MotivoRechazo),
+        EstadoBatch.Cancelado => ("Motivo de la cancelación", Model.MotivoCancelacion),
+        EstadoBatch.Revertido => ("Motivo de la reversión", Model.MotivoReversion),
+        _ => ((string?)null, (string?)null)
+    };
+    // Lo que falta para que el lote avance, cuando este usuario no puede hacerlo.
+    var pendiente = Model.Estado switch
+    {
+        EstadoBatch.Simulado when !puedeAprobar => "Falta que alguien con permiso para aprobar cambios de precios lo autorice.",
+        EstadoBatch.Aprobado when !puedeAplicar => "Está aprobado. Falta que alguien con permiso para aplicar precios lo ejecute.",
+        _ => null
     };
 }
 
-<div class="max-w-7xl mx-auto space-y-6">
-
-    <div class="hero-erp sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div class="flex-1 min-w-0">
-                <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
-                    @if (origenCatalogo)
-                    {
-                        <a asp-controller="Catalogo" asp-action="Index" class="hover:text-slate-200 transition-colors">Catálogo</a>
-                    }
-                    else
-                    {
-                        <a asp-action="Index" class="hover:text-slate-200 transition-colors">Cambios de Precios</a>
-                    }
-                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-                    <span class="text-slate-200">Preview</span>
-                </nav>
-                <div class="flex items-center gap-3 flex-wrap">
-                    <h1 class="text-xl sm:text-2xl font-bold text-slate-100 truncate">@Model.Nombre</h1>
-                    <span class="@estadoBadge">@Model.Estado</span>
-                </div>
-                <p class="mt-1 text-sm text-slate-400">
-                    @Model.TipoCambio · @signo@Model.ValorCambio.ToString("N2")@sufijo · @Model.CantidadProductos productos · Solicitado por @Model.SolicitadoPor el @Model.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm")
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2 shrink-0">
-                @if (origenCatalogo)
-                {
-                    <a asp-controller="Catalogo" asp-action="Index" class="btn-erp-ghost">
-                        <span class="material-symbols-outlined text-base">arrow_back</span>
-                        Volver al catálogo
-                    </a>
-                }
-                else
-                {
-                    <a asp-action="Index" class="btn-erp-ghost">
-                        <span class="material-symbols-outlined text-base">arrow_back</span>
-                        Volver
-                    </a>
-                }
-                @if (Model.Estado == EstadoBatch.Simulado)
-                {
-                    <a asp-action="Autorizar" asp-route-id="@Model.BatchId" class="btn-erp-success">
-                        <span class="material-symbols-outlined text-base">check_circle</span>
-                        Autorizar
-                    </a>
-                    <form asp-action="Cancelar" method="post" class="inline">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.BatchId" />
-                        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion ?? Array.Empty<byte>())" />
-                        <button type="submit" class="btn-erp-danger"
-                                data-confirm="¿Cancelar esta simulación?">
-                            <span class="material-symbols-outlined text-base">cancel</span>
-                            Cancelar
-                        </button>
-                    </form>
-                }
-                @if (Model.Estado == EstadoBatch.Aprobado)
-                {
-                    <a asp-action="Aplicar" asp-route-id="@Model.BatchId" class="btn-erp-primary">
-                        <span class="material-symbols-outlined text-base">bolt</span>
-                        Aplicar
-                    </a>
-                }
-                @if (Model.Estado == EstadoBatch.Aplicado)
-                {
-                    <a asp-action="Revertir" asp-route-id="@Model.BatchId" class="btn-erp-warning">
-                        <span class="material-symbols-outlined text-base">undo</span>
-                        Revertir
-                    </a>
-                }
-            </div>
-        </div>
-    </div>
-
-    @if (TempData["Success"] != null)
-    {
-        <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>@TempData["Success"]
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
-        </div>
-    }
-
-    @if (Model.Estadisticas != null && Model.Estadisticas.Any())
-    {
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            @foreach (var kv in Model.Estadisticas.Take(4))
+<div class="inv-screen inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            @if (origenCatalogo)
             {
-                <div class="card-erp-metric">
-                    <p class="text-xs text-slate-400 uppercase tracking-wide">@kv.Key</p>
-                    <p class="mt-1 text-2xl font-bold text-slate-100">@kv.Value</p>
-                </div>
+                <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            }
+            else
+            {
+                <a asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Cambios por lotes</a>
+            }
+            <h1>@Model.Nombre <span class="@claseEstado">@textoEstado</span></h1>
+            <p>Solicitado por @Model.SolicitadoPor el @Model.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
+        </div>
+        <div class="inv-head__acciones">
+            @if (Model.Estado == EstadoBatch.Simulado && puedeAprobar)
+            {
+                <form asp-action="Cancelar" method="post" data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
+                          titulo = "¿Cancelar esta simulación?",
+                          datos = new[] { new[] { "Lote", Model.Nombre }, new[] { "Precios incluidos", Model.CantidadProductos.ToString() } },
+                          consecuencias = new[] { "El lote queda cancelado y no se puede aplicar.", "Ningún precio cambia." },
+                          etiquetaCancelar = "Volver",
+                          etiquetaConfirmar = "Cancelar el lote" })">
+                    <input type="hidden" name="id" value="@Model.BatchId" />
+                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion ?? Array.Empty<byte>())" />
+                    <button type="submit" class="inv-btn inv-btn--ghost">Cancelar lote</button>
+                </form>
+                <a asp-action="Autorizar" asp-route-id="@Model.BatchId" class="inv-btn inv-btn--primary">Autorizar</a>
+            }
+            @if (Model.Estado == EstadoBatch.Aprobado && puedeAplicar)
+            {
+                <a asp-action="Aplicar" asp-route-id="@Model.BatchId" class="inv-btn inv-btn--primary">Aplicar precios</a>
+            }
+            @if (Model.Estado == EstadoBatch.Aplicado && puedeRevertir)
+            {
+                <a asp-action="Revertir" asp-route-id="@Model.BatchId" class="inv-btn inv-btn--ghost">Revertir</a>
             }
         </div>
-    }
-    else
+    </header>
+
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    @if (!string.IsNullOrWhiteSpace(motivo.Item2))
     {
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div class="card-erp-metric">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Productos afectados</p>
-                <p class="mt-1 text-2xl font-bold text-slate-100">@Model.CantidadProductos</p>
-            </div>
-            <div class="card-erp-metric @(Model.TipoAplicacion == TipoAplicacion.Aumento ? "card-erp-metric-success" : "card-erp-metric-danger")">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Cambio</p>
-                <p class="mt-1 text-2xl font-bold @(Model.TipoAplicacion == TipoAplicacion.Aumento ? "text-emerald-400" : "text-red-400")">
-                    @signo@Model.ValorCambio.ToString("N2")@sufijo
-                </p>
-            </div>
-            @if (Model.PorcentajePromedioCambio.HasValue)
-            {
-                <div class="card-erp-metric">
-                    <p class="text-xs text-slate-400 uppercase tracking-wide">% promedio de cambio</p>
-                    <p class="mt-1 text-2xl font-bold text-slate-100">@Model.PorcentajePromedioCambio.Value.ToString("N1")%</p>
-                </div>
-            }
-        </div>
+        <p class="inv-aviso inv-aviso--info"><strong>@motivo.Item1:</strong> @motivo.Item2</p>
+    }
+    @if (pendiente != null)
+    {
+        <p class="inv-aviso inv-aviso--info">@pendiente</p>
+    }
+    @if (conAvisos > 0)
+    {
+        <p class="inv-aviso inv-aviso--atencion">@(conAvisos == 1 ? "1 precio de esta página tiene una advertencia." : $"{conAvisos} precios de esta página tienen advertencias.") Revisalos antes de continuar.</p>
     }
 
-    <section class="card-erp-panel">
-        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary text-xl">receipt_long</span>
-                Productos en esta simulación
-                <span class="ml-auto text-xs font-normal text-slate-400">
-                    Página @Model.PaginaActual · @Model.Items.Count registros mostrados de @Model.CantidadProductos
-                </span>
-            </h2>
+    <dl class="inv-panel inv-resumen">
+        <div><dt>Cambio</dt><dd>@cambio</dd></div>
+        <div><dt>Cómo se calcula</dt><dd>@LoteDePreciosUi.Tipo(Model.TipoCambio)</dd></div>
+        <div><dt>Precios incluidos</dt><dd>@Model.CantidadProductos</dd></div>
+        @if (Model.PorcentajePromedioCambio.HasValue)
+        {
+            <div><dt>Variación promedio</dt><dd>@Model.PorcentajePromedioCambio.Value.ToString("N1") %</dd></div>
+        }
+    </dl>
+
+    <section class="inv-panel inv-panel--tabla" aria-labelledby="lote-items-titulo">
+        <div class="inv-panel__cabecera">
+            <h2 id="lote-items-titulo" class="inv-panel__titulo">Precios del lote</h2>
         </div>
         @if (Model.Items.Any())
         {
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de precios del lote">
+                <table class="inv-table inv-table--apilable">
                     <thead>
-                        <tr class="border-b border-slate-800 bg-slate-800/50">
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Código</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Precio anterior</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Precio nuevo</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Diferencia</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Margen ant.</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Margen nuevo</th>
-                            <th class="px-4 py-3 text-center font-medium text-slate-400"></th>
+                        <tr>
+                            <th scope="col">Producto</th>
+                            <th scope="col" class="inv-col-num">Precio anterior</th>
+                            <th scope="col" class="inv-col-num">Precio nuevo</th>
+                            <th scope="col" class="inv-col-num">Diferencia</th>
+                            <th scope="col" class="inv-col-num">Margen</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-800">
+                    <tbody>
                         @foreach (var item in Model.Items)
                         {
-                            <tr class="hover:bg-slate-800/50 transition-colors @(item.TieneAdvertencia ? "bg-amber-900/10" : "")">
-                                <td class="px-4 py-3 font-mono text-xs text-slate-500">@item.ProductoCodigo</td>
-                                <td class="px-4 py-3 font-medium text-slate-100">
+                            <tr>
+                                <th scope="row">
                                     @item.ProductoNombre
+                                    <p class="inv-ayuda-texto">@item.ProductoCodigo</p>
                                     @if (item.TieneAdvertencia)
                                     {
-                                        <span class="ml-1 text-xs text-amber-400" title="@item.MensajeAdvertencia">
-                                            <span class="material-symbols-outlined text-[13px] align-middle">warning</span>
-                                        </span>
+                                        <p class="inv-pill inv-pill--warning">@(item.MensajeAdvertencia ?? "Con advertencia")</p>
                                     }
+                                </th>
+                                <td data-label="Precio anterior" class="inv-col-num">$ @item.PrecioAnterior.ToString("N2")</td>
+                                <td data-label="Precio nuevo" class="inv-col-num"><span class="inv-importe">$ @item.PrecioNuevo.ToString("N2")</span></td>
+                                <td data-label="Diferencia" class="inv-col-num">
+                                    @(item.DiferenciaValor >= 0 ? "+" : "−")$ @Math.Abs(item.DiferenciaValor).ToString("N2")
+                                    <p class="inv-ayuda-texto">@(item.DiferenciaPorcentaje >= 0 ? "+" : "")@item.DiferenciaPorcentaje.ToString("N1") %</p>
                                 </td>
-                                <td class="px-4 py-3 text-right text-slate-400">$@item.PrecioAnterior.ToString("N2")</td>
-                                <td class="px-4 py-3 text-right font-semibold text-slate-100">$@item.PrecioNuevo.ToString("N2")</td>
-                                <td class="px-4 py-3 text-right @(item.DiferenciaValor >= 0 ? "text-emerald-400" : "text-red-400")">
-                                    @(item.DiferenciaValor >= 0 ? "+" : "")$@item.DiferenciaValor.ToString("N2")
-                                    <span class="block text-xs">@(item.DiferenciaPorcentaje >= 0 ? "+" : "")@item.DiferenciaPorcentaje.ToString("N1")%</span>
-                                </td>
-                                <td class="px-4 py-3 text-right text-slate-400">@(item.MargenAnterior.HasValue ? item.MargenAnterior.Value.ToString("N1") + "%" : "—")</td>
-                                <td class="px-4 py-3 text-right @(item.MargenNuevo.HasValue && item.MargenNuevo < 10 ? "text-red-400" : "text-slate-300")">
-                                    @(item.MargenNuevo.HasValue ? item.MargenNuevo.Value.ToString("N1") + "%" : "—")
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    @if (item.TieneAdvertencia)
-                                    {
-                                        <span class="badge-erp badge-erp-warning text-xs">aviso</span>
-                                    }
+                                <td data-label="Margen" class="inv-col-num">
+                                    @(item.MargenAnterior.HasValue ? item.MargenAnterior.Value.ToString("N1") + " %" : "—") →
+                                    <span class="@(item.MargenNuevo < 0 ? "inv-text-danger" : null)">@(item.MargenNuevo.HasValue ? item.MargenNuevo.Value.ToString("N1") + " %" : "—")</span>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-            @if (Model.CantidadProductos > Model.TamanioPagina)
+            @if (paginas > 1)
             {
-                <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between text-sm text-slate-400">
-                    <span>Mostrando página @Model.PaginaActual de @((int)Math.Ceiling((double)Model.CantidadProductos / Model.TamanioPagina))</span>
-                    <div class="flex gap-2">
-                        @if (Model.PaginaActual > 1)
-                        {
-                            <a asp-action="Preview" asp-route-id="@Model.BatchId" asp-route-page="@(Model.PaginaActual - 1)" class="btn-erp-ghost btn-erp-sm">Anterior</a>
-                        }
-                        @if (Model.PaginaActual * Model.TamanioPagina < Model.CantidadProductos)
-                        {
-                            <a asp-action="Preview" asp-route-id="@Model.BatchId" asp-route-page="@(Model.PaginaActual + 1)" class="btn-erp-ghost btn-erp-sm">Siguiente</a>
-                        }
-                    </div>
-                </div>
+                <nav class="inv-pager" aria-label="Páginas del lote">
+                    @if (Model.PaginaActual > 1)
+                    {
+                        <a asp-action="Preview" asp-route-id="@Model.BatchId" asp-route-page="@(Model.PaginaActual - 1)" class="inv-btn inv-btn--ghost" rel="prev">Anterior</a>
+                    }
+                    <span aria-current="page">Página @Model.PaginaActual de @paginas</span>
+                    @if (Model.PaginaActual < paginas)
+                    {
+                        <a asp-action="Preview" asp-route-id="@Model.BatchId" asp-route-page="@(Model.PaginaActual + 1)" class="inv-btn inv-btn--ghost" rel="next">Siguiente</a>
+                    }
+                </nav>
             }
         }
         else
         {
-            <div class="px-6 py-10 text-center text-sm text-slate-400">
-                <span class="material-symbols-outlined text-3xl block mb-2">inventory_2</span>
-                No hay productos en esta simulación.
+            <div class="inv-empty">
+                <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                <p class="inv-empty__title">Este lote no tiene precios.</p>
             </div>
         }
     </section>
-
 </div>

@@ -79,7 +79,11 @@
                                 @if (Model.PuedeEliminar && !l.EsPredeterminada)
                                 {
                                     <form asp-action="Baja" asp-route-id="@l.Id" method="post" class="inline"
-                                          data-lp-baja data-lp-nombre="@l.Nombre">
+                                          data-lp-baja data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
+                                              titulo = "¿Dar de baja esta lista de precios?",
+                                              datos = new[] { new[] { "Lista", l.Nombre }, new[] { "Productos con precio vigente", r.PreciosVigentes.ToString() } },
+                                              consecuencias = new[] { "La lista deja de poder usarse.", "Sus precios y su historial se conservan." },
+                                              etiquetaConfirmar = "Dar de baja la lista" })">
                                         <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(l.RowVersion)" />
                                         <button type="submit" class="row-action row-action--danger"
                                                 aria-label="Dar de baja la lista @l.Nombre" title="Dar de baja">
@@ -114,6 +118,5 @@
 
 
 @section Scripts {
-    <script src="~/js/lista-precio.js" asp-append-version="true"></script>
     <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>
 }

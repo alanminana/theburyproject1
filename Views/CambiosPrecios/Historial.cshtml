@@ -1,104 +1,85 @@
 @model TheBuryProject.ViewModels.HistorialPreciosViewModel
 @using Microsoft.AspNetCore.Mvc.Rendering
 @{
-    ViewData["Title"] = "Historial de Precios — " + Model.ProductoNombre;
+    ViewData["Title"] = "Historial de precios — " + Model.ProductoNombre;
     var listas = ViewBag.Listas as SelectList ?? new SelectList(Enumerable.Empty<object>());
 }
 
-<div class="max-w-5xl mx-auto space-y-6">
-
-    <div class="flex items-center gap-3">
-        <a asp-controller="Catalogo" asp-action="Index" class="text-slate-400 hover:text-slate-200 transition-colors">
-            <span class="material-symbols-outlined text-xl">arrow_back</span>
-        </a>
-        <div class="flex-1 min-w-0">
-            <p class="text-xs text-slate-400 mb-0.5">Historial de precios</p>
-            <h1 class="text-2xl font-bold text-slate-100 truncate">@Model.ProductoNombre</h1>
-            <p class="text-sm text-slate-400">Código: @Model.ProductoCodigo</p>
+<div class="inv-screen inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            <h1>@Model.ProductoNombre</h1>
+            <p>Historial de precios · @Model.ProductoCodigo</p>
         </div>
-    </div>
-
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
-        </div>
-    }
-
-    <section class="card-erp-panel">
-        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap items-center gap-3">
-            <h2 class="font-semibold text-slate-100 flex items-center gap-2 flex-1">
-                <span class="material-symbols-outlined text-primary text-xl">history</span>
-                Historial de precios
-                <span class="ml-auto text-xs font-normal text-slate-400">@Model.Precios.Count registros</span>
-            </h2>
-            @if (User.TienePermiso("precios", "history"))
-            {
-                <a asp-action="ExportarHistorial" asp-route-productoId="@Model.ProductoId"
-                   class="btn-erp-secondary btn-sm no-underline" title="Exporta el último año de todas las listas">
-                    <span class="material-symbols-outlined text-base" aria-hidden="true">download</span>
+        @if (User.TienePermiso("precios", "history"))
+        {
+            <div class="inv-head__acciones">
+                <a asp-action="ExportarHistorial" asp-route-productoId="@Model.ProductoId" class="inv-btn inv-btn--ghost"
+                   title="Exporta el último año de todas las listas">
+                    <span class="material-symbols-outlined" aria-hidden="true">download</span>
                     Exportar Excel
                 </a>
-            }
-            <form asp-action="Historial" method="get" class="flex items-center gap-2">
+            </div>
+        }
+    </header>
+
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    <section class="inv-panel inv-panel--tabla" aria-labelledby="historial-listas">
+        <div class="inv-panel__cabecera">
+            <div>
+                <h2 id="historial-listas" class="inv-panel__titulo">Precios en listas</h2>
+                <p class="inv-ayuda-texto">@Model.Precios.Count @(Model.Precios.Count == 1 ? "registro" : "registros")</p>
+            </div>
+            <form asp-action="Historial" method="get" class="inv-actions">
                 <input type="hidden" name="productoId" value="@Model.ProductoId" />
-                <select name="listaId" aria-label="Lista de precios"
-                        class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select name="listaId" aria-label="Lista de precios" class="inv-control">
                     <option value="">Todas las listas</option>
                     @foreach (var item in listas)
                     {
-                        <option value="@item.Value" selected="@(Model.ListaId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                        <option value="@item.Value" selected="@(Model.ListaId?.ToString() == item.Value)">@item.Text</option>
                     }
                 </select>
-                <button type="submit" class="btn-erp-ghost btn-erp-sm">
-                    <span class="material-symbols-outlined text-base">filter_list</span>
-                </button>
+                <button type="submit" class="inv-btn inv-btn--ghost">Filtrar</button>
             </form>
         </div>
 
         @if (Model.Precios.Any())
         {
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de precios en listas">
+                <table class="inv-table inv-table--apilable">
                     <thead>
-                        <tr class="border-b border-slate-800 bg-slate-800/50">
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Lista</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Precio</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Costo</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Margen</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Vigente desde</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Vigente hasta</th>
-                            <th class="px-4 py-3 text-center font-medium text-slate-400">Estado</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Creado por</th>
+                        <tr>
+                            <th scope="col">Lista</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col" class="inv-col-num">Precio</th>
+                            <th scope="col" class="inv-col-num">Costo</th>
+                            <th scope="col" class="inv-col-num">Margen</th>
+                            <th scope="col">Vigencia</th>
+                            <th scope="col">Cargado por</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-800">
+                    <tbody>
                         @foreach (var p in Model.Precios)
                         {
-                            <tr class="hover:bg-slate-800/50 transition-colors @(p.EsVigente ? "bg-emerald-900/10" : "")">
-                                <td class="px-4 py-3 text-slate-300">@p.ListaNombre</td>
-                                <td class="px-4 py-3 text-right font-semibold text-slate-100">$@p.Precio.ToString("N2")</td>
-                                <td class="px-4 py-3 text-right text-slate-400">$@p.Costo.ToString("N2")</td>
-                                <td class="px-4 py-3 text-right @(p.MargenPorcentaje < 10 ? "text-red-400" : p.MargenPorcentaje < 20 ? "text-amber-400" : "text-emerald-400")">
-                                    @p.MargenPorcentaje.ToString("N1")%
-                                </td>
-                                <td class="px-4 py-3 text-slate-400 text-xs">@p.VigenciaDesde.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</td>
-                                <td class="px-4 py-3 text-slate-400 text-xs">@(p.VigenciaHasta.HasValue ? p.VigenciaHasta.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") : "—")</td>
-                                <td class="px-4 py-3 text-center">
-                                    @if (p.EsVigente)
-                                    {
-                                        <span class="badge-erp badge-erp-success">vigente</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge-erp">histórico</span>
-                                    }
+                            <tr>
+                                <th scope="row">@p.ListaNombre</th>
+                                <td data-label="Estado">
+                                    <span class="@(p.EsVigente ? "inv-pill inv-pill--ok" : "inv-pill inv-pill--muted")">@(p.EsVigente ? "Vigente" : "Histórico")</span>
                                     @if (p.EsManual)
                                     {
-                                        <span class="badge-erp badge-erp-info ml-1">manual</span>
+                                        <span class="inv-pill">Manual</span>
                                     }
                                 </td>
-                                <td class="px-4 py-3 text-slate-400">@(p.CreadoPor ?? "—")</td>
+                                <td data-label="Precio" class="inv-col-num"><span class="inv-importe">$ @p.Precio.ToString("N2")</span></td>
+                                <td data-label="Costo" class="inv-col-num">$ @p.Costo.ToString("N2")</td>
+                                <td data-label="Margen" class="inv-col-num"><span class="@(p.MargenPorcentaje < 0 ? "inv-text-danger" : null)">@p.MargenPorcentaje.ToString("N1") %</span></td>
+                                <td data-label="Vigencia">
+                                    @p.VigenciaDesde.AHoraComercial().ToString("dd/MM/yyyy HH:mm")
+                                    <p class="inv-ayuda-texto">@(p.VigenciaHasta.HasValue ? "hasta " + p.VigenciaHasta.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm") : "sin fecha de fin")</p>
+                                </td>
+                                <td data-label="Cargado por">@(p.CreadoPor ?? "—")</td>
                             </tr>
                         }
                     </tbody>
@@ -107,11 +88,51 @@
         }
         else
         {
-            <div class="px-6 py-10 text-center text-sm text-slate-400">
-                <span class="material-symbols-outlined text-3xl block mb-2">history</span>
-                No hay registros de precios para este producto.
+            <div class="inv-empty">
+                <p class="inv-empty__title">Este producto no tiene precios en listas@(Model.ListaId.HasValue ? " en la lista elegida" : "").</p>
+                <p>Sin precio en la lista predeterminada, Venta y Cotización usan el precio base.</p>
             </div>
         }
     </section>
 
+    <section class="inv-panel inv-panel--tabla" aria-labelledby="historial-cambios">
+        <div class="inv-panel__cabecera">
+            <div>
+                <h2 id="historial-cambios" class="inv-panel__titulo">Cambios de precio del producto</h2>
+                <p class="inv-ayuda-texto">Los mismos que muestra «Historial de precios» en el listado de productos, incluidos los del precio base.</p>
+            </div>
+        </div>
+        @if (Model.CambiosDeProducto.Any())
+        {
+            <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de cambios de precio del producto">
+                <table class="inv-table inv-table--apilable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col" class="inv-col-num">Precio anterior</th>
+                            <th scope="col" class="inv-col-num">Precio nuevo</th>
+                            <th scope="col">Motivo</th>
+                            <th scope="col">Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cambio in Model.CambiosDeProducto)
+                        {
+                            <tr>
+                                <th scope="row">@cambio.Fecha.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</th>
+                                <td data-label="Precio anterior" class="inv-col-num">$ @cambio.PrecioAnterior.ToString("N2")</td>
+                                <td data-label="Precio nuevo" class="inv-col-num"><span class="inv-importe">$ @cambio.PrecioNuevo.ToString("N2")</span></td>
+                                <td data-label="Motivo">@(cambio.Motivo ?? "Sin motivo")</td>
+                                <td data-label="Usuario">@cambio.Usuario</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="inv-empty"><p>No hay cambios registrados sobre este producto.</p></div>
+        }
+    </section>
 </div>

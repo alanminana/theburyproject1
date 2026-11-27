@@ -1,93 +1,52 @@
 @model TheBuryProject.ViewModels.RevertirBatchViewModel
 @{
-    ViewData["Title"] = "Revertir Batch";
+    ViewData["Title"] = "Revertir lote";
+    var precios = LoteDePreciosUi.Precios(Model.CantidadProductos);
 }
 
-<div class="max-w-2xl mx-auto space-y-6">
-
-    <div class="flex items-center gap-3">
-        <a asp-action="Preview" asp-route-id="@Model.BatchId" class="text-slate-400 hover:text-slate-200 transition-colors">
-            <span class="material-symbols-outlined text-xl">arrow_back</span>
-        </a>
-        <div>
-            <h1 class="text-2xl font-bold text-slate-100">Revertir Batch</h1>
-            <p class="text-sm text-slate-400">Se restaurarán los precios vigentes anteriores al batch.</p>
+<div class="inv-screen inv-screen--form inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-action="Preview" asp-route-id="@Model.BatchId" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Volver al lote</a>
+            <h1>Revertir «@Model.Nombre»</h1>
+            <p>Restaura los precios que estaban vigentes antes de este lote.</p>
         </div>
-    </div>
+    </header>
 
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    <dl class="inv-panel inv-resumen">
+        <div><dt>Precios que vuelven atrás</dt><dd>@Model.CantidadProductos</dd></div>
+        @if (Model.AplicadoPor != null)
+        {
+            <div><dt>Aplicado por</dt><dd>@Model.AplicadoPor</dd></div>
+        }
+        @if (Model.FechaAplicacion.HasValue)
+        {
+            <div><dt>Fecha de aplicación</dt><dd>@Model.FechaAplicacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</dd></div>
+        }
+        @if (Model.FechaVigencia.HasValue)
+        {
+            <div><dt>Vigente desde</dt><dd>@Model.FechaVigencia.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</dd></div>
+        }
+    </dl>
+
+    <form asp-action="RevertirConfirmed" method="post" class="inv-panel" data-prevent-double-submit
+          data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
+              titulo = $"¿Revertir {precios}?",
+              datos = new object[] { new[] { "Lote", Model.Nombre }, new[] { "Precios que vuelven atrás", Model.CantidadProductos.ToString() }, new { etiqueta = "Motivo", campo = "Motivo" } },
+              consecuencias = new[] { "Los precios anteriores vuelven a estar vigentes de inmediato.", "Se registra un lote de reversión con tu usuario." },
+              etiquetaConfirmar = $"Revertir {precios}" })">
+        <input type="hidden" name="id" value="@Model.BatchId" />
+        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
+        <div class="inv-campo">
+            <label asp-for="Motivo" class="inv-campo__etiqueta">Motivo de la reversión</label>
+            <textarea asp-for="Motivo" rows="3" required class="inv-control"></textarea>
+            <span asp-validation-for="Motivo" class="inv-campo__error"></span>
         </div>
-    }
-
-    <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400 flex items-start gap-2">
-        <span class="material-symbols-outlined text-base mt-0.5 shrink-0">warning</span>
-        <span>Se revertirán los precios de <strong>@Model.CantidadProductos productos</strong>. Se creará un nuevo batch de reversión auditable.</span>
-    </div>
-
-    <section class="card-erp-panel-padded space-y-4">
-        <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary text-xl">info</span>
-            Detalle del batch a revertir
-        </h2>
-        <div class="grid gap-3 sm:grid-cols-2 text-sm">
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Nombre</p>
-                <p class="text-slate-100 font-medium">@Model.Nombre</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Productos afectados</p>
-                <p class="text-slate-100 font-semibold text-lg">@Model.CantidadProductos</p>
-            </div>
-            @if (Model.AplicadoPor != null)
-            {
-                <div>
-                    <p class="text-xs text-slate-400 mb-0.5">Aplicado por</p>
-                    <p class="text-slate-100">@Model.AplicadoPor</p>
-                </div>
-            }
-            @if (Model.FechaAplicacion.HasValue)
-            {
-                <div>
-                    <p class="text-xs text-slate-400 mb-0.5">Fecha aplicación</p>
-                    <p class="text-slate-100">@Model.FechaAplicacion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
-                </div>
-            }
-            @if (Model.FechaVigencia.HasValue)
-            {
-                <div>
-                    <p class="text-xs text-slate-400 mb-0.5">Vigente desde</p>
-                    <p class="text-slate-100">@Model.FechaVigencia.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
-                </div>
-            }
+        <div class="inv-actions">
+            <a asp-action="Preview" asp-route-id="@Model.BatchId" class="inv-btn inv-btn--ghost">Volver</a>
+            <button type="submit" class="inv-btn inv-btn--danger">Revertir @precios</button>
         </div>
-    </section>
-
-    <section class="card-erp-panel-padded">
-        <form asp-action="RevertirConfirmed" method="post" class="space-y-4">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@Model.BatchId" />
-            <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-            <div class="space-y-1">
-                <label asp-for="Motivo" class="text-xs font-medium text-slate-400">
-                    Motivo de la reversión <span class="text-red-400">*</span>
-                </label>
-                <textarea asp-for="Motivo" rows="3" required
-                          class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          placeholder="Explicá por qué se revierte este cambio..."></textarea>
-                <span asp-validation-for="Motivo" class="text-xs text-red-400"></span>
-            </div>
-            <div class="flex justify-end gap-3 pt-2">
-                <a asp-action="Preview" asp-route-id="@Model.BatchId" class="btn-erp-ghost">Cancelar</a>
-                <button type="submit" class="btn-erp-danger"
-                        data-confirm="¿Confirmar la reversión? Los precios anteriores serán restaurados.">
-                    <span class="material-symbols-outlined text-base">undo</span>
-                    Revertir batch
-                </button>
-            </div>
-        </form>
-    </section>
-
+    </form>
 </div>

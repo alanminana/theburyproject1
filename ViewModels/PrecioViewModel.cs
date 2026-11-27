@@ -70,6 +70,9 @@ public class HistorialPreciosViewModel
     public string ProductoNombre { get; set; } = string.Empty;
     public int? ListaId { get; set; }
     public List<PrecioHistorialItemViewModel> Precios { get; set; } = new();
+
+    /// <summary>Cambios de precio registrados sobre el producto (los mismos que muestra el historial del catálogo).</summary>
+    public List<HistorialPrecioProductoItemViewModel> CambiosDeProducto { get; set; } = new();
 }
 
 /// <summary>
@@ -155,6 +158,9 @@ public class SimulacionViewModel
     public string SolicitadoPor { get; set; } = string.Empty;
     public DateTime FechaSolicitud { get; set; }
     public bool RequiereAutorizacion { get; set; }
+    public string? MotivoRechazo { get; set; }
+    public string? MotivoCancelacion { get; set; }
+    public string? MotivoReversion { get; set; }
     public List<SimulacionItemViewModel> Items { get; set; } = new();
     public Dictionary<string, object>? Estadisticas { get; set; }
     public int PaginaActual { get; set; }

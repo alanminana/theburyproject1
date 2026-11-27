@@ -1,0 +1,8 @@
+@if (TempData["Success"] != null)
+{
+    <p class="inv-aviso inv-aviso--ok" role="status">@TempData["Success"]</p>
+}
+@if (TempData["Error"] != null)
+{
+    <p class="inv-aviso inv-aviso--error" role="alert">@TempData["Error"]</p>
+}

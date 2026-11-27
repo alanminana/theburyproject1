@@ -853,6 +853,9 @@ public class CambiosPreciosController : Controller
                 SolicitadoPor = batch.SolicitadoPor,
                 FechaSolicitud = batch.FechaSolicitud,
                 RequiereAutorizacion = batch.RequiereAutorizacion,
+                MotivoRechazo = batch.MotivoRechazo,
+                MotivoCancelacion = batch.MotivoCancelacion,
+                MotivoReversion = batch.MotivoReversion,
                 Items = items.Select(i => new SimulacionItemViewModel
                 {
                     ProductoCodigo = i.ProductoCodigo,
@@ -1277,7 +1280,7 @@ public class CambiosPreciosController : Controller
     /// Muestra el historial de precios de un producto
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Historial(int productoId, int? listaId)
+    public async Task<IActionResult> Historial(int productoId, int? listaId, [FromServices] ICatalogoService catalogoService)
     {
         try
         {
@@ -1315,6 +1318,10 @@ public class CambiosPreciosController : Controller
             };
 
             ViewBag.Listas = new SelectList(await _precioService.GetAllListasAsync(), "Id", "Nombre", listaId);
+
+            // Los cambios del precio base no generan filas en las listas: sin esta sección la página decía «0 registros»
+            // para un producto cuyo historial del catálogo mostraba varios cambios.
+            viewModel.CambiosDeProducto = await catalogoService.GetHistorialCambiosPrecioProductoAsync(productoId);
 
             return View(viewModel);
         }
