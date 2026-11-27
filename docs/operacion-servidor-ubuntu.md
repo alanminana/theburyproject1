@@ -20,7 +20,9 @@ test -n "$ERP_IMAGE" && docker image inspect "$ERP_IMAGE" >/dev/null && docker c
 ```
 
 Si el archivo no existe o la imagen no está, **no** ejecutar `up`: volver a desplegar con `install.sh` (§2) o seguir §6.
-`docker compose ps`, `logs`, `stop` y `start` no recrean contenedores y no necesitan la variable.
+`docker compose ps`, `logs` y `stop` no recrean contenedores y no necesitan la variable. `start` y `restart` tampoco los recrean, pero
+**ejecutan también `db-init` y `migrate`** con la imagen que tenga cada contenedor: sin efecto en una instalación normal; tras una vuelta atrás,
+leer §5 antes de usarlos.
 
 ## 1. Estado y verificación
 
@@ -34,7 +36,7 @@ scripts/install/verificar-servidor.sh --project theburyproject --lan-cidr 192.16
 listar **exactamente** los orígenes autorizados en `/etc/bury/firewall.conf`.
 
 Tras un reinicio: los contenedores con `restart: unless-stopped` vuelven solos. Los detenidos a propósito (`docker stop`, `compose stop`, o un
-reinicio durante `backup.sh all`) no vuelven: usar el bloque de §0. Comprobar además `sudo bury-firewall status` (ver §7).
+reinicio durante `backup.sh all`) no vuelven: usar el bloque de §0. Comprobar además `sudo bury-firewall verify` (ver §7).
 
 ## 2. Actualizar a una versión nueva
 
@@ -66,7 +68,9 @@ reinicio durante `backup.sh all`) no vuelven: usar el bloque de §0. Comprobar a
 
    Orden: construir imagen `AAAAMMDD-<commit>` → preflight → respaldo SQL → `db-init` → `migrate` → `app` → health → smoke → Caddy → verificación de
    la imagen efectiva. Si `migrate` falla, la `app` anterior sigue corriendo. Códigos de salida: [deploy-rollback.md](deploy-rollback.md).
-5. **Verificar** (§1), iniciar sesión y abrir una pantalla de cada módulo usado.
+5. **Verificar** (§1), iniciar sesión y abrir una pantalla de cada módulo usado. Si `verificar-servidor.sh` informa `V17c` (el firewall
+   instalado difiere del repositorio), repetir el bootstrap con los parámetros actuales ([red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6):
+   actualizar el ERP **no** actualiza el firewall del anfitrión.
 6. **Registrar** commit, imagen y fecha ([sincronizacion-entornos.md](sincronizacion-entornos.md)) y **crear un paquete de recuperación nuevo** (§3.2):
    su manifiesto guarda el commit que habrá que usar para recuperar.
 
@@ -101,6 +105,10 @@ extraíble cifrado **que se guarde fuera del local**.
 Verificar una vez **en otro equipo**: `scripts/backup/recovery-package.sh verify <paquete>.gpg`. Regenerar el paquete tras cada actualización o
 cambio de `.env`.
 
+**La passphrase es la pieza que hace útil todo lo demás.** Las claves `crypt` van dentro del paquete: con las copias y el paquete a salvo, pero
+la passphrase solo en el servidor, perder el servidor deja las copias ilegibles. La clave SFTP, en cambio, se puede reemplazar si se administra
+el destino (generar otra y autorizarla allí).
+
 ## 4. Restaurar (sin perder el servidor)
 
 Probar siempre primero en una base distinta; no es destructivo:
@@ -123,10 +131,18 @@ Restauración de archivos: [backup-restore.md](backup-restore.md) §9.3 (`--forc
 | Sin migraciones, o solo categoría A | `scripts/deploy/rollback.sh --confirm-compatible` (usa `previous-image`) o `--to-image <imagen>` |
 | Con categoría B o C | No usar solo `rollback.sh`: preferir una corrección hacia adelante; si no alcanza, restaurar la base (abajo) |
 
-Después, `git switch --detach <commit anterior>` para que los scripts coincidan con la imagen, y registrar el motivo.
+Ejecutar `rollback.sh` **antes** de cambiar el código del clon: la versión actual del script, además de volver la imagen de `app`, recrea el
+contenedor `migrate` con la imagen de destino **sin ejecutarlo**. Después, `git switch --detach <commit anterior>` para que los scripts coincidan
+con la imagen, y registrar el motivo.
 
-**Restaurar la base al estado anterior a la actualización — NO VALIDADO como secuencia completa** (cada script se probó por separado). Ensayarla
-antes en una instalación descartable. Pierde todo lo cargado después del respaldo.
+> **Por qué importa** (reproducido el 2026-11-27 con la versión anterior de los scripts): `migrate` conservaba la imagen nueva y
+> `docker compose start app` lo ejecutaba como dependencia. El primer `backup.sh all` después de volver atrás **migró otra vez la base
+> restaurada**, con la aplicación vieja encima. Si se hizo una vuelta atrás con scripts anteriores al 2026-11-27, comprobar cuántas
+> migraciones tiene la base. Mientras exista ese contenedor viejo, no ejecutar `backup.sh`, `docker compose start` ni `restart`:
+> `ERP_IMAGE=<imagen anterior> docker compose up --no-start --no-deps --force-recreate migrate` lo corrige.
+
+**Restaurar la base al estado anterior a la actualización.** Secuencia ensayada el 2026-11-27 en una VM Ubuntu descartable, de `c442b380`
+(137 migraciones) a 145 y de vuelta. **Pierde todo lo cargado después del respaldo** y requiere autorización del propietario.
 
 ```bash
 scripts/backup/backup.sh full                       # conservar el estado actual antes de reemplazarlo
@@ -135,13 +151,20 @@ scripts/backup/restore-sql.sh --list                # elegir el full previo a la
 scripts/backup/restore-sql.sh --backup <full-previo>.bak --target-db TheBuryProjectDb \
     --overwrite --confirm-overwrite TheBuryProjectDb
 scripts/deploy/rollback.sh --confirm-compatible     # imagen anterior; no ejecuta migrate
+git switch --detach <commit anterior>
 ```
 
-No usar `--with-logs` aquí: reaplicaría los cambios posteriores. No ejecutar `install.sh` ni `up` con la imagen nueva: volvería a migrar.
+Anotar el nombre del full de §2 paso 3 **antes** de actualizar: después hay varios, porque el despliegue toma otro y este procedimiento
+empieza tomando uno más. No usar `--with-logs` aquí: reaplicaría los cambios posteriores. `restore-sql.sh` termina sugiriendo
+`docker compose up -d`: **no ejecutarlo** durante una vuelta atrás. No ejecutar `install.sh` ni `up` con la imagen nueva: volvería a migrar.
+
+Comprobar después: cantidad de migraciones, `/health/ready`, un inicio de sesión y `scripts/backup/backup.sh all && scripts/backup/restore-test.sh`.
+Los **archivos subidos no se revierten** con esta secuencia: quedan los actuales. Un `up` posterior debe usar `current-image` (§0).
 
 ## 6. Recuperación completa en una máquina Ubuntu nueva
 
-Para cuando el servidor original ya no existe. **No usa nada de él**, salvo lo que se resguardó afuera.
+Para cuando el servidor original ya no existe. **No usa nada de él**, salvo lo que se resguardó afuera. Ensayado el 2026-11-27 en una VM
+Ubuntu nueva con la opción A (SFTP cifrado de prueba); la opción B tiene la evidencia anterior ([evidencias-instalacion.md](evidencias-instalacion.md)).
 
 ### 6.1 Requisitos: sin esto no hay recuperación
 
@@ -164,13 +187,16 @@ sudo scripts/install/server-linux-bootstrap.sh --user "$USER" --allow-from 192.1
 exit   # abrir una sesión nueva para tomar el grupo docker
 ```
 
+Ejecutar el bootstrap **ahora, con el código de `main`**, y no repetirlo después de cambiar de commit en §6.3: un commit viejo instalaría un
+firewall viejo. La imagen se compila en este equipo: hace falta la RAM y el swap de [instalacion-servidor.md](instalacion-servidor.md) §4.
+
 Opciones y controles del firewall: [red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6. `--admin-from` debe incluir la IP de la sesión SSH actual.
 
 ### 6.3 Secretos y versión del código
 
 ```bash
 cd ~/theburyproject1
-scripts/backup/recovery-package.sh extract /ruta/bury-recovery_<fecha>.gpg --to /dev/shm/rec    # pide la passphrase
+scripts/backup/recovery-package.sh extract /ruta/bury-recovery_<fecha>.gpg --to /dev/shm/rec    # pide la passphrase (o --passphrase-file)
 cat /dev/shm/rec/MANIFEST.txt                  # fecha, "commit=" y archivos incluidos
 install -m 600 /dev/shm/rec/.env .env
 [ -f /dev/shm/rec/backup-offsite.env ] && install -m 600 /dev/shm/rec/backup-offsite.env backup-offsite.env
@@ -218,7 +244,7 @@ sudo umount /mnt/recup && sudo cryptsetup close recup && sudo rm -rf /dev/shm/lu
 ```bash
 export ERP_IMAGE="theburyproject/erp:$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)"
 docker build -t "$ERP_IMAGE" .
-scripts/backup/recover.sh --plan          # muestra el par SQL + archivos elegido; no cambia nada
+scripts/backup/recover.sh --plan          # muestra el par elegido (con --with-logs, también los logs); no cambia nada
 scripts/backup/recover.sh --apply         # agregar --with-logs para lo más reciente (leer backup-restore.md §10.2)
 ```
 
@@ -243,13 +269,28 @@ scripts/install/verificar-servidor.sh --project theburyproject --lan-cidr 192.16
 Luego: apuntar `ERP_DOMAIN` a la IP nueva (DNS local o `hosts`), comparar la huella de la CA (si cambió, reinstalarla en los clientes),
 iniciar sesión, abrir un cliente o venta reciente, un documento subido y un contrato, y reconfigurar la copia externa y la custodia.
 
-## 7. Si el firewall no está aplicado
+## 7. Firewall: comprobar, y qué hacer si Docker no arranca
 
-El 443 que publica Docker lo filtra **únicamente** la cadena de `DOCKER-USER` que crea `bury-firewall`; `ufw` no lo filtra. El arranque de Docker
-tolera un fallo al aplicarla: **en ese caso el 443 queda abierto**. Comprobar tras instalar, reiniciar o actualizar Docker:
+El 443 que publica Docker lo filtra **únicamente** la cadena de `DOCKER-USER` que crea `bury-firewall`; `ufw` no lo filtra. El firewall
+**falla cerrado**: si no se puede aplicar o comprobar, **Docker no queda en marcha** y el ERP está caído para todos. Detalle y límites:
+[red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6.
+
+Comprobar tras instalar, reiniciar o actualizar Docker:
 
 ```bash
-systemctl is-active bury-firewall && sudo bury-firewall status    # debe listar BURY-ERP con los orígenes y el DROP final
+systemctl is-active docker bury-firewall && sudo bury-firewall verify     # "verificado (BURY-ERP, puerto 443)"
 ```
 
-Si falta: `sudo systemctl restart bury-firewall` y revisar `journalctl -u bury-firewall`. Nunca usar `bury-firewall remove` en producción.
+Si el ERP no responde y `docker` figura `failed`:
+
+```bash
+journalctl -u docker -b --no-pager | grep bury-firewall                   # la causa
+# corregirla (normalmente /etc/bury/firewall.conf o /etc/docker/daemon.json)
+sudo bury-firewall guard && sudo systemctl reset-failed docker && sudo systemctl start docker && sudo systemctl start bury-firewall
+docker compose ps                                                          # los contenedores vuelven solos
+```
+
+Mientras Docker está caído **no corren los respaldos**: resolverlo no puede esperar. Nunca borrar el drop-in ni usar `bury-firewall remove`.
+
+**Instalación anterior al 2026-11-27:** su firewall falla abierto y `git pull` no lo corrige. Seguir «Servidores instalados antes del 2026-11-27»
+en [red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6. `verificar-servidor.sh` lo señala como `V17b FAIL`.

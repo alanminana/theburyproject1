@@ -63,7 +63,7 @@ La comprobación de archivos evalúa el proyecto: no detecta archivos que un *ta
 Opciones: `-SoloVerificar`, `-Actualizar` (fast-forward), `-Base <nombre>` (otra base local), `-Servidor`, `-Puerto`.
 
 Pruebas del lanzador (repositorios temporales; `sqlcmd` y `dotnet run` simulados, evaluación de MSBuild real): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-iniciar-erp-local.ps1`.
-Todavía **no** corren en CI.
+En CI corren en el job `windows-scripts` (Windows PowerShell 5.1).
 
 ## Si el puerto está ocupado
 

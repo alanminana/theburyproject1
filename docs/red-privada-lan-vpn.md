@@ -136,23 +136,55 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      | Reglas | Cadena `BURY-ERP` en `DOCKER-USER`: permite los orígenes listados y descarta el resto, TCP y UDP |
      | Alcance | Solo conexiones **entrantes** redirigidas a un contenedor (`--ctstate DNAT`); no afecta el HTTPS saliente |
      | Tailscale | El bootstrap ata los orígenes `100.64.0.0/10` a `tailscale0`, para que no se suplanten desde la LAN |
-     | Persistencia | `bury-firewall.service` y un `ExecStartPost` de Docker |
+     | Persistencia | Drop-in de `docker.service` y `bury-firewall.service` |
 
-     Cambiar orígenes: repetir el bootstrap con el `--allow-from` completo (reescribe `firewall.conf`), o editar el archivo y ejecutar
-     `sudo bury-firewall apply`. Comprobar: `systemctl is-active bury-firewall && sudo bury-firewall status`. Vista previa sin cambios:
-     `bury-firewall.sh print`.
+     **Falla cerrado** (desde 2026-11-27). El drop-in ejecuta dos pasos que **no toleran fallos**:
 
-     **Límites:** (1) si aplicar las reglas falla durante el arranque, Docker arranca igual y **el 443 queda abierto**: comprobar el estado tras cada
-     reinicio o actualización de Docker; (2) entre el arranque de los contenedores y la aplicación de las reglas puede haber una ventana corta;
-     (3) solo IPv4: `ERP_BIND_ADDRESS` debe ser IPv4 (el valor `0.0.0.0` no publica en IPv6; verificar con `ss -ltn`);
-     (4) `bury-firewall remove` deja el 443 abierto. Una segunda instalación en el mismo equipo necesita otra cadena y otro puerto
+     | Paso | Cuándo | Si falla |
+     |---|---|---|
+     | `bury-firewall guard` (`ExecStartPre`) | **Antes** de `dockerd`: crea `DOCKER-USER` si falta y aplica las reglas | Docker no arranca: no se publica ningún puerto |
+     | `bury-firewall verify` (`ExecStartPost`) | Después: comprueba `FORWARD` → `DOCKER-USER` → cadena con sus reglas exactas | systemd detiene Docker |
+
+     Detener o reiniciar `bury-firewall.service` **no** quita las reglas. También se rechaza arrancar si `/etc/docker/daemon.json` define
+     `"iptables": false` o `"firewall-backend": "nftables"`, porque `DOCKER-USER` dejaría de filtrar.
+
+     **El costo es la disponibilidad.** Con el firewall roto, el ERP queda caído para todos, también para la LAN, y **no corren los respaldos**
+     (la base está en un contenedor). SSH sigue funcionando. Recuperación:
+
+     ```bash
+     journalctl -u docker -b --no-pager | grep bury-firewall     # la causa
+     sudo nano /etc/bury/firewall.conf                           # corregirla
+     sudo bury-firewall guard && sudo systemctl reset-failed docker && sudo systemctl start docker && sudo systemctl start bury-firewall
+     ```
+
+     Los contenedores vuelven solos (`restart: unless-stopped`). Nunca "resolverlo" borrando el drop-in.
+
+     **Cambiar orígenes:** repetir el bootstrap con el `--allow-from` completo; reescribe `firewall.conf`, lo aplica sin reiniciar Docker y quita
+     el acceso a las redes retiradas. O editar el archivo y ejecutar `sudo bury-firewall apply`. Comprobar con `sudo bury-firewall verify`.
+     Vista previa sin cambios: `bury-firewall.sh print`.
+
+     **Servidores instalados antes del 2026-11-27:** su firewall **falla abierto**. `git pull` no lo actualiza, porque el que se usa es la copia
+     `/usr/local/sbin/bury-firewall`. Con la versión nueva en el clon, repetir el bootstrap **con los mismos `--allow-from` y `--https-port` que ya
+     tiene `/etc/bury/firewall.conf`**, agregando `--skip-docker` y, si no se quiere tocar `ufw`, `--no-ufw`. No reinicia Docker ni los contenedores.
+     Comprobar con `verificar-servidor.sh`: `V17b` y `V17c` en `PASS`. No volver a ejecutar el bootstrap desde un commit anterior.
+
+     **Segunda instalación en el mismo equipo:** archivo `/etc/bury/firewall-<nombre>.conf` con otro puerto; la cadena es `BURY-ERP-<NOMBRE>` en
+     mayúsculas. `guard` y `verify` la cubren automáticamente. Si su unidad es una copia de la versión anterior, el bootstrap le quita `ExecStop`.
+     Un archivo o cadena con **otra** convención de nombres **no** queda cubierto
      ([servidor-provisional-notebook.md](servidor-provisional-notebook.md) §2).
+
+     **Límites:** (1) protege el arranque y la reaplicación: si alguien borra las reglas con Docker en marcha (`iptables -F`,
+     `bury-firewall remove`), el 443 queda abierto hasta reaplicar, y ningún monitor incluido lo avisa (`Check-ErpHealth` solo mira que la unidad
+     esté activa); (2) solo IPv4: `ERP_BIND_ADDRESS` debe ser IPv4 (`0.0.0.0` no publica en IPv6; verificar con `ss -ltn`); (3) `guard` no sabe qué
+     puerto publica el ERP: si `HTTPS_PORT` no coincide con `ERP_HTTPS_PORT`, no lo protege (lo detecta `verificar-servidor.sh`, `V15`);
+     (4) con Tailscale sigue siendo necesario `--netfilter-mode=nodivert`.
 
      No escribir reglas manuales de `iptables` en su lugar: una versión anterior de esta guía proponía reglas sin `--ctstate DNAT`, que también
      descartarían el tráfico HTTPS saliente de los contenedores.
 
-     **Evidencia:** la prueba `scripts/install/test-firewall-isolation.sh` (Docker real y clientes en redes distintas) pasa 18/18 en CI. Cubre
-     `bury-firewall.sh`, no la instalación del servicio por el bootstrap. [evidencias-instalacion.md](evidencias-instalacion.md).
+     **Evidencia:** `test-firewall-isolation.sh` (reglas, 18 casos) y `test-firewall-failclosed.sh` (bootstrap, systemd y Docker reales con fallos
+     inducidos, 52 casos) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
+     [evidencias-instalacion.md](evidencias-instalacion.md).
    - **Windows + Docker Desktop**: el puerto lo abre un proceso de Windows (`com.docker.backend.exe`), así que Windows Defender Firewall sí aplica. Pero **una regla
      «Allow» de puerto desde la LAN (la que crea `install-windows.ps1`) no restringe nada si ya existe una regla Allow del programa `com.docker.backend.exe` sin
      límite de puerto/dirección** — en el equipo de prueba existía (perfil Público, cualquier puerto). Revisar:

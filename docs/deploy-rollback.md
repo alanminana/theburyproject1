@@ -275,6 +275,9 @@ Sin `--to-image`, usa la `previous-image` registrada por el último deploy exito
 (`.deploy-state/<project>/previous-image`). Detiene `app`, la levanta con `--no-deps` y la imagen
 destino (**nunca re-ejecuta `migrate`**), espera el health gate y corre el mismo smoke mínimo.
 
+Desde el 2026-11-27, antes de tocar `app` recrea además el contenedor `migrate` con la imagen destino, **sin ejecutarlo**. Antes conservaba la
+imagen nueva y el primer `backup.sh` o `docker compose start` volvía a migrar la base: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §5.
+
 **Probado en vivo, ciclo real B(rota)→A**:
 
 ```

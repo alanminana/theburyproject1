@@ -45,8 +45,8 @@ otro innecesariamente.
 | `compose-validate` | Valida sintaxis de `docker-compose.yml` (+ overlay dev, profile `tools`, monitoring) | Si |
 | `secret-scan` | Detecta secretos nuevos en los commits del push/PR (no re-escanea todo el historial) | Si |
 | `build-test-windows` | Paridad informativa en Windows (build + tests .NET) | No (`continue-on-error: true`) |
-| `windows-scripts` | Pruebas simuladas de los scripts de Windows (acceso, `Check-ErpHealth`, instalador, CA) | **Si en el workflow** (sin `continue-on-error`); en la rama protegida solo si se agrega a los required checks |
-| `network-security` | P-05: firewall/CA/Tailscale con Docker efimero | Falla el workflow; no esta en los required checks |
+| `windows-scripts` | Pruebas simuladas de los scripts de Windows (acceso, `Check-ErpHealth`, instalador, CA) y del lanzador local (28 casos, desde el 2026-11-27; usa el SDK de `global.json`) | **Si en el workflow** (sin `continue-on-error`); en la rama protegida solo si se agrega a los required checks |
+| `network-security` | P-05: firewall/CA/Tailscale con Docker efimero; desde el 2026-11-27, falla cerrada del firewall con el bootstrap y el systemd reales del runner (reinicia Docker) | Falla el workflow; no esta en los required checks |
 
 ### Checks obligatorios e informativos (2026-11-14)
 
@@ -58,7 +58,8 @@ Evidencia: historial de `ci.yml` del 12 al 14-11-2026 (60 corridas; 59 y 54 con 
 | `build-test-windows` | 54 | 54 | 8,7-14,5 min (limite 20 min) | **sigue informativo**: sin fallos, pero el runtime productivo es Linux y la duracion deja poco margen contra el timeout; un `timeout` del runner no debe frenar fusiones |
 
 Que cada job sea confiable tambien depende de que no necesite el host: `windows-scripts` solo usa dobles de prueba
-(sin Docker, WSL, Hyper-V, red ni credenciales) y corre en Windows PowerShell 5.1 y en `pwsh`. Lo que **si** depende del host
+(sin Docker, WSL, Hyper-V ni credenciales; la unica red es la descarga del SDK) y corre en Windows PowerShell 5.1 y en `pwsh`. Las mediciones de la
+tabla son anteriores a sumar el SDK y el lanzador. Lo que **si** depende del host
 (ruta `wsl.exe` -> `monitor-status`, `curl.exe --resolve`, SSH real a un servidor remoto, Hyper-V, SQL/Caddy reales) no esta en CI:
 queda en `docs/monitoreo-validacion.md` y en `docs/p08-check-erphealth.md` como validacion pendiente del servidor definitivo.
 
