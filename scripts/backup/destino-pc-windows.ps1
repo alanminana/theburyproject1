@@ -74,6 +74,8 @@ try {
     if ($pub -notmatch '^ssh-ed25519 [A-Za-z0-9+/=]{60,100}( [A-Za-z0-9@._-]+)?$') { throw '-ClavePublica no es UNA clave publica ssh-ed25519.' }
     if ($TopeGB -lt 5) { throw '-TopeGB debe ser al menos 5.' }
     $full = [System.IO.Path]::GetFullPath($Raiz)
+    # se rechaza ANTES de tocar el servicio: la ruta va sin comillas en ChrootDirectory
+    if ($full -match '[\s"#]') { throw '-Raiz no puede contener espacios, comillas ni #.' }
     $drive = [System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($full))
     if ($drive.DriveType -ne 'Fixed' -or $drive.DriveFormat -ne 'NTFS') { throw "La unidad de $full debe ser fija y NTFS." }
     if ($full.TrimEnd('\').Length -le 3) { throw '-Raiz no puede ser la raiz de una unidad.' }
