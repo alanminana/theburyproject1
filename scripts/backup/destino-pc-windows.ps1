@@ -51,6 +51,9 @@ try {
         Log "CORTE DE PRUEBA: se detiene sshd $CortePruebaMinutos minuto(s)"
         try { Stop-Service sshd -Force; Start-Sleep -Seconds (60 * $CortePruebaMinutos) }
         finally { Start-Service sshd; Log "sshd: $((Get-Service sshd).Status)" }
+        # evidencia del tope: la cuota solo se puede consultar como administrador
+        $vol = [System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($Raiz)).TrimEnd('')
+        foreach ($l in @(Invoke-Native 'fsutil.exe' @('quota', 'query', $vol))) { if ($l.Trim()) { Log "cuota> $($l.Trim())" } }
         Log 'RESULTADO=OK'; return
     }
 
@@ -125,6 +128,14 @@ try {
     Invoke-Native 'icacls.exe' @($SshData, '/inheritance:r', '/grant:r', "${SidSystem}:(OI)(CI)F", "${SidAdmins}:(OI)(CI)F", "${SidAutenticados}:(OI)(CI)RX") | Out-Null
     $hostKey = Join-Path $SshData 'ssh_host_ed25519_key'
     if (-not (Test-Path -LiteralPath $hostKey)) { Invoke-Native (Join-Path $SshBin 'ssh-keygen.exe') @('-A') | Out-Null }
+    # ssh-keygen -A ejecutado por un administrador deja SU usuario como PROPIETARIO de las claves privadas: sshd como ese usuario las
+    # acepta, pero el servicio (SYSTEM) las rechaza y se cierra al arrancar (error 7034/1067, visto en Windows 11 con OpenSSH 9.5).
+    # Propietario Administradores y acceso solo para SYSTEM y Administradores.
+    foreach ($k in @(Get-ChildItem -LiteralPath $SshData -Filter 'ssh_host_*_key' -File)) {
+        Invoke-Native 'icacls.exe' @($k.FullName, '/setowner', $SidAdmins) | Out-Null
+        Invoke-Native 'icacls.exe' @($k.FullName, '/reset') | Out-Null
+        Invoke-Native 'icacls.exe' @($k.FullName, '/inheritance:r', '/grant:r', "${SidSystem}:F", "${SidAdmins}:F") | Out-Null
+    }
     $keys = Join-Path $SshData "${Usuario}_authorized_keys"
     Set-Content -LiteralPath $keys -Value "from=`"$ClienteIp`",restrict $pub" -Encoding ASCII
     # el usuario NO administrador necesita LEER su archivo (sshd lo abre con su identidad); solo administradores pueden modificarlo
