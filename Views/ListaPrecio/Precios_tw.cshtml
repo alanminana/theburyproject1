@@ -17,18 +17,35 @@
 
 <partial name="_ListaPrecioAlertas" />
 
-<section class="card-erp-panel mb-4 p-4">
+<section class="card-erp-panel mb-4 p-4" data-lp-sim-origen data-margen="@ListaPrecioUiHelper.Numero(lista.MargenPorcentaje)"
+         data-recargo="@ListaPrecioUiHelper.Numero(lista.RecargoPorcentaje)" data-minimo="@ListaPrecioUiHelper.Numero(lista.MargenMinimoPorcentaje)"
+         data-redondeo="@lista.ReglaRedondeo">
     <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
         <a asp-action="Index" class="no-underline hover:text-primary">Listas de precios</a>
         <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
         <span class="text-primary">@lista.Nombre</span>
     </nav>
-    <h1 class="mt-2 text-lg font-bold tracking-tight text-white">Precios de «@lista.Nombre»</h1>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-lg font-bold tracking-tight text-white">Precios de «@lista.Nombre»</h1>
+        <partial name="_ListaPrecioAyudaBoton" />
+    </div>
     <p class="mt-1 text-sm text-slate-400">
         Margen @ListaPrecioUiHelper.Porcentaje(lista.MargenPorcentaje) · recargo @ListaPrecioUiHelper.Porcentaje(lista.RecargoPorcentaje)
         · @ListaPrecioUiHelper.NombreRedondeo(lista.ReglaRedondeo).ToLowerInvariant().
-        Los productos sin precio en esta lista usan su precio base.
+        @if (lista.EsPredeterminada)
+        {
+            <text>Es la lista predeterminada: los productos sin precio en ella usan su precio base.</text>
+        }
+        else
+        {
+            <text>No es la lista predeterminada: Venta y Cotización no usan estos precios.</text>
+        }
     </p>
+    <dl class="lp-glosario">
+        <div><dt>Costo</dt><dd>El costo real del producto en Inventario.</dd></div>
+        <div><dt>Precio en la lista</dt><dd>El importe guardado (fijado) para el producto.</dd></div>
+        <div><dt>Sugerido</dt><dd>Cálculo con las reglas de la lista. No se cobra hasta fijarlo.</dd></div>
+    </dl>
 </section>
 
 <form asp-action="Precios" asp-route-id="@lista.Id" method="get" class="filter-panel-erp mb-4" aria-label="Buscar productos">
@@ -76,7 +93,7 @@
                             }
                             else
                             {
-                                <span class="text-xs font-semibold text-slate-400">Sin precio (usa base @ListaPrecioUiHelper.Moneda(p.PrecioBase))</span>
+                                <span class="text-xs font-semibold text-slate-400">Sin precio fijado (precio base @ListaPrecioUiHelper.Moneda(p.PrecioBase))</span>
                             }
                         </td>
                         <td class="px-3 py-2.5 text-right text-slate-300 whitespace-nowrap">@(sugeridos.GetValueOrDefault(p.ProductoId) is decimal s ? ListaPrecioUiHelper.Moneda(s) : "—")</td>
@@ -130,3 +147,13 @@
         </nav>
     }
 </section>
+
+<partial name="_ListaPrecioAyuda" />
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/lista-precio.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>
+}

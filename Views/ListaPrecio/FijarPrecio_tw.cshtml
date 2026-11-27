@@ -5,7 +5,9 @@
 
 <partial name="_ListaPrecioAlertas" />
 
-<section class="card-erp-panel mb-4 p-4">
+<section class="card-erp-panel mb-4 p-4" data-lp-sim-origen data-costo="@ListaPrecioUiHelper.Numero(Model.CostoProducto)"
+         data-margen="@ListaPrecioUiHelper.Numero(Model.MargenPorcentaje)" data-recargo="@ListaPrecioUiHelper.Numero(Model.RecargoPorcentaje)"
+         data-minimo="@ListaPrecioUiHelper.Numero(Model.MargenMinimoPorcentaje)" data-redondeo="@Model.ReglaRedondeo">
     <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
         <a asp-action="Index" class="no-underline hover:text-primary">Listas de precios</a>
         <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
@@ -13,7 +15,10 @@
         <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
         <span class="text-primary">@Model.ProductoCodigo</span>
     </nav>
-    <h1 class="mt-2 text-lg font-bold tracking-tight text-white">Fijar precio de @Model.ProductoCodigo</h1>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-lg font-bold tracking-tight text-white">Fijar precio de @Model.ProductoCodigo</h1>
+        <partial name="_ListaPrecioAyudaBoton" />
+    </div>
     <p class="mt-1 text-sm text-slate-400">@Model.ProductoNombre · lista «@Model.ListaNombre». El precio anterior queda en el historial con su vigencia.</p>
 </section>
 
@@ -33,7 +38,7 @@
             <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@(Model.PrecioSugerido.HasValue ? ListaPrecioUiHelper.Moneda(Model.PrecioSugerido.Value) : "—")</dd>
         </div>
         <div class="card-erp-metric">
-            <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Margen mínimo</dt>
+            <dt class="lp-label-row text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Margen mínimo <partial name="_ListaPrecioInfo" model='"margen-minimo"' /></dt>
             <dd class="mt-2 whitespace-nowrap text-xl font-black text-white">@ListaPrecioUiHelper.Porcentaje(Model.MargenMinimoPorcentaje)</dd>
         </div>
     </dl>
@@ -49,7 +54,7 @@
             <input id="notas" name="notas" type="text" maxlength="500" value="@Model.Notas" class="@ListaPrecioUiHelper.InputClass" />
         </div>
     </div>
-    <p class="text-xs text-slate-400">El costo se toma del producto; no se modifica. Rige desde ahora.</p>
+    <p class="text-xs text-slate-400">El costo se toma del producto; no se modifica. Rige desde ahora. El sugerido solo se cobra si lo guardás acá, y Venta y Cotización lo usan solo si esta lista es la predeterminada.</p>
 
     <div class="flex flex-wrap justify-end gap-2">
         <a asp-action="Precios" asp-route-id="@Model.ListaId" class="btn-erp-ghost btn-sm no-underline">Cancelar</a>
@@ -101,3 +106,13 @@
         </div>
     }
 </section>
+
+<partial name="_ListaPrecioAyuda" />
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/lista-precio.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>
+}

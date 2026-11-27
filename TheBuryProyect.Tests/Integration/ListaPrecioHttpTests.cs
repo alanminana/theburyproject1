@@ -174,6 +174,81 @@ public class ListaPrecioHttpTests : IClassFixture<CustomWebApplicationFactory>, 
         Assert.False(await ctx.ProductosPrecios.AnyAsync(p => p.ProductoId == prod.Id));
     }
 
+    // ── Ayuda «¿Cómo funciona?» y simulador ──────────────────────────────
+
+    [Fact]
+    public async Task Simulador_CalculaConLasReglasReales_ConPermisoDeVer_YNoGuardaNada()
+    {
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ListaPrecioSoloVerUserId);
+        await using var antes = await NuevoContextoAsync();
+        var listasAntes = await antes.ListasPrecios.IgnoreQueryFilters().CountAsync();
+        var preciosAntes = await antes.ProductosPrecios.IgnoreQueryFilters().CountAsync();
+
+        var resp = await client.GetAsync("/ListaPrecio/Simular?costo=100000&margen=30&recargo=10&minimo=20&redondeo=&precioPrueba=110000");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var r = json.RootElement;
+        Assert.Equal(143000m, r.GetProperty("sugerido").GetDecimal());
+        Assert.Equal(120000m, r.GetProperty("precioMinimo").GetDecimal());
+        Assert.Equal(10m, r.GetProperty("margenPrueba").GetDecimal());
+        Assert.True(r.GetProperty("pruebaRechazada").GetBoolean());
+
+        await using var despues = await NuevoContextoAsync();
+        Assert.Equal(listasAntes, await despues.ListasPrecios.IgnoreQueryFilters().CountAsync());
+        Assert.Equal(preciosAntes, await despues.ProductosPrecios.IgnoreQueryFilters().CountAsync());
+    }
+
+    [Theory]
+    [InlineData("costo=-1")]
+    [InlineData("costo=20000001")]
+    [InlineData("costo=100&margen=1000")]
+    [InlineData("costo=100&recargo=-5")]
+    [InlineData("costo=abc")]
+    public async Task Simulador_RechazaValoresFueraDeRango(string query)
+    {
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ListaPrecioSoloVerUserId);
+
+        var resp = await client.GetAsync("/ListaPrecio/Simular?" + query);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Simulador_SinPermisoDePrecios_EstaDenegado()
+    {
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ClienteSoloLecturaUserId);
+
+        AssertDenegado(await client.GetAsync("/ListaPrecio/Simular?costo=100"));
+    }
+
+    [Fact]
+    public async Task LasCuatroPantallas_MuestranElBotonDeAyudaYElModal()
+    {
+        var lista = await SembrarListaAsync();
+        var prod = await SembrarProductoAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ListaPrecioAdminUserId);
+
+        foreach (var url in new[]
+                 {
+                     "/ListaPrecio", "/ListaPrecio/Crear", $"/ListaPrecio/Editar/{lista.Id}", $"/ListaPrecio/Precios/{lista.Id}",
+                     $"/ListaPrecio/FijarPrecio?listaId={lista.Id}&productoId={prod.Id}"
+                 })
+        {
+            var html = WebUtility.HtmlDecode(await client.GetStringAsync(url));
+            Assert.Contains("¿Cómo funciona?", html);
+            Assert.Single(Regex.Matches(html, "<dialog id=\"lp-ayuda\""));
+            Assert.Contains("lista-precio-ayuda.js", html);
+            // Todo «Ver más» apunta a un campo explicado en el modal.
+            foreach (Match m in Regex.Matches(html, "data-lp-campo=\"([^\"]+)\""))
+                Assert.Contains($"id=\"lp-campo-{m.Groups[1].Value}\"", html);
+        }
+
+        // Alta y edición: un icono de ayuda por cada uno de los 13 campos (la edición de una lista no predeterminada también).
+        var form = await client.GetStringAsync("/ListaPrecio/Crear");
+        Assert.Equal(13, Regex.Matches(form, "data-lp-info ").Count);
+    }
+
     [Fact]
     public async Task SinPermisoDePrecios_NoPuedeVerElListado()
     {

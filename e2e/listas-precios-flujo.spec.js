@@ -116,7 +116,7 @@ test.describe.serial('Listas de precios (D-01)', () => {
 
         // Corregido, queda predeterminada.
         await llenarLista(page, { MargenPorcentaje: '50', MargenMinimoPorcentaje: '20', ReglaRedondeo: 'ninguno' });
-        await page.getByLabel('Lista predeterminada').check();
+        await page.getByRole('checkbox', { name: /Lista predeterminada/ }).check();
         await enviar(page, 'Crear lista');
         await expect(page).toHaveURL(/\/ListaPrecio$/);
         const filaA = page.locator('tr', { hasText: codigoA });
@@ -143,7 +143,7 @@ test.describe.serial('Listas de precios (D-01)', () => {
         await page.locator('tr', { hasText: codigoB }).getByRole('link', { name: /Editar/ }).click();
         await expect(page.locator('#CantidadCuotas')).toHaveValue('6');
         await llenarLista(page, { MargenPorcentaje: '40', MargenMinimoPorcentaje: '25', ReglaRedondeo: 'decena' });
-        await page.getByLabel('Lista predeterminada').check();
+        await page.getByRole('checkbox', { name: /Lista predeterminada/ }).check();
         await enviar(page, 'Guardar cambios');
         await expect(page).toHaveURL(/\/ListaPrecio$/);
         await expect(page.locator('tr', { hasText: codigoB })).toContainText('Predeterminada');
@@ -153,7 +153,7 @@ test.describe.serial('Listas de precios (D-01)', () => {
         await page.locator('tr', { hasText: codigoB }).getByRole('link', { name: /Editar/ }).click();
         await expect(page.locator('#MargenMinimoPorcentaje')).toHaveValue('25');
         await expect(page.locator('#ReglaRedondeo')).toHaveValue('decena');
-        await expect(page.getByLabel('Lista predeterminada')).toHaveCount(0); // la predeterminada no se desmarca desde su formulario
+        await expect(page.getByRole('checkbox', { name: /Lista predeterminada/ })).toHaveCount(0); // la predeterminada no se desmarca desde su formulario
         expectNoFailures(failures);
     });
 

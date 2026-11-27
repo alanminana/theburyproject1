@@ -26,7 +26,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Reportes | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
 | Devolución | `Index` (Devoluciones y garantías) | ✅ Cerrado técnico (2026-11-24) | D-02/#320 (modal, axe móvil) + ronda de interfaz (idem) |
 | Cuentas por pagar | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
-| Listas de precio | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem) |
+| Listas de precio | `Index` | ✅ Cerrado técnico (2026-11-24) | ronda de interfaz (idem)  ; **2026-11-27**: ayuda «¿Cómo funciona?» en Index, Create, Edit, Precios y Fijar precio (modal con pestañas, iconos de información y simulador que calcula en el servidor sin guardar). Textos de campos en `Helpers/ListaPrecioAyudaCampos.cs`: actualizarlos si cambia una regla de precios. Validado en 1366/1024/390, axe 0 en el modal, e2e `listas-precios-flujo` 9/9 con CSP Enforce |
 | Crédito | `Index` (Cartera / Moras) | ✅ Cerrado técnico (2026-11-24) | serie CREDITO-VISUAL + ronda de interfaz (idem); deuda conocida: título centrado en `Credito/Index` |
 
 Leyenda:

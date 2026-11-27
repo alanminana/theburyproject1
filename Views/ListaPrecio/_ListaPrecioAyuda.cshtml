@@ -1,0 +1,270 @@
+@* Modal «¿Cómo funcionan las listas de precios?». Solo explica el comportamiento implementado; el simulador no guarda datos.
+   Va siempre fuera de los formularios de la página para que sus controles no se envíen. *@
+@{
+    var grupos = new (EfectoCampoListaPrecio Efecto, string Titulo, string Nota)[]
+    {
+        (EfectoCampoListaPrecio.Funcional, "Cambian qué precio se usa o qué se permite", "Tienen efecto real al vender o al fijar precios."),
+        (EfectoCampoListaPrecio.CalculaSugerido, "Calculan el precio sugerido", "El sugerido no se cobra hasta que lo fijes como precio."),
+        (EfectoCampoListaPrecio.Organizacion, "Identifican u ordenan", "No cambian ningún importe."),
+        (EfectoCampoListaPrecio.Informativo, "Solo informativos", "Se guardan como referencia. No cambian nada en ventas ni precios.")
+    };
+}
+
+<dialog id="lp-ayuda" class="lp-ayuda" aria-labelledby="lp-ayuda-titulo" data-lp-simular-url="@Url.Action("Simular", "ListaPrecio")">
+    <div class="lp-ayuda__panel">
+        <div class="lp-ayuda__cabecera">
+            <h2 id="lp-ayuda-titulo">¿Cómo funcionan las listas de precios?</h2>
+            <button type="button" class="lp-ayuda__cerrar" data-lp-ayuda-cerrar aria-label="Cerrar ayuda">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+
+        <div class="lp-tabs" role="tablist" aria-label="Secciones de la ayuda">
+            <button type="button" role="tab" id="lp-tab-basico" aria-controls="lp-pane-basico" aria-selected="true">Lo básico</button>
+            <button type="button" role="tab" id="lp-tab-campos" aria-controls="lp-pane-campos" aria-selected="false" tabindex="-1">Los campos</button>
+            <button type="button" role="tab" id="lp-tab-simulador" aria-controls="lp-pane-simulador" aria-selected="false" tabindex="-1">Simulador</button>
+            <button type="button" role="tab" id="lp-tab-precio" aria-controls="lp-pane-precio" aria-selected="false" tabindex="-1">¿Qué precio se usa?</button>
+        </div>
+
+        <div class="lp-ayuda__cuerpo">
+
+            @* ───────────── Lo básico ───────────── *@
+            <section id="lp-pane-basico" role="tabpanel" aria-labelledby="lp-tab-basico" tabindex="0">
+                <p class="lp-lead">Una lista guarda <strong>un precio de venta por producto</strong>, aparte del precio base de Inventario.</p>
+
+                <ol class="lp-flujo" aria-label="Relación entre módulos">
+                    <li>
+                        <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                        <strong>Inventario</strong>
+                        <span>Guarda el <em>costo</em> y el <em>precio base de venta</em> de cada producto.</span>
+                    </li>
+                    <li>
+                        <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+                        <strong>Listas de precios</strong>
+                        <span>Guarda precios <em>alternativos</em> y calcula <em>sugeridos</em> a partir del costo.</span>
+                    </li>
+                    <li>
+                        <span class="material-symbols-outlined" aria-hidden="true">point_of_sale</span>
+                        <strong>Venta y Cotización</strong>
+                        <span>Usan el precio de la lista predeterminada o, si falta, el precio base.</span>
+                    </li>
+                </ol>
+
+                <h3>¿Qué precio cobra el ERP?</h3>
+                <div class="lp-decision">
+                    <p class="lp-decision__pregunta">¿El producto tiene un precio <strong>fijado</strong> en la lista <strong>predeterminada</strong> (activa)?</p>
+                    <div class="lp-decision__ramas">
+                        <p class="lp-decision__rama lp-decision__rama--si"><strong>Sí</strong> Usa ese precio fijado.</p>
+                        <p class="lp-decision__rama"><strong>No</strong> Usa el precio base de Inventario.</p>
+                    </div>
+                </div>
+
+                <h3>Para usar una lista</h3>
+                <ol class="lp-pasos">
+                    <li><strong>Creá la lista.</strong> Margen, recargo y redondeo sirven para calcular sugeridos.</li>
+                    <li><strong>Fijá los precios.</strong> En «Precios», elegí cada producto y guardá su precio («Fijar precio»).</li>
+                    <li><strong>Marcala como predeterminada</strong> si querés que Venta y Cotización usen esos precios.</li>
+                </ol>
+
+                <p class="lp-aviso">
+                    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                    <span><strong>Una lista con margen 30 % no sube ningún precio por sí sola.</strong> El sugerido es un cálculo en pantalla: recién se cobra cuando lo fijás.</span>
+                </p>
+            </section>
+
+            @* ───────────── Los campos ───────────── *@
+            <section id="lp-pane-campos" role="tabpanel" aria-labelledby="lp-tab-campos" tabindex="0" hidden>
+                @foreach (var grupo in grupos)
+                {
+                    <h3>@grupo.Titulo</h3>
+                    <p class="lp-nota">@grupo.Nota</p>
+                    <div class="lp-campos">
+                        @foreach (var campo in ListaPrecioAyudaCampos.Todos.Where(c => c.Efecto == grupo.Efecto))
+                        {
+                            var etiqueta = ListaPrecioAyudaCampos.Etiqueta(campo.Efecto);
+                            <details class="lp-campo" id="lp-campo-@campo.Clave">
+                                <summary>
+                                    <span class="lp-campo__titulo"><strong>@campo.Nombre</strong><span class="@etiqueta.Clase">@etiqueta.Texto</span></span>
+                                    <span class="lp-campo__breve">@campo.Breve</span>
+                                </summary>
+                                <dl>
+                                    <dt>Qué significa</dt><dd>@campo.Significa</dd>
+                                    <dt>Para qué sirve</dt><dd>@campo.SirvePara</dd>
+                                    <dt>Sobre qué se aplica</dt><dd>@campo.SeAplicaA</dd>
+                                    <dt>Efecto en el ERP</dt><dd>@campo.EfectoEnErp</dd>
+                                    @if (campo.Ejemplo is not null)
+                                    {
+                                        <dt>Ejemplo</dt><dd>@campo.Ejemplo</dd>
+                                    }
+                                </dl>
+                            </details>
+                        }
+                    </div>
+                }
+            </section>
+
+            @* ───────────── Simulador ───────────── *@
+            <section id="lp-pane-simulador" role="tabpanel" aria-labelledby="lp-tab-simulador" tabindex="0" hidden>
+                <p class="lp-aviso lp-aviso--ok">
+                    <span class="material-symbols-outlined" aria-hidden="true">science</span>
+                    <span><strong>Solo para probar:</strong> no guarda ni cambia ningún dato. Calcula con las mismas reglas que el ERP.</span>
+                </p>
+                <button type="button" class="btn-erp-ghost btn-sm" id="lp-sim-usar-pantalla" hidden>
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">input</span>
+                    Usar los valores de esta pantalla
+                </button>
+
+                <div class="lp-sim">
+                    <div class="lp-sim__datos">
+                        <label for="lp-sim-producto">Producto de ejemplo
+                            <select id="lp-sim-producto" class="@ListaPrecioUiHelper.InputClass">
+                                <option value="Heladera Samsung" data-costo="100000">Heladera Samsung</option>
+                                <option value="Lavarropas Drean" data-costo="83470">Lavarropas Drean</option>
+                                <option value="Televisor Philips 50&quot;" data-costo="57350">Televisor Philips 50"</option>
+                            </select>
+                        </label>
+                        <label for="lp-sim-costo">Costo real ($)
+                            <input id="lp-sim-costo" type="number" min="0" max="20000000" step="0.01" value="100000" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="lp-sim-margen">Margen sobre costo (%)
+                            <input id="lp-sim-margen" type="number" min="0" max="999.99" step="0.01" value="30" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="lp-sim-recargo">Recargo (%)
+                            <input id="lp-sim-recargo" type="number" min="0" max="999.99" step="0.01" value="10" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="lp-sim-minimo">Margen mínimo (%)
+                            <input id="lp-sim-minimo" type="number" min="0" max="999.99" step="0.01" value="20" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="lp-sim-redondeo">Redondeo
+                            <select id="lp-sim-redondeo" class="@ListaPrecioUiHelper.InputClass">
+                                <option value="">Sin definir (a la centena)</option>
+                                <option value="ninguno">Sin redondeo</option>
+                                <option value="unidad">A la unidad</option>
+                                <option value="decena">A la decena</option>
+                                <option value="centena">A la centena</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="lp-sim__resultado">
+                        <p id="lp-sim-error" class="lp-aviso lp-aviso--error" role="alert" hidden></p>
+                        <div id="lp-sim-salida">
+                            <table class="lp-tabla lp-tabla--importes">
+                                <caption class="sr-only">Cómo se arma el precio sugerido</caption>
+                                <tbody>
+                                    <tr><th scope="row">Producto</th><td data-lp-out="producto">Heladera Samsung</td></tr>
+                                    <tr><th scope="row">Costo real</th><td data-lp-out="costo">—</td></tr>
+                                    <tr><th scope="row">Margen sobre costo (<span data-lp-out="margenPct">30</span> %)</th><td data-lp-out="margenImporte">—</td></tr>
+                                    <tr><th scope="row">Subtotal</th><td data-lp-out="subtotal">—</td></tr>
+                                    <tr><th scope="row">Recargo (<span data-lp-out="recargoPct">10</span> % del subtotal)</th><td data-lp-out="recargoImporte">—</td></tr>
+                                    <tr><th scope="row">Ajuste por redondeo</th><td data-lp-out="ajusteRedondeo">—</td></tr>
+                                    <tr class="lp-tabla__total"><th scope="row">Precio sugerido</th><td data-lp-out="sugerido">—</td></tr>
+                                </tbody>
+                            </table>
+
+                            <div class="lp-barra" aria-hidden="true">
+                                <span class="lp-barra__costo" data-lp-barra="costo"></span>
+                                <span class="lp-barra__margen" data-lp-barra="margen"></span>
+                                <span class="lp-barra__recargo" data-lp-barra="recargo"></span>
+                            </div>
+                            <ul class="lp-leyenda">
+                                <li><span class="lp-punto lp-barra__costo" aria-hidden="true"></span>Costo</li>
+                                <li><span class="lp-punto lp-barra__margen" aria-hidden="true"></span>Margen</li>
+                                <li><span class="lp-punto lp-barra__recargo" aria-hidden="true"></span>Recargo</li>
+                            </ul>
+                            <p class="lp-nota">La barra muestra el precio antes del redondeo. Margen real del sugerido sobre el costo: <strong data-lp-out="margenSugerido">—</strong>.</p>
+                            <p id="lp-sim-aviso-minimo" class="lp-aviso" hidden></p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>¿Y si fijo un precio a mano?</h3>
+                <div class="lp-sim lp-sim--prueba">
+                    <div class="lp-sim__datos">
+                        <label for="lp-sim-prueba">Precio que querés fijar ($)
+                            <input id="lp-sim-prueba" type="number" min="0" max="20000000" step="0.01" value="110000" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                    </div>
+                    <div class="lp-sim__resultado">
+                        <p id="lp-sim-prueba-resultado" class="lp-aviso" role="status" aria-live="polite"></p>
+                    </div>
+                </div>
+                <p class="lp-nota">El mínimo se controla solo en «Fijar precio», sobre el precio completo: el recargo no se descuenta.</p>
+            </section>
+
+            @* ───────────── Qué precio se usa ───────────── *@
+            <section id="lp-pane-precio" role="tabpanel" aria-labelledby="lp-tab-precio" tabindex="0" hidden>
+                <h3>Cada concepto</h3>
+                <div class="lp-tarjetas">
+                    <article><h4>Precio de costo</h4><p>Lo que te cuesta el producto (costo real de Inventario: compra, envío, percepciones y otros). <strong>No se cobra</strong>: de él salen el sugerido y los márgenes.</p></article>
+                    <article><h4>Precio base de venta</h4><p>El precio de venta cargado en el producto, en Inventario. <strong>Se cobra si no hay precio fijado</strong> en la lista predeterminada.</p></article>
+                    <article><h4>Ajuste masivo de precios</h4><p>Herramienta de Inventario que sube o baja el <strong>precio base</strong> de varios productos. Tiene vista previa e historial, y se puede revertir. No cambia precios de listas.</p></article>
+                    <article><h4>Cambios de precios por lotes</h4><p>Cambia precios que <strong>ya existen en listas</strong>: se simula, se aprueba y se aplica. No crea el primer precio de un producto ni cambia el precio base.</p></article>
+                    <article><h4>Precio sugerido</h4><p>Cálculo: costo + margen + recargo, redondeado. <strong>No se guarda ni se cobra.</strong> Cambia solo si cambian el costo o la lista.</p></article>
+                    <article><h4>Precio fijado</h4><p>Importe guardado para un producto en una lista. Es el precio final de venta (con IVA incluido). No cambia solo cuando cambia el costo.</p></article>
+                    <article><h4>Lista predeterminada</h4><p>La única lista cuyos precios usan Venta y Cotización. También es la que muestra Inventario cuando no filtrás otra lista.</p></article>
+                    <article><h4>Descuentos y medios de pago</h4><p>Se aplican <strong>después</strong>, sobre la venta. No modifican ni la lista ni el precio base.</p></article>
+                </div>
+
+                <h3>Un producto, varios precios</h3>
+                <p class="lp-nota">Heladera Samsung (ejemplo ficticio). «Contado» es la predeterminada; «Mayorista» no.</p>
+                <div class="lp-precios">
+                    <p><span>Costo</span><strong>$100.000</strong></p>
+                    <p><span>Precio base (Inventario)</span><strong>$150.000</strong></p>
+                    <p><span>Sugerido de Contado (30 % + 10 %)</span><strong>$143.000</strong></p>
+                    <p><span>Fijado en Contado ★</span><strong>$145.000</strong></p>
+                    <p><span>Fijado en Mayorista</span><strong>$135.000</strong></p>
+                </div>
+                <div class="lp-scroll" role="region" aria-label="Qué precio usa el ERP en cada situación" tabindex="0">
+                    <table class="lp-tabla">
+                        <thead><tr><th scope="col">Situación</th><th scope="col">El ERP usa</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">Venta o cotización nueva</th><td><strong>$145.000</strong> (fijado en la predeterminada)</td></tr>
+                            <tr><th scope="row">Contado no tiene precio fijado para la heladera (aunque tenga sugerido $143.000)</th><td><strong>$150.000</strong> (precio base)</td></tr>
+                            <tr><th scope="row">No hay lista predeterminada</th><td><strong>$150.000</strong> (precio base)</td></tr>
+                            <tr><th scope="row">Subís el precio base a $160.000 y Contado sigue en $145.000</th><td><strong>$145.000</strong></td></tr>
+                            <tr><th scope="row">Venta a un cliente mayorista</th><td><strong>$145.000</strong>: Venta no elige lista por cliente ni por tipo</td></tr>
+                            <tr><th scope="row">En Inventario filtrás por «Mayorista»</th><td>Muestra <strong>$135.000</strong>; filtrar no cambia lo que cobra Venta</td></tr>
+                            <tr><th scope="row">Marcás Mayorista como predeterminada</th><td><strong>$135.000</strong> en las operaciones nuevas</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="lp-nota">En Venta no se escribe el precio unitario a mano: lo pone el ERP. Mercado Libre calcula el precio de su canal con la lista elegida en su configuración (si no hay ninguna, la predeterminada).</p>
+
+                <h3>¿Dónde se refleja cada cambio?</h3>
+                <div class="lp-scroll" role="region" aria-label="Efecto de cada cambio" tabindex="0">
+                    <table class="lp-tabla">
+                        <thead><tr><th scope="col">Si cambiás…</th><th scope="col">Se actualiza solo</th><th scope="col">No cambia solo (hacelo vos)</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row">El costo del producto</th><td>El sugerido y el control de margen mínimo.</td><td>Precios fijados en listas. En la edición del producto, revisá el precio de venta antes de guardar: se recalcula con su % de ganancia.</td></tr>
+                            <tr><th scope="row">El precio base (edición o ajuste masivo)</th><td>Lo que se cobra por productos sin precio en la predeterminada.</td><td>Precios fijados en listas.</td></tr>
+                            <tr><th scope="row">Margen, recargo o redondeo de una lista</th><td>Solo el sugerido.</td><td>Precios ya fijados: usá «Fijar precio» o un cambio por lotes.</td></tr>
+                            <tr><th scope="row">Un precio fijado en la predeterminada</th><td>Operaciones nuevas e Inventario, desde ese momento.</td><td>El precio base.</td></tr>
+                            <tr><th scope="row">La lista predeterminada</th><td>Qué precios usan las operaciones nuevas.</td><td>Los precios guardados en cada lista.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="lp-pasos lp-pasos--puntos">
+                    <li><strong>Ventas ya confirmadas:</strong> conservan sus precios.</li>
+                    <li><strong>Ventas todavía editables:</strong> si las editás y guardás, toman el precio vigente en ese momento.</li>
+                    <li><strong>Cotizaciones guardadas:</strong> conservan el precio cotizado. Al convertirlas, la venta usa ese precio y el ERP avisa si cambió. Si después editás y guardás esa venta, toma el precio vigente.</li>
+                </ul>
+
+                <h3>Recargo en la lista <em>y</em> en el medio de pago</h3>
+                <p class="lp-nota">Si fijaste un precio que ya incluye el recargo de la lista y el plan de pago tiene otro, <strong>se cobran los dos</strong>. Ejemplo con un plan de tarjeta del 15 %:</p>
+                <ol class="lp-cascada" aria-label="Ejemplo de dos recargos encadenados">
+                    <li><span>Costo</span><strong>$100.000</strong></li>
+                    <li><span>+ 30 % margen</span><strong>$130.000</strong></li>
+                    <li><span>+ 10 % recargo de lista (precio fijado)</span><strong>$143.000</strong></li>
+                    <li class="lp-cascada__final"><span>+ 15 % plan de pago, sobre $143.000</span><strong>$164.450</strong></li>
+                </ol>
+                <ul class="lp-pasos lp-pasos--puntos">
+                    <li>No se suman 10 % + 15 %: el 15 % se calcula sobre el precio que ya tiene el 10 %.</li>
+                    <li>Si <strong>no</strong> fijaste ese precio en la predeterminada, el 10 % de la lista <strong>no se cobra</strong>: el plan se aplica sobre el precio base.</li>
+                    <li>Un descuento del medio de pago o de la venta resta sobre ese precio. El margen mínimo de la lista no lo controla.</li>
+                    <li>El porcentaje del medio se define en la configuración de pagos, no en la lista. Crédito personal usa su propio interés. El total final puede quedar redondeado.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</dialog>

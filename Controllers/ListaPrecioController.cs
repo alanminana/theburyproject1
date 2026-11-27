@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -49,6 +50,22 @@ namespace TheBuryProject.Controllers
                 PuedeAplicar = User.TienePermiso("precios", "apply")
             };
             return View("Index_tw", vm);
+        }
+
+        // ---------- ayuda ----------
+
+        /// <summary>Simulador de la ayuda «¿Cómo funciona?»: calcula con las reglas reales y no lee ni guarda datos.</summary>
+        [HttpGet]
+        public IActionResult Simular(decimal costo, decimal? margen, decimal? recargo, decimal? minimo, string? redondeo, decimal? precioPrueba)
+        {
+            static bool FueraDeRango(decimal? porcentaje) => porcentaje is < 0 or > 999.99m;
+            static bool ImporteInvalido(decimal importe) => importe < 0 || importe > Validation.MontoArgentinoAttribute.Maximo;
+
+            if (!ModelState.IsValid || ImporteInvalido(costo) || ImporteInvalido(precioPrueba ?? 0)
+                || FueraDeRango(margen) || FueraDeRango(recargo) || FueraDeRango(minimo))
+                return BadRequest(new { error = "Revisá los importes (hasta 20.000.000) y los porcentajes (0 a 999,99)." });
+
+            return Json(ListaPrecioSimulador.Simular(_precioService, costo, margen, recargo, minimo, redondeo, precioPrueba));
         }
 
         // ---------- alta ----------
@@ -232,6 +249,9 @@ namespace TheBuryProject.Controllers
                 ListaNombre = lista.Nombre,
                 ListaCodigo = lista.Codigo,
                 MargenMinimoPorcentaje = lista.MargenMinimoPorcentaje,
+                MargenPorcentaje = lista.MargenPorcentaje,
+                RecargoPorcentaje = lista.RecargoPorcentaje,
+                ReglaRedondeo = lista.ReglaRedondeo,
                 ProductoId = producto.Id,
                 ProductoCodigo = producto.Codigo,
                 ProductoNombre = producto.Nombre,

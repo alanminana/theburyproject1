@@ -1,0 +1,13 @@
+@model string
+@* Icono de información de un campo: muestra una ayuda breve y enlaza con su explicación completa en el modal. *@
+@{
+    var campo = ListaPrecioAyudaCampos.Buscar(Model);
+}
+<button type="button" class="lp-info" data-lp-info aria-expanded="false" aria-controls="lp-tip-@campo.Clave"
+        aria-label="Ayuda sobre @campo.Nombre">
+    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+</button>
+<span id="lp-tip-@campo.Clave" class="lp-tip" hidden>
+    @campo.Breve
+    <button type="button" class="lp-link" data-lp-ayuda-abrir data-lp-campo="@campo.Clave" aria-haspopup="dialog">Ver más</button>
+</span>

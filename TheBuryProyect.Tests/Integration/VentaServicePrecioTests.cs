@@ -1115,6 +1115,40 @@ public class VentaServicePrecioTests
             Assert.Equal(110m, ventaActualizada.Total);
         }
     }
+
+    // Lo afirma la ayuda de Listas de precios: una venta todavía editable toma el precio vigente al volver a guardarla.
+    [Fact]
+    public async Task UpdateAsync_VentaEditable_TomaElPrecioVigenteAlVolverAGuardar()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.PrecioVenta = 121m;
+            await ctx.SaveChangesAsync();
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
+            await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
+            Assert.Equal(121m, (await ctx.VentaDetalles.AsNoTracking().SingleAsync()).PrecioUnitario);
+
+            var venta = await ctx.Ventas.SingleAsync();
+            venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            var guardado = await ctx.Productos.SingleAsync(p => p.Id == producto.Id);
+            guardado.PrecioVenta = 242m;
+            await ctx.SaveChangesAsync();
+            ctx.ChangeTracker.Clear();
+
+            var original = await ctx.Ventas.AsNoTracking().SingleAsync();
+            var model = BuildViewModel(cliente.Id, producto.Id);
+            model.Id = original.Id;
+            model.RowVersion = original.RowVersion;
+            model.FechaVenta = original.FechaVenta;
+            model.Estado = original.Estado;
+
+            await svc.UpdateAsync(original.Id, model);
+
+            Assert.Equal(242m, (await ctx.VentaDetalles.AsNoTracking().SingleAsync(d => !d.IsDeleted)).PrecioUnitario);
+        }
+    }
 }
 
 
