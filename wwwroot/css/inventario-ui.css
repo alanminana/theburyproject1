@@ -313,7 +313,9 @@
     background: var(--pal-danger-800, var(--pal-danger));
 }
 
-:is(.inv-btn, .inv-control):focus-visible {
+/* En los campos de fecha el foco queda en sus partes internas y el campo no recibe :focus-visible. */
+:is(.inv-btn, .inv-control):focus-visible,
+.inv-control[type="date"]:focus-within {
     outline: 2px solid var(--erp-primary);
     outline-offset: 2px;
 }

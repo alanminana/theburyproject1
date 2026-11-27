@@ -36,7 +36,7 @@
         }
 
         <div class="inv-campo">
-            <label asp-for="ProductoId" class="inv-campo__etiqueta">Producto</label>
+            <label asp-for="ProductoId" class="inv-campo__etiqueta" for="select-producto">Producto</label>
             <select asp-for="ProductoId" asp-items="ViewBag.Productos" id="select-producto" class="inv-control">
                 <option value="">Seleccioná un producto</option>
             </select>

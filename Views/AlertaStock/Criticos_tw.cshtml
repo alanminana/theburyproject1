@@ -9,7 +9,15 @@
 <div class="inv-screen inv-page">
     <header class="inv-head">
         <div class="inv-head__titulo">
-            <a asp-controller="Catalogo" asp-action="Index" asp-route-tab="alertas" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Alertas</a>
+            @* Sin productos.view el catálogo responde «Acceso denegado»: la miga vuelve al listado propio. *@
+            @if (User.TienePermiso("productos", "view"))
+            {
+                <a asp-controller="Catalogo" asp-action="Index" asp-route-tab="alertas" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Alertas</a>
+            }
+            else
+            {
+                <a asp-controller="AlertaStock" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Alertas</a>
+            }
             <h1>Productos críticos</h1>
             <p>Stock agotado o por debajo del mínimo. Primero los agotados.</p>
         </div>

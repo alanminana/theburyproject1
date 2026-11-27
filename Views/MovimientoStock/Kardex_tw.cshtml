@@ -85,7 +85,15 @@
 <div class="inv-screen inv-page inv-imprimible">
     <header class="inv-head">
         <div class="inv-head__titulo">
-            <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb inv-no-print"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            @* Sin productos.view el catálogo responde «Acceso denegado»: la miga vuelve al listado propio. *@
+            @if (User.TienePermiso("productos", "view"))
+            {
+                <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb inv-no-print"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            }
+            else
+            {
+                <a asp-controller="MovimientoStock" asp-action="Index" class="inv-crumb inv-no-print"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Movimientos</a>
+            }
             <h1>Kardex de inventario</h1>
             @if (producto != null)
             {

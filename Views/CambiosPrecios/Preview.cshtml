@@ -31,7 +31,15 @@
         <div class="inv-head__titulo">
             @if (origenCatalogo)
             {
-                <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+                @* Sin productos.view el catálogo responde «Acceso denegado»: la miga vuelve al listado propio. *@
+                @if (User.TienePermiso("productos", "view"))
+                {
+                    <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+                }
+                else
+                {
+                    <a asp-controller="CambiosPrecios" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Cambios de precios</a>
+                }
             }
             else
             {
