@@ -65,92 +65,45 @@
      MODAL: Historial de Cambios de Precio (por producto)
      ═══════════════════════════════════════════════════════════════ -->
 <dialog id="modal-historial-precio" class="inv-drawer" aria-labelledby="modal-historial-precio-title">
-
-    <!-- Panel -->
     <div class="inv-drawer__panel">
-        <!-- Header -->
-        <header class="border-b border-slate-800 px-6 py-5 sm:px-8">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-start gap-4">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <span class="material-symbols-outlined text-2xl">history</span>
-                </div>
-                <div>
-                    <div class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">
-                        Historial de precios
-                    </div>
-                    <h2 id="modal-historial-precio-title" class="mt-3 text-xl font-bold tracking-tight text-white sm:text-2xl">Cambios aplicados al producto</h2>
-                    <p class="mt-1 text-sm text-slate-400">Revisá fecha, usuario, variación y, si corresponde, revertí el ajuste desde el mismo panel.</p>
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <span id="historial-producto-nombre" class="text-sm font-medium text-slate-300"></span>
-                        <span id="historial-producto-codigo" class="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono text-slate-400"></span>
-                        <span id="historial-precio-count" class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">0 eventos</span>
-                    </div>
-                </div>
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-historial-precio-title">Historial de precios</h2>
+                <p><span id="historial-producto-nombre"></span> · <span id="historial-producto-codigo"></span> · <span id="historial-precio-count">0 eventos</span></p>
             </div>
-            <button type="button" data-catalogo-modal-close="historial-precio" class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-800">
-                <span class="material-symbols-outlined text-slate-500 group-group-hover:text-white">close</span>
+            <button type="button" data-catalogo-modal-close="historial-precio" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
-            </div>
         </header>
 
-        <div id="historial-precio-feedback" aria-live="polite" aria-atomic="true" class="hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8"></div>
+        <div id="historial-precio-feedback" aria-live="polite" aria-atomic="true" class="hidden"></div>
 
-        <!-- Table Content -->
-        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-4 sm:px-8">
-            <p class="mb-3 text-xs text-slate-400">Deslizá la tabla para comparar valores anteriores, nuevos y la variación aplicada.</p>
-            <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 860px;">
-                <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-400">
-                    <span class="material-symbols-outlined text-sm">swipe</span>
-                    Deslizá para ver todas las columnas del historial.
-                </div>
-                <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800">
-                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
-                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Historial de cambios de precio" class="overflow-x-auto">
-                        <table data-erp-cards data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
-                            <thead>
-                                <tr class="bg-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                    <th data-card="title" class="px-8 py-4">Fecha y Hora</th>
-                                    <th data-card="half" class="px-6 py-4">Usuario</th>
-                                    <th class="px-6 py-4">Motivo</th>
-                                    <th data-card="third" class="px-6 py-4 text-right">Precio Ant.</th>
-                                    <th data-card="third" class="px-6 py-4 text-right">Precio Nuevo</th>
-                                    <th data-card="third" class="px-6 py-4 text-center">Variación</th>
-                                    <th class="px-8 py-4 text-right">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="historial-precio-tbody" class="divide-y divide-slate-800">
-                                <!-- Rows populated by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="inv-drawer__cuerpo">
+            <div id="historial-precio-tabla" class="inv-table-wrap" tabindex="0" role="region" aria-label="Historial de cambios de precio" hidden>
+                <table class="inv-table inv-table--apilable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Motivo y usuario</th>
+                            <th scope="col" class="inv-col-num">Precio anterior</th>
+                            <th scope="col" class="inv-col-num">Precio nuevo</th>
+                            <th scope="col" class="inv-col-num">Variación</th>
+                            <th scope="col" class="inv-col-actions"><span class="sr-only">Acción</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="historial-precio-tbody"></tbody>
+                </table>
             </div>
 
-            <!-- Loading -->
-            <div id="historial-precio-loading" aria-live="polite" aria-atomic="true" class="hidden py-16 text-center">
-                <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                <span class="text-sm text-slate-400">Cargando historial...</span>
-            </div>
+            <div id="historial-precio-loading" aria-live="polite" class="hidden"><p class="inv-empty">Cargando historial…</p></div>
 
-            <!-- Empty state -->
-            <div id="historial-precio-empty" class="hidden py-16 text-center">
-                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">info</span>
-                <p class="text-sm font-bold text-slate-400">No hay cambios de precio registrados</p>
+            <div id="historial-precio-empty" class="hidden">
+                <div class="inv-empty">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                    <p class="inv-empty__title">No hay cambios de precio registrados</p>
+                </div>
             </div>
         </div>
-
-        <!-- Footer -->
-        <footer class="border-t border-slate-800 bg-slate-900 px-6 py-5 sm:px-8">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-xs text-slate-400">Revisá el contexto antes de revertir para evitar inconsistencias en el catálogo.</p>
-            <button type="button" data-catalogo-modal-close="historial-precio"
-                    class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-8 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:brightness-110 active:scale-95 sm:w-auto">
-                Cerrar
-            </button>
-            </div>
-        </footer>
     </div>
 </dialog>
 
@@ -206,7 +159,7 @@
                 <div id="precio-selection-summary" class="hidden items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                     <span class="material-symbols-outlined text-amber-500">playlist_add_check</span>
                     <div>
-                        <span class="block text-sm font-bold text-amber-400">Hay <span id="precio-selection-summary-count">0</span> productos seleccionados</span>
+                        <span class="block text-sm font-bold text-amber-400">Productos seleccionados en la tabla: <span id="precio-selection-summary-count">0</span></span>
                         <p class="text-xs text-amber-400/80 mt-0.5">Se va a sugerir esa selección como alcance inicial, pero podés cambiarlo antes de aplicar el ajuste.</p>
                     </div>
                 </div>
@@ -475,173 +428,99 @@
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <dialog id="modal-movimientos" class="inv-dialog inv-dialog--tabla" aria-labelledby="modal-movimientos-title">
     <div class="inv-dialog__panel inv-dialog__panel--scroll">
-
-        <!-- Modal Header -->
-        <div class="flex flex-wrap justify-between items-start gap-4 p-6 pb-0">
-            <div class="flex flex-col gap-1">
-                <h2 id="modal-movimientos-title" class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h2>
-                <p class="text-slate-400 text-base font-normal">Historial completo de entradas, salidas y ajustes de stock.</p>
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-movimientos-title">Movimientos y costos</h2>
+                <p>Historial por producto: entradas, salidas y ajustes con su costo. No identifica unidades físicas individuales.</p>
             </div>
-            <button type="button" id="btn-cerrar-movimientos"
-                    class="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-slate-800 text-white text-sm font-bold transition-colors hover:bg-slate-700">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                <span>Cerrar</span>
+            <button type="button" id="btn-cerrar-movimientos" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
+        </header>
+
+        <div id="mov-producto-contexto" class="hidden inv-contexto">
+            <p>Producto: <strong id="mov-producto-nombre-label"></strong></p>
+            <button type="button" id="btn-mov-ver-todos" class="inv-link">Ver todos los movimientos</button>
         </div>
 
-        <!-- Banner: contexto de producto (visible solo al abrir desde fila) -->
-        <div id="mov-producto-contexto" class="hidden mx-6 mt-4 items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary">inventory_2</span>
-                <div>
-                    <p class="text-sm font-bold text-white">Filtrando por: <span id="mov-producto-nombre-label" class="text-primary"></span></p>
-                    <p class="text-xs text-slate-400">Historial por producto/SKU. No identifica unidades físicas individuales.</p>
-                </div>
-            </div>
-            <button type="button" id="btn-mov-ver-todos"
-                    class="text-xs font-bold text-primary hover:text-primary/80 transition-colors whitespace-nowrap flex items-center gap-1">
-                <span class="material-symbols-outlined text-sm">list</span>
-                Ver todos los movimientos
-            </button>
-        </div>
+        <div class="inv-modal-cuerpo">
+            <dl class="inv-resumen" aria-label="Totales de la búsqueda">
+                <div><dt>Movimientos</dt><dd id="mov-stat-total">0</dd></div>
+                <div><dt>Entradas (unidades)</dt><dd id="mov-stat-entradas">0</dd></div>
+                <div><dt>Salidas (unidades)</dt><dd id="mov-stat-salidas">0</dd></div>
+                <div><dt>Ajustes</dt><dd id="mov-stat-ajustes">0</dd></div>
+            </dl>
 
-        <!-- Modal Body -->
-        <div class="flex flex-col gap-6 p-6">
-
-            <!-- Stats Summary -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
-                    <p class="text-slate-400 text-sm font-medium">Total movimientos</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-white text-2xl font-bold" id="mov-stat-total">0</p>
-                    </div>
+            <div class="inv-campos" role="search" aria-label="Filtrar movimientos">
+                <div class="inv-campo">
+                    <label for="mov-fecha-desde" class="inv-campo__etiqueta">Desde</label>
+                    <input id="mov-fecha-desde" aria-label="Fecha desde" type="date" class="inv-control" />
                 </div>
-                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
-                    <p class="text-slate-400 text-sm font-medium">Entradas (Unidades)</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-white text-2xl font-bold" id="mov-stat-entradas">0</p>
-                    </div>
+                <div class="inv-campo">
+                    <label for="mov-fecha-hasta" class="inv-campo__etiqueta">Hasta</label>
+                    <input id="mov-fecha-hasta" aria-label="Fecha hasta" type="date" class="inv-control" />
                 </div>
-                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
-                    <p class="text-slate-400 text-sm font-medium">Salidas (Unidades)</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-white text-2xl font-bold" id="mov-stat-salidas">0</p>
-                    </div>
-                </div>
-                <div class="flex flex-col gap-2 rounded-xl p-6 border border-slate-800 bg-slate-900/50">
-                    <p class="text-slate-400 text-sm font-medium">Ajustes</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-white text-2xl font-bold" id="mov-stat-ajustes">0</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filters Section -->
-            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-                <h3 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined">filter_list</span>
-                    Filtros de Búsqueda
-                    <span id="mov-filtros-badge" class="hidden items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white"></span>
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label for="mov-fecha-desde" class="text-sm font-medium text-slate-400">Rango de Fechas</label>
-                        <div class="flex items-center gap-2">
-                            <input id="mov-fecha-desde" aria-label="Fecha desde" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
-                            <span class="text-slate-400">-</span>
-                            <input id="mov-fecha-hasta" aria-label="Fecha hasta" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label for="mov-tipo" class="text-sm font-medium text-slate-400">Tipo de Movimiento</label>
-                        <select id="mov-tipo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
-                            <option value="">Todos los tipos</option>
-                            <option value="Entrada">Entrada</option>
-                            <option value="Salida">Salida</option>
-                            <option value="Ajuste">Ajuste</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label for="mov-producto" class="text-sm font-medium text-slate-400">Producto (SKU/Nombre)</label>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-                            <input id="mov-producto" type="text" class="w-full pl-10 rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" placeholder="Ej: CPU-001..." />
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label for="mov-fuente-costo" class="text-sm font-medium text-slate-400">Fuente de Costo</label>
-                        <select id="mov-fuente-costo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
-                            <option value="">Todas las fuentes</option>
-                            <option value="VentaDetalleSnapshot">Venta</option>
-                            <option value="OrdenCompraDetalle">Orden de compra</option>
-                            <option value="ProductoActual">Costo actual del producto</option>
-                            <option value="AjusteManual">Ajuste manual</option>
-                            <option value="Legacy">Histórico migrado</option>
-                            <option value="NoInformado">No informado</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
-                    <button type="button" id="btn-mov-limpiar" class="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white transition-colors">Limpiar</button>
-                    <button type="button" id="btn-mov-buscar" class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">Buscar Movimientos</button>
-                </div>
-            </div>
-
-            <!-- Actions Bar -->
-            <div class="flex justify-between items-center px-2">
-                <p class="text-sm text-slate-400">Mostrando <span class="font-bold text-white" id="mov-count-showing">0</span> de <span class="font-bold text-white" id="mov-count-total">0</span> movimientos<span id="mov-count-context" class="hidden text-slate-500"></span></p>
-                <div class="flex gap-2">
-                </div>
-            </div>
-
-            <!-- Movements Table -->
-            <div data-oc-scroll class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 rounded-l-xl" style="background:linear-gradient(to right,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 rounded-r-xl" style="background:linear-gradient(to left,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
-                <div data-oc-scroll-region class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50" tabindex="0" role="region" aria-label="Tabla de movimientos de inventario">
-                <table data-erp-cards class="w-full text-left border-collapse" style="min-width:1180px;">
-                    <thead>
-                        <tr class="border-b border-slate-800 bg-slate-800/30">
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
-                            <th data-card="title" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
-                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
-                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
-                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
-                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 text-right">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="mov-tbody" class="divide-y divide-slate-800">
-                        <!-- Rows populated by JS or empty state -->
-                        <tr id="mov-empty-state">
-                            <td colspan="11" class="py-16 text-center">
-                                <div class="flex flex-col items-center gap-2 opacity-40">
-                                    <span class="material-symbols-outlined text-4xl">swap_vert</span>
-                                    <p class="text-slate-400 text-base">No hay movimientos para mostrar</p>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div><!-- /data-oc-scroll-region -->
-            </div><!-- /data-oc-scroll -->
-
-            <!-- Pagination -->
-            <div class="flex items-center justify-between border-t border-slate-800 pt-6">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm text-slate-400">Filas por página:</span>
-                    <select id="mov-page-size" aria-label="Filas por página" class="bg-transparent border-none text-sm font-bold focus:ring-0 text-white">
-                        <option>25</option>
-                        <option>50</option>
-                        <option>100</option>
+                <div class="inv-campo">
+                    <label for="mov-tipo" class="inv-campo__etiqueta">Tipo</label>
+                    <select id="mov-tipo" class="inv-control">
+                        <option value="">Todos los tipos</option>
+                        <option value="Entrada">Entrada</option>
+                        <option value="Salida">Salida</option>
+                        <option value="Ajuste">Ajuste</option>
                     </select>
                 </div>
-                <div class="flex items-center gap-1" id="mov-pagination">
-                    <!-- Pagination rendered by JS -->
+                <div class="inv-campo">
+                    <label for="mov-producto" class="inv-campo__etiqueta">Producto (código o nombre)</label>
+                    <input id="mov-producto" type="search" class="inv-control" />
+                </div>
+                <div class="inv-campo">
+                    <label for="mov-fuente-costo" class="inv-campo__etiqueta">Fuente del costo</label>
+                    <select id="mov-fuente-costo" class="inv-control">
+                        <option value="">Todas las fuentes</option>
+                        <option value="VentaDetalleSnapshot">Venta</option>
+                        <option value="OrdenCompraDetalle">Orden de compra</option>
+                        <option value="ProductoActual">Costo actual del producto</option>
+                        <option value="AjusteManual">Ajuste manual</option>
+                        <option value="Legacy">Histórico migrado</option>
+                        <option value="NoInformado">No informado</option>
+                    </select>
+                </div>
+            </div>
+            <div class="inv-actions">
+                <span id="mov-filtros-badge" class="hidden inv-pill inv-pill--accent"></span>
+                <button type="button" id="btn-mov-limpiar" class="inv-btn inv-btn--ghost">Limpiar</button>
+                <button type="button" id="btn-mov-buscar" class="inv-btn inv-btn--primary">Buscar movimientos</button>
+            </div>
+
+            <p class="inv-ayuda-texto" role="status">Mostrando <strong id="mov-count-showing">0</strong> de <strong id="mov-count-total">0</strong> movimientos<span id="mov-count-context" class="hidden"></span></p>
+
+            <div class="inv-panel inv-panel--tabla">
+                <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de movimientos de inventario">
+                    <table class="inv-table inv-table--apilable">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Movimiento</th>
+                                <th scope="col">Producto</th>
+                                <th scope="col" class="inv-col-num">Cantidad</th>
+                                <th scope="col" class="inv-col-num">Costo unitario</th>
+                                <th scope="col" class="inv-col-num">Costo total</th>
+                                <th scope="col" class="inv-col-num">Saldo</th>
+                                <th scope="col" class="inv-col-actions"><span class="sr-only">Acción</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="mov-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="inv-pager inv-pager--extremos">
+                    <label class="inv-fecha"><span>Filas</span>
+                        <select id="mov-page-size" aria-label="Filas por página" class="inv-control">
+                            <option>25</option>
+                            <option>50</option>
+                            <option>100</option>
+                        </select>
+                    </label>
+                    <div class="inv-paginas" id="mov-pagination"></div>
                 </div>
             </div>
         </div>

@@ -1,7 +1,6 @@
 /**
  * historial-precio-modal.js – Historial de cambios de precio por producto.
- * Mantiene la API existente del modal, pero mueve confirmaciones y acciones
- * al contrato estándar del proyecto.
+ * La confirmación de la reversión usa InvUI.confirmar.
  */
 const HistorialPrecioModal = (() => {
     const catalogoModule = typeof CatalogoModule !== 'undefined' ? CatalogoModule : null;
@@ -42,7 +41,7 @@ const HistorialPrecioModal = (() => {
         if (!box) return;
 
         box.textContent = '';
-        box.className = 'hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8';
+        box.className = 'hidden';
     }
 
     function updateCount(total) {
@@ -56,23 +55,7 @@ const HistorialPrecioModal = (() => {
         if (!box) return;
 
         box.textContent = message;
-        box.className = 'mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8';
-
-        if (type === 'success') {
-            box.classList.add(
-                'bg-emerald-500/10',
-                'border-emerald-500/20',
-                'text-emerald-600',
-                'dark:text-emerald-400'
-            );
-        } else {
-            box.classList.add(
-                'bg-red-500/10',
-                'border-red-500/20',
-                'text-red-500',
-                'dark:text-red-400'
-            );
-        }
+        box.className = 'inv-aviso inv-drawer__aviso ' + (type === 'success' ? 'inv-aviso--ok' : 'inv-aviso--error');
     }
 
     function fmt(n) {
@@ -97,43 +80,17 @@ const HistorialPrecioModal = (() => {
         return td;
     }
 
-    function motivoBadge(motivo) {
-        if (!motivo) return null;
-
-        const lower = motivo.toLowerCase();
-        let color = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-
-        if (lower.includes('aumento') || lower.includes('proveedor')) {
-            color = 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-        } else if (lower.includes('oferta') || lower.includes('descuento') || lower.includes('promoción')) {
-            color = 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-        } else if (lower.includes('inflación') || lower.includes('ajuste')) {
-            color = 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
-        } else if (lower.includes('revert') || lower.includes('reversión')) {
-            color = 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
-        }
-
-        return el('span', 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ' + color, motivo);
-    }
-
     function variacionNode(anterior, nuevo) {
-        if (!anterior || anterior === 0) {
-            return el('span', 'text-slate-400', '—');
-        }
+        if (!anterior) return el('span', '', '—');
 
         const diff = nuevo - anterior;
-        const pct = ((diff / anterior) * 100).toFixed(1);
-        const abs = fmt(Math.abs(diff));
+        if (!diff) return el('span', '', '0%');
 
-        if (diff > 0 || diff < 0) {
-            const up = diff > 0;
-            const wrap = el('div', 'flex flex-col items-center');
-            wrap.appendChild(el('span', 'text-xs font-bold ' + (up ? 'text-red-500' : 'text-emerald-500'), (up ? '+' : '') + pct + '%'));
-            wrap.appendChild(el('span', up ? 'text-[11px] text-red-400' : 'text-[11px] text-emerald-400', (up ? '+' : '') + abs));
-            return wrap;
-        }
-
-        return el('span', 'text-xs text-slate-400', '0%');
+        const signo = diff > 0 ? '+' : '−';
+        const wrap = el('span', diff > 0 ? 'inv-text-danger' : 'inv-text-ok');
+        wrap.appendChild(el('strong', '', signo + Math.abs((diff / anterior) * 100).toFixed(1) + '%'));
+        wrap.appendChild(el('span', 'inv-ayuda-texto inv-bloque', signo + fmt(Math.abs(diff))));
+        return wrap;
     }
 
     function getToken() {
@@ -141,63 +98,71 @@ const HistorialPrecioModal = (() => {
         return element ? element.value : '';
     }
 
+    // Datos de cada evento para describir en la confirmación qué se va a restaurar.
+    const eventos = new Map();
+
     function renderRows(items) {
         const tableBody = tbody();
+        const tabla = document.getElementById('historial-precio-tabla');
         tableBody.innerHTML = '';
+        eventos.clear();
         updateCount(items ? items.length : 0);
 
         if (!items || items.length === 0) {
+            tabla.hidden = true;
             show(empty());
             dispatchScrollRefresh();
             return;
         }
 
         hide(empty());
+        tabla.hidden = false;
 
         items.forEach((item) => {
             const partes = (item.fecha || '').split('·');
             const fechaStr = (partes[0] || '').trim();
             const horaStr = (partes[1] || '').trim();
+            const eventoId = parseInt(item.eventoId, 10);
+            eventos.set(eventoId, item);
 
-            let revertBtn;
+            let accion = null;
             if (item.puedeRevertir) {
-                revertBtn = el('button', 'inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors');
-                revertBtn.type = 'button';
-                revertBtn.setAttribute('data-catalogo-action', 'historial-revert');
-                revertBtn.setAttribute('data-catalogo-evento-id', String(parseInt(item.eventoId, 10)));
-                revertBtn.appendChild(el('span', 'material-symbols-outlined text-sm', 'undo'));
-                revertBtn.appendChild(document.createTextNode(' Revertir'));
-            } else {
-                revertBtn = el('span', 'text-xs text-slate-400 italic', '—');
+                accion = el('button', 'inv-btn inv-btn--ghost inv-btn--sm', 'Revertir');
+                accion.type = 'button';
+                accion.setAttribute('data-catalogo-action', 'historial-revert');
+                accion.setAttribute('data-catalogo-evento-id', String(eventoId));
+                accion.setAttribute('aria-label', 'Revertir el cambio del ' + fechaStr + ' ' + horaStr);
             }
 
-            const usuario = item.usuario ? String(item.usuario) : '';
-            const userCell = el('div', 'flex items-center gap-2');
-            userCell.appendChild(el('span', 'flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold',
-                (Array.from(usuario)[0] || '?').toUpperCase()));
-            userCell.appendChild(el('span', 'text-sm dark:text-slate-300', usuario || '—'));
+            const fecha = el('th', '', fechaStr);
+            fecha.scope = 'row';
+            fecha.appendChild(el('p', 'inv-ayuda-texto', horaStr));
 
-            const row = el('tr', 'hover:bg-slate-50/50 dark:hover:bg-white/[.02] transition-colors');
-            row.appendChild(cell('px-8 py-4',
-                el('div', 'text-sm font-medium dark:text-white', fechaStr),
-                el('div', 'text-xs text-slate-400', horaStr)));
-            row.appendChild(cell('px-6 py-4', userCell));
-            row.appendChild(cell('px-6 py-4', motivoBadge(item.motivo)));
-            row.appendChild(cell('px-6 py-4 text-right',
-                el('span', 'text-sm font-mono text-slate-500 dark:text-slate-400', fmt(item.precioAnterior))));
-            row.appendChild(cell('px-6 py-4 text-right',
-                el('span', 'text-sm font-mono font-bold dark:text-white', fmt(item.precioNuevo))));
-            row.appendChild(cell('px-6 py-4 text-center', variacionNode(item.precioAnterior, item.precioNuevo)));
-            row.appendChild(cell('px-8 py-4 text-right', revertBtn));
+            const row = el('tr');
+            row.appendChild(fecha);
+            row.appendChild(celda('Motivo y usuario', 'inv-celda-detalle',
+                el('span', '', item.motivo || 'Sin motivo'),
+                el('p', 'inv-ayuda-texto', item.usuario ? String(item.usuario) : '—')));
+            row.appendChild(celda('Precio anterior', 'inv-col-num', el('span', '', fmt(item.precioAnterior))));
+            row.appendChild(celda('Precio nuevo', 'inv-col-num', el('span', 'inv-importe', fmt(item.precioNuevo))));
+            row.appendChild(celda('Variación', 'inv-col-num', variacionNode(item.precioAnterior, item.precioNuevo)));
+            row.appendChild(cell('inv-col-actions', accion));
             tableBody.appendChild(row);
         });
 
         dispatchScrollRefresh();
     }
 
+    function celda(rotulo, clase, ...children) {
+        const td = cell(clase, ...children);
+        td.setAttribute('data-label', rotulo);
+        return td;
+    }
+
     async function fetchHistorial(productoId) {
         clearFeedback();
         hide(empty());
+        document.getElementById('historial-precio-tabla').hidden = true;
         tbody().innerHTML = '';
         show(loading());
 
@@ -249,15 +214,21 @@ const HistorialPrecioModal = (() => {
         }
     }
 
-    function revertir(eventoId) {
-        if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
-            window.TheBury.confirmAction(
-                '¿Revertir este cambio de precio? Se revierte el AJUSTE COMPLETO: se restaurará el precio anterior de todos los productos incluidos en ese ajuste, no solo de este. Si alguno cambió de precio después, no se revierte ninguno.',
-                function () {
-                    executeRevertir(eventoId);
-                }
-            );
-        }
+    // El historial es un <dialog> modal: la confirmación tiene que abrirse en la capa superior,
+    // si no queda detrás del panel y no se puede pulsar.
+    async function revertir(eventoId) {
+        const item = eventos.get(eventoId);
+        const respuesta = await window.InvUI.confirmar({
+            titulo: '¿Revertir este ajuste de precios?',
+            datos: item
+                ? [['Producto', nombre().textContent], ['Aplicado', item.fecha],
+                    ['Precio del ajuste', fmt(item.precioNuevo)], ['Vuelve a', fmt(item.precioAnterior)]]
+                : [],
+            avisos: ['Se revierte el ajuste completo: se restaura el precio anterior de todos los productos incluidos en ese ajuste, no solo de este.'],
+            consecuencias: ['Si alguno cambió de precio después, no se revierte ninguno.'],
+            etiquetaConfirmar: 'Revertir ajuste completo'
+        });
+        if (respuesta.ok) await executeRevertir(eventoId);
     }
 
     var _panel = null;

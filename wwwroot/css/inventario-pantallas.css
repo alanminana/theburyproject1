@@ -632,7 +632,7 @@
 
 .inv-resumen {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(8.25rem, 100%), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(7.5rem, 100%), 1fr));
     gap: .75rem 1.25rem;
 }
 
@@ -1266,6 +1266,61 @@ fieldset.inv-panel {
 .inv-icon-btn.hidden,
 .inv-btn.hidden {
     display: none;
+}
+
+/* ---------- Paneles de historial y de movimientos ----------------------- */
+.inv-drawer__cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.inv-drawer__aviso {
+    margin: .75rem 1.5rem 0;
+}
+
+.inv-bloque {
+    display: block;
+}
+
+.inv-contexto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    padding: .625rem 1.5rem;
+    font-size: .875rem;
+    background: color-mix(in srgb, var(--pal-accent) 8%, transparent);
+}
+
+.inv-contexto.hidden,
+.inv-pill.hidden {
+    display: none;
+}
+
+.inv-modal-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 1.5rem 1.5rem;
+}
+
+.inv-pager--extremos {
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.inv-paginas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem;
+}
+
+.inv-paginas :disabled {
+    opacity: .4;
+    cursor: default;
 }
 
 /* ---------- Kardex ------------------------------------------------------ */
