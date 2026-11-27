@@ -200,6 +200,11 @@ a las dos máquinas se lleva todo. El servidor sube cifrado (`crypt`) y la PC so
    (solo quedan legibles los nombres de carpeta `sql/` y `files/`, que el observador usa para saber qué dejó de llegar).
    **Antes de activar la copia programada, crear el centinela una vez** (sin él cada copia externa falla con exit 6 sin subir nada):
    `docker compose run --rm -T --no-deps backup-offsite touch secure:erp/.bury-offsite-ok`.
+   **Obligatorio en `backup-offsite.env`** si el destino puede apagarse: `RCLONE_CONTIMEOUT=10s`, `RCLONE_TIMEOUT=60s`, `RCLONE_RETRIES=1`,
+   `RCLONE_LOW_LEVEL_RETRIES=2`. Con los valores por defecto `rclone` **no se rindió en 15 minutos** contra un destino que no responde: la corrida retiene el
+   bloqueo, las siguientes se omiten y la diaria (que espera 180 s) tampoco corre, es decir, se pierden también las copias **locales**. Con los límites falla
+   con exit 6 en ~40 s (medido el 2026-11-26). Si la PC estaba apagada a las 03:00, la base pendiente se repone con la siguiente copia de logs, pero el tar de
+   archivos espera a la próxima corrida `all`/`files` (o ejecutarla a mano).
 4. **Regenerar el paquete de recuperación** (`recovery-package.sh create`) y llevar copia fuera del servidor: sin las passwords crypt las copias no se leen.
 5. Programar `restore-test.sh --offsite` mensual (basta el crontab del usuario del servidor).
 6. Alertas: el observador de la PC (`instalar-observador.ps1 -DestinoRuta E:ury-respaldo-pc\datos\erp`) avisa si el servicio cae, si dejan de llegar los logs
