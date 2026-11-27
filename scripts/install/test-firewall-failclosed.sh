@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prueba REAL de que el firewall FALLA CERRADO: lo instala con server-linux-bootstrap.sh sobre el systemd y el Docker del anfitrion,
 # induce fallos y observa el puerto publicado desde dos clientes en espacios de red propios (no dependen de Docker):
-# "autorizado" (192.168.77.20) y "ajeno" (10.99.77.20). Datos sinteticos; no usa el ERP ni ninguna base.
+# "autorizado" (198.18.77.20) y "ajeno" (198.19.77.20). Datos sinteticos; no usa el ERP ni ninguna base.
 #
 # DESTRUCTIVA: detiene y reinicia Docker muchas veces (corta TODOS los contenedores del anfitrion) y al terminar retira el firewall.
 # Solo en una maquina descartable (runner de CI o VM de laboratorio). Se niega si no se pide explicitamente o si ya existe /etc/bury.
@@ -52,11 +52,11 @@ client() {   # client NOMBRE IF_HOST RED
   ip -n "$1" addr add "$3.20/24" dev eth0; ip -n "$1" link set eth0 up; ip -n "$1" link set lo up
   ip -n "$1" route add default via "$3.1"
 }
-client buryfc-ok buryfc-ok0 192.168.77 || { echo "no se pudo crear el cliente autorizado"; exit 2; }
-client buryfc-no buryfc-no0 10.99.77 || { echo "no se pudo crear el cliente ajeno"; exit 2; }
+client buryfc-ok buryfc-ok0 198.18.77 || { echo "no se pudo crear el cliente autorizado"; exit 2; }
+client buryfc-no buryfc-no0 198.19.77 || { echo "no se pudo crear el cliente ajeno"; exit 2; }
 
-reach_ok() { ip netns exec buryfc-ok curl -s -m 3 "http://192.168.77.1:$PORT/" 2>/dev/null | grep -q ERP-OK; }
-reach_no() { ip netns exec buryfc-no curl -s -m 3 "http://10.99.77.1:$PORT/" 2>/dev/null | grep -q ERP-OK; }
+reach_ok() { ip netns exec buryfc-ok curl -s -m 3 "http://198.18.77.1:$PORT/" 2>/dev/null | grep -q ERP-OK; }
+reach_no() { ip netns exec buryfc-no curl -s -m 3 "http://198.19.77.1:$PORT/" 2>/dev/null | grep -q ERP-OK; }
 denied_no() { ! reach_no; }
 nothing_listens() { ! ss -Hltn "sport = :$PORT" | grep -q .; }
 wait_ok() { local i; for i in $(seq 1 30); do reach_ok && return 0; sleep 1; done; return 1; }
@@ -69,14 +69,14 @@ restart_docker() { systemctl reset-failed docker.service docker.socket 2>/dev/nu
 no_window() {   # no_window COMANDO...
   local flag="$TMP/watch" hits="$TMP/hits" n="$TMP/n"
   : >"$flag"; : >"$hits"; : >"$n"
-  ip netns exec buryfc-no bash -c 'while [[ -e "$1" ]]; do echo . >>"$4"; timeout 0.3 bash -c "</dev/tcp/10.99.77.1/$3" 2>/dev/null && echo abierto >>"$2"; sleep 0.02; done' _ "$flag" "$hits" "$PORT" "$n" &
+  ip netns exec buryfc-no bash -c 'while [[ -e "$1" ]]; do echo . >>"$4"; timeout 0.3 bash -c "</dev/tcp/198.19.77.1/$3" 2>/dev/null && echo abierto >>"$2"; sleep 0.02; done' _ "$flag" "$hits" "$PORT" "$n" &
   local w=$!
   "$@" >/dev/null 2>&1; wait_ok; sleep 2
   rm -f "$flag"; wait $w
   echo "     (sondeos del cliente ajeno: $(wc -l <"$n"), conexiones logradas: $(wc -l <"$hits"))"
   [[ -s "$n" && ! -s "$hits" ]]
 }
-good_conf() { printf 'ALLOW_FROM="192.168.77.0/24"\nHTTPS_PORT=%s\n' "$PORT" >$CONF; }
+good_conf() { printf 'ALLOW_FROM="198.18.77.0/24"\nHTTPS_PORT=%s\n' "$PORT" >$CONF; }
 
 docker pull -q "$IMG" >/dev/null || { echo "no se pudo bajar $IMG"; exit 2; }
 docker rm -f $NAME >/dev/null 2>&1
@@ -88,7 +88,7 @@ check "base: el cliente autorizado llega" wait_ok
 check "base: el cliente AJENO tambien llega (el riesgo que corrige el firewall)" reach_no
 
 echo "== Instalacion con server-linux-bootstrap.sh (systemd real) =="
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 192.168.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot.log" 2>&1; rc=$?
+bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot.log" 2>&1; rc=$?
 check "bootstrap termina bien (rc=0)" test "$rc" = 0
 (( rc == 0 )) || tail -20 "$TMP/boot.log"
 check "bury-firewall.service activo y habilitado" bash -c 'systemctl is-active -q bury-firewall && systemctl is-enabled -q bury-firewall'
@@ -107,16 +107,16 @@ check "detener bury-firewall.service NO abre el puerto" denied_no
 check "reiniciar bury-firewall.service no abre ventana" no_window systemctl restart bury-firewall
 
 echo "== Salida de los contenedores =="
-ip netns exec buryfc-no python3 -m http.server "$PORT" --bind 10.99.77.20 --directory "$TMP" >/dev/null 2>&1 &
+ip netns exec buryfc-no python3 -m http.server "$PORT" --bind 198.19.77.20 --directory "$TMP" >/dev/null 2>&1 &
 SRV_PID=$!
 echo SALIDA-OK >"$TMP/salida.txt"; sleep 2
-check "un contenedor ABRE conexiones al puerto $PORT de otro equipo (no se filtra lo saliente)" bash -c 'docker exec "$1" wget -q -T 5 -O- "http://10.99.77.20:$2/salida.txt" | grep -q SALIDA-OK' _ $NAME $PORT
+check "un contenedor ABRE conexiones al puerto $PORT de otro equipo (no se filtra lo saliente)" bash -c 'docker exec "$1" wget -q -T 5 -O- "http://198.19.77.20:$2/salida.txt" | grep -q SALIDA-OK' _ $NAME $PORT
 kill "$SRV_PID" 2>/dev/null; SRV_PID=""
 
 echo "== Cambio de redes autorizadas repitiendo el bootstrap =="
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 192.168.77.0/24,10.99.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot2.log" 2>&1
+bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24,198.19.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot2.log" 2>&1
 check "la red agregada obtiene acceso sin reiniciar Docker" reach_no
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 192.168.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot3.log" 2>&1
+bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot3.log" 2>&1
 check "la red retirada pierde el acceso sin reiniciar Docker" denied_no
 
 echo "== Fallo 1: configuracion invalida con Docker en marcha =="
@@ -180,7 +180,7 @@ extra_conf() { { echo "ALLOW_FROM=\"$1\""; echo 'HTTPS_PORT=9444'; } >$EXTRA; }
 bury-firewall install-systemd >/dev/null; systemctl daemon-reload
 check "install-systemd retira el ExecStop de una unidad copiada de la version anterior" bash -c '! grep -q "^ExecStop" /etc/systemd/system/bury-firewall-prueba.service'
 rm -f /etc/systemd/system/bury-firewall-prueba.service; systemctl daemon-reload
-extra_conf 192.168.77.0/24
+extra_conf 198.18.77.0/24
 check "el arranque de Docker aplica y verifica tambien la segunda cadena" bash -c 'systemctl restart docker && iptables -w 5 -C DOCKER-USER -j BURY-ERP-PRUEBA && iptables -w 5 -S BURY-ERP-PRUEBA | grep -q "ctorigdstport 9444 .*-j DROP"'
 check "la instalacion principal sigue protegida" denied_no
 extra_conf ''
