@@ -1150,6 +1150,63 @@ fieldset.inv-panel {
     font-variant-numeric: tabular-nums;
 }
 
+/* Totales que además filtran. */
+.inv-totales {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: .375rem;
+    padding: .5rem;
+}
+
+.inv-totales a {
+    display: flex;
+    flex: 1 1 7rem;
+    flex-direction: column;
+    padding: .5rem .75rem;
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: .5rem;
+}
+
+.inv-totales a:hover {
+    background: var(--erp-surface-high);
+}
+
+.inv-totales a[aria-current="true"] {
+    border-color: var(--erp-primary);
+}
+
+.inv-totales a:focus-visible {
+    outline: 2px solid var(--erp-primary);
+    outline-offset: 1px;
+}
+
+.inv-totales span {
+    font-size: .75rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-totales strong {
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-filtros-linea--llena {
+    width: 100%;
+    align-items: center;
+}
+
+.inv-filtros-linea .inv-control--busqueda {
+    flex: 1 1 14rem;
+}
+
+@media (max-width: 639px) {
+    .inv-filtros-linea .inv-control--busqueda {
+        flex-basis: 100%;
+    }
+}
+
 /* ---------- Kardex ------------------------------------------------------ */
 .inv-grafico {
     width: 100%;

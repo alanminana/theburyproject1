@@ -136,6 +136,7 @@ namespace TheBuryProject.Controllers
                         costoTotalAlMomento = m.CostoTotalAlMomento,
                         fuenteCosto = m.FuenteCosto,
                         referencia = m.Referencia,
+                        referenciaLegible = ReferenciaStockUi.Legible(m.Referencia),
                         motivo = m.Motivo,
                         usuario = m.CreatedBy,
                         stockAnterior = m.StockAnterior,
