@@ -1052,6 +1052,83 @@ fieldset.inv-panel {
     overflow-y: auto;
 }
 
+/* ---------- Pestañas dentro de una pantalla y filtros de unidades ------- */
+.inv-tablist {
+    border-bottom: 1px solid var(--pal-neutral-800);
+}
+
+.inv-tablist__pista {
+    display: flex;
+    gap: .25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.inv-tab {
+    flex-shrink: 0;
+    min-height: 2.75rem;
+    padding: .5rem .875rem;
+    font-size: .875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--erp-fg-3);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+
+.inv-tab:hover {
+    color: var(--erp-text);
+}
+
+.inv-tab[aria-selected="true"] {
+    color: var(--erp-text);
+    border-bottom-color: var(--erp-primary);
+}
+
+.inv-tab:focus-visible {
+    outline: 2px solid var(--erp-primary);
+    outline-offset: -2px;
+}
+
+.inv-estados {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .375rem;
+    font-size: .8125rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-estados > :first-child {
+    margin-right: .375rem;
+}
+
+.inv-filtros-unidades .inv-filtros-linea {
+    align-items: center;
+}
+
+.inv-opciones {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .75rem;
+    min-height: 2.5rem;
+    font-size: .8125rem;
+}
+
+.inv-opciones label {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    cursor: pointer;
+}
+
+.inv-control--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8125rem;
+}
+
 /* ---------- Kardex ------------------------------------------------------ */
 .inv-grafico {
     width: 100%;
