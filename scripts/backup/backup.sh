@@ -101,9 +101,13 @@ stop_app() {
   dc stop -t 30 app >/dev/null 2>&1 || { log ERROR "no se pudo detener app"; return 1; }
   SET_APP_STOPPED=true
 }
+# Arranca SOLO el contenedor existente de app. `docker compose start app` tambien arranca sus dependencias de un solo uso (migrate y
+# db-init); tras una vuelta atras, un `migrate` con la imagen nueva volvia a migrar la base en el primer respaldo (reproducido el 2026-11-27).
+# `docker start` no crea ni recrea contenedores.
+start_app_container() { local id; id=$(dc ps -a -q app 2>/dev/null | head -n1); [[ -n "$id" ]] && docker start "$id"; }
 start_app() {
   log INFO "iniciando app"
-  dc start app >/dev/null 2>&1 || { fail $EX_APP "no se pudo iniciar app (la marca $APP_MARK queda: la proxima corrida reintenta)"; APP_STOPPED=0; return 1; }
+  start_app_container >/dev/null 2>&1 || { fail $EX_APP "no se pudo iniciar app (la marca $APP_MARK queda: la proxima corrida reintenta)"; APP_STOPPED=0; return 1; }
   if app_wait_healthy; then log INFO "app healthy"; rm -f "$APP_MARK"; APP_STOPPED=0; return 0; fi
   fail $EX_APP "app no llego a healthy en 180 s (la marca $APP_MARK queda: la proxima corrida reintenta)"
   APP_STOPPED=0
@@ -115,8 +119,8 @@ recover_app() {
   [[ -f "$APP_MARK" ]] || return 0
   log WARN "marca $APP_MARK presente ($(tr -d '\n' <"$APP_MARK" 2>/dev/null || true)): una corrida anterior no devolvio app a servicio"
   if app_healthy; then log INFO "app ya esta healthy: se limpia la marca"; rm -f "$APP_MARK"; return 0; fi
-  log WARN "recuperando app (docker compose start app)"
-  if dc start app >/dev/null 2>&1 && app_wait_healthy; then
+  log WARN "recuperando app (arranque del contenedor existente)"
+  if start_app_container >/dev/null 2>&1 && app_wait_healthy; then
     log INFO "app recuperada y healthy"; rm -f "$APP_MARK"; monitor_status app-recovery 0 true
   else
     APP_RECOVERY_FAILED=1; monitor_status app-recovery "$EX_APP" false
