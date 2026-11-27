@@ -37,6 +37,7 @@
     <link rel="stylesheet" href="~/css/erp-responsive-system.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/erp-table-cards.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/modulo-tabs.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/erp-ayuda.css" asp-append-version="true" />
 
     <!-- Tema Mercado Libre global (override de tokens; debe ir último) -->
     <link rel="stylesheet" href="~/css/theme-ml.css" asp-append-version="true" />
@@ -240,13 +241,15 @@
 
                     <div class="header-divider h-8 w-px bg-slate-700"></div>
 
-                    <!-- Help -->
-                    <button type="button" aria-label="Ayuda"
-                            class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
-                        <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
-                    </button>
-
-                    <div class="header-divider h-8 w-px bg-slate-700"></div>
+                    <!-- Ayuda contextual: visible solo en pantallas que incluyen un <dialog data-erp-ayuda> (erp-ayuda.js). -->
+                    <div class="flex items-center gap-4" data-ayuda-encabezado hidden>
+                        <button type="button" id="btn-ayuda" data-erp-ayuda-abrir aria-haspopup="dialog" aria-label="¿Cómo funciona?" title="¿Cómo funciona?"
+                                class="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 md:px-3 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
+                            <span class="hidden md:inline text-sm font-semibold">¿Cómo funciona?</span>
+                        </button>
+                        <div class="header-divider h-8 w-px bg-slate-700"></div>
+                    </div>
 
                     <!-- Menú de usuario -->
                     @{
@@ -400,6 +403,7 @@
     }
 
     @await RenderSectionAsync("Scripts", required: false)
+    <script src="~/js/erp-ayuda.js" asp-append-version="true"></script>
     <partial name="_DocumentosAbrir" />
 </body>
 

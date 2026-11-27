@@ -17,7 +17,6 @@
     </nav>
     <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-lg font-bold tracking-tight text-white">Fijar precio de @Model.ProductoCodigo</h1>
-        <partial name="_ListaPrecioAyudaBoton" />
     </div>
     <p class="mt-1 text-sm text-slate-400">@Model.ProductoNombre · lista «@Model.ListaNombre». El precio anterior queda en el historial con su vigencia.</p>
 </section>
@@ -109,9 +108,6 @@
 
 <partial name="_ListaPrecioAyuda" />
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/lista-precio.css" asp-append-version="true" />
-}
 
 @section Scripts {
     <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>

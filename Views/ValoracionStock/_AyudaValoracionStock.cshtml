@@ -1,0 +1,102 @@
+@* Ayuda «¿Cómo funciona?» de Valoración de stock. Describe ValoracionStockGerencialService; el simulador llama a
+   esa misma función de cálculo con datos ficticios y no guarda nada. Se abre desde el botón Ayuda del encabezado. *@
+<dialog id="ayuda-valoracion" class="lp-ayuda" data-erp-ayuda aria-labelledby="ayuda-valoracion-titulo" data-vs-simular-url="@Url.Action("Simular", "ValoracionStock")">
+    <div class="lp-ayuda__panel">
+        <div class="lp-ayuda__cabecera">
+            <h2 id="ayuda-valoracion-titulo">¿Cómo funciona la valoración de stock?</h2>
+            <button type="button" class="lp-ayuda__cerrar" data-erp-ayuda-cerrar aria-label="Cerrar ayuda">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+
+        <div class="lp-tabs" role="tablist" aria-label="Secciones de la ayuda">
+            <button type="button" role="tab" id="av-tab-basico" aria-controls="av-pane-basico" aria-selected="true">Lo básico</button>
+            <button type="button" role="tab" id="av-tab-simulador" aria-controls="av-pane-simulador" aria-selected="false" tabindex="-1">Simulador</button>
+            <button type="button" role="tab" id="av-tab-estados" aria-controls="av-pane-estados" aria-selected="false" tabindex="-1">Las etiquetas</button>
+        </div>
+
+        <div class="lp-ayuda__cuerpo">
+            <section id="av-pane-basico" role="tabpanel" aria-labelledby="av-tab-basico" tabindex="0">
+                <p class="lp-lead">Responde <strong>cuánto te costó la mercadería que tenés hoy</strong>, con un costo promedio de las compras recibidas.</p>
+
+                <div class="lp-tarjetas">
+                    <article><h4>Qué hace el ERP solo</h4><p>Toma cada compra recibida y cada salida del historial de movimientos, y calcula el promedio por producto.</p></article>
+                    <article><h4>Qué hacés vos</h4><p>Registrar las órdenes de compra y <strong>recibirlas</strong> con su costo. Una compra sin recibir no cuenta.</p></article>
+                    <article><h4>Dónde se ve</h4><p>En esta pantalla y en su exportación a Excel (Reportes › Valoración de stock).</p></article>
+                </div>
+
+                <p class="lp-aviso">
+                    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                    <span><strong>Es solo para consultar.</strong> No es una valuación fiscal ni contable y no cambia costos, precios ni márgenes.</span>
+                </p>
+
+                <h3>Dos importes distintos</h3>
+                <div class="lp-scroll">
+                    <table class="lp-tabla">
+                        <thead><tr><th scope="col">Importe</th><th scope="col">Responde</th></tr></thead>
+                        <tbody>
+                            <tr><th scope="row"><strong>Valor gerencial</strong></th><td>Stock × costo promedio de lo comprado.</td></tr>
+                            <tr><th scope="row"><strong>A último costo</strong></th><td>Stock × costo de la última compra: orienta cuánto saldría reponerlo.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="av-pane-simulador" role="tabpanel" aria-labelledby="av-tab-simulador" tabindex="0" hidden>
+                <p class="lp-aviso lp-aviso--ok">
+                    <span class="material-symbols-outlined" aria-hidden="true">science</span>
+                    <span><strong>Solo para probar:</strong> no guarda ni cambia ningún dato. Calcula con la misma regla que la pantalla.</span>
+                </p>
+                <p class="lp-nota">Ejemplo: Televisor Philips 50". Comprás una tanda, vendés algunos y volvés a comprar más caro.</p>
+
+                <div class="lp-sim">
+                    <div class="lp-sim__datos">
+                        <label for="vs-sim-cantidad1">1.ª compra (unidades)
+                            <input id="vs-sim-cantidad1" type="number" min="1" max="100000" step="1" value="5" inputmode="numeric" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="vs-sim-costo1">Costo unitario ($)
+                            <input id="vs-sim-costo1" type="number" min="0.01" max="20000000" step="0.01" value="200000" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="vs-sim-vendidas">Vendidas antes de volver a comprar
+                            <input id="vs-sim-vendidas" type="number" min="0" max="100000" step="1" value="2" inputmode="numeric" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="vs-sim-cantidad2">2.ª compra (unidades)
+                            <input id="vs-sim-cantidad2" type="number" min="1" max="100000" step="1" value="5" inputmode="numeric" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                        <label for="vs-sim-costo2">Costo unitario nuevo ($)
+                            <input id="vs-sim-costo2" type="number" min="0.01" max="20000000" step="0.01" value="240000" inputmode="decimal" class="@ListaPrecioUiHelper.InputClass" />
+                        </label>
+                    </div>
+
+                    <div class="lp-sim__resultado">
+                        <p id="vs-sim-error" class="lp-aviso lp-aviso--error" role="alert" hidden></p>
+                        <div id="vs-sim-salida">
+                            <table class="lp-tabla lp-tabla--importes">
+                                <caption class="sr-only">Resultado de la valoración simulada</caption>
+                                <tbody>
+                                    <tr><th scope="row">Stock que queda</th><td data-vs-out="stock">—</td></tr>
+                                    <tr><th scope="row">Costo promedio</th><td data-vs-out="costoPromedio">—</td></tr>
+                                    <tr class="lp-tabla__total"><th scope="row">Valor gerencial</th><td data-vs-out="valorGerencial">—</td></tr>
+                                    <tr><th scope="row">Último costo</th><td data-vs-out="ultimoCosto">—</td></tr>
+                                    <tr><th scope="row">A último costo</th><td data-vs-out="valorAUltimoCosto">—</td></tr>
+                                    <tr><th scope="row">Diferencia</th><td data-vs-out="diferencia">—</td></tr>
+                                </tbody>
+                            </table>
+                            <p class="lp-nota">Lo vendido sale al promedio vigente: por eso el orden entre ventas y compras cambia el resultado.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="av-pane-estados" role="tabpanel" aria-labelledby="av-tab-estados" tabindex="0" hidden>
+                <p class="lp-lead">Cada producto muestra cómo se obtuvo su costo.</p>
+                <div class="lp-tarjetas">
+                    <article><h4>Promedio móvil exacto</h4><p>El historial de movimientos coincide con el stock y todas las unidades tienen costo.</p></article>
+                    <article><h4>Composición por compras</h4><p>El historial no alcanza para el cálculo exacto: se promedian las últimas compras que explican el stock. Si no alcanzan, no se calcula el total.</p></article>
+                    <article><h4>Sin stock</h4><p>No hay unidades que valorar.</p></article>
+                    <article><h4>Sin compras</h4><p>Hay stock, pero ninguna compra recibida: el ERP no inventa un costo.</p></article>
+                </div>
+            </section>
+        </div>
+    </div>
+</dialog>

@@ -1,4 +1,5 @@
-/* Ayuda de Listas de precios: iconos de información y modal «¿Cómo funciona?». Colores solo desde palette.css. */
+/* Ayuda contextual «¿Cómo funciona?» (compartida por los módulos; las clases lp- nacieron en Listas de precios).
+   Iconos de información, ventana, ejemplos y simuladores. Colores solo desde palette.css. */
 
 /* ── Iconos de información junto a los campos ── */
 .lp-label-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.25rem; margin-bottom: 0.25rem; }
@@ -100,6 +101,13 @@ html.lp-sin-scroll, html.lp-sin-scroll body, html.lp-sin-scroll main { overflow:
 .lp-cascada li + li { margin-top: 0.35rem; }
 .lp-cascada strong { white-space: nowrap; }
 .lp-cascada .lp-cascada__final { border-color: var(--pal-accent); }
+
+/* Ejemplo paso a paso */
+.lp-pasador { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.85rem; }
+.lp-pasador [aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.lp-pasador output { font-size: 0.8rem; font-weight: 700; color: var(--pal-neutral-400); }
+.lp-paso h4 { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 800; color: var(--pal-white); }
+.lp-paso > p { margin: 0 0 0.6rem; }
 
 /* Simulador */
 .lp-sim { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1.25rem; margin-top: 0.75rem; }

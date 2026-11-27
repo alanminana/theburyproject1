@@ -15,7 +15,6 @@
             <p class="text-sm text-slate-400">Venta y Cotización usan el precio fijado en la lista predeterminada; si el producto no tiene uno, usan su precio base.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <partial name="_ListaPrecioAyudaBoton" />
             <a asp-controller="CambiosPrecios" asp-action="Index" class="btn-erp-secondary btn-sm no-underline">
                 <span class="material-symbols-outlined text-[18px]" aria-hidden="true">price_change</span>
                 Cambios de precios por lotes
@@ -117,9 +116,6 @@
 
 <partial name="_ListaPrecioAyuda" />
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/lista-precio.css" asp-append-version="true" />
-}
 
 @section Scripts {
     <script src="~/js/lista-precio.js" asp-append-version="true"></script>

@@ -254,3 +254,9 @@
     Calculado al @Model.FechaCalculo.ToString("dd/MM/yyyy HH:mm", ar) UTC. Promedio móvil exacto cuando el Kardex concilia con el stock;
     si no, promedio de las últimas compras recibidas que componen el stock. Sin compras registradas no hay costo calculable.
 </p>
+
+<partial name="~/Views/ValoracionStock/_AyudaValoracionStock.cshtml" />
+
+@section Scripts {
+    <script src="~/js/valoracion-stock-ayuda.js" asp-append-version="true"></script>
+}

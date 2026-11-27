@@ -24,7 +24,6 @@
     </nav>
     <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-lg font-bold tracking-tight text-white">@titulo</h1>
-        <partial name="_ListaPrecioAyudaBoton" />
     </div>
     <p class="mt-1 text-sm text-slate-400">El margen, el recargo y el redondeo se usan para sugerir precios. Cambiar la lista no modifica los precios ya cargados.</p>
 </section>
@@ -194,9 +193,6 @@
 
 <partial name="_ListaPrecioAyuda" />
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/lista-precio.css" asp-append-version="true" />
-}
 
 @section Scripts {
     <script src="~/js/lista-precio-ayuda.js" asp-append-version="true"></script>

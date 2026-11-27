@@ -1,4 +1,4 @@
-/* Ayuda de Listas de precios: modal, pestañas, iconos de información y simulador.
+/* Ayuda de Listas de precios: iconos de información y simulador (la ventana la maneja erp-ayuda.js).
    El cálculo lo hace el servidor (GET ListaPrecio/Simular, con las reglas reales); acá solo se muestra. Nada se guarda. */
 (function () {
     'use strict';
@@ -7,69 +7,27 @@
     if (!dialogo) return;
 
     var $ = function (id) { return document.getElementById(id); };
-    var pestanas = Array.prototype.slice.call(dialogo.querySelectorAll('[role="tab"]'));
-    var cuerpo = dialogo.querySelector('.lp-ayuda__cuerpo');
-    var abridor = null;
 
-    // ── Modal y pestañas ──
-    function activar(pestana, enfocar) {
-        pestanas.forEach(function (p) {
-            var activa = p === pestana;
-            p.setAttribute('aria-selected', activa ? 'true' : 'false');
-            p.tabIndex = activa ? 0 : -1;
-            $(p.getAttribute('aria-controls')).hidden = !activa;
-        });
-        cuerpo.scrollTop = 0;
-        if (enfocar) pestana.focus();
-        pestana.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }
-
-    function abrir(origen) {
-        abridor = origen;
-        if (!dialogo.open) dialogo.showModal();
-        document.documentElement.classList.add('lp-sin-scroll');
+    // «Ver más» de un campo: la ayuda se abre en la pestaña de campos y en ese campo.
+    dialogo.addEventListener('erp-ayuda:abierta', function (e) {
+        var origen = e.detail.origen;
         var campo = origen && origen.getAttribute('data-lp-campo');
-        activar($(campo ? 'lp-tab-campos' : 'lp-tab-basico'), !campo);
-        if (campo) {
-            var detalle = $('lp-campo-' + campo);
-            detalle.open = true;
-            detalle.querySelector('summary').focus();
-            detalle.scrollIntoView({ block: 'start' });
-        }
-    }
+        if (!campo) return;
+        $('lp-tab-campos').click();
+        var detalle = $('lp-campo-' + campo);
+        detalle.open = true;
+        detalle.querySelector('summary').focus();
+        detalle.scrollIntoView({ block: 'start' });
+    });
 
+    // Iconos de información junto a los campos.
     document.addEventListener('click', function (e) {
-        var boton = e.target.closest('[data-lp-ayuda-abrir]');
-        if (boton) {
-            abrir(boton);
-            return;
-        }
         var info = e.target.closest('[data-lp-info]');
-        if (info) {
-            var tip = $(info.getAttribute('aria-controls'));
-            var mostrar = tip.hidden;
-            tip.hidden = !mostrar;
-            info.setAttribute('aria-expanded', mostrar ? 'true' : 'false');
-        }
-    });
-
-    dialogo.addEventListener('click', function (e) {
-        // Clic en el fondo oscuro (el propio <dialog>) o en el botón de cerrar.
-        if (e.target === dialogo || e.target.closest('[data-lp-ayuda-cerrar]')) dialogo.close();
-    });
-    dialogo.addEventListener('close', function () {
-        document.documentElement.classList.remove('lp-sin-scroll');
-        if (abridor && document.contains(abridor)) abridor.focus();
-    });
-
-    pestanas.forEach(function (pestana, i) {
-        pestana.addEventListener('click', function () { activar(pestana, false); });
-        pestana.addEventListener('keydown', function (e) {
-            var destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: pestanas.length - 1 }[e.key];
-            if (destino === undefined) return;
-            e.preventDefault();
-            activar(pestanas[(destino + pestanas.length) % pestanas.length], true);
-        });
+        if (!info) return;
+        var tip = $(info.getAttribute('aria-controls'));
+        var mostrar = tip.hidden;
+        tip.hidden = !mostrar;
+        info.setAttribute('aria-expanded', mostrar ? 'true' : 'false');
     });
 
     // ── Simulador ──
