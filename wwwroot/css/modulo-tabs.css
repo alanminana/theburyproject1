@@ -15,6 +15,9 @@
     gap: .25rem;
     min-width: 0;
     overflow-x: auto;
+    /* Solo desplazamiento horizontal: sin esto overflow-y se calcula como auto y la barra cuenta como contenedor
+       desplazable de la página. */
+    overflow-y: hidden;
     scrollbar-width: none;
 }
 
