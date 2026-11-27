@@ -47,16 +47,12 @@
     // Estado de filtro por producto (apertura desde fila de catálogo)
     let productoIdFiltro = null;
     let productoNombreFiltro = null;
-    let _openTrigger = null;
 
     if (!modal) return;
 
     /* ── Open / Close ── */
     if (btnOpen) {
-        btnOpen.addEventListener('click', () => {
-            _openTrigger = btnOpen;
-            abrirModal(null, null);
-        });
+        btnOpen.addEventListener('click', () => abrirModal(null, null));
     }
 
     // Apertura desde fila de catálogo (delegación sobre el documento)
@@ -66,7 +62,6 @@
         const id = parseInt(btn.dataset.movimientosProductoId, 10);
         const nombre = btn.dataset.movimientosProductoNombre || '';
         if (!isNaN(id)) {
-            _openTrigger = btn;
             abrirModal(id, nombre);
         }
     });
@@ -118,7 +113,6 @@
             productoContexto.classList.add('hidden');
             productoContexto.classList.remove('flex');
         }
-        if (trigger) trigger.focus();
     }
 
     /* ── Fetch ── */
