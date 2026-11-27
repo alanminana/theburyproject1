@@ -22,7 +22,7 @@ Hasta configurarlos, la cobertura de pérdida del host/energía/red queda pendie
 Camino canónico: `docker-compose.yml`, `Dockerfile`, `Caddyfile`, `Program.cs`,
 `scripts/backup/` y `docs/backup-restore.md`. Estaban modificados o sin seguimiento
 antes de este trabajo; se preservan. La versión efectiva es .NET 10, pese al texto
-histórico .NET 8 de AGENTS.md. No se tocó código ERP.
+que entonces figuraba en AGENTS.md (corregido el 2026-11-27). No se tocó código ERP.
 
 Señales existentes: live independiente de SQL; ready abre conexión SQL y devuelve 503
 ante fallo; healthcheck SQL cada 10 s; readiness Docker cada 30 s (3 fallos, inicio 90 s);

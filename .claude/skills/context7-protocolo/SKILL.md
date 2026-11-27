@@ -12,7 +12,7 @@ Es la herramienta principal para consultar documentación técnica externa, actu
 Usarlo para confirmar:
 
 * APIs de ASP.NET Core;
-* comportamiento de .NET 8;
+* comportamiento de .NET 10;
 * Entity Framework Core;
 * Playwright;
 * Tailwind;

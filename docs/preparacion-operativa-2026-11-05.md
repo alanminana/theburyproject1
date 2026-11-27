@@ -1,5 +1,7 @@
 # Preparación operativa — estado y propuestas (2026-11-05, `main` 100e0219)
 
+> **Histórico** (foto del 2026-11-05). El arranque local actual está en [desarrollo-local.md](desarrollo-local.md) (`scripts/iniciar-erp-local.ps1`).
+
 Base real `TheBuryProjectDb` ya limpia (PR #231). Todo lo probado acá se hizo en clones; la base real no se modificó. Este documento no cambia ninguna regla comercial ni fiscal.
 
 ## Entorno de ejecución

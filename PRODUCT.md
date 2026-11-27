@@ -20,14 +20,14 @@ Desarrollado completamente a medida para el funcionamiento real de este comercio
 
 ## Operating Context
 
-Aplicación ASP.NET Core (.NET 8, MVC + Razor) con Entity Framework Core sobre SQL Server. En producción corre en contenedores Docker detrás de Caddy (HTTPS), accesible solo por LAN/VPN (sin dependencia de servicios en la nube). Uso diario de mostrador: ventas, cobros, caja, y gestión de crédito/mora en el día a día del comercio.
+Aplicación ASP.NET Core (.NET 10, MVC + Razor) con Entity Framework Core sobre SQL Server. En producción corre en contenedores Docker detrás de Caddy (HTTPS), accesible solo por LAN/VPN (sin dependencia de servicios en la nube). Uso diario de mostrador: ventas, cobros, caja, y gestión de crédito/mora en el día a día del comercio.
 
 ## Capabilities and Constraints
 
 - Módulos: Ventas (contado/tarjeta/crédito personal), Cotizador, Caja, Clientes, Productos/Inventario (trazabilidad por unidad física), Proveedores/Órdenes de compra, Crédito y mora (scoring, evaluación, autorización, BCRA), Seguridad (roles y permisos).
 - Integración con MercadoLibre: prevista a futuro, no confirmada como implementada en este momento.
 - Despliegue on-prem vía Docker/Caddy, sin nube pública, acceso restringido a LAN/VPN.
-- Stack: .NET 8 MVC + Razor, EF Core, SQL Server; tests xUnit + SQLite en memoria y Playwright E2E.
+- Stack: .NET 10 MVC + Razor, EF Core, SQL Server; tests xUnit + SQLite en memoria y Playwright E2E.
 
 ## Brand Commitments
 

@@ -4,7 +4,7 @@ Este documento conserva la guia ampliada para trabajar con agentes sin convertir
 
 ## Objetivo
 
-Trabajar sobre el ERP ASP.NET MVC .NET 8 priorizando estabilidad, mantenibilidad, reduccion de deuda tecnica y mejoras incrementales seguras.
+Trabajar sobre el ERP ASP.NET MVC .NET 10 priorizando estabilidad, mantenibilidad, reduccion de deuda tecnica y mejoras incrementales seguras.
 
 La prioridad habitual no es agregar funcionalidad nueva ni redisenar todo el sistema. La prioridad es entender el contexto, identificar el camino canonico real, evitar duplicacion y validar cada cambio.
 

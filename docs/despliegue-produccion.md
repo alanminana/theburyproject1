@@ -3,6 +3,9 @@
 Guía operativa para llevar el ERP a producción de forma segura. Complementa el
 hardening aplicado en código (DataProtection, headers, rate limiting, health check).
 
+> Para instalar, actualizar o recuperar un servidor seguir [instalacion-servidor.md](instalacion-servidor.md) y
+> [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md). Este documento es la referencia de configuración y hardening.
+
 ## 1. Variables de entorno / secretos (obligatorias)
 
 Nunca commitear secretos. Proveer por variables de entorno, user-secrets o el
@@ -35,7 +38,7 @@ Inventario, separación por servicio, permisos de archivos, rotación y evidenci
   y la app migra/siembra al arrancar como siempre.
 - **Primera vez**: apuntar a una base vacía. `DbInitializer` evita migrar sobre una base
   con tablas pero sin historial `__EFMigrationsHistory` (para no chocar con esquemas ajenos).
-- Nueva migración en producción: `docker compose up -d --build` (o `docker compose run --rm migrate`); `migrate`
+- Nueva migración en producción: se despliega con `install.sh` / `deploy.sh` ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §2); `migrate`
   aplica lo pendiente y termina. Un `migrate` sin pendientes es un no-op (seeds idempotentes, sin duplicados).
 
 ## 3. Data Protection (CRÍTICO en contenedores / multi-instancia)
@@ -215,7 +218,7 @@ consultado 2026-09-22).
 | `ERP_MIGRATION_USER` (migrate) | sí | sí | sí | no | no |
 
 `db-init` es idempotente: crea ambos logins (sin roles de servidor) y usuarios, re-sincroniza sus passwords con `.env`
-(rotación: cambiar la variable y `docker compose up -d`) y **revoca `db_ddladmin`/`db_owner` a la app** si un despliegue
+(rotación: cambiar la variable y `docker compose up -d` con `ERP_IMAGE` definida, [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §0) y **revoca `db_ddladmin`/`db_owner` a la app** si un despliegue
 anterior se los había dado. `ERP_DB_USER` y `ERP_MIGRATION_USER` deben ser distintos. Los objetos creados por `migrate`
 quedan en `dbo`, por lo que los roles de la app los cubren automáticamente.
 

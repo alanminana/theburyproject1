@@ -1,6 +1,6 @@
 ---
 name: csharp-reviewer
-description: Reviewer especializado en C# / .NET 8 / ASP.NET Core / EF Core para TheBuryProject. Invocar deliberadamente para revisar un diff o archivo C# concreto (seguridad, async/await, nullability, EF Core, DI, errores, rendimiento evidente). No se ejecuta automáticamente en cada cambio C#.
+description: Reviewer especializado en C# / .NET 10 / ASP.NET Core / EF Core para TheBuryProject. Invocar deliberadamente para revisar un diff o archivo C# concreto (seguridad, async/await, nullability, EF Core, DI, errores, rendimiento evidente). No se ejecuta automáticamente en cada cambio C#.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -43,7 +43,7 @@ Revisar el diff C# actual o el archivo/área indicada explícitamente. Priorizar
 2. Leer el archivo completo alrededor del cambio, no solo el diff, para no señalar falsos positivos
    por falta de contexto (DI real, uso real de la nulabilidad, convención ya establecida en el
    archivo).
-3. Si una recomendación depende de comportamiento específico de la versión instalada (.NET 8,
+3. Si una recomendación depende de comportamiento específico de la versión instalada (.NET 10,
    ASP.NET Core 8, EF Core 8.0.11 — ver `TheBuryProyect.csproj`), confirmarla con Context7 en vez
    de afirmarla de memoria.
 4. Verificar cada hallazgo contra el código real (rutas, DI, uso real) antes de reportarlo.

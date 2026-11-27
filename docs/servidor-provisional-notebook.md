@@ -99,6 +99,8 @@ Tras elegir: `fetch-offsite.sh` + `restore-test.sh --offsite` (prueba real de re
 
 ## 6. Traslado al servidor definitivo — procedimiento (ensayado hoy)
 
+> Procedimiento vigente y generalizado: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §6. Lo que sigue es el registro del ensayo del 2026-11-25.
+
 Ensayo ejecutado el 2026-11-25 en la notebook (proyecto descartable `theburyproject-ens`, ya destruido), **sin usar nada de la instalación origen excepto lo que viajaría**: (1) el `.env` extraído del paquete de recuperación con la passphrase, (2) el código en el tag, (3) los respaldos de la copia cifrada del pendrive.
 
 ```bash
@@ -107,7 +109,8 @@ sudo scripts/install/server-linux-bootstrap.sh
 git clone https://github.com/alanminana/theburyproject1 ~/theburyproject && cd ~/theburyproject && git checkout servidor-provisional-20261125   # o el tag vigente
 scripts/backup/recovery-package.sh extract bury-recovery_<ts>.gpg --to /dev/shm/env --passphrase-file <passphrase> && cp /dev/shm/env/.env .env && chmod 600 .env && rm -rf /dev/shm/env
 #   ajustar en .env solo lo propio del host: ERP_BIND_ADDRESS, BACKUP_DIR, BACKUP_REMOVABLE_DIR, (ERP_HTTPS_PORT/BURY_NET_SUBNET si comparte host)
-scripts/install/install.sh --no-deploy --yes --project theburyproject ...            # construye la imagen con tag inmutable
+# CORRECCION 2026-11-27: install.sh --no-deploy NO construye la imagen (termina antes). Construirla explicitamente:
+export ERP_IMAGE="theburyproject/erp:$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)"; docker build -t "$ERP_IMAGE" .
 scripts/backup/prepare-dir.sh
 #   abrir el disco cifrado (clave desde exportar-custodia.sh extract) y copiar respaldos al BACKUP_DIR:  sudo cp -a <disco>/bury-backup/{sql,files} $BACKUP_DIR/
 ERP_IMAGE=<imagen construida> scripts/backup/recover.sh --plan     # muestra el par full+tar
