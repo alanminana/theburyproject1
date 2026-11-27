@@ -1,0 +1,134 @@
+/* Barra de pestañas de módulo. Toma el aspecto de .catalogo-tab (Inventario), la referencia del ERP. */
+.modulo-barra {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin-bottom: 1rem;
+    min-width: 0;
+}
+
+.modulo-tabs,
+.modulo-subtabs {
+    display: flex;
+    gap: .25rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.modulo-tabs::-webkit-scrollbar,
+.modulo-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+.modulo-tabs {
+    border-bottom: 1px solid var(--pal-neutral-800);
+    padding-bottom: .5rem;
+}
+
+.modulo-tab,
+.modulo-subtab {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: .4rem;
+    white-space: nowrap;
+    text-decoration: none;
+    color: var(--pal-neutral-300);
+    border-radius: .55rem;
+    font-weight: 600;
+}
+
+.modulo-tab {
+    min-height: 2.75rem;
+    padding: .5rem .9rem;
+    font-size: .875rem;
+}
+
+.modulo-subtab {
+    min-height: 2.25rem;
+    padding: .3rem .8rem;
+    font-size: .8125rem;
+    border: 1px solid var(--pal-neutral-800);
+}
+
+.modulo-tab .material-symbols-outlined {
+    font-size: 1.125rem;
+}
+
+.modulo-tab:hover,
+.modulo-subtab:hover {
+    color: #fff;
+    background: color-mix(in srgb, var(--pal-neutral-800) 60%, transparent);
+}
+
+.modulo-tab[aria-current="page"],
+.modulo-subtab[aria-current="page"] {
+    color: var(--pal-accent);
+    background: color-mix(in srgb, var(--pal-accent) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pal-accent) 35%, transparent);
+}
+
+.modulo-tab:focus-visible,
+.modulo-subtab:focus-visible {
+    outline: 2px solid var(--pal-accent);
+    outline-offset: -2px;
+}
+
+/* Menú de acciones secundarias. */
+.modulo-mas { position: relative; }
+.modulo-mas > summary { list-style: none; }
+.modulo-mas > summary::-webkit-details-marker { display: none; }
+
+.modulo-mas__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + .25rem);
+    z-index: 30;
+    min-width: 13rem;
+    padding: .25rem;
+    border: 1px solid var(--pal-neutral-700);
+    border-radius: .6rem;
+    background: var(--pal-neutral-900);
+    box-shadow: 0 12px 28px rgb(0 0 0 / .45);
+}
+
+.modulo-mas__item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 2.5rem;
+    padding: .4rem .7rem;
+    border-radius: .45rem;
+    font-size: .875rem;
+    color: var(--pal-neutral-200);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.modulo-mas__item .material-symbols-outlined { font-size: 1.125rem; }
+.modulo-mas__item:hover { background: var(--pal-neutral-800); color: #fff; }
+.modulo-mas__item:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: -2px; }
+
+@media (max-width: 639px) {
+    .modulo-mas__menu { left: 0; right: auto; }
+}
+
+/* Degradado en el borde que todavía tiene pestañas ocultas. */
+.modulo-tabs[data-oculto="derecha"],
+.modulo-subtabs[data-oculto="derecha"] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+.modulo-tabs[data-oculto="izquierda"],
+.modulo-subtabs[data-oculto="izquierda"] {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+}
+
+.modulo-tabs[data-oculto="ambos"],
+.modulo-subtabs[data-oculto="ambos"] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}

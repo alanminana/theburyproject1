@@ -1,6 +1,6 @@
 @model ConfiguracionActualizacionDatosClienteViewModel
 @{
-    ViewData["Title"] = "Configuración de pagos";
+    ViewData["Title"] = "Configuración";
     var puedeEditar = User.TienePermiso("configuracion", "update");
 }
 
@@ -21,7 +21,7 @@
 
 <header class="cfgpago-head">
     <div class="cfgpago-head-main">
-        <h1 class="cfgpago-title">Configuración de pagos</h1>
+        <h1 class="cfgpago-title">Configuración</h1>
         <p class="cfgpago-sub">Datos del cliente: cada cuánto se le pide al usuario revisar la información de un cliente.</p>
     </div>
     <div class="cfgpago-tabs-slot">

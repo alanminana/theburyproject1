@@ -20,11 +20,9 @@
 }
 
 <div class="max-w-3xl mx-auto p-4 md:p-6">
-    <nav class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400 mb-3">
-        <span>Mantenimiento</span>
-        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
-        <span class="text-primary">Recalculo global de scoring</span>
-    </nav>
+    <div class="mb-4">
+        <partial name="~/Views/ConfiguracionPago/_ConfiguracionPagoTabs.cshtml" view-data='new ViewDataDictionary(ViewData) { { "ConfigPagoTab", "puntajes" } }' />
+    </div>
 
     <section class="card-erp-panel p-4 md:p-6">
         <div class="flex items-center gap-2 mb-2">

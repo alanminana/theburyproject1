@@ -277,6 +277,10 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public string ListaPrecioNombre { get; set; } = "Predeterminada";
 
+        /// <summary>Lista predeterminada activa (la que usan Venta y Cotización); null si no hay ninguna.</summary>
+        public int? ListaPredeterminadaId { get; set; }
+        public string? ListaPredeterminadaNombre { get; set; }
+
         // ============================================
         // OPCIONES PARA DROPDOWNS
         // ============================================

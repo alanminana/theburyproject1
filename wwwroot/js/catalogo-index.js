@@ -358,6 +358,7 @@
     var btnHistorial    = document.getElementById('catalogo-menu-historial');
     var btnMovimientos  = document.getElementById('catalogo-menu-movimientos');
     var linkCompra      = document.getElementById('catalogo-menu-compra');
+    var linkPrecioLista = document.getElementById('catalogo-menu-precio-lista');
     var btnMercadoLibre = document.getElementById('catalogo-menu-mercadolibre');
     var btnEliminar     = document.getElementById('catalogo-menu-eliminar');
     var mlForm            = document.getElementById('catalogo-mercadolibre-form');
@@ -422,6 +423,9 @@
                 linkCompra.setAttribute('href', '#');
                 linkCompra.classList.add('hidden');
             }
+        }
+        if (linkPrecioLista) {
+            linkPrecioLista.setAttribute('href', trigger.getAttribute('data-precio-lista-url') || '#');
         }
         if (btnMercadoLibre) btnMercadoLibre.setAttribute('data-producto-id', productoId || '');
         if (btnEliminar) {

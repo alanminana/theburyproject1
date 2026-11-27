@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="~/css/notas-rapidas.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/erp-responsive-system.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/erp-table-cards.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modulo-tabs.css" asp-append-version="true" />
 
     <!-- Tema Mercado Libre global (override de tokens; debe ir último) -->
     <link rel="stylesheet" href="~/css/theme-ml.css" asp-append-version="true" />
@@ -68,18 +69,6 @@
         var canViewNotifications = User.TienePermiso("notificaciones", "view");
         var canUpdateNotifications = User.TienePermiso("notificaciones", "update");
         var canDeleteNotifications = User.TienePermiso("notificaciones", "delete");
-        var canViewVentas = User.TienePermiso("ventas", "view");
-        var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
-        var canViewClientes = User.TienePermiso("clientes", "view");
-        var canViewInventario = User.TienePermiso("productos", "view");
-        var canViewProveedores = User.TienePermiso("proveedores", "view");
-        var canViewPrecios = User.TienePermiso("precios", "view");
-        var canViewCuentasPorPagar = User.TienePermiso("cuentasporpagar", "view");
-        var canViewTesoreria = User.TienePermiso("tesoreria", "view");
-        var canViewValoracionStock = User.TienePermiso("valoracionstock", "view");
-        var canViewCaja = User.TienePermiso("caja", "view");
-        var canViewReportes = User.TienePermiso("reportes", "view");
-        var canViewMercadoLibre = User.TienePermiso("mercadolibre", "view");
 
         var canViewSeguridad = User.TieneCualquierPermiso(
             ("usuarios", "view"),
@@ -91,15 +80,12 @@
         var canCreateTicket = User.TienePermiso("tickets", "create");
         var canViewTickets = User.TienePermiso("tickets", "view");
         var canViewConfiguracion = User.TienePermiso("configuracion", "view");
-        var canViewDocumentos = User.TienePermiso("documentos", "view");
 
-
-
-        var showOperaciones = canViewVentas || canViewClientes || canViewDocumentos;
-        var showLogistica = canViewInventario || canViewProveedores || canViewCuentasPorPagar || canViewTesoreria || canViewValoracionStock || canViewPrecios || canViewCaja;
-        var showReportes = canViewReportes;
-        var showIntegraciones = canViewMercadoLibre;
         var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
+
+        // Menú y pestañas salen de la misma definición (Helpers/NavegacionModulos.cs).
+        var menu = NavegacionModulos.Menu(User, currentController);
+        var barraModulo = NavegacionModulos.Barra(User, currentController, currentAction);
     }
 
     <div id="erp-app-shell" class="flex h-screen overflow-hidden">
@@ -130,185 +116,23 @@
             <!-- Nav -->
             <nav aria-label="Menú principal" class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
 
-                @if (showOperaciones)
+                @foreach (var grupo in menu.GroupBy(m => m.Grupo))
                 {
                     <div>
                         <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
-                            Operaciones
+                            @grupo.Key
                         </p>
 
                         <div class="space-y-1">
-                            @if (canViewVentas)
+                            @foreach (var m in grupo)
                             {
-                                var active = IsActive("Venta") || IsActive("Cotizacion");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Venta"
-                                   asp-action="Index" title="Ventas">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">shopping_bag</span>
-                                    <p class="@NavFont(active) sidebar-label">Ventas</p>
+                                <a class="@NavClass(m.Activo)" aria-current="@NavCurrent(m.Activo)" data-nav-modulo="@m.Clave"
+                                   asp-controller="@m.Destino.Controlador" asp-action="@m.Destino.Accion" asp-route-tab="@m.Destino.Tab"
+                                   title="@m.Titulo">
+                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">@m.Icono</span>
+                                    <p class="@NavFont(m.Activo) sidebar-label">@m.Titulo</p>
                                 </a>
                             }
-
-                          
-
-                            @if (canViewClientes)
-                            {
-                                var active = IsActive("Cliente");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Cliente"
-                                   asp-action="Index" title="Clientes">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">group</span>
-                                    <p class="@NavFont(active) sidebar-label">Clientes</p>
-                                </a>
-                            }
-
-                            @if (canViewDocumentos)
-                            {
-                                var active = IsActive("Documento");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Documento"
-                                   asp-action="Index" title="Documentos">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">description</span>
-                                    <p class="@NavFont(active) sidebar-label">Documentos</p>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (showLogistica)
-                {
-                    <div>
-                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
-                            Logística
-                        </p>
-
-                        <div class="space-y-1">
-                            @if (canViewInventario)
-                            {
-                                var active = IsActive("Catalogo");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Catalogo"
-                                   asp-action="Index" title="Inventario">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">inventory_2</span>
-                                    <p class="@NavFont(active) sidebar-label">Inventario</p>
-                                </a>
-                            }
-
-                            @if (canViewProveedores)
-                            {
-                                var active = IsActive("Proveedor");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Proveedor"
-                                   asp-action="Index" title="Proveedores">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">local_shipping</span>
-                                    <p class="@NavFont(active) sidebar-label">Proveedores</p>
-                                </a>
-                            }
-
-                            @if (canViewCuentasPorPagar)
-                            {
-                                var active = IsActive("CuentaPorPagar");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="CuentaPorPagar"
-                                   asp-action="Index" title="Cuentas por pagar">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">account_balance_wallet</span>
-                                    <p class="@NavFont(active) sidebar-label">Cuentas por pagar</p>
-                                </a>
-                            }
-
-                            @if (canViewTesoreria)
-                            {
-                                var active = IsActive("Tesoreria");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Tesoreria"
-                                   asp-action="Index" title="Tesorería">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">account_balance</span>
-                                    <p class="@NavFont(active) sidebar-label">Tesorería</p>
-                                </a>
-                            }
-
-                            @if (canViewValoracionStock)
-                            {
-                                var active = IsActive("ValoracionStock");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ValoracionStock"
-                                   asp-action="Index" title="Valoración de stock (gerencial)">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">inventory_2</span>
-                                    <p class="@NavFont(active) sidebar-label">Valoración de stock</p>
-                                </a>
-                            }
-
-                            @if (canViewPrecios)
-                            {
-                                var active = IsActive("ListaPrecio") || IsActive("CambiosPrecios");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ListaPrecio"
-                                   asp-action="Index" title="Listas de precios">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">sell</span>
-                                    <p class="@NavFont(active) sidebar-label">Listas de precios</p>
-                                </a>
-                            }
-
-                            @if (canViewCaja)
-                            {
-                                var active = IsActive("Caja");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Caja"
-                                   asp-action="Index" title="Cajas">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">point_of_sale</span>
-                                    <p class="@NavFont(active) sidebar-label">Cajas</p>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (showReportes)
-                {
-                    var active = IsActive("Reporte", "Index");
-
-                    <div>
-                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
-                            Reportes
-                        </p>
-
-                        <div class="space-y-1">
-                            <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Reporte"
-                               asp-action="Index" title="Reportes">
-                                <span class="material-symbols-outlined text-lg shrink-0"
-                                      aria-hidden="true">leaderboard</span>
-                                <p class="@NavFont(active) sidebar-label">Reportes</p>
-                            </a>
-                        </div>
-                    </div>
-                }
-
-                @if (showIntegraciones)
-                {
-                    <div>
-                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
-                            Integraciones
-                        </p>
-
-                        <div class="space-y-1">
-                            @{
-                                var mlActive = IsActive("MercadoLibre");
-                            }
-                            <a class="@NavClass(mlActive)" aria-current="@NavCurrent(mlActive)"
-                               asp-controller="MercadoLibre" asp-action="Dashboard" title="Mercado Libre">
-                                <span class="material-symbols-outlined text-lg shrink-0"
-                                      aria-hidden="true">storefront</span>
-                                <p class="@NavFont(mlActive) sidebar-label">Mercado Libre</p>
-                            </a>
                         </div>
                     </div>
                 }
@@ -504,6 +328,11 @@
             <!-- Page content -->
             <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8"
                  style="background-color:var(--pal-neutral-950);padding-bottom:6rem;">
+                @* Una vista que ya muestra su propio contexto (ficha de proveedor) puede ocultar la barra del módulo. *@
+                @if (barraModulo is not null && ViewData["SinBarraModulo"] is not true)
+                {
+                    <partial name="_ModuloTabs" model="barraModulo" />
+                }
                 @RenderBody()
             </div>
         </main>
@@ -557,6 +386,7 @@
     }
 
     <script src="~/js/layout.js" asp-append-version="true"></script>
+    <script src="~/js/modulo-tabs.js" asp-append-version="true"></script>
     <script src="~/js/notas-rapidas.js" asp-append-version="true"></script>
 
     @if (canCreateTicket)

@@ -5,18 +5,10 @@
 }
 
 <div class="space-y-8">
+    <partial name="~/Views/ConfiguracionPago/_ConfiguracionPagoTabs.cshtml" view-data='new ViewDataDictionary(ViewData) { { "ConfigPagoTab", "mora" } }' />
     <section class="card-erp-panel-padded">
         <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Configuración</li>
-                    </ol>
-                </nav>
                 <div class="space-y-3">
                     <span class="badge-erp badge-erp-primary">
                         <span class="material-symbols-outlined text-sm">tune</span>

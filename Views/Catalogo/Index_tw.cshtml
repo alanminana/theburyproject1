@@ -109,8 +109,8 @@
 
     <!-- Tab Bar + Actions -->
     <div class="catalogo-topbar border-b border-slate-800 px-4 py-4" data-active-tab="@Model.TabActiva" id="catalogo-topbar">
-        <div class="relative min-w-0" id="catalogo-tabs-wrapper">
-        <div class="flex gap-1 overflow-x-auto" id="catalogo-tabs" role="tablist" aria-label="Secciones del inventario">
+        <div class="relative flex min-w-0 items-center gap-1" id="catalogo-tabs-wrapper">
+        <div class="flex min-w-0 gap-1 overflow-x-auto" id="catalogo-tabs" role="tablist" aria-label="Secciones del inventario">
             <button type="button" role="tab" id="catalogo-tab-productos" data-catalogo-tab="productos"
                     aria-selected="@TabSelected("productos")" aria-controls="tab-productos"
                     class="catalogo-tab">
@@ -154,12 +154,20 @@
                 </button>
             }
         </div>
+        @if (User.TienePermiso("precios", "view"))
+        {
+            @* Precios es otra pantalla (Listas y Cambios por lotes): enlace fuera del tablist, que solo admite role="tab". *@
+            <a asp-controller="ListaPrecio" asp-action="Index" class="catalogo-tab no-underline" data-modulo-tab="precios">
+                <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+                Precios
+            </a>
+        }
         </div>
         <div class="catalogo-topbar__actions flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <a asp-controller="Producto" asp-action="UnidadesGlobal"
                class="btn-erp-ghost btn-sm w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm">inventory_2</span>
-                Inventario
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">qr_code_2</span>
+                Unidades físicas
             </a>
             @if (puedeAjustarPrecios)
             {
@@ -739,6 +747,7 @@
                                                     data-producto-id="@p.ProductoId"
                                                     data-producto-nombre="@p.Nombre"
                                                     data-compra-url="@compraUrl"
+                                                    data-precio-lista-url="@(Model.ListaPredeterminadaId.HasValue ? Url.Action("Precios", "ListaPrecio", new { id = Model.ListaPredeterminadaId, busqueda = p.Codigo }) : null)"
                                                     class="row-action"
                                                     aria-label="Más acciones para @p.Nombre"
                                                     aria-haspopup="menu"
@@ -842,6 +851,22 @@
 
             Movimientos de stock
         </button>
+
+        @if (User.TienePermiso("precios", "view") && Model.ListaPredeterminadaId.HasValue)
+        {
+            <a id="catalogo-menu-precio-lista"
+               href="#"
+               class="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 no-underline transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+               role="menuitem">
+
+                <span class="material-symbols-outlined text-lg text-slate-400"
+                      aria-hidden="true">
+                    sell
+                </span>
+
+                Precio en «@Model.ListaPredeterminadaNombre»
+            </a>
+        }
 
         @if (User.TienePermiso("ordenescompra", "create"))
         {

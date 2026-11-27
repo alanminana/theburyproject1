@@ -305,29 +305,6 @@
    DETAILS
    ══════════════════════════════════════════════════════════════ */
 
-.proveedor-details-hero-actions {
-    width: 100%;
-}
-
-.proveedor-details-hero-action {
-    width: 100%;
-}
-
-/* En telefono la acción principal (Editar) va primera: es lo que se viene a hacer y queda a un toque. */
-@media (max-width: 639px) {
-    .proveedor-details-hero-action.btn-erp-primary { order: -1; }
-}
-
-@media (min-width: 640px) {
-    .proveedor-details-hero-actions {
-        width: auto;
-    }
-
-    .proveedor-details-hero-action {
-        width: auto;
-    }
-}
-
 /* Ficha de datos: pares término/valor, no labels sin control. */
 .prov-dl {
     display: grid;

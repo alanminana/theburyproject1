@@ -68,10 +68,19 @@
 
 <h1 class="sr-only">Valoración de stock (gerencial)</h1>
 
+@if (User.TienePermiso("reportes", "view"))
+{
+    <nav aria-label="Breadcrumb" class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <a asp-controller="Reporte" asp-action="Index" class="no-underline hover:text-primary">Reportes</a>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Valoración de stock</span>
+    </nav>
+}
+
 <section class="card-erp-panel mb-4 p-4" aria-labelledby="vsg-titulo">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h2 id="vsg-titulo" class="text-lg font-bold text-white">Valoración de stock (gerencial)</h2>
+            <h2 id="vsg-titulo" class="sr-only">Resumen de la valoración</h2>
             <p class="text-sm text-slate-400">Costo promedio ponderado de las compras recibidas, junto al último costo de compra como indicador de reposición.</p>
         </div>
         <a asp-action="Exportar" asp-all-route-data="RutaExport"

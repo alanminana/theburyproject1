@@ -111,6 +111,8 @@ namespace TheBuryProject.Services
                 // Datos de lista de precios
                 ListaPrecioId = listaActualId,
                 ListaPrecioNombre = listaActual?.Nombre ?? "Predeterminada",
+                ListaPredeterminadaId = listaPredeterminada?.Id,
+                ListaPredeterminadaNombre = listaPredeterminada?.Nombre,
 
                 // Opciones para dropdowns
                 Categorias = categorias

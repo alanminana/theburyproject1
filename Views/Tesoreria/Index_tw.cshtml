@@ -15,17 +15,11 @@
 
 <section class="card-erp-panel mb-4 p-4" aria-labelledby="tes-titulo">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h1 id="tes-titulo" class="text-lg font-bold tracking-tight text-white">Tesorería administrativa</h1>
-            <p class="mt-1 text-sm text-slate-400">
-                Origen de los fondos de pagos y anticipos a proveedores. Es independiente de la Caja de ventas: no abre ni cierra cajas ni mueve su saldo.
-            </p>
+        <div class="min-w-0 max-w-3xl">
+            <h1 id="tes-titulo" class="sr-only">Tesorería administrativa</h1>
+            <p class="text-sm text-slate-400">Origen de los fondos de pagos y anticipos a proveedores. Es independiente de la Caja de ventas: no abre ni cierra cajas ni mueve su saldo.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a asp-controller="CuentaPorPagar" asp-action="Index" class="btn-erp-secondary btn-sm no-underline">
-                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
-                Cuentas por pagar
-            </a>
             @if (Model.PuedeConfigurar)
             {
                 <a asp-action="Crear" class="btn-erp-primary btn-sm no-underline">
