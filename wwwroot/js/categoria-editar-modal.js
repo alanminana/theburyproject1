@@ -8,33 +8,27 @@
     // Tras editar o eliminar se vuelve al catálogo en la pestaña Categorías (el listado sale del servidor).
     var CATALOGO_CATEGORIAS_URL = '/Catalogo?tab=categorias';
 
-    var _openTrigger = null;
 
     function el(id) { return document.getElementById(id); }
 
-    function open(trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        var modal = el(MODAL_ID);
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-        setTimeout(function () {
-            var firstInput = el('cat-edit-codigo');
-            if (firstInput) firstInput.focus();
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(document.getElementById('modal-editar-categoria'), {
+                cierres: '[data-cat-edit-modal-close]',
+                alCerrar: function () { clearErrors(); hideValidation(); }
+            });
+        }
+        return _panel;
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        var modal = el(MODAL_ID);
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-        clearErrors();
-        hideValidation();
-        if (trigger) trigger.focus();
+    function open() {
+        panel().abrir();
+        var firstInput = el('cat-edit-codigo');
+        if (firstInput) firstInput.focus();
     }
+
+    function close() { panel().cerrar(); }
 
     // Una categoría no puede ser su propio padre: se oculta esa opción. El servidor además
     // rechaza cualquier ciclo (p. ej. elegir una descendiente).
@@ -200,7 +194,7 @@
                     });
                     if (!resp.ok) throw new Error('Not found');
                     populate(await resp.json());
-                    open(editBtn);
+                    open();
                 } catch (_) {
                     toast('No se pudo cargar la categoría. Intentá nuevamente.', 'error');
                 }
@@ -211,32 +205,25 @@
             if (deleteBtn) {
                 var delId     = deleteBtn.getAttribute('data-cat-delete-id');
                 var delNombre = deleteBtn.getAttribute('data-cat-delete-nombre') || 'esta categoría';
-                window.TheBury.confirmAction(
-                    '¿Eliminar la categoría "' + delNombre + '"? Esta acción no se puede deshacer.',
-                    function () {
-                        var form = el('form-delete-categoria');
-                        form.action = '/Categoria/Delete/' + delId + '?returnUrl=' + encodeURIComponent(CATALOGO_CATEGORIAS_URL);
-                        form.submit();
-                    }
-                );
+                window.InvUI.confirmar({
+                    titulo: '¿Eliminar esta categoría?',
+                    datos: [['Categoría', delNombre]],
+                    consecuencias: ['No se puede eliminar si tiene productos o subcategorías con stock.', 'No se puede deshacer desde el sistema.'],
+                    etiquetaConfirmar: 'Eliminar categoría'
+                }).then(function (r) {
+                    if (!r.ok) return;
+                    var form = el('form-delete-categoria');
+                    form.action = '/Categoria/Delete/' + delId + '?returnUrl=' + encodeURIComponent(CATALOGO_CATEGORIAS_URL);
+                    form.submit();
+                });
                 return;
             }
-
-            if (e.target.closest('[data-cat-edit-modal-close]')) {
-                close();
-            }
-        });
-
-        document.addEventListener('keydown', function (e) {
-            var modal = el(MODAL_ID);
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
         });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         initSubmit();
         initDelegatedEvents();
+        panel();
     });
 })();

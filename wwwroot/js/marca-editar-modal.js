@@ -6,36 +6,27 @@
     var VAL_BOX_ID = 'marca-edit-validation-summary';
     var VAL_TXT_ID = 'marca-edit-validation-text';
 
-    var currentRow = null;
-    var _openTrigger = null;
 
     function el(id) { return document.getElementById(id); }
 
-    function open(row, trigger) {
-        currentRow = row;
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        var modal = el(MODAL_ID);
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-        setTimeout(function () {
-            var firstInput = el('marca-edit-codigo');
-            if (firstInput) firstInput.focus();
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(document.getElementById('modal-editar-marca'), {
+                cierres: '[data-marca-edit-modal-close]',
+                alCerrar: function () { clearErrors(); hideValidation(); }
+            });
+        }
+        return _panel;
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        var modal = el(MODAL_ID);
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-        currentRow = null;
-        clearErrors();
-        hideValidation();
-        if (trigger) trigger.focus();
+    function open() {
+        panel().abrir();
+        var firstInput = el('marca-edit-codigo');
+        if (firstInput) firstInput.focus();
     }
+
+    function close() { panel().cerrar(); }
 
     function populateParentSelect(marcas, excludeId) {
         var sel = el('marca-edit-parentId');
@@ -68,22 +59,6 @@
         }
 
         el(FORM_ID).action = '/Marca/EditAjax/' + data.id;
-    }
-
-    function updateRow(entity) {
-        if (!currentRow) return;
-        var tds = currentRow.querySelectorAll('td');
-        if (tds[0]) tds[0].textContent = entity.codigo;
-        if (tds[1]) {
-            var nameEl = tds[1].querySelector('.font-semibold');
-            if (nameEl) nameEl.textContent = entity.nombre;
-        }
-        if (tds[3]) tds[3].textContent = entity.paisOrigen || '—';
-        if (tds[4]) {
-            tds[4].innerHTML = entity.activo
-                ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-500/20 text-green-400 border border-green-500/30">Activo</span>'
-                : '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30">Inactivo</span>';
-        }
     }
 
     function showValidation(text) {
@@ -144,11 +119,8 @@
                 });
                 var result = await resp.json();
                 if (result.success) {
-                    updateRow(result.entity);
                     close();
-                    document.dispatchEvent(new CustomEvent('catalogo:toast', {
-                        detail: { message: result.message || 'Marca actualizada', type: 'success' }
-                    }));
+                    window.location.assign('/Catalogo?tab=marcas');
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }
@@ -166,14 +138,13 @@
             var editBtn = e.target.closest('[data-marca-edit-id]');
             if (editBtn) {
                 var id = editBtn.getAttribute('data-marca-edit-id');
-                var row = editBtn.closest('tr');
                 try {
                     var resp = await fetch('/Marca/GetJson/' + id, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     if (!resp.ok) throw new Error('Not found');
                     populate(await resp.json());
-                    open(row, editBtn);
+                    open();
                 } catch (_) {
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
                         detail: { message: 'Error al cargar la marca.', type: 'error' }
@@ -186,32 +157,25 @@
             if (deleteBtn) {
                 var delId     = deleteBtn.getAttribute('data-marca-delete-id');
                 var delNombre = deleteBtn.getAttribute('data-marca-delete-nombre') || 'esta marca';
-                window.TheBury.confirmAction(
-                    '¿Eliminar "' + delNombre + '"? Esta acción no se puede deshacer.',
-                    function () {
-                        var form = el('form-delete-marca');
-                        form.action = '/Marca/Delete/' + delId + '?returnUrl=/Catalogo';
-                        form.submit();
-                    }
-                );
+                window.InvUI.confirmar({
+                    titulo: '¿Eliminar esta marca?',
+                    datos: [['Marca', delNombre]],
+                    consecuencias: ['Deja de poder asignarse a productos.', 'No se puede deshacer desde el sistema.'],
+                    etiquetaConfirmar: 'Eliminar marca'
+                }).then(function (r) {
+                    if (!r.ok) return;
+                    var form = el('form-delete-marca');
+                    form.action = '/Marca/Delete/' + delId + '?returnUrl=' + encodeURIComponent('/Catalogo?tab=marcas');
+                    form.submit();
+                });
                 return;
             }
-
-            if (e.target.closest('[data-marca-edit-modal-close]')) {
-                close();
-            }
-        });
-
-        document.addEventListener('keydown', function (e) {
-            var modal = el(MODAL_ID);
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
         });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         initSubmit();
         initDelegatedEvents();
+        panel();
     });
 })();

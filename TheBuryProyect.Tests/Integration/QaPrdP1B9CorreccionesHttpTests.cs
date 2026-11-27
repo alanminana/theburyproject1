@@ -76,16 +76,20 @@ public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplication
     }
 
     [Fact]
-    public void B9_ElScriptDeMarcaNuevaTampocoOfreceAccionesSinPermiso()
+    public void B9_LasFilasDeMarcaSeDefinenSoloEnElServidor()
     {
+        // Antes el alta y la edicion armaban su propia copia de la fila, con permisos y columnas aparte.
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "TheBuryProyect.csproj")))
             dir = dir.Parent;
         Assert.NotNull(dir);
-        var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", "marca-crear-modal.js"));
-
-        Assert.Matches(@"canEdit\s*\?\s*'<button[^']*data-marca-edit-id", js);
-        Assert.Matches(@"canDelete\s*\?\s*'<button[^']*data-marca-delete-id", js);
+        foreach (var archivo in new[] { "marca-crear-modal.js", "marca-editar-modal.js" })
+        {
+            var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", archivo));
+            Assert.DoesNotContain("createElement('tr')", js);
+            Assert.DoesNotContain("<td", js);
+            Assert.Contains("/Catalogo?tab=marcas", js);
+        }
     }
 
     private static async Task<string> TokenAsync(HttpClient client)

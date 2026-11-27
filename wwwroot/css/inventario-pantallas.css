@@ -791,6 +791,40 @@
     }
 }
 
+.inv-filtros-linea .inv-control--ancho {
+    max-width: 20rem;
+}
+
+.inv-fecha {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .8125rem;
+    color: var(--erp-fg-3);
+}
+
+.inv-text-ok {
+    color: var(--pal-success-300, var(--erp-text));
+}
+
+@media (max-width: 639px) {
+    .inv-filtros-linea .inv-control--ancho {
+        max-width: none;
+    }
+
+    .inv-fecha {
+        flex: 1 1 100%;
+    }
+
+    .inv-fecha > span {
+        width: 3rem;
+    }
+
+    .inv-fecha .inv-control {
+        flex: 1;
+    }
+}
+
 .inv-row-actions form {
     display: contents;
 }
@@ -979,4 +1013,41 @@
 fieldset.inv-panel {
     min-width: 0;
     margin: 0;
+}
+
+/* ---------- Maestros: categorias y marcas ------------------------------ */
+.inv-results__bar--seccion {
+    padding-block: .75rem;
+}
+
+.inv-jerarquia {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    padding-left: calc(var(--nivel, 0) * 1.25rem);
+}
+
+.inv-jerarquia .material-symbols-outlined {
+    font-size: 1rem;
+    color: var(--erp-fg-4);
+}
+
+.inv-celda-principal {
+    min-width: 14rem;
+}
+
+.inv-icon-btn--danger:hover {
+    color: var(--pal-danger-300);
+}
+
+.inv-dialog--ancho {
+    width: min(44rem, calc(100vw - 1.5rem));
+}
+
+.inv-dialog__panel > header + form,
+.inv-dialog__panel > form.catalogo-modal-form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
 }

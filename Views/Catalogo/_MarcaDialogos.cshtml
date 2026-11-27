@@ -1,21 +1,10 @@
 @model CatalogoUnificadoViewModel
 
 <!-- Modal: Nueva Marca -->
-<div id="modal-nueva-marca" role="dialog" aria-modal="true" aria-labelledby="modal-nueva-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="marca"></div>
-
-    <!-- Modal Container -->
-    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
-
-        <!-- Header -->
+<dialog id="modal-nueva-marca" class="inv-dialog inv-dialog--ancho" aria-labelledby="modal-nueva-marca-title">
+    <div class="inv-dialog__panel">
         <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
-                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
-                    <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm">chevron_right</span>
-                    <span class="text-primary">Marcas</span>
-                </div>
                 <h2 id="modal-nueva-marca-title" class="text-xl font-bold text-white">Nueva Marca</h2>
                 <p class="text-sm text-slate-400">Registra una nueva marca o submarca en el sistema.</p>
             </div>
@@ -63,6 +52,20 @@
                             </select>
                             <p class="text-xs text-slate-400 italic">Selecciona una marca superior si esta es una submarca</p>
                         </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="marca-modal-paisOrigen" class="text-sm font-semibold text-slate-300">País de origen <span class="font-normal text-slate-400">(opcional)</span></label>
+                            <input name="PaisOrigen" id="marca-modal-paisOrigen" type="text" class="catalogo-input" placeholder="Ej: Argentina" />
+                            <span data-valmsg-for="PaisOrigen" class="text-xs text-red-500 hidden"></span>
+                        </div>
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <label for="marca-modal-descripcion" class="text-sm font-semibold text-slate-300">Descripción <span class="font-normal text-slate-400">(opcional)</span></label>
+                            <textarea name="Descripcion" id="marca-modal-descripcion" rows="2" class="catalogo-input"></textarea>
+                            <span data-valmsg-for="Descripcion" class="text-xs text-red-500 hidden"></span>
+                        </div>
+                        <label class="flex items-center gap-2 text-sm font-semibold text-slate-300 md:col-span-2">
+                            <input name="Activo" type="checkbox" value="true" checked class="inv-check" /> Marca activa
+                        </label>
+                        <input type="hidden" name="Activo" value="false" />
                     </div>
                 </div>
             </div>
@@ -81,19 +84,13 @@
             </footer>
         </form>
     </div>
-</div>
+</dialog>
 
 <!-- Modal: Editar Marca -->
-<div id="modal-editar-marca" role="dialog" aria-modal="true" aria-labelledby="modal-editar-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-marca-edit-modal-close></div>
-    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
+<dialog id="modal-editar-marca" class="inv-dialog inv-dialog--ancho" aria-labelledby="modal-editar-marca-title">
+    <div class="inv-dialog__panel">
         <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
-                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
-                    <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm">chevron_right</span>
-                    <span class="text-primary">Marcas</span>
-                </div>
                 <h2 id="modal-editar-marca-title" class="text-xl font-bold text-white">Editar Marca</h2>
             </div>
             <button type="button" data-marca-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
@@ -139,7 +136,7 @@
                                 <p class="text-xs text-slate-400">Habilitar esta marca en el sistema</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="Activo" id="marca-edit-activo" type="checkbox" value="true" class="sr-only peer" />
+                                <input name="Activo" id="marca-edit-activo" type="checkbox" value="true" class="sr-only peer" aria-label="Marca activa" />
                                 @* H-34: un checkbox desmarcado no se envía y el modelo asume Activo=true; el hidden va DESPUÉS (el binder toma el primer valor). *@
                                 <input type="hidden" name="Activo" value="false" />
                                 <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
@@ -161,4 +158,4 @@
             </footer>
         </form>
     </div>
-</div>
+</dialog>

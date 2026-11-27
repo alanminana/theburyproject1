@@ -4,21 +4,10 @@
 }
 
 <!-- Modal: Nueva Categoría -->
-<div id="modal-nueva-categoria" role="dialog" aria-modal="true" aria-labelledby="modal-nueva-categoria-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="categoria"></div>
-
-    <!-- Modal Container -->
-    <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
-
-        <!-- Header -->
+<dialog id="modal-nueva-categoria" class="inv-dialog inv-dialog--ancho" aria-labelledby="modal-nueva-categoria-title">
+    <div class="inv-dialog__panel">
         <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
-                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
-                    <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
-                    <span class="text-primary">Categorías</span>
-                </div>
                 <h2 id="modal-nueva-categoria-title" class="text-xl font-bold text-white">Nueva categoría</h2>
             </div>
             <button type="button" data-catalogo-modal-close="categoria" aria-label="Cerrar" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
@@ -74,19 +63,13 @@
             </footer>
         </form>
     </div>
-</div>
+</dialog>
 
 <!-- Modal: Editar Categoría -->
-<div id="modal-editar-categoria" role="dialog" aria-modal="true" aria-labelledby="modal-editar-categoria-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-cat-edit-modal-close></div>
-    <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
+<dialog id="modal-editar-categoria" class="inv-dialog inv-dialog--ancho" aria-labelledby="modal-editar-categoria-title">
+    <div class="inv-dialog__panel">
         <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
-                <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
-                    <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
-                    <span class="text-primary">Categorías</span>
-                </div>
                 <h2 id="modal-editar-categoria-title" class="text-xl font-bold text-white">Editar categoría</h2>
             </div>
             <button type="button" data-cat-edit-modal-close aria-label="Cerrar" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
@@ -133,4 +116,4 @@
             </footer>
         </form>
     </div>
-</div>
+</dialog>

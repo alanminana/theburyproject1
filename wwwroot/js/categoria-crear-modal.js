@@ -11,31 +11,27 @@ const CategoriaModal = (() => {
     const FORM_ID = 'form-nueva-categoria';
     const CATALOGO_CATEGORIAS_URL = '/Catalogo?tab=categorias';
     const el = (id) => document.getElementById(id);
-    let _openTrigger = null;
 
     // ── Abrir / Cerrar ──────────────────────────────────────
-    function open(trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        const modal = el('modal-nueva-categoria');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-        setTimeout(function () {
-            var firstInput = document.querySelector('#' + FORM_ID + ' input[name="Codigo"]');
-            if (firstInput) firstInput.focus();
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(document.getElementById('modal-nueva-categoria'), {
+                cierres: '[data-catalogo-modal-close="categoria"]',
+                alCerrar: resetForm
+            });
+        }
+        return _panel;
     }
 
-    function close() {
-        const trigger = _openTrigger;
-        _openTrigger = null;
-        const modal = el('modal-nueva-categoria');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
+    function open() {
         resetForm();
-        if (trigger) trigger.focus();
+        panel().abrir();
+        var firstInput = document.querySelector('#' + FORM_ID + ' input[name="Codigo"]');
+        if (firstInput) firstInput.focus();
     }
+
+    function close() { panel().cerrar(); }
 
     function resetForm() {
         const form = el(FORM_ID);
@@ -186,20 +182,10 @@ const CategoriaModal = (() => {
         });
     }
 
-    // ── Esc para cerrar ─────────────────────────────────────
-    function initEscKey() {
-        document.addEventListener('keydown', (e) => {
-            const modal = el('modal-nueva-categoria');
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
-        });
-    }
-
     // ── Init ────────────────────────────────────────────────
     function init() {
         initSubmit();
-        initEscKey();
+        panel();
     }
 
     document.addEventListener('DOMContentLoaded', init);
