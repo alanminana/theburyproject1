@@ -59,7 +59,7 @@
             {
                 <div>
                     <p class="text-xs text-slate-400 mb-0.5">Vigente desde</p>
-                    <p class="text-slate-100">@Model.FechaVigencia.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                    <p class="text-slate-100">@Model.FechaVigencia.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</p>
                 </div>
             }
         </div>

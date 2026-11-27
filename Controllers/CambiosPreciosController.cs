@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -673,7 +675,7 @@ public class CambiosPreciosController : Controller
                     cantidadProductos = batch.CantidadProductos,
                     aplicadoPor = batch.AplicadoPor,
                     fechaAplicacion = batch.FechaAplicacion?.ToString("dd/MM/yyyy HH:mm"),
-                    fechaVigencia = batch.FechaVigencia?.ToString("dd/MM/yyyy HH:mm"),
+                    fechaVigencia = batch.FechaVigencia?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                     rowVersion = Convert.ToBase64String(batch.RowVersion),
                     cambioDisplay = $"{(batch.TipoAplicacion == TipoAplicacion.Aumento ? "+" : "-")}{batch.ValorCambio}{(batch.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%")}"
                 }
@@ -1057,7 +1059,8 @@ public class CambiosPreciosController : Controller
                 CantidadProductos = batch.CantidadProductos,
                 AprobadoPor = batch.AprobadoPor,
                 FechaAprobacion = batch.FechaAprobacion,
-                FechaVigencia = DateTime.UtcNow
+                // Vacío = «al confirmar». Precargar un instante con milisegundos hacía que datetime-local rechazara el envío.
+                FechaVigencia = null
             };
 
             return View(viewModel);
@@ -1081,7 +1084,9 @@ public class CambiosPreciosController : Controller
         try
         {
             var aplicadoPor = _currentUser.GetUsername();
-            var batch = await _precioService.AplicarBatchAsync(id, aplicadoPor, rowVersion, fechaVigencia);
+            // El formulario se completa en hora argentina; la vigencia se guarda y se compara como instante UTC.
+            var vigenciaUtc = fechaVigencia.HasValue ? FechaComercial.AUtc(fechaVigencia.Value) : (DateTime?)null;
+            var batch = await _precioService.AplicarBatchAsync(id, aplicadoPor, rowVersion, vigenciaUtc);
 
             TempData["Success"] = $"Batch '{batch.Nombre}' aplicado exitosamente. {batch.CantidadProductos} precios actualizados.";
             return RedirectToAction(nameof(Preview), new { id = batch.Id });
