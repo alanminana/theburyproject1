@@ -10,7 +10,7 @@ module.exports = [
     async fn(E, page) {
       await E.ir(page, '/Catalogo');
       const id = await page.locator('[data-prod-edit-id]').first().getAttribute('data-prod-edit-id');
-      const filaNombre = async () => (await page.locator(`tr:has([data-prod-edit-id="${id}"]) [data-prod-nombre]`).first().innerText()).trim();
+      const filaNombre = async () => (await page.locator(`tr[data-catalogo-producto-id="${id}"] .inv-producto__nombre > :first-child`).first().innerText()).trim();
       const nombreOriginal = await filaNombre();
       const [rj] = await Promise.all([esperarResp(page, /\/Producto\/GetJson\//), E.click(page, `[data-prod-edit-id="${id}"]`)]);
       E.check('GetJson responde 200 JSON', rj.status() === 200 && /json/.test(rj.headers()['content-type'] || ''), rj.status());
@@ -55,7 +55,8 @@ module.exports = [
         await Promise.all([esperarResp(page, /\/Producto\/GetJson\//), E.click(page, `[data-prod-edit-id="${id}"]`)]);
         await E.visible(page, '#modal-editar-producto');
         if (via === 'x') await E.click(page, '#modal-editar-producto header [data-prod-edit-modal-close], #modal-editar-producto button[data-prod-edit-modal-close] >> nth=0');
-        if (via === 'fondo') await page.locator('#modal-editar-producto > div[data-prod-edit-modal-close]').click({ position: { x: 5, y: 5 }, force: true }).then(() => E.interacciones++);
+        // El panel es un <dialog>: el fondo es su ::backdrop, se pulsa fuera del panel con el mouse.
+        if (via === 'fondo') { await page.mouse.click(5, 5); E.interacciones++; }
         if (via === 'escape') { await page.keyboard.press('Escape'); E.interacciones++; }
         if (via === 'cancelar') await E.click(page, '#modal-editar-producto footer [data-prod-edit-modal-close]');
         E.check(`cierre por ${via}`, await E.oculto(page, '#modal-editar-producto', 3000));
@@ -68,8 +69,8 @@ module.exports = [
     async fn(E, page) {
       const sufijo = String(Date.now()).slice(-6);
       for (const k of [
-        { tipo: 'Categoria', tab: 'categorias', abrir: '#btn-crear-categoria', form: '#form-nueva-categoria', editAttr: 'data-cat-edit-id', delAttr: 'data-cat-delete-id', json: /\/Categoria\/GetJson\//, edit: '#modal-editar-categoria', editForm: '#form-editar-categoria', editNombre: '#cat-edit-nombre', resumenEdit: '#cat-edit-validation-summary' },
-        { tipo: 'Marca', tab: 'marcas', abrir: '#btn-crear-marca', form: '#form-nueva-marca', editAttr: 'data-marca-edit-id', delAttr: 'data-marca-delete-id', json: /\/Marca\/GetJson\//, edit: '#modal-editar-marca', editForm: '#form-editar-marca', editNombre: '#marca-edit-nombre', resumenEdit: '#marca-edit-validation-summary' },
+        { tipo: 'Categoria', tab: 'categorias', abrir: '#btn-crear-categoria', modal: '#modal-categoria', form: '#form-categoria', editAttr: 'data-cat-edit-id', delAttr: 'data-cat-delete-id', json: /\/Categoria\/GetJson\//, editNombre: '#categoria-nombre' },
+        { tipo: 'Marca', tab: 'marcas', abrir: '#btn-crear-marca', modal: '#modal-marca', form: '#form-marca', editAttr: 'data-marca-edit-id', delAttr: 'data-marca-delete-id', json: /\/Marca\/GetJson\//, editNombre: '#marca-nombre' },
       ]) {
         const nombre = `CSP ${k.tipo} ${sufijo}`; const codigo = `C${k.tipo[0]}${sufijo}`;
         await E.ir(page, `/Catalogo?tab=${k.tab}`);
@@ -78,8 +79,8 @@ module.exports = [
         // validacion fallida: envio vacio
         await page.locator(`${k.form} button[type=submit]`).first().click(); E.interacciones++;
         await page.waitForTimeout(600);
-        const msg = await page.evaluate((f) => { const fm = document.querySelector(f); const s = fm.querySelector('[id$="validation-summary"]'); return { resumen: s && !s.classList.contains('hidden'), errores: [...fm.querySelectorAll('[data-valmsg-for]')].filter((x) => !x.classList.contains('hidden') && x.textContent.trim()).length, inv: [...fm.querySelectorAll(':invalid')].length }; }, k.form);
-        E.check(`${k.tipo}: envio vacio muestra errores de validacion`, msg.resumen || msg.errores > 0 || msg.inv > 0, JSON.stringify(msg));
+        const msg = await page.evaluate((f) => { const fm = document.querySelector(f); const s = fm.querySelector('[data-entidad-resumen]'); return { resumen: s && !s.hidden, errores: [...fm.querySelectorAll('[data-valmsg-for]')].filter((x) => !x.hidden && x.textContent.trim()).length, inv: [...fm.querySelectorAll('[aria-invalid="true"]')].length }; }, k.form);
+        E.check(`${k.tipo}: envio vacio muestra errores de validacion`, msg.resumen && msg.errores > 0 && msg.inv > 0, JSON.stringify(msg));
         E.check(`${k.tipo}: el modal sigue abierto tras validar`, await E.visible(page, k.form, 500));
         await page.fill(`${k.form} [name=Codigo]`, codigo); await page.fill(`${k.form} [name=Nombre]`, nombre);
         const [r] = await Promise.all([page.waitForResponse((x) => new RegExp(`/${k.tipo}/CreateAjax`).test(x.url()), { timeout: 15000 }), page.locator(`${k.form} button[type=submit]`).first().click()]);
@@ -96,22 +97,26 @@ module.exports = [
         // edicion remota
         const [rj] = await Promise.all([page.waitForResponse((x) => k.json.test(x.url())), E.click(page, `[${k.editAttr}="${idNuevo}"]`)]);
         E.check(`${k.tipo}: GetJson 200`, rj.status() === 200, rj.status());
-        E.check(`${k.tipo}: modal de edicion abre y se puebla`, await E.visible(page, k.edit) && (await page.inputValue(k.editNombre)) === nombre, await page.inputValue(k.editNombre).catch(() => '?'));
+        E.check(`${k.tipo}: modal de edicion abre y se puebla`, await E.visible(page, k.modal) && (await page.inputValue(k.editNombre)) === nombre, await page.inputValue(k.editNombre).catch(() => '?'));
         await page.fill(k.editNombre, '');
-        await page.locator(`${k.editForm} button[type=submit]`).first().click(); E.interacciones++;
+        await page.locator(`${k.form} button[type=submit]`).first().click(); E.interacciones++;
         await page.waitForTimeout(600);
-        E.check(`${k.tipo}: edicion con nombre vacio no cierra (validacion)`, await E.visible(page, k.edit, 500));
+        E.check(`${k.tipo}: edicion con nombre vacio no cierra (validacion)`, await E.visible(page, k.modal, 500));
         await page.keyboard.press('Escape'); E.interacciones++;
-        E.check(`${k.tipo}: Escape cierra el modal de edicion`, await E.oculto(page, k.edit));
-        // baja: cancelar y luego confirmar en el modal compartido (confirmAction)
+        const confirmacion = 'dialog.inv-dialog--confirm';
+        E.check(`${k.tipo}: con cambios sin guardar, Escape pide confirmar el descarte`, await E.visible(page, confirmacion) && /Descartar los cambios/.test(await page.locator(confirmacion).innerText()));
+        await E.click(page, `${confirmacion} [value=confirmar]`);
+        E.check(`${k.tipo}: descartar cierra el modal de edicion`, await E.oculto(page, k.modal));
+        // baja: cancelar y luego confirmar en el dialogo de confirmacion de Inventario
         await E.click(page, `[${k.delAttr}="${idNuevo}"]`);
-        E.check(`${k.tipo}: confirmAction abre`, await E.visible(page, '#confirmModal'));
-        E.check(`${k.tipo}: el mensaje de confirmacion nombra el registro`, (await page.locator('#confirmModalBody').innerText()).includes(nombre));
-        await E.click(page, '#confirmModal .border-t [data-confirm-modal-close]');
-        E.check(`${k.tipo}: Cancelar cierra sin borrar`, await E.oculto(page, '#confirmModal') && (await page.locator(`[${k.editAttr}="${idNuevo}"]`).count()) === 1);
+        E.check(`${k.tipo}: la confirmacion de baja abre`, await E.visible(page, confirmacion));
+        E.check(`${k.tipo}: el mensaje de confirmacion nombra el registro`, (await page.locator(confirmacion).innerText()).includes(nombre));
+        E.check(`${k.tipo}: el foco inicial esta en la opcion segura`, await page.evaluate(() => document.activeElement && document.activeElement.value === 'cancelar'));
+        await E.click(page, `${confirmacion} [value=cancelar]`);
+        E.check(`${k.tipo}: Cancelar cierra sin borrar`, await E.oculto(page, confirmacion) && (await page.locator(`[${k.editAttr}="${idNuevo}"]`).count()) === 1);
         await E.click(page, `[${k.delAttr}="${idNuevo}"]`);
-        await E.visible(page, '#confirmModal');
-        await Promise.all([page.waitForNavigation({ timeout: 15000 }), E.click(page, '#confirmModalAction')]);
+        await E.visible(page, confirmacion);
+        await Promise.all([page.waitForNavigation({ timeout: 15000 }), E.click(page, `${confirmacion} [value=confirmar]`)]);
         await page.waitForLoadState('networkidle').catch(() => {});
         await E.ir(page, `/Catalogo?tab=${k.tab}`);
         E.check(`${k.tipo}: Confirmar da de baja (submit de formulario con CSP form-action)`, (await page.locator(`[${k.editAttr}="${idNuevo}"]`).count()) === 0);

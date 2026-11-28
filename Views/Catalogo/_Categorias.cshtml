@@ -1,0 +1,95 @@
+@model CatalogoUnificadoViewModel
+@{
+    // Categorías: cada acción exige su permiso propio en CategoriaController (create/update/delete).
+    var puedeCrearCategoria = User.TienePermiso("categorias", "create");
+    var puedeEditarCategoria = User.TienePermiso("categorias", "update");
+    var puedeEliminarCategoria = User.TienePermiso("categorias", "delete");
+    // Con solo lectura no hay acciones por fila: la columna entera se omite (no queda vacía).
+    var mostrarAccionesCategoria = puedeEditarCategoria || puedeEliminarCategoria;
+    var categoriasOrdenadas = CategoriaJerarquia.Ordenar(Model.CategoriasListado);
+}
+
+<div id="tab-categorias">
+    <div class="inv-results__bar inv-results__bar--seccion">
+        <p class="inv-results__count"><strong>@categoriasOrdenadas.Count</strong> @(categoriasOrdenadas.Count == 1 ? "categoría" : "categorías")</p>
+        @if (puedeCrearCategoria)
+        {
+            <button type="button" id="btn-crear-categoria" data-catalogo-modal-open="categoria" class="inv-btn inv-btn--primary">
+                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                Nueva categoría
+            </button>
+        }
+    </div>
+
+    @if (categoriasOrdenadas.Count > 0)
+    {
+        <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de categorías">
+            <table class="inv-table inv-table--apilable">
+                <thead>
+                    <tr>
+                        <th scope="col">Categoría</th>
+                        <th scope="col">Categoría padre</th>
+                        <th scope="col">Estado</th>
+                        @if (mostrarAccionesCategoria)
+                        {
+                            <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody id="categorias-tbody">
+                    @foreach (var (cat, nivel) in categoriasOrdenadas)
+                    {
+                        <tr class="@(nivel > 0 ? "cat-row--child" : null) @(!cat.Activo ? "cat-row--inactive" : null)">
+                            <th scope="row" class="inv-celda-principal">
+                                <span class="inv-jerarquia" style="--nivel: @nivel">
+                                    @if (nivel > 0)
+                                    {
+                                        <span class="material-symbols-outlined" aria-hidden="true">subdirectory_arrow_right</span>
+                                    }
+                                    <strong>@cat.Nombre</strong>
+                                </span>
+                                <p class="inv-ayuda-texto" title="@cat.Descripcion">@cat.Codigo@(string.IsNullOrEmpty(cat.Descripcion) ? "" : " · " + cat.Descripcion)</p>
+                            </th>
+                            <td data-label="Categoría padre">@(cat.ParentNombre ?? "—")</td>
+                            <td data-label="Estado"><span class="@(cat.Activo ? "inv-pill inv-pill--ok" : "inv-pill inv-pill--muted")">@(cat.Activo ? "Activa" : "Inactiva")</span></td>
+                            @if (mostrarAccionesCategoria)
+                            {
+                                <td class="inv-col-actions">
+                                    <div class="inv-row-actions">
+                                        @if (puedeEditarCategoria)
+                                        {
+                                            <button type="button" data-cat-edit-id="@cat.Id" class="inv-icon-btn" aria-label="Editar categoría @cat.Nombre" title="Editar">
+                                                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                            </button>
+                                        }
+                                        @if (puedeEliminarCategoria)
+                                        {
+                                            <button type="button" data-cat-delete-id="@cat.Id" data-cat-delete-nombre="@cat.Nombre" class="inv-icon-btn inv-icon-btn--danger" aria-label="Eliminar categoría @cat.Nombre" title="Eliminar">
+                                                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="inv-empty">
+            <span class="material-symbols-outlined" aria-hidden="true">category</span>
+            <p class="inv-empty__title">Todavía no hay categorías</p>
+            @if (puedeCrearCategoria)
+            {
+                <p>Creá la primera con «Nueva categoría» para clasificar tus productos.</p>
+            }
+        </div>
+    }
+</div>
+
+<form id="form-delete-categoria" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+</form>

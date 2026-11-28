@@ -10,7 +10,7 @@ namespace TheBuryProject.Tests.Integration;
 /// <summary>
 /// Regresión: Fase 1 del plan de remediación Categoría/Inventario (commit def652d) eliminó
 /// el POST Categoria/Delete asumiendo "0 referencias en toda la app", pero
-/// categoria-editar-modal.js sí lo invoca (form-delete-categoria, botón "Eliminar" del modal
+/// catalogo-entidad-modal.js sí lo invoca (form-delete-categoria, botón "Eliminar" del modal
 /// de Catalogo/Index_tw) — el grep de la auditoría original no cubría rutas embebidas como
 /// string literal en JS. El botón quedó 404 en producción hasta este fix.
 /// </summary>

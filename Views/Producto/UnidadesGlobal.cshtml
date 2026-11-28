@@ -1,386 +1,205 @@
 @model ProductoUnidadesGlobalViewModel
+@using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Inventario global";
     var resumen = Model.Resumen;
     var filtros = Model.Filtros;
-    var hayFiltros = filtros.ProductoId.HasValue || filtros.Estado.HasValue
-        || !string.IsNullOrWhiteSpace(filtros.Texto) || filtros.SoloDisponibles || filtros.SoloVendidas
-        || filtros.SoloFaltantes || filtros.SoloBaja || filtros.SoloDevueltas || filtros.SoloSinNumeroSerie;
-}
-
-@section Styles {
-    <style>
-        /* invg- = inventario global integrado (tabs Unidades + Movimientos) */
-        .invg-tabs { display: none; gap: .25rem; border-bottom: 1px solid var(--pal-neutral-800); }
-        .invg-js .invg-tabs { display: flex; flex-wrap: wrap; }
-        .invg-tab {
-            display: inline-flex; align-items: center; gap: .4rem;
-            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: var(--erp-fg-2, var(--pal-neutral-350));
-            background: transparent; border: 0; border-bottom: 2px solid transparent;
-            cursor: pointer; border-radius: 6px 6px 0 0; white-space: nowrap;
-        }
-        .invg-tab .material-symbols-outlined { font-size: 18px; }
-        .invg-tab:hover { color: var(--pal-neutral-100); background: color-mix(in srgb, var(--pal-neutral-450) 6%, transparent); }
-        .invg-tab[aria-selected="true"] { color: var(--pal-white); border-bottom-color: var(--pal-accent); }
-        .invg-tab:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
-        .invg-mov-table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; font-size: .85rem; font-variant-numeric: tabular-nums; }
-        .invg-mov-table thead th {
-            background: var(--pal-neutral-900); color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
-            letter-spacing: .04em; text-align: left; padding: .7rem 1rem; border-bottom: 1px solid var(--pal-neutral-800); white-space: nowrap;
-        }
-        .invg-td { white-space: nowrap; padding: .6rem 1rem; border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-800) 60%, transparent); color: var(--pal-neutral-300); vertical-align: top; }
-        .invg-td:nth-child(3) { white-space: normal; min-width: 9rem; }
-        .invg-strong { color: var(--pal-neutral-200); font-weight: 600; }
-        .invg-sub { color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: .75rem; }
-        .invg-mono { font-family: ui-monospace, monospace; }
-        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: var(--erp-fg-3, var(--pal-neutral-400)); }
-        .invg-mov-error { color: var(--pal-danger-300); }
-        .invg-chip {
-            display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem;
-            border-radius: 999px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; border: 1px solid transparent; white-space: nowrap;
-        }
-        .invg-chip-in { background: color-mix(in srgb, var(--pal-success-500) 10%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 28%, transparent); }
-        .invg-chip-out { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-400) 28%, transparent); }
-        .invg-chip-adj { background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); color: var(--pal-warning-400); border-color: color-mix(in srgb, var(--pal-warning-500) 28%, transparent); }
-        .invg-chip-neutral { background: var(--pal-neutral-800); color: var(--pal-neutral-200); border-color: var(--pal-neutral-700); }
-    </style>
-}
-
-<div class="erp-page-shell erp-page-shell-xl space-y-6" data-invg-root>
-
-    @if (TempData["Success"] != null)
+    var puedeVerMovimientos = User.TienePermiso("movimientos", "view");
+    // Los enlaces antiguos "solo…" equivalen a un estado: se reflejan en el selector para no perderlos al volver a filtrar.
+    EstadoUnidad? estadoActivo = filtros.Estado
+        ?? (filtros.SoloDisponibles ? EstadoUnidad.EnStock
+          : filtros.SoloVendidas ? EstadoUnidad.Vendida
+          : filtros.SoloFaltantes ? EstadoUnidad.Faltante
+          : filtros.SoloBaja ? EstadoUnidad.Baja
+          : filtros.SoloDevueltas ? EstadoUnidad.Devuelta
+          : (EstadoUnidad?)null);
+    var hayFiltros = filtros.ProductoId.HasValue || estadoActivo.HasValue
+        || !string.IsNullOrWhiteSpace(filtros.Texto) || filtros.SoloSinNumeroSerie;
+    var totales = new (string Texto, int Cantidad, EstadoUnidad? Estado, bool Siempre)[]
     {
-        <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">
-            @TempData["Success"]
+        ("Registradas", resumen.TotalUnidades, null, true),
+        ("En stock", resumen.TotalEnStock, EstadoUnidad.EnStock, true),
+        ("Vendidas", resumen.TotalVendidas, EstadoUnidad.Vendida, true),
+        ("Faltantes", resumen.TotalFaltantes, EstadoUnidad.Faltante, true),
+        ("Baja", resumen.TotalBaja, EstadoUnidad.Baja, true),
+        ("Devueltas", resumen.TotalDevueltas, EstadoUnidad.Devuelta, false),
+        ("En reparación", resumen.TotalEnReparacion, EstadoUnidad.EnReparacion, false),
+        ("Anuladas", resumen.TotalAnuladas, EstadoUnidad.Anulada, false),
+        ("Reservadas", resumen.TotalReservadas, EstadoUnidad.Reservada, false)
+    };
+}
+
+<div class="inv-screen inv-page" data-invg-root>
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            <h1>Inventario global</h1>
+            <p>Unidades físicas individuales de todos los productos. No reemplaza el stock por producto ni el Kardex.</p>
         </div>
-    }
-    @if (TempData["Error"] != null)
+        @* Sin JavaScript no hay pestañas: este enlace da acceso a los movimientos. *@
+        @if (puedeVerMovimientos)
+        {
+            <div class="inv-head__acciones" data-invg-nojs>
+                <a asp-controller="MovimientoStock" asp-action="Index" class="inv-btn inv-btn--ghost">Movimientos de inventario</a>
+            </div>
+        }
+    </header>
+
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    @if (puedeVerMovimientos)
     {
-        <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
-            @TempData["Error"]
+        <div class="inv-tablist" data-invg-tablist hidden>
+            <div class="inv-tablist__pista" role="tablist" aria-label="Secciones de inventario global">
+                <button type="button" class="inv-tab" role="tab" id="invg-tab-unidades" aria-controls="invg-panel-unidades" data-invg-tab="unidades" aria-selected="true">Unidades físicas</button>
+                <button type="button" class="inv-tab" role="tab" id="invg-tab-movimientos" aria-controls="invg-panel-movimientos" data-invg-tab="movimientos" aria-selected="false" tabindex="-1">Movimientos</button>
+            </div>
         </div>
     }
 
-    <!-- Header -->
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
-        <div class="erp-page-header">
-            <div class="erp-page-header-main">
-                <a asp-controller="Catalogo" asp-action="Index"
-                   class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
-                    <span class="material-symbols-outlined text-base">arrow_back</span>
-                    Volver al Catálogo
+    <div class="inv-pila" data-invg-panel="unidades" id="invg-panel-unidades" role="tabpanel" aria-labelledby="invg-tab-unidades">
+        <nav class="inv-panel inv-totales" aria-label="Totales por estado (con los filtros actuales)">
+            @foreach (var t in totales.Where(x => x.Siempre || x.Cantidad > 0))
+            {
+                <a asp-controller="Producto" asp-action="UnidadesGlobal"
+                   asp-route-productoId="@filtros.ProductoId" asp-route-estado="@t.Estado" asp-route-texto="@filtros.Texto"
+                   asp-route-soloSinNumeroSerie="@(filtros.SoloSinNumeroSerie ? "true" : null)"
+                   aria-current="@(estadoActivo == t.Estado ? "true" : null)">
+                    <span>@t.Texto</span>
+                    <strong>@t.Cantidad</strong>
                 </a>
-                <h1 class="erp-page-title mt-3">Inventario global</h1>
-                <p class="erp-page-subtitle">
-                    Unidades físicas individuales de todos los productos y su estado operativo.
-                </p>
-            </div>
-            <div class="erp-page-actions">
-                @* Fallback sin JS: con JS la pestaña "Movimientos" cumple esta función. *@
-                <a asp-controller="MovimientoStock" asp-action="Index" data-invg-nojs
-                   class="btn-erp-secondary btn-sm w-full sm:w-auto">
-                    <span class="material-symbols-outlined text-sm">swap_vert</span>
-                    Movimientos de inventario
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Tabs: experiencia integrada (solo con JS; sin JS se ve Unidades + link a Movimientos) -->
-    <div class="invg-tabs" role="tablist" aria-label="Secciones de inventario">
-        <button type="button" class="invg-tab" role="tab" id="invg-tab-unidades" aria-controls="invg-panel-unidades" data-invg-tab="unidades" aria-selected="true">
-            <span class="material-symbols-outlined">inventory_2</span>Unidades físicas
-        </button>
-        <button type="button" class="invg-tab" role="tab" id="invg-tab-movimientos" aria-controls="invg-panel-movimientos" data-invg-tab="movimientos" aria-selected="false">
-            <span class="material-symbols-outlined">swap_vert</span>Movimientos
-        </button>
-    </div>
-
-    <!-- ===================== Panel: Unidades físicas ===================== -->
-    <div data-invg-panel="unidades" id="invg-panel-unidades" role="tabpanel" aria-labelledby="invg-tab-unidades" class="space-y-6">
-
-    <!-- KPIs / Resumen -->
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
-        <h2 class="mb-4 text-sm font-bold uppercase tracking-widest text-slate-500">Resumen</h2>
-        <div class="erp-kpi-grid">
-            <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-center">
-                <p class="text-2xl font-black text-white">@resumen.TotalUnidades</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">Total registradas</p>
-            </div>
-            <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
-                <p class="text-2xl font-black text-emerald-300">@resumen.TotalEnStock</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">En stock</p>
-            </div>
-            <div class="rounded-lg border border-sky-500/20 bg-sky-500/5 p-4 text-center">
-                <p class="text-2xl font-black text-sky-300">@resumen.TotalVendidas</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">Vendidas</p>
-            </div>
-            <div class="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-center">
-                <p class="text-2xl font-black text-red-300">@resumen.TotalFaltantes</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">Faltantes</p>
-            </div>
-            <div class="rounded-lg border border-slate-700/40 bg-slate-800/30 p-4 text-center">
-                <p class="text-2xl font-black text-slate-400">@resumen.TotalBaja</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">Baja</p>
-            </div>
-            @if (resumen.TotalDevueltas > 0)
-            {
-                <div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-center">
-                    <p class="text-2xl font-black text-amber-300">@resumen.TotalDevueltas</p>
-                    <p class="mt-1 text-xs font-semibold text-slate-400">Devueltas</p>
-                </div>
             }
-            @if (resumen.TotalEnReparacion > 0)
-            {
-                <div class="rounded-lg border border-purple-500/20 bg-purple-500/5 p-4 text-center">
-                    <p class="text-2xl font-black text-purple-300">@resumen.TotalEnReparacion</p>
-                    <p class="mt-1 text-xs font-semibold text-slate-400">En reparación</p>
-                </div>
-            }
-            @if (resumen.TotalAnuladas > 0)
-            {
-                <div class="rounded-lg border border-slate-600/20 bg-slate-600/5 p-4 text-center">
-                    <p class="text-2xl font-black text-slate-400">@resumen.TotalAnuladas</p>
-                    <p class="mt-1 text-xs font-semibold text-slate-400">Anuladas</p>
-                </div>
-            }
-            @if (resumen.TotalReservadas > 0)
-            {
-                <div class="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4 text-center">
-                    <p class="text-2xl font-black text-orange-300">@resumen.TotalReservadas</p>
-                    <p class="mt-1 text-xs font-semibold text-slate-400">Reservadas</p>
-                </div>
-            }
-        </div>
-    </section>
+        </nav>
 
-    <!-- Filtros -->
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
-        <h2 class="mb-4 text-sm font-bold uppercase tracking-widest text-slate-500">Filtros</h2>
-        <form method="get" asp-controller="Producto" asp-action="UnidadesGlobal" class="space-y-4">
-            <div class="erp-filter-grid">
-                <div>
-                    <label for="filtro-producto" class="mb-1 block text-xs font-bold text-slate-400">Producto</label>
-                    <select id="filtro-producto" name="productoId" class="input-erp w-full">
-                        <option value="">— Todos los productos —</option>
+        <div class="inv-panel inv-panel--tabla">
+            <form method="get" asp-controller="Producto" asp-action="UnidadesGlobal" class="inv-filters" role="search" aria-label="Filtrar unidades">
+                <div class="inv-filtros-linea inv-filtros-linea--llena">
+                    <label class="sr-only" for="filtro-texto">Buscar por código, serie o producto</label>
+                    <input id="filtro-texto" type="search" name="texto" value="@filtros.Texto" class="inv-control inv-control--busqueda" placeholder="Código, serie o producto" />
+                    <label class="sr-only" for="filtro-producto">Producto</label>
+                    <select id="filtro-producto" name="productoId" class="inv-control inv-control--ancho">
+                        <option value="">Todos los productos</option>
                         @foreach (SelectListItem item in ViewBag.ProductosDropdown)
                         {
                             <option value="@item.Value" selected="@item.Selected">@item.Text</option>
                         }
                     </select>
-                </div>
-                <div>
-                    <label for="filtro-estado" class="mb-1 block text-xs font-bold text-slate-400">Estado</label>
-                    <select id="filtro-estado" name="estado" class="input-erp w-full">
-                        <option value="">— Todos los estados —</option>
+                    <label class="sr-only" for="filtro-estado">Estado</label>
+                    <select id="filtro-estado" name="estado" class="inv-control">
+                        <option value="">Todos los estados</option>
                         @foreach (SelectListItem item in ViewBag.EstadosDropdown)
                         {
-                            <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                            <option value="@item.Value" selected="@(estadoActivo.HasValue && item.Value == ((int)estadoActivo.Value).ToString())">@item.Text</option>
                         }
                     </select>
+                    <label class="inv-opciones"><input type="checkbox" name="soloSinNumeroSerie" value="true" class="inv-check" checked="@filtros.SoloSinNumeroSerie" /> Sin número de serie</label>
+                    <button type="submit" class="inv-btn inv-btn--ghost">Filtrar</button>
+                    @if (hayFiltros)
+                    {
+                        <a asp-controller="Producto" asp-action="UnidadesGlobal" class="inv-link">Limpiar</a>
+                    }
                 </div>
-                <div>
-                    <label for="filtro-texto" class="mb-1 block text-xs font-bold text-slate-400">Buscar</label>
-                    <input id="filtro-texto" type="text" name="texto" value="@filtros.Texto"
-                           placeholder="Código, serie, nombre de producto…"
-                           class="input-erp w-full" />
+            </form>
+
+            @if (!Model.Items.Any())
+            {
+                <div class="inv-empty">
+                    <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                    @if (hayFiltros)
+                    {
+                        <p class="inv-empty__title">No se encontraron unidades con esos filtros</p>
+                        <a asp-controller="Producto" asp-action="UnidadesGlobal" class="inv-link">Limpiar filtros</a>
+                    }
+                    else
+                    {
+                        <p class="inv-empty__title">Todavía no hay unidades físicas registradas</p>
+                        <p>Se cargan desde la ficha de cada producto que se controla por unidad.</p>
+                    }
                 </div>
-            </div>
-
-            <div class="flex flex-wrap gap-4">
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloDisponibles" value="true" @(filtros.SoloDisponibles ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Solo disponibles
-                </label>
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloVendidas" value="true" @(filtros.SoloVendidas ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Solo vendidas
-                </label>
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloFaltantes" value="true" @(filtros.SoloFaltantes ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Solo faltantes
-                </label>
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloBaja" value="true" @(filtros.SoloBaja ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Solo baja
-                </label>
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloDevueltas" value="true" @(filtros.SoloDevueltas ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Solo devueltas
-                </label>
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-300">
-                    <input type="checkbox" name="soloSinNumeroSerie" value="true" @(filtros.SoloSinNumeroSerie ? "checked" : "")
-                           class="rounded border-slate-600 bg-slate-800 text-primary" />
-                    Sin número de serie
-                </label>
-            </div>
-
-            <div class="erp-filter-actions">
-                <button type="submit" class="btn-erp-primary btn-sm">
-                    <span class="material-symbols-outlined text-sm">search</span>
-                    Filtrar
-                </button>
-                <a asp-controller="Producto" asp-action="UnidadesGlobal"
-                   class="btn-erp-ghost btn-sm">
-                    Limpiar
-                </a>
-            </div>
-        </form>
-    </section>
-
-    <!-- Tabla de resultados -->
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60">
-        <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-            <h2 class="text-sm font-bold text-slate-300">
-                Unidades físicas
-                <span class="ml-2 text-xs font-normal text-slate-500">@Model.Items.Count resultado@(Model.Items.Count != 1 ? "s" : "")</span>
-            </h2>
-        </div>
-
-        @if (!Model.Items.Any())
-        {
-            <div class="erp-empty-state">
-                <span class="material-symbols-outlined">inventory_2</span>
-                @if (hayFiltros)
-                {
-                    <p class="erp-empty-state__title">No se encontraron unidades con los filtros actuales.</p>
-                    <a asp-controller="Producto" asp-action="UnidadesGlobal" class="text-xs font-bold text-primary hover:underline">
-                        Limpiar filtros
-                    </a>
-                }
-                else
-                {
-                    <p class="erp-empty-state__title">Todavía no hay unidades físicas registradas.</p>
-                    <p class="text-xs text-slate-500">Se cargan desde la ficha de cada producto que se controla por unidad. El stock por SKU se ve en Movimientos.</p>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="overflow-x-auto">
-                <table data-erp-cards class="erp-table">
-                    <thead>
-                        <tr class="border-b border-slate-800 bg-slate-900/40 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                            <th data-card="title" scope="col" class="px-4 py-3">Producto</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Código interno</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">N° serie</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Estado</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Ubicación</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Cliente</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Fecha venta</th>
-                            <th data-card="half" scope="col" class="px-4 py-3">Ingreso</th>
-                            <th scope="col" class="px-4 py-3 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60">
-                        @foreach (var item in Model.Items)
-                        {
-                            <tr class="hover:bg-slate-800/30 transition-colors">
-                                <td class="px-4 py-3">
-                                    <a asp-controller="Producto" asp-action="Unidades"
-                                       asp-route-productoId="@item.ProductoId"
-                                       class="font-semibold text-slate-200 hover:text-white hover:underline">
-                                        @item.ProductoNombre
-                                    </a>
-                                    <div class="mt-0.5 font-mono text-xs text-slate-500">@item.ProductoCodigo</div>
-                                </td>
-                                <td class="px-4 py-3 font-mono text-xs text-slate-300">
-                                    @item.CodigoInternoUnidad
-                                </td>
-                                <td class="px-4 py-3 font-mono text-xs text-slate-400">
-                                    @(item.NumeroSerie ?? "—")
-                                </td>
-                                <td class="px-4 py-3">
-                                    <partial name="_EstadoUnidadBadge" model="item.Estado" />
-                                </td>
-                                <td class="px-4 py-3 text-xs text-slate-400">
-                                    @(item.UbicacionActual ?? "—")
-                                </td>
-                                <td class="px-4 py-3 text-xs text-slate-400">
-                                    @(item.ClienteNombre ?? "—")
-                                </td>
-                                <td class="px-4 py-3 text-xs text-slate-400">
-                                    @(item.FechaVenta.HasValue
-                                        ? item.FechaVenta.Value.AHoraComercial().ToString("dd/MM/yyyy")
-                                        : "—")
-                                </td>
-                                <td class="px-4 py-3 text-xs text-slate-400">
-                                    @item.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <a asp-controller="Producto" asp-action="UnidadHistorial"
-                                           asp-route-unidadId="@item.Id"
-                                           class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                           title="Ver historial de movimientos">
-                                            <span class="material-symbols-outlined text-sm">history</span>
-                                            Historial
-                                        </a>
-                                        <a asp-controller="Producto" asp-action="Unidades"
-                                           asp-route-productoId="@item.ProductoId"
-                                           class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                           title="Ver unidades del producto">
-                                            <span class="material-symbols-outlined text-sm">inventory_2</span>
-                                            Producto
-                                        </a>
-                                    </div>
-                                </td>
+            }
+            else
+            {
+                <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Unidades físicas">
+                    <table class="inv-table inv-table--apilable">
+                        <caption class="sr-only">@Model.Items.Count @(Model.Items.Count == 1 ? "unidad" : "unidades")</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Unidad</th>
+                                <th scope="col">Producto</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Ubicación</th>
+                                <th scope="col">Venta</th>
+                                <th scope="col">Ingreso</th>
+                                <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="border-t border-slate-800 px-5 py-3">
-                <p class="text-xs text-slate-600">
-                    Este reporte muestra unidades físicas individuales. No reemplaza el stock agregado ni el Kardex SKU.
-                </p>
-            </div>
-        }
-    </section>
-
-    </div><!-- /panel unidades -->
-
-    <!-- ===================== Panel: Movimientos ===================== -->
-    <div data-invg-panel="movimientos" id="invg-panel-movimientos" role="tabpanel" aria-labelledby="invg-tab-movimientos" class="space-y-4" hidden>
-        <section class="rounded-lg border border-slate-800 bg-slate-950/60">
-            <div class="flex flex-col gap-2 border-b border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-300">Movimientos de inventario</h2>
-                    <p id="invg-mov-summary" class="mt-0.5 text-xs text-slate-500">Abrí la pestaña para ver los movimientos más recientes.</p>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <th scope="row">
+                                        <span class="inv-control--mono">@item.CodigoInternoUnidad</span>
+                                        <p class="inv-ayuda-texto">@(item.NumeroSerie is null ? "Sin número de serie" : "Serie " + item.NumeroSerie)</p>
+                                    </th>
+                                    <td data-label="Producto" class="inv-celda-detalle">
+                                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@item.ProductoId" class="inv-link">@item.ProductoNombre</a>
+                                        <p class="inv-ayuda-texto">@item.ProductoCodigo</p>
+                                    </td>
+                                    <td data-label="Estado"><partial name="_EstadoUnidadBadge" model="item.Estado" /></td>
+                                    <td data-label="Ubicación">@(item.UbicacionActual ?? "—")</td>
+                                    <td data-label="Venta">
+                                        @(item.ClienteNombre ?? "—")
+                                        @if (item.FechaVenta.HasValue)
+                                        {
+                                            <p class="inv-ayuda-texto">@item.FechaVenta.Value.AHoraComercial().ToString("dd/MM/yyyy")</p>
+                                        }
+                                    </td>
+                                    <td data-label="Ingreso">@item.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
+                                    <td class="inv-col-actions">
+                                        <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@item.Id" class="inv-btn inv-btn--ghost inv-btn--sm"
+                                           aria-label="Historial de la unidad @item.CodigoInternoUnidad">Historial</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-                <a asp-controller="MovimientoStock" asp-action="Index"
-                   class="btn-erp-secondary btn-sm w-full sm:w-auto">
-                    <span class="material-symbols-outlined text-sm">open_in_new</span>
-                    Historial completo
-                </a>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="invg-mov-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Fecha</th>
-                            <th scope="col">Tipo</th>
-                            <th scope="col">Producto</th>
-                            <th scope="col">Cantidad</th>
-                            <th scope="col">Stock</th>
-                            <th scope="col">Usuario</th>
-                            <th scope="col">Referencia</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invg-mov-body">
-                        <tr><td colspan="7" class="invg-mov-state">Cargando movimientos…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </div><!-- /panel movimientos -->
+                <p class="inv-pager">@Model.Items.Count @(Model.Items.Count == 1 ? "unidad" : "unidades")</p>
+            }
+        </div>
+    </div>
 
+    @if (puedeVerMovimientos)
+    {
+        <div class="inv-pila" data-invg-panel="movimientos" id="invg-panel-movimientos" role="tabpanel" aria-labelledby="invg-tab-movimientos" hidden>
+            <div class="inv-panel inv-panel--tabla">
+                <div class="inv-panel__cabecera">
+                    <div>
+                        <h2 class="inv-panel__titulo">Movimientos de inventario</h2>
+                        <p id="invg-mov-summary" class="inv-ayuda-texto" role="status"></p>
+                    </div>
+                    <a asp-controller="MovimientoStock" asp-action="Index" class="inv-link">Historial completo</a>
+                </div>
+                <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Movimientos recientes">
+                    <table class="inv-table inv-table--apilable">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Movimiento</th>
+                                <th scope="col">Producto</th>
+                                <th scope="col" class="inv-col-num">Cantidad</th>
+                                <th scope="col" class="inv-col-num">Stock</th>
+                                <th scope="col">Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invg-mov-body">
+                            <tr><td colspan="6" class="inv-empty">Cargando movimientos…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @section Scripts {

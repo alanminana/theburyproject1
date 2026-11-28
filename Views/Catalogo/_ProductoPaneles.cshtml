@@ -1,0 +1,508 @@
+@model CatalogoUnificadoViewModel
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Asignar Comisión Vendedor
+     ═══════════════════════════════════════════════════════════════ -->
+<dialog id="modal-comision-vendedor" class="inv-dialog" aria-labelledby="comision-modal-titulo" aria-describedby="comision-modal-nombre">
+    <div class="inv-dialog__panel">
+        <header class="inv-dialog__header inv-dialog__header--cerrar">
+            <div>
+                <h1 id="comision-modal-titulo" class="inv-dialog__title">Comisión del vendedor</h1>
+                <p id="comision-modal-nombre" class="inv-dialog__subtitulo"></p>
+            </div>
+            <button type="button" class="inv-icon-btn" data-comision-modal-close aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </header>
+
+        <form id="form-comision-vendedor" class="inv-dialog__form" method="post" novalidate action="@Url.Action("ActualizarComisionVendedor", "Producto")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="comision-modal-productoId" name="productoId" />
+
+            <div class="inv-dialog__body">
+                <div class="inv-campo">
+                    <label for="comision-modal-porcentaje" class="inv-campo__etiqueta">Porcentaje de comisión</label>
+                    <div class="inv-sufijo">
+                        <input id="comision-modal-porcentaje" name="porcentajeComision" type="number" class="inv-control"
+                               min="0" max="100" step="0.01" inputmode="decimal" required autofocus
+                               aria-describedby="comision-modal-ayuda" />
+                        <span aria-hidden="true">%</span>
+                    </div>
+                    <p id="comision-modal-ayuda" class="inv-campo__ayuda">De 0 a 100. Con 0 el producto no paga comisión.</p>
+                    <p id="comision-modal-error" class="inv-campo__error" role="alert" hidden></p>
+                </div>
+            </div>
+
+            <footer class="inv-dialog__footer">
+                <button type="button" class="inv-btn inv-btn--ghost" data-comision-modal-close>Cancelar</button>
+                <button type="submit" id="btn-guardar-comision" class="inv-btn inv-btn--primary">Guardar comisión</button>
+            </footer>
+        </form>
+    </div>
+</dialog>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Historial de Cambios de Precio (por producto)
+     ═══════════════════════════════════════════════════════════════ -->
+<dialog id="modal-historial-precio" class="inv-drawer" aria-labelledby="modal-historial-precio-title">
+    <div class="inv-drawer__panel">
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-historial-precio-title">Historial de precios</h2>
+                <p><span id="historial-producto-nombre"></span> · <span id="historial-producto-codigo"></span> · <span id="historial-precio-count">0 eventos</span></p>
+            </div>
+            <button type="button" data-catalogo-modal-close="historial-precio" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </header>
+
+        <div id="historial-precio-feedback" aria-live="polite" aria-atomic="true" class="hidden"></div>
+
+        <div class="inv-drawer__cuerpo">
+            <div id="historial-precio-tabla" class="inv-table-wrap" tabindex="0" role="region" aria-label="Historial de cambios de precio" hidden>
+                <table class="inv-table inv-table--apilable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Motivo y usuario</th>
+                            <th scope="col" class="inv-col-num">Precio anterior</th>
+                            <th scope="col" class="inv-col-num">Precio nuevo</th>
+                            <th scope="col" class="inv-col-num">Variación</th>
+                            <th scope="col" class="inv-col-actions"><span class="sr-only">Acción</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="historial-precio-tbody"></tbody>
+                </table>
+            </div>
+
+            <div id="historial-precio-loading" aria-live="polite" class="hidden"><p class="inv-empty">Cargando historial…</p></div>
+
+            <div id="historial-precio-empty" class="hidden">
+                <div class="inv-empty">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                    <p class="inv-empty__title">No hay cambios de precio registrados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Aumento de Precios (3 pasos: Alcance → Configuración → Vista previa)
+     ═══════════════════════════════════════════════════════════════ -->
+<dialog id="modal-aumento-precios" class="inv-drawer inv-drawer--angosto" aria-labelledby="modal-aumento-precios-title">
+
+    <!-- Panel -->
+    <div class="inv-drawer__panel">
+        <!-- Header -->
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-aumento-precios-title">Ajustar precio base</h2>
+                <p>No cambia los precios fijados en listas: esos se ajustan en Precios.</p>
+            </div>
+            <button type="button" data-catalogo-modal-close="precio" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </header>
+
+        <!-- Step Indicator -->
+        <div class="inv-pasos">
+            <div id="step-ind-1" class="flex min-w-0 items-center gap-2">
+                <span class="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+                <span class="text-xs font-bold text-primary">Alcance</span>
+            </div>
+            <div id="step-ind-2" class="flex min-w-0 items-center justify-center gap-2">
+                <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
+                <span class="text-xs font-medium text-slate-500">Configuración</span>
+            </div>
+            <div id="step-ind-3" class="flex min-w-0 items-center justify-end gap-2">
+                <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
+                <span class="text-xs font-medium text-slate-500">Vista previa</span>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-6 modal-scroll-90-200">
+
+            <!-- Validation Summary -->
+            <div id="precio-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3 mb-6">
+                <span class="material-symbols-outlined text-red-500">error</span>
+                <div>
+                    <h4 class="text-sm font-bold text-red-500">Error</h4>
+                    <p id="precio-modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
+                </div>
+            </div>
+
+            <!-- ════ PASO 1: Alcance ════ -->
+            <div id="precio-step-1" class="space-y-4">
+                <h3 class="text-white text-base font-bold">¿A qué productos aplicar el ajuste?</h3>
+                <div id="precio-selection-summary" class="hidden items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                    <span class="material-symbols-outlined text-amber-500">playlist_add_check</span>
+                    <div>
+                        <span class="block text-sm font-bold text-amber-400">Productos seleccionados en la tabla: <span id="precio-selection-summary-count">0</span></span>
+                        <p class="text-xs text-amber-400/80 mt-0.5">Se va a sugerir esa selección como alcance inicial, pero podés cambiarlo antes de aplicar el ajuste.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3">
+                    <!-- Radio Card: Seleccionados -->
+                    <label id="precio-scope-seleccionados" class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/50 cursor-not-allowed opacity-60 transition-colors">
+                        <input type="radio" name="precio-scope" value="seleccionados" class="hidden" disabled />
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-amber-500">checklist</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-bold text-white">Productos seleccionados (<span id="precio-scope-sel-count">0</span>)</span>
+                                <span id="precio-scope-sel-badge" class="hidden rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">Recomendado</span>
+                            </div>
+                            <p id="precio-scope-sel-helper" class="text-xs text-slate-400 mt-0.5">Seleccioná productos en la tabla para habilitar esta opción</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+
+                    <!-- Radio Card: Todos -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="todos" class="hidden" checked />
+                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-blue-500">select_all</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Todos los productos</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a todo el catálogo activo</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+
+                    <!-- Radio Card: Categoría -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="categoria" class="hidden" />
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-emerald-500">category</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Categoría específica</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a una categoría</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+                    <!-- Category Dropdown (hidden by default) -->
+                    <div id="precio-cat-select-wrapper" class="hidden pl-14">
+                        <select id="precio-categoria-id" aria-label="Categoría a ajustar"
+                                class="w-full catalogo-input text-sm">
+                            <option value="">Seleccionar categoría...</option>
+                            @if (Model.CategoriasFiltro != null)
+                            {
+                                @foreach (var c in Model.CategoriasFiltro)
+                                {
+                                    <option value="@c.Value">@c.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Radio Card: Marca -->
+                    <label class="precio-scope-card group flex items-center gap-4 p-4 rounded-xl border-2 border-slate-700 hover:border-primary/50 cursor-pointer transition-colors bg-slate-900/50">
+                        <input type="radio" name="precio-scope" value="marca" class="hidden" />
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-purple-500">branding_watermark</span>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-sm font-bold text-white">Marca específica</span>
+                            <p class="text-xs text-slate-400 mt-0.5">Aplicar ajuste a una marca</p>
+                        </div>
+                        <span class="w-5 h-5 rounded-full border-2 border-slate-600 group-[.selected]:border-primary group-[.selected]:bg-primary flex items-center justify-center transition-colors">
+                            <span class="w-2 h-2 rounded-full bg-white scale-0 group-[.selected]:scale-100 transition-transform"></span>
+                        </span>
+                    </label>
+                    <!-- Brand Dropdown (hidden by default) -->
+                    <div id="precio-marca-select-wrapper" class="hidden pl-14">
+                        <select id="precio-marca-id" aria-label="Marca a ajustar"
+                                class="w-full catalogo-input text-sm">
+                            <option value="">Seleccionar marca...</option>
+                            @if (Model.MarcasFiltro != null)
+                            {
+                                @foreach (var m in Model.MarcasFiltro)
+                                {
+                                    <option value="@m.Value">@m.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ PASO 2: Configuración ════ -->
+            <div id="precio-step-2" class="hidden space-y-6">
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6 space-y-5">
+                    <div class="flex items-center gap-2 mb-2 border-b border-slate-800 pb-4">
+                        <span class="material-symbols-outlined text-primary">tune</span>
+                        <h3 class="text-white text-base font-bold">Configuración del ajuste</h3>
+                    </div>
+
+                    <!-- Motivo -->
+                    <div class="flex flex-col gap-2">
+                        <label for="precio-motivo" class="text-sm font-semibold text-slate-300">Motivo del ajuste</label>
+                        <select id="precio-motivo"
+                                class="catalogo-input text-sm">
+                            <option value="Ajuste por inflación">Ajuste por inflación</option>
+                            <option value="Aumento de costos">Aumento de costos</option>
+                            <option value="Ajuste estacional">Ajuste estacional</option>
+                            <option value="Promoción">Promoción</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo de ajuste + Valor -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-sm font-semibold text-slate-300">Tipo de ajuste</label>
+                            <div class="flex rounded-lg overflow-hidden border border-slate-700">
+                                <button type="button" id="precio-tipo-porcentaje"
+                                        class="flex-1 py-2.5 text-sm font-bold bg-primary text-white transition-colors">
+                                    % Porcentaje
+                                </button>
+                                <button type="button" id="precio-tipo-monto"
+                                        class="flex-1 py-2.5 text-sm font-bold bg-slate-800 text-slate-400 transition-colors">
+                                    $ Monto fijo
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="precio-valor" class="text-sm font-semibold text-slate-300">Valor</label>
+                            <div class="relative">
+                                <span id="precio-valor-prefix" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                                <input type="number" id="precio-valor" step="0.01" min="0" style="padding-left:2rem"
+                                       class="w-full pl-8 catalogo-input text-sm"
+                                       placeholder="0.00" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Redondeo -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-semibold text-slate-300">Redondeo</label>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="none" checked
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Sin redondeo</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="entero"
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Sin decimales</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="precio-redondeo" value="99"
+                                       class="text-primary focus:ring-primary" />
+                                <span class="text-sm text-slate-300">Redondear al .99</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ PASO 3: Vista previa ════ -->
+            <div id="precio-step-3" class="hidden space-y-4">
+                <!-- Summary bar -->
+                <div class="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-amber-500">info</span>
+                        <div>
+                            <span id="precio-preview-summary" class="text-sm font-bold text-amber-400"></span>
+                            <p id="precio-preview-detail" class="text-xs text-amber-400/70 mt-0.5"></p>
+                        </div>
+                    </div>
+                </div>
+
+                @* Productos cuyo precio de venta no cambia porque tienen precio fijado en la lista predeterminada. *@
+                <div id="precio-preview-aviso-lista" class="hidden items-start gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4" role="alert">
+                    <span class="material-symbols-outlined text-rose-300" aria-hidden="true">warning</span>
+                    <div class="text-sm text-rose-100">
+                        <p id="precio-preview-aviso-lista-texto" class="font-semibold"></p>
+                        <p class="mt-1 text-xs text-rose-200">
+                            Para cambiar lo que se cobra en esos productos usá
+                            <a asp-controller="CambiosPrecios" asp-action="Index" class="font-bold underline">Precios › Cambios por lotes</a>
+                            o fijá su precio en la lista.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Preview table -->
+                <p class="text-xs text-slate-400">Deslizá la tabla para revisar los valores actuales, el ajuste aplicado y el precio final calculado.</p>
+                <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 640px;">
+                    <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-400">
+                        <span class="material-symbols-outlined text-sm">swipe</span>
+                        Deslizá para ver toda la vista previa.
+                    </div>
+                    <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
+                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Vista previa del ajuste de precios" class="overflow-x-auto">
+                            <table data-oc-scroll-table class="w-full text-sm" style="min-width: var(--oc-scroll-min-width);">
+                                <thead>
+                                    <tr class="bg-slate-900 border-b border-slate-800">
+                                        <th class="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Producto</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Precio base actual</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Ajuste</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Precio base nuevo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="precio-preview-tbody">
+                                    <!-- Rows populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="precio-preview-more" class="hidden px-4 py-3 text-center border-t border-slate-800">
+                        <span class="text-xs text-slate-400"></span>
+                    </div>
+                </div>
+
+                <!-- Loading overlay for preview -->
+                <div id="precio-preview-loading" aria-live="polite" aria-atomic="true" class="hidden items-center justify-center py-12">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-sm text-slate-400">Calculando precios...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t border-slate-800 bg-slate-900/50 px-6 py-4">
+            <div class="grid gap-3 sm:flex sm:items-center sm:justify-between">
+            <button type="button" id="precio-btn-back" data-catalogo-action="price-prev" class="hidden w-full items-center justify-center gap-2 rounded-lg border border-slate-800 px-5 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 sm:w-auto">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                Anterior
+            </button>
+            <div class="grid gap-3 sm:flex sm:items-center">
+                <button type="button" data-catalogo-modal-close="precio"
+                        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-800 px-5 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 sm:w-auto">
+                    Cancelar
+                </button>
+                <button type="button" id="precio-btn-next" data-catalogo-action="price-next"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto">
+                    Siguiente
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+                <button type="button" id="precio-btn-apply" data-catalogo-action="price-apply"
+                        class="hidden w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-600 sm:w-auto">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    Aplicar Aumento
+                </button>
+            </div>
+            </div>
+        </footer>
+    </div>
+</dialog>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- Modal: Movimientos de Inventario                                 -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<dialog id="modal-movimientos" class="inv-dialog inv-dialog--tabla" aria-labelledby="modal-movimientos-title">
+    <div class="inv-dialog__panel inv-dialog__panel--scroll">
+        <header class="inv-drawer__header">
+            <div>
+                <h2 id="modal-movimientos-title">Movimientos y costos</h2>
+                <p>Historial por producto: entradas, salidas y ajustes con su costo. No identifica unidades físicas individuales.</p>
+            </div>
+            <button type="button" id="btn-cerrar-movimientos" class="inv-icon-btn" aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </header>
+
+        <div id="mov-producto-contexto" class="hidden inv-contexto">
+            <p>Producto: <strong id="mov-producto-nombre-label"></strong></p>
+            <button type="button" id="btn-mov-ver-todos" class="inv-link">Ver todos los movimientos</button>
+        </div>
+
+        <div class="inv-modal-cuerpo">
+            <dl class="inv-resumen" aria-label="Totales de la búsqueda">
+                <div><dt>Movimientos</dt><dd id="mov-stat-total">0</dd></div>
+                <div><dt>Entradas (unidades)</dt><dd id="mov-stat-entradas">0</dd></div>
+                <div><dt>Salidas (unidades)</dt><dd id="mov-stat-salidas">0</dd></div>
+                <div><dt>Ajustes</dt><dd id="mov-stat-ajustes">0</dd></div>
+            </dl>
+
+            <div class="inv-campos" role="search" aria-label="Filtrar movimientos">
+                <div class="inv-campo">
+                    <label for="mov-fecha-desde" class="inv-campo__etiqueta">Desde</label>
+                    <input id="mov-fecha-desde" aria-label="Fecha desde" type="date" class="inv-control" />
+                </div>
+                <div class="inv-campo">
+                    <label for="mov-fecha-hasta" class="inv-campo__etiqueta">Hasta</label>
+                    <input id="mov-fecha-hasta" aria-label="Fecha hasta" type="date" class="inv-control" />
+                </div>
+                <div class="inv-campo">
+                    <label for="mov-tipo" class="inv-campo__etiqueta">Tipo</label>
+                    <select id="mov-tipo" class="inv-control">
+                        <option value="">Todos los tipos</option>
+                        <option value="Entrada">Entrada</option>
+                        <option value="Salida">Salida</option>
+                        <option value="Ajuste">Ajuste</option>
+                    </select>
+                </div>
+                <div class="inv-campo">
+                    <label for="mov-producto" class="inv-campo__etiqueta">Producto (código o nombre)</label>
+                    <input id="mov-producto" type="search" class="inv-control" />
+                </div>
+                <div class="inv-campo">
+                    <label for="mov-fuente-costo" class="inv-campo__etiqueta">Fuente del costo</label>
+                    <select id="mov-fuente-costo" class="inv-control">
+                        <option value="">Todas las fuentes</option>
+                        <option value="VentaDetalleSnapshot">Venta</option>
+                        <option value="OrdenCompraDetalle">Orden de compra</option>
+                        <option value="ProductoActual">Costo actual del producto</option>
+                        <option value="AjusteManual">Ajuste manual</option>
+                        <option value="Legacy">Histórico migrado</option>
+                        <option value="NoInformado">No informado</option>
+                    </select>
+                </div>
+            </div>
+            <div class="inv-actions">
+                <span id="mov-filtros-badge" class="hidden inv-pill inv-pill--accent"></span>
+                <button type="button" id="btn-mov-limpiar" class="inv-btn inv-btn--ghost">Limpiar</button>
+                <button type="button" id="btn-mov-buscar" class="inv-btn inv-btn--primary">Buscar movimientos</button>
+            </div>
+
+            <p class="inv-ayuda-texto" role="status">Mostrando <strong id="mov-count-showing">0</strong> de <strong id="mov-count-total">0</strong> movimientos<span id="mov-count-context" class="hidden"></span></p>
+
+            <div class="inv-panel inv-panel--tabla">
+                <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de movimientos de inventario">
+                    <table class="inv-table inv-table--apilable">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Movimiento</th>
+                                <th scope="col">Producto</th>
+                                <th scope="col" class="inv-col-num">Cantidad</th>
+                                <th scope="col" class="inv-col-num">Costo unitario</th>
+                                <th scope="col" class="inv-col-num">Costo total</th>
+                                <th scope="col" class="inv-col-num">Saldo</th>
+                                <th scope="col" class="inv-col-actions"><span class="sr-only">Acción</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="mov-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="inv-pager inv-pager--extremos">
+                    <label class="inv-fecha"><span>Filas</span>
+                        <select id="mov-page-size" aria-label="Filas por página" class="inv-control">
+                            <option>25</option>
+                            <option>50</option>
+                            <option>100</option>
+                        </select>
+                    </label>
+                    <div class="inv-paginas" id="mov-pagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</dialog>

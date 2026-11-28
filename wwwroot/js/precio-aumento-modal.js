@@ -8,7 +8,6 @@ const PrecioModal = (() => {
     let simulationResult = null;
     let selectedProductIds = []; // IDs pre-selected from table checkboxes
     let selectedScopeSnapshot = [];
-    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -50,39 +49,30 @@ const PrecioModal = (() => {
     const selectedSummaryCount = () => document.getElementById('precio-selection-summary-count');
 
     // ─── Open / Close ──────────────────────────────────────────
-    function open(trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
-        reset();
-        syncSelectionState(readCurrentSelection(), true);
-        modal().classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        dispatchScrollRefresh();
-        setTimeout(function () {
-            var h2 = document.getElementById('modal-aumento-precios-title');
-            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
-        }, 50);
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(modal(), {
+                cierres: '[data-catalogo-modal-close="precio"]',
+                cuentaComoCambio: '#precio-tipo-porcentaje, #precio-tipo-monto'
+            });
+        }
+        return _panel;
     }
 
-    function openWithSelection(ids, trigger) {
-        _openTrigger = (trigger instanceof Element) ? trigger : null;
+    function abrirCon(ids) {
         reset();
         syncSelectionState(ids, true);
-        modal().classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        panel().abrir();
         dispatchScrollRefresh();
-        setTimeout(function () {
-            var h2 = document.getElementById('modal-aumento-precios-title');
-            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
-        }, 50);
+        var titulo = document.getElementById('modal-aumento-precios-title');
+        titulo.setAttribute('tabindex', '-1');
+        titulo.focus();
     }
 
-    function close() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        modal().classList.add('hidden');
-        document.body.style.overflow = '';
-        if (trigger) trigger.focus();
-    }
+    function open() { abrirCon(readCurrentSelection()); }
+    function openWithSelection(ids) { abrirCon(ids); }
+    function close() { panel().cerrar(); }
 
     function reset() {
         currentStep = 1;
@@ -458,7 +448,7 @@ const PrecioModal = (() => {
 
         // Summary info
         if (summaryEl) {
-            summaryEl.textContent = filas.length + ' producto' + (filas.length !== 1 ? 's' : '') + ' serán afectados';
+            summaryEl.textContent = filas.length === 1 ? '1 producto será afectado' : filas.length + ' productos serán afectados';
         }
         if (detailEl) {
             var tipoLabel = tipoCambio === 'porcentaje' ? data.valor + '%' : '$' + formatMoney(data.valor);
@@ -576,6 +566,54 @@ const PrecioModal = (() => {
         }
 
         hideError();
+        window.InvUI.confirmar(resumenParaConfirmar(simulationResult)).then(function (respuesta) {
+            if (respuesta.ok) ejecutarCambio(esPrecioBase);
+        });
+    }
+
+    // Todo lo que la confirmación muestra sale de la misma vista previa que se va a aplicar.
+    function resumenParaConfirmar(data) {
+        var filas = data.filas || [];
+        var total = filas.length;
+        var redondeo = document.querySelector('input[name="precio-redondeo"]:checked');
+        var redondeoVal = data.esPrecioBase ? 'none' : (redondeo ? redondeo.value : 'none');
+        var textoRedondeo = { entero: 'Al entero', '99': 'Terminado en ,99' }[getRedondeo()] || 'Sin redondeo';
+        var conLista = filas.filter(tienePrecioDeLista).length;
+        var selectionApi = getProductSelectionApi();
+        var ocultos = getScope() === 'seleccionados' && selectionApi && typeof selectionApi.getHiddenCount === 'function'
+            ? selectionApi.getHiddenCount() : 0;
+        var cantidad = total === 1 ? '1 producto' : total + ' productos';
+
+        return {
+            titulo: total === 1 ? '¿Cambiar el precio de 1 producto?' : '¿Cambiar el precio de ' + total + ' productos?',
+            datos: [
+                ['Alcance', describeScope()],
+                ['Ajuste', tipoCambio === 'porcentaje' ? formatNumber(data.valor) + ' %' : '$' + formatMoney(data.valor) + ' por producto'],
+                ['Redondeo', textoRedondeo],
+                ['Motivo', document.getElementById('precio-motivo').value]
+            ],
+            elementos: filas.map(function (f) {
+                return f.nombre + ': $' + formatMoney(f.precioActual) + ' → $' + formatMoney(applyRounding(f.precioNuevo, redondeoVal));
+            }),
+            avisos: [
+                ocultos > 0 ? (ocultos === 1 ? '1 de los seleccionados está oculto' : ocultos + ' de los seleccionados están ocultos') +
+                    ' por la búsqueda actual y también se modifica.' : '',
+                conLista > 0 ? conLista + ' de ' + total + (conLista === 1 ? ' tiene' : ' tienen') + ' precio fijado en una lista: Venta y Cotización van a seguir cobrando ese precio.' : ''
+            ],
+            consecuencias: [
+                (data.esPrecioBase ? 'El precio base de ' : 'El precio de ') + cantidad + ' cambia de inmediato.',
+                'El cambio queda en el historial de precios, desde donde se puede revertir.'
+            ],
+            etiquetaConfirmar: total === 1 ? 'Cambiar 1 precio' : 'Cambiar ' + total + ' precios',
+            tono: 'primario'
+        };
+    }
+
+    function formatNumber(val) {
+        return Number(val).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+    }
+
+    function ejecutarCambio(esPrecioBase) {
         var applyBtn = btnApply();
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Aplicando...';
@@ -661,11 +699,7 @@ const PrecioModal = (() => {
         if (btnPct) btnPct.addEventListener('click', function () { setTipoCambio('porcentaje'); });
         if (btnMonto) btnMonto.addEventListener('click', function () { setTipoCambio('monto'); });
 
-        document.addEventListener('keydown', function (e) {
-            if (modal().classList.contains('hidden')) return;
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal(), e);
-        });
+        if (modal()) panel();
 
         // Initialize scope card visuals
         updateScopeCards();

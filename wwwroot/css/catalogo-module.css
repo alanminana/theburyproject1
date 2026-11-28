@@ -6,7 +6,7 @@
 
 
 /* ── Input / Select canónicos del módulo ───────────────── */
-/* catalogo-input se usa en modales de categorías, marcas y productos */
+/* catalogo-input: controles del panel de ajuste de precio base */
 .catalogo-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
@@ -112,10 +112,6 @@ select.catalogo-input option {
    a 1440px, "sm:grid-cols-3 xl:grid-cols-1" rendereaba 3 columnas, no 1). Mismo
    criterio ya usado en credito-module.css: CSS explícito en vez de depender de
    las utilidades responsivas precompiladas para estos casos. */
-.catalogo-producto-modal-shell {
-    max-width: 1100px; /* entre max-w-5xl (1024px, insuficiente para 3 columnas de Precios) y max-w-6xl (1152px); no fullscreen */
-}
-
 .catalogo-costos-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -274,57 +270,6 @@ select.catalogo-input option {
     color: color-mix(in srgb, var(--pal-neutral-950) 78%, transparent);
 }
 
-/* ── Interruptor (toggle) de los modales de Categoría ───────
-   Un solo componente para Nueva y Editar; foco de teclado visible sobre la pista. */
-.catalogo-switch {
-    position: relative;
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    cursor: pointer;
-}
-
-.catalogo-switch__input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-}
-
-.catalogo-switch__track {
-    position: relative;
-    width: 2.75rem;
-    height: 1.5rem;
-    border-radius: 9999px;
-    background-color: var(--pal-neutral-700);
-    transition: background-color 0.15s ease;
-}
-
-.catalogo-switch__track::after {
-    content: "";
-    position: absolute;
-    top: 0.125rem;
-    left: 0.125rem;
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 9999px;
-    background-color: #fff;
-    transition: transform 0.15s ease;
-}
-
-.catalogo-switch__input:checked + .catalogo-switch__track {
-    background-color: var(--pal-accent);
-}
-
-.catalogo-switch__input:checked + .catalogo-switch__track::after {
-    transform: translateX(1.25rem);
-}
-
-.catalogo-switch__input:focus-visible + .catalogo-switch__track {
-    outline: 2px solid var(--pal-accent);
-    outline-offset: 2px;
-}
-
 /* ── Listado de categorías: jerarquía ───────────────────────
    Las subcategorías se indican con sangría y conector; el código y el estado quedan
    en sus columnas. */
@@ -349,22 +294,6 @@ select.catalogo-input option {
     opacity: 0.6;
 }
 
-
-/* ── Formulario de modal con cuerpo scrolleable ─────────────
-   El <form> ocupa el alto restante del contenedor del modal (max-height 90vh) y solo el cuerpo
-   hace scroll: cabecera y pie quedan siempre completos, sin depender de un calc() de alturas fijas. */
-.catalogo-modal-form {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.catalogo-modal-form__body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-}
 
 .cat-row__actions {
     display: flex;

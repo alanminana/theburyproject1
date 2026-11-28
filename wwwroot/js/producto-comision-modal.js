@@ -1,172 +1,94 @@
+/** producto-comision-modal.js — comisión del vendedor por producto, desde la tabla del catálogo. */
 (function () {
     'use strict';
 
-    var modal = null;
-    var currentBtn = null;
+    var dialogo = document.getElementById('modal-comision-vendedor');
+    if (!dialogo) return;
 
-    function el(id) { return document.getElementById(id); }
+    var form = document.getElementById('form-comision-vendedor');
+    var campo = document.getElementById('comision-modal-porcentaje');
+    var error = document.getElementById('comision-modal-error');
+    var guardar = document.getElementById('btn-guardar-comision');
+    var panel = window.InvUI.panelFormulario(dialogo, { cierres: '[data-comision-modal-close]' });
+    var DOS_DECIMALES = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
 
-    function openModal(btn) {
-        if (!modal) modal = document.getElementById('modal-comision-vendedor');
-        if (!modal) return;
-
-        currentBtn = btn;
-        var nombre = btn.getAttribute('data-comision-producto-nombre') || '—';
-        var productoId = btn.getAttribute('data-comision-producto-id') || '';
-        var porcentaje = btn.getAttribute('data-comision-porcentaje') || '0';
-
-        var nombreEl = el('comision-modal-nombre');
-        if (nombreEl) nombreEl.textContent = nombre;
-
-        var idEl = el('comision-modal-productoId');
-        if (idEl) idEl.value = productoId;
-
-        var pctEl = el('comision-modal-porcentaje');
-        if (pctEl) pctEl.value = porcentaje;
-
-        hideMessages();
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        setTimeout(function () {
-            var inp = el('comision-modal-porcentaje');
-            if (inp) { inp.focus(); inp.select(); }
-        }, 50);
-    }
-
-    function closeModal() {
-        if (!modal) return;
-        modal.classList.remove('flex');
-        modal.classList.add('hidden');
-        var btn = currentBtn;
-        currentBtn = null;
-        if (btn) btn.focus();
-    }
-
-    function hideMessages() {
-        var val = el('comision-modal-validation');
-        var suc = el('comision-modal-success');
-        if (val) { val.classList.add('hidden'); val.classList.remove('flex'); }
-        if (suc) { suc.classList.add('hidden'); suc.classList.remove('flex'); }
-    }
-
-    function showError(msg) {
-        var box = el('comision-modal-validation');
-        var txt = el('comision-modal-validation-text');
-        if (!box || !txt) return;
-        txt.textContent = msg;
-        box.classList.remove('hidden');
-        box.classList.add('flex');
-    }
-
-    function showSuccess(msg) {
-        var box = el('comision-modal-success');
-        var txt = el('comision-modal-success-text');
-        if (!box || !txt) return;
-        txt.textContent = msg;
-        box.classList.remove('hidden');
-        box.classList.add('flex');
-    }
-
-    function setBtnLoading(btn, loading) {
-        if (loading) {
-            btn.disabled = true;
-            btn.dataset.origText = btn.textContent.trim();
-            while (btn.firstChild) btn.removeChild(btn.firstChild);
-            var spinner = document.createElement('span');
-            spinner.className = 'material-symbols-outlined text-[18px] animate-spin';
-            spinner.textContent = 'progress_activity';
-            btn.appendChild(spinner);
-            btn.appendChild(document.createTextNode(' Guardando...'));
+    function mostrarError(mensaje) {
+        error.textContent = mensaje || '';
+        error.hidden = !mensaje;
+        if (mensaje) {
+            campo.setAttribute('aria-invalid', 'true');
+            campo.setAttribute('aria-describedby', 'comision-modal-ayuda comision-modal-error');
+            campo.focus();
         } else {
-            btn.disabled = false;
-            while (btn.firstChild) btn.removeChild(btn.firstChild);
-            var icon = document.createElement('span');
-            icon.className = 'material-symbols-outlined text-[18px]';
-            icon.textContent = 'save';
-            btn.appendChild(icon);
-            btn.appendChild(document.createTextNode(' Guardar'));
+            campo.removeAttribute('aria-invalid');
+            campo.setAttribute('aria-describedby', 'comision-modal-ayuda');
         }
     }
 
-    function updateRowDisplay(productoId, nuevoValor) {
-        var row = document.querySelector('tr[data-catalogo-producto-id="' + productoId + '"]');
-        if (!row) return;
-
-        var span = row.querySelector('[data-producto-comision]');
-        if (span) {
-            span.textContent = nuevoValor > 0
-                ? nuevoValor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'
-                : 'Sin comisión';
-        }
-
-        var rowBtn = row.querySelector('[data-comision-producto-id]');
-        if (rowBtn) {
-            rowBtn.setAttribute('data-comision-porcentaje', nuevoValor);
-            rowBtn.title = 'Comisión vendedor: ' + nuevoValor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+    function actualizarFila(productoId, valor) {
+        var fila = document.querySelector('tr[data-catalogo-producto-id="' + productoId + '"]');
+        if (!fila) return;
+        var texto = valor.toLocaleString('es-AR', DOS_DECIMALES) + '%';
+        var celda = fila.querySelector('[data-producto-comision]');
+        if (celda) celda.textContent = texto;
+        var boton = fila.querySelector('[data-comision-producto-id]');
+        if (boton) {
+            boton.setAttribute('data-comision-porcentaje', valor);
+            boton.setAttribute('aria-label', 'Editar comisión de ' + boton.getAttribute('data-comision-producto-nombre') +
+                '. Comisión actual: ' + valor.toLocaleString('es-AR', DOS_DECIMALES) + ' por ciento');
         }
     }
 
+    // Delegado: las filas se reemplazan al buscar, ordenar o paginar sin recargar.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-comision-producto-id]');
-        if (btn) { openModal(btn); return; }
-
-        if (e.target.closest('[data-comision-modal-close]')) { closeModal(); }
+        var boton = e.target.closest('[data-comision-producto-id]');
+        if (!boton) return;
+        form.reset();
+        mostrarError('');
+        guardar.disabled = false;
+        document.getElementById('comision-modal-nombre').textContent = boton.getAttribute('data-comision-producto-nombre');
+        document.getElementById('comision-modal-productoId').value = boton.getAttribute('data-comision-producto-id');
+        campo.value = boton.getAttribute('data-comision-porcentaje');
+        panel.abrir();
+        campo.select();
     });
 
-    document.addEventListener('keydown', function (e) {
-        if (!modal || modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') { closeModal(); return; }
-        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
-    });
+    campo.addEventListener('input', function () { mostrarError(''); });
 
-    document.addEventListener('submit', function (e) {
-        var f = e.target;
-        if (!f || f.id !== 'form-comision-vendedor') return;
+    form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        handleSubmit(f);
-    });
-
-    async function handleSubmit(f) {
-        hideMessages();
-
-        var pctEl = el('comision-modal-porcentaje');
-        var raw = (pctEl ? pctEl.value : '').trim().replace(',', '.');
-        var val = parseFloat(raw);
-        if (isNaN(val) || val < 0 || val > 100) {
-            showError('El porcentaje debe estar entre 0 y 100.');
+        mostrarError('');
+        if (!campo.value || !campo.validity.valid) {
+            mostrarError('El porcentaje debe estar entre 0 y 100, con hasta dos decimales.');
             return;
         }
 
-        var submitBtn = el('btn-guardar-comision');
-        if (submitBtn) setBtnLoading(submitBtn, true);
-
+        var productoId = document.getElementById('comision-modal-productoId').value;
+        var etiqueta = guardar.textContent;
+        guardar.disabled = true;
+        guardar.textContent = 'Guardando…';
         try {
-            var fd = new FormData(f);
-            fd.set('porcentajeComision', raw);
-
-            var resp = await fetch(f.action, {
+            var respuesta = await fetch(form.action, {
                 method: 'POST',
-                body: fd,
+                body: new FormData(form),
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
-
-            if (!resp.ok) { showError('Error de servidor (' + resp.status + '). Intentá nuevamente.'); return; }
-
-            var data = await resp.json();
-            if (data.success) {
-                var productoId = el('comision-modal-productoId').value;
-                updateRowDisplay(productoId, data.comisionPorcentaje);
-                showSuccess(data.message || 'Comisión actualizada exitosamente.');
-                setTimeout(closeModal, 1400);
+            if (!respuesta.ok) {
+                mostrarError('Error de servidor (' + respuesta.status + '). Intentá nuevamente.');
             } else {
-                showError(data.message || 'Error al guardar la comisión.');
+                var datos = await respuesta.json();
+                if (datos.success) {
+                    actualizarFila(productoId, datos.comisionPorcentaje);
+                    panel.cerrar();
+                    document.dispatchEvent(new CustomEvent('catalogo:toast', { detail: { message: datos.message, type: 'success' } }));
+                } else {
+                    mostrarError(datos.message || 'No se pudo guardar la comisión.');
+                }
             }
         } catch (_) {
-            showError('Error de comunicación. Intentá nuevamente.');
-        } finally {
-            if (submitBtn) setBtnLoading(submitBtn, false);
+            mostrarError('Error de comunicación. Intentá nuevamente.');
         }
-    }
-
+        guardar.disabled = false;
+        guardar.textContent = etiqueta;
+    });
 }());

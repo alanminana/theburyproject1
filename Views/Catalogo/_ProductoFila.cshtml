@@ -1,0 +1,117 @@
+@model FilaCatalogo
+@{
+    var puedeVerProducto = User.TienePermiso("productos", "view");
+    var puedeEditar = User.TienePermiso("productos", "update");
+    var listaPredeterminadaId = ViewData["ListaPredeterminadaId"] as int?;
+
+    var (stockClase, stockTexto) = Model.EstadoStock switch
+    {
+        "Sin Stock" => ("inv-pill inv-pill--danger", "Agotado"),
+        "Stock Bajo" => ("inv-pill inv-pill--warning", $"Bajo · {Model.StockActual:G29}"),
+        _ => ("inv-pill", $"{Model.StockActual:G29} disponibles")
+    };
+
+    var margenClase = Model.MargenPorcentaje < 0 ? "inv-text-danger" : "inv-text-muted";
+    var codigo = string.IsNullOrWhiteSpace(Model.Codigo) ? "Sin código" : Model.Codigo;
+
+    var compraUrl = User.TienePermiso("ordenescompra", "create")
+        ? Url.Action("Create", "OrdenCompra", new { productoId = Model.ProductoId }) ?? string.Empty
+        : string.Empty;
+    var precioListaUrl = listaPredeterminadaId.HasValue && User.TienePermiso("precios", "view")
+        ? Url.Action("Precios", "ListaPrecio", new { id = listaPredeterminadaId, busqueda = Model.Codigo })
+        : null;
+}
+
+<tr data-catalogo-producto-id="@Model.ProductoId" data-producto-codigo="@Model.Codigo" data-producto-nombre="@Model.Nombre"
+    class="@(Model.Activo ? null : "inv-row--inactivo")">
+    <td class="inv-col-check">
+        <input type="checkbox" class="chk-producto inv-check" value="@Model.ProductoId" aria-label="Seleccionar @Model.Nombre" />
+    </td>
+    <th scope="row" class="inv-cell-producto">
+        <div class="inv-producto">
+            @if (puedeEditar)
+            {
+                <button type="button" class="btn-star-destacado inv-icon-btn inv-star"
+                        data-producto-id="@Model.ProductoId" data-producto-nombre="@Model.Nombre"
+                        data-es-destacado="@(Model.EsDestacado ? "true" : "false")"
+                        aria-pressed="@(Model.EsDestacado ? "true" : "false")"
+                        aria-label="Destacar @Model.Nombre" title="@(Model.EsDestacado ? "Quitar destacado" : "Destacar")">
+                    <span class="material-symbols-outlined" aria-hidden="true">star</span>
+                </button>
+            }
+            else if (Model.EsDestacado)
+            {
+                <span class="inv-star inv-star--fija" role="img" aria-label="Destacado" title="Destacado">
+                    <span class="material-symbols-outlined" aria-hidden="true">star</span>
+                </span>
+            }
+            <div class="inv-producto__texto">
+                <p class="inv-producto__nombre">
+                    @if (puedeVerProducto)
+                    {
+                        <a asp-controller="Producto" asp-action="Inventario" asp-route-productoId="@Model.ProductoId" title="@Model.Nombre">@Model.Nombre</a>
+                    }
+                    else
+                    {
+                        <span title="@Model.Nombre">@Model.Nombre</span>
+                    }
+                    @if (!Model.Activo)
+                    {
+                        <span class="inv-pill inv-pill--muted">Inactivo</span>
+                    }
+                </p>
+                <p class="inv-producto__meta">@codigo · @(Model.CategoriaNombre ?? "Sin categoría") · @(Model.MarcaNombre ?? "Sin marca")</p>
+            </div>
+        </div>
+    </th>
+    <td data-label="Stock"><span class="@stockClase">@stockTexto</span></td>
+    <td data-label="Precio vigente" class="inv-col-num">
+        <p class="inv-importe">$ @Model.PrecioActual.ToString("N2")</p>
+        <p class="inv-sub">
+            @if (Model.TienePrecioLista)
+            {
+                <text>@Model.ListaPrecioActualNombre · base $@Model.PrecioBase.ToString("N2")</text>
+            }
+            else
+            {
+                <text>Precio base</text>
+            }
+            · <span class="@margenClase" title="Margen sobre costo">@Model.MargenPorcentaje.ToString("N1")%</span>
+        </p>
+    </td>
+    <td data-label="Comisión" class="inv-col-num">
+        @if (puedeEditar)
+        {
+            <button type="button" class="comision-edit-btn inv-quiet-btn"
+                    data-comision-producto-id="@Model.ProductoId"
+                    data-comision-producto-nombre="@Model.Nombre"
+                    data-comision-porcentaje="@Model.ComisionPorcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                    aria-label="Editar comisión de @Model.Nombre. Comisión actual: @Model.ComisionPorcentaje.ToString("N2") por ciento"
+                    title="Editar comisión">
+                <span data-producto-comision>@Model.ComisionPorcentaje.ToString("N2")%</span>
+            </button>
+        }
+        else
+        {
+            <span data-producto-comision>@Model.ComisionPorcentaje.ToString("N2")%</span>
+        }
+    </td>
+    <td class="inv-col-actions">
+        <div class="inv-row-actions">
+            @if (puedeVerProducto && puedeEditar)
+            {
+                <button type="button" data-prod-edit-id="@Model.ProductoId" class="inv-icon-btn" aria-label="Editar @Model.Nombre" title="Editar">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                </button>
+            }
+            <button type="button" class="inv-icon-btn" popovertarget="catalogo-row-actions-menu" data-row-actions-open
+                    data-producto-id="@Model.ProductoId" data-producto-nombre="@Model.Nombre"
+                    data-compra-url="@compraUrl" data-precio-lista-url="@precioListaUrl"
+                    data-inventario-url="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId })"
+                    data-kardex-url="@Url.Action("Kardex", "MovimientoStock", new { id = Model.ProductoId })"
+                    aria-label="Más acciones para @Model.Nombre" title="Más acciones">
+                <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+            </button>
+        </div>
+    </td>
+</tr>

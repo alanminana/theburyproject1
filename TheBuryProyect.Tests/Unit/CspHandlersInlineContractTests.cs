@@ -60,17 +60,17 @@ public class CspHandlersInlineContractTests
         Assert.Empty(usadas.Except(permitidas));
     }
 
-    /// <summary>DEF-UNI-01: el contenedor interior (min-h-full) cubre todo el fondo; si no cierra por sí mismo, clic fuera del modal «Gestionar» no lo cierra.</summary>
+    /// <summary>
+    /// DEF-UNI-01: un clic fuera del diálogo «Gestionar unidad» lo cierra. Desde que es un &lt;dialog&gt; nativo, el clic en el
+    /// fondo lo resuelve el panel compartido de Inventario (pide confirmar solo si ya se escribió algo).
+    /// </summary>
     [Fact]
-    public void Unidades_ModalGestionar_CierraConClicEnElFondoInterior()
+    public void Unidades_ModalGestionar_CierraConClicEnElFondo()
     {
         var html = File.ReadAllText(Path.Combine(Root(), "Views", "Producto", "Unidades.cshtml"));
-        var inicio = html.IndexOf("id=\"modal-manage\"", StringComparison.Ordinal);
-        Assert.True(inicio > 0);
-        var tarjeta = html.IndexOf("pu-modal-card", inicio, StringComparison.Ordinal);
-        var cabecera = html.Substring(inicio, tarjeta - inicio);
-        // overlay (fixed inset-0) y contenedor interior (min-h-full): ambos cierran solo si el destino del clic es el propio elemento.
-        Assert.Equal(2, Regex.Matches(cabecera, @"data-action=""call-self""\s+data-fn=""puCloseModal""\s+data-args='\[""modal-manage""\]'").Count);
-        Assert.Contains("min-h-full", cabecera);
+        Assert.Contains("<dialog id=\"modal-manage\"", html);
+        Assert.Contains("InvUI.panelFormulario(dialogo, { cierres: '[data-manage-close]' })", html);
+        var compartido = File.ReadAllText(Path.Combine(Root(), "wwwroot", "js", "inventario-ui.js"));
+        Assert.Matches(@"addEventListener\('pointerup'[\s\S]{0,160}afuera\(e\)\) intentarCerrar\(\)", compartido);
     }
 }

@@ -126,13 +126,13 @@ public class ListaPrecioUiContractTests
     }
 
     [Fact]
-    public void ElScriptSoloConfirmaLaBajaYNoContieneReglasDePrecio()
+    public void LaBajaPideLaConfirmacionCompartidaDeInventario()
     {
-        var js = Leer("wwwroot", "js", "lista-precio.js");
+        // La confirmación es declarativa (inventario-ui.js): la pantalla no tiene script propio ni reglas en el navegador.
+        var html = Leer("Views", "ListaPrecio", "Index_tw.cshtml");
 
-        Assert.Contains("window.confirm", js);
-        Assert.DoesNotContain("margen", js, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("fetch(", js);
+        Assert.Matches("data-lp-baja data-prevent-double-submit data-inv-confirm=", html);
+        Assert.DoesNotContain("lista-precio.js", html);
     }
 
     [Fact]

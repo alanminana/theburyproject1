@@ -17,14 +17,7 @@
     var stockActual   = producto?.StockActual ?? 0m;
     var valorizSaldo  = stockActual * ultimoCostoU;
 
-    // Chip helpers
-    string ChipCls(TipoMovimiento t) => t switch {
-        TipoMovimiento.Entrada => "kdx-chip kdx-chip-entrada",
-        TipoMovimiento.Salida  => "kdx-chip kdx-chip-salida",
-        TipoMovimiento.Ajuste  => "kdx-chip kdx-chip-ajuste",
-        _                      => "kdx-chip kdx-chip-slate"
-    };
-    string ChipLbl(TipoMovimiento t) => t switch {
+    string TipoTexto(TipoMovimiento t) => t switch {
         TipoMovimiento.Entrada => "Entrada",
         TipoMovimiento.Salida  => "Salida",
         TipoMovimiento.Ajuste  => "Ajuste",
@@ -89,400 +82,128 @@
         v.ToString("C", new System.Globalization.CultureInfo("es-AR"));
 }
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/inventario-ficha-shared.css" asp-append-version="true" />
-}
-
-<style>
-/* kdx = kardex: namespaced design system — paridad visual con standalone.
-   Card, botones base, forma de chip, entrada/ajuste y tabla base compartidos con Ficha de
-   inventario/Unidades viven ahora en inventario-ficha-shared.css (mismo valor, una sola
-   fuente); acá solo queda lo propio de esta pantalla. */
-.kdx-page .kdx-card-sub {
-  background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-800); border-radius: 10px;
-}
-
-/* KPI grid: 2 cols mobile → 5 cols desktop */
-.kdx-page .kdx-kpi-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
-}
-@@media (min-width: 1024px) {
-  .kdx-page .kdx-kpi-grid { grid-template-columns: repeat(5, 1fr); }
-}
-@@media (max-width: 1023px) {
-  .kdx-page .kdx-kpi-grid > *:last-child { grid-column: span 2; }
-}
-
-/* Filtros + chart split: stacked → 1fr 360px */
-.kdx-page .kdx-split-grid {
-  display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start;
-}
-@@media (min-width: 1280px) {
-  .kdx-page .kdx-split-grid { grid-template-columns: 1fr 360px; }
-}
-
-/* Chip "Salida": rojo, coherente con la columna Salida y con Ficha de inventario.
-   "Slate" es una variante propia de Kardex. */
-.kdx-page .kdx-chip-salida  { background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-500) 28%, transparent); }
-.kdx-page .kdx-chip-slate   { background: color-mix(in srgb, var(--pal-neutral-450) 10%, transparent); color: var(--pal-neutral-300); border-color: color-mix(in srgb, var(--pal-neutral-450) 25%, transparent); }
-
-/* Fields */
-.kdx-page .kdx-field {
-  background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-750); color: var(--pal-neutral-200);
-  border-radius: 8px; padding: .5rem .75rem; width: 100%; font-size: .85rem; outline: none;
-}
-.kdx-page .kdx-field:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-accent) 20%, transparent); }
-.kdx-page .kdx-field::placeholder { color: var(--erp-fg-4, var(--pal-neutral-450)); }
-.kdx-page .kdx-label { display: block; font-size: .75rem; font-weight: 500; color: var(--erp-fg-2, var(--pal-neutral-350)); margin-bottom: .3rem; }
-
-/* Botón propio de esta pantalla (tamaño xs, sin equivalente en Ficha/Unidades) */
-.kdx-page .kdx-btn-xs { padding: .3rem .6rem; font-size: var(--erp-fs-min, 0.75rem); min-height: 30px; border-radius: 7px; }
-
-/* KPI card */
-.kdx-page .kdx-kpi {
-  background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-800); border-radius: 12px; padding: 1rem 1.05rem;
-}
-.kdx-page .kdx-k-ico {
-  width: 34px; height: 34px; border-radius: 9px;
-  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-
-/* Table — ancho mínimo propio (más columnas que Ficha); el resto ya viene del shared */
-.kdx-page .kdx-tbl { min-width: 920px; }
-.kdx-page .kdx-tbl td.num { white-space: nowrap; }
-.kdx-page .kdx-tbl tfoot td {
-  padding: .7rem .75rem; border-top: 2px solid var(--pal-neutral-800);
-  background: var(--pal-neutral-900); font-weight: 600;
-}
-.kdx-page .kdx-tbl .col-in  { color: var(--pal-success-400); }
-.kdx-page .kdx-tbl .col-out { color: var(--pal-danger-400); }
-
-/* Row hidden (JS filter) */
-.kdx-row-hidden { display: none !important; }
-
-/* Print */
-@@media print {
-  .kdx-no-print { display: none !important; }
-}
-</style>
-
-<div class="kdx-page space-y-5">
-
-    @* SUCCESS / ERROR BANNERS *@
-    @if (TempData["Success"] != null)
-    {
-        <div role="status" class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
-            <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
-            <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
-            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded hover:bg-emerald-600/20">
-                <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
-            </button>
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div role="alert" class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
-            <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
-            <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
-            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded hover:bg-red-600/20">
-                <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
-            </button>
-        </div>
-    }
-
-    @* PRODUCT HEADER *@
-    <header class="kdx-card-header px-4 sm:px-5 py-5">
-        @* Breadcrumb *@
-        <nav aria-label="Miga de pan" class="text-xs text-slate-500 flex items-center gap-1.5">
-            <a asp-controller="Catalogo" asp-action="Index" class="hover:text-slate-300 transition-colors">Inventario</a>
-            <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
-            @if (producto != null)
+<div class="inv-screen inv-page inv-imprimible">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            @* Sin productos.view el catálogo responde «Acceso denegado»: la miga vuelve al listado propio. *@
+            @if (User.TienePermiso("productos", "view"))
             {
-                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                   class="hover:text-slate-300 transition-colors">@producto.Nombre</a>
-                <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
-            }
-            <span class="text-slate-300">Kardex</span>
-        </nav>
-
-        <div class="mt-2 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div class="min-w-0">
-                @if (producto != null)
-                {
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                       class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-                        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
-                        Volver a unidades del producto
-                    </a>
-                }
-                else
-                {
-                    <a asp-controller="Catalogo" asp-action="Index"
-                       class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-                        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
-                        Volver al catálogo
-                    </a>
-                }
-
-                <div class="mt-2 flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-blue-400">receipt_long</span>
-                    </div>
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h1 class="text-xl sm:text-2xl font-semibold text-white">Kardex de inventario</h1>
-                            @if (producto != null)
-                            {
-                                <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">@producto.Codigo</span>
-                            }
-                        </div>
-                        @if (producto != null)
-                        {
-                            <p class="text-sm text-slate-400 mt-0.5">@producto.Nombre &middot; Libro de movimientos de stock</p>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2 shrink-0 kdx-no-print">
-                @if (producto != null)
-                {
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
-                       class="kdx-btn kdx-btn-soft kdx-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:18px">inventory_2</span>
-                        Ver unidades físicas
-                    </a>
-                }
-                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" data-action="print">
-                    <span class="material-symbols-outlined" style="font-size:18px">print</span>
-                    Imprimir / PDF
-                </button>
-                @if (producto != null && puedeRegistrarMovimientos)
-                {
-                    <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary kdx-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-                        Registrar ajuste
-                    </button>
-                }
-            </div>
-        </div>
-    </header>
-
-    @* BANNERS: estado del producto *@
-    @if (ViewBag.ProductoEliminado == true)
-    {
-        <div class="rounded-lg border border-slate-500/30 bg-slate-500/10 px-4 py-3 flex gap-3">
-            <span class="material-symbols-outlined text-slate-400 shrink-0" style="font-size:20px">archive</span>
-            <p class="text-sm text-slate-400">Producto eliminado — historial de movimientos en modo solo lectura.</p>
-        </div>
-    }
-    else if (producto != null && !producto.Activo)
-    {
-        <div class="rounded-lg border border-slate-500/30 bg-slate-500/10 px-4 py-3 flex gap-3">
-            <span class="material-symbols-outlined text-slate-400 shrink-0" style="font-size:20px">visibility_off</span>
-            <p class="text-sm text-slate-400">Producto inactivo — historial disponible en modo solo lectura.</p>
-        </div>
-    }
-
-    @* BANNER: historial por SKU *@
-    <div class="rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 flex gap-3">
-        <span class="material-symbols-outlined text-blue-400 shrink-0" style="font-size:20px">info</span>
-        <p class="text-sm text-blue-100/90">Este historial muestra movimientos por SKU/producto. No identifica unidades físicas individuales ni trazabilidad serial.</p>
-    </div>
-
-    @* KPIs *@
-    <section class="kdx-kpi-grid" aria-label="Resumen de stock">
-        <div class="kdx-kpi">
-            <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Saldo actual</span>
-                <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-accent) 12%, transparent);color:var(--pal-accent);">
-                    <span class="material-symbols-outlined" style="font-size:18px">inventory</span>
-                </span>
-            </div>
-            <div class="mt-1.5 text-2xl font-semibold text-white font-mono">@stockActual.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">Stock del producto</div>
-        </div>
-        <div class="kdx-kpi">
-            <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Entradas</span>
-                <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-success-500) 12%, transparent);color:var(--pal-success-400);">
-                    <span class="material-symbols-outlined" style="font-size:18px">south_west</span>
-                </span>
-            </div>
-            <div class="mt-1.5 text-2xl font-semibold text-emerald-400 font-mono">+@totalEntradas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">Total histórico</div>
-        </div>
-        <div class="kdx-kpi">
-            <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Salidas</span>
-                <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-danger-500) 12%, transparent);color:var(--pal-danger-400);">
-                    <span class="material-symbols-outlined" style="font-size:18px">north_east</span>
-                </span>
-            </div>
-            <div class="mt-1.5 text-2xl font-semibold text-red-400 font-mono">&minus;@totalSalidas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">Total histórico</div>
-        </div>
-        <div class="kdx-kpi">
-            <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Valorización saldo</span>
-                <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-violet-500) 12%, transparent);color:var(--pal-violet-400);">
-                    <span class="material-symbols-outlined" style="font-size:18px">payments</span>
-                </span>
-            </div>
-            <div class="mt-1.5 text-xl font-semibold text-white font-mono">@FormatMoney(valorizSaldo)</div>
-            <div class="text-xs text-slate-500 mt-0.5">Stock × último costo</div>
-        </div>
-        <div class="kdx-kpi">
-            <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Último costo</span>
-                <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-info-500) 12%, transparent);color:var(--pal-info-300);">
-                    <span class="material-symbols-outlined" style="font-size:18px">sell</span>
-                </span>
-            </div>
-            <div class="mt-1.5 text-xl font-semibold text-white font-mono">@FormatMoney(ultimoCostoU)</div>
-            <div class="text-xs text-slate-500 mt-0.5">Por unidad, último movimiento</div>
-        </div>
-    </section>
-
-    @* FILTROS + GRÁFICO *@
-    <section class="kdx-split-grid kdx-no-print">
-        @* Filtros client-side *@
-        <div class="kdx-card p-4">
-            <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-slate-400" style="font-size:18px">filter_alt</span> Filtros
-                </h2>
-                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" data-action="call" data-fn="kdxClearFilters">
-                    <span class="material-symbols-outlined" style="font-size:14px">backspace</span> Limpiar
-                </button>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                    <label class="kdx-label" for="kdx-f-desde">Desde</label>
-                    <input id="kdx-f-desde" type="date" class="kdx-field" data-input-fn="kdxApplyFilters" />
-                </div>
-                <div>
-                    <label class="kdx-label" for="kdx-f-hasta">Hasta</label>
-                    <input id="kdx-f-hasta" type="date" class="kdx-field" data-input-fn="kdxApplyFilters" />
-                </div>
-                <div>
-                    <label class="kdx-label" for="kdx-f-tipo">Tipo</label>
-                    <select id="kdx-f-tipo" class="kdx-field" data-change-fn="kdxApplyFilters">
-                        <option value="">Todos</option>
-                        <option value="Entrada">Entradas</option>
-                        <option value="Salida">Salidas</option>
-                        <option value="Ajuste">Ajustes</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="kdx-label" for="kdx-f-busca">Referencia / Motivo</label>
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:16px">search</span>
-                        <input id="kdx-f-busca" type="search" class="kdx-field" style="padding-left:2.25rem"
-                               placeholder="FAC-0001, ajuste…" data-input-fn="kdxApplyFilters" />
-                    </div>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center justify-between flex-wrap gap-2">
-                <span id="kdx-filter-info" class="text-xs text-slate-500" role="status" aria-live="polite"></span>
-            </div>
-        </div>
-
-        @* Gráfico evolución saldo *@
-        <div class="kdx-card p-4">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-slate-400" style="font-size:18px">show_chart</span>
-                    Evolución del saldo
-                </h2>
-                <span class="kdx-chip kdx-chip-slate font-mono">@movs.Count mov.</span>
-            </div>
-            @if (chartPts.Any())
-            {
-                <svg viewBox="0 0 320 140" class="w-full mt-3" preserveAspectRatio="none" style="height:140px" aria-hidden="true">
-                    <defs>
-                        <linearGradient id="kdx-area-g" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="var(--pal-accent)" stop-opacity="0.35" />
-                            <stop offset="100%" stop-color="var(--pal-accent)" stop-opacity="0" />
-                        </linearGradient>
-                    </defs>
-                    <line x1="0" y1="20" x2="320" y2="20" stroke="var(--pal-neutral-800)" stroke-width="1" />
-                    <line x1="0" y1="60" x2="320" y2="60" stroke="var(--pal-neutral-800)" stroke-width="1" />
-                    <line x1="0" y1="100" x2="320" y2="100" stroke="var(--pal-neutral-800)" stroke-width="1" />
-                    <path d="@areaSb.ToString()" fill="url(#kdx-area-g)" />
-                    <polyline points="@polyStr" fill="none" stroke="var(--pal-accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-                    <circle cx="@chartLastX" cy="@chartLastY" r="4" fill="var(--pal-accent)" stroke="var(--pal-neutral-925)" stroke-width="2" />
-                </svg>
-                <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
-                    <span>Mín <span class="font-mono text-slate-300">@chartMinStk.ToString("G29")</span></span>
-                    <span>Máx <span class="font-mono text-slate-300">@chartMaxStk.ToString("G29")</span></span>
-                    <span>Actual <span class="font-mono text-blue-300">@stockActual.ToString("G29")</span></span>
-                </div>
+                <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb inv-no-print"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
             }
             else
             {
-                <div class="flex items-center justify-center mt-3" style="height:140px">
-                    <p class="text-sm text-slate-500">Sin datos para graficar</p>
-                </div>
+                <a asp-controller="MovimientoStock" asp-action="Index" class="inv-crumb inv-no-print"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Movimientos</a>
+            }
+            <h1>Kardex de inventario</h1>
+            @if (producto != null)
+            {
+                <p>@producto.Nombre · @producto.Codigo · movimientos por producto, sin identificar unidades</p>
             }
         </div>
-    </section>
+        <div class="inv-head__acciones inv-no-print">
+            @if (producto != null && User.TienePermiso("productos", "view"))
+            {
+                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id" class="inv-btn inv-btn--ghost">Unidades físicas</a>
+            }
+            <button type="button" class="inv-btn inv-btn--ghost" data-action="print">
+                <span class="material-symbols-outlined" aria-hidden="true">print</span>
+                Imprimir / PDF
+            </button>
+            @if (producto != null && puedeRegistrarMovimientos)
+            {
+                <button type="button" data-ajuste-stock-open class="inv-btn inv-btn--primary">Registrar ajuste</button>
+            }
+        </div>
+    </header>
 
-    @* TABLA DE MOVIMIENTOS *@
-    <section class="kdx-card overflow-hidden" data-oc-scroll>
-        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
-            <h2 class="text-base font-semibold text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-blue-400" style="font-size:18px">format_list_numbered</span>
-                Movimientos
-            </h2>
-            <span class="text-xs text-slate-500">
-                <span id="kdx-vis-count">@movsDesc.Count</span> movimiento@(movsDesc.Count != 1 ? "s" : "")
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    @if (ViewBag.ProductoEliminado == true)
+    {
+        <p class="inv-aviso inv-aviso--info">Producto eliminado: el historial queda en modo solo lectura.</p>
+    }
+    else if (producto != null && !producto.Activo)
+    {
+        <p class="inv-aviso inv-aviso--info">Producto inactivo: el historial queda disponible en modo solo lectura.</p>
+    }
+
+    <dl class="inv-panel inv-resumen" aria-label="Resumen de stock">
+        <div><dt>Stock del producto</dt><dd>@stockActual.ToString("G29")</dd></div>
+        <div><dt>Entradas históricas</dt><dd class="inv-text-ok">+@totalEntradas.ToString("G29")</dd></div>
+        <div><dt>Salidas históricas</dt><dd class="inv-text-danger">@(totalSalidas > 0 ? "−" : "")@totalSalidas.ToString("G29")</dd></div>
+        <div><dt>Último costo unitario</dt><dd>@FormatMoney(ultimoCostoU)</dd></div>
+        <div><dt title="Stock del producto × último costo unitario">Valorización del saldo</dt><dd>@FormatMoney(valorizSaldo)</dd></div>
+    </dl>
+
+    @if (chartPts.Any())
+    {
+        <details class="inv-panel inv-no-print">
+            <summary class="inv-panel__titulo">Evolución del saldo <span class="inv-campo__requerido">(mínimo @chartMinStk.ToString("G29") · máximo @chartMaxStk.ToString("G29"))</span></summary>
+            <svg viewBox="0 0 320 140" class="inv-grafico" preserveAspectRatio="none" role="img"
+                 aria-label="Saldo a lo largo de @movs.Count movimientos: mínimo @chartMinStk.ToString("G29"), máximo @chartMaxStk.ToString("G29"), actual @stockActual.ToString("G29")">
+                <line x1="0" y1="20" x2="320" y2="20" />
+                <line x1="0" y1="60" x2="320" y2="60" />
+                <line x1="0" y1="100" x2="320" y2="100" />
+                <path d="@areaSb.ToString()" />
+                <polyline points="@polyStr" />
+            </svg>
+        </details>
+    }
+
+    <section class="inv-panel inv-panel--tabla" aria-labelledby="kdx-titulo">
+        <div class="inv-panel__cabecera">
+            <h2 id="kdx-titulo" class="inv-panel__titulo">Movimientos</h2>
+            <p class="inv-ayuda-texto">
+                <span id="kdx-vis-count">@movsDesc.Count</span> @(movsDesc.Count == 1 ? "movimiento" : "movimientos")
                 @if (movsDesc.Any())
                 {
-                    <span> · saldo final <span class="font-mono text-slate-200">@ultimoStock.ToString("G29") u</span></span>
+                    <text> · saldo final @ultimoStock.ToString("G29")</text>
                 }
-            </span>
+            </p>
         </div>
 
         @if (!movsDesc.Any())
         {
-            <div class="flex flex-col items-center gap-3 py-20 text-center">
-                <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-slate-500" style="font-size:32px">swap_vert</span>
-                </div>
-                <div>
-                    <p class="text-white font-semibold">Sin movimientos registrados</p>
-                    <p class="text-sm text-slate-400 mt-1">No hay movimientos de stock para este producto.</p>
-                </div>
+            <div class="inv-empty">
+                <span class="material-symbols-outlined" aria-hidden="true">swap_vert</span>
+                <p class="inv-empty__title">Sin movimientos registrados</p>
                 @if (producto != null && puedeRegistrarMovimientos)
                 {
-                    <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary">
-                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-                        Registrar primer ajuste
-                    </button>
+                    <button type="button" data-ajuste-stock-open class="inv-btn inv-btn--primary">Registrar el primer ajuste</button>
                 }
             </div>
         }
         else
         {
-            <div class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6" style="background:linear-gradient(to right,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6" style="background:linear-gradient(to left,var(--pal-neutral-925),transparent);pointer-events:none;"></div>
-                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Historial de movimientos del producto" style="max-height:560px;overflow-y:auto;">
-                <table data-erp-cards class="kdx-tbl" id="kdx-table">
+            <form id="kdx-filtros" class="inv-filters inv-no-print" aria-label="Filtrar movimientos">
+                <div class="inv-filtros-linea">
+                    <label class="inv-fecha"><span>Desde</span><input id="kdx-f-desde" type="date" class="inv-control" /></label>
+                    <label class="inv-fecha"><span>Hasta</span><input id="kdx-f-hasta" type="date" class="inv-control" /></label>
+                    <label class="sr-only" for="kdx-f-tipo">Tipo</label>
+                    <select id="kdx-f-tipo" class="inv-control">
+                        <option value="">Todos los tipos</option>
+                        <option value="Entrada">Entradas</option>
+                        <option value="Salida">Salidas</option>
+                        <option value="Ajuste">Ajustes</option>
+                    </select>
+                    <label class="sr-only" for="kdx-f-busca">Referencia o motivo</label>
+                    <input id="kdx-f-busca" type="search" class="inv-control" placeholder="Referencia o motivo" />
+                    <button type="reset" class="inv-btn inv-btn--ghost">Limpiar</button>
+                </div>
+                <p id="kdx-filter-info" class="inv-ayuda-texto" role="status"></p>
+            </form>
+
+            <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Historial de movimientos del producto">
+                <table class="inv-table inv-table--apilable" id="kdx-table">
                     <thead>
                         <tr>
-                            <th data-card="title" scope="col">Fecha</th>
-                            <th data-card="half" scope="col">Tipo</th>
-                            <th data-card="half" scope="col">Comprobante</th>
-                            <th scope="col">Detalle / Motivo</th>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Movimiento</th>
+                            <th scope="col" class="inv-col-num">Entrada</th>
+                            <th scope="col" class="inv-col-num">Salida</th>
+                            <th scope="col" class="inv-col-num">Saldo</th>
+                            <th scope="col" class="inv-col-num" title="Saldo × costo unitario de cada movimiento">Saldo valorizado</th>
                             <th scope="col">Usuario</th>
-                            <th data-card="third" scope="col" class="num">Entrada</th>
-                            <th data-card="third" scope="col" class="num">Salida</th>
-                            <th data-card="third" scope="col" class="num">Saldo</th>
-                            <th data-card="half" scope="col" class="num">Costo unit.</th>
-                            <th data-card="half" scope="col" class="num">Saldo valorizado</th>
                         </tr>
                     </thead>
                     <tbody id="kdx-tbody">
@@ -490,90 +211,59 @@
                         {
                             bool esEnt = EsEntrada(m.Tipo, m.StockAnterior, m.StockNuevo);
                             bool esSal = EsSalida(m.Tipo, m.StockAnterior, m.StockNuevo);
-                            decimal saldoVal = m.StockNuevo * m.CostoUnitarioAlMomento;
-                            string fechaIso = m.Fecha.AHoraComercial().ToString("yyyy-MM-dd");
-                            string fuenteTag = FuenteLbl(m.FuenteCosto);
+                            var fuente = FuenteLbl(m.FuenteCosto);
+                            var referencia = ReferenciaStockUi.Legible(m.Referencia);
 
-                            <tr data-fecha="@fechaIso"
+                            <tr data-fecha="@m.Fecha.AHoraComercial().ToString("yyyy-MM-dd")"
                                 data-tipo="@m.Tipo.ToString()"
-                                data-ref="@((m.Referencia ?? "").ToLower())"
-                                data-motivo="@((m.Motivo ?? "").ToLower())"
+                                data-ref="@($"{m.Referencia} {referencia}".ToLowerInvariant())"
+                                data-motivo="@((m.Motivo ?? "").ToLowerInvariant())"
                                 data-ent="@(esEnt ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")"
                                 data-sal="@(esSal ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")">
-                                <td class="font-mono text-slate-300 whitespace-nowrap">
+                                <th scope="row">
                                     @m.Fecha.AHoraComercial().ToString("dd/MM/yyyy")
-                                    <span class="block text-xs text-slate-500">@m.Fecha.AHoraComercial().ToString("HH:mm")</span>
+                                    <p class="inv-ayuda-texto">@m.Fecha.AHoraComercial().ToString("HH:mm")</p>
+                                </th>
+                                <td data-label="Movimiento" class="inv-celda-detalle">
+                                    <strong>@TipoTexto(m.Tipo)</strong>@(referencia is null ? "" : " · " + referencia)
+                                    <p class="inv-ayuda-texto">@(string.IsNullOrWhiteSpace(m.Motivo) ? "Sin motivo" : m.Motivo)</p>
                                 </td>
-                                <td><span class="@ChipCls(m.Tipo)">@ChipLbl(m.Tipo)</span></td>
-                                <td class="font-mono text-slate-400">@(m.Referencia ?? "—")</td>
-                                <td>
-                                    @if (!string.IsNullOrWhiteSpace(m.Motivo))
-                                    {
-                                        <span class="text-slate-300" style="max-width:200px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@m.Motivo">@m.Motivo</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-slate-500 italic text-sm">Sin motivo</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(fuenteTag))
-                                    {
-                                        <span class="inline-flex items-center rounded-full bg-slate-800/70 px-2 py-0.5 text-xs text-slate-400 mt-0.5">@fuenteTag</span>
-                                    }
+                                <td data-label="Entrada" class="inv-col-num"><span class="@(esEnt ? "inv-text-ok" : null)">@(esEnt ? $"+{Math.Abs(m.Cantidad):G29}" : "—")</span></td>
+                                <td data-label="Salida" class="inv-col-num"><span class="@(esSal ? "inv-text-danger" : null)">@(esSal ? $"−{Math.Abs(m.Cantidad):G29}" : "—")</span></td>
+                                <td data-label="Saldo" class="inv-col-num"><span class="inv-importe">@m.StockNuevo.ToString("G29")</span></td>
+                                <td data-label="Saldo valorizado" class="inv-col-num">
+                                    @FormatMoney(m.StockNuevo * m.CostoUnitarioAlMomento)
+                                    <p class="inv-sub">a @FormatMoney(m.CostoUnitarioAlMomento)@(string.IsNullOrEmpty(fuente) ? "" : " · " + fuente)</p>
                                 </td>
-                                <td class="text-slate-400 text-sm">@(m.CreatedBy ?? "—")</td>
-                                <td class="num @(esEnt ? "col-in" : "text-slate-600")">
-                                    @(esEnt ? $"+{Math.Abs(m.Cantidad).ToString("G29")}" : "—")
-                                </td>
-                                <td class="num @(esSal ? "col-out" : "text-slate-600")">
-                                    @(esSal ? $"−{Math.Abs(m.Cantidad).ToString("G29")}" : "—")
-                                </td>
-                                <td class="num text-white">@m.StockNuevo.ToString("G29")</td>
-                                <td class="num text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</td>
-                                <td class="num text-slate-200">@FormatMoney(saldoVal)</td>
+                                <td data-label="Usuario">@(m.CreatedBy ?? "—")</td>
                             </tr>
                         }
                         <tr id="kdx-empty-row" hidden>
-                            <td colspan="10" class="text-center text-slate-400" style="padding:2rem 1rem">
+                            <td colspan="7" class="inv-empty">
                                 Ningún movimiento coincide con los filtros.
-                                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" style="margin-left:.5rem" data-action="call" data-fn="kdxClearFilters">Limpiar filtros</button>
+                                <button type="button" class="inv-link" data-kdx-limpiar>Limpiar filtros</button>
                             </td>
                         </tr>
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="5" class="text-slate-400" id="kdx-foot-label">Totales del historial</td>
-                            <td class="num col-in" id="kdx-foot-ent">+@footEnt.ToString("G29")</td>
-                            <td class="num col-out" id="kdx-foot-sal">&minus;@footSal.ToString("G29")</td>
-                            <td class="num text-white">@ultimoStock.ToString("G29")</td>
-                            <td class="num text-slate-500">—</td>
-                            <td class="num text-white">@FormatMoney(ultimoValor)</td>
+                            <th scope="row" colspan="2" id="kdx-foot-label">Totales del historial</th>
+                            <td data-label="Entradas" class="inv-col-num inv-text-ok" id="kdx-foot-ent">@(footEnt > 0 ? "+" + footEnt.ToString("G29") : "—")</td>
+                            <td data-label="Salidas" class="inv-col-num inv-text-danger" id="kdx-foot-sal">@(footSal > 0 ? "−" + footSal.ToString("G29") : "—")</td>
+                            <td data-label="Saldo" class="inv-col-num">@ultimoStock.ToString("G29")</td>
+                            <td data-label="Saldo valorizado" class="inv-col-num">@FormatMoney(ultimoValor)</td>
+                            <td class="inv-celda-vacia"></td>
                         </tr>
                     </tfoot>
                 </table>
-                </div>
-            </div>
-            <div class="px-4 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500 kdx-no-print">
-                <span>Mostrando <span id="kdx-showing">@movsDesc.Count</span> de @movsDesc.Count movimientos</span>
-                <a asp-controller="MovimientoStock" asp-action="Index"
-                   class="kdx-btn kdx-btn-ghost kdx-btn-xs">
-                    <span class="material-symbols-outlined" style="font-size:14px">list</span>
-                    Ver todos los movimientos
-                </a>
             </div>
         }
     </section>
 
-    @* LEYENDA *@
-    <section class="kdx-card p-4 kdx-no-print">
-        <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2.5">Referencia de tipos de movimiento</h3>
-        <div class="flex flex-wrap gap-2">
-            <span class="kdx-chip kdx-chip-entrada">Entrada / Compra / Ingreso</span>
-            <span class="kdx-chip kdx-chip-salida">Salida / Venta / Egreso</span>
-            <span class="kdx-chip kdx-chip-ajuste">Ajuste +/−</span>
-        </div>
-        <p class="mt-3 text-xs text-slate-500">El saldo valorizado se calcula como StockNuevo × CostoUnitario en cada movimiento registrado.</p>
-    </section>
-
+    @if (User.TienePermiso("movimientos", "view"))
+    {
+        <p class="inv-no-print"><a asp-controller="MovimientoStock" asp-action="Index" class="inv-link">Ver los movimientos de todos los productos</a></p>
+    }
 </div>
 
 @if (producto != null && puedeRegistrarMovimientos)
@@ -595,87 +285,5 @@
 
 @section Scripts {
     <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
-<script>
-(function () {
-    'use strict';
-
-    // ── Client-side filters ─────────────────────────────
-    var _rows = null;
-    function getRows() {
-        if (!_rows) _rows = Array.from(document.querySelectorAll('#kdx-tbody tr:not(#kdx-empty-row)'));
-        return _rows;
-    }
-
-    window.kdxApplyFilters = function () {
-        var desde  = (document.getElementById('kdx-f-desde')  || {}).value || '';
-        var hasta  = (document.getElementById('kdx-f-hasta')  || {}).value || '';
-        var tipo   = ((document.getElementById('kdx-f-tipo')  || {}).value || '').toLowerCase();
-        var busca  = ((document.getElementById('kdx-f-busca') || {}).value || '').toLowerCase().trim();
-
-        var rows    = getRows();
-        var visible = 0;
-
-        rows.forEach(function (row) {
-            var fecha  = row.getAttribute('data-fecha')  || '';
-            var rTipo  = (row.getAttribute('data-tipo')   || '').toLowerCase();
-            var rRef   = row.getAttribute('data-ref')    || '';
-            var rMot   = row.getAttribute('data-motivo') || '';
-
-            var ok = true;
-            if (desde && fecha < desde) ok = false;
-            if (hasta && fecha > hasta) ok = false;
-            if (tipo  && rTipo !== tipo) ok = false;
-            if (busca && !rRef.includes(busca) && !rMot.includes(busca)) ok = false;
-
-            row.classList.toggle('kdx-row-hidden', !ok);
-            if (ok) visible++;
-        });
-
-        var showEl = document.getElementById('kdx-showing');
-        if (showEl) showEl.textContent = visible;
-
-        var visEl = document.getElementById('kdx-vis-count');
-        if (visEl) visEl.textContent = visible;
-
-        var fEnt = 0, fSal = 0;
-        rows.forEach(function (row) {
-            if (row.classList.contains('kdx-row-hidden')) return;
-            fEnt += parseFloat(row.getAttribute('data-ent') || '0') || 0;
-            fSal += parseFloat(row.getAttribute('data-sal') || '0') || 0;
-        });
-        var fmt = function (n) { return n.toLocaleString('es-AR', { maximumFractionDigits: 4 }); };
-        var eEl = document.getElementById('kdx-foot-ent'); if (eEl) eEl.textContent = fEnt ? '+' + fmt(fEnt) : '—';
-        var sEl = document.getElementById('kdx-foot-sal'); if (sEl) sEl.textContent = fSal ? '−' + fmt(fSal) : '—';
-        var lEl = document.getElementById('kdx-foot-label');
-        var filtrado = !!(desde || hasta || tipo || busca);
-        if (lEl) lEl.textContent = filtrado ? 'Totales de las filas visibles' : 'Totales del historial';
-        var emptyRow = document.getElementById('kdx-empty-row');
-        if (emptyRow) emptyRow.hidden = !(rows.length && visible === 0);
-
-        var infoEl = document.getElementById('kdx-filter-info');
-        if (infoEl) {
-            infoEl.textContent = (desde || hasta || tipo || busca)
-                ? 'Mostrando ' + visible + ' de ' + rows.length
-                : '';
-        }
-    };
-
-    window.kdxClearFilters = function () {
-        ['kdx-f-desde', 'kdx-f-hasta', 'kdx-f-busca'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        var t = document.getElementById('kdx-f-tipo');
-        if (t) t.value = '';
-        kdxApplyFilters();
-    };
-
-}());
-</script>
-<script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-<script>
-    document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
-        window.TheBury?.initHorizontalScrollAffordance?.(root);
-    });
-</script>
+    <script src="~/js/kardex.js" asp-append-version="true"></script>
 }

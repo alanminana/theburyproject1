@@ -2422,6 +2422,26 @@ usuario…", recargar y guardar funciona). Nota: registrar `UltimoAcceso` en el 
 SuperAdmin o un rol propio del usuario actual; la pestaña Permisos de Rol contiene WIP ajeno ("Comparar
 roles", sin tests ni commit) que se preservó sin tocar su lógica.
 
+## Inventario — modernización integral (2026-11-27, rama `task/inventario-modernizacion-20261127`; aprobada visualmente el 2026-11-28)
+
+Reabre las pantallas de Inventario y reemplaza el cierre "Stock" del 2026-09-25 en lo visual.
+
+- **Alcance:** Catálogo (productos, categorías, marcas, alertas, movimientos) con una sección por URL;
+  diálogos de producto, categoría, marca, comisión, historial, ajuste masivo y movimientos; ficha de
+  inventario; unidades por producto, global e historial de unidad; movimientos, alta y Kardex (con
+  impresión); alertas; lotes de precios; listas de precios.
+- **Componentes:** `wwwroot/js/inventario-ui.js`, `wwwroot/css/inventario-ui.css`,
+  `wwwroot/css/inventario-pantallas.css` (solo tokens). Reglas nuevas en `ERP-UI-STANDARD.md` §10.
+- **Validado:** axe (WCAG 2.1 AA) sin violaciones en 21 pantallas y 9 diálogos; sin desborde a 1440, 1024,
+  768, 683 y 390 px; foco visible con Tab; escenarios CSP Enforce del Catálogo y recorrido por 7 roles en
+  Chromium, Firefox y WebKit; `e2e/listas-precios-flujo.spec.js`; PDF del Kardex.
+- **NO VALIDADA:** lector de pantalla real; dispositivo táctil físico; venta y devolución de una unidad
+  serializada desde el navegador (solo pruebas automatizadas); publicación efectiva en Mercado Libre
+  (solo la apertura del borrador).
+- **Pendientes de decisión (sin cambiar reglas de negocio):** aplicar un lote con vigencia futura cierra
+  el precio actual en el momento; los filtros por fecha de movimientos y alertas pueden comparar contra
+  la fecha UTC.
+
 ## Regla para mantener estos documentos
 
 Al cerrar una pantalla:
@@ -2651,3 +2671,13 @@ Estado: pantallas cerradas reabiertas solo para el defecto puntual de cada una (
 ## Agente 4 — UX funcional: envíos involuntarios (2026-11-22)
 
 Sin reabrir pantallas cerradas ni cambiar diseño. (1) Compras/Create|Edit: Enter en el buscador de productos sin coincidencias enviaba la orden completa; ahora elige el primer resultado o explica el motivo. (2) Forms de Caja (Registrar movimiento, Abrir, Cerrar), Compras (Create/Edit), Tesorería (Guardar) y Cuentas por pagar (Crear, Anticipar) no tenían guard anti doble envío: nuevo `data-prevent-double-submit` en `shared-ui.js` (no bloquea si la validación o la confirmación cancelan el envío; se libera con bfcache). Prueba: `e2e-js/compras-caja-envio-involuntario.spec.js` (falla con el JS anterior, pasa con el nuevo). No validado en la app real: este entorno no tiene `dotnet`.
+
+## Inventario: categorías, marcas y comisión (2026-11-28)
+
+Estado: aprobada visualmente por el propietario (2026-11-28). Reabre solo los diálogos de categoría, marca y comisión y el texto de conciliación.
+
+- **Cambio:** alta y edición de Categoría y Marca usan un único parcial (`Views/Catalogo/_EntidadDialogo.cshtml`) y un único script (`wwwroot/js/catalogo-entidad-modal.js`), en lugar de cuatro formularios, dos juegos de campos y cuatro scripts. Comisión del vendedor rediseñada con los mismos componentes; el éxito se avisa con el toast del catálogo. Componentes nuevos en `inventario-ui.css`: `.inv-dialog__form`, `.inv-dialog__header--cerrar`, `.inv-form-grid`, `.inv-opciones`, `.inv-sufijo`. Sin cambios de endpoints, permisos ni validaciones del servidor.
+- **Defecto de la rama corregido:** al separar una URL por sección, `window.CatalogoData` quedó solo en Productos; la edición de marca armaba desde ahí el combo «Marca padre», que llegaba vacío, y guardar borraba el padre. Ahora los padres salen del servidor con todas las marcas.
+- **Trampas:** una regla global centra las etiquetas con casilla (usar `.inv-opciones > .inv-opcion`); en WebKit el diálogo se cierra un ciclo después de Escape.
+- **Validado:** alta, edición, desactivación y baja con datos ficticios en Chromium (81 comprobaciones, con axe), Firefox y WebKit (70); 1440x900, 390x844, 320x568 y 683x384; escenarios CSP Enforce de catálogo 6/6; 1586 pruebas relacionadas sin fallas.
+- **NO VALIDADO:** diálogos con un usuario sin permiso de alta o edición en el navegador (cubierto por pruebas HTTP), lector de pantalla y dispositivo táctil físico.

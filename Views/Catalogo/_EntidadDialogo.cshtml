@@ -1,0 +1,117 @@
+@model TheBuryProject.ViewModels.EntidadDialogoViewModel
+@{
+    var p = Model.Entidad;
+    var esCategoria = p == "categoria";
+    var nombreEntidad = esCategoria ? "categoría" : "marca";
+}
+@* Alta y edición comparten el mismo formulario: catalogo-entidad-modal.js cambia título, destino y valores. *@
+<dialog id="modal-@p" class="inv-dialog inv-dialog--ancho" data-entidad="@p" aria-labelledby="@(p)-titulo">
+    <div class="inv-dialog__panel">
+        <header class="inv-dialog__header inv-dialog__header--cerrar">
+            <h1 id="@(p)-titulo" class="inv-dialog__title" data-entidad-titulo>Nueva @nombreEntidad</h1>
+            <button type="button" class="inv-icon-btn" data-entidad-cerrar aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </header>
+
+        <form id="form-@p" class="inv-dialog__form" method="post" novalidate>
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="Id" />
+            <input type="hidden" name="RowVersion" />
+
+            <div class="inv-dialog__body">
+                <p class="inv-aviso inv-aviso--error" role="alert" data-entidad-resumen hidden></p>
+
+                <div class="inv-form-grid">
+                    <div class="inv-campo">
+                        <label for="@(p)-codigo" class="inv-campo__etiqueta">Código <span class="inv-campo__requerido">(obligatorio)</span></label>
+                        <input id="@(p)-codigo" name="Codigo" type="text" class="inv-control" maxlength="20" required autofocus
+                               autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="@(p)-codigo-ayuda"
+                               data-requerido="El código es obligatorio" />
+                        <p id="@(p)-codigo-ayuda" class="inv-campo__ayuda">Letras sin tilde, números, espacios, punto o guion.</p>
+                        <p id="@(p)-codigo-error" class="inv-campo__error" data-valmsg-for="Codigo" hidden></p>
+                    </div>
+                    <div class="inv-campo">
+                        <label for="@(p)-nombre" class="inv-campo__etiqueta">Nombre <span class="inv-campo__requerido">(obligatorio)</span></label>
+                        <input id="@(p)-nombre" name="Nombre" type="text" class="inv-control" maxlength="100" required autocomplete="off"
+                               data-requerido="El nombre es obligatorio" />
+                        <p id="@(p)-nombre-error" class="inv-campo__error" data-valmsg-for="Nombre" hidden></p>
+                    </div>
+
+                    <div class="inv-campo">
+                        <label for="@(p)-parentId" class="inv-campo__etiqueta">@(esCategoria ? "Categoría padre" : "Marca padre") <span class="inv-campo__requerido">(opcional)</span></label>
+                        <select id="@(p)-parentId" name="ParentId" class="inv-control" aria-describedby="@(p)-parentId-ayuda">
+                            <option value="">Ninguna (@nombreEntidad principal)</option>
+                            @foreach (var padre in Model.Padres)
+                            {
+                                <option value="@padre.Value">@padre.Text</option>
+                            }
+                        </select>
+                        <p id="@(p)-parentId-ayuda" class="inv-campo__ayuda">Elegí una solo si es una sub@(nombreEntidad).</p>
+                        <p id="@(p)-parentId-error" class="inv-campo__error" data-valmsg-for="ParentId" hidden></p>
+                    </div>
+
+                    @if (esCategoria)
+                    {
+                        <div class="inv-campo">
+                            <label for="@(p)-alicuotaIVAId" class="inv-campo__etiqueta">IVA por defecto <span class="inv-campo__requerido">(opcional)</span></label>
+                            <select id="@(p)-alicuotaIVAId" name="AlicuotaIVAId" class="inv-control" aria-describedby="@(p)-alicuotaIVAId-ayuda">
+                                <option value="">Sin alícuota por defecto</option>
+                                @foreach (var alicuota in Model.Alicuotas)
+                                {
+                                    <option value="@alicuota.Id">@alicuota.Texto</option>
+                                }
+                            </select>
+                            <p id="@(p)-alicuotaIVAId-ayuda" class="inv-campo__ayuda">La pueden heredar los productos sin alícuota propia.</p>
+                            <p id="@(p)-alicuotaIVAId-error" class="inv-campo__error" data-valmsg-for="AlicuotaIVAId" hidden></p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="inv-campo">
+                            <label for="@(p)-paisOrigen" class="inv-campo__etiqueta">País de origen <span class="inv-campo__requerido">(opcional)</span></label>
+                            <input id="@(p)-paisOrigen" name="PaisOrigen" type="text" class="inv-control" maxlength="100" autocomplete="off" />
+                            <p id="@(p)-paisOrigen-error" class="inv-campo__error" data-valmsg-for="PaisOrigen" hidden></p>
+                        </div>
+                    }
+
+                    <div class="inv-campo inv-campo--ancho">
+                        <label for="@(p)-descripcion" class="inv-campo__etiqueta">Descripción <span class="inv-campo__requerido">(opcional)</span></label>
+                        <textarea id="@(p)-descripcion" name="Descripcion" class="inv-control" rows="2" maxlength="500"></textarea>
+                        <p id="@(p)-descripcion-error" class="inv-campo__error" data-valmsg-for="Descripcion" hidden></p>
+                    </div>
+                </div>
+
+                <fieldset class="inv-opciones">
+                    <legend class="sr-only">Opciones de la @nombreEntidad</legend>
+                    @if (esCategoria)
+                    {
+                        <label class="inv-opcion">
+                            <input id="@(p)-controlSerie" name="ControlSerieDefault" type="checkbox" value="true" class="inv-check"
+                                   aria-labelledby="@(p)-controlSerie-titulo" aria-describedby="@(p)-controlSerie-ayuda" />
+                            <span>
+                                <span id="@(p)-controlSerie-titulo" class="inv-opcion__titulo">Control de serie por defecto</span>
+                                <span id="@(p)-controlSerie-ayuda" class="inv-campo__ayuda">Para productos que se controlan por número de serie.</span>
+                            </span>
+                        </label>
+                    }
+                    @* Un checkbox desmarcado no se envía y el modelo asume Activo=true: el hidden va DESPUÉS
+                       del checkbox (el binder toma el primer valor); sin él no habría forma de desactivar. *@
+                    <label class="inv-opcion">
+                        <input name="Activo" id="@(p)-activo" type="checkbox" value="true" class="inv-check" checked aria-labelledby="@(p)-activo-titulo" aria-describedby="@(p)-activo-ayuda" />
+                        <input type="hidden" name="Activo" value="false" />
+                        <span>
+                            <span id="@(p)-activo-titulo" class="inv-opcion__titulo">Activa</span>
+                            <span id="@(p)-activo-ayuda" class="inv-campo__ayuda">Disponible para usarse en el sistema.</span>
+                        </span>
+                    </label>
+                </fieldset>
+            </div>
+
+            <footer class="inv-dialog__footer">
+                <button type="button" class="inv-btn inv-btn--ghost" data-entidad-cerrar>Cancelar</button>
+                <button type="submit" class="inv-btn inv-btn--primary" data-entidad-guardar>Guardar @nombreEntidad</button>
+            </footer>
+        </form>
+    </div>
+</dialog>

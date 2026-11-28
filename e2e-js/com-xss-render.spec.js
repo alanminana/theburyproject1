@@ -27,6 +27,8 @@ const ORIGIN = 'http://harness.test';
 const JS_DIR = path.join(__dirname, '..', 'wwwroot', 'js');
 const HISTORIAL_JS = process.env.HISTORIAL_JS || path.join(JS_DIR, 'historial-precio-modal.js');
 const GARANTE_JS = process.env.GARANTE_JS || path.join(JS_DIR, 'cliente-garante.js');
+// _Layout lo carga en las pantallas de Inventario: diálogos y confirmaciones compartidos.
+const INVENTARIO_UI_JS = path.join(JS_DIR, 'inventario-ui.js');
 
 /** Payloads: nodo HTML con handler, ruptura de atributo y handler por click (onload/onerror no siempre disparan post-carga). */
 const PAYLOADS = [
@@ -53,6 +55,7 @@ async function pageWith(page, bodyHtml, scriptPath) {
         return route.fulfill({ status: 404, body: '' });
     });
     await page.goto(`${ORIGIN}/`);
+    await page.addScriptTag({ content: fs.readFileSync(INVENTARIO_UI_JS, 'utf8') });
     await page.addScriptTag({ content: fs.readFileSync(scriptPath, 'utf8') });
     return { errors, dialogs };
 }
@@ -60,13 +63,13 @@ async function pageWith(page, bodyHtml, scriptPath) {
 // ───────────────────────────── COM-S-001 ─────────────────────────────
 const HIST_BODY = `
 <button id="trigger">abrir</button>
-<div id="modal-historial-precio" class="hidden">
+<dialog id="modal-historial-precio">
   <span id="historial-producto-nombre"></span><span id="historial-producto-codigo"></span>
   <span id="historial-precio-count"></span><div id="historial-precio-feedback" class="hidden"></div>
   <div id="historial-precio-loading" class="hidden"></div><div id="historial-precio-empty" class="hidden"></div>
-  <table><tbody id="historial-precio-tbody"></tbody></table>
+  <div id="historial-precio-tabla" hidden><table><tbody id="historial-precio-tbody"></tbody></table></div>
   <button type="button" data-catalogo-modal-close="historial-precio">x</button>
-</div>`;
+</dialog>`;
 
 function historialResponse(items) {
     return { success: true, producto: { productoId: 1, codigo: 'C-1', nombre: 'Prod' }, items };
@@ -102,18 +105,36 @@ test.describe('COM-S-001 historial de precios', () => {
     test('el texto legítimo con caracteres especiales se muestra literal', async ({ page }) => {
         await pageWith(page, HIST_BODY, HISTORIAL_JS);
         await abrirHistorial(page, [evento({ motivo: LEGIT, usuario: LEGIT })]);
-        const tds = page.locator('#historial-precio-tbody tr td');
-        await expect(tds.nth(2)).toHaveText(LEGIT);
-        await expect(tds.nth(1)).toContainText(LEGIT);
-        await expect(tds.nth(1).locator('span').first()).toHaveText('O');
+        const detalle = page.locator('#historial-precio-tbody tr td').first();
+        await expect(detalle.locator('span')).toHaveText(LEGIT);
+        await expect(detalle.locator('p')).toHaveText(LEGIT);
     });
 
     test('el botón Revertir generado dispara la confirmación con el eventoId', async ({ page }) => {
         await pageWith(page, HIST_BODY, HISTORIAL_JS);
-        await page.evaluate(() => { window.__confirm = []; window.TheBury = { confirmAction: (msg) => window.__confirm.push(msg) }; });
-        await abrirHistorial(page, [evento({ eventoId: 42 })]);
-        await page.locator('button[data-catalogo-action="historial-revert"]').click();
-        expect(await page.evaluate(() => window.__confirm.length)).toBe(1);
+        const enviados = [];
+        await page.route(`${ORIGIN}/Catalogo/RevertirCambioPrecioApi`, (route) => {
+            enviados.push(route.request().postData() || '');
+            return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, mensaje: 'ok' }) });
+        });
+        // La fecha viaja a la confirmación: tampoco ahí puede convertirse en HTML.
+        await abrirHistorial(page, [evento({ eventoId: 42, fecha: PAYLOADS[0] })]);
+        const revertir = page.locator('button[data-catalogo-action="historial-revert"]');
+        const confirmacion = page.locator('dialog.inv-dialog--confirm');
+
+        await revertir.click();
+        await expect(confirmacion).toBeVisible();
+        await expect(confirmacion).toContainText(PAYLOADS[0]);
+        expect(await confirmacion.locator('img, svg, [onclick], [onerror]').count()).toBe(0);
+        await confirmacion.locator('button[value="cancelar"]').click();
+        await expect(confirmacion).toHaveCount(0);
+        expect(enviados).toHaveLength(0);
+
+        await revertir.click();
+        await confirmacion.locator('button[value="confirmar"]').click();
+        await expect.poll(() => enviados.length).toBe(1);
+        expect(new URLSearchParams(enviados[0]).get('eventoId')).toBe('42');
+        expect(await page.evaluate(() => window.__xss || 0)).toBe(0);
     });
 
     test('funcionalidad intacta: fecha, hora, precios, variación y botón Revertir', async ({ page }) => {
@@ -124,21 +145,24 @@ test.describe('COM-S-001 historial de precios', () => {
             evento({ eventoId: 13, precioAnterior: 0, precioNuevo: 50, usuario: '', motivo: null }),
         ]);
         await expect(page.locator('#historial-precio-count')).toHaveText('3 eventos');
+        // Columnas: fecha (encabezado de fila) | motivo y usuario | anterior | nuevo | variación | acción.
         const r1 = page.locator('#historial-precio-tbody tr').nth(0);
-        await expect(r1.locator('td').nth(0)).toContainText('20 oct, 2026');
-        await expect(r1.locator('td').nth(0)).toContainText('10:30');
-        await expect(r1.locator('td').nth(2)).toHaveText('Ajuste de proveedor');
-        await expect(r1.locator('td').nth(3)).toContainText('100');
-        await expect(r1.locator('td').nth(5)).toContainText('+20.0%');
+        await expect(r1.locator('th')).toContainText('20 oct, 2026');
+        await expect(r1.locator('th')).toContainText('10:30');
+        await expect(r1.locator('td').nth(0).locator('span')).toHaveText('Ajuste de proveedor');
+        await expect(r1.locator('td').nth(1)).toContainText('100');
+        await expect(r1.locator('td').nth(2)).toContainText('120');
+        await expect(r1.locator('td').nth(3)).toContainText('+20.0%');
         const btn = r1.locator('button[data-catalogo-action="historial-revert"]');
         await expect(btn).toHaveAttribute('data-catalogo-evento-id', '11');
         await expect(btn).toContainText('Revertir');
         const r2 = page.locator('#historial-precio-tbody tr').nth(1);
-        await expect(r2.locator('td').nth(5)).toContainText('-20.0%');
+        await expect(r2.locator('td').nth(3)).toContainText('−20.0%');
         await expect(r2.locator('button')).toHaveCount(0);
         const r3 = page.locator('#historial-precio-tbody tr').nth(2);
-        await expect(r3.locator('td').nth(1)).toContainText('—');
-        await expect(r3.locator('td').nth(5)).toHaveText('—');
+        await expect(r3.locator('td').nth(0).locator('span')).toHaveText('Sin motivo');
+        await expect(r3.locator('td').nth(0).locator('p')).toHaveText('—');
+        await expect(r3.locator('td').nth(3)).toHaveText('—');
     });
 });
 

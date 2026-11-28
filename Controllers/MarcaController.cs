@@ -35,7 +35,7 @@ namespace TheBuryProject.Controllers
 
         // POST: Marca/Delete/5 — no tiene vista GET propia (no hay Delete_tw), pero el
         // botón "Eliminar" del modal de Catalogo/Index_tw sí postea acá (form-delete-marca
-        // en marca-editar-modal.js). No es CRUD fantasma: es la única forma de eliminar.
+        // en catalogo-entidad-modal.js). No es CRUD fantasma: es la única forma de eliminar.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "marcas", Accion = "delete")]

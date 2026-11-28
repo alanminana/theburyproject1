@@ -102,12 +102,12 @@ namespace TheBuryProject.Services
                 else if (m.Tipo == TipoMovimiento.Ajuste)
                 {
                     m.ReferenciaTipo = "Ajuste";
-                    m.ReferenciaTexto = string.IsNullOrWhiteSpace(m.Referencia) ? m.Motivo : m.Referencia;
+                    m.ReferenciaTexto = string.IsNullOrWhiteSpace(m.Referencia) ? m.Motivo : Helpers.ReferenciaStockUi.Legible(m.Referencia);
                 }
                 else
                 {
                     m.ReferenciaTipo = "Otro";
-                    m.ReferenciaTexto = m.Referencia;
+                    m.ReferenciaTexto = Helpers.ReferenciaStockUi.Legible(m.Referencia);
                 }
             }
         }

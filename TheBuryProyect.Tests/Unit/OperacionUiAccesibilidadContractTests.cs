@@ -34,7 +34,7 @@ public class OperacionUiAccesibilidadContractTests
     [Fact]
     public void CatalogoCrearProducto_LabelsConFor()
     {
-        var view = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var view = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.Contains("<label for=\"prod-create-Codigo\"", view);
         Assert.Contains("id=\"prod-create-Codigo\"", view);
@@ -83,7 +83,7 @@ public class OperacionUiAccesibilidadContractTests
     [InlineData("precio-valor")]
     public void Catalogo_CamposCalculadosYFiltroDePrecios_TienenLabelConFor(string id)
     {
-        var view = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var view = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.Contains($"<label for=\"{id}\"", view);
     }
@@ -98,15 +98,15 @@ public class OperacionUiAccesibilidadContractTests
     [InlineData("mov-page-size")]
     public void Catalogo_ControlesSinLabelVisible_TienenAriaLabel(string id)
     {
-        var view = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var view = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.Matches($"id=\"{id}\" aria-label=\"[^\"]+\"", view);
     }
 
     [Fact]
-    public void MarcaModalCodigoNombre_LabelsApuntanAlIdGeneradoPorElPartial()
+    public void EntidadDialogo_LabelsApuntanAlIdGeneradoPorElPartial()
     {
-        var view = Leer("Views", "Catalogo", "_MarcaModalCodigoNombre.cshtml");
+        var view = Leer("Views", "Catalogo", "_EntidadDialogo.cshtml");
 
         Assert.Contains("<label for=\"@(p)-codigo\"", view);
         Assert.Contains("id=\"@(p)-codigo\"", view);

@@ -47,29 +47,13 @@
     // Estado de filtro por producto (apertura desde fila de catálogo)
     let productoIdFiltro = null;
     let productoNombreFiltro = null;
-    let _openTrigger = null;
 
     if (!modal) return;
 
     /* ── Open / Close ── */
     if (btnOpen) {
-        btnOpen.addEventListener('click', () => {
-            _openTrigger = btnOpen;
-            abrirModal(null, null);
-        });
+        btnOpen.addEventListener('click', () => abrirModal(null, null));
     }
-
-    btnClose.addEventListener('click', closeModal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') { closeModal(); return; }
-        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
-    });
 
     // Apertura desde fila de catálogo (delegación sobre el documento)
     document.addEventListener('click', (e) => {
@@ -78,7 +62,6 @@
         const id = parseInt(btn.dataset.movimientosProductoId, 10);
         const nombre = btn.dataset.movimientosProductoNombre || '';
         if (!isNaN(id)) {
-            _openTrigger = btn;
             abrirModal(id, nombre);
         }
     });
@@ -91,9 +74,7 @@
         productoIdFiltro = productoId;
         productoNombreFiltro = productoNombre;
         actualizarBannerProducto();
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
+        panel().abrir();
         fetchMovimientos();
         setTimeout(function () {
             var closeBtn = document.getElementById('btn-cerrar-movimientos');
@@ -106,26 +87,29 @@
         if (productoIdFiltro !== null) {
             productoNombreLabel.textContent = productoNombreFiltro || `Producto #${productoIdFiltro}`;
             productoContexto.classList.remove('hidden');
-            productoContexto.classList.add('flex');
         } else {
             productoContexto.classList.add('hidden');
-            productoContexto.classList.remove('flex');
         }
     }
 
-    function closeModal() {
-        var trigger = _openTrigger;
-        _openTrigger = null;
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
+    var _panel = null;
+    function panel() {
+        if (!_panel) {
+            _panel = window.InvUI.panelFormulario(modal, {
+                soloLectura: true,
+                cierres: '#btn-cerrar-movimientos',
+                alCerrar: limpiar
+            });
+        }
+        return _panel;
+    }
+
+    function limpiar() {
         productoIdFiltro = null;
         productoNombreFiltro = null;
         if (productoContexto) {
             productoContexto.classList.add('hidden');
-            productoContexto.classList.remove('flex');
         }
-        if (trigger) trigger.focus();
     }
 
     /* ── Fetch ── */
@@ -143,6 +127,7 @@
 
         try {
             const res = await fetch(`/MovimientoStock/ListJson?${params.toString()}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
 
             allItems = data.items || [];
@@ -157,9 +142,15 @@
             currentPage = 1;
             renderPage();
         } catch {
+            // Un error de carga no es lo mismo que no tener movimientos.
             allItems = [];
             renderPage();
+            tbody.innerHTML = filaAviso('No se pudieron cargar los movimientos. Probá de nuevo.', true);
         }
+    }
+
+    function filaAviso(texto, error) {
+        return `<tr><td colspan="8" class="inv-empty${error ? ' inv-text-danger' : ''}">${esc(texto)}</td></tr>`;
     }
 
     /* ── Active filters ── */
@@ -179,10 +170,8 @@
         if (count > 0) {
             filtrosBadge.textContent = count === 1 ? '1 filtro activo' : `${count} filtros activos`;
             filtrosBadge.classList.remove('hidden');
-            filtrosBadge.classList.add('inline-flex');
         } else {
             filtrosBadge.classList.add('hidden');
-            filtrosBadge.classList.remove('inline-flex');
         }
     }
 
@@ -212,78 +201,34 @@
         tbody.innerHTML = '';
 
         if (!pageItems.length) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="11" class="py-16 text-center">
-                <div class="flex flex-col items-center gap-2 opacity-40">
-                    <span class="material-symbols-outlined text-4xl">swap_vert</span>
-                    <p class="text-slate-500 dark:text-slate-400 text-base">No hay movimientos para mostrar</p>
-                </div>
-            </td>`;
-            tbody.appendChild(tr);
+            tbody.innerHTML = filaAviso('No hay movimientos para mostrar');
             renderPagination();
             return;
         }
 
         pageItems.forEach(m => {
-            const badge = tipoBadge(m.tipo);
             const cv = cantidadVisual(m);
-            const signo = cv.signo;
-            const cantColor = cv.cls;
-            const initials = (m.usuario || '??').split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            const detalle = [m.referenciaLegible, m.motivo || 'Sin motivo registrado'].filter(Boolean).join(' · ');
 
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors';
             tr.innerHTML = `
-                <td class="px-4 py-4">
-                    <div class="flex flex-col">
-                        <span class="text-sm font-medium text-slate-900 dark:text-white">${esc(m.fecha)}</span>
-                        <span class="text-xs text-slate-500">${esc(m.hora)}</span>
-                    </div>
+                <th scope="row"><span class="inv-nowrap">${esc(m.fecha)}</span><p class="inv-ayuda-texto">${esc(m.hora)}</p></th>
+                <td data-label="Movimiento" class="inv-celda-detalle">
+                    <strong>${esc(m.tipo)}</strong>
+                    <p class="inv-ayuda-texto">${esc(detalle)}</p>
+                    <p class="inv-ayuda-texto">${esc(m.usuario || '—')}</p>
                 </td>
-                <td class="px-4 py-4">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${badge.cls}">
-                        ${esc(badge.label)}
-                    </span>
+                <td data-label="Producto">${esc(m.productoNombre || '—')}<p class="inv-ayuda-texto">${esc(m.productoCodigo || '')}</p></td>
+                <td data-label="Cantidad" class="inv-col-num"><span class="${cv.cls}">${cv.signo}${esc(String(Math.abs(m.cantidad)))}</span></td>
+                <td data-label="Costo unitario" class="inv-col-num">
+                    <span>${esc(formatMoney(m.costoUnitarioAlMomento))}</span>
+                    <p class="inv-ayuda-texto" title="Origen usado para valuar el costo del movimiento." data-fuente-costo="${esc(m.fuenteCosto || 'NoInformado')}">${esc(fuenteCostoLabel(m.fuenteCosto))}</p>
                 </td>
-                <td class="px-4 py-4">
-                    <div class="flex flex-col">
-                        <span class="text-sm font-medium text-slate-900 dark:text-white">${esc(m.productoNombre || '-')}</span>
-                        <span class="text-xs text-slate-500 tracking-wider font-mono">${esc(m.productoCodigo || '')}</span>
-                    </div>
-                </td>
-                <td class="px-4 py-4">
-                    <span class="text-sm font-bold ${cantColor}">${signo}${Math.abs(m.cantidad)}</span>
-                </td>
-                <td class="px-4 py-4">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">${formatMoney(m.costoUnitarioAlMomento)}</span>
-                </td>
-                <td class="px-4 py-4">
-                    <span class="text-sm font-semibold text-slate-900 dark:text-white">${formatMoney(m.costoTotalAlMomento)}</span>
-                </td>
-                <td class="px-4 py-4">
-                    <span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300 cursor-help"
-                          title="Origen usado para valuar el costo del movimiento."
-                          data-fuente-costo="${esc(m.fuenteCosto || 'NoInformado')}">${esc(fuenteCostoLabel(m.fuenteCosto))}</span>
-                </td>
-                <td class="px-4 py-4">
-                    <div class="flex flex-col gap-0.5">
-                        <span class="text-sm text-slate-600 dark:text-slate-400">${esc(m.referencia || '-')}</span>
-                        <span class="text-xs text-slate-400 dark:text-slate-500 italic">${esc(m.motivo || 'Sin motivo registrado')}</span>
-                    </div>
-                </td>
-                <td class="px-4 py-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">${esc(initials)}</div>
-                        <span class="text-sm text-slate-600 dark:text-slate-400">${esc(m.usuario || '-')}</span>
-                    </div>
-                </td>
-                <td class="px-4 py-4">
-                    <span class="text-sm font-bold text-slate-900 dark:text-white">${m.stockNuevo} uds</span>
-                </td>
-                <td class="px-4 py-4 text-right">
-                    <a href="/Producto/Inventario/${m.productoId}?tab=movimientos"
-                       class="text-primary hover:text-primary/80 text-sm font-bold underline-offset-2 hover:underline"
-                       title="Ver inventario de ${esc(m.productoNombre || 'este producto')}">Ver inventario</a>
+                <td data-label="Costo total" class="inv-col-num"><span class="inv-importe">${esc(formatMoney(m.costoTotalAlMomento))}</span></td>
+                <td data-label="Saldo" class="inv-col-num">${esc(String(m.stockNuevo))} uds</td>
+                <td class="inv-col-actions">
+                    <a href="/Producto/Inventario/${Number(m.productoId)}?tab=movimientos" class="inv-btn inv-btn--ghost inv-btn--sm"
+                       aria-label="Ver inventario de ${esc(m.productoNombre || 'este producto')}">Ver inventario</a>
                 </td>`;
             tbody.appendChild(tr);
         });
@@ -307,32 +252,19 @@
     function cantidadVisual(m) {
         const tipo = (m.tipo || '').toLowerCase();
         if (tipo === 'entrada') {
-            return { signo: '+', cls: 'text-emerald-600 dark:text-emerald-400' };
+            return { signo: '+', cls: 'inv-text-ok' };
         }
         if (tipo === 'salida') {
-            return { signo: '-', cls: 'text-rose-600 dark:text-rose-400' };
+            return { signo: '-', cls: 'inv-text-danger' };
         }
         if (tipo === 'ajuste') {
             const ant = Number(m.stockAnterior ?? 0);
             const nuevo = Number(m.stockNuevo ?? 0);
-            if (nuevo > ant) return { signo: '+', cls: 'text-emerald-600 dark:text-emerald-400' };
-            if (nuevo < ant) return { signo: '-', cls: 'text-rose-600 dark:text-rose-400' };
-            return { signo: '', cls: 'text-slate-400 dark:text-slate-400' };
+            if (nuevo > ant) return { signo: '+', cls: 'inv-text-ok' };
+            if (nuevo < ant) return { signo: '-', cls: 'inv-text-danger' };
+            return { signo: '', cls: '' };
         }
-        return { signo: '', cls: 'text-slate-400 dark:text-slate-400' };
-    }
-
-    function tipoBadge(tipo) {
-        switch (tipo) {
-            case 'Entrada':
-                return { cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', label: 'Entrada' };
-            case 'Salida':
-                return { cls: 'bg-rose-500/10 text-rose-400 border border-rose-500/20', label: 'Salida' };
-            case 'Ajuste':
-                return { cls: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', label: 'Ajuste' };
-            default:
-                return { cls: 'bg-slate-500/10 text-slate-400 border border-slate-700', label: tipo };
-        }
+        return { signo: '', cls: '' };
     }
 
     function formatMoney(value) {
@@ -340,7 +272,10 @@
         return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
     }
 
-    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    // Sirve también dentro de atributos: escapa comillas además de los signos de HTML.
+    function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
 
     /* ── Pagination ── */
     function renderPagination() {
@@ -348,7 +283,6 @@
         paginationDiv.innerHTML = '';
 
         const prevBtn = pageBtn('chevron_left', currentPage > 1, () => { currentPage--; renderPage(); });
-        prevBtn.classList.add('w-10', 'h-10', 'flex', 'items-center', 'justify-center', 'rounded-lg', 'border', 'border-slate-200', 'dark:border-slate-800');
         paginationDiv.appendChild(prevBtn);
 
         const maxVisible = 5;
@@ -371,7 +305,6 @@
         }
 
         const nextBtn = pageBtn('chevron_right', currentPage < totalPages, () => { currentPage++; renderPage(); });
-        nextBtn.classList.add('w-10', 'h-10', 'flex', 'items-center', 'justify-center', 'rounded-lg', 'border', 'border-slate-200', 'dark:border-slate-800');
         paginationDiv.appendChild(nextBtn);
     }
 
@@ -379,9 +312,9 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = n;
-        btn.className = n === currentPage
-            ? 'w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-white text-sm font-bold'
-            : 'w-10 h-10 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold';
+        btn.className = 'inv-btn inv-btn--sm ' + (n === currentPage ? 'inv-btn--primary' : 'inv-btn--ghost');
+        btn.setAttribute('aria-label', 'Página ' + n);
+        if (n === currentPage) btn.setAttribute('aria-current', 'page');
         btn.addEventListener('click', () => { currentPage = n; renderPage(); });
         return btn;
     }
@@ -389,19 +322,17 @@
     function pageBtn(icon, enabled, handler) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+        btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${icon}</span>`;
         btn.disabled = !enabled;
-        btn.className = enabled
-            ? 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            : 'text-slate-400 opacity-50 cursor-not-allowed';
+        btn.className = 'inv-icon-btn';
+        btn.setAttribute('aria-label', icon === 'chevron_left' ? 'Página anterior' : 'Página siguiente');
         if (enabled) btn.addEventListener('click', handler);
         return btn;
     }
 
     function ellipsis() {
         const span = document.createElement('span');
-        span.className = 'px-2 text-slate-400';
-        span.textContent = '...';
+        span.textContent = '…';
         return span;
     }
 

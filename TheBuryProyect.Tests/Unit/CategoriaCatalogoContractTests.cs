@@ -45,7 +45,7 @@ public class CategoriaCatalogoContractTests
     {
         // Un checkbox desmarcado no viaja en el form y CategoriaViewModel.Activo vale true por defecto:
         // sin el hidden "false" (siempre después del checkbox) una categoría no puede desactivarse.
-        var partial = Leer("Views", "Catalogo", "_CategoriaModalFields.cshtml");
+        var partial = Leer("Views", "Catalogo", "_EntidadDialogo.cshtml");
 
         var iCheckbox = partial.IndexOf("name=\"Activo\" id=\"@(p)-activo\" type=\"checkbox\"", StringComparison.Ordinal);
         var iHidden = partial.IndexOf("<input type=\"hidden\" name=\"Activo\" value=\"false\"", StringComparison.Ordinal);
@@ -57,7 +57,7 @@ public class CategoriaCatalogoContractTests
     [Fact]
     public void LosCamposDelModalTienenLabelAsociadoPorFor()
     {
-        var partial = Leer("Views", "Catalogo", "_CategoriaModalFields.cshtml");
+        var partial = Leer("Views", "Catalogo", "_EntidadDialogo.cshtml");
 
         foreach (var campo in new[] { "codigo", "nombre", "descripcion", "parentId", "alicuotaIVAId" })
         {
@@ -69,21 +69,16 @@ public class CategoriaCatalogoContractTests
     public void ElAltaYLaEdicionVuelvenAlCatalogoEnLaPestanaCategorias()
     {
         // Sin esto, tras guardar/eliminar el usuario caía en la pestaña Productos.
-        foreach (var archivo in new[] { "categoria-crear-modal.js", "categoria-editar-modal.js" })
-        {
-            var js = Leer("wwwroot", "js", archivo);
-            Assert.Contains("/Catalogo?tab=categorias", js);
-        }
-
-        var editar = Leer("wwwroot", "js", "categoria-editar-modal.js");
-        Assert.Contains("returnUrl=", editar);
-        Assert.DoesNotContain("returnUrl=/Catalogo'", editar);
+        var js = Leer("wwwroot", "js", "catalogo-entidad-modal.js");
+        Assert.Contains("listado: '/Catalogo?tab=categorias'", js);
+        Assert.Contains("window.location.assign(cfg.listado)", js);
+        Assert.Contains("'?returnUrl=' + encodeURIComponent(cfg.listado)", js);
     }
 
     [Fact]
     public void LosBotonesDeCategoriaRespetanLosPermisosDeLaVista()
     {
-        var vista = Leer("Views", "Catalogo", "Index_tw.cshtml");
+        var vista = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
         Assert.Contains("User.TienePermiso(\"categorias\", \"create\")", vista);
         Assert.Contains("User.TienePermiso(\"categorias\", \"update\")", vista);
@@ -99,17 +94,16 @@ public class CategoriaCatalogoContractTests
     }
 
     [Fact]
-    public void LasPestanasExponenSuEstadoActivoConAriaSelected()
+    public void LasSeccionesSonNavegacionConLaActualMarcadaPorElServidor()
     {
-        // El estado activo lo define aria-selected (server-side y JS): antes el JS y Razor usaban juegos de
-        // clases distintos y, al cambiar de pestaña con un clic, Productos quedaba resaltada junto a la nueva.
+        // Una URL por sección: enlaces con aria-current resuelto en el servidor; ningún script mantiene un segundo estado.
         var vista = Leer("Views", "Catalogo", "Index_tw.cshtml");
         var js = Leer("wwwroot", "js", "catalogo-index.js");
 
-        Assert.Contains("role=\"tab\"", vista);
-        Assert.Contains("aria-selected=\"@TabSelected(\"categorias\")\"", vista);
-        Assert.Contains("setAttribute('aria-selected'", js);
-        Assert.DoesNotContain("'bg-primary/10'", js);
+        Assert.Contains("aria-current=\"@(s.Clave == seccion ? \"page\" : null)\"", vista);
+        Assert.Contains("asp-route-tab=\"@s.Clave\"", vista);
+        Assert.DoesNotContain("role=\"tab\"", vista);
+        Assert.DoesNotContain("aria-selected", js);
     }
 
     private static string Leer(params string[] segmentos)

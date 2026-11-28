@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -103,7 +105,7 @@ public class CambiosPreciosController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al listar batches de cambios");
-            TempData["Error"] = "Error al cargar los batches de cambios.";
+            TempData["Error"] = "Error al cargar los lotes de cambios.";
             return View(new BatchListViewModel());
         }
     }
@@ -310,7 +312,7 @@ public class CambiosPreciosController : Controller
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
             var sufijo = tipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
-            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -412,7 +414,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Crear simulación usando el servicio existente
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -537,7 +539,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow.AHoraComercial():dd/MM/yyyy HH:mm}";
 
             // Paso 1: Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -617,8 +619,8 @@ public class CambiosPreciosController : Controller
             {
                 id = b.Id,
                 nombre = b.Nombre,
-                fecha = b.FechaSolicitud.ToString("dd/MM/yyyy HH:mm"),
-                fechaIso = b.FechaSolicitud.ToString("o"),
+                fecha = b.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
+                fechaIso = DateTime.SpecifyKind(b.FechaSolicitud, DateTimeKind.Utc).ToString("o"),
                 usuario = b.SolicitadoPor,
                 tipoCambio = b.TipoCambio.ToString(),
                 tipoAplicacion = b.TipoAplicacion.ToString(),
@@ -630,7 +632,7 @@ public class CambiosPreciosController : Controller
                 puedeRevertir = b.Estado == EstadoBatch.Aplicado,
                 puedeVer = true,
                 previewUrl = $"/CambiosPrecios/Preview/{b.Id}",
-                fechaAplicacion = b.FechaAplicacion?.ToString("dd/MM/yyyy HH:mm"),
+                fechaAplicacion = b.FechaAplicacion?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                 aplicadoPor = b.AplicadoPor
             }).ToList();
 
@@ -672,8 +674,8 @@ public class CambiosPreciosController : Controller
                     nombre = batch.Nombre,
                     cantidadProductos = batch.CantidadProductos,
                     aplicadoPor = batch.AplicadoPor,
-                    fechaAplicacion = batch.FechaAplicacion?.ToString("dd/MM/yyyy HH:mm"),
-                    fechaVigencia = batch.FechaVigencia?.ToString("dd/MM/yyyy HH:mm"),
+                    fechaAplicacion = batch.FechaAplicacion?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
+                    fechaVigencia = batch.FechaVigencia?.AHoraComercial().ToString("dd/MM/yyyy HH:mm"),
                     rowVersion = Convert.ToBase64String(batch.RowVersion),
                     cambioDisplay = $"{(batch.TipoAplicacion == TipoAplicacion.Aumento ? "+" : "-")}{batch.ValorCambio}{(batch.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%")}"
                 }
@@ -851,6 +853,9 @@ public class CambiosPreciosController : Controller
                 SolicitadoPor = batch.SolicitadoPor,
                 FechaSolicitud = batch.FechaSolicitud,
                 RequiereAutorizacion = batch.RequiereAutorizacion,
+                MotivoRechazo = batch.MotivoRechazo,
+                MotivoCancelacion = batch.MotivoCancelacion,
+                MotivoReversion = batch.MotivoReversion,
                 Items = items.Select(i => new SimulacionItemViewModel
                 {
                     ProductoCodigo = i.ProductoCodigo,
@@ -897,13 +902,13 @@ public class CambiosPreciosController : Controller
             var batch = await _precioService.GetSimulacionAsync(id);
             if (batch == null)
             {
-                TempData["Error"] = "Batch no encontrado.";
+                TempData["Error"] = "Lote no encontrado.";
                 return RedirectToAction(nameof(Index));
             }
 
             if (batch.Estado != EstadoBatch.Simulado)
             {
-                TempData["Error"] = "Solo se pueden autorizar batches en estado Simulado.";
+                TempData["Error"] = "Solo se pueden autorizar lotes en estado Simulado.";
                 return RedirectToAction(nameof(Preview), new { id });
             }
 
@@ -943,18 +948,18 @@ public class CambiosPreciosController : Controller
             var aprobadoPor = _currentUser.GetUsername();
             var batch = await _precioService.AprobarBatchAsync(id, aprobadoPor, rowVersion, notas);
 
-            TempData["Success"] = $"Batch '{batch.Nombre}' aprobado exitosamente.";
+            TempData["Success"] = $"Lote '{batch.Nombre}' aprobado exitosamente.";
             return RedirectToAction(nameof(Preview), new { id = batch.Id });
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
+            TempData["Error"] = "El lote fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Autorizar), new { id });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al aprobar batch {BatchId}", id);
-            TempData["Error"] = "Error al aprobar el batch: " + ex.Message;
+            TempData["Error"] = "Error al aprobar el lote: " + ex.Message;
             return RedirectToAction(nameof(Autorizar), new { id });
         }
     }
@@ -978,18 +983,18 @@ public class CambiosPreciosController : Controller
             var rechazadoPor = _currentUser.GetUsername();
             var batch = await _precioService.RechazarBatchAsync(id, rechazadoPor, rowVersion, motivo);
 
-            TempData["Success"] = $"Batch '{batch.Nombre}' rechazado.";
+            TempData["Success"] = $"Lote '{batch.Nombre}' rechazado.";
             return RedirectToAction(nameof(Index));
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
+            TempData["Error"] = "El lote fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Autorizar), new { id });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al rechazar batch {BatchId}", id);
-            TempData["Error"] = "Error al rechazar el batch: " + ex.Message;
+            TempData["Error"] = "Error al rechazar el lote: " + ex.Message;
             return RedirectToAction(nameof(Autorizar), new { id });
         }
     }
@@ -1007,18 +1012,18 @@ public class CambiosPreciosController : Controller
             var canceladoPor = _currentUser.GetUsername();
             var batch = await _precioService.CancelarBatchAsync(id, canceladoPor, rowVersion, motivo);
 
-            TempData["Success"] = $"Batch '{batch.Nombre}' cancelado.";
+            TempData["Success"] = $"Lote '{batch.Nombre}' cancelado.";
             return RedirectToAction(nameof(Index));
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
+            TempData["Error"] = "El lote fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Preview), new { id });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al cancelar batch {BatchId}", id);
-            TempData["Error"] = "Error al cancelar el batch: " + ex.Message;
+            TempData["Error"] = "Error al cancelar el lote: " + ex.Message;
             return RedirectToAction(nameof(Preview), new { id });
         }
     }
@@ -1039,13 +1044,13 @@ public class CambiosPreciosController : Controller
             var batch = await _precioService.GetSimulacionAsync(id);
             if (batch == null)
             {
-                TempData["Error"] = "Batch no encontrado.";
+                TempData["Error"] = "Lote no encontrado.";
                 return RedirectToAction(nameof(Index));
             }
 
             if (batch.Estado != EstadoBatch.Aprobado)
             {
-                TempData["Error"] = "Solo se pueden aplicar batches en estado Aprobado.";
+                TempData["Error"] = "Solo se pueden aplicar lotes en estado Aprobado.";
                 return RedirectToAction(nameof(Preview), new { id });
             }
 
@@ -1057,7 +1062,8 @@ public class CambiosPreciosController : Controller
                 CantidadProductos = batch.CantidadProductos,
                 AprobadoPor = batch.AprobadoPor,
                 FechaAprobacion = batch.FechaAprobacion,
-                FechaVigencia = DateTime.UtcNow
+                // Vacío = «al confirmar». Precargar un instante con milisegundos hacía que datetime-local rechazara el envío.
+                FechaVigencia = null
             };
 
             return View(viewModel);
@@ -1081,20 +1087,22 @@ public class CambiosPreciosController : Controller
         try
         {
             var aplicadoPor = _currentUser.GetUsername();
-            var batch = await _precioService.AplicarBatchAsync(id, aplicadoPor, rowVersion, fechaVigencia);
+            // El formulario se completa en hora argentina; la vigencia se guarda y se compara como instante UTC.
+            var vigenciaUtc = fechaVigencia.HasValue ? FechaComercial.AUtc(fechaVigencia.Value) : (DateTime?)null;
+            var batch = await _precioService.AplicarBatchAsync(id, aplicadoPor, rowVersion, vigenciaUtc);
 
-            TempData["Success"] = $"Batch '{batch.Nombre}' aplicado exitosamente. {batch.CantidadProductos} precios actualizados.";
+            TempData["Success"] = $"Lote '{batch.Nombre}' aplicado exitosamente. {batch.CantidadProductos} precios actualizados.";
             return RedirectToAction(nameof(Preview), new { id = batch.Id });
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
+            TempData["Error"] = "El lote fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Aplicar), new { id });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al aplicar batch {BatchId}", id);
-            TempData["Error"] = "Error al aplicar el batch: " + ex.Message;
+            TempData["Error"] = "Error al aplicar el lote: " + ex.Message;
             return RedirectToAction(nameof(Aplicar), new { id });
         }
     }
@@ -1115,13 +1123,13 @@ public class CambiosPreciosController : Controller
             var batch = await _precioService.GetSimulacionAsync(id);
             if (batch == null)
             {
-                TempData["Error"] = "Batch no encontrado.";
+                TempData["Error"] = "Lote no encontrado.";
                 return RedirectToAction(nameof(Index));
             }
 
             if (batch.Estado != EstadoBatch.Aplicado)
             {
-                TempData["Error"] = "Solo se pueden revertir batches en estado Aplicado.";
+                TempData["Error"] = "Solo se pueden revertir lotes en estado Aplicado.";
                 return RedirectToAction(nameof(Preview), new { id });
             }
 
@@ -1165,18 +1173,18 @@ public class CambiosPreciosController : Controller
             var revertidoPor = _currentUser.GetUsername();
             var batchReversion = await _precioService.RevertirBatchAsync(id, revertidoPor, rowVersion, motivo);
 
-            TempData["Success"] = $"Batch revertido exitosamente. Se creó el batch de reversión #{batchReversion.Id}.";
+            TempData["Success"] = $"Lote revertido. Se creó el lote de reversión #{batchReversion.Id}.";
             return RedirectToAction(nameof(Index));
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
+            TempData["Error"] = "El lote fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Revertir), new { id });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al revertir batch {BatchId}", id);
-            TempData["Error"] = "Error al revertir el batch: " + ex.Message;
+            TempData["Error"] = "Error al revertir el lote: " + ex.Message;
             return RedirectToAction(nameof(Revertir), new { id });
         }
     }
@@ -1272,7 +1280,7 @@ public class CambiosPreciosController : Controller
     /// Muestra el historial de precios de un producto
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Historial(int productoId, int? listaId)
+    public async Task<IActionResult> Historial(int productoId, int? listaId, [FromServices] ICatalogoService catalogoService)
     {
         try
         {
@@ -1310,6 +1318,10 @@ public class CambiosPreciosController : Controller
             };
 
             ViewBag.Listas = new SelectList(await _precioService.GetAllListasAsync(), "Id", "Nombre", listaId);
+
+            // Los cambios del precio base no generan filas en las listas: sin esta sección la página decía «0 registros»
+            // para un producto cuyo historial del catálogo mostraba varios cambios.
+            viewModel.CambiosDeProducto = await catalogoService.GetHistorialCambiosPrecioProductoAsync(productoId);
 
             return View(viewModel);
         }

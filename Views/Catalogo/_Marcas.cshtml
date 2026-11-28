@@ -1,0 +1,75 @@
+@model CatalogoUnificadoViewModel
+@{
+    var puedeEditarMarca = User.TienePermiso("marcas", "update");
+    var puedeEliminarMarca = User.TienePermiso("marcas", "delete");
+}
+
+<div id="tab-marcas">
+    <div class="inv-results__bar inv-results__bar--seccion">
+        <p class="inv-results__count"><strong>@Model.MarcasListado.Count()</strong> @(Model.MarcasListado.Count() == 1 ? "marca" : "marcas")</p>
+        @if (User.TienePermiso("marcas", "create"))
+        {
+            <button type="button" id="btn-crear-marca" data-catalogo-modal-open="marca" class="inv-btn inv-btn--primary">
+                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                Nueva marca
+            </button>
+        }
+    </div>
+
+    <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de marcas">
+        <table class="inv-table inv-table--apilable">
+            <thead>
+                <tr>
+                    <th scope="col">Marca</th>
+                    <th scope="col">Marca padre</th>
+                    <th scope="col">País de origen</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody id="marcas-tbody"
+                   data-can-edit="@(puedeEditarMarca ? "true" : "false")"
+                   data-can-delete="@(puedeEliminarMarca ? "true" : "false")">
+                @foreach (var marca in Model.MarcasListado)
+                {
+                    <tr>
+                        <th scope="row" class="inv-celda-principal">
+                            <strong>@marca.Nombre</strong>
+                            <p class="inv-ayuda-texto" title="@marca.Descripcion">@marca.Codigo@(string.IsNullOrEmpty(marca.Descripcion) ? "" : " · " + marca.Descripcion)</p>
+                        </th>
+                        <td data-label="Marca padre">@(marca.ParentNombre ?? "—")</td>
+                        <td data-label="País de origen">@(marca.PaisOrigen ?? "—")</td>
+                        <td data-label="Estado"><span class="@(marca.Activo ? "inv-pill inv-pill--ok" : "inv-pill inv-pill--muted")">@(marca.Activo ? "Activa" : "Inactiva")</span></td>
+                        <td class="inv-col-actions">
+                            <div class="inv-row-actions">
+                                @if (puedeEditarMarca)
+                                {
+                                    <button type="button" data-marca-edit-id="@marca.Id" class="inv-icon-btn" aria-label="Editar marca @marca.Nombre" title="Editar">
+                                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                    </button>
+                                }
+                                @if (puedeEliminarMarca)
+                                {
+                                    <button type="button" data-marca-delete-id="@marca.Id" data-marca-delete-nombre="@marca.Nombre" class="inv-icon-btn inv-icon-btn--danger" aria-label="Eliminar marca @marca.Nombre" title="Eliminar">
+                                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                    </button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (!Model.MarcasListado.Any())
+    {
+        <div class="inv-empty">
+            <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+            <p class="inv-empty__title">Todavía no hay marcas</p>
+        </div>
+    }
+</div>
+
+<form id="form-delete-marca" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+</form>

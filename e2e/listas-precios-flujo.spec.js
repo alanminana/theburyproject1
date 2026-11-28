@@ -104,7 +104,7 @@ test.describe.serial('Listas de precios (D-01)', () => {
         const failures = trackFailures(page);
         // Precios es una pestaña de Inventario (ya no tiene entrada propia en el menú lateral).
         await page.goto('/Catalogo', { waitUntil: 'domcontentloaded' });
-        await page.locator('#catalogo-topbar a[data-modulo-tab="precios"]').click();
+        await page.locator('nav[aria-label="Secciones de Inventario"] a[data-modulo-tab="precios"]').click();
         await expect(page).toHaveURL(/\/ListaPrecio$/);
         await expect(page.getByRole('heading', { name: 'Listas de precios', level: 2 })).toBeVisible();
 
@@ -179,12 +179,20 @@ test.describe.serial('Listas de precios (D-01)', () => {
         await enviar(page, 'Fijar precio');
         await expect(page).toHaveURL(/\/ListaPrecio\/Precios\//);
         await expect(page.locator('.alert-erp-success')).toContainText('actualizado');
+        // La vuelta a la lista no conserva la busqueda: con muchos productos hay que volver a buscarlo.
+        const buscar = async () => {
+            await page.getByLabel('Producto', { exact: true }).fill(`PRD${SUFIJO}`);
+            await page.getByRole('button', { name: 'Buscar' }).click();
+        };
+        await buscar();
         await expect(page.locator('tr', { hasText: `PRD${SUFIJO}` })).toContainText('1.450,50');
 
         // Segundo precio: el anterior queda en el historial.
         await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
         await page.locator('#precio').fill('1600');
         await enviar(page, 'Fijar precio');
+        await expect(page).toHaveURL(/\/ListaPrecio\/Precios\//);
+        await buscar();
         await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
         const historial = page.getByRole('region', { name: 'Historial de precios del producto en la lista' });
         await expect(historial.locator('tbody tr')).toHaveCount(2);
@@ -196,8 +204,12 @@ test.describe.serial('Listas de precios (D-01)', () => {
     test('baja de una lista no predeterminada con confirmacion; el historial se conserva', async ({ page }) => {
         const failures = trackFailures(page);
         await page.goto('/ListaPrecio', { waitUntil: 'domcontentloaded' });
-        page.once('dialog', dialog => dialog.accept());
         await page.locator('tr', { hasText: codigoA }).getByRole('button', { name: /dar de baja/i }).click();
+        // Confirmación compartida de Inventario: nombra la lista y enfoca la opción segura.
+        const confirmacion = page.getByRole('dialog', { name: /dar de baja esta lista/i });
+        await expect(confirmacion).toContainText(`Contado ${SUFIJO}`);
+        await expect(confirmacion.getByRole('button', { name: 'Cancelar' })).toBeFocused();
+        await confirmacion.getByRole('button', { name: 'Dar de baja la lista' }).click();
         await page.waitForLoadState('domcontentloaded');
         await expect(page.locator('.alert-erp-success')).toContainText('Lista dada de baja');
         await expect(page.locator('tr', { hasText: codigoA })).toHaveCount(0);
@@ -223,6 +235,8 @@ test.describe.serial('Listas de precios (D-01)', () => {
             await expectSinDesbordeHorizontal(page);
             await captura(page, `${vp.nombre}-3-precios`);
 
+            await page.getByLabel('Producto', { exact: true }).fill(`PRD${SUFIJO}`);
+            await page.getByRole('button', { name: 'Buscar' }).click();
             await page.locator('tr', { hasText: `PRD${SUFIJO}` }).getByRole('link', { name: /fijar el precio/i }).click();
             await expectSinDesbordeHorizontal(page);
             await captura(page, `${vp.nombre}-4-fijar`);

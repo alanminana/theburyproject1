@@ -1,0 +1,139 @@
+@model CatalogoUnificadoViewModel
+@{
+    // Región de resultados de Productos: se renderiza con la página y se vuelve a pedir (?parcial=true) al buscar,
+    // filtrar, ordenar, paginar o después de guardar. La fila existe una sola vez (_ProductoFila).
+    var productos = Model.Productos.ToList();
+
+    var consulta = Context.Request.Query
+        .Where(q => !string.Equals(q.Key, "parcial", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(q.Key, "pagina", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(q.Key, "editarProducto", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(q.Value))
+        .ToDictionary(q => q.Key, q => (string?)q.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+
+    string Enlace(params (string Clave, string? Valor)[] cambios)
+    {
+        var parametros = new Dictionary<string, string?>(consulta, StringComparer.OrdinalIgnoreCase);
+        foreach (var (clave, valor) in cambios)
+        {
+            if (valor is null) { parametros.Remove(clave); } else { parametros[clave] = valor; }
+        }
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(Url.Action("Index", "Catalogo")!, parametros);
+    }
+
+    var ordenActual = (Model.OrderBy ?? "nombre").ToLowerInvariant();
+    var descendente = string.Equals(Model.OrderDirection, "desc", StringComparison.OrdinalIgnoreCase);
+    string AriaOrden(string clave) => ordenActual == clave ? (descendente ? "descending" : "ascending") : "none";
+    string EnlaceOrden(string clave) => Enlace(("orderBy", clave), ("orderDirection", ordenActual == clave && !descendente ? "desc" : "asc"));
+    string IconoOrden(string clave) => ordenActual != clave ? "unfold_more" : (descendente ? "arrow_downward" : "arrow_upward");
+
+    var desde = Model.TotalResultados == 0 ? 0 : (Model.Pagina - 1) * CatalogoUnificadoViewModel.ProductosPorPagina + 1;
+    var hasta = desde == 0 ? 0 : desde + productos.Count - 1;
+
+    var puedeVerEditar = User.TienePermiso("productos", "view") && User.TienePermiso("productos", "update");
+    var puedeEditar = User.TienePermiso("productos", "update");
+    var puedeEliminar = User.TienePermiso("productos", "delete");
+}
+
+<div id="productos-resultados" class="inv-results"
+     data-total="@Model.TotalResultados"
+     data-ids-filtrados="@string.Join(',', Model.IdsFiltrados)">
+
+    <div class="inv-results__bar">
+        <p class="inv-results__count" id="productos-conteo" role="status">
+            @if (Model.TotalResultados == 0)
+            {
+                <text>Sin resultados</text>
+            }
+            else
+            {
+                <text><strong>@desde–@hasta</strong> de <strong>@Model.TotalResultados</strong> @(Model.TotalResultados == 1 ? "producto" : "productos")</text>
+            }
+        </p>
+        <div class="inv-results__tools">
+            @if (User.TienePermiso("precios", "simulate") && Model.TotalResultados > productos.Count)
+            {
+                <button type="button" class="inv-link" data-seleccionar-resultados>Seleccionar los @Model.TotalResultados resultados</button>
+            }
+            @if (Model.TieneFiltrosActivos)
+            {
+                <a class="inv-link" asp-controller="Catalogo" asp-action="Index" data-limpiar-filtros>Limpiar filtros</a>
+            }
+        </div>
+    </div>
+
+    <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Tabla de productos">
+        <table class="inv-table inv-table--productos">
+            <thead>
+                <tr>
+                    <th scope="col" class="inv-col-check">
+                        <input type="checkbox" id="chk-select-all" class="inv-check" aria-label="Seleccionar todos los productos de esta página" />
+                    </th>
+                    <th scope="col" aria-sort="@AriaOrden("nombre")">
+                        <a class="inv-sort" href="@EnlaceOrden("nombre")" data-resultados-link>Producto <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("nombre")</span></a>
+                    </th>
+                    <th scope="col">Stock</th>
+                    <th scope="col" class="inv-col-num" aria-sort="@AriaOrden("precio")">
+                        <a class="inv-sort" href="@EnlaceOrden("precio")" data-resultados-link>Precio vigente <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("precio")</span></a>
+                    </th>
+                    <th scope="col" class="inv-col-num" aria-sort="@AriaOrden("comision")">
+                        <a class="inv-sort" href="@EnlaceOrden("comision")" data-resultados-link>Comisión <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("comision")</span></a>
+                    </th>
+                    <th scope="col" class="inv-col-actions"><span class="sr-only">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody id="productos-tbody"
+                   data-can-edit="@(puedeVerEditar ? "true" : "false")"
+                   data-can-delete="@(puedeEliminar ? "true" : "false")"
+                   data-can-comision="@(puedeEditar ? "true" : "false")">
+                @foreach (var fila in productos)
+                {
+                    <partial name="_ProductoFila" model="fila" view-data='new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData) { { "ListaPredeterminadaId", Model.ListaPredeterminadaId } }' />
+                }
+            </tbody>
+        </table>
+
+        @if (!productos.Any())
+        {
+            <div class="inv-empty">
+                <span class="material-symbols-outlined" aria-hidden="true">@(Model.TieneFiltrosActivos ? "search_off" : "inventory_2")</span>
+                @if (Model.TieneFiltrosActivos)
+                {
+                    <p class="inv-empty__title">Ningún producto coincide con los filtros</p>
+                    <p>Revisá el texto buscado o <a class="inv-link" asp-controller="Catalogo" asp-action="Index" data-limpiar-filtros>limpiá los filtros</a>.</p>
+                }
+                else
+                {
+                    <p class="inv-empty__title">Todavía no hay productos</p>
+                    @if (User.TienePermiso("productos", "create"))
+                    {
+                        <p>Creá el primero con «Nuevo producto».</p>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    @if (Model.TotalPaginas > 1)
+    {
+        <nav class="inv-pager" aria-label="Páginas de productos">
+            @if (Model.Pagina > 1)
+            {
+                <a class="inv-btn inv-btn--ghost" href="@Enlace(("pagina", (Model.Pagina - 1).ToString()))" data-resultados-link rel="prev">Anterior</a>
+            }
+            else
+            {
+                <span class="inv-btn inv-btn--ghost" aria-disabled="true">Anterior</span>
+            }
+            <span class="inv-pager__estado" aria-current="page">Página @Model.Pagina de @Model.TotalPaginas</span>
+            @if (Model.Pagina < Model.TotalPaginas)
+            {
+                <a class="inv-btn inv-btn--ghost" href="@Enlace(("pagina", (Model.Pagina + 1).ToString()))" data-resultados-link rel="next">Siguiente</a>
+            }
+            else
+            {
+                <span class="inv-btn inv-btn--ghost" aria-disabled="true">Siguiente</span>
+            }
+        </nav>
+    }
+</div>

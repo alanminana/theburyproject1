@@ -232,4 +232,46 @@ public class CambiosPreciosCircuitoMismoUsuarioHttpTests : IClassFixture<CustomW
         await using var ctx = await NuevoContextoAsync();
         Assert.Equal(100m, (await ctx.ProductosPrecios.AsNoTracking().SingleAsync(p => p.ProductoId == productoId && p.EsVigente)).Precio);
     }
+
+    [Fact]
+    public async Task Aplicar_ElFormularioNoPrecargaUnaVigenciaQueElNavegadorRechaza()
+    {
+        var (listaId, productoId) = await SembrarProductoConPrecioAsync(100m);
+        var nombre = "D5-form-" + Guid.NewGuid().ToString("N")[..8];
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.PreciosCambioRapidoUserId);
+        var simulado = await SimularAsync(client, nombre, listaId, productoId);
+        await PostFormAsync(client, $"/CambiosPrecios/Aprobar/{simulado.Id}", ("rowVersion", RowVersion(simulado)));
+
+        var html = await (await client.GetAsync($"/CambiosPrecios/Aplicar/{simulado.Id}")).Content.ReadAsStringAsync();
+        var campo = Regex.Match(html, "<input[^>]*name=\"FechaVigencia\"[^>]*>").Value;
+
+        Assert.NotEmpty(campo);
+        // Vacío = «al confirmar». Precargado con milisegundos, datetime-local falla por stepMismatch y no envía.
+        Assert.Matches("value=\"\"", campo);
+        Assert.DoesNotContain("data-fecha", campo);
+    }
+
+    [Fact]
+    public async Task Aplicar_LaVigenciaEscritaEnHoraArgentina_SeGuardaComoInstanteUtc()
+    {
+        var (listaId, productoId) = await SembrarProductoConPrecioAsync(100m);
+        var nombre = "D5-hora-" + Guid.NewGuid().ToString("N")[..8];
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.PreciosCambioRapidoUserId);
+        var simulado = await SimularAsync(client, nombre, listaId, productoId);
+        await PostFormAsync(client, $"/CambiosPrecios/Aprobar/{simulado.Id}", ("rowVersion", RowVersion(simulado)));
+        var aprobado = await LeerBatchAsync(nombre);
+        var escrita = TheBuryProject.Services.FechaComercial.AComercial(DateTime.UtcNow).AddMinutes(-5);
+        escrita = escrita.AddTicks(-(escrita.Ticks % TimeSpan.TicksPerMinute));
+
+        var aplicar = await PostFormAsync(client, $"/CambiosPrecios/AplicarConfirmed/{aprobado.Id}",
+            ("rowVersion", RowVersion(aprobado)),
+            ("fechaVigencia", escrita.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture)));
+
+        Assert.Equal(HttpStatusCode.Redirect, aplicar.StatusCode);
+        var esperada = TheBuryProject.Services.FechaComercial.AUtc(escrita);
+        Assert.Equal(esperada, (await LeerBatchAsync(nombre)).FechaVigencia);
+        await using var ctx = await NuevoContextoAsync();
+        Assert.Equal(esperada, (await ctx.ProductosPrecios.AsNoTracking()
+            .SingleAsync(p => p.ProductoId == productoId && p.ListaId == listaId && p.EsVigente)).VigenciaDesde);
+    }
 }

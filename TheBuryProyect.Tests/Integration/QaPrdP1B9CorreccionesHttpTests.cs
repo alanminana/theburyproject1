@@ -28,14 +28,15 @@ public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplication
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ProductoMarcaCompletoUserId);
 
         var html = await (await client.GetAsync("/Catalogo")).Content.ReadAsStringAsync();
+        var marcas = await (await client.GetAsync("/Catalogo?tab=marcas")).Content.ReadAsStringAsync();
 
         Assert.Contains("id=\"catalogo-menu-eliminar\"", html);
         Assert.True(Regex.IsMatch(html, "<button[^>]*data-comision-producto-id=\"" + ProductoId + "\"", RegexOptions.Singleline));
         Assert.Contains("data-prod-edit-id=\"" + ProductoId + "\"", html);
-        Assert.Contains("data-marca-edit-id=\"" + MarcaId + "\"", html);
-        Assert.Contains("data-marca-delete-id=\"" + MarcaId + "\"", html);
+        Assert.Contains("data-marca-edit-id=\"" + MarcaId + "\"", marcas);
+        Assert.Contains("data-marca-delete-id=\"" + MarcaId + "\"", marcas);
         Assert.Matches("<tbody id=\"productos-tbody\"[^>]*data-can-edit=\"true\"[^>]*data-can-delete=\"true\"[^>]*data-can-comision=\"true\"", html);
-        Assert.Matches("<tbody id=\"marcas-tbody\"[^>]*data-can-edit=\"true\"[^>]*data-can-delete=\"true\"", html);
+        Assert.Matches("<tbody id=\"marcas-tbody\"[^>]*data-can-edit=\"true\"[^>]*data-can-delete=\"true\"", marcas);
     }
 
     [Fact]
@@ -46,11 +47,12 @@ public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplication
         using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.ProductoMarcaSoloLecturaUserId);
 
         var html = await (await client.GetAsync("/Catalogo")).Content.ReadAsStringAsync();
+        var marcas = await (await client.GetAsync("/Catalogo?tab=marcas")).Content.ReadAsStringAsync();
 
-        Assert.DoesNotContain("data-marca-edit-id=\"" + MarcaId + "\"", html);
-        Assert.DoesNotContain("data-marca-delete-id=\"" + MarcaId + "\"", html);
+        Assert.DoesNotContain("data-marca-edit-id=\"" + MarcaId + "\"", marcas);
+        Assert.DoesNotContain("data-marca-delete-id=\"" + MarcaId + "\"", marcas);
         Assert.Matches("<tbody id=\"productos-tbody\"[^>]*data-can-edit=\"false\"[^>]*data-can-delete=\"false\"[^>]*data-can-comision=\"false\"", html);
-        Assert.Matches("<tbody id=\"marcas-tbody\"[^>]*data-can-edit=\"false\"[^>]*data-can-delete=\"false\"", html);
+        Assert.Matches("<tbody id=\"marcas-tbody\"[^>]*data-can-edit=\"false\"[^>]*data-can-delete=\"false\"", marcas);
         // La comisión se sigue mostrando, sin el botón que abre el editor.
         Assert.Contains("data-producto-comision", html);
     }
@@ -74,16 +76,17 @@ public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplication
     }
 
     [Fact]
-    public void B9_ElScriptDeMarcaNuevaTampocoOfreceAccionesSinPermiso()
+    public void B9_LasFilasDeMarcaSeDefinenSoloEnElServidor()
     {
+        // Antes el alta y la edicion armaban su propia copia de la fila, con permisos y columnas aparte.
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "TheBuryProyect.csproj")))
             dir = dir.Parent;
         Assert.NotNull(dir);
-        var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", "marca-crear-modal.js"));
-
-        Assert.Matches(@"canEdit\s*\?\s*'<button[^']*data-marca-edit-id", js);
-        Assert.Matches(@"canDelete\s*\?\s*'<button[^']*data-marca-delete-id", js);
+        var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", "catalogo-entidad-modal.js"));
+        Assert.DoesNotContain("createElement('tr')", js);
+        Assert.DoesNotContain("<td", js);
+        Assert.Contains("/Catalogo?tab=marcas", js);
     }
 
     private static async Task<string> TokenAsync(HttpClient client)

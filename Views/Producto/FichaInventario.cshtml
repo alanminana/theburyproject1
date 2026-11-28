@@ -23,716 +23,265 @@
     var totalEntradas = movs.Where(m => m.Tipo == TipoMovimiento.Entrada).Sum(m => Math.Abs(m.Cantidad));
     var totalSalidas  = movs.Where(m => m.Tipo == TipoMovimiento.Salida).Sum(m => Math.Abs(m.Cantidad));
 
-    string ChipMov(TipoMovimiento t) => t switch {
-        TipoMovimiento.Entrada => "fi-chip fi-chip-entrada",
-        TipoMovimiento.Salida  => "fi-chip fi-chip-salida",
-        TipoMovimiento.Ajuste  => "fi-chip fi-chip-ajuste",
-        _                      => "fi-chip fi-chip-neutral"
-    };
     string LblMov(TipoMovimiento t) => t switch {
         TipoMovimiento.Entrada => "Entrada",
         TipoMovimiento.Salida  => "Salida",
         TipoMovimiento.Ajuste  => "Ajuste",
         _                      => t.ToString()
     };
-    string EstChipCss(EstadoUnidad e) => e switch {
-        EstadoUnidad.EnStock      => "fi-chip fi-chip-stock",
-        EstadoUnidad.Vendida      => "fi-chip fi-chip-sold",
-        EstadoUnidad.Entregada    => "fi-chip fi-chip-sold",
-        EstadoUnidad.Faltante     => "fi-chip fi-chip-missing",
-        EstadoUnidad.Baja         => "fi-chip fi-chip-baja",
-        EstadoUnidad.Anulada      => "fi-chip fi-chip-baja",
-        EstadoUnidad.Reservada    => "fi-chip fi-chip-reserved",
-        EstadoUnidad.EnReparacion => "fi-chip fi-chip-repair",
-        EstadoUnidad.Devuelta     => "fi-chip fi-chip-return",
-        _                         => "fi-chip fi-chip-neutral"
-    };
-    string EstChipLbl(EstadoUnidad e) => e switch {
-        EstadoUnidad.EnStock      => "En Stock",
-        EstadoUnidad.Vendida      => "Vendida",
-        EstadoUnidad.Entregada    => "Entregada",
-        EstadoUnidad.Faltante     => "Faltante",
-        EstadoUnidad.Baja         => "Baja",
-        EstadoUnidad.Anulada      => "Anulada",
-        EstadoUnidad.Reservada    => "Reservada",
-        EstadoUnidad.EnReparacion => "En Reparación",
-        EstadoUnidad.Devuelta     => "Devuelta",
-        _                         => e.ToString()
-    };
-}
-
-@section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/inventario-ficha-shared.css" asp-append-version="true" />
-}
-
-<style>
-/* fi = ficha-inventario — scoped to avoid conflicts with pu- and kdx-.
-   Card, botones, chips base y tabla compartidos con Unidades/Kardex viven ahora en
-   inventario-ficha-shared.css (mismo valor, una sola fuente); acá solo queda lo propio
-   de esta pantalla. */
-/* KPI: migrado al componente compartido card-erp-metric (Fase 5), ver markup. */
-/* Chip "Salida": hoy es roja acá y dorada en Kardex — divergencia real detectada en el
-   pase estético, no se unifica en este lote (decisión explícita, ver auditoría). */
-.fi-page .fi-chip-salida   { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-400) 28%, transparent); }
-/* Tabs */
-.fi-page .fi-tab-btn {
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .625rem 1rem; font-size: .875rem; font-weight: 500;
-  color: var(--erp-fg-2, var(--pal-neutral-350)); border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none;
-  background: transparent; transition: color .15s, border-color .15s; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-}
-.fi-page .fi-tab-btn:hover { color: var(--pal-neutral-100); }
-.fi-page .fi-tab-btn[aria-selected="true"] { color: var(--pal-neutral-50); border-bottom-color: var(--pal-accent); }
-/* Inputs del form inline de stock — paridad con MovimientoStock/Create */
-.fi-page .fi-input {
-  width: 100%; border-radius: 8px; border: 1px solid var(--pal-neutral-700); background: var(--pal-neutral-800);
-  color: var(--pal-white); padding: .5rem .75rem; font-size: .875rem; outline: none;
-}
-.fi-page .fi-input:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 1px var(--pal-accent); }
-.fi-page select.fi-input { cursor: pointer; }
-.fi-page .fi-input::placeholder { color: var(--erp-fg-3, var(--pal-neutral-400)); }
-/* Mobile/desktop toggle for card vs table */
-.fi-page .fi-cards-mobile { display: block; }
-.fi-page .fi-tbl-wrapper   { display: none; }
-@@media (min-width: 640px) {
-  .fi-page .fi-cards-mobile { display: none; }
-  .fi-page .fi-tbl-wrapper   { display: block; }
-}
-.fi-page .col-in  { color: var(--pal-success-400); }
-.fi-page .col-out { color: var(--pal-danger-400); }
-.fi-page .col-adj { color: var(--pal-warning-400); }
-</style>
-
-<div class="fi-page space-y-5">
-
-    @if (TempData["Success"] != null)
+    // Positiva: el stock supera a las unidades identificadas. Negativa: hay más unidades que stock.
+    var diferencia = conciliacion.DiferenciaStockVsUnidadesEnStock;
+    var hayDiferencia = Model.RequiereNumeroSerie && conciliacion.HayDiferencia;
+    var tabs = new List<(string Clave, string Texto, int Cantidad)>
     {
-        <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
-            <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
-            <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
-            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar">
-                <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
-            </button>
-        </div>
-    }
-    @if (TempData["Error"] != null)
+        ("unidades", Model.RequiereNumeroSerie ? "Unidades" : "Stock", Model.RequiereNumeroSerie ? conciliacion.TotalUnidadesRegistradas : -1)
+    };
+    if (!Model.RequiereNumeroSerie)
     {
-        <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
-            <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
-            <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
-            <button type="button" data-action="remove-closest" data-target="div" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar">
-                <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
-            </button>
-        </div>
+        tabs.Add(("fisicas", "Unidades físicas", conciliacion.TotalUnidadesRegistradas));
     }
+    tabs.Add(("movimientos", "Movimientos", movs.Count));
+}
 
-    @* ── HEADER ── *@
-    <header class="fi-card-header px-4 sm:px-5 py-5">
-        <a asp-controller="Catalogo" asp-action="Index"
-           class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
-            Volver al catálogo
-        </a>
-
-        <div class="mt-3 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h1 class="text-xl sm:text-2xl font-semibold text-white">@Model.Nombre</h1>
-                    <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">@Model.Codigo</span>
-                </div>
-                <div class="mt-2 flex flex-wrap items-center gap-2">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
-                        @(Model.RequiereNumeroSerie
-                            ? "bg-blue-500/10 text-blue-300 border border-blue-500/30"
-                            : "bg-amber-500/10 text-amber-300 border border-amber-500/30")">
-                        <span class="material-symbols-outlined" style="font-size:14px">
-                            @(Model.RequiereNumeroSerie ? "verified" : "inventory_2")
-                        </span>
-                        @(Model.RequiereNumeroSerie ? "Serializado" : "No serializado")
-                    </span>
-                    @if (conciliacion.HayDiferencia)
-                    {
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                            <span class="material-symbols-outlined" style="font-size:14px">warning</span>
-                            Diferencia en stock
-                        </span>
-                    }
-                </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2 shrink-0">
-                @* En no serializado, "Gestionar unidades" lo cubre la solapa "Unidades físicas"
-                   (con su link "Gestión completa"); se evita el botón duplicado en el header. *@
-                @if (Model.RequiereNumeroSerie)
+<div class="inv-screen inv-page" data-ficha-inventario>
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-controller="Catalogo" asp-action="Index" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Inventario</a>
+            <h1>
+                @Model.Nombre
+                <span class="inv-pill">@(Model.RequiereNumeroSerie ? "Serializado" : "No serializado")</span>
+                @if (hayDiferencia)
                 {
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                       class="fi-btn fi-btn-ghost fi-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
-                        Gestionar unidades
-                    </a>
+                    <span class="inv-pill inv-pill--warning">Diferencia en stock</span>
                 }
-                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="fi-btn fi-btn-ghost fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
-                    Kardex completo
-                </a>
-                @if (puedeRegistrarMovimientos)
-                {
-                    <button type="button" data-ajuste-stock-open class="fi-btn fi-btn-soft fi-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
-                        Registrar ajuste
-                    </button>
-                }
-            </div>
+            </h1>
+            <p>Ficha de inventario · código @Model.Codigo</p>
         </div>
-
-        <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div class="card-erp-metric">
-                <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock</p>
-                <p class="mt-1 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
-                <p class="mt-0.5 text-xs text-slate-500">Valor lógico (agregado)</p>
-            </div>
+        <div class="inv-head__acciones">
             @if (Model.RequiereNumeroSerie)
             {
-                <div class="card-erp-metric">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Unidades</p>
-                    <p class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</p>
-                    <p class="mt-0.5 text-xs text-slate-500">Estado "En Stock"</p>
-                </div>
-                <div class="@(conciliacion.HayDiferencia ? "card-erp-metric-warning" : "card-erp-metric")">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500")">Diferencia</p>
-                    <p class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">
-                        @(conciliacion.HayDiferencia
-                            ? (conciliacion.DiferenciaStockVsUnidadesEnStock > 0
-                                ? $"+{conciliacion.DiferenciaStockVsUnidadesEnStock:G29}"
-                                : conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29"))
-                            : "OK")
-                    </p>
-                    <p class="mt-0.5 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-slate-500")">
-                        @(conciliacion.HayDiferencia ? "Stock vs unidades físicas" : "Trazabilidad completa")
-                    </p>
-                </div>
-                <div class="card-erp-metric">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Registradas</p>
-                    <p class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</p>
-                    <p class="mt-0.5 text-xs text-slate-500">Todos los estados</p>
-                </div>
+                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId" class="inv-btn inv-btn--ghost">Gestionar unidades</a>
             }
-            else
+            @if (User.TienePermiso("movimientos", "view"))
             {
-                <div class="card-erp-metric">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Movimientos</p>
-                    <p class="mt-1 text-2xl font-semibold text-white">@movs.Count</p>
-                    <p class="mt-0.5 text-xs text-slate-500">Registrados</p>
-                </div>
-                <div class="card-erp-metric">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
-                    <p class="mt-1 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
-                    <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
-                </div>
-                <div class="card-erp-metric">
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
-                    <p class="mt-1 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
-                    <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
-                </div>
+                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId" class="inv-btn inv-btn--ghost">Kardex completo</a>
+            }
+            @if (puedeRegistrarMovimientos)
+            {
+                <button type="button" data-ajuste-stock-open class="inv-btn inv-btn--primary">Registrar ajuste</button>
             }
         </div>
     </header>
 
-    @* ── TABS NAV ── *@
-    <nav class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur"
-         role="tablist" aria-label="Ficha de inventario">
-        <div class="flex overflow-x-auto" style="-ms-overflow-style:none;scrollbar-width:none;">
-            <button type="button"
-                    data-fi-tab="unidades"
-                    role="tab"
-                    aria-controls="fi-panel-unidades"
-                    aria-selected="@(tabInicial == "unidades" ? "true" : "false")"
-                    class="fi-tab-btn">
-                <span class="material-symbols-outlined" style="font-size:16px">@(Model.RequiereNumeroSerie ? "qr_code_2" : "add_box")</span>
-                @(Model.RequiereNumeroSerie ? "Unidades" : "Stock")
-                @if (Model.RequiereNumeroSerie)
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
+
+    <dl class="inv-panel inv-resumen" aria-label="Resumen de inventario">
+        <div><dt>Stock del producto</dt><dd>@Model.StockActual.ToString("G29")</dd></div>
+        @if (Model.RequiereNumeroSerie)
+        {
+            <div><dt>Unidades en stock</dt><dd>@conciliacion.UnidadesEnStock</dd></div>
+            <div>
+                <dt>Diferencia (stock − unidades)</dt>
+                <dd>
+                    @if (hayDiferencia)
+                    {
+                        <span class="inv-pill inv-pill--warning">@(diferencia > 0 ? "+" : "")@diferencia.ToString("G29")</span>
+                    }
+                    else
+                    {
+                        <span class="inv-text-ok">Sin diferencia</span>
+                    }
+                </dd>
+            </div>
+            <div><dt>Unidades registradas</dt><dd>@conciliacion.TotalUnidadesRegistradas</dd></div>
+        }
+        <div><dt>Entradas históricas</dt><dd class="inv-text-ok">+@totalEntradas.ToString("G29")</dd></div>
+        <div><dt>Salidas históricas</dt><dd class="inv-text-danger">@(totalSalidas > 0 ? "−" : "")@totalSalidas.ToString("G29")</dd></div>
+    </dl>
+
+    @if (hayDiferencia)
+    {
+        <div class="inv-aviso inv-aviso--atencion">
+            <p>
+                @if (diferencia > 0)
                 {
-                    <span class="ml-1 text-xs text-slate-600">@conciliacion.TotalUnidadesRegistradas</span>
+                    <text><strong>El stock supera en @diferencia.ToString("G29") a las unidades identificadas.</strong></text>
                 }
-            </button>
-            @if (!Model.RequiereNumeroSerie)
+                else
+                {
+                    <text><strong>Hay @Math.Abs(diferencia).ToString("G29") unidades en stock de más respecto del stock del producto.</strong> No cargues más unidades.</text>
+                }
+                Revisá los movimientos y los registros de las unidades antes de cambiar cantidades.
+                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId" asp-fragment="conciliar" class="inv-link">Revisar conciliación</a>
+            </p>
+        </div>
+    }
+
+    <div class="inv-tablist">
+        <div class="inv-tablist__pista" role="tablist" aria-label="Ficha de inventario">
+            @foreach (var tab in tabs)
             {
-                <button type="button"
-                        data-fi-tab="fisicas"
-                        role="tab"
-                        aria-controls="fi-panel-fisicas"
-                        aria-selected="@(tabInicial == "fisicas" ? "true" : "false")"
-                        class="fi-tab-btn">
-                    <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
-                    Unidades físicas
-                    <span class="ml-1 text-xs text-slate-600">@conciliacion.TotalUnidadesRegistradas</span>
+                var activa = tabInicial == tab.Clave;
+                <button type="button" role="tab" class="inv-tab" id="fi-tab-@tab.Clave"
+                        data-fi-tab="@tab.Clave" aria-controls="fi-panel-@tab.Clave"
+                        aria-selected="@(activa ? "true" : "false")" tabindex="@(activa ? "0" : "-1")">
+                    @tab.Texto
+                    @if (tab.Cantidad >= 0)
+                    {
+                        <span class="inv-tab-count">@tab.Cantidad</span>
+                    }
                 </button>
             }
-            <button type="button"
-                    data-fi-tab="movimientos"
-                    role="tab"
-                    aria-controls="fi-panel-movimientos"
-                    aria-selected="@(tabInicial == "movimientos" ? "true" : "false")"
-                    class="fi-tab-btn">
-                <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
-                Movimientos
-                <span class="ml-1 text-xs text-slate-600">@movs.Count</span>
-            </button>
         </div>
-    </nav>
+    </div>
 
-    @* ── TAB: UNIDADES ── *@
-    <section id="fi-panel-unidades" data-fi-panel="unidades" role="tabpanel"
-             class="space-y-4 @(tabInicial != "unidades" ? "hidden" : "")">
-
-        @if (!Model.RequiereNumeroSerie)
+    <section id="fi-panel-unidades" data-fi-panel="unidades" role="tabpanel" aria-labelledby="fi-tab-unidades"
+             class="inv-pila" hidden="@(tabInicial != "unidades")">
+        @if (Model.RequiereNumeroSerie)
         {
-            @* Producto no serializado: el stock es por cantidad. Form inline para sumar/ajustar
-               stock sin salir de la ficha (reusa el endpoint canónico MovimientoStock/Create). *@
-            @if (puedeRegistrarMovimientos)
-            {
-            <div class="fi-card p-5 sm:p-6">
-                <div class="flex items-start gap-3">
-                    <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">add_box</span>
-                    <div class="min-w-0">
-                        <h3 class="text-base font-semibold text-white">Agregar stock</h3>
-                        <p class="mt-0.5 text-xs text-slate-400">
-                            Este producto no usa número de serie: el stock se gestiona por cantidad.
-                            Cargá el movimiento acá mismo, sin pasar por la gestión de unidades.
-                        </p>
+            <div class="inv-panel inv-panel--tabla">
+                @if (!Model.Unidades.Any())
+                {
+                    <div class="inv-empty">
+                        <span class="material-symbols-outlined" aria-hidden="true">inbox</span>
+                        <p class="inv-empty__title">No hay unidades registradas para este producto</p>
+                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId" class="inv-link">Abrir la gestión de unidades</a>
                     </div>
+                }
+                else
+                {
+                    <partial name="_FichaUnidadesTabla" model="Model" />
+                }
+            </div>
+        }
+        else if (puedeRegistrarMovimientos)
+        {
+            @* Stock por cantidad: se registra sin salir de la ficha, contra el mismo endpoint que Movimientos. *@
+            <div class="inv-panel">
+                <div>
+                    <h2 class="inv-panel__titulo">Registrar un movimiento de stock</h2>
+                    <p class="inv-ayuda-texto">Este producto no usa número de serie: el stock se gestiona por cantidad. El movimiento queda en el Kardex.</p>
                 </div>
-
                 <form method="post" asp-controller="MovimientoStock" asp-action="Create"
-                      class="mt-4 space-y-4">
+                      data-ajuste-inline data-prevent-double-submit
+                      data-producto="@Model.Nombre" data-stock-actual="@Model.StockActual.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="RequestId" value="@(TheBuryProject.Controllers.MovimientoStockController.RequestIdParaFormulario(TempData))" />
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
                     <input type="hidden" name="ReturnUrl"
                            value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "movimientos" })" />
 
-                    <div class="grid gap-4 sm:grid-cols-3">
-                        <div>
-                            <label for="fi-stock-tipo" class="block text-xs font-semibold text-slate-300 mb-1.5">Tipo</label>
-                            <select id="fi-stock-tipo" name="Tipo" class="fi-input">
+                    <div class="inv-campos">
+                        <div class="inv-campo">
+                            <label for="fi-stock-tipo" class="inv-campo__etiqueta">Tipo</label>
+                            <select id="fi-stock-tipo" name="Tipo" class="inv-control">
                                 <option value="@TipoMovimiento.Entrada" selected>Entrada (+ suma)</option>
                                 <option value="@TipoMovimiento.Salida">Salida (− resta)</option>
                                 <option value="@TipoMovimiento.Ajuste">Ajuste (stock exacto)</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="fi-stock-cantidad" class="block text-xs font-semibold text-slate-300 mb-1.5">
-                                Cantidad <span class="text-red-400">*</span>
-                            </label>
-                            <input id="fi-stock-cantidad" name="Cantidad" type="number" min="0.01" step="0.01" required
-                                   class="fi-input" placeholder="0" />
+                        <div class="inv-campo">
+                            <label for="fi-stock-cantidad" class="inv-campo__etiqueta">Cantidad</label>
+                            <input id="fi-stock-cantidad" name="Cantidad" type="number" min="0.01" step="0.01" inputmode="decimal" required class="inv-control" />
                         </div>
-                        <div>
-                            <label for="fi-stock-motivo" class="block text-xs font-semibold text-slate-300 mb-1.5">
-                                Motivo <span class="text-red-400">*</span>
-                            </label>
-                            <input id="fi-stock-motivo" name="Motivo" type="text" maxlength="500" required
-                                   class="fi-input" placeholder="Ej: Compra a proveedor, inventario físico…" />
+                        <div class="inv-campo inv-campo--doble">
+                            <label for="fi-stock-motivo" class="inv-campo__etiqueta">Motivo</label>
+                            <input id="fi-stock-motivo" name="Motivo" type="text" maxlength="500" required class="inv-control" placeholder="Ej.: compra a proveedor, inventario físico" />
                         </div>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-                        <p class="text-xs text-slate-500">
-                            Stock actual: <strong class="text-slate-300 font-mono">@Model.StockActual.ToString("G29")</strong>.
-                            Queda registrado en el Kardex.
-                        </p>
-                        <div class="flex items-center gap-2">
-                            <button type="button" data-fi-tab-goto="movimientos" class="fi-btn fi-btn-ghost fi-btn-sm">
-                                <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
-                                Ver movimientos
-                            </button>
-                            <button type="submit" class="fi-btn fi-btn-primary fi-btn-sm">
-                                <span class="material-symbols-outlined" style="font-size:16px">add</span>
-                                Agregar stock
-                            </button>
-                        </div>
+                    <div class="inv-actions">
+                        <button type="submit" class="inv-btn inv-btn--primary">Registrar movimiento</button>
                     </div>
                 </form>
             </div>
-            }
         }
         else
         {
-            @if (conciliacion.HayDiferencia)
-            {
-                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-                    <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-amber-300">Diferencia detectada entre stock lógico y unidades físicas</p>
-                        <p class="mt-0.5 text-xs text-amber-200/70">
-                            Stock lógico: <strong>@Model.StockActual.ToString("G29")</strong> —
-                            Unidades en stock: <strong>@conciliacion.UnidadesEnStock</strong> —
-                            Diferencia: <strong>@(conciliacion.DiferenciaStockVsUnidadesEnStock > 0 ? "+" : "")@conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29")</strong>
-                        </p>
-                    </div>
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                       class="shrink-0 text-xs font-bold text-amber-300 hover:text-amber-100 underline underline-offset-2 whitespace-nowrap">
-                        Conciliar
-                    </a>
-                </div>
-            }
-
-            <div class="flex flex-wrap gap-2">
-                <span class="fi-chip fi-chip-neutral">
-                    Total: <strong class="ml-1">@Model.Unidades.Count</strong> @(Model.Unidades.Count != 1 ? "resultados" : "resultado")
-                </span>
-                @foreach (var r in Model.ResumenEstados)
-                {
-                    <span class="@EstChipCss(r.Estado)">@EstChipLbl(r.Estado) <strong class="ml-1">@r.Cantidad</strong></span>
-                }
-            </div>
-
-            <div class="fi-card overflow-hidden">
-                @if (!Model.Unidades.Any())
-                {
-                    <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
-                        <span class="material-symbols-outlined text-4xl text-slate-700">inbox</span>
-                        <p class="text-sm font-semibold text-slate-500">No hay unidades registradas para este producto.</p>
-                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                           class="text-xs font-bold text-blue-400 hover:underline">Ir a gestión de unidades para agregar</a>
-                    </div>
-                }
-                else
-                {
-                    @* Mobile: card list (< 640px) *@
-                    <ul class="divide-y divide-slate-800 fi-cards-mobile" aria-label="Unidades registradas">
-                        @foreach (var u in Model.Unidades)
-                        {
-                            <li class="px-4 py-3 flex items-start justify-between gap-3">
-                                <div class="flex flex-col gap-1 min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)u.Estado" />
-                                        <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
-                                    </div>
-                                    <span class="text-xs text-slate-400 font-mono">S/N: @(u.NumeroSerie ?? "—")</span>
-                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</span>
-                                </div>
-                                <a asp-controller="Producto" asp-action="UnidadHistorial"
-                                   asp-route-unidadId="@u.Id"
-                                   class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                   title="Ver historial de esta unidad">
-                                    <span class="material-symbols-outlined text-sm">history</span>
-                                </a>
-                            </li>
-                        }
-                    </ul>
-                    @* Desktop: table (≥ 640px) *@
-                    <div class="overflow-x-auto fi-tbl-wrapper">
-                        <table class="fi-tbl">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Estado</th>
-                                    <th scope="col">Código</th>
-                                    <th scope="col">N° serie</th>
-                                    <th scope="col">Ubicación</th>
-                                    <th scope="col">Ingreso</th>
-                                    <th scope="col" class="text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var u in Model.Unidades)
-                                {
-                                    <tr>
-                                        <td><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)u.Estado" /></td>
-                                        <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
-                                        <td class="font-mono text-xs text-slate-400">@(u.NumeroSerie ?? "—")</td>
-                                        <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
-                                        <td class="text-xs text-slate-400">@u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
-                                        <td class="text-right">
-                                            <a asp-controller="Producto" asp-action="UnidadHistorial"
-                                               asp-route-unidadId="@u.Id"
-                                               class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                               title="Ver historial de esta unidad">
-                                                <span class="material-symbols-outlined text-sm">history</span>
-                                                Historial
-                                            </a>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                <div class="border-t border-slate-800 px-5 py-3 flex items-center justify-between">
-                    <p class="text-xs text-slate-600">
-                        Vista de solo lectura. Para agregar, conciliar o gestionar unidades usá la página completa.
-                    </p>
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                       class="fi-btn fi-btn-ghost fi-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>
-                        Gestión completa
-                    </a>
-                </div>
-            </div>
+            <p class="inv-aviso inv-aviso--info">El stock de este producto se gestiona por cantidad. Tu usuario puede consultarlo, pero no registrar movimientos.</p>
         }
     </section>
 
-    @* ── TAB: UNIDADES FÍSICAS (solo no serializado) ── *@
     @if (!Model.RequiereNumeroSerie)
     {
-        var difStock = conciliacion.DiferenciaStockVsUnidadesEnStock;
-        var faltanUnidades = difStock > 0 ? (int)Math.Floor(difStock) : 0;
-
-        <section id="fi-panel-fisicas" data-fi-panel="fisicas" role="tabpanel"
-                 class="space-y-4 @(tabInicial != "fisicas" ? "hidden" : "")">
-
-            @if (conciliacion.HayDiferencia)
+        <section id="fi-panel-fisicas" data-fi-panel="fisicas" role="tabpanel" aria-labelledby="fi-tab-fisicas"
+                 class="inv-pila" hidden="@(tabInicial != "fisicas")">
+            @if (User.TienePermiso("productos", "edit"))
             {
-                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-                    <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-amber-300">Diferencia entre stock lógico y unidades físicas</p>
-                        <p class="mt-0.5 text-xs text-amber-200/70">
-                            Stock lógico: <strong>@Model.StockActual.ToString("G29")</strong> —
-                            Unidades físicas en stock: <strong>@conciliacion.UnidadesEnStock</strong> —
-                            Diferencia: <strong>@(difStock > 0 ? "+" : "")@difStock.ToString("G29")</strong>.
-                        </p>
-                        @if (faltanUnidades > 0)
-                        {
-                            @* Quick-fill explícito: setea la cantidad sugerida en el form, sin prellenarlo
-                               automáticamente (evita crear N unidades de un click accidental). *@
-                            <button type="button" data-fi-uf-fill="@faltanUnidades"
-                                    class="fi-btn fi-btn-sm mt-2" style="background:color-mix(in srgb, var(--pal-warning-500) 15%, transparent);color:var(--pal-warning-400);border-color:color-mix(in srgb, var(--pal-warning-500) 40%, transparent);">
-                                <span class="material-symbols-outlined" style="font-size:16px">balance</span>
-                                Conciliar: cargar @faltanUnidades unidad@(faltanUnidades != 1 ? "es" : "")
-                            </button>
-                        }
+                <div class="inv-panel">
+                    <div>
+                        <h2 class="inv-panel__titulo">Agregar unidades físicas</h2>
+                        <p class="inv-ayuda-texto">Crea unidades individuales sin número de serie, con código interno automático. <strong>No modifica el stock del producto.</strong></p>
                     </div>
+                    <form method="post" asp-controller="Producto" asp-action="AgregarUnidadesFisicasInline"
+                          data-uf-form data-producto="@Model.Nombre" data-prevent-double-submit>
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
+                        <input type="hidden" name="ReturnUrl"
+                               value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "fisicas" })" />
+
+                        <div class="inv-campos">
+                            <div class="inv-campo">
+                                <label for="fi-uf-cantidad" class="inv-campo__etiqueta">Cantidad</label>
+                                <input id="fi-uf-cantidad" name="Cantidad" type="number" min="1" step="1" max="200" inputmode="numeric" required class="inv-control" />
+                            </div>
+                            <div class="inv-campo">
+                                <label for="fi-uf-ubicacion" class="inv-campo__etiqueta">Ubicación <span class="inv-campo__requerido">(opcional)</span></label>
+                                <input id="fi-uf-ubicacion" name="UbicacionActual" type="text" maxlength="200" class="inv-control" placeholder="Ej.: depósito, estante A" />
+                            </div>
+                            <div class="inv-campo inv-campo--doble">
+                                <label for="fi-uf-obs" class="inv-campo__etiqueta">Observaciones <span class="inv-campo__requerido">(opcional)</span></label>
+                                <input id="fi-uf-obs" name="Observaciones" type="text" maxlength="500" class="inv-control" />
+                            </div>
+                        </div>
+
+                        <div class="inv-actions">
+                            <button type="submit" class="inv-btn inv-btn--primary">Agregar unidades</button>
+                        </div>
+                    </form>
                 </div>
             }
 
-            @* Alta directa de unidades físicas sin serie (reusa CrearUnidadesAsync vía endpoint inline). *@
-            <div class="fi-card p-5 sm:p-6">
-                <div class="flex items-start gap-3">
-                    <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">qr_code_2</span>
-                    <div class="min-w-0">
-                        <h3 class="text-base font-semibold text-white">Agregar unidades físicas</h3>
-                        <p class="mt-0.5 text-xs text-slate-400">
-                            Crea unidades físicas individuales (sin número de serie) para trazar por unidad.
-                            Es independiente del stock por cantidad: <strong class="text-slate-300">no modifica el stock lógico</strong>.
-                        </p>
-                    </div>
-                </div>
-
-                <form method="post" asp-controller="Producto" asp-action="AgregarUnidadesFisicasInline"
-                      class="mt-4 space-y-4" data-submit-fn="fiUfConfirm">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
-                    <input type="hidden" name="ReturnUrl"
-                           value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "fisicas" })" />
-
-                    <div class="grid gap-4 sm:grid-cols-3">
-                        <div>
-                            <label for="fi-uf-cantidad" class="block text-xs font-semibold text-slate-300 mb-1.5">
-                                Cantidad <span class="text-red-400">*</span>
-                            </label>
-                            <input id="fi-uf-cantidad" name="Cantidad" type="number" min="1" step="1" max="200" required
-                                   class="fi-input" placeholder="1" />
-                        </div>
-                        <div>
-                            <label for="fi-uf-ubicacion" class="block text-xs font-semibold text-slate-300 mb-1.5">Ubicación</label>
-                            <input id="fi-uf-ubicacion" name="UbicacionActual" type="text" maxlength="200"
-                                   class="fi-input" placeholder="Ej: Depósito, Estante A…" />
-                        </div>
-                        <div>
-                            <label for="fi-uf-obs" class="block text-xs font-semibold text-slate-300 mb-1.5">Observaciones</label>
-                            <input id="fi-uf-obs" name="Observaciones" type="text" maxlength="500"
-                                   class="fi-input" placeholder="Opcional" />
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-                        <p class="text-xs text-slate-500">
-                            Unidades físicas en stock: <strong class="text-slate-300 font-mono">@conciliacion.UnidadesEnStock</strong>.
-                            Cada unidad se numera automáticamente (código interno).
-                        </p>
-                        <div class="flex items-center gap-2">
-                            <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                               class="fi-btn fi-btn-ghost fi-btn-sm">
-                                <span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>
-                                Gestión completa
-                            </a>
-                            <button type="submit" class="fi-btn fi-btn-primary fi-btn-sm">
-                                <span class="material-symbols-outlined" style="font-size:16px">add</span>
-                                Agregar unidades
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            @* Listado de solo lectura de unidades físicas existentes. *@
-            <div class="fi-card overflow-hidden">
+            <div class="inv-panel inv-panel--tabla">
                 @if (!Model.Unidades.Any())
                 {
-                    <div class="flex flex-col items-center gap-3 px-5 py-10 text-center">
-                        <span class="material-symbols-outlined text-4xl text-slate-700">inbox</span>
-                        <p class="text-sm font-semibold text-slate-500">Todavía no hay unidades físicas registradas.</p>
-                        <p class="text-xs text-slate-600">Usá el formulario de arriba para crear las primeras.</p>
+                    <div class="inv-empty">
+                        <span class="material-symbols-outlined" aria-hidden="true">inbox</span>
+                        <p class="inv-empty__title">Todavía no hay unidades físicas registradas</p>
                     </div>
                 }
                 else
                 {
-                    <div class="flex flex-wrap gap-2 px-5 pt-4">
-                        <span class="fi-chip fi-chip-neutral">
-                            Total: <strong class="ml-1">@Model.Unidades.Count</strong> @(Model.Unidades.Count != 1 ? "unidades" : "unidad")
-                        </span>
-                        @foreach (var r in Model.ResumenEstados)
-                        {
-                            <span class="@EstChipCss(r.Estado)">@EstChipLbl(r.Estado) <strong class="ml-1">@r.Cantidad</strong></span>
-                        }
-                    </div>
-                    @* Mobile: card list (< 640px) *@
-                    <ul class="divide-y divide-slate-800 fi-cards-mobile mt-3" aria-label="Unidades físicas registradas">
-                        @foreach (var u in Model.Unidades)
-                        {
-                            <li class="px-4 py-3 flex items-start justify-between gap-3">
-                                <div class="flex flex-col gap-1 min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span>
-                                        <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
-                                    </div>
-                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</span>
-                                </div>
-                                <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
-                                   class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                   title="Ver historial de esta unidad">
-                                    <span class="material-symbols-outlined text-sm">history</span>
-                                </a>
-                            </li>
-                        }
-                    </ul>
-                    @* Desktop: table (≥ 640px) *@
-                    <div class="overflow-x-auto fi-tbl-wrapper mt-3">
-                        <table class="fi-tbl">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Estado</th>
-                                    <th scope="col">Código interno</th>
-                                    <th scope="col">Ubicación</th>
-                                    <th scope="col">Ingreso</th>
-                                    <th scope="col" class="text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var u in Model.Unidades)
-                                {
-                                    <tr>
-                                        <td><span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span></td>
-                                        <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
-                                        <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
-                                        <td class="text-xs text-slate-400">@u.FechaIngreso.AHoraComercial().ToString("dd/MM/yyyy")</td>
-                                        <td class="text-right">
-                                            <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
-                                               class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                                               title="Ver historial de esta unidad">
-                                                <span class="material-symbols-outlined text-sm">history</span>
-                                                Historial
-                                            </a>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                    <partial name="_FichaUnidadesTabla" model="Model" />
                 }
             </div>
         </section>
     }
 
-    @* ── TAB: MOVIMIENTOS ── *@
-    <section id="fi-panel-movimientos" data-fi-panel="movimientos" role="tabpanel"
-             class="space-y-4 @(tabInicial != "movimientos" ? "hidden" : "")">
-
-        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <div class="card-erp-metric">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">arrow_downward</span>
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
-                </div>
-                <p class="mt-2 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
-            </div>
-            <div class="card-erp-metric">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-red-400" style="font-size:20px">arrow_upward</span>
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
-                </div>
-                <p class="mt-2 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
-            </div>
-            <div class="card-erp-metric col-span-2 lg:col-span-1">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-slate-400" style="font-size:20px">inventory</span>
-                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock actual</p>
-                </div>
-                <p class="mt-2 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
-            </div>
-        </div>
-
-        <div class="fi-card overflow-hidden">
+    <section id="fi-panel-movimientos" data-fi-panel="movimientos" role="tabpanel" aria-labelledby="fi-tab-movimientos"
+             class="inv-pila" hidden="@(tabInicial != "movimientos")">
+        <div class="inv-panel inv-panel--tabla">
             @if (!movs.Any())
             {
-                <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
-                    <span class="material-symbols-outlined text-4xl text-slate-700">swap_vert</span>
-                    <p class="text-sm font-semibold text-slate-500">No hay movimientos registrados para este producto.</p>
+                <div class="inv-empty">
+                    <span class="material-symbols-outlined" aria-hidden="true">swap_vert</span>
+                    <p class="inv-empty__title">No hay movimientos registrados para este producto</p>
                     @if (puedeRegistrarMovimientos)
                     {
-                        <button type="button" data-ajuste-stock-open class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</button>
+                        <button type="button" data-ajuste-stock-open class="inv-link">Registrar el primer ajuste de stock</button>
                     }
                 </div>
             }
             else
             {
-                @* Mobile: card list (< 640px) *@
-                <ul class="divide-y divide-slate-800 fi-cards-mobile" aria-label="Historial de movimientos">
-                    @foreach (var m in movs)
-                    {
-                        var esEntrada = m.Tipo == TipoMovimiento.Entrada
-                            || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo > m.StockAnterior);
-                        var esSalida = m.Tipo == TipoMovimiento.Salida
-                            || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo < m.StockAnterior);
-                        var cantClass = esEntrada ? "col-in" : esSalida ? "col-out" : "col-adj";
-                        var cantPrefix = esEntrada ? "+" : esSalida ? "−" : "±";
-                        <li class="px-4 py-3 flex flex-col gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
-                                <span class="text-[11px] text-slate-500 tabular-nums">@m.Fecha.AHoraComercial().ToString("dd/MM/yy HH:mm")</span>
-                            </div>
-                            @if (m.Referencia != null || m.Motivo != null)
-                            {
-                                <div class="text-xs text-slate-400 leading-snug">
-                                    @if (m.Referencia != null) { <span class="text-slate-300">@m.Referencia</span> }
-                                    @if (m.Motivo != null) { <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span> }
-                                    @if (m.VentaCliente != null)
-                                    {
-                                        <span class="block text-slate-300 text-[11px]">@m.VentaCliente · <span class="text-slate-400">@m.VentaMedioPago</span></span>
-                                    }
-                                </div>
-                            }
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm @cantClass font-mono font-semibold">@cantPrefix@Math.Abs(m.Cantidad).ToString("G29")</span>
-                                <span class="text-xs text-slate-500">saldo <span class="text-slate-300 font-mono">@m.StockNuevo.ToString("G29")</span></span>
-                            </div>
-                            @if (m.CreatedBy != null) { <span class="text-[11px] text-slate-600">@m.CreatedBy</span> }
-                        </li>
-                    }
-                </ul>
-                @* Desktop: table (≥ 640px) *@
-                <div class="overflow-x-auto fi-tbl-wrapper">
-                    <table class="fi-tbl" style="min-width:640px">
+                <div class="inv-table-wrap" tabindex="0" role="region" aria-label="Historial de movimientos">
+                    <table class="inv-table inv-table--apilable">
                         <thead>
                             <tr>
                                 <th scope="col">Fecha</th>
-                                <th scope="col">Tipo</th>
-                                <th scope="col">Referencia / Motivo</th>
-                                <th scope="col" class="num">Cantidad</th>
-                                <th scope="col" class="num">Saldo</th>
+                                <th scope="col">Movimiento</th>
+                                <th scope="col" class="inv-col-num">Cantidad</th>
+                                <th scope="col" class="inv-col-num">Saldo</th>
                                 <th scope="col">Usuario</th>
                             </tr>
                         </thead>
@@ -743,62 +292,35 @@
                                     || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo > m.StockAnterior);
                                 var esSalida = m.Tipo == TipoMovimiento.Salida
                                     || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo < m.StockAnterior);
-                                var cantClass = esEntrada ? "col-in" : esSalida ? "col-out" : "col-adj";
-                                var cantPrefix = esEntrada ? "+" : esSalida ? "−" : "±";
+                                var signo = esEntrada ? "+" : esSalida ? "−" : "±";
+                                var referencia = ReferenciaStockUi.Legible(m.Referencia);
                                 <tr>
-                                    <td class="text-xs text-slate-400 whitespace-nowrap">
-                                        @m.Fecha.AHoraComercial().ToString("dd/MM/yy HH:mm")
-                                    </td>
-                                    <td>
-                                        <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
-                                    </td>
-                                    <td class="text-xs text-slate-400 max-w-70">
-                                        @if (m.Referencia != null)
+                                    <th scope="row">
+                                        @m.Fecha.AHoraComercial().ToString("dd/MM/yyyy")
+                                        <p class="inv-ayuda-texto">@m.Fecha.AHoraComercial().ToString("HH:mm")</p>
+                                    </th>
+                                    <td data-label="Movimiento" class="inv-celda-detalle">
+                                        <strong>@LblMov(m.Tipo)</strong>@(referencia is null ? "" : " · " + referencia)
+                                        @if (!string.IsNullOrWhiteSpace(m.Motivo))
                                         {
-                                            <span class="text-slate-300">@m.Referencia</span>
-                                        }
-                                        @if (m.Motivo != null)
-                                        {
-                                            <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span>
+                                            <p class="inv-ayuda-texto">@m.Motivo</p>
                                         }
                                         @if (m.VentaCliente != null)
                                         {
-                                            <span class="block text-slate-300 text-[11px]">@m.VentaCliente · <span class="text-slate-400">@m.VentaMedioPago</span></span>
-                                        }
-                                        @if (m.Referencia == null && m.Motivo == null)
-                                        {
-                                            <span>—</span>
+                                            <p class="inv-ayuda-texto">@m.VentaCliente · @m.VentaMedioPago</p>
                                         }
                                     </td>
-                                    <td class="num @cantClass font-mono">
-                                        @cantPrefix@Math.Abs(m.Cantidad).ToString("G29")
-                                    </td>
-                                    <td class="num text-slate-300 font-mono">
-                                        @m.StockNuevo.ToString("G29")
-                                    </td>
-                                    <td class="text-xs text-slate-400">
-                                        @(m.CreatedBy ?? "—")
-                                    </td>
+                                    <td data-label="Cantidad" class="inv-col-num"><span class="@(esEntrada ? "inv-text-ok" : esSalida ? "inv-text-danger" : null)">@signo@Math.Abs(m.Cantidad).ToString("G29")</span></td>
+                                    <td data-label="Saldo" class="inv-col-num"><span class="inv-importe">@m.StockNuevo.ToString("G29")</span></td>
+                                    <td data-label="Usuario">@(m.CreatedBy ?? "—")</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             }
-            <div class="border-t border-slate-800 px-5 py-3 flex items-center justify-between">
-                <p class="text-xs text-slate-600">
-                    @movs.Count movimiento@(movs.Count != 1 ? "s" : "") registrado@(movs.Count != 1 ? "s" : "").
-                    Kardex completo incluye gráfico, filtros y valorización.
-                </p>
-                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="fi-btn fi-btn-ghost fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
-                    Kardex completo
-                </a>
-            </div>
         </div>
     </section>
-
 </div>
 
 @* Ruta completa: desde Views/Producto/, un nombre corto solo buscaría en
@@ -822,53 +344,5 @@
 
 @section Scripts {
     <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
-<script>
-(function () {
-    var btns   = document.querySelectorAll('[data-fi-tab]');
-    var panels = {};
-    document.querySelectorAll('[data-fi-panel]').forEach(function (p) {
-        panels[p.getAttribute('data-fi-panel')] = p;
-    });
-
-    function activateTab(name) {
-        btns.forEach(function (b) { b.setAttribute('aria-selected', 'false'); });
-        Object.values(panels).forEach(function (p) { p.classList.add('hidden'); });
-        var btn = document.querySelector('[data-fi-tab="' + name + '"]');
-        if (btn) btn.setAttribute('aria-selected', 'true');
-        if (panels[name]) panels[name].classList.remove('hidden');
-    }
-
-    btns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            activateTab(btn.getAttribute('data-fi-tab'));
-        });
-    });
-
-    document.querySelectorAll('[data-fi-tab-goto]').forEach(function (el) {
-        el.addEventListener('click', function () {
-            activateTab(el.getAttribute('data-fi-tab-goto'));
-        });
-    });
-
-    // Quick-fill de conciliación: setea la cantidad sugerida sin enviar el form.
-    document.querySelectorAll('[data-fi-uf-fill]').forEach(function (el) {
-        el.addEventListener('click', function () {
-            var input = document.getElementById('fi-uf-cantidad');
-            if (!input) return;
-            input.value = el.getAttribute('data-fi-uf-fill');
-            input.focus();
-            input.scrollIntoView({ block: 'center' });
-        });
-    });
-})();
-
-// Guard de creación en lote: confirmación solo cuando se crean 2+ unidades
-// (1 unidad = sin fricción). Las unidades no se borran en lote desde esta pantalla.
-function fiUfConfirm(form) {
-    var input = form.querySelector('#fi-uf-cantidad');
-    var n = parseInt(input && input.value, 10);
-    if (!n || n < 2) return true; // 1 unidad o inválido: deja actuar a la validación nativa/servidor
-    return window.confirm('Vas a crear ' + n + ' unidades físicas individuales. No se pueden borrar en lote desde esta pantalla. ¿Continuar?');
-}
-</script>
+    <script src="~/js/ficha-inventario.js" asp-append-version="true"></script>
 }

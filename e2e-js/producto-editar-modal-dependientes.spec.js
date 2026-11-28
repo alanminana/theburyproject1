@@ -48,20 +48,21 @@ function html() {
     return `<!doctype html><html><head><meta charset="utf-8"><style>.hidden{display:none}</style></head><body>
 <table><tr><td data-prod-nombre>Producto</td><td><button type="button" data-prod-edit-id="7">Editar 7</button>
 <button type="button" data-prod-edit-id="8">Editar 8</button></td></tr></table>
-<div id="modal-editar-producto" class="hidden">
+<dialog id="modal-editar-producto">
   <div id="prod-edit-validation-summary" class="hidden"><span id="prod-edit-validation-text"></span></div>
   <form id="form-editar-producto" method="post" action="/Producto/EditAjax/0">
     ${campos}
     <button type="button" data-prod-edit-modal-close>Cerrar</button>
     <button type="submit" id="btn-guardar-producto-edit">Guardar cambios</button>
   </form>
-</div>
+</dialog>
 <script>
   window.CatalogoData = { categorias: [{id:1,nombre:'Cat 1'},{id:2,nombre:'Cat 2'}],
                           marcas: [{id:10,nombre:'Marca 10'},{id:20,nombre:'Marca 20'},{id:30,nombre:'Marca 30'}] };
   window.ProductoModalTabs = { wire: function () { return { activate: function () {}, findTabForField: function () { return null; } }; } };
   window.ProductoCreditoPersonalUI = { renderCards: function () {}, aplicarModo: function () {}, wireModo: function () {} };
 </script>
+<script src="${ORIGIN}/inventario-ui.js"></script>
 <script src="${ORIGIN}/producto-modal-validacion.js"></script>
 <script src="${ORIGIN}/producto-editar-modal.js"></script>
 </body></html>`;
@@ -103,8 +104,9 @@ async function preparar(page, cfg = {}) {
         const p = new URL(req.url()).pathname;
         if (p === '/') return route.fulfill({ contentType: 'text/html; charset=utf-8', body: html() });
         if (p === '/producto-editar-modal.js') return route.fulfill({ contentType: 'text/javascript; charset=utf-8', body: fs.readFileSync(JS_PATH, 'utf8') });
-        if (p === '/producto-modal-validacion.js') {
-            return route.fulfill({ contentType: 'text/javascript; charset=utf-8', body: fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'producto-modal-validacion.js'), 'utf8') });
+        // Dependencias reales del modal: el componente compartido (_Layout lo carga en Inventario) y la validación.
+        if (p === '/inventario-ui.js' || p === '/producto-modal-validacion.js') {
+            return route.fulfill({ contentType: 'text/javascript; charset=utf-8', body: fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', p.slice(1)), 'utf8') });
         }
         if (req.method() === 'POST') {
             posts.push({ url: p, body: req.postData() || '' });

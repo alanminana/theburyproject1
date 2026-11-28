@@ -1,0 +1,35 @@
+@model TheBuryProject.ViewModels.AlertaStockViewModel
+@using TheBuryProject.Models.Enums
+@{
+    // Acciones de una alerta en los listados. Cada POST exige stock.adjust en AlertaStockController.
+    var volver = ViewData["VolverA"] as string ?? $"{Context.Request.Path}{Context.Request.QueryString}";
+    var version = Model.RowVersion != null ? Convert.ToBase64String(Model.RowVersion) : null;
+}
+@if (User.TienePermiso("stock", "adjust") && AlertaStockUi.EstaActiva(Model.Estado))
+{
+    <form asp-controller="AlertaStock" asp-action="Resolver" method="post" data-prevent-double-submit data-inv-confirm="@AlertaStockUi.ConfirmarResolver(Model)">
+        <input type="hidden" name="id" value="@Model.Id" />
+        <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+        <input type="hidden" name="returnUrl" value="@volver" />
+        <button type="submit" class="inv-btn inv-btn--ghost inv-btn--sm" aria-label="Resolver la alerta de @Model.ProductoNombre">Resolver</button>
+    </form>
+    @if (Model.Estado == EstadoAlerta.Pendiente)
+    {
+        <form asp-controller="AlertaStock" asp-action="MarcarEnProceso" method="post" data-prevent-double-submit>
+            <input type="hidden" name="id" value="@Model.Id" />
+            <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+            <input type="hidden" name="returnUrl" value="@volver" />
+            <button type="submit" class="inv-icon-btn" aria-label="Marcar en proceso la alerta de @Model.ProductoNombre" title="Marcar en proceso">
+                <span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span>
+            </button>
+        </form>
+    }
+    <form asp-controller="AlertaStock" asp-action="Ignorar" method="post" data-prevent-double-submit data-inv-confirm="@AlertaStockUi.ConfirmarIgnorar(Model)">
+        <input type="hidden" name="id" value="@Model.Id" />
+        <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+        <input type="hidden" name="returnUrl" value="@volver" />
+        <button type="submit" class="inv-icon-btn" aria-label="Ignorar la alerta de @Model.ProductoNombre" title="Ignorar">
+            <span class="material-symbols-outlined" aria-hidden="true">do_not_disturb_on</span>
+        </button>
+    </form>
+}

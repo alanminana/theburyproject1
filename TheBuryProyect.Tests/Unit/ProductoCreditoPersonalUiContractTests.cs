@@ -9,7 +9,7 @@ namespace TheBuryProject.Tests.Unit;
 public class ProductoCreditoPersonalUiContractTests
 {
     private static string LeerCatalogoIndex() =>
-        File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Catalogo", "Index_tw.cshtml"));
+        TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer();
 
     private static string LeerJsCompartido() =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "producto-credito-personal-ui.js"));

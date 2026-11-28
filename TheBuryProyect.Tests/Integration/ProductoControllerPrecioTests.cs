@@ -1070,11 +1070,18 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("Baja", html);
         Assert.Contains("Devueltas", html);
         Assert.Contains("Reservadas", html);
-        Assert.Contains("En reparacion", html);
+        Assert.Contains("En reparación", html);
         Assert.Contains("Conciliado", html);
-        Assert.Contains("conciliacion.HayDiferencia", html);
-        Assert.Contains("Comparacion entre stock del producto y unidades fisicas disponibles", html);
-        Assert.Contains("Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.", html);
+        // Solo se compara cuando el producto exige identificar cada unidad.
+        Assert.Contains("comparaUnidades && conciliacion.HayDiferencia", html);
+        Assert.Contains("Comparación entre stock del producto y unidades físicas disponibles", html);
+        Assert.Contains("su stock no se compara con las unidades cargadas", html);
+        // Sin recomendación automática; con más unidades que stock nunca se sugiere crear más.
+        Assert.DoesNotContain("Recomendado", html);
+        Assert.DoesNotContain("Crear unidades fisicas faltantes", html);
+        Assert.DoesNotContain("Crear unidades físicas faltantes", html);
+        Assert.Contains("No corresponde crear más unidades", html);
+        Assert.Contains("puedeGestionarUnidades && diferenciaPositiva", html);
         Assert.DoesNotContain("Total unidades activas", html);
         Assert.Contains("asp-controller=\"MovimientoStock\" asp-action=\"Kardex\"", html);
         Assert.Contains("asp-controller=\"Catalogo\" asp-action=\"Index\"", html);
@@ -1083,7 +1090,7 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("AjustarStockAgregadoAUnidadesFisicas", html);
         Assert.Contains("AjustarStockAgregadoHaciaAbajo", html);
         Assert.Contains("id=\"adjust-panel\"", html);
-        Assert.Contains("name=\"reso\" value=\"3\"", html);
+        Assert.Contains("data-inv-confirm=\"@confirmacionAjuste\"", html);
         Assert.Contains("name=\"ProductoId\" value=\"@conciliacion.ProductoId\"", html);
         Assert.Contains("name=\"Motivo\" maxlength=\"500\" required", html);
     }

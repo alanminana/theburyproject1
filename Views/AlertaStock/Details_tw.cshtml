@@ -2,222 +2,90 @@
 @using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Detalle de Alerta";
-    var prioridadBadge = Model.Prioridad switch
-    {
-        PrioridadAlerta.Critica => "badge-erp badge-erp-danger",
-        PrioridadAlerta.Alta    => "badge-erp badge-erp-warning",
-        PrioridadAlerta.Media   => "badge-erp badge-erp-info",
-        _                       => "badge-erp"
-    };
-    var tipoBadge = Model.Tipo switch
-    {
-        TipoAlertaStock.StockAgotado  => "badge-erp badge-erp-danger",
-        TipoAlertaStock.StockCritico  => "badge-erp badge-erp-warning",
-        TipoAlertaStock.StockBajo     => "badge-erp badge-erp-info",
-        _                             => "badge-erp"
-    };
-    var estadoBadge = Model.Estado switch
-    {
-        EstadoAlerta.Pendiente  => "badge-erp badge-erp-warning",
-        EstadoAlerta.EnProceso  => "badge-erp badge-erp-info",
-        EstadoAlerta.Resuelta   => "badge-erp badge-erp-success",
-        EstadoAlerta.Ignorada   => "badge-erp",
-        _                       => "badge-erp"
-    };
-    var estaActiva = Model.Estado == EstadoAlerta.Pendiente || Model.Estado == EstadoAlerta.EnProceso;
+    var tipo = AlertaStockUi.Tipo(Model.Tipo);
+    var estado = AlertaStockUi.Estado(Model.Estado);
+    var activa = AlertaStockUi.EstaActiva(Model.Estado);
+    var volver = ViewData["ReturnUrl"] as string ?? Url.Action("Index", "Catalogo", new { tab = "alertas" });
+    var aqui = Url.Action("Details", "AlertaStock", new { id = Model.Id });
+    var version = Model.RowVersion != null ? Convert.ToBase64String(Model.RowVersion) : null;
 }
 
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="inv-screen inv-screen--form inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a href="@volver" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Volver</a>
+            <h1>@Model.ProductoNombre <span class="@estado.Clase">@estado.Texto</span></h1>
+            <p>@Model.ProductoCodigo · @Model.CategoriaNombre@(string.IsNullOrEmpty(Model.MarcaNombre) ? "" : " · " + Model.MarcaNombre)</p>
+        </div>
+        <div class="inv-head__acciones">
+            <a asp-action="PorProducto" asp-route-id="@Model.ProductoId" class="inv-btn inv-btn--ghost">Alertas del producto</a>
+        </div>
+    </header>
 
-    <div class="hero-erp sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div class="flex-1 min-w-0">
-                <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
-                    <a asp-action="Index" class="hover:text-slate-200 transition-colors">Alertas de Stock</a>
-                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-                    <span class="text-slate-200">Detalle #@Model.Id</span>
-                </nav>
-                <div class="flex items-center gap-3 flex-wrap">
-                    <h1 class="text-xl sm:text-2xl font-bold text-slate-100">@Model.ProductoNombre</h1>
-                    <span class="@tipoBadge">@Model.TipoDescripcion</span>
-                    <span class="@prioridadBadge">@Model.PrioridadDescripcion</span>
-                    <span class="@estadoBadge">@Model.EstadoDescripcion</span>
-                    @if (Model.NotificacionUrgente)
-                    {
-                        <span class="badge-erp badge-erp-danger">URGENTE</span>
-                    }
-                </div>
-                <p class="mt-1 text-sm text-slate-400">@Model.ProductoCodigo · @Model.CategoriaNombre@(!string.IsNullOrEmpty(Model.MarcaNombre) ? " · " + Model.MarcaNombre : "")</p>
-            </div>
-            <div class="flex flex-wrap gap-2 shrink-0">
-                <a href="@(ViewData["ReturnUrl"] as string ?? Url.Action("Index"))" class="btn-erp-ghost">
-                    <span class="material-symbols-outlined text-base">arrow_back</span>
-                    Volver
-                </a>
-                <a asp-action="PorProducto" asp-route-id="@Model.ProductoId" class="btn-erp-ghost">
-                    <span class="material-symbols-outlined text-base">history</span>
-                    Historial del producto
-                </a>
-            </div>
-        </div>
-    </div>
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>@TempData["Success"]
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
-        </div>
-    }
-
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="card-erp-metric @(Model.StockActual <= 0 ? "card-erp-metric-danger" : "card-erp-metric-warning")">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Stock actual</p>
-            <p class="mt-1 text-2xl font-bold @(Model.StockActual <= 0 ? "text-red-400" : "text-amber-400")">@Model.StockActual.ToString("N0")</p>
-        </div>
-        <div class="card-erp-metric">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Stock mínimo</p>
-            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.StockMinimo.ToString("N0")</p>
-        </div>
-        <div class="card-erp-metric @(Model.PorcentajeStockMinimo < 50 ? "card-erp-metric-danger" : "")">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">% del mínimo</p>
-            <p class="mt-1 text-2xl font-bold @(Model.PorcentajeStockMinimo < 50 ? "text-red-400" : "text-slate-100")">@Model.PorcentajeStockMinimo.ToString("N0")%</p>
-        </div>
-        @if (Model.CantidadSugeridaReposicion.HasValue)
+    <section class="inv-panel" aria-label="Detalle de la alerta">
+        <p>
+            <span class="@tipo.Clase">@tipo.Texto</span>
+            <span class="inv-pill">Prioridad @AlertaStockUi.Prioridad(Model.Prioridad).Texto.ToLowerInvariant()</span>
+            @if (Model.NotificacionUrgente && activa)
+            {
+                <span class="inv-pill inv-pill--danger">Urgente</span>
+            }
+        </p>
+        <p>@Model.Mensaje</p>
+        <dl class="inv-resumen">
+            <div><dt>Stock actual</dt><dd class="@(Model.StockActual <= 0 ? "inv-text-danger" : null)">@Model.StockActual.ToString("N0")</dd></div>
+            <div><dt>Stock mínimo</dt><dd>@Model.StockMinimo.ToString("N0")</dd></div>
+            @if (Model.CantidadSugeridaReposicion.HasValue)
+            {
+                <div><dt>Reposición sugerida</dt><dd>@Model.CantidadSugeridaReposicion.Value.ToString("N0")</dd></div>
+            }
+            <div><dt>Generada</dt><dd>@Model.FechaAlerta.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</dd></div>
+            @if (Model.FechaResolucion.HasValue)
+            {
+                <div><dt>Cerrada</dt><dd>@Model.FechaResolucion.Value.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</dd></div>
+                <div><dt>Cerrada por</dt><dd>@(Model.UsuarioResolucion ?? "—")</dd></div>
+            }
+        </dl>
+        @if (!string.IsNullOrEmpty(Model.Observaciones))
         {
-            <div class="card-erp-metric">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Reposición sugerida</p>
-                <p class="mt-1 text-2xl font-bold text-amber-400">@Model.CantidadSugeridaReposicion.Value.ToString("N0")</p>
-            </div>
+            <p class="inv-aviso inv-aviso--info"><strong>Observaciones:</strong> @Model.Observaciones</p>
         }
-        else
-        {
-            <div class="card-erp-metric">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Días desde alerta</p>
-                <p class="mt-1 text-2xl font-bold @(Model.DiasDesdeAlerta > 7 ? "text-amber-400" : "text-slate-100")">@Model.DiasDesdeAlerta</p>
-            </div>
-        }
-    </div>
+    </section>
 
-    <div class="grid gap-6 lg:grid-cols-3">
-
-        <div class="lg:col-span-2 space-y-6">
-            <section class="card-erp-panel-padded space-y-3">
-                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">info</span>
-                    Detalle de la alerta
-                </h2>
-                <div class="rounded-lg bg-slate-800/50 border border-slate-700 px-4 py-3 text-sm text-slate-300">
-                    @Model.Mensaje
+    @if (activa && User.TienePermiso("stock", "adjust"))
+    {
+        <section class="inv-panel" aria-labelledby="alerta-acciones">
+            <h2 id="alerta-acciones" class="inv-panel__titulo">Cerrar la alerta</h2>
+            <p class="inv-ayuda-texto">Ninguna de estas acciones modifica el stock.</p>
+            <form id="form-resolver-alerta" asp-action="Resolver" method="post" data-prevent-double-submit>
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+                <input type="hidden" name="returnUrl" value="@aqui" />
+                <div class="inv-campo">
+                    <label class="inv-campo__etiqueta" for="alerta-observaciones">Observaciones <span class="inv-campo__requerido">(opcional)</span></label>
+                    <textarea id="alerta-observaciones" name="observaciones" rows="2" maxlength="1000" class="inv-control"></textarea>
                 </div>
-                <div class="grid gap-3 sm:grid-cols-2 text-sm">
-                    <div>
-                        <p class="text-xs text-slate-400 mb-0.5">Fecha de alerta</p>
-                        <p class="text-slate-100">@Model.FechaAlerta.ToString("dd/MM/yyyy HH:mm")</p>
-                    </div>
-                    @if (Model.FechaResolucion.HasValue)
-                    {
-                        <div>
-                            <p class="text-xs text-slate-400 mb-0.5">Fecha resolución</p>
-                            <p class="text-slate-100">@Model.FechaResolucion.Value.ToString("dd/MM/yyyy HH:mm")</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-slate-400 mb-0.5">Resuelto por</p>
-                            <p class="text-slate-100">@(Model.UsuarioResolucion ?? "—")</p>
-                        </div>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.Observaciones))
-                    {
-                        <div class="sm:col-span-2">
-                            <p class="text-xs text-slate-400 mb-0.5">Observaciones</p>
-                            <p class="text-slate-300">@Model.Observaciones</p>
-                        </div>
-                    }
-                </div>
-            </section>
-        </div>
-
-        @if (estaActiva && User.TienePermiso("stock", "adjust"))
-        {
-            <div class="space-y-4">
+            </form>
+            <div class="inv-actions">
+                <form asp-action="Ignorar" method="post" data-prevent-double-submit data-inv-confirm="@AlertaStockUi.ConfirmarIgnorar(Model)">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+                    <input type="hidden" name="returnUrl" value="@aqui" />
+                    <button type="submit" class="inv-btn inv-btn--ghost">Ignorar</button>
+                </form>
                 @if (Model.Estado == EstadoAlerta.Pendiente)
                 {
-                    <section class="card-erp-panel-padded space-y-3">
-                        <h2 class="font-semibold text-sky-400 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-xl">hourglass_top</span>
-                            Marcar en proceso
-                        </h2>
-                        <p class="text-xs text-slate-400">
-                            Saca la alerta de "urgente" sin resolverla, para retomarla más tarde. Queda visible filtrando por Estado "En proceso".
-                        </p>
-                        <form asp-action="MarcarEnProceso" method="post" class="space-y-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@Model.Id" />
-                            @if (Model.RowVersion != null)
-                            {
-                                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-                            }
-                            <input type="hidden" name="returnUrl" value="/AlertaStock/Details/@Model.Id" />
-                            <button type="submit" class="btn-erp-ghost w-full">
-                                <span class="material-symbols-outlined text-base">hourglass_top</span>
-                                Marcar en proceso
-                            </button>
-                        </form>
-                    </section>
+                    <form asp-action="MarcarEnProceso" method="post" data-prevent-double-submit>
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <input type="hidden" name="rowVersion" value="@version" disabled="@(version == null)" />
+                        <input type="hidden" name="returnUrl" value="@aqui" />
+                        <button type="submit" class="inv-btn inv-btn--ghost">Marcar en proceso</button>
+                    </form>
                 }
-
-                <section class="card-erp-panel-padded space-y-3">
-                    <h2 class="font-semibold text-emerald-400 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-xl">check_circle</span>
-                        Resolver
-                    </h2>
-                    <form asp-action="Resolver" method="post" class="space-y-3">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        @if (Model.RowVersion != null)
-                        {
-                            <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-                        }
-                        <input type="hidden" name="returnUrl" value="/AlertaStock/Details/@Model.Id" />
-                        <textarea name="observaciones" rows="2" placeholder="Observaciones (opcional)..."
-                                  class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"></textarea>
-                        <button type="submit" class="btn-erp-success w-full">
-                            <span class="material-symbols-outlined text-base">check</span>
-                            Marcar como resuelta
-                        </button>
-                    </form>
-                </section>
-
-                <section class="card-erp-panel-padded space-y-3">
-                    <h2 class="font-semibold text-slate-400 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-xl">do_not_disturb</span>
-                        Ignorar
-                    </h2>
-                    <form asp-action="Ignorar" method="post" class="space-y-3">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        @if (Model.RowVersion != null)
-                        {
-                            <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-                        }
-                        <input type="hidden" name="returnUrl" value="/AlertaStock/Details/@Model.Id" />
-                        <textarea name="observaciones" rows="2" placeholder="Motivo (opcional)..."
-                                  class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500/50"></textarea>
-                        <button type="submit" class="btn-erp-ghost w-full"
-                                data-confirm="¿Ignorar esta alerta?">
-                            <span class="material-symbols-outlined text-base">do_not_disturb</span>
-                            Ignorar alerta
-                        </button>
-                    </form>
-                </section>
+                <button type="submit" form="form-resolver-alerta" class="inv-btn inv-btn--primary">Marcar como resuelta</button>
             </div>
-        }
-
-    </div>
-
+        </section>
+    }
 </div>

@@ -3,11 +3,8 @@
     ViewData["Title"] = "Movimientos de Stock";
 }
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-}
 
-<div class="space-y-6">
+<div class="inv-screen inv-page">
 
     @if (TempData["Success"] != null)
     {
@@ -23,21 +20,15 @@
     }
 
     <h1 class="sr-only">Movimientos de stock</h1>
-    <div class="flex flex-wrap justify-end gap-2">
-        <button type="button" data-ajuste-stock-open
-                class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-            <span class="material-symbols-outlined text-base">add</span>
-            Registrar ajuste
-        </button>
-    </div>
-
-    <!-- Banner SKU -->
-    <div class="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 px-5 py-3">
-        <span class="material-symbols-outlined text-blue-400 mt-0.5 shrink-0">info</span>
-        <p class="text-sm text-blue-100/90">
-            Este listado muestra movimientos por SKU/producto. No identifica unidades físicas individuales ni trazabilidad serial.
-        </p>
-    </div>
+    @if (User.TienePermiso("movimientos", "create"))
+    {
+        <div class="inv-actions">
+            <button type="button" data-ajuste-stock-open class="inv-btn inv-btn--primary">
+                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                Registrar ajuste
+            </button>
+        </div>
+    }
 
     @await Html.PartialAsync("_MovimientoStockListadoPartial", new TheBuryProject.ViewModels.MovimientoStockListadoPartialViewModel
     {
@@ -49,20 +40,17 @@
 
 </div>
 
-@await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
+@if (User.TienePermiso("movimientos", "create"))
 {
-    Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel { ReturnUrl = Url.Action("Index", "MovimientoStock") },
-    ProductoBloqueado = false,
-    Productos = ViewBag.ProductosActivosParaAjuste,
-    Tipos = ViewBag.Tipos
-})
+    @await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
+    {
+        Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel { ReturnUrl = Url.Action("Index", "MovimientoStock") },
+        ProductoBloqueado = false,
+        Productos = ViewBag.ProductosActivosParaAjuste,
+        Tipos = ViewBag.Tipos
+    })
+}
 
 @section Scripts {
-    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
-    <script>
-        document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
-            window.TheBury?.initHorizontalScrollAffordance?.(root);
-        });
-    </script>
 }

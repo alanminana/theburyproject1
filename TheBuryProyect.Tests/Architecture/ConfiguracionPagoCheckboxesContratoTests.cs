@@ -71,7 +71,7 @@ public class ConfiguracionPagoCheckboxesContratoTests
     {
         // H-34: los modales de Producto (alta y edición) y de Marca (edición) enviaban el formulario con FormData: un switch
         // «Activo» desmarcado no se envía y el modelo asume true, así que nunca se podía desactivar desde el modal.
-        var lineas = File.ReadAllLines(Path.Combine(Raiz(), "Views", "Catalogo", "Index_tw.cshtml"));
+        var lineas = TheBuryProject.Tests.Infrastructure.CatalogoVista.Leer().Split('\n');
         var indices = lineas.Select((l, i) => (l, i)).Where(x => Regex.IsMatch(x.l, "<input [^>]*name=\"Activo\"[^>]*type=\"checkbox\"")).Select(x => x.i).ToList();
         Assert.True(indices.Count >= 3);
         foreach (var i in indices)

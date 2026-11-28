@@ -1,110 +1,56 @@
 @model TheBuryProject.ViewModels.AutorizarBatchViewModel
-@using TheBuryProject.Models.Enums
 @{
-    ViewData["Title"] = "Autorizar Simulación";
-    var signo = Model.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
+    ViewData["Title"] = "Autorizar lote";
 }
 
-<div class="max-w-2xl mx-auto space-y-6">
-
-    <div class="flex items-center gap-3">
-        <a asp-action="Preview" asp-route-id="@Model.BatchId" class="text-slate-400 hover:text-slate-200 transition-colors">
-            <span class="material-symbols-outlined text-xl">arrow_back</span>
-        </a>
-        <div>
-            <h1 class="text-2xl font-bold text-slate-100">Autorizar Simulación</h1>
-            <p class="text-sm text-slate-400">Aprobá o rechazá el batch de cambio de precios.</p>
+<div class="inv-screen inv-screen--form inv-page">
+    <header class="inv-head">
+        <div class="inv-head__titulo">
+            <a asp-action="Preview" asp-route-id="@Model.BatchId" class="inv-crumb"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Volver al lote</a>
+            <h1>Autorizar «@Model.Nombre»</h1>
+            <p>Aprobar no cambia precios: deja el lote listo para aplicarlo.</p>
         </div>
-    </div>
+    </header>
 
-    @if (TempData["Error"] != null)
-    {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
-        </div>
-    }
+    <partial name="~/Views/CambiosPrecios/_LoteAvisos.cshtml" />
 
-    <section class="card-erp-panel-padded space-y-4">
-        <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary text-xl">info</span>
-            Detalle del batch
-        </h2>
-        <div class="grid gap-3 sm:grid-cols-2 text-sm">
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Nombre</p>
-                <p class="text-slate-100 font-medium">@Model.Nombre</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Tipo de cambio</p>
-                <p class="text-slate-100">@Model.TipoCambio</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Valor</p>
-                <p class="text-slate-100 font-semibold">@Model.ValorCambio.ToString("N2")@signo</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Productos afectados</p>
-                <p class="text-slate-100">@Model.CantidadProductos</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Solicitado por</p>
-                <p class="text-slate-100">@Model.SolicitadoPor</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 mb-0.5">Fecha solicitud</p>
-                <p class="text-slate-100">@Model.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</p>
-            </div>
-        </div>
-    </section>
+    <dl class="inv-panel inv-resumen">
+        <div><dt>Cómo se calcula</dt><dd>@LoteDePreciosUi.Tipo(Model.TipoCambio)</dd></div>
+        <div><dt>Valor</dt><dd>@Model.ValorCambio.ToString("N2")@(Model.TipoCambio == TheBuryProject.Models.Enums.TipoCambio.ValorAbsoluto ? " $" : " %")</dd></div>
+        <div><dt>Precios incluidos</dt><dd>@Model.CantidadProductos</dd></div>
+        <div><dt>Solicitado por</dt><dd>@Model.SolicitadoPor</dd></div>
+        <div><dt>Fecha</dt><dd>@Model.FechaSolicitud.AHoraComercial().ToString("dd/MM/yyyy HH:mm")</dd></div>
+    </dl>
 
-    <div class="grid gap-4 sm:grid-cols-2">
-
-        <section class="card-erp-panel-padded space-y-4">
-            <h2 class="font-semibold text-emerald-400 flex items-center gap-2">
-                <span class="material-symbols-outlined text-xl">check_circle</span>
-                Aprobar
-            </h2>
-            <p class="text-xs text-slate-400">El batch quedará listo para ser aplicado.</p>
-            <form asp-action="Aprobar" method="post">
-                @Html.AntiForgeryToken()
+    <div class="inv-grid-2">
+        <section class="inv-panel" aria-labelledby="aprobar-titulo">
+            <h2 id="aprobar-titulo" class="inv-panel__titulo">Aprobar</h2>
+            <form asp-action="Aprobar" method="post" class="inv-panel__form" data-prevent-double-submit>
                 <input type="hidden" name="id" value="@Model.BatchId" />
                 <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-                <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-400">Notas (opcional)</label>
-                    <textarea name="notas" rows="2"
-                              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                              placeholder="Observaciones de la aprobación..."></textarea>
+                <div class="inv-campo">
+                    <label class="inv-campo__etiqueta" for="aprobar-notas">Notas <span class="inv-campo__requerido">(opcional)</span></label>
+                    <textarea id="aprobar-notas" name="notas" rows="2" class="inv-control"></textarea>
                 </div>
-                <button type="submit" class="btn-erp-success w-full mt-3">
-                    <span class="material-symbols-outlined text-base">check</span>
-                    Aprobar batch
-                </button>
+                <div class="inv-actions"><button type="submit" class="inv-btn inv-btn--primary">Aprobar lote</button></div>
             </form>
         </section>
 
-        <section class="card-erp-panel-padded space-y-4">
-            <h2 class="font-semibold text-red-400 flex items-center gap-2">
-                <span class="material-symbols-outlined text-xl">cancel</span>
-                Rechazar
-            </h2>
-            <p class="text-xs text-slate-400">El batch quedará rechazado y no podrá aplicarse.</p>
-            <form asp-action="Rechazar" method="post">
-                @Html.AntiForgeryToken()
+        <section class="inv-panel" aria-labelledby="rechazar-titulo">
+            <h2 id="rechazar-titulo" class="inv-panel__titulo">Rechazar</h2>
+            <form asp-action="Rechazar" method="post" data-prevent-double-submit data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
+                      titulo = "¿Rechazar este lote?",
+                      datos = new object[] { new[] { "Lote", Model.Nombre }, new[] { "Precios incluidos", Model.CantidadProductos.ToString() }, new { etiqueta = "Motivo", campo = "motivo" } },
+                      consecuencias = new[] { "El lote queda rechazado y no se puede aplicar.", "Ningún precio cambia." },
+                      etiquetaConfirmar = "Rechazar lote" })">
                 <input type="hidden" name="id" value="@Model.BatchId" />
                 <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
-                <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-400">Motivo <span class="text-red-400">*</span></label>
-                    <textarea name="motivo" rows="2" required
-                              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                              placeholder="Motivo del rechazo..."></textarea>
+                <div class="inv-campo">
+                    <label class="inv-campo__etiqueta" for="rechazar-motivo">Motivo del rechazo</label>
+                    <textarea id="rechazar-motivo" name="motivo" rows="2" required class="inv-control"></textarea>
                 </div>
-                <button type="submit" class="btn-erp-danger w-full mt-3">
-                    <span class="material-symbols-outlined text-base">close</span>
-                    Rechazar batch
-                </button>
+                <div class="inv-actions"><button type="submit" class="inv-btn inv-btn--ghost">Rechazar lote</button></div>
             </form>
         </section>
-
     </div>
-
 </div>

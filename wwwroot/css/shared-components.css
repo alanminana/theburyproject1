@@ -140,10 +140,6 @@
     font-size: 22px;
 }
 
-.modal-scroll-90-140 {
-    max-height: calc(90vh - 140px);
-}
-
 .modal-scroll-90-200 {
     max-height: calc(90vh - 200px);
 }
