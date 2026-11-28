@@ -1,5 +1,7 @@
 # Estado del software antes de la instalación del servidor (2026-11-19)
 
+> **Histórico** (foto del 2026-11-19). Evidencia vigente de instalación: [evidencias-instalacion.md](evidencias-instalacion.md).
+
 Base: `main` bacc9744 + la tanda `task/software-cierre-20261119`. Alcance: todo lo que es exclusivo del **software** y verificable en un entorno descartable (Docker, SQL Server efímero, SQLite en memoria). Ninguna base real, usuario, respaldo ni servidor fue tocado. Este documento **no** reemplaza los criterios de aceptación de cada hito (`docs/hitos-d01-d03-inventario-y-criterios.md`, `docs/aceptacion-erp.md`): los consolida y separa lo terminado de lo bloqueado.
 
 ## 1. Software terminado y probado

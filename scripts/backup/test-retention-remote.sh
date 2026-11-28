@@ -329,6 +329,7 @@ eval "$(sed -n '/^app_healthy() /p' "$HERE/backup.sh")"
 eval "$(sed -n '/^app_wait_healthy() {/,/^}/p' "$HERE/backup.sh")"
 eval "$(sed -n '/^stop_app() {/,/^}/p' "$HERE/backup.sh")"
 eval "$(sed -n '/^start_app() {/,/^}/p' "$HERE/backup.sh")"
+eval "$(sed -n '/^start_app_container() /p' "$HERE/backup.sh")"
 eval "$(sed -n '/^recover_app() {/,/^}/p' "$HERE/backup.sh")"
 BACKUP_DIR="$T/app"; mkdir -p "$BACKUP_DIR"; APP_MARK="$BACKUP_DIR/.app-stopped-by-backup"; MODE=all
 FAILCODE=""; fail() { FAILCODE=$1; }; log() { :; }; monitor_status() { echo "$1 $2" >>"$T/ms"; }
@@ -338,10 +339,16 @@ service_running() { [[ "$APP_STATE" == running ]]; }
 dc() {
   case "$*" in
     *"stop"*"app"*) APP_STATE=stopped; APP_HEALTH="" ;;
-    *"start app"*) if (( START_FAILS > 0 )); then START_FAILS=$((START_FAILS-1)); return 1; fi; APP_STATE=running; APP_HEALTH=${NEXT_HEALTH:-healthy} ;;
+    *"start app"*) COMPOSE_START=1 ;;     # prohibido: arrastra migrate y db-init
+    *"ps -a -q app"*) echo cid-app ;;
     *"ps --format"*) echo "$APP_HEALTH" ;;
   esac
   return 0
+}
+COMPOSE_START=0
+docker() {
+  [[ "$*" == "start cid-app" ]] || return 1
+  if (( START_FAILS > 0 )); then START_FAILS=$((START_FAILS-1)); return 1; fi; APP_STATE=running; APP_HEALTH=${NEXT_HEALTH:-healthy}
 }
 # 5.1 flujo normal: la marca existe mientras app esta detenida y desaparece al volver healthy
 APP_STATE=running; APP_HEALTH=healthy; rm -f "$APP_MARK"; APP_STOPPED=0
@@ -369,6 +376,7 @@ check "recover_app: reintento posterior tiene exito y borra la marca" bash -c '[
 APP_STATE=stopped; APP_HEALTH=""; echo x >"$APP_MARK"; NEXT_HEALTH=unhealthy; APP_RECOVERY_FAILED=0; recover_app
 check "recover_app: app arranca pero queda unhealthy -> marca persiste" bash -c '[[ -e "$1" && "$2" = 1 ]]' _ "$APP_MARK" "$APP_RECOVERY_FAILED"
 NEXT_HEALTH=healthy; rm -f "$APP_MARK"
+check "arranque de app: nunca usa 'docker compose start app' (ejecutaria migrate)" test "$COMPOSE_START" = 0
 # 5.7 start_app falla: la marca queda
 APP_STATE=running; APP_HEALTH=healthy; stop_app; START_FAILS=1; start_app
 check "start_app falla: la marca queda para el reintento" bash -c '[[ -e "$1" ]]' _ "$APP_MARK"

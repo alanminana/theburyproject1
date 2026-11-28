@@ -415,6 +415,10 @@ Conserva dueños (uid 1654 de `app`). Verifica `sha256` y el tar antes de tocar 
 
 ## 10. Recuperación completa: "perdí el servidor"
 
+> **Procedimiento completo desde una máquina Ubuntu nueva** (requisitos, secretos, disco cifrado, imagen y puesta en operación):
+> [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §6. Antes de `recover.sh` hay que construir la imagen y exportar `ERP_IMAGE`.
+> Esta sección conserva el detalle técnico y la evidencia fechada.
+
 Servidor nuevo (Linux + Docker + Compose ≥ 2.24 + `git`). **No** arrancar todavía el stack completo: si `app` arranca antes de restaurar
 las claves, genera claves nuevas y las cookies/tokens viejos quedan invalidados.
 
@@ -447,8 +451,10 @@ scripts/backup/restore-files.sh --archive files_<ultimo>.tar.gz
 docker compose up -d --wait db
 scripts/backup/restore-sql.sh --backup TheBuryProjectDb_full_<ultimo>.bak --target-db TheBuryProjectDb --with-logs
 
-# 5. Resto del stack: db-init re-vincula los usuarios SQL (SIDs nuevos), migrate valida el esquema (no-op si está al día), app, caddy
-docker compose up -d --build --wait
+# 5. Resto del stack, con la imagen construida para este commit. Sin ERP_IMAGE, compose usa theburyproject/erp:local
+export ERP_IMAGE="theburyproject/erp:$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)"
+docker build -t "$ERP_IMAGE" .
+docker compose up -d --wait
 ```
 
 ### 10.2 ¿Qué full y qué tar van juntos? (decisión explícita)
@@ -500,7 +506,7 @@ La fila insertada **después del último backup de log** no existe en la pila re
 
 ```bash
 curl -fsS https://<dominio>/health/live ; curl -fsS https://<dominio>/health/ready          # 200 / 200
-docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT COUNT(*) AS migraciones FROM __EFMigrationsHistory\""     # = nº de migraciones esperado (133 al 2026-10-29)
+docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT COUNT(*) AS migraciones FROM __EFMigrationsHistory\""     # = nº de migraciones del commit instalado: ls Migrations/2*.cs | grep -vc Designer
 docker compose exec -T db bash -c "SQLCMDPASSWORD=\"\$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -C -U sa -d TheBuryProjectDb   -Q \"SELECT name, IS_ROLEMEMBER('db_datawriter', name) AS writer, IS_ROLEMEMBER('db_ddladmin', name) AS ddl        FROM sys.database_principals WHERE name IN (N'<ERP_DB_USER>', N'<ERP_MIGRATION_USER>')\""   # app: writer=1 ddl=0 | migraciones: ddl=1
 ```
 

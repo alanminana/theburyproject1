@@ -44,6 +44,11 @@ scripts/install/verificar-servidor.sh --project theburyproject-prov --lan-cidr 1
 
 **Firewall de una segunda instalación** (la primera usa `BURY-ERP` y 443): `/etc/bury/firewall-prov.conf` con `ALLOW_FROM="192.168.50.0/24"` y `HTTPS_PORT=8443`, y una unidad `bury-firewall-prov.service` copia de `bury-firewall.service` con `Environment=BURY_FW_CHAIN=BURY-ERP-PROV` y `Environment=BURY_FW_CONF=/etc/bury/firewall-prov.conf`. Documentado en la cabecera de `scripts/install/bury-firewall.sh`.
 
+> **Pendiente en la notebook (a 2026-11-27, no modificada):** la última instalación registrada usa el firewall anterior, que **falla abierto**, y abre
+> el puerto al detener la unidad y en cada apagado ([evidencias-instalacion.md](evidencias-instalacion.md)). La versión nueva cubre las dos cadenas:
+> `guard` y `verify` toman `firewall-prov.conf` por su nombre y el bootstrap quita `ExecStop` de la unidad `prov`. Procedimiento:
+> [red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6, «Servidores instalados antes del 2026-11-27». Requiere una ventana acordada y acceso a la consola.
+
 `verificar-servidor.sh` es de **solo lectura** y es el mismo control que se repite en el servidor definitivo (con `--cierre` exige además `p07-verificar-cuentas.sql` con `@Cierre = 1`: ≥ 2 SuperAdmin reales y 0 cuentas sintéticas; en la provisional falla **solo** ese control, por diseño).
 
 ## 3. Evidencia de esta instalación (2026-11-25, medida en la notebook)
@@ -99,6 +104,8 @@ Tras elegir: `fetch-offsite.sh` + `restore-test.sh --offsite` (prueba real de re
 
 ## 6. Traslado al servidor definitivo — procedimiento (ensayado hoy)
 
+> Procedimiento vigente y generalizado: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §6. Lo que sigue es el registro del ensayo del 2026-11-25.
+
 Ensayo ejecutado el 2026-11-25 en la notebook (proyecto descartable `theburyproject-ens`, ya destruido), **sin usar nada de la instalación origen excepto lo que viajaría**: (1) el `.env` extraído del paquete de recuperación con la passphrase, (2) el código en el tag, (3) los respaldos de la copia cifrada del pendrive.
 
 ```bash
@@ -107,7 +114,8 @@ sudo scripts/install/server-linux-bootstrap.sh
 git clone https://github.com/alanminana/theburyproject1 ~/theburyproject && cd ~/theburyproject && git checkout servidor-provisional-20261125   # o el tag vigente
 scripts/backup/recovery-package.sh extract bury-recovery_<ts>.gpg --to /dev/shm/env --passphrase-file <passphrase> && cp /dev/shm/env/.env .env && chmod 600 .env && rm -rf /dev/shm/env
 #   ajustar en .env solo lo propio del host: ERP_BIND_ADDRESS, BACKUP_DIR, BACKUP_REMOVABLE_DIR, (ERP_HTTPS_PORT/BURY_NET_SUBNET si comparte host)
-scripts/install/install.sh --no-deploy --yes --project theburyproject ...            # construye la imagen con tag inmutable
+# CORRECCION 2026-11-27: install.sh --no-deploy NO construye la imagen (termina antes). Construirla explicitamente:
+export ERP_IMAGE="theburyproject/erp:$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)"; docker build -t "$ERP_IMAGE" .
 scripts/backup/prepare-dir.sh
 #   abrir el disco cifrado (clave desde exportar-custodia.sh extract) y copiar respaldos al BACKUP_DIR:  sudo cp -a <disco>/bury-backup/{sql,files} $BACKUP_DIR/
 ERP_IMAGE=<imagen construida> scripts/backup/recover.sh --plan     # muestra el par full+tar
