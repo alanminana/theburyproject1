@@ -193,9 +193,12 @@ tamper_case() {   # tamper_case "descripcion" comando...
   check "$name: nada escucha en el puerto" nothing_listens
   good_conf; ack_all; systemctl reset-failed docker.service docker.socket 2>/dev/null; systemctl start docker
   while iptables -w 5 -D DOCKER-USER -j ACCEPT 2>/dev/null; do :; done
+  while iptables -w 5 -D DOCKER-USER -m comment --comment bury-barrera -j ACCEPT 2>/dev/null; do :; done
   check "$name: recuperado" fresh_ok
 }
 tamper_case "ACCEPT antes del salto" iptables -w 5 -I DOCKER-USER 1 -j ACCEPT
+# Un ACCEPT con el comentario de la barrera no es la barrera: no puede quedar fuera de la comparacion.
+tamper_case "ACCEPT disfrazado con el comentario de la barrera" iptables -w 5 -I DOCKER-USER 1 -m comment --comment bury-barrera -j ACCEPT
 # Cambia el ORIGEN permitido conservando cantidad y orden de las reglas (A, D, E).
 tamper_case "origen permitido alterado" bash -c 'iptables -w 5 -R BURY-ERP 1 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 9443 --ctdir ORIGINAL -s 198.19.77.0/24 -j RETURN'
 

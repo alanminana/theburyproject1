@@ -247,6 +247,9 @@ STATE_DIR="${BURY_STATE_DIR:-/var/lib/bury-firewall}"
 LOCK_FILE="${BURY_LOCK:-/run/bury-firewall.lock}"
 SYSTEMCTL="${BURY_SYSTEMCTL:-systemctl}"
 BARRIER=(-m conntrack --ctstate DNAT -m comment --comment bury-barrera -j DROP)
+# La misma regla tal como la imprime 'iptables -S'. Al comparar se descarta SOLO esta linea exacta: filtrar por el comentario ocultaria un
+# ACCEPT que lo llevara.
+BARRIER_LINE="-A DOCKER-USER ${BARRIER[*]}"
 
 # Bloqueo comun de apply/guard/verify/vigilancia. Los hijos (for_extras) heredan el del padre. Sin flock o sin permiso sobre /run se sigue.
 lock_fw() {
@@ -288,7 +291,7 @@ docker_rules_ok() {
 rules_snapshot() {
   local du t
   du=$($IPT -S DOCKER-USER 2>/dev/null) || return 1
-  du=$(grep -v 'bury-barrera' <<<"$du") || return 1
+  du=$(grep -vxF -e "$BARRIER_LINE" <<<"$du") || return 1
   printf '%s\n' "$du"
   for t in $(sed -n 's/^-A DOCKER-USER -j \(BURY-[A-Za-z0-9_-]*\)$/\1/p' <<<"$du" | sort -u); do $IPT -S "$t" 2>/dev/null || return 1; done
 }
