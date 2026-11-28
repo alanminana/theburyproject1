@@ -36,7 +36,7 @@ recorrido integral.
 
 | Qué | Resultado |
 |---|---|
-| `test-firewall-watch.sh`: reglas borradas, vaciadas, desordenadas; `iptables -F` y `-t nat -F`; segunda pérdida; configuración rota; parada manual; reinicios y redes nuevas | 67 PASS, 0 FAIL en la corrida completa. Antes hubo 6 FAIL por un defecto de la prueba (aceptaba una recuperación anterior del historial). Ventana observada de acceso del ajeno: 8–11 s |
+| `test-firewall-watch.sh`: reglas borradas, vaciadas, desordenadas; `iptables -F` y `-t nat -F`; segunda pérdida; configuración rota con reglas intactas y alteradas; parada manual; reinicios y redes nuevas | 79 PASS, 0 FAIL. Antes: 6 FAIL por un defecto de la prueba (aceptaba una recuperación anterior del historial) y 6 FAIL reales al sumar los casos de la revisión (con la configuración rota aceptaba un `ACCEPT` previo o un origen alterado; corregido). Ventana observada de acceso del ajeno: 8–11 s |
 | `test-firewall-failclosed.sh`, primera vez sobre 26.04 | 62 PASS, 0 FAIL |
 | Ensayo de [actualizacion-notebook-firewall.md](actualizacion-notebook-firewall.md): firewall anterior con el mismo SHA-256 que el de la notebook, dos instancias, `ufw` activo | Comprobación previa sin cambios; instalación con 0 conexiones del ajeno (94 sondeos) y sin reiniciar Docker ni contenedores; exclusión de un cliente real; reposición; reinicio con 0 conexiones (352 sondeos); vuelta al firewall anterior con el binario exacto; `guard` fallido sin tocar las reglas. Encontró que `ack` abortaba a mitad (corregido) |
 

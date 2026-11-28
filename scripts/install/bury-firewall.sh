@@ -284,12 +284,28 @@ docker_rules_ok() {
   grep -Eq -- '-j DOCKER(-FORWARD)?( |$)' <<<"$($IPT -S FORWARD 2>/dev/null)" &&
   grep -Eq -- '-j DOCKER( |$)' <<<"$($IPT -t nat -S PREROUTING 2>/dev/null)"
 }
-# La proteccion vigente, sin depender de la configuracion (para no cortar el servicio solo porque alguien edito mal firewall.conf).
-structure_ok() {
-  forward_jump_ok || return 1
-  local c f n chains=("$CHAIN")
-  for f in "$(dirname "$CONF")"/firewall-*.conf; do [[ -f "$f" ]] || continue; n=${f##*/firewall-}; n=${n%.conf}; chains+=("BURY-ERP-${n^^}"); done
-  for c in "${chains[@]}"; do $IPT -C DOCKER-USER -j "$c" 2>/dev/null && chain_order_ok "$c" || return 1; done
+# Copia exacta de las reglas de la ultima comprobacion completa: DOCKER-USER (sin la barrera) y cada cadena BURY a la que salta.
+rules_snapshot() {
+  local du t
+  du=$($IPT -S DOCKER-USER 2>/dev/null) || return 1
+  du=$(grep -v 'bury-barrera' <<<"$du") || return 1
+  printf '%s\n' "$du"
+  for t in $(sed -n 's/^-A DOCKER-USER -j \(BURY-[A-Za-z0-9_-]*\)$/\1/p' <<<"$du" | sort -u); do $IPT -S "$t" 2>/dev/null || return 1; done
+}
+save_verified() {   # lo llama 'verify' al terminar bien; sin permiso sobre STATE_DIR no hace nada
+  local snap tmp
+  snap=$(rules_snapshot) || return 0
+  mkdir -p "$STATE_DIR" 2>/dev/null && chmod 755 "$STATE_DIR" 2>/dev/null || return 0
+  tmp=$(mktemp "$STATE_DIR/.ultima.XXXXXX" 2>/dev/null) || return 0
+  printf '%s\n' "$snap" >"$tmp" && mv -f "$tmp" "$STATE_DIR/ultima-verificada"
+}
+# Con la configuracion rota no se puede saber que reglas CORRESPONDEN. Solo se mantiene el servicio si las vigentes son identicas a las ultimas
+# comprobadas: cualquier diferencia (un ACCEPT previo, otro origen u otro puerto) o la falta de esa copia obliga a cerrar.
+matches_last_verified() {
+  local cur
+  forward_jump_ok && [[ -f "$STATE_DIR/ultima-verificada" ]] || return 1
+  cur=$(rules_snapshot) || return 1
+  [[ "$cur" == "$(cat "$STATE_DIR/ultima-verificada")" ]]
 }
 self() { bash "${BASH_SOURCE[0]}" "$@"; }
 rules_ok() { VERIFY_MSG=$(self verify 2>&1) || return 1; docker_rules_ok || { VERIFY_MSG="faltan las reglas propias de Docker (FORWARD o nat PREROUTING)"; return 1; }; }
@@ -344,7 +360,7 @@ watch_once() {
   reason=$(tail -n1 <<<"$VERIFY_MSG")
 
   if ! self check-config >/dev/null 2>&1; then
-    if structure_ok && docker_rules_ok; then
+    if matches_last_verified && docker_rules_ok; then
       unlock_fw
       [[ "$(state_field estado)" == config-invalida ]] || open_incident "configuracion invalida con las reglas anteriores vigentes: corregirla antes de reiniciar Docker ($reason)"
       write_state config-invalida; return 0
@@ -407,7 +423,7 @@ case "$ACTION" in
   watch) do_watch ;;
   watch-once) watch_once ;;
   ack) do_ack "${2:-}" ;;
-  verify) do_verify; for_extras verify ;;
+  verify) do_verify; for_extras verify; [[ -n "${BURY_FW_CONF:-}" ]] || save_verified ;;
   install-systemd) do_install_systemd ;;
   print) validate; echo "$IPT -N $CHAIN-NEW"; rules "$CHAIN-NEW" | sed "s|^|$IPT |"; echo "$IPT -I DOCKER-USER 1 -j $CHAIN-NEW"; echo "(luego: retirar el enganche a $CHAIN, borrar $CHAIN y renombrar $CHAIN-NEW a $CHAIN)" ;;
   status) $IPT -n -v -L "$CHAIN" 2>/dev/null || echo "bury-firewall: la cadena $CHAIN no existe (aplicar con: apply)"; $IPT -n -L DOCKER-USER --line-numbers ;;

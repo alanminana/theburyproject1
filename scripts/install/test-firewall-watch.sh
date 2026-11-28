@@ -179,6 +179,26 @@ check "nada escucha en el puerto" nothing_listens
 good_conf; ack_all; systemctl reset-failed docker.service docker.socket 2>/dev/null; systemctl start docker
 check "recuperado" fresh_ok
 
+# Con la configuracion rota solo se mantiene el servicio si las reglas son EXACTAMENTE las ultimas comprobadas.
+tamper_case() {   # tamper_case "descripcion" comando...
+  local name=$1; shift
+  echo "== Configuracion invalida Y $name: falla cerrado =="
+  tune 10 600; fresh_ok >/dev/null
+  printf 'ALLOW_FROM=""\nHTTPS_PORT=%s\n' "$PORT" >$CONF
+  wait_state config-invalida 40 >/dev/null
+  "$@"
+  check "$name: precondicion, el ajeno entra" reach_no
+  check "$name: se detiene Docker" wait_state detenido 60
+  check "$name: el ajeno ya no entra y Docker esta inactivo" bash -c '! systemctl is-active -q docker'
+  check "$name: nada escucha en el puerto" nothing_listens
+  good_conf; ack_all; systemctl reset-failed docker.service docker.socket 2>/dev/null; systemctl start docker
+  while iptables -w 5 -D DOCKER-USER -j ACCEPT 2>/dev/null; do :; done
+  check "$name: recuperado" fresh_ok
+}
+tamper_case "ACCEPT antes del salto" iptables -w 5 -I DOCKER-USER 1 -j ACCEPT
+# Cambia el ORIGEN permitido conservando cantidad y orden de las reglas (A, D, E).
+tamper_case "origen permitido alterado" bash -c 'iptables -w 5 -R BURY-ERP 1 -p tcp -m conntrack --ctstate DNAT --ctorigdstport 9443 --ctdir ORIGINAL -s 198.19.77.0/24 -j RETURN'
+
 echo "== Mantenimiento: con la vigilancia detenida no se actua y el latido envejece =="
 systemctl stop bury-firewall-watch.service
 b=$(st latido); iptables -w 5 -F BURY-ERP; sleep 14

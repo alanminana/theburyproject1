@@ -183,7 +183,8 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      | Faltan o están desordenadas las reglas propias | Pone una **barrera** que descarta lo entrante a contenedores, repone, comprueba y la quita. No reinicia Docker |
      | Faltan además las reglas de Docker (`iptables -F`, `-t nat -F`) | Reinicia Docker **una** vez (como máximo una cada 10 min) |
      | No logra comprobar el filtro, o se repite dentro de esa ventana | **Detiene Docker** y no lo vuelve a arrancar |
-     | `firewall.conf` mal editado pero reglas intactas | No corta el servicio: avisa `config-invalida`. Corregirlo **antes** de reiniciar |
+     | `firewall.conf` mal editado y reglas **idénticas** a las últimas comprobadas | No corta el servicio: avisa `config-invalida`. Corregirlo **antes** de reiniciar |
+     | `firewall.conf` mal editado y **cualquier** diferencia en las reglas | Detiene Docker |
      | Docker detenido o arrancando | No hace nada |
 
      Cada pérdida abre un **incidente** que queda abierto, aunque ya esté repuesto, hasta `sudo bury-firewall ack <id>`. Estado en
@@ -202,7 +203,7 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      descartarían el tráfico HTTPS saliente de los contenedores.
 
      **Evidencia:** `test-firewall-isolation.sh` (reglas, 18 casos), `test-firewall-failclosed.sh` (bootstrap, systemd y Docker reales con fallos
-     inducidos, 62 casos) y `test-firewall-watch.sh` (vigilancia, 69 casos) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
+     inducidos, 62 casos) y `test-firewall-watch.sh` (vigilancia) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
      [evidencias-instalacion.md](evidencias-instalacion.md).
    - **Windows + Docker Desktop**: el puerto lo abre un proceso de Windows (`com.docker.backend.exe`), así que Windows Defender Firewall sí aplica. Pero **una regla
      «Allow» de puerto desde la LAN (la que crea `install-windows.ps1`) no restringe nada si ya existe una regla Allow del programa `com.docker.backend.exe` sin
