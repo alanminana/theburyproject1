@@ -2422,7 +2422,7 @@ usuario…", recargar y guardar funciona). Nota: registrar `UltimoAcceso` en el 
 SuperAdmin o un rol propio del usuario actual; la pestaña Permisos de Rol contiene WIP ajeno ("Comparar
 roles", sin tests ni commit) que se preservó sin tocar su lógica.
 
-## Inventario — modernización integral (2026-11-27, rama `task/inventario-modernizacion-20261127`, sin PR)
+## Inventario — modernización integral (2026-11-27, rama `task/inventario-modernizacion-20261127`; aprobada visualmente el 2026-11-28)
 
 Reabre las pantallas de Inventario y reemplaza el cierre "Stock" del 2026-09-25 en lo visual.
 
@@ -2674,7 +2674,7 @@ Sin reabrir pantallas cerradas ni cambiar diseño. (1) Compras/Create|Edit: Ente
 
 ## Inventario: categorías, marcas y comisión (2026-11-28)
 
-Estado: pendiente de aprobación visual del propietario. Reabre solo los diálogos de categoría, marca y comisión y el texto de conciliación.
+Estado: aprobada visualmente por el propietario (2026-11-28). Reabre solo los diálogos de categoría, marca y comisión y el texto de conciliación.
 
 - **Cambio:** alta y edición de Categoría y Marca usan un único parcial (`Views/Catalogo/_EntidadDialogo.cshtml`) y un único script (`wwwroot/js/catalogo-entidad-modal.js`), en lugar de cuatro formularios, dos juegos de campos y cuatro scripts. Comisión del vendedor rediseñada con los mismos componentes; el éxito se avisa con el toast del catálogo. Componentes nuevos en `inventario-ui.css`: `.inv-dialog__form`, `.inv-dialog__header--cerrar`, `.inv-form-grid`, `.inv-opciones`, `.inv-sufijo`. Sin cambios de endpoints, permisos ni validaciones del servidor.
 - **Defecto de la rama corregido:** al separar una URL por sección, `window.CatalogoData` quedó solo en Productos; la edición de marca armaba desde ahí el combo «Marca padre», que llegaba vacío, y guardar borraba el padre. Ahora los padres salen del servidor con todas las marcas.

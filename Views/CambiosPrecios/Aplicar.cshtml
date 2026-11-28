@@ -27,7 +27,7 @@
     <form asp-action="AplicarConfirmed" method="post" class="inv-panel" data-prevent-double-submit
           data-inv-confirm="@System.Text.Json.JsonSerializer.Serialize(new {
               titulo = $"¿Aplicar {precios}?",
-              datos = new object[] { new[] { "Lote", Model.Nombre }, new[] { "Precios que cambian", Model.CantidadProductos.ToString() }, new { etiqueta = "Vigencia", campo = "fechaVigencia", vacio = "Desde ahora" } },
+              datos = new object[] { new[] { "Lote", Model.Nombre }, new[] { "Precios que cambian", Model.CantidadProductos.ToString() }, new { etiqueta = "Vigencia", campo = "FechaVigencia", vacio = "Desde ahora" } },
               consecuencias = new[] { "Los precios anteriores se cierran apenas confirmás.", "Venta y Cotización usan los precios nuevos de la lista predeterminada desde la vigencia.", "El lote se puede revertir después desde su detalle." },
               etiquetaConfirmar = $"Aplicar {precios}",
               tono = "primario" })">
