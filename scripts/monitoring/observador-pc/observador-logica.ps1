@@ -10,6 +10,7 @@ function New-ObsState {
         lastCap = $null; lastOnBattery = $false
         powerReadFails = 0; powerReadAlerted = $false
         monitorFails = 0; monitorAlerted = $false
+        fw = 'ok'; fwFails = 0; fwLast = ''
         destDownFails = 0; destDown = $false
         destLogFails = 0; destLogLate = $false
         destFileFails = 0; destFileLate = $false
@@ -28,7 +29,10 @@ function ConvertFrom-PowerLine([string]$line) {
     if ($Matches[2] -ne 'na') { $cap = [int]$Matches[2] }
     # Sin carga legible, o sin saber ni la fuente ni el estado, NO es una lectura: nunca debe parecer "volvio la corriente".
     if ($null -eq $cap -or $cap -gt 100 -or ($Matches[1] -eq 'na' -and ($Matches[3] -eq 'na' -or $Matches[3] -eq 'Unknown'))) { return $null }
-    [pscustomobject]@{ ac = $Matches[1]; cap = $cap; status = $Matches[3]; monitor = $Matches[4] }
+    $ac = $Matches[1]; $status = $Matches[3]; $monitor = $Matches[4]
+    $fw = 'na'
+    if ($line -match ' fw=([a-z-]+)') { $fw = $Matches[1] }
+    [pscustomobject]@{ ac = $ac; cap = $cap; status = $status; monitor = $monitor; fw = $fw }
 }
 
 # Antiguedad en minutos de la marca de "ultima copia verificada" (<destino>\_ok-<tipo>\), que backup.sh actualiza SOLO despues de verificar la
@@ -187,6 +191,26 @@ function Update-ObsState($state, $sample) {
         if ($state.monitorAlerted) { $events += New-ObsEvent 'MONITOR_OK' 'info' 'El monitor del servidor volvio a estar activo.' }
         $state.monitorFails = 0
         $state.monitorAlerted = $false
+    }
+
+    # firewall (vigilancia del servidor): dos muestras iguales para avisar; un aviso por cada estado distinto. 'na' no dice nada.
+    # Un estado.json guardado por la version anterior no tiene estas claves: se crean.
+    foreach ($k in @(@('fw', 'ok'), @('fwFails', 0), @('fwLast', ''))) { if ($null -eq $state.($k[0])) { $state.($k[0]) = $k[1] } }
+    if (@('incidente', 'detenido', 'config-invalida', 'vencido', 'ilegible') -contains $p.fw) {
+        if ($p.fw -eq $state.fwLast) { $state.fwFails++ } else { $state.fwLast = $p.fw; $state.fwFails = 1 }
+        $need = 2
+        if ($p.fw -eq 'ilegible') { $need = 3 }
+        if ($state.fwFails -ge $need -and $state.fw -ne $p.fw) {
+            $state.fw = $p.fw
+            $events += New-ObsEvent 'FIREWALL_ALERTA' 'critico' "Firewall del servidor: estado '$($p.fw)'. En el servidor: cat /var/lib/bury-firewall/incidentes.log (docs/operacion-servidor-ubuntu.md 7)."
+        }
+    } elseif ($p.fw -eq 'ok' -or $p.fw -eq 'docker-inactivo') {
+        $state.fwFails = 0
+        $state.fwLast = ''
+        if ($state.fw -ne 'ok' -and $p.fw -eq 'ok') {
+            $state.fw = 'ok'
+            $events += New-ObsEvent 'FIREWALL_OK' 'info' 'La vigilancia del firewall del servidor volvio a ok y sin incidentes abiertos.'
+        }
     }
 
     $onBattery = ($p.ac -eq '0') -or ($p.status -eq 'Discharging')

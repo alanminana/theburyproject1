@@ -68,6 +68,20 @@ $na = New-S -line 'ac=na cap=na status=na monitor=active uptime_s=1'
 Assert-Eq 'lectura vacia no "restablece" un corte' (Invoke-Seq $st @($na, $na, $na, $na, $na)) 'ENERGIA_SIN_LECTURA'
 Assert-Eq 'el corte sigue abierto' $st.ac 'lost'
 
+# ---- firewall (campo opcional fw= al final de la linea)
+function New-FwSample([string]$v) { New-S -line "ac=1 cap=90 status=Charging monitor=active uptime_s=10 fw=$v" }
+Assert-Eq 'linea sin fw sigue siendo valida' ((ConvertFrom-PowerLine 'ac=1 cap=90 status=Charging monitor=active uptime_s=10').fw) 'na'
+$st = New-ObsState
+Assert-Eq 'firewall ok: sin eventos' (Invoke-Seq $st @((New-FwSample 'ok'), (New-FwSample 'ok'), (New-FwSample 'docker-inactivo'))) ''
+Assert-Eq 'un valor aislado no alerta' (Invoke-Seq $st @((New-FwSample 'vencido'), (New-FwSample 'ok'))) ''
+Assert-Eq 'incidente avisa una vez' (Invoke-Seq $st @((New-FwSample 'incidente'), (New-FwSample 'incidente'), (New-FwSample 'incidente'), (New-FwSample 'incidente'))) 'FIREWALL_ALERTA'
+Assert-Eq 'si empeora vuelve a avisar' (Invoke-Seq $st @((New-FwSample 'detenido'), (New-FwSample 'detenido'), (New-FwSample 'detenido'))) 'FIREWALL_ALERTA'
+Assert-Eq 'sin dato no cierra la alerta' (Invoke-Seq $st @((New-FwSample 'na'), (New-FwSample 'na'), (New-FwSample 'na'))) ''
+Assert-Eq 'vuelta a ok' (Invoke-Seq $st @((New-FwSample 'ok'), (New-FwSample 'ok'))) 'FIREWALL_OK'
+$st = New-ObsState
+$st.Remove('fw'); $st.Remove('fwFails'); $st.Remove('fwLast')
+Assert-Eq 'estado guardado por la version anterior (sin claves fw) alerta igual' (Invoke-Seq $st @((New-FwSample 'vencido'), (New-FwSample 'vencido'))) 'FIREWALL_ALERTA'
+
 # ---- destino de respaldos en la PC
 $lim = @{ maxMinutosLogs = 45; maxHorasArchivos = 27; muestrasAtraso = 3 }
 function New-D([bool]$ok = $true, $log = 10, $file = 5, [double]$used = 1, [double]$free = 700) {

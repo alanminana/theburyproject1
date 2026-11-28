@@ -7,7 +7,9 @@
 #   bury-firewall.sh status     muestra la cadena BURY-ERP actual
 #   bury-firewall.sh guard      ANTES de arrancar dockerd (ExecStartPre): crea DOCKER-USER si falta y aplica; si falla, Docker NO arranca
 #   bury-firewall.sh verify     DESPUES de arrancar dockerd (ExecStartPost): comprueba que el trafico pasa por la cadena; si no, systemd detiene Docker
-#   bury-firewall.sh install-systemd   instala bury-firewall.service y el drop-in de docker.service (lo usa server-linux-bootstrap.sh)
+#   bury-firewall.sh install-systemd   instala las unidades (firewall y vigilancia) y el drop-in de docker.service (lo usa el bootstrap)
+#   bury-firewall.sh watch      vigilancia continua con Docker en marcha (bury-firewall-watch.service); 'watch-once' hace un solo ciclo
+#   bury-firewall.sh ack ID     reconoce (cierra) el incidente abierto por la vigilancia
 #
 # FALLA CERRADO: si el filtro no se puede instalar o comprobar, docker.service no queda en marcha y no se publica ningun puerto. SSH no depende de
 # Docker. Recuperacion: corregir la causa, 'sudo bury-firewall guard', 'sudo systemctl reset-failed docker' y 'sudo systemctl start docker'.
@@ -128,6 +130,20 @@ do_guard() {
   do_apply
 }
 
+# El ORDEN decide si filtra: primero los RETURN de los origenes (A), despues los DROP (D) y recien al final el RETURN sin condiciones (E).
+chain_order_ok() {
+  local c=$1 line orden=""
+  while IFS= read -r line; do
+    case "$line" in
+      "-A $c -j RETURN") orden+=E ;;
+      "-A $c "*" -j RETURN") orden+=A ;;
+      "-A $c "*" -j DROP") orden+=D ;;
+      "-A $c "*) orden+=X ;;
+    esac
+  done < <($IPT -S "$c" 2>/dev/null)
+  [[ "$orden" =~ ^A+D+E$ ]]
+}
+
 # Solo lectura. Comprueba el recorrido completo: FORWARD -> DOCKER-USER (antes de las reglas de Docker) -> cadena propia con sus reglas exactas.
 do_verify() {
   validate
@@ -156,17 +172,7 @@ do_verify() {
     $IPT ${r/#-A /-C } 2>/dev/null || die "verify: falta la regla: $r"
   done < <(rules "$CHAIN")
   [[ "$($IPT -S "$CHAIN" | grep -c "^-A ")" == "$total" ]] || die "verify: la cadena $CHAIN tiene reglas de mas o de menos (se esperaban $total)"
-  # El ORDEN decide si filtra: primero los RETURN de los origenes (A), despues los DROP (D) y recien al final el RETURN sin condiciones (E).
-  local orden=""
-  while IFS= read -r line; do
-    case "$line" in
-      "-A $CHAIN -j RETURN") orden+=E ;;
-      "-A $CHAIN "*" -j RETURN") orden+=A ;;
-      "-A $CHAIN "*" -j DROP") orden+=D ;;
-      "-A $CHAIN "*) orden+=X ;;
-    esac
-  done < <($IPT -S "$CHAIN")
-  [[ "$orden" =~ ^A+D+E$ ]] || die "verify: las reglas de $CHAIN estan en un orden que no filtra ($orden)"
+  chain_order_ok "$CHAIN" || die "verify: las reglas de $CHAIN estan en un orden que no filtra"
   echo "bury-firewall: verificado ($CHAIN, puerto $HTTPS_PORT)"
 }
 
@@ -201,6 +207,21 @@ ExecStart=$bin apply
 [Install]
 WantedBy=multi-user.target
 UNIT
+  # Independiente de docker.service (sin PartOf/Requires): debe seguir informando aunque Docker este caido.
+  cat >"$dir/bury-firewall-watch.service" <<UNIT
+[Unit]
+Description=TheBury: vigilancia del firewall con Docker en marcha
+After=docker.service
+
+[Service]
+Type=simple
+ExecStart=$bin watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
   # Sin el prefijo '-': si cualquiera de los dos falla, docker.service no queda en marcha.
   {
     echo '[Service]'
@@ -217,6 +238,156 @@ UNIT
   echo "bury-firewall: unidad y drop-in instalados en $dir"
 }
 
+# ---------------------------------------------------------------- vigilancia en ejecucion (bury-firewall-watch.service)
+# Detecta reglas borradas o alteradas con Docker en marcha. Secuencia ante un fallo confirmado: 1) BARRERA (descarta todo lo entrante hacia
+# contenedores) para cerrar la exposicion; 2) reponer; 3) si se perdieron las reglas propias de Docker, UN reinicio de Docker (pasa por guard y
+# verify); 4) si aun asi no se puede comprobar, detener Docker. Cada fallo abre un INCIDENTE que queda abierto hasta 'ack <id>'.
+# Nunca arranca un Docker detenido. Ventana de exposicion: hasta un intervalo (BURY_WATCH_INTERVAL, 10 s) mas la comprobacion repetida.
+STATE_DIR="${BURY_STATE_DIR:-/var/lib/bury-firewall}"
+LOCK_FILE="${BURY_LOCK:-/run/bury-firewall.lock}"
+SYSTEMCTL="${BURY_SYSTEMCTL:-systemctl}"
+BARRIER=(-m conntrack --ctstate DNAT -m comment --comment bury-barrera -j DROP)
+
+# Bloqueo comun de apply/guard/verify/vigilancia. Los hijos (for_extras) heredan el del padre. Sin flock o sin permiso sobre /run se sigue.
+lock_fw() {
+  [[ -z "${BURY_FW_LOCKED:-}" ]] || return 0
+  command -v flock >/dev/null 2>&1 && [[ -w "$(dirname "$LOCK_FILE")" ]] || return 0
+  exec 9>"$LOCK_FILE"
+  flock -w 60 9 || die "no se pudo tomar el bloqueo $LOCK_FILE"
+  export BURY_FW_LOCKED=1
+}
+# Se libera ANTES de pedirle algo a systemd sobre docker.service: sus ExecStartPre/Post necesitan este mismo bloqueo.
+unlock_fw() { { exec 9>&-; } 2>/dev/null || true; unset BURY_FW_LOCKED; }
+
+barrier_off() { while $IPT -D DOCKER-USER "${BARRIER[@]}" 2>/dev/null; do :; done; }
+forward_jump_ok() {
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == "-A FORWARD -j DOCKER-USER" ]] && return 0
+    case "$line" in "-A FORWARD "*" -j ACCEPT"*|"-A FORWARD "*" -j DOCKER"|"-A FORWARD "*" -j DOCKER-"*) return 1 ;; esac
+  done < <($IPT -S FORWARD 2>/dev/null)
+  return 1
+}
+ensure_forward_jump() {
+  forward_jump_ok && return 0
+  while $IPT -D FORWARD -j DOCKER-USER 2>/dev/null; do :; done
+  $IPT -I FORWARD 1 -j DOCKER-USER
+}
+barrier_on() {
+  $IPT -n -L DOCKER-USER >/dev/null 2>&1 || $IPT -N DOCKER-USER 2>/dev/null || true
+  $IPT -C DOCKER-USER "${BARRIER[@]}" 2>/dev/null || $IPT -I DOCKER-USER 1 "${BARRIER[@]}" || true
+  ensure_forward_jump || true
+}
+# Reglas que pone el propio Docker: sin ellas el puerto lo atiende docker-proxy por INPUT (sin pasar por DOCKER-USER) o los contenedores
+# quedan incomunicados. No se pueden reponer a mano: requieren reiniciar Docker.
+docker_rules_ok() {
+  grep -Eq -- '-j DOCKER(-FORWARD)?( |$)' <<<"$($IPT -S FORWARD 2>/dev/null)" &&
+  grep -Eq -- '-j DOCKER( |$)' <<<"$($IPT -t nat -S PREROUTING 2>/dev/null)"
+}
+# La proteccion vigente, sin depender de la configuracion (para no cortar el servicio solo porque alguien edito mal firewall.conf).
+structure_ok() {
+  forward_jump_ok || return 1
+  local c f n chains=("$CHAIN")
+  for f in "$(dirname "$CONF")"/firewall-*.conf; do [[ -f "$f" ]] || continue; n=${f##*/firewall-}; n=${n%.conf}; chains+=("BURY-ERP-${n^^}"); done
+  for c in "${chains[@]}"; do $IPT -C DOCKER-USER -j "$c" 2>/dev/null && chain_order_ok "$c" || return 1; done
+}
+self() { bash "${BASH_SOURCE[0]}" "$@"; }
+rules_ok() { VERIFY_MSG=$(self verify 2>&1) || return 1; docker_rules_ok || { VERIFY_MSG="faltan las reglas propias de Docker (FORWARD o nat PREROUTING)"; return 1; }; }
+docker_active() { [[ "$($SYSTEMCTL is-active docker.service 2>/dev/null)" == active ]]; }
+docker_identity() { $SYSTEMCTL show docker.service -p MainPID -p ActiveEnterTimestampMonotonic 2>/dev/null | tr '\n' ' '; }
+same_docker() { docker_active && [[ "$(docker_identity)" == "$1" ]]; }
+
+now() { date +%s; }
+state_field() { sed -n "s/.*\b$1=\([^ ]*\).*/\1/p" "$STATE_DIR/estado" 2>/dev/null | head -1; }
+open_incident_id() { sed -n 's/^id=//p' "$STATE_DIR/incidente" 2>/dev/null | head -1; }
+write_state() {   # write_state ESTADO  (publicacion atomica; 'latido' avanza siempre, 'ultima_ok' solo cuando todo se comprobo)
+  local ok id tmp
+  ok=$(state_field ultima_ok); [[ "$1" == ok ]] && ok=$(now)
+  id=$(open_incident_id)
+  mkdir -p "$STATE_DIR" && chmod 755 "$STATE_DIR"
+  tmp=$(mktemp "$STATE_DIR/.estado.XXXXXX") || return 1
+  printf 'latido=%s estado=%s ultima_ok=%s incidente=%s\n' "$(now)" "$1" "${ok:-0}" "${id:--}" >"$tmp"
+  chmod 644 "$tmp"; mv -f "$tmp" "$STATE_DIR/estado"
+}
+note() {   # note MENSAJE : journal con prioridad critica + historial persistente
+  echo "<2>bury-firewall: $*"
+  mkdir -p "$STATE_DIR"; printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$STATE_DIR/incidentes.log"
+}
+open_incident() {
+  mkdir -p "$STATE_DIR" && chmod 755 "$STATE_DIR"
+  [[ -f "$STATE_DIR/incidente" ]] || { printf 'id=%s\nmotivo=%s\n' "$(now)" "$1" >"$STATE_DIR/incidente"; chmod 644 "$STATE_DIR/incidente"; }
+  note "INCIDENTE: $1"
+}
+stop_docker() {
+  note "no se puede garantizar el filtro ($1): se DETIENE Docker (el ERP y los respaldos quedan detenidos)"
+  $SYSTEMCTL stop docker.socket docker.service || true
+  if docker_active; then note "CIERRE NO CONFIRMADO: Docker sigue activo; la barrera queda puesta; intervenir ya"; else note "Docker detenido"; fi
+  write_state detenido
+}
+
+watch_once() {
+  if ! docker_active; then
+    # No se actua sobre un Docker detenido o en transicion. 'detenido' se conserva hasta que alguien lo recupere.
+    if [[ "$(state_field estado)" == detenido ]]; then write_state detenido; else write_state docker-inactivo; fi
+    return 0
+  fi
+  local id0 reason last
+  id0=$(docker_identity)
+  lock_fw
+  if ! $IPT -S >/dev/null 2>&1 || ! $IPT -t nat -S >/dev/null 2>&1; then unlock_fw; echo "bury-firewall: no se pudieron leer las reglas; no se actua"; write_state ilegible; return 0; fi
+  if rules_ok; then barrier_off; unlock_fw; write_state ok; return 0; fi
+  # Segunda lectura: Docker reacomoda sus cadenas al crear redes o contenedores.
+  unlock_fw; sleep "${BURY_WATCH_RECHECK:-1}"; lock_fw
+  if ! same_docker "$id0"; then unlock_fw; write_state docker-inactivo; return 0; fi
+  if rules_ok; then barrier_off; unlock_fw; write_state ok; return 0; fi
+  reason=$(tail -n1 <<<"$VERIFY_MSG")
+
+  if ! self check-config >/dev/null 2>&1; then
+    if structure_ok && docker_rules_ok; then
+      unlock_fw
+      [[ "$(state_field estado)" == config-invalida ]] || open_incident "configuracion invalida con las reglas anteriores vigentes: corregirla antes de reiniciar Docker ($reason)"
+      write_state config-invalida; return 0
+    fi
+    open_incident "$reason"; barrier_on; unlock_fw; stop_docker "configuracion invalida y reglas incompletas"; return 0
+  fi
+
+  open_incident "$reason"
+  barrier_on
+  if self rearm >/dev/null 2>&1 && ensure_forward_jump && rules_ok; then
+    barrier_off; unlock_fw; note "reglas repuestas sin reiniciar Docker"; write_state incidente; return 0
+  fi
+  last=$(cat "$STATE_DIR/ultimo-reinicio" 2>/dev/null || echo 0)
+  if ! docker_rules_ok && (( $(now) - last >= ${BURY_WATCH_RESTART_WINDOW:-600} )); then
+    unlock_fw
+    same_docker "$id0" || { write_state docker-inactivo; return 0; }
+    now >"$STATE_DIR/ultimo-reinicio"
+    note "faltan reglas propias de Docker: se reinicia Docker una vez"
+    $SYSTEMCTL restart docker.service || true
+    if docker_active; then
+      lock_fw
+      if rules_ok; then barrier_off; unlock_fw; note "recuperado reiniciando Docker"; write_state incidente; return 0; fi
+      barrier_on; unlock_fw
+    fi
+    stop_docker "no se recupero tras reiniciar"; return 0
+  fi
+  unlock_fw
+  same_docker "$id0" || { write_state docker-inactivo; return 0; }
+  stop_docker "la reposicion fallo"
+}
+
+do_watch() {
+  local every="${BURY_WATCH_INTERVAL:-10}"
+  echo "bury-firewall: vigilancia activa cada ${every}s"
+  while :; do ( watch_once ) || echo "bury-firewall: un ciclo de vigilancia termino con error"; sleep "$every"; done
+}
+do_ack() {
+  local id; id=$(open_incident_id)
+  [[ -n "$id" ]] || die "no hay un incidente abierto"
+  [[ "${1:-}" == "$id" ]] || die "indicar el id del incidente abierto: ack $id (revisar antes $STATE_DIR/incidentes.log)"
+  rm -f "$STATE_DIR/incidente"; note "incidente $id reconocido"
+  write_state "$([[ "$(state_field estado)" == incidente ]] && echo ok || state_field estado)"
+}
+
 do_remove() {
   while $IPT -D DOCKER-USER -j "$CHAIN" 2>/dev/null; do :; done
   $IPT -F "$CHAIN" 2>/dev/null || true
@@ -224,13 +395,20 @@ do_remove() {
   echo "bury-firewall: regla retirada (HTTPS abierto segun los valores por defecto de Docker)"
 }
 
+case "$ACTION" in apply|remove|guard|rearm|verify) lock_fw ;; esac
 case "$ACTION" in
   apply) do_apply ;;
   remove) do_remove ;;
-  guard) do_guard; for_extras guard ;;
+  # La barrera que pudo dejar la vigilancia se retira solo en el nivel principal y despues de aplicar todas las cadenas.
+  guard) do_guard; for_extras guard; [[ -n "${BURY_FW_CONF:-}" ]] || barrier_off ;;
+  rearm) do_guard; for_extras guard ;;     # interno de la vigilancia: igual que guard, SIN retirar la barrera
+  check-config) validate; check_daemon_conf; for_extras check-config ;;
+  watch) do_watch ;;
+  watch-once) watch_once ;;
+  ack) do_ack "${2:-}" ;;
   verify) do_verify; for_extras verify ;;
   install-systemd) do_install_systemd ;;
   print) validate; echo "$IPT -N $CHAIN-NEW"; rules "$CHAIN-NEW" | sed "s|^|$IPT |"; echo "$IPT -I DOCKER-USER 1 -j $CHAIN-NEW"; echo "(luego: retirar el enganche a $CHAIN, borrar $CHAIN y renombrar $CHAIN-NEW a $CHAIN)" ;;
   status) $IPT -n -v -L "$CHAIN" 2>/dev/null || echo "bury-firewall: la cadena $CHAIN no existe (aplicar con: apply)"; $IPT -n -L DOCKER-USER --line-numbers ;;
-  *) sed -n '2,11p' "$0"; exit 1 ;;
+  *) sed -n '2,13p' "$0"; exit 1 ;;
 esac

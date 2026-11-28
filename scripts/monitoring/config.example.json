@@ -26,5 +26,6 @@
   "restore_test": {"warning": 691200, "critical": 864000},
   "offsite_restore_test": {"enabled": "auto", "warning": 3024000, "critical": 3888000},
   "custody": {"enabled": true, "warning": 691200, "critical": 1296000},
+  "firewall": {"enabled": "auto", "stale_seconds": 60},
   "power": {"enabled": "auto", "battery_warning": 30, "battery_critical": 15, "ac_hold_seconds": 60}
 }

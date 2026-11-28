@@ -311,7 +311,7 @@ jobs:
   # ---------------------------------------------------------------------------------------------
   network-security:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -331,6 +331,9 @@ jobs:
       # Instala el firewall con el bootstrap real sobre el systemd del runner (efimero) e induce fallos: Docker no debe quedar publicando.
       - name: Firewall falla cerrado (bootstrap + systemd real, fallos inducidos y reinicios de Docker)
         run: sudo BURY_FAILCLOSED_DESTRUCTIVO=1 bash scripts/install/test-firewall-failclosed.sh "$USER"
+
+      - name: Vigilancia del firewall con Docker en marcha (reglas borradas, reposicion, cierre y falsos positivos)
+        run: sudo BURY_FAILCLOSED_DESTRUCTIVO=1 bash scripts/install/test-firewall-watch.sh "$USER"
 
       - name: Caddy tls internal + confianza de la CA raiz
         run: bash scripts/install/test-caddy-tls.sh

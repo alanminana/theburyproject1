@@ -174,11 +174,16 @@ cerrar_si_fallo() {
   echo "       Corregir la causa y repetir el bootstrap; recuperacion: docs/operacion-servidor-ubuntu.md 7" >&2
   systemctl stop docker.socket docker.service || echo "ERROR: NO se pudo detener Docker: verificar a mano si el puerto $HTTPS_PORT esta expuesto" >&2
 }
-if (( ! DRY )); then FW_PENDIENTE=1; trap cerrar_si_fallo EXIT; fi
+if (( ! DRY )); then
+  FW_PENDIENTE=1; trap cerrar_si_fallo EXIT
+  # La vigilancia no debe observar la configuracion a medio escribir; se vuelve a arrancar al terminar la etapa.
+  systemctl stop bury-firewall-watch.service 2>/dev/null || true
+fi
 run install -m 0755 "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin/bury-firewall
 run install -d -m 0755 /etc/bury
 if (( ! DRY )); then
-  printf 'ALLOW_FROM="%s"\nHTTPS_PORT=%s\n' "$FW_ALLOW" "$HTTPS_PORT" >/etc/bury/firewall.conf
+  printf 'ALLOW_FROM="%s"\nHTTPS_PORT=%s\n' "$FW_ALLOW" "$HTTPS_PORT" >/etc/bury/.firewall.conf.nuevo
+  mv -f /etc/bury/.firewall.conf.nuevo /etc/bury/firewall.conf
   # Falla cerrado (ver bury-firewall.sh): 'guard' corre antes de dockerd y 'verify' despues; si fallan, Docker no queda en marcha.
   /usr/local/sbin/bury-firewall install-systemd
   systemctl daemon-reload
@@ -188,6 +193,8 @@ if (( ! DRY )); then
   systemctl enable bury-firewall.service
   systemctl restart bury-firewall.service
   /usr/local/sbin/bury-firewall verify
+  systemctl enable bury-firewall-watch.service
+  systemctl restart bury-firewall-watch.service
   FW_PENDIENTE=0
 else
   log "[dry-run] bury-firewall install-systemd (ExecStartPre=guard y ExecStartPost=verify en docker.service: falla cerrado), guard, restart y verify"

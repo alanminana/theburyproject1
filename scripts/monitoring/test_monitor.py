@@ -85,6 +85,34 @@ class MonitoringTests(unittest.TestCase):
     def power_events(self):
         return [(e["key"], e["status"], e["severity"]) for e in self.events if e["key"].startswith("power.")]
 
+    def firewall_signal(self, text, mode=True, age=0):
+        path = Path(self.tmp.name) / "fw-estado"
+        if text is None:
+            if path.exists():
+                path.unlink()
+        else:
+            path.write_text(f"latido={int(time.time()) - age} {text}")
+        self.cfg["firewall"] = {"enabled": mode, "state_file": str(path), "stale_seconds": 60}
+        self.collector.signals = {}
+        self.collector.firewall()
+        return self.collector.signals.get("firewall.watch")
+
+    def test_firewall_watch_states(self):
+        ok = self.firewall_signal("estado=ok ultima_ok=1 incidente=-")
+        self.assertEqual(ok["severity"], "INFO")
+        self.assertEqual(self.firewall_signal("estado=docker-inactivo ultima_ok=1 incidente=-")["severity"], "INFO")
+        for text in ("estado=ok ultima_ok=1 incidente=123", "estado=incidente ultima_ok=1 incidente=123",
+                     "estado=detenido ultima_ok=1 incidente=123", "estado=config-invalida ultima_ok=1 incidente=-",
+                     "estado=desconocido ultima_ok=1 incidente=-"):
+            self.assertEqual(self.firewall_signal(text)["severity"], "CRITICAL", text)
+        self.assertEqual(self.firewall_signal("estado=ilegible ultima_ok=1 incidente=-")["severity"], "WARNING")
+        self.assertEqual(self.firewall_signal("estado=ok ultima_ok=1 incidente=-", age=120)["severity"], "CRITICAL")
+
+    def test_firewall_watch_auto_is_silent_without_state_and_required_mode_alerts(self):
+        self.assertIsNone(self.firewall_signal(None, mode="auto"))
+        self.assertEqual(self.firewall_signal(None, mode=True)["severity"], "CRITICAL")
+        self.assertIsNone(self.firewall_signal("estado=detenido ultima_ok=0 incidente=1", mode=False))
+
     def test_power_loss_30_15_and_restore_emit_one_event_each(self):
         self.power_sample(1000)
         self.assertEqual(self.power_events(), [])
