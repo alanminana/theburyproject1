@@ -69,8 +69,8 @@ module.exports = [
     async fn(E, page) {
       const sufijo = String(Date.now()).slice(-6);
       for (const k of [
-        { tipo: 'Categoria', tab: 'categorias', abrir: '#btn-crear-categoria', form: '#form-nueva-categoria', editAttr: 'data-cat-edit-id', delAttr: 'data-cat-delete-id', json: /\/Categoria\/GetJson\//, edit: '#modal-editar-categoria', editForm: '#form-editar-categoria', editNombre: '#cat-edit-nombre', resumenEdit: '#cat-edit-validation-summary' },
-        { tipo: 'Marca', tab: 'marcas', abrir: '#btn-crear-marca', form: '#form-nueva-marca', editAttr: 'data-marca-edit-id', delAttr: 'data-marca-delete-id', json: /\/Marca\/GetJson\//, edit: '#modal-editar-marca', editForm: '#form-editar-marca', editNombre: '#marca-edit-nombre', resumenEdit: '#marca-edit-validation-summary' },
+        { tipo: 'Categoria', tab: 'categorias', abrir: '#btn-crear-categoria', modal: '#modal-categoria', form: '#form-categoria', editAttr: 'data-cat-edit-id', delAttr: 'data-cat-delete-id', json: /\/Categoria\/GetJson\//, editNombre: '#categoria-nombre' },
+        { tipo: 'Marca', tab: 'marcas', abrir: '#btn-crear-marca', modal: '#modal-marca', form: '#form-marca', editAttr: 'data-marca-edit-id', delAttr: 'data-marca-delete-id', json: /\/Marca\/GetJson\//, editNombre: '#marca-nombre' },
       ]) {
         const nombre = `CSP ${k.tipo} ${sufijo}`; const codigo = `C${k.tipo[0]}${sufijo}`;
         await E.ir(page, `/Catalogo?tab=${k.tab}`);
@@ -79,8 +79,8 @@ module.exports = [
         // validacion fallida: envio vacio
         await page.locator(`${k.form} button[type=submit]`).first().click(); E.interacciones++;
         await page.waitForTimeout(600);
-        const msg = await page.evaluate((f) => { const fm = document.querySelector(f); const s = fm.querySelector('[id$="validation-summary"]'); return { resumen: s && !s.classList.contains('hidden'), errores: [...fm.querySelectorAll('[data-valmsg-for]')].filter((x) => !x.classList.contains('hidden') && x.textContent.trim()).length, inv: [...fm.querySelectorAll(':invalid')].length }; }, k.form);
-        E.check(`${k.tipo}: envio vacio muestra errores de validacion`, msg.resumen || msg.errores > 0 || msg.inv > 0, JSON.stringify(msg));
+        const msg = await page.evaluate((f) => { const fm = document.querySelector(f); const s = fm.querySelector('[data-entidad-resumen]'); return { resumen: s && !s.hidden, errores: [...fm.querySelectorAll('[data-valmsg-for]')].filter((x) => !x.hidden && x.textContent.trim()).length, inv: [...fm.querySelectorAll('[aria-invalid="true"]')].length }; }, k.form);
+        E.check(`${k.tipo}: envio vacio muestra errores de validacion`, msg.resumen && msg.errores > 0 && msg.inv > 0, JSON.stringify(msg));
         E.check(`${k.tipo}: el modal sigue abierto tras validar`, await E.visible(page, k.form, 500));
         await page.fill(`${k.form} [name=Codigo]`, codigo); await page.fill(`${k.form} [name=Nombre]`, nombre);
         const [r] = await Promise.all([page.waitForResponse((x) => new RegExp(`/${k.tipo}/CreateAjax`).test(x.url()), { timeout: 15000 }), page.locator(`${k.form} button[type=submit]`).first().click()]);
@@ -97,16 +97,16 @@ module.exports = [
         // edicion remota
         const [rj] = await Promise.all([page.waitForResponse((x) => k.json.test(x.url())), E.click(page, `[${k.editAttr}="${idNuevo}"]`)]);
         E.check(`${k.tipo}: GetJson 200`, rj.status() === 200, rj.status());
-        E.check(`${k.tipo}: modal de edicion abre y se puebla`, await E.visible(page, k.edit) && (await page.inputValue(k.editNombre)) === nombre, await page.inputValue(k.editNombre).catch(() => '?'));
+        E.check(`${k.tipo}: modal de edicion abre y se puebla`, await E.visible(page, k.modal) && (await page.inputValue(k.editNombre)) === nombre, await page.inputValue(k.editNombre).catch(() => '?'));
         await page.fill(k.editNombre, '');
-        await page.locator(`${k.editForm} button[type=submit]`).first().click(); E.interacciones++;
+        await page.locator(`${k.form} button[type=submit]`).first().click(); E.interacciones++;
         await page.waitForTimeout(600);
-        E.check(`${k.tipo}: edicion con nombre vacio no cierra (validacion)`, await E.visible(page, k.edit, 500));
+        E.check(`${k.tipo}: edicion con nombre vacio no cierra (validacion)`, await E.visible(page, k.modal, 500));
         await page.keyboard.press('Escape'); E.interacciones++;
         const confirmacion = 'dialog.inv-dialog--confirm';
         E.check(`${k.tipo}: con cambios sin guardar, Escape pide confirmar el descarte`, await E.visible(page, confirmacion) && /Descartar los cambios/.test(await page.locator(confirmacion).innerText()));
         await E.click(page, `${confirmacion} [value=confirmar]`);
-        E.check(`${k.tipo}: descartar cierra el modal de edicion`, await E.oculto(page, k.edit));
+        E.check(`${k.tipo}: descartar cierra el modal de edicion`, await E.oculto(page, k.modal));
         // baja: cancelar y luego confirmar en el dialogo de confirmacion de Inventario
         await E.click(page, `[${k.delAttr}="${idNuevo}"]`);
         E.check(`${k.tipo}: la confirmacion de baja abre`, await E.visible(page, confirmacion));

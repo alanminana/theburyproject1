@@ -186,11 +186,20 @@
 }
 else if (seccion == "categorias")
 {
-    <partial name="_CategoriaDialogos" model="Model" />
+    <partial name="_EntidadDialogo" model='new TheBuryProject.ViewModels.EntidadDialogoViewModel
+    {
+        Entidad = "categoria",
+        Padres = CategoriaJerarquia.Opciones(Model.CategoriasListado),
+        Alicuotas = ViewBag.AlicuotasIVADatos
+    }' />
 }
 else if (seccion == "marcas")
 {
-    <partial name="_MarcaDialogos" model="Model" />
+    <partial name="_EntidadDialogo" model='new TheBuryProject.ViewModels.EntidadDialogoViewModel
+    {
+        Entidad = "marca",
+        Padres = Model.MarcasListado.OrderBy(m => m.Nombre).Select(m => new SelectListItem(m.Nombre, m.Id.ToString()))
+    }' />
 }
 else if (seccion == "movimientos" && User.TienePermiso("movimientos", "create") && ViewBag.ProductosActivosParaAjuste != null)
 {
@@ -229,15 +238,9 @@ else if (seccion == "movimientos" && User.TienePermiso("movimientos", "create") 
         <script src="~/js/movimientos-inventario-modal.js" asp-append-version="true"></script>
         <script src="~/js/producto-comision-modal.js" asp-append-version="true"></script>
     }
-    else if (seccion == "categorias")
+    else if (seccion is "categorias" or "marcas")
     {
-        <script src="~/js/categoria-crear-modal.js" asp-append-version="true"></script>
-        <script src="~/js/categoria-editar-modal.js" asp-append-version="true"></script>
-    }
-    else if (seccion == "marcas")
-    {
-        <script src="~/js/marca-crear-modal.js" asp-append-version="true"></script>
-        <script src="~/js/marca-editar-modal.js" asp-append-version="true"></script>
+        <script src="~/js/catalogo-entidad-modal.js" asp-append-version="true"></script>
     }
     else if (seccion == "movimientos")
     {

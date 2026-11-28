@@ -494,7 +494,7 @@
         else if (diferenciaPositiva)
         {
             <div class="inv-aviso inv-aviso--atencion">
-                <p><strong>Hay @ajusteAbsoluto.ToString("G29") @(ajusteAbsoluto == 1 ? "unidad de stock" : "unidades de stock") sin una unidad física que la respalde.</strong></p>
+                <p><strong>Hay @ajusteAbsoluto.ToString("G29") @(ajusteAbsoluto == 1 ? "unidad de stock sin una unidad física que la respalde" : "unidades de stock sin unidades físicas que las respalden").</strong></p>
                 <p>Antes de cargar o ajustar nada, revisá los movimientos de stock y el listado de unidades (vendidas, faltantes, dadas de baja o en reparación) para encontrar de dónde sale la diferencia.</p>
             </div>
         }

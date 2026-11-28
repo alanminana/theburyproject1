@@ -104,9 +104,9 @@ public class OperacionUiAccesibilidadContractTests
     }
 
     [Fact]
-    public void MarcaModalCodigoNombre_LabelsApuntanAlIdGeneradoPorElPartial()
+    public void EntidadDialogo_LabelsApuntanAlIdGeneradoPorElPartial()
     {
-        var view = Leer("Views", "Catalogo", "_MarcaModalCodigoNombre.cshtml");
+        var view = Leer("Views", "Catalogo", "_EntidadDialogo.cshtml");
 
         Assert.Contains("<label for=\"@(p)-codigo\"", view);
         Assert.Contains("id=\"@(p)-codigo\"", view);

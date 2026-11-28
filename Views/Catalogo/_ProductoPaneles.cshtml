@@ -3,59 +3,39 @@
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Asignar Comisión Vendedor
      ═══════════════════════════════════════════════════════════════ -->
-<dialog id="modal-comision-vendedor" class="inv-dialog" aria-labelledby="comision-modal-nombre">
+<dialog id="modal-comision-vendedor" class="inv-dialog" aria-labelledby="comision-modal-titulo" aria-describedby="comision-modal-nombre">
     <div class="inv-dialog__panel">
-
-        <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
+        <header class="inv-dialog__header inv-dialog__header--cerrar">
             <div>
-                <div class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300 mb-2">
-                    <span class="material-symbols-outlined text-sm">percent</span>
-                    Comisión vendedor
-                </div>
-                <h2 class="text-lg font-bold text-white" id="comision-modal-nombre">—</h2>
+                <h1 id="comision-modal-titulo" class="inv-dialog__title">Comisión del vendedor</h1>
+                <p id="comision-modal-nombre" class="inv-dialog__subtitulo"></p>
             </div>
-            <button type="button" data-comision-modal-close
-                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
-                <span class="material-symbols-outlined">close</span>
+            <button type="button" class="inv-icon-btn" data-comision-modal-close aria-label="Cerrar">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </header>
 
-        <form id="form-comision-vendedor" method="post" action="@Url.Action("ActualizarComisionVendedor", "Producto")">
+        <form id="form-comision-vendedor" class="inv-dialog__form" method="post" novalidate action="@Url.Action("ActualizarComisionVendedor", "Producto")">
             @Html.AntiForgeryToken()
-            <input type="hidden" id="comision-modal-productoId" name="productoId" value="" />
+            <input type="hidden" id="comision-modal-productoId" name="productoId" />
 
-            <div class="p-6 space-y-4">
-                <div id="comision-modal-validation" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
-                    <p id="comision-modal-validation-text" class="text-xs text-red-400/80 self-center"></p>
-                </div>
-                <div id="comision-modal-success" aria-live="polite" aria-atomic="true" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-emerald-500 shrink-0">check_circle</span>
-                    <p id="comision-modal-success-text" class="text-xs text-emerald-400/80 self-center"></p>
-                </div>
-
-                <div class="space-y-2">
-                    <label for="comision-modal-porcentaje" class="text-sm font-medium text-slate-300">Porcentaje de comisión</label>
-                    <div class="relative">
-                        <input id="comision-modal-porcentaje" name="porcentajeComision" type="number"
-                               min="0" max="100" step="0.01"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-primary outline-none text-white" />
-                        <span class="absolute right-3 top-2 text-slate-400 font-bold select-none">%</span>
+            <div class="inv-dialog__body">
+                <div class="inv-campo">
+                    <label for="comision-modal-porcentaje" class="inv-campo__etiqueta">Porcentaje de comisión</label>
+                    <div class="inv-sufijo">
+                        <input id="comision-modal-porcentaje" name="porcentajeComision" type="number" class="inv-control"
+                               min="0" max="100" step="0.01" inputmode="decimal" required autofocus
+                               aria-describedby="comision-modal-ayuda" />
+                        <span aria-hidden="true">%</span>
                     </div>
-                    <p class="text-xs text-slate-400">Ingresá 0 para sin comisión. Máximo 100.</p>
+                    <p id="comision-modal-ayuda" class="inv-campo__ayuda">De 0 a 100. Con 0 el producto no paga comisión.</p>
+                    <p id="comision-modal-error" class="inv-campo__error" role="alert" hidden></p>
                 </div>
             </div>
 
-            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
-                <button type="button" data-comision-modal-close
-                        class="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
-                    Cancelar
-                </button>
-                <button type="submit" id="btn-guardar-comision"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    Guardar
-                </button>
+            <footer class="inv-dialog__footer">
+                <button type="button" class="inv-btn inv-btn--ghost" data-comision-modal-close>Cancelar</button>
+                <button type="submit" id="btn-guardar-comision" class="inv-btn inv-btn--primary">Guardar comisión</button>
             </footer>
         </form>
     </div>

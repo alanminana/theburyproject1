@@ -12,6 +12,8 @@
     border-radius: .75rem;
     box-shadow: 0 24px 64px color-mix(in srgb, var(--pal-black) 55%, transparent);
     overscroll-behavior: contain;
+    /* Flechas, calendario y listas nativas acordes al tema. */
+    color-scheme: dark;
 }
 
 .inv-dialog::backdrop {
@@ -110,6 +112,93 @@
 
 .inv-dialog__consecuencias li + li {
     margin-top: .25rem;
+}
+
+/* ---------- Diálogo con formulario ------------------------------------- */
+.inv-dialog__header--cerrar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.inv-dialog__subtitulo {
+    font-size: .8125rem;
+    color: var(--erp-fg-3);
+    overflow-wrap: anywhere;
+}
+
+/* Solo el cuerpo desplaza: encabezado y acciones quedan siempre a la vista. */
+.inv-dialog__panel > header + .inv-dialog__form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.inv-dialog__form > .inv-dialog__body {
+    min-height: 0;
+}
+
+.inv-dialog__form > .inv-dialog__footer {
+    flex-shrink: 0;
+}
+
+.inv-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+    align-items: start;
+    gap: .875rem 1rem;
+}
+
+.inv-campo--ancho {
+    grid-column: 1 / -1;
+}
+
+textarea.inv-control {
+    resize: vertical;
+}
+
+.inv-opciones {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--pal-neutral-800);
+}
+
+/* Dos clases: una regla global centra las etiquetas con casilla. */
+.inv-opciones > .inv-opcion {
+    display: flex;
+    align-items: flex-start;
+    gap: .625rem;
+    padding-block: .75rem 0;
+    cursor: pointer;
+}
+
+.inv-opcion > .inv-check {
+    flex-shrink: 0;
+    margin-top: .15rem;
+}
+
+.inv-opcion__titulo {
+    display: block;
+    font-weight: 600;
+}
+
+.inv-opcion .inv-campo__ayuda {
+    display: block;
+}
+
+.inv-sufijo {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.inv-sufijo > .inv-control {
+    max-width: 10rem;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Panel lateral con formulario ------------------------------- */

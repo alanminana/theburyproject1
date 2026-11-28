@@ -83,13 +83,10 @@ public class QaPrdP1B9CorreccionesHttpTests : IClassFixture<CustomWebApplication
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "TheBuryProyect.csproj")))
             dir = dir.Parent;
         Assert.NotNull(dir);
-        foreach (var archivo in new[] { "marca-crear-modal.js", "marca-editar-modal.js" })
-        {
-            var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", archivo));
-            Assert.DoesNotContain("createElement('tr')", js);
-            Assert.DoesNotContain("<td", js);
-            Assert.Contains("/Catalogo?tab=marcas", js);
-        }
+        var js = File.ReadAllText(Path.Combine(dir!.FullName, "wwwroot", "js", "catalogo-entidad-modal.js"));
+        Assert.DoesNotContain("createElement('tr')", js);
+        Assert.DoesNotContain("<td", js);
+        Assert.Contains("/Catalogo?tab=marcas", js);
     }
 
     private static async Task<string> TokenAsync(HttpClient client)

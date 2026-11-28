@@ -2671,3 +2671,13 @@ Estado: pantallas cerradas reabiertas solo para el defecto puntual de cada una (
 ## Agente 4 — UX funcional: envíos involuntarios (2026-11-22)
 
 Sin reabrir pantallas cerradas ni cambiar diseño. (1) Compras/Create|Edit: Enter en el buscador de productos sin coincidencias enviaba la orden completa; ahora elige el primer resultado o explica el motivo. (2) Forms de Caja (Registrar movimiento, Abrir, Cerrar), Compras (Create/Edit), Tesorería (Guardar) y Cuentas por pagar (Crear, Anticipar) no tenían guard anti doble envío: nuevo `data-prevent-double-submit` en `shared-ui.js` (no bloquea si la validación o la confirmación cancelan el envío; se libera con bfcache). Prueba: `e2e-js/compras-caja-envio-involuntario.spec.js` (falla con el JS anterior, pasa con el nuevo). No validado en la app real: este entorno no tiene `dotnet`.
+
+## Inventario: categorías, marcas y comisión (2026-11-28)
+
+Estado: pendiente de aprobación visual del propietario. Reabre solo los diálogos de categoría, marca y comisión y el texto de conciliación.
+
+- **Cambio:** alta y edición de Categoría y Marca usan un único parcial (`Views/Catalogo/_EntidadDialogo.cshtml`) y un único script (`wwwroot/js/catalogo-entidad-modal.js`), en lugar de cuatro formularios, dos juegos de campos y cuatro scripts. Comisión del vendedor rediseñada con los mismos componentes; el éxito se avisa con el toast del catálogo. Componentes nuevos en `inventario-ui.css`: `.inv-dialog__form`, `.inv-dialog__header--cerrar`, `.inv-form-grid`, `.inv-opciones`, `.inv-sufijo`. Sin cambios de endpoints, permisos ni validaciones del servidor.
+- **Defecto de la rama corregido:** al separar una URL por sección, `window.CatalogoData` quedó solo en Productos; la edición de marca armaba desde ahí el combo «Marca padre», que llegaba vacío, y guardar borraba el padre. Ahora los padres salen del servidor con todas las marcas.
+- **Trampas:** una regla global centra las etiquetas con casilla (usar `.inv-opciones > .inv-opcion`); en WebKit el diálogo se cierra un ciclo después de Escape.
+- **Validado:** alta, edición, desactivación y baja con datos ficticios en Chromium (81 comprobaciones, con axe), Firefox y WebKit (70); 1440x900, 390x844, 320x568 y 683x384; escenarios CSP Enforce de catálogo 6/6; 1586 pruebas relacionadas sin fallas.
+- **NO VALIDADO:** diálogos con un usuario sin permiso de alta o edición en el navegador (cubierto por pruebas HTTP), lector de pantalla y dispositivo táctil físico.

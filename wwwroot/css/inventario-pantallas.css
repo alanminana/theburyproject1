@@ -1055,8 +1055,7 @@ fieldset.inv-panel {
     width: min(44rem, calc(100vw - 1.5rem));
 }
 
-.inv-dialog__panel > header + form,
-.inv-dialog__panel > form.catalogo-modal-form {
+.inv-dialog__panel > header + form {
     display: flex;
     flex-direction: column;
     min-height: 0;

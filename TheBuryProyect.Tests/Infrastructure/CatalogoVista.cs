@@ -8,8 +8,7 @@ public static class CatalogoVista
         "Index_tw.cshtml",
         "_Productos.cshtml", "_ProductosResultados.cshtml", "_ProductoFila.cshtml",
         "_ProductoDialogos.cshtml", "_ProductoPaneles.cshtml",
-        "_Categorias.cshtml", "_CategoriaDialogos.cshtml",
-        "_Marcas.cshtml", "_MarcaDialogos.cshtml"
+        "_Categorias.cshtml", "_Marcas.cshtml", "_EntidadDialogo.cshtml"
     };
 
     public static string Leer()
