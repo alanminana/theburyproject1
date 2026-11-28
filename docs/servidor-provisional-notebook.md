@@ -44,6 +44,11 @@ scripts/install/verificar-servidor.sh --project theburyproject-prov --lan-cidr 1
 
 **Firewall de una segunda instalación** (la primera usa `BURY-ERP` y 443): `/etc/bury/firewall-prov.conf` con `ALLOW_FROM="192.168.50.0/24"` y `HTTPS_PORT=8443`, y una unidad `bury-firewall-prov.service` copia de `bury-firewall.service` con `Environment=BURY_FW_CHAIN=BURY-ERP-PROV` y `Environment=BURY_FW_CONF=/etc/bury/firewall-prov.conf`. Documentado en la cabecera de `scripts/install/bury-firewall.sh`.
 
+> **Pendiente en la notebook (a 2026-11-27, no modificada):** la última instalación registrada usa el firewall anterior, que **falla abierto**, y abre
+> el puerto al detener la unidad y en cada apagado ([evidencias-instalacion.md](evidencias-instalacion.md)). La versión nueva cubre las dos cadenas:
+> `guard` y `verify` toman `firewall-prov.conf` por su nombre y el bootstrap quita `ExecStop` de la unidad `prov`. Procedimiento:
+> [red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6, «Servidores instalados antes del 2026-11-27». Requiere una ventana acordada y acceso a la consola.
+
 `verificar-servidor.sh` es de **solo lectura** y es el mismo control que se repite en el servidor definitivo (con `--cierre` exige además `p07-verificar-cuentas.sql` con `@Cierre = 1`: ≥ 2 SuperAdmin reales y 0 cuentas sintéticas; en la provisional falla **solo** ese control, por diseño).
 
 ## 3. Evidencia de esta instalación (2026-11-25, medida en la notebook)

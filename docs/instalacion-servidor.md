@@ -112,7 +112,15 @@ Los contenedores tienen `restart: unless-stopped`: vuelven con Docker. Probarlo 
 ## 4. Ubuntu con Docker Engine (referencia)
 
 Ubuntu 22.04 y 24.04 son las versiones para las que está escrito el bootstrap; la instalación física más reciente se midió en 26.04
-([evidencias](evidencias-instalacion.md)). Antes de empezar: IP fija o reservada, salida a Internet y una cuenta de administración con `sudo`.
+([evidencias](evidencias-instalacion.md)). Antes de empezar: IP fija o reservada, salida a Internet, una cuenta de administración con `sudo` y
+**8 GB de RAM, más swap**. La instalación compila la imagen **en el servidor**: con 4,5 GB y sin swap, el compilador de .NET agotó la memoria y la
+máquina dejó de responder hasta apagarla (medido el 2026-11-27); con 4,5 GB y 4 GB de swap terminó bien. No se midió con 8 GB sin swap.
+Comprobar con `free -h`. Si `Swap` es 0 (habitual en imágenes cloud):
+
+```bash
+sudo fallocate -l 4G /swap.img && sudo chmod 600 /swap.img && sudo mkswap /swap.img && sudo swapon /swap.img
+echo '/swap.img none swap sw 0 0' | sudo tee -a /etc/fstab
+```
 
 | Dato a decidir | Ejemplo | Nota |
 |---|---|---|
@@ -142,6 +150,8 @@ Agregar `--tailscale` instala Tailscale sin autenticarlo ([p05-tailscale-acceso-
 
 > **`ufw` no protege el 443 del ERP.** Docker publica puertos con reglas propias que las de `ufw` no filtran. El filtro es `bury-firewall`. Si se omite el
 > bootstrap o se instala Docker a mano sin él, el 443 queda abierto a toda red que alcance el servidor.
+>
+> El firewall **falla cerrado**: si no se puede aplicar, Docker no arranca ([red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6).
 
 Cerrar la sesión y abrir otra, para tomar el grupo `docker` (**equivale a root**: usarlo solo en la cuenta de administración).
 
@@ -165,7 +175,8 @@ Si el proyecto Compose ya tiene volúmenes y no hay `.env`, el instalador se nie
 En el servidor:
 
 ```bash
-systemctl is-active bury-firewall && sudo bury-firewall status     # cadena BURY-ERP: orígenes autorizados y DROP final
+systemctl is-active docker bury-firewall && sudo bury-firewall verify   # "verificado (BURY-ERP, puerto 443)"
+sudo bury-firewall status                                          # cadena BURY-ERP: orígenes autorizados y DROP final
 ss -ltn                                                            # del ERP solo 443; nada en 1433 ni 8080
 ```
 
@@ -174,7 +185,13 @@ el filtro en esta red. Si el ERP usa otro puerto, `--https-port` del bootstrap d
 
 ### 4.5 Verificar la instalación
 
+Primero, **solo en una instalación nueva**, cerrar el crédito personal. La base recién creada trae un cupo de $200.000 en el puntaje 0, y hasta
+cerrarlo `verificar-servidor.sh` da `FAIL V07` ([cierre-credito-cupos-cero-20261122.md](cierre-credito-cupos-cero-20261122.md)). El script usa la
+pantalla real con el usuario `admin` y su contraseña inicial del `.env`: ejecutarlo **antes** de cambiarla o quitarla (§6). No usarlo sobre una
+instalación en operación.
+
 ```bash
+python3 scripts/install/cerrar-credito-inicial.py --base https://tbp --ca caddy-root-ca.crt --resolve 127.0.0.1 --user admin --env-file .env
 scripts/install/verificar-servidor.sh --project theburyproject --lan-cidr 192.168.1.0/24 --sudo-cmd "sudo"
 scripts/backup/backup.sh all && scripts/backup/restore-test.sh
 ```
@@ -189,7 +206,7 @@ Hacerlo **el mismo día**: paquete de recuperación, passphrase en otro lugar y 
 ### 4.7 Reinicio
 
 Reiniciar el equipo y comprobar, sin tocar nada, que `https://tbp` abre desde un cliente, que los tres servicios están sanos y que
-`bury-firewall` sigue activo ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7).
+`sudo bury-firewall verify` termina bien ([operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7).
 
 ## 5. Clientes (cada PC)
 
@@ -242,7 +259,9 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 
 | Síntoma | Causa y solución |
 |---|---|
-| (Ubuntu) El 443 responde desde redes que no deberían | `bury-firewall` no está aplicado o `--allow-from` es demasiado amplio. `ufw` no filtra este puerto. Ver §4.4 |
+| (Ubuntu) El 443 responde desde redes que no deberían | `--allow-from` demasiado amplio, reglas borradas con Docker en marcha, o instalación anterior al 2026-11-27 (falla abierta). `ufw` no filtra este puerto. Ver §4.4 |
+| (Ubuntu) El ERP no responde y `docker` figura `failed` | El firewall no se pudo aplicar o comprobar y Docker no arrancó a propósito: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7 |
+| La instalación se queda compilando y el servidor no responde por SSH | Falta de memoria al construir la imagen: agregar RAM o swap (§4) |
 | (Ubuntu) Otra PC de la LAN no llega a `https://tbp` | Su red no está en `ALLOW_FROM` (`/etc/bury/firewall.conf`; repetir el bootstrap), o no resuelve `tbp` |
 | `bad interpreter` / `\r` en un `.sh` | El repositorio se clonó desde Windows. Volver a clonarlo **dentro de WSL** |
 | El instalador dice que Docker no responde | Abrir Docker Desktop y activar la integración WSL con la distro (Settings > Resources > WSL integration) |
@@ -256,8 +275,9 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 
 ## 11. Alcance y pendientes
 
-- **Qué está probado, sobre qué commit y qué no:** [evidencias-instalacion.md](evidencias-instalacion.md). En particular, **no** se ejecutó esta guía
-  reorganizada de punta a punta en una máquina nueva.
+- **Qué está probado, sobre qué commit y qué no:** [evidencias-instalacion.md](evidencias-instalacion.md). §4.1–4.5 se ejecutaron el 2026-11-27 en
+  una VM Ubuntu 24.04 limpia; §4.6, actualización, vuelta atrás y recuperación, en el mismo laboratorio. **No** en hardware físico ni en 26.04, y
+  la configuración de clientes (§5) no se repitió.
 - `install-windows.ps1` (alternativa Windows) está probado con `-DryRun`, validaciones de parámetros y `-Uninstall -DryRun`; sus efectos reales
   (firewall, tareas programadas, energía) no se validaron en un servidor de destino.
 - **No incluido en el instalador:** alertas y observador externo (hay scripts aparte en `scripts/monitoring/`, ver [monitoreo-alertas.md](monitoreo-alertas.md)), activación de la copia externa de backups y planificador de backups dentro de Docker (corre en el anfitrión: cron en Linux, Programador de tareas en Windows).

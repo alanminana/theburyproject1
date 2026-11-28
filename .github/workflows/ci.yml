@@ -328,6 +328,10 @@ jobs:
       - name: Firewall de puertos publicados (DOCKER-USER) con clientes en redes distintas
         run: sudo bash scripts/install/test-firewall-isolation.sh
 
+      # Instala el firewall con el bootstrap real sobre el systemd del runner (efimero) e induce fallos: Docker no debe quedar publicando.
+      - name: Firewall falla cerrado (bootstrap + systemd real, fallos inducidos y reinicios de Docker)
+        run: sudo BURY_FAILCLOSED_DESTRUCTIVO=1 bash scripts/install/test-firewall-failclosed.sh "$USER"
+
       - name: Caddy tls internal + confianza de la CA raiz
         run: bash scripts/install/test-caddy-tls.sh
 
@@ -405,7 +409,7 @@ jobs:
   # ---------------------------------------------------------------------------------------------
   # Scripts de Windows (Check-ErpHealth simulado + instalador de Windows Server sin Hyper-V): OBLIGATORIO (sin continue-on-error).
   # Evidencia: 59/59 corridas no canceladas en verde (2026-11-12..14), 25-70 s cada una; ver docs/ci.md "Checks obligatorios e informativos".
-  # No usa Docker, WSL, Hyper-V ni red real; ver docs/instalacion-windows-server.md.
+  # No usa Docker, WSL ni Hyper-V; la unica red es la descarga del SDK de .NET; ver docs/instalacion-windows-server.md.
   # Un fallo pone en rojo el workflow. Que ademas BLOQUEE el merge exige agregar `windows-scripts` a los required checks de main
   # (proteccion de rama: decision del propietario, no se toca desde CI).
   # ---------------------------------------------------------------------------------------------
@@ -431,3 +435,12 @@ jobs:
       - name: Instalacion de la CA en clientes (Windows PowerShell 5.1, solo -VerifyOnly)
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install/Test-InstallErpCa.ps1
+
+      # El arnes del lanzador evalua un proyecto con el MSBuild real (sqlcmd y `dotnet run` van simulados): necesita el SDK fijado.
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Lanzador seguro del ERP local (repositorios temporales; sin SQL Server)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-iniciar-erp-local.ps1

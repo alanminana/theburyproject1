@@ -103,6 +103,12 @@ if $SUDO true >/dev/null 2>&1; then
   rm -f "$FWF"
   $SUDO python3 "$REPO_DIR/scripts/install/access-model-audit.py" >/dev/null 2>&1 && pass "V16 modelo de acceso (ufw activo, SSH solo desde equipos concretos, 1433/8080 no expuestos)" || fail "V16 access-model-audit.py incumple"
   $SUDO systemctl is-enabled docker >/dev/null 2>&1 && pass "V17 Docker arranca con el sistema" || fail "V17 Docker no esta habilitado al arranque"
+  DKU="$($SUDO systemctl cat docker.service 2>/dev/null)"
+  if grep -qx 'ExecStartPre=/usr/local/sbin/bury-firewall guard' <<<"$DKU" && grep -qx 'ExecStartPost=/usr/local/sbin/bury-firewall verify' <<<"$DKU" \
+     && ! grep -q '^ExecStartPost=-.*bury-firewall' <<<"$DKU" && ! $SUDO grep -qs '^ExecStop=.*bury-firewall.* remove' /etc/systemd/system/bury-firewall*.service; then
+    pass "V17b el firewall falla cerrado (guard antes de dockerd, verify despues; ninguna unidad lo retira al detenerse)"
+  else fail "V17b el firewall NO falla cerrado: repetir scripts/install/server-linux-bootstrap.sh (docs/red-privada-lan-vpn.md 6)"; fi
+  cmp -s "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin/bury-firewall && pass "V17c el firewall instalado coincide con el del repositorio" || warn "V17c /usr/local/sbin/bury-firewall difiere del repositorio: repetir el bootstrap (git pull no lo actualiza)"
 else skip "V13-V17 sin root ($SUDO): firewall/ufw/arranque no verificados (reintentar con --sudo-cmd 'sudo')"; fi
 # --- 6. respaldos, programacion y custodia
 suf="${PROJECT#theburyproject}"; suf="${suf#-}"; cron="/etc/cron.d/bury-backup${suf:+-$suf}"

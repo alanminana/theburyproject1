@@ -72,6 +72,12 @@ trap 'trap_interrupt' INT TERM
 
 export ERP_IMAGE="$TO_IMAGE"
 
+# El contenedor `migrate` del despliegue anterior conserva la imagen NUEVA. Si alguien lo arranca (`docker compose start`/`restart`, o los
+# respaldos de versiones anteriores al hacer `start app`), vuelve a migrar la base ya restaurada. Se lo recrea con la imagen destino SIN
+# ejecutarlo. Va antes de tocar app: si no se puede, el rollback no empieza.
+log INFO "--- alineando el contenedor migrate con la imagen destino (se crea, no se ejecuta) ---"
+dc up --no-start --no-deps --force-recreate migrate || die $EX_PREREQ "no se pudo alinear el contenedor migrate con $TO_IMAGE; no se inicio el rollback"
+
 log INFO "--- deteniendo app (imagen actual: ${CURRENT_IMAGE:-desconocida}) ---"
 dc stop -t 30 app || true
 
