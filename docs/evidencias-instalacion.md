@@ -29,6 +29,29 @@ por `git bundle` porque aún no estaba publicado.
 El destino externo de la recuperación fue un servidor SFTP **descartable dentro del laboratorio** (host key fijada, `crypt`): prueba el
 procedimiento, no un destino físico concreto. La opción B de §6.4 (disco extraíble) no se repitió; rige la evidencia anterior.
 
+## Vigilancia del firewall y ensayo de actualización (VM Ubuntu **26.04.1**)
+
+Misma versión de sistema que la notebook; Docker 29.10.1 (la notebook tiene 29.10.0). Contenedores sintéticos, **sin el ERP**: no se repitió el
+recorrido integral.
+
+| Qué | Resultado |
+|---|---|
+| `test-firewall-watch.sh`: reglas borradas, vaciadas, desordenadas; `iptables -F` y `-t nat -F`; segunda pérdida; configuración rota; parada manual; reinicios y redes nuevas | 67 PASS, 0 FAIL en la corrida completa. Antes hubo 6 FAIL por un defecto de la prueba (aceptaba una recuperación anterior del historial). Ventana observada de acceso del ajeno: 8–11 s |
+| `test-firewall-failclosed.sh`, primera vez sobre 26.04 | 62 PASS, 0 FAIL |
+| Ensayo de [actualizacion-notebook-firewall.md](actualizacion-notebook-firewall.md): firewall anterior con el mismo SHA-256 que el de la notebook, dos instancias, `ufw` activo | Comprobación previa sin cambios; instalación con 0 conexiones del ajeno (94 sondeos) y sin reiniciar Docker ni contenedores; exclusión de un cliente real; reposición; reinicio con 0 conexiones (352 sondeos); vuelta al firewall anterior con el binario exacto; `guard` fallido sin tocar las reglas. Encontró que `ack` abortaba a mitad (corregido) |
+
+No ensayado: el ERP y sus datos, el monitor como servicio, el observador instalado en la PC y el hardware de la notebook.
+
+## Notebook: estado observado (solo lectura, 2026-11-27 23:06–23:10)
+
+Arranque 22:57:57 tras un apagado **ordenado** a las 22:53 (batería agotada, según el observador). Con corriente, batería 14 % y cargando.
+Docker, `cron`, `ssh`, `ufw`, las dos unidades de firewall y el monitor activos; seis contenedores de servicio sanos; `/health/ready` 200 en
+443 y 8443. Sin marcas de respaldo o recuperación interrumpidos y con los logs de error de cron vacíos. Copias de logs al día en las dos
+instancias; la de las 23:07 de la provisional, verificada y recibida en la PC. Full y archivos del 27/11 presentes. Copias locales cifradas
+verificadas por última vez a las 03:15 del 27/11. `verificar-servidor.sh` sin `sudo`: 16 PASS, 0 FAIL, 1 WARN, 1 SKIP (firewall no verificable
+sin root). El WARN `V19` («no hay full») es **falso**: el usuario no puede listar la carpeta `sql`; desde el contenedor se ven los full.
+El firewall instalado es el anterior (**falla abierto**).
+
 ## Copia externa y custodia de la instalación provisional
 
 Contraste del 2026-11-27 **sin conectarse a la notebook** (archivos de la PC administradora, su observador y la documentación):

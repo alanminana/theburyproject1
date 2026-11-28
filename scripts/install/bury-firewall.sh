@@ -298,8 +298,9 @@ docker_identity() { $SYSTEMCTL show docker.service -p MainPID -p ActiveEnterTime
 same_docker() { docker_active && [[ "$(docker_identity)" == "$1" ]]; }
 
 now() { date +%s; }
-state_field() { sed -n "s/.*\b$1=\([^ ]*\).*/\1/p" "$STATE_DIR/estado" 2>/dev/null | head -1; }
-open_incident_id() { sed -n 's/^id=//p' "$STATE_DIR/incidente" 2>/dev/null | head -1; }
+# Con 'set -e' y pipefail, un archivo inexistente no puede abortar a quien los llama (abortaba 'ack' despues de borrar el incidente).
+state_field() { sed -n "s/.*\b$1=\([^ ]*\).*/\1/p" "$STATE_DIR/estado" 2>/dev/null | head -1 || true; }
+open_incident_id() { sed -n 's/^id=//p' "$STATE_DIR/incidente" 2>/dev/null | head -1 || true; }
 write_state() {   # write_state ESTADO  (publicacion atomica; 'latido' avanza siempre, 'ultima_ok' solo cuando todo se comprobo)
   local ok id tmp
   ok=$(state_field ultima_ok); [[ "$1" == ok ]] && ok=$(now)

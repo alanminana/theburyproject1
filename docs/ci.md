@@ -46,7 +46,7 @@ otro innecesariamente.
 | `secret-scan` | Detecta secretos nuevos en los commits del push/PR (no re-escanea todo el historial) | Si |
 | `build-test-windows` | Paridad informativa en Windows (build + tests .NET) | No (`continue-on-error: true`) |
 | `windows-scripts` | Pruebas simuladas de los scripts de Windows (acceso, `Check-ErpHealth`, instalador, CA) y del lanzador local (28 casos, desde el 2026-11-27; usa el SDK de `global.json`) | **Si en el workflow** (sin `continue-on-error`); en la rama protegida solo si se agrega a los required checks |
-| `network-security` | P-05: firewall/CA/Tailscale con Docker efimero; desde el 2026-11-27, falla cerrada del firewall con el bootstrap y el systemd reales del runner (reinicia Docker) | Falla el workflow; no esta en los required checks |
+| `network-security` | P-05: firewall/CA/Tailscale con Docker efimero; desde el 2026-11-27, falla cerrada y vigilancia del firewall con el bootstrap y el systemd reales del runner (reinicia Docker; limite 25 min). Evaluacion para exigirlo: [ci-checks-obligatorios-evaluacion.md](ci-checks-obligatorios-evaluacion.md) | Falla el workflow; no esta en los required checks |
 
 ### Checks obligatorios e informativos (2026-11-14)
 

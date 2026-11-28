@@ -278,8 +278,19 @@ El 443 que publica Docker lo filtra **únicamente** la cadena de `DOCKER-USER` q
 Comprobar tras instalar, reiniciar o actualizar Docker:
 
 ```bash
-systemctl is-active docker bury-firewall && sudo bury-firewall verify     # "verificado (BURY-ERP, puerto 443)"
+systemctl is-active docker bury-firewall bury-firewall-watch && sudo bury-firewall verify   # "verificado (BURY-ERP, puerto 443)"
+cat /var/lib/bury-firewall/estado                                       # estado=ok ... incidente=-
 ```
+
+**Ante un aviso de la vigilancia** (`FIREWALL_ALERTA`, `firewall.watch` o `V17d`):
+
+| `estado` / `fw=` | Qué significa | Qué hacer |
+|---|---|---|
+| `incidente` | Las reglas se perdieron o alteraron. Revisar `incidentes.log`: dice si se repusieron | Averiguar **quién** las cambió (`journalctl --since`, historial de `sudo`, actualizaciones de Docker o `ufw`). Tratarlo como posible acceso no autorizado durante esos segundos: revisar los inicios de sesión del ERP. Después, `sudo bury-firewall ack <id>` |
+| `detenido` | Docker detenido porque no se pudo garantizar el filtro: ERP y respaldos caídos | Leer `incidentes.log` y el journal; corregir; usar los comandos de abajo; `ack` |
+| `config-invalida` | Reglas vigentes, configuración rota | Corregir el `.conf` **antes** de reiniciar nada; `ack` |
+| `vencido` | La vigilancia no corre: nadie repone | `systemctl status bury-firewall-watch`; `journalctl -u bury-firewall-watch` |
+| `ilegible` | No puede leer las reglas | Revisar `sudo iptables -S`; no actúa a ciegas |
 
 Si el ERP no responde y `docker` figura `failed`:
 

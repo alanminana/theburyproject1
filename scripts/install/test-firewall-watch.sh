@@ -124,8 +124,9 @@ echo "== El incidente queda abierto hasta reconocerlo =="
 iptables -w 5 -F BURY-ERP; wait_state incidente 30; sleep 14
 check "sigue 'abierto' aunque las reglas ya esten bien (el estado vuelve a ok y conserva el id)" bash -c 'grep -qE "estado=ok .*incidente=[0-9]+" /var/lib/bury-firewall/estado'
 check "ack con un id incorrecto se rechaza" bash -c '! bury-firewall ack 1 >/dev/null 2>&1'
-ack_all
+check "ack con el id correcto termina con codigo 0" bury-firewall ack "$(incident_id)"
 check "ack con el id correcto lo cierra" no_incident
+check "ack deja el estado publicado sin incidente en el acto (sin esperar otro ciclo)" grep -q "estado=ok .*incidente=-" $ST/estado
 check "el historial conserva el incidente" grep -q "INCIDENTE" $ST/incidentes.log
 
 echo "== Perdida de las reglas de Docker: un reinicio de Docker =="
