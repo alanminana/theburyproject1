@@ -108,6 +108,10 @@ if $SUDO true >/dev/null 2>&1; then
      && ! grep -q '^ExecStartPost=-.*bury-firewall' <<<"$DKU" && ! $SUDO grep -qs '^ExecStop=.*bury-firewall.* remove' /etc/systemd/system/bury-firewall*.service; then
     pass "V17b el firewall falla cerrado (guard antes de dockerd, verify despues; ninguna unidad lo retira al detenerse)"
   else fail "V17b el firewall NO falla cerrado: repetir scripts/install/server-linux-bootstrap.sh (docs/red-privada-lan-vpn.md 6)"; fi
+  FWST="$(cat /var/lib/bury-firewall/estado 2>/dev/null)"; BEAT="$(sed -n 's/^latido=\([0-9]*\) .*/\1/p' <<<"$FWST")"
+  if $SUDO systemctl is-active bury-firewall-watch >/dev/null 2>&1 && [[ "$FWST" == *" estado=ok "*"incidente=-"* && -n "$BEAT" ]] && (( $(date +%s) - BEAT <= 60 )); then
+    pass "V17d la vigilancia del firewall esta activa, al dia y sin incidentes"
+  else fail "V17d vigilancia del firewall ausente, atrasada o con incidente: '${FWST:-sin estado}' (docs/operacion-servidor-ubuntu.md 7)"; fi
   cmp -s "$REPO_DIR/scripts/install/bury-firewall.sh" /usr/local/sbin/bury-firewall && pass "V17c el firewall instalado coincide con el del repositorio" || warn "V17c /usr/local/sbin/bury-firewall difiere del repositorio: repetir el bootstrap (git pull no lo actualiza)"
 else skip "V13-V17 sin root ($SUDO): firewall/ufw/arranque no verificados (reintentar con --sudo-cmd 'sudo')"; fi
 # --- 6. respaldos, programacion y custodia

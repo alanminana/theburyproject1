@@ -298,6 +298,15 @@ Una señal de disco se emite **por filesystem** (no por ruta): `/`, `DockerRootD
   El atraso se mide con la marca `_ok-sql` / `_ok-files` que `backup.sh` actualiza **solo tras verificar la subida** (no con la fecha de cualquier archivo).
   Límite: lo ve esta PC; con la PC apagada no hay aviso en pantalla (el servidor igual registra el fallo).
 
+## Firewall de los puertos publicados (2026-11-27)
+
+* Señal `firewall.watch`: lee `/var/lib/bury-firewall/estado` (`config.json` → `"firewall": {"enabled": "auto", "stale_seconds": 60}`).
+  CRÍTICA con incidente abierto, `detenido`, `config-invalida` o latido de más de 60 s; AVISO con `ilegible`.
+* El observador de la PC lee `fw=` al final de la línea de energía y muestra `FIREWALL_ALERTA` (tras dos muestras) y `FIREWALL_OK`. Un
+  observador anterior ignora el campo. **Sin webhook ni Telegram configurados, la PC es el único canal**: con la PC apagada no hay aviso en pantalla.
+* Respuesta: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7. Instalación en la notebook:
+  [actualizacion-notebook-firewall.md](actualizacion-notebook-firewall.md).
+
 ## Alimentación eléctrica y batería (2026-11-26)
 
 Motivo: el 25/11/2026 el servidor provisional (notebook) quedó 17 h sin corriente, llegó al 2 % y se apagó sin ningún aviso.

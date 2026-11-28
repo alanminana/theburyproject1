@@ -176,17 +176,34 @@ con la IP de la Wi-Fi responde solo ahí (y `127.0.0.1` deja de responder); con 
      Un archivo o cadena con **otra** convención de nombres **no** queda cubierto
      ([servidor-provisional-notebook.md](servidor-provisional-notebook.md) §2).
 
-     **Límites:** (1) protege el arranque y la reaplicación: si alguien borra las reglas con Docker en marcha (`iptables -F`,
-     `bury-firewall remove`), el 443 queda abierto hasta reaplicar, y ningún monitor incluido lo avisa (`Check-ErpHealth` solo mira que la unidad
-     esté activa); (2) solo IPv4: `ERP_BIND_ADDRESS` debe ser IPv4 (`0.0.0.0` no publica en IPv6; verificar con `ss -ltn`); (3) `guard` no sabe qué
+     **Vigilancia con Docker en marcha** (`bury-firewall-watch.service`, cada 10 s). Si las reglas se pierden o se alteran:
+
+     | Situación (confirmada en dos lecturas) | Respuesta |
+     |---|---|
+     | Faltan o están desordenadas las reglas propias | Pone una **barrera** que descarta lo entrante a contenedores, repone, comprueba y la quita. No reinicia Docker |
+     | Faltan además las reglas de Docker (`iptables -F`, `-t nat -F`) | Reinicia Docker **una** vez (como máximo una cada 10 min) |
+     | No logra comprobar el filtro, o se repite dentro de esa ventana | **Detiene Docker** y no lo vuelve a arrancar |
+     | `firewall.conf` mal editado y reglas **idénticas** a las últimas comprobadas | No corta el servicio: avisa `config-invalida`. Corregirlo **antes** de reiniciar |
+     | `firewall.conf` mal editado y **cualquier** diferencia en las reglas | Detiene Docker |
+     | Docker detenido o arrancando | No hace nada |
+
+     Cada pérdida abre un **incidente** que queda abierto, aunque ya esté repuesto, hasta `sudo bury-firewall ack <id>`. Estado en
+     `/var/lib/bury-firewall/estado`; historial en `incidentes.log`. Lo leen el monitor (`firewall.watch`), el observador de la PC
+     (`FIREWALL_ALERTA`) y `verificar-servidor.sh` (`V17d`). Procedimiento de respuesta: [operacion-servidor-ubuntu.md](operacion-servidor-ubuntu.md) §7.
+     Editar `firewall.conf` sin aplicarlo cuenta como diferencia: la vigilancia lo aplica sola y abre un incidente. Para mantenimiento con reglas:
+     `sudo systemctl stop bury-firewall-watch`, y volver a arrancarla al terminar.
+
+     **Límites:** (1) **no impide la exposición, la acorta:** en el ensayo el origen ajeno siguió entrando entre 8 y 11 s tras borrar las reglas;
+     si se pierden las reglas NAT de Docker y `ufw` está inactivo, el puerto lo atiende `docker-proxy` hasta el reinicio y la barrera no lo
+     cubre; quien tenga root puede detener la vigilancia (el latido deja de avanzar y eso sí se informa); (2) solo IPv4: `ERP_BIND_ADDRESS` debe ser IPv4 (`0.0.0.0` no publica en IPv6; verificar con `ss -ltn`); (3) `guard` no sabe qué
      puerto publica el ERP: si `HTTPS_PORT` no coincide con `ERP_HTTPS_PORT`, no lo protege (lo detecta `verificar-servidor.sh`, `V15`);
      (4) con Tailscale sigue siendo necesario `--netfilter-mode=nodivert`.
 
      No escribir reglas manuales de `iptables` en su lugar: una versión anterior de esta guía proponía reglas sin `--ctstate DNAT`, que también
      descartarían el tráfico HTTPS saliente de los contenedores.
 
-     **Evidencia:** `test-firewall-isolation.sh` (reglas, 18 casos) y `test-firewall-failclosed.sh` (bootstrap, systemd y Docker reales con fallos
-     inducidos, 62 casos) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
+     **Evidencia:** `test-firewall-isolation.sh` (reglas, 18 casos), `test-firewall-failclosed.sh` (bootstrap, systemd y Docker reales con fallos
+     inducidos, 62 casos) y `test-firewall-watch.sh` (vigilancia) en CI, más pruebas con el ERP instalado en una VM Ubuntu 24.04. Detalle:
      [evidencias-instalacion.md](evidencias-instalacion.md).
    - **Windows + Docker Desktop**: el puerto lo abre un proceso de Windows (`com.docker.backend.exe`), así que Windows Defender Firewall sí aplica. Pero **una regla
      «Allow» de puerto desde la LAN (la que crea `install-windows.ps1`) no restringe nada si ya existe una regla Allow del programa `com.docker.backend.exe` sin

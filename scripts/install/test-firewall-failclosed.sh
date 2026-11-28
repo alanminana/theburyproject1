@@ -25,11 +25,15 @@ bad() { FAIL=$((FAIL+1)); echo "FAIL $1"; }
 check() { local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
 HAD_DJ=0; [[ -f $DJ ]] && { HAD_DJ=1; cp -a $DJ "$TMP/daemon.json"; }
+# La vigilancia repararia lo que esta prueba rompe a proposito: se detiene tras cada bootstrap (se prueba en test-firewall-watch.sh).
+boot_fw() { local rc; bash "$HERE/server-linux-bootstrap.sh" "$@"; rc=$?; systemctl stop bury-firewall-watch.service 2>/dev/null; return $rc; }
 restore_dj() { if (( HAD_DJ )); then cp -a "$TMP/daemon.json" $DJ; else rm -f $DJ; fi; }
 
 cleanup() {
   [[ -n "$SRV_PID" ]] && kill "$SRV_PID" 2>/dev/null
   rm -f $DROPIN_TEST /etc/systemd/system/docker.service.d/bury-firewall.conf
+  systemctl disable -q --now bury-firewall-watch.service 2>/dev/null
+  rm -rf /var/lib/bury-firewall /etc/systemd/system/bury-firewall-watch.service
   systemctl disable -q bury-firewall.service 2>/dev/null
   rm -f /etc/systemd/system/bury-firewall.service
   restore_dj
@@ -88,7 +92,7 @@ check "base: el cliente autorizado llega" wait_ok
 check "base: el cliente AJENO tambien llega (el riesgo que corrige el firewall)" reach_no
 
 echo "== Instalacion con server-linux-bootstrap.sh (systemd real) =="
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot.log" 2>&1; rc=$?
+boot_fw --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot.log" 2>&1; rc=$?
 check "bootstrap termina bien (rc=0)" test "$rc" = 0
 (( rc == 0 )) || tail -20 "$TMP/boot.log"
 check "bury-firewall.service activo y habilitado" bash -c 'systemctl is-active -q bury-firewall && systemctl is-enabled -q bury-firewall'
@@ -102,11 +106,11 @@ BURY_FW_CONF="$CONF" bash "$HERE/bury-firewall.sh" remove >/dev/null 2>&1
 check "linea base: sin la cadena el ajeno llega" reach_no
 cp -a $DJ "$TMP/daemon.previo" 2>/dev/null
 printf '{ "iptables": false }\n' >$DJ     # dockerd NO se reinicia: sigue en marcha y publicando
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-falla.log" 2>&1; rc=$?
+boot_fw --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-falla.log" 2>&1; rc=$?
 check "el bootstrap termina con error" test "$rc" != 0
 check "CERRADO tras el bootstrap fallido" closed
 if [[ -f "$TMP/daemon.previo" ]]; then cp -a "$TMP/daemon.previo" $DJ; else rm -f $DJ; fi
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-ok.log" 2>&1; rc=$?
+boot_fw --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot-ok.log" 2>&1; rc=$?
 check "corregida la causa, el bootstrap termina bien" test "$rc" = 0
 check "y el servicio vuelve" wait_ok
 check "AJENO denegado" denied_no
@@ -136,9 +140,9 @@ check "un contenedor ABRE conexiones al puerto $PORT de otro equipo (no se filtr
 kill "$SRV_PID" 2>/dev/null; SRV_PID=""
 
 echo "== Cambio de redes autorizadas repitiendo el bootstrap =="
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24,198.19.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot2.log" 2>&1
+boot_fw --user "$RUN_USER" --allow-from 198.18.77.0/24,198.19.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot2.log" 2>&1
 check "la red agregada obtiene acceso sin reiniciar Docker" reach_no
-bash "$HERE/server-linux-bootstrap.sh" --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot3.log" 2>&1
+boot_fw --user "$RUN_USER" --allow-from 198.18.77.0/24 --https-port $PORT --skip-docker --no-ufw >"$TMP/boot3.log" 2>&1
 check "la red retirada pierde el acceso sin reiniciar Docker" denied_no
 
 echo "== Fallo 1: configuracion invalida con Docker en marcha =="

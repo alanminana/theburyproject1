@@ -545,6 +545,30 @@ class Collector:
             level = "CRITICAL" if capacity <= critical else "WARNING" if capacity <= warning else "INFO"
         self.emit("power.battery", level, detail + f"; warning<={warning}%; critical<={critical}%", repeat=False)
 
+    def firewall(self):
+        """Vigilancia del firewall de los puertos publicados (bury-firewall-watch), leida de su archivo de estado (solo lectura).
+
+        CRITICAL: reglas perdidas (incidente abierto hasta `bury-firewall ack <id>`), Docker detenido por seguridad, configuracion invalida,
+        estado desconocido o latido vencido (la vigilancia no corre). WARNING: no pudo leer las reglas. `enabled` = "auto" (defecto): sin
+        archivo de estado no emite nada (equipo sin la vigilancia); true la exige."""
+        cfg = self.cfg.get("firewall", {})
+        mode = flag(cfg.get("enabled", "auto"), "auto")
+        if mode is False:
+            return
+        path = Path(cfg.get("state_file", "/var/lib/bury-firewall/estado"))
+        if not path.exists():
+            if mode != "auto":
+                self.emit("firewall.watch", "CRITICAL", "sin archivo de estado: la vigilancia no esta instalada o no corre")
+            return
+        fields = dict(item.split("=", 1) for item in path.read_text().split() if "=" in item)   # contenido ilegible: colector CRITICAL
+        age = time.time() - float(fields["latido"])
+        state, incident = fields["estado"], fields.get("incidente", "-")
+        if age > cfg.get("stale_seconds", 60) or incident != "-" or state not in ("ok", "docker-inactivo", "ilegible"):
+            severity = "CRITICAL"
+        else:
+            severity = "WARNING" if state == "ilegible" else "INFO"
+        self.emit("firewall.watch", severity, f"estado={state}; incidente={incident}; latido_hace={int(age)}s")
+
     def collect(self):
         self.signals = {}
         now = time.time()
@@ -557,6 +581,7 @@ class Collector:
             self.emit(key, "INFO" if ok else "CRITICAL", f"HTTP 200={ok}; live={results[1]}; ready={results[2]}", 120)
         self.containers_by_service = {}
         self.safe("power", self.power)
+        self.safe("firewall", self.firewall)
         self.safe("docker", self.containers)
         self.safe("resources", self.resources)
         self.safe("host", self.host_resources)

@@ -151,7 +151,8 @@ Agregar `--tailscale` instala Tailscale sin autenticarlo ([p05-tailscale-acceso-
 > **`ufw` no protege el 443 del ERP.** Docker publica puertos con reglas propias que las de `ufw` no filtran. El filtro es `bury-firewall`. Si se omite el
 > bootstrap o se instala Docker a mano sin él, el 443 queda abierto a toda red que alcance el servidor.
 >
-> El firewall **falla cerrado**: si no se puede aplicar, Docker no arranca ([red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6).
+> El firewall **falla cerrado**: si no se puede aplicar, Docker no arranca. El bootstrap instala además `bury-firewall-watch`, que repone o
+> corta si las reglas se pierden con Docker en marcha ([red-privada-lan-vpn.md](red-privada-lan-vpn.md) §6).
 
 Cerrar la sesión y abrir otra, para tomar el grupo `docker` (**equivale a root**: usarlo solo en la cuenta de administración).
 
